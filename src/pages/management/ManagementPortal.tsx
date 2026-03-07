@@ -17,7 +17,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources';
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -146,6 +146,7 @@ export default function ManagementPortal() {
     { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
     { label: 'Staff', icon: <UserPlus className="h-4 w-4" />, path: 'staff' },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
+    { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
   ];
 
   return (
@@ -372,6 +373,10 @@ export default function ManagementPortal() {
 
         {view === 'faq' && (
           <FaqManager />
+        )}
+
+        {view === 'resources' && (
+          <ResourceLibraryManager />
         )}
       </StaffLayout>
 
