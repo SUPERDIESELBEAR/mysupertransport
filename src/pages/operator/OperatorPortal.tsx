@@ -470,14 +470,8 @@ export default function OperatorPortal() {
         {/* ── FAQ VIEW ── */}
         {view === 'faq' && <OperatorFAQ />}
 
-        {/* ── MESSAGES placeholder ── */}
-        {view === 'messages' && (
-          <div className="bg-white border border-border rounded-2xl p-8 text-center">
-            <MessageSquare className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-            <h2 className="font-semibold text-foreground mb-1">Messages</h2>
-            <p className="text-sm text-muted-foreground">Messaging with your coordinator — coming soon.</p>
-          </div>
-        )}
+        {/* ── MESSAGES VIEW ── */}
+        {view === 'messages' && <OperatorMessagesView />}
       </div>
     </div>
   );
