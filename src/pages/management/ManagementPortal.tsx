@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import PipelineDashboard from '../staff/PipelineDashboard';
 import OperatorDetailPanel from '../staff/OperatorDetailPanel';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
+import StaffDirectory from '@/components/management/StaffDirectory';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus,
   CheckCircle2, Clock, AlertTriangle, XCircle, ChevronRight,
