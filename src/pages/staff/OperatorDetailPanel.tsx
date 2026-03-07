@@ -202,18 +202,6 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       </Select>
     </div>
   );
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
-      <Select value={(status[field] as string) ?? ''} onValueChange={v => updateStatus(field, v)}>
-        <SelectTrigger className="h-9 text-sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-        </SelectContent>
-      </Select>
-    </div>
-  );
 
   const mvrOptions = [{ value: 'not_started', label: 'Not Started' }, { value: 'requested', label: 'Requested' }, { value: 'received', label: 'Received' }];
   const approvalOptions = [{ value: 'pending', label: 'Pending' }, { value: 'approved', label: 'Approved' }, { value: 'denied', label: 'Denied' }];
