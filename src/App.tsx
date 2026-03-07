@@ -2,25 +2,95 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
+
+// Pages
+import LoginPage from "./pages/LoginPage";
+import ApplicationForm from "./pages/ApplicationForm";
+import ApplicationStatus from "./pages/ApplicationStatus";
+import OperatorPortal from "./pages/operator/OperatorPortal";
+import StaffPortal from "./pages/staff/StaffPortal";
+import ManagementPortal from "./pages/management/ManagementPortal";
+import DispatchPortal from "./pages/dispatch/DispatchPortal";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+function AppRoutes() {
+  const { user, loading, isManagement, isOnboardingStaff, isDispatcher, isOperator, activeRole } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-dark">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-gold border-t-transparent" />
+          <p className="text-sm text-surface-dark-muted font-medium tracking-wide">SUPERTRANSPORT</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Routes>
+      {/* Public routes */}
+      <Route path="/apply" element={<ApplicationForm />} />
+      <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/dashboard" replace />} />
+
+      {/* Protected routes */}
+      <Route path="/dashboard" element={
+        !user ? <Navigate to="/login" replace /> :
+        activeRole === 'management' ? <ManagementPortal /> :
+        activeRole === 'onboarding_staff' ? <StaffPortal /> :
+        activeRole === 'dispatcher' ? <DispatchPortal /> :
+        activeRole === 'operator' ? <OperatorPortal /> :
+        <ApplicationStatus />
+      } />
+
+      {/* Role-specific portals */}
+      <Route path="/staff/*" element={
+        !user ? <Navigate to="/login" replace /> :
+        (isOnboardingStaff || isManagement) ? <StaffPortal /> :
+        <Navigate to="/dashboard" replace />
+      } />
+      <Route path="/dispatch/*" element={
+        !user ? <Navigate to="/login" replace /> :
+        (isDispatcher || isManagement) ? <DispatchPortal /> :
+        <Navigate to="/dashboard" replace />
+      } />
+      <Route path="/management/*" element={
+        !user ? <Navigate to="/login" replace /> :
+        isManagement ? <ManagementPortal /> :
+        <Navigate to="/dashboard" replace />
+      } />
+      <Route path="/operator/*" element={
+        !user ? <Navigate to="/login" replace /> :
+        (isOperator || isManagement) ? <OperatorPortal /> :
+        <Navigate to="/dashboard" replace />
+      } />
+      <Route path="/status" element={
+        !user ? <Navigate to="/login" replace /> :
+        <ApplicationStatus />
+      } />
+
+      {/* Root redirect */}
+      <Route path="/" element={<Navigate to={user ? "/dashboard" : "/apply"} replace />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
