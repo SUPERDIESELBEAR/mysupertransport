@@ -4,6 +4,7 @@ import PipelineDashboard from './PipelineDashboard';
 import OperatorDetailPanel from './OperatorDetailPanel';
 import FaqManager from '@/components/management/FaqManager';
 import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
+import MessagesView from '@/components/staff/MessagesView';
 import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen } from 'lucide-react';
 
 type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources';
@@ -43,8 +44,8 @@ export default function StaffPortal() {
         <OperatorDetailPanel operatorId={selectedOperatorId} onBack={handleBackToPipeline} />
       )}
       {currentView === 'messages' && (
-        <div className="flex items-center justify-center h-64 text-muted-foreground">
-          <p>Messages — coming soon</p>
+        <div className="h-full" style={{ height: 'calc(100vh - 160px)' }}>
+          <MessagesView />
         </div>
       )}
       {currentView === 'faq' && (
