@@ -144,6 +144,7 @@ export default function ManagementPortal() {
     { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline' },
     { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
     { label: 'Staff', icon: <UserPlus className="h-4 w-4" />, path: 'staff' },
+    { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
   ];
 
   return (
