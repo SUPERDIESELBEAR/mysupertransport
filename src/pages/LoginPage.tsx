@@ -4,7 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, Truck } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import logo from '@/assets/supertransport-logo.png';
 
 export default function LoginPage() {
   const { signIn, user } = useAuth();
@@ -38,14 +39,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative">
         {/* Logo / Brand */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="h-12 w-12 rounded-full bg-gold flex items-center justify-center">
-              <Truck className="h-6 w-6 text-surface-dark" />
-            </div>
+          <div className="flex items-center justify-center mb-4">
+            <img src={logo} alt="SUPERTRANSPORT" className="h-24 w-auto" />
           </div>
-          <h1 className="text-2xl font-bold text-surface-dark-foreground tracking-tight">
-            SUPERTRANSPORT
-          </h1>
           <p className="text-surface-dark-muted text-sm mt-1">Operator Portal</p>
         </div>
 

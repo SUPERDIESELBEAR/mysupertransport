@@ -6,6 +6,7 @@ import {
   LayoutDashboard, Users, Truck, FileText, MessageSquare, Bell,
   LogOut, Menu, X, ChevronDown, Settings
 } from 'lucide-react';
+import logo from '@/assets/supertransport-logo.png';
 import type { Database } from '@/integrations/supabase/types';
 
 type AppRole = Database['public']['Enums']['app_role'];
@@ -53,15 +54,10 @@ export default function StaffLayout({ children, navItems, currentPath, onNavigat
       {/* Sidebar */}
       <aside className={`${sidebarOpen ? 'w-60' : 'w-16'} transition-all duration-200 bg-surface-dark flex flex-col border-r border-surface-dark-border shrink-0`}>
         {/* Logo */}
-        <div className="h-16 flex items-center px-4 border-b border-surface-dark-border">
-          <div className="h-8 w-8 rounded-full bg-gold flex items-center justify-center shrink-0">
-            <Truck className="h-4 w-4 text-surface-dark" />
-          </div>
+        <div className="h-16 flex items-center px-4 border-b border-surface-dark-border gap-3">
+          <img src={logo} alt="SUPERTRANSPORT" className={`${sidebarOpen ? 'h-10' : 'h-8'} w-auto shrink-0 transition-all duration-200`} />
           {sidebarOpen && (
-            <div className="ml-3 overflow-hidden">
-              <p className="text-surface-dark-foreground text-sm font-bold tracking-wide leading-none">SUPERTRANSPORT</p>
-              <p className="text-gold text-xs mt-0.5">{title}</p>
-            </div>
+            <p className="text-gold text-xs font-medium truncate">{title}</p>
           )}
         </div>
 

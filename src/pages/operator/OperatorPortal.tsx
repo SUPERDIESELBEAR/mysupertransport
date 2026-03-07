@@ -7,6 +7,7 @@ import {
   CheckCircle2, Circle, Clock, AlertTriangle, ChevronRight,
   Truck, Bell, MessageSquare, BookOpen, HelpCircle, FileText, LogOut, Menu, X
 } from 'lucide-react';
+import logo from '@/assets/supertransport-logo.png';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 
@@ -180,13 +181,7 @@ export default function OperatorPortal() {
       <header className="bg-surface-dark border-b border-surface-dark-border sticky top-0 z-40">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-full bg-gold flex items-center justify-center">
-              <Truck className="h-4 w-4 text-surface-dark" />
-            </div>
-            <div className="hidden sm:block">
-              <p className="text-surface-dark-foreground text-sm font-bold tracking-wide leading-none">SUPERTRANSPORT</p>
-              <p className="text-gold text-xs">Operator Portal</p>
-            </div>
+            <img src={logo} alt="SUPERTRANSPORT" className="h-10 w-auto" />
           </div>
 
           {/* Desktop nav */}
