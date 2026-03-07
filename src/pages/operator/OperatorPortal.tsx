@@ -329,7 +329,7 @@ export default function OperatorPortal() {
                         <p className="text-white text-sm">
                           Upload your documents in the <button onClick={() => setView('documents')} className="text-gold underline font-medium">Documents tab</button> to move forward.
                         </p>
-                      ) : currentStage.status === 'action_required' && currentStage.number === 3 ? (
+                      ) : currentStage.number === 3 && onboardingStatus.ica_status === 'sent_for_signature' ? (
                         <p className="text-white text-sm">
                           Your ICA Agreement is ready to sign. Check your email for the PandaDoc link.
                         </p>
