@@ -14,7 +14,12 @@ interface Notification {
   type: string;
 }
 
-export default function NotificationBell() {
+interface NotificationBellProps {
+  /** 'light' (default) = white dropdown on light header; 'dark' = styled for dark header */
+  variant?: 'light' | 'dark';
+}
+
+export default function NotificationBell({ variant = 'light' }: NotificationBellProps) {
   const { session } = useAuth();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -22,6 +27,8 @@ export default function NotificationBell() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter(n => !n.read_at).length;
+
+  const isDark = variant === 'dark';
 
   // Close on outside click
   useEffect(() => {
@@ -96,13 +103,40 @@ export default function NotificationBell() {
     application_denied: '❌',
   };
 
+  // Style tokens by variant
+  const btnClass = isDark
+    ? 'relative text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors'
+    : 'relative text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-muted';
+
+  const dropdownClass = isDark
+    ? 'absolute right-0 top-full mt-2 w-80 bg-surface-dark border border-surface-dark-border rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in'
+    : 'absolute right-0 top-full mt-2 w-80 bg-white border border-border rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in';
+
+  const headerClass = isDark
+    ? 'flex items-center justify-between px-4 py-3 border-b border-surface-dark-border'
+    : 'flex items-center justify-between px-4 py-3 border-b border-border';
+
+  const titleClass = isDark ? 'text-sm font-semibold text-surface-dark-foreground' : 'text-sm font-semibold text-foreground';
+
+  const itemClass = (unread: boolean) => isDark
+    ? `w-full text-left px-4 py-3 border-b border-surface-dark-border last:border-0 transition-colors hover:bg-surface-dark-card ${unread ? 'bg-gold/5' : ''}`
+    : `w-full text-left px-4 py-3 border-b border-border last:border-0 transition-colors hover:bg-muted/40 ${unread ? 'bg-gold/5' : ''}`;
+
+  const itemTitleClass = (unread: boolean) => isDark
+    ? `text-sm truncate ${unread ? 'font-semibold text-surface-dark-foreground' : 'font-medium text-surface-dark-muted'}`
+    : `text-sm truncate ${unread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`;
+
+  const bodyClass = isDark ? 'text-xs text-surface-dark-muted mt-0.5 line-clamp-2' : 'text-xs text-muted-foreground mt-0.5 line-clamp-2';
+  const timeClass = isDark ? 'text-[10px] text-surface-dark-muted/60 mt-1' : 'text-[10px] text-muted-foreground/60 mt-1';
+  const emptyClass = isDark ? 'text-sm text-surface-dark-muted' : 'text-sm text-muted-foreground';
+  const footerClass = isDark
+    ? 'px-4 py-2.5 border-t border-surface-dark-border bg-surface-dark-card'
+    : 'px-4 py-2.5 border-t border-border bg-muted/30';
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Bell button */}
-      <button
-        onClick={() => setOpen(prev => !prev)}
-        className="relative text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-muted"
-      >
+      <button onClick={() => setOpen(prev => !prev)} className={btnClass}>
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
           <span className="absolute top-1 right-1 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
@@ -113,12 +147,12 @@ export default function NotificationBell() {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-border rounded-xl shadow-xl z-50 overflow-hidden animate-fade-in">
+        <div className={dropdownClass}>
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <div className={headerClass}>
             <div className="flex items-center gap-2">
-              <Bell className="h-4 w-4 text-foreground" />
-              <span className="text-sm font-semibold text-foreground">Notifications</span>
+              <Bell className={`h-4 w-4 ${isDark ? 'text-surface-dark-foreground' : 'text-foreground'}`} />
+              <span className={titleClass}>Notifications</span>
               {unreadCount > 0 && (
                 <span className="h-5 min-w-5 px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">
                   {unreadCount}
@@ -143,17 +177,15 @@ export default function NotificationBell() {
               </div>
             ) : notifications.length === 0 ? (
               <div className="py-10 text-center">
-                <Bell className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No notifications yet</p>
+                <Bell className={`h-8 w-8 mx-auto mb-2 ${isDark ? 'text-surface-dark-muted/30' : 'text-muted-foreground/30'}`} />
+                <p className={emptyClass}>No notifications yet</p>
               </div>
             ) : (
               notifications.map(n => (
                 <button
                   key={n.id}
                   onClick={() => { if (!n.read_at) markRead(n.id); }}
-                  className={`w-full text-left px-4 py-3 border-b border-border last:border-0 transition-colors hover:bg-muted/40 ${
-                    !n.read_at ? 'bg-gold/5' : ''
-                  }`}
+                  className={itemClass(!n.read_at)}
                 >
                   <div className="flex items-start gap-3">
                     <span className="text-base mt-0.5 shrink-0">
@@ -161,17 +193,15 @@ export default function NotificationBell() {
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <p className={`text-sm truncate ${!n.read_at ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
-                          {n.title}
-                        </p>
+                        <p className={itemTitleClass(!n.read_at)}>{n.title}</p>
                         {!n.read_at && (
                           <span className="h-2 w-2 rounded-full bg-gold shrink-0" />
                         )}
                       </div>
                       {n.body && (
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>
+                        <p className={bodyClass}>{n.body}</p>
                       )}
-                      <p className="text-[10px] text-muted-foreground/60 mt-1">
+                      <p className={timeClass}>
                         {formatDistanceToNow(new Date(n.sent_at), { addSuffix: true })}
                       </p>
                     </div>
@@ -183,8 +213,8 @@ export default function NotificationBell() {
 
           {/* Footer */}
           {notifications.length > 0 && (
-            <div className="px-4 py-2.5 border-t border-border bg-muted/30">
-              <p className="text-[10px] text-muted-foreground text-center">
+            <div className={footerClass}>
+              <p className={`text-[10px] text-center ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`}>
                 Showing last {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
               </p>
             </div>

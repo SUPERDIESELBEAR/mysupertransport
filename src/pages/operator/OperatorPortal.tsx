@@ -5,13 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
-  Truck, Bell, MessageSquare, BookOpen, HelpCircle, FileText,
+  Truck, MessageSquare, BookOpen, HelpCircle, FileText,
   LogOut, Menu, X, Upload, Shield, Package, FileCheck
 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import OperatorDocumentUpload from '@/components/operator/OperatorDocumentUpload';
 import { OperatorResourceLibrary, OperatorFAQ } from '@/components/operator/OperatorResourcesAndFAQ';
 import OperatorMessagesView from '@/components/operator/OperatorMessagesView';
+import NotificationBell from '@/components/NotificationBell';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq';
@@ -271,9 +272,7 @@ export default function OperatorPortal() {
           </nav>
 
           <div className="flex items-center gap-1">
-            <button className="relative text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors">
-              <Bell className="h-5 w-5" />
-            </button>
+            <NotificationBell variant="dark" />
             <button
               onClick={signOut}
               className="hidden md:flex text-surface-dark-muted hover:text-destructive p-2 rounded-lg hover:bg-surface-dark-card transition-colors"
