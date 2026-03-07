@@ -44,8 +44,8 @@ export default function StaffPortal() {
         <OperatorDetailPanel operatorId={selectedOperatorId} onBack={handleBackToPipeline} />
       )}
       {currentView === 'messages' && (
-        <div className="flex items-center justify-center h-64 text-muted-foreground">
-          <p>Messages — coming soon</p>
+        <div className="h-full" style={{ height: 'calc(100vh - 160px)' }}>
+          <MessagesView />
         </div>
       )}
       {currentView === 'faq' && (
