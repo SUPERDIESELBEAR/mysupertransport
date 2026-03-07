@@ -2,7 +2,8 @@ import { useState } from 'react';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import PipelineDashboard from './PipelineDashboard';
 import OperatorDetailPanel from './OperatorDetailPanel';
-import { LayoutDashboard, Users, FileText, MessageSquare, HelpCircle, BookOpen } from 'lucide-react';
+import FaqManager from '@/components/management/FaqManager';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen } from 'lucide-react';
 
 type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources';
 
