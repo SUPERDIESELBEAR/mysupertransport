@@ -62,20 +62,25 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
 
   const fetchOperatorDetail = async () => {
     setLoading(true);
+
+    // Step 1: fetch operator core data
     const { data: op } = await supabase
       .from('operators')
-      .select(`
-        notes,
-        profiles!operators_user_id_fkey (first_name, last_name),
-        onboarding_status (*),
-        applications (email)
-      `)
+      .select(`id, user_id, notes, onboarding_status (*), applications (email)`)
       .eq('id', operatorId)
       .single();
 
     if (op) {
-      const profile = (op as any).profiles ?? {};
-      setOperatorName(`${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || 'Unknown Operator');
+      // Step 2: fetch profile separately to avoid FK hint issues
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('user_id', (op as any).user_id)
+        .maybeSingle();
+
+      setOperatorName(
+        profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || 'Unknown Operator' : 'Unknown Operator'
+      );
       const app = (op as any).applications;
       setOperatorEmail(app?.email ?? '');
       setNotes((op as any).notes ?? '');
