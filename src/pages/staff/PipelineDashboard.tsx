@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter } from 'lucide-react';
+import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X } from 'lucide-react';
 
 interface OperatorRow {
   id: string;
@@ -13,6 +13,7 @@ interface OperatorRow {
   last_name: string | null;
   phone: string | null;
   home_state: string | null;
+  assigned_staff_id: string | null;
   assigned_staff_name: string | null;
   current_stage: string;
   fully_onboarded: boolean;
@@ -20,6 +21,11 @@ interface OperatorRow {
   pe_screening_result: string;
   ica_status: string;
   insurance_added_date: string | null;
+}
+
+interface StaffOption {
+  user_id: string;
+  full_name: string;
 }
 
 interface PipelineDashboardProps {
@@ -35,11 +41,26 @@ function computeStage(os: Record<string, string | boolean | null>): string {
   return 'Stage 1 — Background';
 }
 
+const STAGES = [
+  'Stage 1 — Background',
+  'Stage 2 — Documents',
+  'Stage 3 — ICA',
+  'Stage 4 — MO Registration',
+  'Stage 5 — Equipment',
+  'Stage 6 — Insurance',
+];
+
 export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardProps) {
   const [operators, setOperators] = useState<OperatorRow[]>([]);
+  const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Filter state
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [coordinatorFilter, setCoordinatorFilter] = useState('all');
 
   useEffect(() => {
     fetchOperators();
@@ -48,7 +69,6 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
   const fetchOperators = async () => {
     setLoading(true);
 
-    // Step 1: fetch operators + onboarding_status
     const { data: opData } = await supabase
       .from('operators')
       .select(`
@@ -69,20 +89,40 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
 
     if (!opData) { setLoading(false); return; }
 
-    // Step 2: fetch profiles by user_id list
-    const userIds = opData.map((o: any) => o.user_id).filter(Boolean);
+    // Collect all user IDs (operators + assigned staff)
+    const operatorUserIds = opData.map((o: any) => o.user_id).filter(Boolean);
+    const staffUserIds = opData.map((o: any) => o.assigned_onboarding_staff).filter(Boolean);
+    const allUserIds = [...new Set([...operatorUserIds, ...staffUserIds])];
+
     const profileMap: Record<string, any> = {};
-    if (userIds.length > 0) {
+    if (allUserIds.length > 0) {
       const { data: profileData } = await supabase
         .from('profiles')
         .select('user_id, first_name, last_name, phone, home_state')
-        .in('user_id', userIds);
+        .in('user_id', allUserIds);
       (profileData ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
     }
+
+    // Build unique staff options for coordinator dropdown
+    const staffMap: Record<string, StaffOption> = {};
+    staffUserIds.forEach((uid: string) => {
+      const p = profileMap[uid];
+      if (p) {
+        staffMap[uid] = {
+          user_id: uid,
+          full_name: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || uid,
+        };
+      }
+    });
+    setStaffOptions(Object.values(staffMap));
 
     const rows: OperatorRow[] = opData.map((op: any) => {
       const os = op.onboarding_status?.[0] ?? {};
       const profile = profileMap[op.user_id] ?? {};
+      const staffProfile = op.assigned_onboarding_staff ? profileMap[op.assigned_onboarding_staff] : null;
+      const staffName = staffProfile
+        ? `${staffProfile.first_name ?? ''} ${staffProfile.last_name ?? ''}`.trim() || null
+        : null;
       return {
         id: op.id,
         user_id: op.user_id,
@@ -90,7 +130,8 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
         last_name: profile.last_name ?? null,
         phone: profile.phone ?? null,
         home_state: profile.home_state ?? null,
-        assigned_staff_name: null,
+        assigned_staff_id: op.assigned_onboarding_staff ?? null,
+        assigned_staff_name: staffName,
         current_stage: computeStage(os),
         fully_onboarded: os.fully_onboarded ?? false,
         mvr_ch_approval: os.mvr_ch_approval ?? 'pending',
@@ -103,12 +144,34 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     setLoading(false);
   };
 
+  const getStatus = (op: OperatorRow) => {
+    if (op.fully_onboarded) return 'onboarded';
+    if (op.mvr_ch_approval === 'denied' || op.pe_screening_result === 'non_clear') return 'alert';
+    return 'in_progress';
+  };
+
   const filtered = operators.filter(op => {
     const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.toLowerCase();
     const matchSearch = name.includes(search.toLowerCase()) || (op.phone ?? '').includes(search);
     const matchStage = stageFilter === 'all' || op.current_stage === stageFilter;
-    return matchSearch && matchStage;
+    const matchStatus = statusFilter === 'all' || getStatus(op) === statusFilter;
+    const matchCoordinator = coordinatorFilter === 'all' ||
+      (coordinatorFilter === 'unassigned' ? !op.assigned_staff_id : op.assigned_staff_id === coordinatorFilter);
+    return matchSearch && matchStage && matchStatus && matchCoordinator;
   });
+
+  const activeFilterCount = [
+    stageFilter !== 'all',
+    statusFilter !== 'all',
+    coordinatorFilter !== 'all',
+  ].filter(Boolean).length;
+
+  const clearAllFilters = () => {
+    setStageFilter('all');
+    setStatusFilter('all');
+    setCoordinatorFilter('all');
+    setSearch('');
+  };
 
   const alertCount = operators.filter(op =>
     op.mvr_ch_approval === 'denied' || op.pe_screening_result === 'non_clear'
@@ -118,8 +181,6 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
   operators.forEach(op => {
     stageCounts[op.current_stage] = (stageCounts[op.current_stage] ?? 0) + 1;
   });
-
-  const stages = ['Stage 1 — Background', 'Stage 2 — Documents', 'Stage 3 — ICA', 'Stage 4 — MO Registration', 'Stage 5 — Equipment', 'Stage 6 — Insurance'];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -177,11 +238,11 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
         </div>
       </div>
 
-      {/* Stage breakdown */}
+      {/* Stage breakdown (clickable) */}
       <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
         <p className="text-sm font-semibold text-foreground mb-3">Pipeline by Stage</p>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-          {stages.map((stage, i) => (
+          {STAGES.map((stage, i) => (
             <button
               key={stage}
               onClick={() => setStageFilter(stageFilter === stage ? 'all' : stage)}
@@ -198,23 +259,134 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name or phone…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        {stageFilter !== 'all' && (
-          <Button variant="outline" size="sm" onClick={() => setStageFilter('all')}>
-            Clear filter
+      {/* Search + filter toolbar */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or phone…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilters(v => !v)}
+            className={`gap-2 ${showFilters || activeFilterCount > 0 ? 'border-gold text-gold bg-gold/5' : ''}`}
+          >
+            <Filter className="h-4 w-4" />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="ml-0.5 h-4 w-4 rounded-full bg-gold text-[10px] font-bold text-white flex items-center justify-center leading-none">
+                {activeFilterCount}
+              </span>
+            )}
           </Button>
+
+          {(activeFilterCount > 0 || search) && (
+            <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground hover:text-foreground gap-1">
+              <X className="h-3 w-3" />
+              Clear all
+            </Button>
+          )}
+
+          <p className="text-sm text-muted-foreground ml-auto">
+            {filtered.length} of {operators.length} operators
+          </p>
+        </div>
+
+        {/* Expandable filter panel */}
+        {showFilters && (
+          <div className="bg-muted/40 border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fade-in">
+            {/* Stage filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stage</label>
+              <Select value={stageFilter} onValueChange={setStageFilter}>
+                <SelectTrigger className="h-9 bg-white">
+                  <SelectValue placeholder="All stages" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All stages</SelectItem>
+                  {STAGES.map((s, i) => (
+                    <SelectItem key={s} value={s}>Stage {i + 1} — {s.split('— ')[1]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Status filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-9 bg-white">
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="onboarded">Fully Onboarded</SelectItem>
+                  <SelectItem value="alert">Alert / Denied</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Coordinator filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Assigned Coordinator</label>
+              <Select value={coordinatorFilter} onValueChange={setCoordinatorFilter}>
+                <SelectTrigger className="h-9 bg-white">
+                  <SelectValue placeholder="All coordinators" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All coordinators</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {staffOptions.map(s => (
+                    <SelectItem key={s.user_id} value={s.user_id}>{s.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         )}
       </div>
+
+      {/* Active filter chips */}
+      {activeFilterCount > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {stageFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 bg-gold/10 text-gold border border-gold/30 text-xs px-2.5 py-1 rounded-full font-medium">
+              {stageFilter}
+              <button onClick={() => setStageFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+            </span>
+          )}
+          {statusFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 bg-gold/10 text-gold border border-gold/30 text-xs px-2.5 py-1 rounded-full font-medium">
+              {statusFilter === 'in_progress' ? 'In Progress' : statusFilter === 'onboarded' ? 'Fully Onboarded' : 'Alert / Denied'}
+              <button onClick={() => setStatusFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+            </span>
+          )}
+          {coordinatorFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 bg-gold/10 text-gold border border-gold/30 text-xs px-2.5 py-1 rounded-full font-medium">
+              {coordinatorFilter === 'unassigned'
+                ? 'Unassigned'
+                : staffOptions.find(s => s.user_id === coordinatorFilter)?.full_name ?? coordinatorFilter}
+              <button onClick={() => setCoordinatorFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Operator table */}
       <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
@@ -227,13 +399,14 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">State</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground">Current Stage</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Status</th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">Coordinator</th>
                 <th className="text-right px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={7} className="text-center py-12 text-muted-foreground">
                     <div className="flex justify-center">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                     </div>
@@ -241,8 +414,8 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-muted-foreground">
-                    {operators.length === 0 ? 'No operators in the pipeline yet.' : 'No operators match your search.'}
+                  <td colSpan={7} className="text-center py-12 text-muted-foreground">
+                    {operators.length === 0 ? 'No operators in the pipeline yet.' : 'No operators match your filters.'}
                   </td>
                 </tr>
               ) : (
@@ -268,6 +441,9 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                       ) : (
                         <Badge className="status-progress border text-xs">In Progress</Badge>
                       )}
+                    </td>
+                    <td className="px-4 py-3 hidden xl:table-cell text-muted-foreground text-xs">
+                      {op.assigned_staff_name ?? <span className="italic text-muted-foreground/60">Unassigned</span>}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Button
