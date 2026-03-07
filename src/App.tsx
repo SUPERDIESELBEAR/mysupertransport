@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 
 // Pages
 import LoginPage from "./pages/LoginPage";
+import ResetPassword from "./pages/ResetPassword";
 import ApplicationForm from "./pages/ApplicationForm";
 import ApplicationStatus from "./pages/ApplicationStatus";
 import OperatorPortal from "./pages/operator/OperatorPortal";
@@ -36,6 +37,7 @@ function AppRoutes() {
       {/* Public routes */}
       <Route path="/apply" element={<ApplicationForm />} />
       <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/dashboard" replace />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Protected routes */}
       <Route path="/dashboard" element={
