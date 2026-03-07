@@ -90,10 +90,8 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       .eq('id', operatorId);
 
     if (statusId) {
-      const updateData = { ...status };
-      delete (updateData as any).id;
-      delete (updateData as any).fully_onboarded;
-      await supabase.from('onboarding_status').update(updateData).eq('id', statusId);
+      const { id: _id, fully_onboarded: _fo, ...updateData } = status as Record<string, unknown>;
+      await supabase.from('onboarding_status').update(updateData as Parameters<typeof supabase.from>[0] extends never ? never : any).eq('id', statusId);
     }
 
     if (error) {
