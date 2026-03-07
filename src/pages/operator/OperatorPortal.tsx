@@ -41,6 +41,7 @@ export default function OperatorPortal() {
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -58,7 +59,44 @@ export default function OperatorPortal() {
     }
   }, [user]);
 
+  const fetchUnreadCount = useCallback(async () => {
+    if (!user) return;
+    const { count } = await supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('recipient_id', user.id)
+      .is('read_at', null);
+    setUnreadCount(count ?? 0);
+  }, [user]);
+
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchUnreadCount(); }, [fetchUnreadCount]);
+
+  // Clear unread count when messages tab is opened; re-fetch when leaving
+  useEffect(() => {
+    if (view === 'messages') {
+      setUnreadCount(0);
+    }
+  }, [view]);
+
+  // Realtime: increment badge when a new message arrives for this user
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('operator-unread-badge')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `recipient_id=eq.${user.id}`,
+      }, () => {
+        if (view !== 'messages') {
+          setUnreadCount(prev => prev + 1);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, view]);
 
   const displayName = profile?.first_name ?? 'Operator';
 
