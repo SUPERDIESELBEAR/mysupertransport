@@ -1,0 +1,960 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.1"
+  }
+  public: {
+    Tables: {
+      active_dispatch: {
+        Row: {
+          assigned_dispatcher: string | null
+          current_load_lane: string | null
+          dispatch_status: Database["public"]["Enums"]["dispatch_status"]
+          eta_redispatch: string | null
+          id: string
+          operator_id: string
+          status_notes: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          assigned_dispatcher?: string | null
+          current_load_lane?: string | null
+          dispatch_status?: Database["public"]["Enums"]["dispatch_status"]
+          eta_redispatch?: string | null
+          id?: string
+          operator_id: string
+          status_notes?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          assigned_dispatcher?: string | null
+          current_load_lane?: string | null
+          dispatch_status?: Database["public"]["Enums"]["dispatch_status"]
+          eta_redispatch?: string | null
+          id?: string
+          operator_id?: string
+          status_notes?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "active_dispatch_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: true
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      applications: {
+        Row: {
+          additional_employers: string | null
+          address_city: string | null
+          address_duration: string | null
+          address_line2: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip: string | null
+          auth_drug_alcohol: boolean | null
+          auth_previous_employers: boolean | null
+          auth_safety_history: boolean | null
+          cdl_10_years: boolean | null
+          cdl_class: string | null
+          cdl_expiration: string | null
+          cdl_number: string | null
+          cdl_state: string | null
+          created_at: string
+          dl_front_url: string | null
+          dl_rear_url: string | null
+          dob: string | null
+          dot_accidents: boolean | null
+          dot_accidents_description: string | null
+          dot_positive_test_past_2yr: boolean | null
+          dot_return_to_duty_docs: boolean | null
+          draft_token: string | null
+          email: string
+          employer_1: Json | null
+          employer_2: Json | null
+          employer_3: Json | null
+          employer_4: Json | null
+          employment_gaps: boolean | null
+          employment_gaps_explanation: string | null
+          endorsements: string[] | null
+          equipment_operated: string[] | null
+          first_name: string | null
+          id: string
+          is_draft: boolean | null
+          last_name: string | null
+          medical_cert_url: string | null
+          moving_violations: boolean | null
+          moving_violations_description: string | null
+          phone: string | null
+          prev_address_city: string | null
+          prev_address_line2: string | null
+          prev_address_state: string | null
+          prev_address_street: string | null
+          prev_address_zip: string | null
+          referral_source: string | null
+          review_status: Database["public"]["Enums"]["review_status"]
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_notes: string | null
+          sap_process: boolean | null
+          signature_image_url: string | null
+          signed_date: string | null
+          ssn_encrypted: string | null
+          submitted_at: string | null
+          testing_policy_accepted: boolean | null
+          typed_full_name: string | null
+          updated_at: string
+          user_id: string | null
+          years_experience: string | null
+        }
+        Insert: {
+          additional_employers?: string | null
+          address_city?: string | null
+          address_duration?: string | null
+          address_line2?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          auth_drug_alcohol?: boolean | null
+          auth_previous_employers?: boolean | null
+          auth_safety_history?: boolean | null
+          cdl_10_years?: boolean | null
+          cdl_class?: string | null
+          cdl_expiration?: string | null
+          cdl_number?: string | null
+          cdl_state?: string | null
+          created_at?: string
+          dl_front_url?: string | null
+          dl_rear_url?: string | null
+          dob?: string | null
+          dot_accidents?: boolean | null
+          dot_accidents_description?: string | null
+          dot_positive_test_past_2yr?: boolean | null
+          dot_return_to_duty_docs?: boolean | null
+          draft_token?: string | null
+          email: string
+          employer_1?: Json | null
+          employer_2?: Json | null
+          employer_3?: Json | null
+          employer_4?: Json | null
+          employment_gaps?: boolean | null
+          employment_gaps_explanation?: string | null
+          endorsements?: string[] | null
+          equipment_operated?: string[] | null
+          first_name?: string | null
+          id?: string
+          is_draft?: boolean | null
+          last_name?: string | null
+          medical_cert_url?: string | null
+          moving_violations?: boolean | null
+          moving_violations_description?: string | null
+          phone?: string | null
+          prev_address_city?: string | null
+          prev_address_line2?: string | null
+          prev_address_state?: string | null
+          prev_address_street?: string | null
+          prev_address_zip?: string | null
+          referral_source?: string | null
+          review_status?: Database["public"]["Enums"]["review_status"]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          sap_process?: boolean | null
+          signature_image_url?: string | null
+          signed_date?: string | null
+          ssn_encrypted?: string | null
+          submitted_at?: string | null
+          testing_policy_accepted?: boolean | null
+          typed_full_name?: string | null
+          updated_at?: string
+          user_id?: string | null
+          years_experience?: string | null
+        }
+        Update: {
+          additional_employers?: string | null
+          address_city?: string | null
+          address_duration?: string | null
+          address_line2?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          auth_drug_alcohol?: boolean | null
+          auth_previous_employers?: boolean | null
+          auth_safety_history?: boolean | null
+          cdl_10_years?: boolean | null
+          cdl_class?: string | null
+          cdl_expiration?: string | null
+          cdl_number?: string | null
+          cdl_state?: string | null
+          created_at?: string
+          dl_front_url?: string | null
+          dl_rear_url?: string | null
+          dob?: string | null
+          dot_accidents?: boolean | null
+          dot_accidents_description?: string | null
+          dot_positive_test_past_2yr?: boolean | null
+          dot_return_to_duty_docs?: boolean | null
+          draft_token?: string | null
+          email?: string
+          employer_1?: Json | null
+          employer_2?: Json | null
+          employer_3?: Json | null
+          employer_4?: Json | null
+          employment_gaps?: boolean | null
+          employment_gaps_explanation?: string | null
+          endorsements?: string[] | null
+          equipment_operated?: string[] | null
+          first_name?: string | null
+          id?: string
+          is_draft?: boolean | null
+          last_name?: string | null
+          medical_cert_url?: string | null
+          moving_violations?: boolean | null
+          moving_violations_description?: string | null
+          phone?: string | null
+          prev_address_city?: string | null
+          prev_address_line2?: string | null
+          prev_address_state?: string | null
+          prev_address_street?: string | null
+          prev_address_zip?: string | null
+          referral_source?: string | null
+          review_status?: Database["public"]["Enums"]["review_status"]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          sap_process?: boolean | null
+          signature_image_url?: string | null
+          signed_date?: string | null
+          ssn_encrypted?: string | null
+          submitted_at?: string | null
+          testing_policy_accepted?: boolean | null
+          typed_full_name?: string | null
+          updated_at?: string
+          user_id?: string | null
+          years_experience?: string | null
+        }
+        Relationships: []
+      }
+      documents: {
+        Row: {
+          created_at: string
+          document_type: string
+          file_name: string | null
+          file_url: string | null
+          id: string
+          operator_id: string
+          review_status: Database["public"]["Enums"]["doc_review_status"]
+          reviewed_at: string | null
+          reviewed_by: string | null
+          uploaded_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_type: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          operator_id: string
+          review_status?: Database["public"]["Enums"]["doc_review_status"]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_type?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          operator_id?: string
+          review_status?: Database["public"]["Enums"]["doc_review_status"]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      faq: {
+        Row: {
+          answer: string
+          category: Database["public"]["Enums"]["faq_category"]
+          created_at: string
+          created_by: string | null
+          id: string
+          is_published: boolean
+          question: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          answer: string
+          category: Database["public"]["Enums"]["faq_category"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_published?: boolean
+          question: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          answer?: string
+          category?: Database["public"]["Enums"]["faq_category"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_published?: boolean
+          question?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          body: string
+          id: string
+          read_at: string | null
+          recipient_id: string
+          sender_id: string
+          sent_at: string
+          thread_id: string
+        }
+        Insert: {
+          body: string
+          id?: string
+          read_at?: string | null
+          recipient_id: string
+          sender_id: string
+          sent_at?: string
+          thread_id?: string
+        }
+        Update: {
+          body?: string
+          id?: string
+          read_at?: string | null
+          recipient_id?: string
+          sender_id?: string
+          sent_at?: string
+          thread_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          channel: Database["public"]["Enums"]["notification_channel"]
+          id: string
+          link: string | null
+          read_at: string | null
+          sent_at: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          channel?: Database["public"]["Enums"]["notification_channel"]
+          id?: string
+          link?: string | null
+          read_at?: string | null
+          sent_at?: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          channel?: Database["public"]["Enums"]["notification_channel"]
+          id?: string
+          link?: string | null
+          read_at?: string | null
+          sent_at?: string
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      onboarding_status: {
+        Row: {
+          ch_status: Database["public"]["Enums"]["mvr_status"]
+          decal_applied: Database["public"]["Enums"]["yes_no"]
+          decal_method: Database["public"]["Enums"]["install_method"] | null
+          eld_installed: Database["public"]["Enums"]["yes_no"]
+          eld_method: Database["public"]["Enums"]["install_method"] | null
+          form_2290: Database["public"]["Enums"]["document_status"]
+          fuel_card_issued: Database["public"]["Enums"]["yes_no"]
+          fully_onboarded: boolean | null
+          ica_status: Database["public"]["Enums"]["ica_status"]
+          id: string
+          insurance_added_date: string | null
+          mo_docs_submitted: Database["public"]["Enums"]["mo_docs_status"]
+          mo_expected_approval_date: string | null
+          mo_reg_received: Database["public"]["Enums"]["mo_reg_status"]
+          mvr_ch_approval: Database["public"]["Enums"]["approval_status"]
+          mvr_status: Database["public"]["Enums"]["mvr_status"]
+          operator_id: string
+          pe_screening: Database["public"]["Enums"]["screening_status"]
+          pe_screening_result: Database["public"]["Enums"]["screening_result"]
+          registration_status:
+            | Database["public"]["Enums"]["registration_type"]
+            | null
+          truck_inspection: Database["public"]["Enums"]["document_status"]
+          truck_photos: Database["public"]["Enums"]["document_status"]
+          truck_title: Database["public"]["Enums"]["document_status"]
+          unit_number: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ch_status?: Database["public"]["Enums"]["mvr_status"]
+          decal_applied?: Database["public"]["Enums"]["yes_no"]
+          decal_method?: Database["public"]["Enums"]["install_method"] | null
+          eld_installed?: Database["public"]["Enums"]["yes_no"]
+          eld_method?: Database["public"]["Enums"]["install_method"] | null
+          form_2290?: Database["public"]["Enums"]["document_status"]
+          fuel_card_issued?: Database["public"]["Enums"]["yes_no"]
+          fully_onboarded?: boolean | null
+          ica_status?: Database["public"]["Enums"]["ica_status"]
+          id?: string
+          insurance_added_date?: string | null
+          mo_docs_submitted?: Database["public"]["Enums"]["mo_docs_status"]
+          mo_expected_approval_date?: string | null
+          mo_reg_received?: Database["public"]["Enums"]["mo_reg_status"]
+          mvr_ch_approval?: Database["public"]["Enums"]["approval_status"]
+          mvr_status?: Database["public"]["Enums"]["mvr_status"]
+          operator_id: string
+          pe_screening?: Database["public"]["Enums"]["screening_status"]
+          pe_screening_result?: Database["public"]["Enums"]["screening_result"]
+          registration_status?:
+            | Database["public"]["Enums"]["registration_type"]
+            | null
+          truck_inspection?: Database["public"]["Enums"]["document_status"]
+          truck_photos?: Database["public"]["Enums"]["document_status"]
+          truck_title?: Database["public"]["Enums"]["document_status"]
+          unit_number?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ch_status?: Database["public"]["Enums"]["mvr_status"]
+          decal_applied?: Database["public"]["Enums"]["yes_no"]
+          decal_method?: Database["public"]["Enums"]["install_method"] | null
+          eld_installed?: Database["public"]["Enums"]["yes_no"]
+          eld_method?: Database["public"]["Enums"]["install_method"] | null
+          form_2290?: Database["public"]["Enums"]["document_status"]
+          fuel_card_issued?: Database["public"]["Enums"]["yes_no"]
+          fully_onboarded?: boolean | null
+          ica_status?: Database["public"]["Enums"]["ica_status"]
+          id?: string
+          insurance_added_date?: string | null
+          mo_docs_submitted?: Database["public"]["Enums"]["mo_docs_status"]
+          mo_expected_approval_date?: string | null
+          mo_reg_received?: Database["public"]["Enums"]["mo_reg_status"]
+          mvr_ch_approval?: Database["public"]["Enums"]["approval_status"]
+          mvr_status?: Database["public"]["Enums"]["mvr_status"]
+          operator_id?: string
+          pe_screening?: Database["public"]["Enums"]["screening_status"]
+          pe_screening_result?: Database["public"]["Enums"]["screening_result"]
+          registration_status?:
+            | Database["public"]["Enums"]["registration_type"]
+            | null
+          truck_inspection?: Database["public"]["Enums"]["document_status"]
+          truck_photos?: Database["public"]["Enums"]["document_status"]
+          truck_title?: Database["public"]["Enums"]["document_status"]
+          unit_number?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_status_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: true
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operator_documents: {
+        Row: {
+          document_type: Database["public"]["Enums"]["operator_doc_type"]
+          file_name: string | null
+          file_url: string | null
+          id: string
+          operator_id: string
+          uploaded_at: string
+        }
+        Insert: {
+          document_type?: Database["public"]["Enums"]["operator_doc_type"]
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          operator_id: string
+          uploaded_at?: string
+        }
+        Update: {
+          document_type?: Database["public"]["Enums"]["operator_doc_type"]
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          operator_id?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_documents_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operators: {
+        Row: {
+          application_id: string | null
+          assigned_onboarding_staff: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          unit_number: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          application_id?: string | null
+          assigned_onboarding_staff?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          unit_number?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          application_id?: string | null
+          assigned_onboarding_staff?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          unit_number?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operators_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pandadoc_documents: {
+        Row: {
+          document_name: string
+          id: string
+          operator_id: string
+          pandadoc_document_id: string | null
+          pandadoc_status: Database["public"]["Enums"]["pandadoc_status"]
+          sent_at: string | null
+          sent_by: string | null
+          signed_at: string | null
+        }
+        Insert: {
+          document_name: string
+          id?: string
+          operator_id: string
+          pandadoc_document_id?: string | null
+          pandadoc_status?: Database["public"]["Enums"]["pandadoc_status"]
+          sent_at?: string | null
+          sent_by?: string | null
+          signed_at?: string | null
+        }
+        Update: {
+          document_name?: string
+          id?: string
+          operator_id?: string
+          pandadoc_document_id?: string | null
+          pandadoc_status?: Database["public"]["Enums"]["pandadoc_status"]
+          sent_at?: string | null
+          sent_by?: string | null
+          signed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pandadoc_documents_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          account_status: Database["public"]["Enums"]["account_status"]
+          created_at: string
+          first_name: string | null
+          home_state: string | null
+          id: string
+          invited_by: string | null
+          last_name: string | null
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_status?: Database["public"]["Enums"]["account_status"]
+          created_at?: string
+          first_name?: string | null
+          home_state?: string | null
+          id?: string
+          invited_by?: string | null
+          last_name?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_status?: Database["public"]["Enums"]["account_status"]
+          created_at?: string
+          first_name?: string | null
+          home_state?: string | null
+          id?: string
+          invited_by?: string | null
+          last_name?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      resource_documents: {
+        Row: {
+          category: Database["public"]["Enums"]["resource_category"]
+          description: string | null
+          file_name: string | null
+          file_url: string | null
+          id: string
+          is_visible: boolean
+          sort_order: number
+          title: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["resource_category"]
+          description?: string | null
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          is_visible?: boolean
+          sort_order?: number
+          title: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["resource_category"]
+          description?: string | null
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          is_visible?: boolean
+          sort_order?: number
+          title?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      get_user_roles: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"][]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_staff: { Args: { _user_id: string }; Returns: boolean }
+    }
+    Enums: {
+      account_status: "pending" | "active" | "denied" | "inactive"
+      app_role:
+        | "applicant"
+        | "operator"
+        | "onboarding_staff"
+        | "dispatcher"
+        | "management"
+      approval_status: "pending" | "approved" | "denied"
+      dispatch_status: "not_dispatched" | "dispatched" | "home" | "truck_down"
+      doc_review_status: "pending" | "approved" | "rejected"
+      document_status: "not_started" | "requested" | "received"
+      faq_category:
+        | "application_process"
+        | "background_screening"
+        | "documents_requirements"
+        | "ica_contracts"
+        | "missouri_registration"
+        | "equipment"
+        | "dispatch_operations"
+        | "general_owner_operator"
+      ica_status: "not_issued" | "sent_for_signature" | "complete"
+      install_method: "ar_shop_install" | "ups_self_install"
+      mo_docs_status: "not_submitted" | "submitted"
+      mo_reg_status: "not_yet" | "yes"
+      mvr_status: "not_started" | "requested" | "received"
+      notification_channel: "in_app" | "email" | "both"
+      operator_doc_type:
+        | "registration"
+        | "insurance_cert"
+        | "inspection_report"
+        | "ica_summary"
+        | "other"
+      pandadoc_status: "sent" | "viewed" | "completed"
+      registration_type: "own_registration" | "needs_mo_reg"
+      resource_category:
+        | "user_manuals"
+        | "decal_files"
+        | "forms_compliance"
+        | "dot_general"
+      review_status: "pending" | "approved" | "denied"
+      screening_result: "pending" | "clear" | "non_clear"
+      screening_status: "not_started" | "scheduled" | "results_in"
+      yes_no: "no" | "yes"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      account_status: ["pending", "active", "denied", "inactive"],
+      app_role: [
+        "applicant",
+        "operator",
+        "onboarding_staff",
+        "dispatcher",
+        "management",
+      ],
+      approval_status: ["pending", "approved", "denied"],
+      dispatch_status: ["not_dispatched", "dispatched", "home", "truck_down"],
+      doc_review_status: ["pending", "approved", "rejected"],
+      document_status: ["not_started", "requested", "received"],
+      faq_category: [
+        "application_process",
+        "background_screening",
+        "documents_requirements",
+        "ica_contracts",
+        "missouri_registration",
+        "equipment",
+        "dispatch_operations",
+        "general_owner_operator",
+      ],
+      ica_status: ["not_issued", "sent_for_signature", "complete"],
+      install_method: ["ar_shop_install", "ups_self_install"],
+      mo_docs_status: ["not_submitted", "submitted"],
+      mo_reg_status: ["not_yet", "yes"],
+      mvr_status: ["not_started", "requested", "received"],
+      notification_channel: ["in_app", "email", "both"],
+      operator_doc_type: [
+        "registration",
+        "insurance_cert",
+        "inspection_report",
+        "ica_summary",
+        "other",
+      ],
+      pandadoc_status: ["sent", "viewed", "completed"],
+      registration_type: ["own_registration", "needs_mo_reg"],
+      resource_category: [
+        "user_manuals",
+        "decal_files",
+        "forms_compliance",
+        "dot_general",
+      ],
+      review_status: ["pending", "approved", "denied"],
+      screening_result: ["pending", "clear", "non_clear"],
+      screening_status: ["not_started", "scheduled", "results_in"],
+      yes_no: ["no", "yes"],
+    },
+  },
+} as const
