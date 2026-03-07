@@ -3,6 +3,7 @@ import StaffLayout from '@/components/layouts/StaffLayout';
 import PipelineDashboard from './PipelineDashboard';
 import OperatorDetailPanel from './OperatorDetailPanel';
 import FaqManager from '@/components/management/FaqManager';
+import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen } from 'lucide-react';
 
 type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources';

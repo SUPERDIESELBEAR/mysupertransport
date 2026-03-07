@@ -8,6 +8,7 @@ import OperatorDetailPanel from '../staff/OperatorDetailPanel';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import StaffDirectory from '@/components/management/StaffDirectory';
 import FaqManager from '@/components/management/FaqManager';
+import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle,
   CheckCircle2, Clock, AlertTriangle, ChevronRight,
