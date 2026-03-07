@@ -77,9 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    let initialised = false;
-
-    // Primary: resolve session on mount and set loading=false once
+    // Primary source of truth: getSession restores from storage
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -93,29 +91,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setActiveRoleState(null);
         setProfile(null);
       }
-      initialised = true;
       setLoading(false);
     });
 
-    // Secondary: keep state in sync on sign-in / sign-out / token refresh
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // IMPORTANT: No await inside onAuthStateChange — causes deadlock with Supabase client
+    // Use fire-and-forget pattern for subsequent auth events (sign-in, sign-out, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        await Promise.all([
-          fetchRoles(session.user.id),
-          fetchProfile(session.user.id),
-        ]);
+        // Fire-and-forget — do NOT await here
+        fetchRoles(session.user.id);
+        fetchProfile(session.user.id);
       } else {
         setRoles([]);
         setActiveRoleState(null);
         setProfile(null);
-      }
-
-      // Only clear loading here if getSession hasn't resolved yet
-      if (!initialised) {
-        initialised = true;
         setLoading(false);
       }
     });
