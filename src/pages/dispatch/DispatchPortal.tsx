@@ -77,8 +77,33 @@ export default function DispatchPortal() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
+  const [liveIndicator, setLiveIndicator] = useState(false);
+  const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => { fetchDispatch(); }, []);
+  useEffect(() => {
+    fetchDispatch();
+
+    // Realtime subscription on active_dispatch
+    const channel = supabase
+      .channel('dispatch-board-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'active_dispatch' },
+        () => {
+          // Flash live indicator, then silently refetch
+          setLiveIndicator(true);
+          if (liveTimerRef.current) clearTimeout(liveTimerRef.current);
+          liveTimerRef.current = setTimeout(() => setLiveIndicator(false), 2000);
+          fetchDispatch(true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      if (liveTimerRef.current) clearTimeout(liveTimerRef.current);
+    };
+  }, []);
 
   const fetchDispatch = async (silent = false) => {
     if (!silent) setLoading(true);
