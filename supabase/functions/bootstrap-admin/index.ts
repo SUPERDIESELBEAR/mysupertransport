@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -13,7 +14,7 @@ Deno.serve(async (req) => {
   // One-time bootstrap: creates the first management user
   // Secured by a shared secret passed in the request body
   try {
-    const { email, first_name, last_name, bootstrap_secret } = await req.json();
+    const { email, first_name, last_name, bootstrap_secret, set_password, user_id } = await req.json();
 
     const BOOTSTRAP_SECRET = Deno.env.get('BOOTSTRAP_SECRET') || 'supertransport-bootstrap-2026';
     if (bootstrap_secret !== BOOTSTRAP_SECRET) {
