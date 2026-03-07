@@ -368,6 +368,10 @@ export default function ManagementPortal() {
         {view === 'staff' && (
           <StaffDirectory />
         )}
+
+        {view === 'faq' && (
+          <FaqManager />
+        )}
       </StaffLayout>
 
       {/* Application Review Drawer (rendered outside layout to overlay correctly) */}
