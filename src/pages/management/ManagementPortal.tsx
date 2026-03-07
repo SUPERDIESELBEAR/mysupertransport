@@ -10,7 +10,7 @@ import StaffDirectory from '@/components/management/StaffDirectory';
 import FaqManager from '@/components/management/FaqManager';
 import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import {
-  LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle,
+  LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight,
   Search, RefreshCcw, Eye
 } from 'lucide-react';
