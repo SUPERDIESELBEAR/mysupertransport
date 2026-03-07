@@ -42,6 +42,8 @@ export default function OperatorPortal() {
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const viewRef = useRef(view);
+  useEffect(() => { viewRef.current = view; }, [view]);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -72,14 +74,14 @@ export default function OperatorPortal() {
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchUnreadCount(); }, [fetchUnreadCount]);
 
-  // Clear unread count when messages tab is opened; re-fetch when leaving
+  // Clear unread count when messages tab is opened
   useEffect(() => {
     if (view === 'messages') {
       setUnreadCount(0);
     }
   }, [view]);
 
-  // Realtime: increment badge when a new message arrives for this user
+  // Realtime: increment badge when a new message arrives (subscribe once per user)
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -90,13 +92,14 @@ export default function OperatorPortal() {
         table: 'messages',
         filter: `recipient_id=eq.${user.id}`,
       }, () => {
-        if (view !== 'messages') {
+        // Use ref so we never need to re-subscribe when view changes
+        if (viewRef.current !== 'messages') {
           setUnreadCount(prev => prev + 1);
         }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user, view]);
+  }, [user]); // only re-subscribe when user changes
 
   const displayName = profile?.first_name ?? 'Operator';
 
