@@ -2,7 +2,8 @@ import { useState } from 'react';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import PipelineDashboard from './PipelineDashboard';
 import OperatorDetailPanel from './OperatorDetailPanel';
-import { LayoutDashboard, Users, FileText, MessageSquare, HelpCircle, BookOpen } from 'lucide-react';
+import FaqManager from '@/components/management/FaqManager';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen } from 'lucide-react';
 
 type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources';
 
@@ -46,9 +47,7 @@ export default function StaffPortal() {
         </div>
       )}
       {currentView === 'faq' && (
-        <div className="flex items-center justify-center h-64 text-muted-foreground">
-          <p>FAQ Manager — coming soon</p>
-        </div>
+        <FaqManager />
       )}
       {currentView === 'resources' && (
         <div className="flex items-center justify-center h-64 text-muted-foreground">
