@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -77,8 +77,33 @@ export default function DispatchPortal() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
+  const [liveIndicator, setLiveIndicator] = useState(false);
+  const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => { fetchDispatch(); }, []);
+  useEffect(() => {
+    fetchDispatch();
+
+    // Realtime subscription on active_dispatch
+    const channel = supabase
+      .channel('dispatch-board-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'active_dispatch' },
+        () => {
+          // Flash live indicator, then silently refetch
+          setLiveIndicator(true);
+          if (liveTimerRef.current) clearTimeout(liveTimerRef.current);
+          liveTimerRef.current = setTimeout(() => setLiveIndicator(false), 2000);
+          fetchDispatch(true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      if (liveTimerRef.current) clearTimeout(liveTimerRef.current);
+    };
+  }, []);
 
   const fetchDispatch = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -210,7 +235,18 @@ export default function DispatchPortal() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Dispatch Board</h1>
-            <p className="text-muted-foreground text-sm mt-0.5">Manage status for all active operators</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <p className="text-muted-foreground text-sm">Manage status for all active operators</p>
+              {/* Live indicator pill */}
+              <span className={`flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border transition-all duration-500 ${
+                liveIndicator
+                  ? 'bg-status-complete/15 text-status-complete border-status-complete/30'
+                  : 'bg-muted text-muted-foreground border-border'
+              }`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${liveIndicator ? 'bg-status-complete animate-pulse' : 'bg-muted-foreground'}`} />
+                {liveIndicator ? 'Updated' : 'Live'}
+              </span>
+            </div>
           </div>
           <Button
             variant="outline"
