@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 
 // Pages
 import LoginPage from "./pages/LoginPage";
+import ResetPassword from "./pages/ResetPassword";
 import ApplicationForm from "./pages/ApplicationForm";
 import ApplicationStatus from "./pages/ApplicationStatus";
 import OperatorPortal from "./pages/operator/OperatorPortal";
