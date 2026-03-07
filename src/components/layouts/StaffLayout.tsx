@@ -3,11 +3,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  LayoutDashboard, Users, Truck, FileText, MessageSquare, Bell,
+  LayoutDashboard, Users, Truck, FileText, MessageSquare,
   LogOut, Menu, X, ChevronDown, Settings
 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import type { Database } from '@/integrations/supabase/types';
+import NotificationBell from '@/components/NotificationBell';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
