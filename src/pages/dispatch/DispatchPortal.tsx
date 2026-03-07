@@ -235,7 +235,18 @@ export default function DispatchPortal() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Dispatch Board</h1>
-            <p className="text-muted-foreground text-sm mt-0.5">Manage status for all active operators</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <p className="text-muted-foreground text-sm">Manage status for all active operators</p>
+              {/* Live indicator pill */}
+              <span className={`flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border transition-all duration-500 ${
+                liveIndicator
+                  ? 'bg-status-complete/15 text-status-complete border-status-complete/30'
+                  : 'bg-muted text-muted-foreground border-border'
+              }`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${liveIndicator ? 'bg-status-complete animate-pulse' : 'bg-muted-foreground'}`} />
+                {liveIndicator ? 'Updated' : 'Live'}
+              </span>
+            </div>
           </div>
           <Button
             variant="outline"
