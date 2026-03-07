@@ -83,6 +83,12 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       if (os) {
         setStatus(os);
         setStatusId(os.id);
+        // Snapshot current milestone values as baseline
+        savedMilestones.current = {
+          ica_status: os.ica_status ?? '',
+          mvr_ch_approval: os.mvr_ch_approval ?? '',
+          pe_screening_result: os.pe_screening_result ?? '',
+        };
       }
     }
     setLoading(false);
