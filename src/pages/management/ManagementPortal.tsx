@@ -8,15 +8,16 @@ import OperatorDetailPanel from '../staff/OperatorDetailPanel';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import StaffDirectory from '@/components/management/StaffDirectory';
 import FaqManager from '@/components/management/FaqManager';
+import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import {
-  LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle,
+  LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight,
   Search, RefreshCcw, Eye
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources';
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -145,6 +146,7 @@ export default function ManagementPortal() {
     { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
     { label: 'Staff', icon: <UserPlus className="h-4 w-4" />, path: 'staff' },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
+    { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
   ];
 
   return (
@@ -371,6 +373,10 @@ export default function ManagementPortal() {
 
         {view === 'faq' && (
           <FaqManager />
+        )}
+
+        {view === 'resources' && (
+          <ResourceLibraryManager />
         )}
       </StaffLayout>
 

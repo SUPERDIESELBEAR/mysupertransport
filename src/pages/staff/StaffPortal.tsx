@@ -3,6 +3,7 @@ import StaffLayout from '@/components/layouts/StaffLayout';
 import PipelineDashboard from './PipelineDashboard';
 import OperatorDetailPanel from './OperatorDetailPanel';
 import FaqManager from '@/components/management/FaqManager';
+import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen } from 'lucide-react';
 
 type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources';
@@ -50,9 +51,7 @@ export default function StaffPortal() {
         <FaqManager />
       )}
       {currentView === 'resources' && (
-        <div className="flex items-center justify-center h-64 text-muted-foreground">
-          <p>Resource Library — coming soon</p>
-        </div>
+        <ResourceLibraryManager />
       )}
     </StaffLayout>
   );
