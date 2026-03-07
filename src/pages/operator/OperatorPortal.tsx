@@ -41,6 +41,7 @@ export default function OperatorPortal() {
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -58,7 +59,44 @@ export default function OperatorPortal() {
     }
   }, [user]);
 
+  const fetchUnreadCount = useCallback(async () => {
+    if (!user) return;
+    const { count } = await supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('recipient_id', user.id)
+      .is('read_at', null);
+    setUnreadCount(count ?? 0);
+  }, [user]);
+
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchUnreadCount(); }, [fetchUnreadCount]);
+
+  // Clear unread count when messages tab is opened; re-fetch when leaving
+  useEffect(() => {
+    if (view === 'messages') {
+      setUnreadCount(0);
+    }
+  }, [view]);
+
+  // Realtime: increment badge when a new message arrives for this user
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('operator-unread-badge')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `recipient_id=eq.${user.id}`,
+      }, () => {
+        if (view !== 'messages') {
+          setUnreadCount(prev => prev + 1);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, view]);
 
   const displayName = profile?.first_name ?? 'Operator';
 
@@ -210,13 +248,21 @@ export default function OperatorPortal() {
               <button
                 key={item.view}
                 onClick={() => setView(item.view)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                   view === item.view
                     ? 'bg-gold/15 text-gold'
                     : 'text-surface-dark-muted hover:text-surface-dark-foreground hover:bg-surface-dark-card'
                 }`}
               >
-                {item.icon} {item.label}
+                <span className="relative">
+                  {item.icon}
+                  {item.view === 'messages' && unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </span>
+                {item.label}
               </button>
             ))}
           </nav>
@@ -249,11 +295,18 @@ export default function OperatorPortal() {
                 <button
                   key={item.view}
                   onClick={() => { setView(item.view); setMobileMenuOpen(false); }}
-                  className={`flex flex-col items-center gap-1 p-3 rounded-xl text-xs font-medium transition-colors ${
+                  className={`relative flex flex-col items-center gap-1 p-3 rounded-xl text-xs font-medium transition-colors ${
                     view === item.view ? 'bg-gold/15 text-gold' : 'text-surface-dark-muted'
                   }`}
                 >
-                  {item.icon}
+                  <span className="relative">
+                    {item.icon}
+                    {item.view === 'messages' && unreadCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                  </span>
                   <span className="text-[10px]">{item.label}</span>
                 </button>
               ))}
