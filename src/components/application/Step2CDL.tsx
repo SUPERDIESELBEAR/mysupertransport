@@ -89,7 +89,7 @@ export default function Step2CDL({ data, onChange, errors }: Props) {
         />
       </FormField>
 
-      <FormField label="How did you hear about SuperTransport?" required error={errors.referral_source}>
+      <FormField label="How did you hear about SUPERTRANSPORT?" required error={errors.referral_source}>
         <AppSelect value={data.referral_source} onChange={e => onChange('referral_source', e.target.value)} error={!!errors.referral_source}>
           <option value="">Select one</option>
           {REFERRAL_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}

@@ -258,12 +258,12 @@ export default function ApplicationForm() {
             <img src={logo} alt="SUPERTRANSPORT" className="h-24 w-auto" />
           </div>
           <div className="bg-white border border-border rounded-2xl p-8 shadow-sm">
-            <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
+            <div className="h-16 w-16 rounded-full bg-status-complete/15 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="h-8 w-8 text-status-complete" />
             </div>
             <h1 className="text-xl font-bold text-foreground mb-2">Application Submitted!</h1>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Thank you for applying to drive with SuperTransport LLC. Your application has been received and will be reviewed within <strong>1–3 business days</strong>. You'll receive an email notification once a decision has been made.
+              Thank you for applying to drive with SUPERTRANSPORT LLC. Your application has been received and will be reviewed within <strong>1–3 business days</strong>. You'll receive an email notification once a decision has been made.
             </p>
             <div className="mt-6 pt-5 border-t border-border">
               <p className="text-xs text-muted-foreground">
