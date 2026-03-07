@@ -1,10 +1,8 @@
 import { ReactNode, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  LayoutDashboard, Users, Truck, FileText, MessageSquare,
-  LogOut, Menu, X, ChevronDown, Settings
+  LogOut, Menu, X, ChevronDown,
 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import type { Database } from '@/integrations/supabase/types';
@@ -16,6 +14,7 @@ interface NavItem {
   label: string;
   icon: ReactNode;
   path: string;
+  badge?: number;
 }
 
 interface StaffLayoutProps {
@@ -74,8 +73,26 @@ export default function StaffLayout({ children, navItems, currentPath, onNavigat
                   : 'text-surface-dark-muted hover:text-surface-dark-foreground hover:bg-surface-dark-card'
               }`}
             >
-              <span className="shrink-0">{item.icon}</span>
-              {sidebarOpen && <span className="truncate">{item.label}</span>}
+              {/* Icon with optional badge */}
+              <span className="relative shrink-0">
+                {item.icon}
+                {item.badge != null && item.badge > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
+                )}
+              </span>
+              {sidebarOpen && (
+                <span className="flex-1 flex items-center justify-between min-w-0">
+                  <span className="truncate">{item.label}</span>
+                  {/* Show count as pill when sidebar is open */}
+                  {item.badge != null && item.badge > 0 && (
+                    <span className="ml-1.5 shrink-0 h-4 min-w-4 px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </span>
+                  )}
+                </span>
+              )}
             </button>
           ))}
         </nav>
