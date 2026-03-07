@@ -47,9 +47,7 @@ export default function StaffPortal() {
         </div>
       )}
       {currentView === 'faq' && (
-        <div className="flex items-center justify-center h-64 text-muted-foreground">
-          <p>FAQ Manager — coming soon</p>
-        </div>
+        <FaqManager />
       )}
       {currentView === 'resources' && (
         <div className="flex items-center justify-center h-64 text-muted-foreground">
