@@ -69,10 +69,24 @@ export default function MessagesView() {
 
   // ── Load operators with profile names ─────────────────────────────────────
   const loadOperators = useCallback(async () => {
-    const { data } = await supabase
-      .from('operators')
-      .select('id, user_id, profiles!inner(user_id, first_name, last_name)');
-    if (data) setOperators(data as unknown as Operator[]);
+    // Step 1: fetch operators
+    const { data: ops } = await supabase.from('operators').select('id, user_id');
+    if (!ops || ops.length === 0) { setLoadingThreads(false); return; }
+
+    // Step 2: fetch profiles for those user_ids
+    const userIds = ops.map(o => o.user_id);
+    const { data: profs } = await supabase
+      .from('profiles')
+      .select('user_id, first_name, last_name')
+      .in('user_id', userIds);
+
+    // Merge
+    const merged: Operator[] = ops.map(op => ({
+      id: op.id,
+      user_id: op.user_id,
+      profiles: profs?.find(p => p.user_id === op.user_id) ?? null,
+    }));
+    setOperators(merged);
   }, []);
 
   // ── Build thread list from messages ───────────────────────────────────────
@@ -206,8 +220,11 @@ export default function MessagesView() {
         filter: `recipient_id=eq.${user.id}`,
       }, async (payload) => {
         const msg = payload.new as Message;
+        // Ignore messages sent by myself (already added optimistically)
+        if (msg.sender_id === user.id) return;
+
         if (msg.sender_id !== selectedUserId) {
-          // Update unread count for that thread
+          // Update unread count for a different thread
           setThreads(prev =>
             prev.map(t =>
               t.operatorUserId === msg.sender_id
@@ -217,8 +234,11 @@ export default function MessagesView() {
           );
           return;
         }
-        // It's the open thread — append and mark read
-        setMessages(prev => [...prev, msg]);
+        // It's the open thread — append (dedup by id) and mark read
+        setMessages(prev => {
+          if (prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
         await supabase
           .from('messages')
           .update({ read_at: new Date().toISOString() })
