@@ -86,6 +86,8 @@ export default function StaffLayout({ children, navItems, currentPath, onNavigat
           {roles.length > 1 && sidebarOpen && (
             <div className="relative">
               <button
+                type="button"
+                data-role-switcher="true"
                 onClick={() => setRoleSwitchOpen(!roleSwitchOpen)}
                 className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-surface-dark-card border border-surface-dark-border text-xs text-surface-dark-foreground hover:border-gold/40 transition-colors"
               >
@@ -101,6 +103,7 @@ export default function StaffLayout({ children, navItems, currentPath, onNavigat
                 <div className="absolute bottom-full left-0 right-0 mb-1 bg-surface-dark-card border border-surface-dark-border rounded-lg overflow-hidden shadow-xl z-50">
                   {roles.map(role => (
                     <button
+                      type="button"
                       key={role}
                       onClick={() => { setActiveRole(role); setRoleSwitchOpen(false); }}
                       className={`w-full flex items-center gap-2 px-3 py-2.5 text-xs hover:bg-surface-dark transition-colors ${role === activeRole ? 'text-gold' : 'text-surface-dark-foreground'}`}
@@ -123,7 +126,13 @@ export default function StaffLayout({ children, navItems, currentPath, onNavigat
                 <div className="flex-1 min-w-0">
                   <p className="text-surface-dark-foreground text-xs font-medium truncate">{displayName}</p>
                 </div>
-                <button onClick={signOut} className="text-surface-dark-muted hover:text-destructive transition-colors p-1">
+                <button
+                  type="button"
+                  data-sign-out="true"
+                  onClick={() => { if (window.confirm('Sign out?')) signOut(); }}
+                  title="Sign out"
+                  className="text-surface-dark-muted hover:text-destructive transition-colors p-1 rounded"
+                >
                   <LogOut className="h-4 w-4" />
                 </button>
               </>
