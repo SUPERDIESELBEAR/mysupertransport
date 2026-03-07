@@ -397,7 +397,7 @@ export default function ApplicationForm() {
 }
 
 // ─── Payload builder ──────────────────────────────────────────────────────
-function buildPayload(data: ApplicationFormData, token: string, isDraft: boolean) {
+function buildPayload(data: ApplicationFormData, token: string, isDraft: boolean): Record<string, unknown> {
   return {
     draft_token: token,
     is_draft: isDraft,
@@ -424,10 +424,10 @@ function buildPayload(data: ApplicationFormData, token: string, isDraft: boolean
     endorsements: data.endorsements.length ? data.endorsements : null,
     cdl_10_years: data.cdl_10_years === 'yes' ? true : data.cdl_10_years === 'no' ? false : null,
     referral_source: data.referral_source || null,
-    employer_1: data.employer_1,
-    employer_2: data.employer_2,
-    employer_3: data.employer_3,
-    employer_4: data.employer_4,
+    employer_1: data.employer_1 as unknown as Record<string, unknown>,
+    employer_2: data.employer_2 as unknown as Record<string, unknown>,
+    employer_3: data.employer_3 as unknown as Record<string, unknown>,
+    employer_4: data.employer_4 as unknown as Record<string, unknown>,
     additional_employers: data.additional_employers || null,
     employment_gaps: data.employment_gaps === 'yes' ? true : data.employment_gaps === 'no' ? false : null,
     employment_gaps_explanation: data.employment_gaps_explanation || null,
@@ -447,10 +447,9 @@ function buildPayload(data: ApplicationFormData, token: string, isDraft: boolean
     dot_positive_test_past_2yr: data.dot_positive_test_past_2yr === 'yes' ? true : data.dot_positive_test_past_2yr === 'no' ? false : null,
     dot_return_to_duty_docs: data.dot_return_to_duty_docs === 'yes' ? true : data.dot_return_to_duty_docs === 'no' ? false : null,
     testing_policy_accepted: data.testing_policy_accepted,
-    ssn_encrypted: data.ssn ? btoa(data.ssn) : null, // basic obfuscation; edge fn encryption in later phase
+    ssn_encrypted: data.ssn ? btoa(data.ssn) : null,
     typed_full_name: data.typed_full_name || null,
     signature_image_url: data.signature_image_url || null,
     signed_date: data.signed_date || null,
-    submitted_at: undefined as any,
   };
 }
