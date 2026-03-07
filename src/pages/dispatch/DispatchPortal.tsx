@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -6,10 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { LayoutDashboard, Truck, Users, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import {
+  Truck, Users, AlertTriangle, CheckCircle2, Home,
+  Search, Edit2, X, Save, RefreshCw, MapPin
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 type DispatchStatusType = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
+type FilterTab = 'all' | DispatchStatusType;
 
 interface DispatchRow {
   operator_id: string;
@@ -26,26 +30,60 @@ interface DispatchRow {
   status_notes: string | null;
 }
 
-const statusConfig: Record<DispatchStatusType, { label: string; rowClass: string; badgeClass: string }> = {
-  not_dispatched: { label: 'Not Dispatched', rowClass: '', badgeClass: 'status-neutral border' },
-  dispatched: { label: 'Dispatched', rowClass: 'bg-status-complete/5', badgeClass: 'status-complete border' },
-  home: { label: 'Home', rowClass: 'bg-status-progress/5', badgeClass: 'status-progress border' },
-  truck_down: { label: 'Truck Down', rowClass: 'bg-destructive/5', badgeClass: 'status-action border' },
+const STATUS_CONFIG: Record<DispatchStatusType, {
+  label: string;
+  rowClass: string;
+  badgeClass: string;
+  dotColor: string;
+  tabActiveClass: string;
+}> = {
+  not_dispatched: {
+    label: 'Not Dispatched',
+    rowClass: '',
+    badgeClass: 'status-neutral border',
+    dotColor: 'bg-muted-foreground',
+    tabActiveClass: 'bg-muted text-foreground border-muted-foreground/40',
+  },
+  dispatched: {
+    label: 'Dispatched',
+    rowClass: '',
+    badgeClass: 'status-complete border',
+    dotColor: 'bg-status-complete',
+    tabActiveClass: 'bg-status-complete/15 text-status-complete border-status-complete/40',
+  },
+  home: {
+    label: 'Home',
+    rowClass: '',
+    badgeClass: 'status-progress border',
+    dotColor: 'bg-status-progress',
+    tabActiveClass: 'bg-status-progress/15 text-status-progress border-status-progress/40',
+  },
+  truck_down: {
+    label: 'Truck Down',
+    rowClass: 'bg-destructive/[0.03]',
+    badgeClass: 'status-action border',
+    dotColor: 'bg-destructive',
+    tabActiveClass: 'bg-destructive/15 text-destructive border-destructive/40',
+  },
 };
 
 export default function DispatchPortal() {
   const { toast } = useToast();
   const [rows, setRows] = useState<DispatchRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [editRow, setEditRow] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<DispatchRow>>({});
+  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<FilterTab>('all');
+  const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    fetchDispatch();
-  }, []);
+  useEffect(() => { fetchDispatch(); }, []);
 
-  const fetchDispatch = async () => {
-    setLoading(true);
+  const fetchDispatch = async (silent = false) => {
+    if (!silent) setLoading(true);
+    else setRefreshing(true);
+
     const { data } = await supabase
       .from('operators')
       .select(`
@@ -76,29 +114,62 @@ export default function DispatchPortal() {
             eta_redispatch: d.eta_redispatch ?? null,
             status_notes: d.status_notes ?? null,
           };
+        })
+        // Sort: truck_down first, then not_dispatched, then home, then dispatched
+        .sort((a, b) => {
+          const order: Record<DispatchStatusType, number> = {
+            truck_down: 0, not_dispatched: 1, home: 2, dispatched: 3,
+          };
+          return order[a.dispatch_status] - order[b.dispatch_status];
         });
       setRows(mapped);
     }
     setLoading(false);
+    setRefreshing(false);
   };
+
+  const counts = useMemo(() => ({
+    total: rows.length,
+    dispatched: rows.filter(r => r.dispatch_status === 'dispatched').length,
+    home: rows.filter(r => r.dispatch_status === 'home').length,
+    truck_down: rows.filter(r => r.dispatch_status === 'truck_down').length,
+    not_dispatched: rows.filter(r => r.dispatch_status === 'not_dispatched').length,
+  }), [rows]);
+
+  const filteredRows = useMemo(() => {
+    let result = activeTab === 'all' ? rows : rows.filter(r => r.dispatch_status === activeTab);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(r =>
+        `${r.first_name} ${r.last_name}`.toLowerCase().includes(q) ||
+        (r.unit_number ?? '').toLowerCase().includes(q) ||
+        (r.current_load_lane ?? '').toLowerCase().includes(q) ||
+        (r.home_state ?? '').toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [rows, activeTab, search]);
 
   const startEdit = (row: DispatchRow) => {
     setEditRow(row.operator_id);
     setEditData({
       dispatch_status: row.dispatch_status,
-      current_load_lane: row.current_load_lane,
-      eta_redispatch: row.eta_redispatch,
-      status_notes: row.status_notes,
+      current_load_lane: row.current_load_lane ?? '',
+      eta_redispatch: row.eta_redispatch ?? '',
+      status_notes: row.status_notes ?? '',
     });
   };
 
+  const cancelEdit = () => { setEditRow(null); setEditData({}); };
+
   const saveEdit = async (row: DispatchRow) => {
+    setSaving(true);
     const payload = {
       operator_id: row.operator_id,
       dispatch_status: editData.dispatch_status ?? 'not_dispatched',
-      current_load_lane: editData.current_load_lane ?? null,
-      eta_redispatch: editData.eta_redispatch ?? null,
-      status_notes: editData.status_notes ?? null,
+      current_load_lane: editData.current_load_lane || null,
+      eta_redispatch: editData.eta_redispatch || null,
+      status_notes: editData.status_notes || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -109,22 +180,23 @@ export default function DispatchPortal() {
       ({ error } = await supabase.from('active_dispatch').insert(payload));
     }
 
+    setSaving(false);
     if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ title: 'Error saving', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Updated', description: 'Dispatch status saved.' });
+      toast({ title: 'Dispatch updated', description: `${row.first_name} ${row.last_name} status saved.` });
       setEditRow(null);
-      fetchDispatch();
+      fetchDispatch(true);
     }
   };
 
-  const counts = {
-    total: rows.length,
-    dispatched: rows.filter(r => r.dispatch_status === 'dispatched').length,
-    home: rows.filter(r => r.dispatch_status === 'home').length,
-    truck_down: rows.filter(r => r.dispatch_status === 'truck_down').length,
-    not_dispatched: rows.filter(r => r.dispatch_status === 'not_dispatched').length,
-  };
+  const tabs: { key: FilterTab; label: string; count: number }[] = [
+    { key: 'all', label: 'All', count: counts.total },
+    { key: 'truck_down', label: 'Truck Down', count: counts.truck_down },
+    { key: 'not_dispatched', label: 'Not Dispatched', count: counts.not_dispatched },
+    { key: 'home', label: 'Home', count: counts.home },
+    { key: 'dispatched', label: 'Dispatched', count: counts.dispatched },
+  ];
 
   const navItems = [
     { label: 'Active Operators', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
@@ -132,67 +204,165 @@ export default function DispatchPortal() {
 
   return (
     <StaffLayout navItems={navItems} currentPath="dispatch" onNavigate={() => {}} title="Dispatch">
-      <div className="space-y-6 animate-fade-in">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Active Operators</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage dispatch status for all active operators</p>
+      <div className="space-y-5 animate-fade-in">
+
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Dispatch Board</h1>
+            <p className="text-muted-foreground text-sm mt-0.5">Manage status for all active operators</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchDispatch(true)}
+            disabled={refreshing}
+            className="gap-1.5 shrink-0"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
-        {/* Ticker */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {/* KPI cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {[
-            { label: 'Total Active', value: counts.total, icon: <Users className="h-4 w-4 text-gold" />, color: 'border-gold/30' },
-            { label: 'Dispatched', value: counts.dispatched, icon: <CheckCircle2 className="h-4 w-4 text-status-complete" />, color: 'border-status-complete/30' },
-            { label: 'Home', value: counts.home, icon: <LayoutDashboard className="h-4 w-4 text-status-progress" />, color: 'border-status-progress/30' },
-            { label: 'Truck Down', value: counts.truck_down, icon: <AlertTriangle className="h-4 w-4 text-destructive" />, color: 'border-destructive/30' },
-            { label: 'Not Dispatched', value: counts.not_dispatched, icon: <Truck className="h-4 w-4 text-muted-foreground" />, color: 'border-border' },
+            { label: 'Total Active', value: counts.total, icon: <Users className="h-4 w-4 text-gold" />, borderColor: 'border-gold/30', textColor: 'text-gold' },
+            { label: 'Dispatched', value: counts.dispatched, icon: <CheckCircle2 className="h-4 w-4 text-status-complete" />, borderColor: 'border-status-complete/30', textColor: 'text-status-complete' },
+            { label: 'Home', value: counts.home, icon: <Home className="h-4 w-4 text-status-progress" />, borderColor: 'border-status-progress/30', textColor: 'text-status-progress' },
+            { label: 'Truck Down', value: counts.truck_down, icon: <AlertTriangle className="h-4 w-4 text-destructive" />, borderColor: 'border-destructive/30', textColor: 'text-destructive' },
+            { label: 'Not Dispatched', value: counts.not_dispatched, icon: <Truck className="h-4 w-4 text-muted-foreground" />, borderColor: 'border-border', textColor: 'text-muted-foreground' },
           ].map(m => (
-            <div key={m.label} className={`bg-white border ${m.color} rounded-xl p-3 shadow-sm`}>
-              <div className="flex items-center gap-2">
+            <div key={m.label} className={`bg-white border ${m.borderColor} rounded-xl p-3.5 shadow-sm`}>
+              <div className="flex items-center gap-2.5">
                 {m.icon}
                 <div>
-                  <p className="text-xl font-bold text-foreground">{m.value}</p>
-                  <p className="text-xs text-muted-foreground leading-tight">{m.label}</p>
+                  <p className={`text-2xl font-bold ${m.textColor}`}>{m.value}</p>
+                  <p className="text-[11px] text-muted-foreground leading-tight">{m.label}</p>
                 </div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Dispatch table */}
+        {/* Filter tabs + search bar */}
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+          {/* Tabs */}
+          <div className="flex gap-1.5 flex-wrap">
+            {tabs.map(tab => {
+              const isActive = activeTab === tab.key;
+              const cfg = tab.key !== 'all' ? STATUS_CONFIG[tab.key as DispatchStatusType] : null;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                    isActive
+                      ? (cfg ? cfg.tabActiveClass : 'bg-foreground text-background border-foreground/20')
+                      : 'bg-white text-muted-foreground border-border hover:border-muted-foreground/30 hover:text-foreground'
+                  }`}
+                >
+                  {cfg && (
+                    <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
+                  )}
+                  {tab.label}
+                  <span className={`ml-0.5 rounded-full px-1.5 py-0 text-[10px] font-semibold ${
+                    isActive ? 'bg-current/20 opacity-80' : 'bg-muted text-muted-foreground'
+                  }`}>{tab.count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search */}
+          <div className="relative sm:ml-auto w-full sm:w-56">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search operator, unit…"
+              className="pl-8 h-8 text-xs"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Table */}
         <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left px-4 py-3 font-semibold text-foreground">Operator</th>
-                  <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Unit #</th>
-                  <th className="text-left px-4 py-3 font-semibold text-foreground">Status</th>
-                  <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">Load / Lane</th>
-                  <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">ETA Redispatch</th>
-                  <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">Notes</th>
-                  <th className="text-right px-4 py-3" />
+                <tr className="border-b border-border bg-muted/40">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Operator</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Unit #</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden lg:table-cell">Load / Lane</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden lg:table-cell">ETA Redispatch</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden xl:table-cell">Notes</th>
+                  <th className="w-20" />
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border">
                 {loading ? (
-                  <tr><td colSpan={7} className="text-center py-12"><div className="flex justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-gold border-t-transparent" /></div></td></tr>
-                ) : rows.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-12 text-muted-foreground">No active operators yet.</td></tr>
-                ) : rows.map(row => {
-                  const cfg = statusConfig[row.dispatch_status];
+                  <tr>
+                    <td colSpan={7} className="text-center py-16">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="h-7 w-7 animate-spin rounded-full border-2 border-gold border-t-transparent" />
+                        <p className="text-sm text-muted-foreground">Loading operators…</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-16">
+                      <div className="flex flex-col items-center gap-2">
+                        <Truck className="h-8 w-8 text-muted-foreground/30" />
+                        <p className="text-sm text-muted-foreground">
+                          {search ? 'No operators match your search.' : activeTab === 'all' ? 'No active operators yet.' : `No operators with status "${STATUS_CONFIG[activeTab as DispatchStatusType]?.label}".`}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredRows.map(row => {
+                  const cfg = STATUS_CONFIG[row.dispatch_status];
                   const isEditing = editRow === row.operator_id;
+                  const fullName = `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || '—';
+
                   return (
-                    <tr key={row.operator_id} className={`border-b border-border last:border-0 transition-colors ${cfg.rowClass}`}>
+                    <tr
+                      key={row.operator_id}
+                      className={`transition-colors ${isEditing ? 'bg-gold/[0.04] border-l-2 border-l-gold' : cfg.rowClass + ' hover:bg-muted/30'}`}
+                    >
+                      {/* Operator */}
                       <td className="px-4 py-3">
-                        <p className="font-medium text-foreground">{`${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || '—'}</p>
-                        <p className="text-xs text-muted-foreground">{row.phone ?? ''}</p>
+                        <p className="font-semibold text-foreground text-sm">{fullName}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {row.phone && <span className="text-xs text-muted-foreground">{row.phone}</span>}
+                          {row.home_state && (
+                            <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                              <MapPin className="h-2.5 w-2.5" />{row.home_state}
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 hidden md:table-cell text-muted-foreground font-mono text-xs">{row.unit_number ?? '—'}</td>
+
+                      {/* Unit # */}
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded text-foreground">{row.unit_number ?? '—'}</span>
+                      </td>
+
+                      {/* Status */}
                       <td className="px-4 py-3">
                         {isEditing ? (
-                          <Select value={editData.dispatch_status} onValueChange={v => setEditData(p => ({ ...p, dispatch_status: v as DispatchStatusType }))}>
-                            <SelectTrigger className="h-8 text-xs w-36">
+                          <Select
+                            value={editData.dispatch_status}
+                            onValueChange={v => setEditData(p => ({ ...p, dispatch_status: v as DispatchStatusType }))}
+                          >
+                            <SelectTrigger className="h-8 text-xs w-38 min-w-[140px]">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -203,32 +373,87 @@ export default function DispatchPortal() {
                             </SelectContent>
                           </Select>
                         ) : (
-                          <Badge className={`${cfg.badgeClass} text-xs`}>{cfg.label}</Badge>
+                          <Badge className={`${cfg.badgeClass} text-xs gap-1`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
+                            {cfg.label}
+                          </Badge>
                         )}
                       </td>
+
+                      {/* Load / Lane */}
                       <td className="px-4 py-3 hidden lg:table-cell">
                         {isEditing ? (
-                          <Input value={editData.current_load_lane ?? ''} onChange={e => setEditData(p => ({ ...p, current_load_lane: e.target.value }))} className="h-8 text-xs w-40" placeholder="e.g. ATL→CHI" />
-                        ) : <span className="text-muted-foreground text-xs">{row.current_load_lane ?? '—'}</span>}
+                          <Input
+                            value={editData.current_load_lane ?? ''}
+                            onChange={e => setEditData(p => ({ ...p, current_load_lane: e.target.value }))}
+                            className="h-8 text-xs w-36"
+                            placeholder="e.g. ATL→CHI"
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground font-mono">{row.current_load_lane ?? <span className="opacity-40">—</span>}</span>
+                        )}
                       </td>
+
+                      {/* ETA */}
                       <td className="px-4 py-3 hidden lg:table-cell">
                         {isEditing ? (
-                          <Input value={editData.eta_redispatch ?? ''} onChange={e => setEditData(p => ({ ...p, eta_redispatch: e.target.value }))} className="h-8 text-xs w-32" placeholder="e.g. Fri AM" />
-                        ) : <span className="text-muted-foreground text-xs">{row.eta_redispatch ?? '—'}</span>}
+                          <Input
+                            value={editData.eta_redispatch ?? ''}
+                            onChange={e => setEditData(p => ({ ...p, eta_redispatch: e.target.value }))}
+                            className="h-8 text-xs w-28"
+                            placeholder="e.g. Fri AM"
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{row.eta_redispatch ?? <span className="opacity-40">—</span>}</span>
+                        )}
                       </td>
-                      <td className="px-4 py-3 hidden xl:table-cell max-w-[200px]">
+
+                      {/* Notes */}
+                      <td className="px-4 py-3 hidden xl:table-cell max-w-[220px]">
                         {isEditing ? (
-                          <Input value={editData.status_notes ?? ''} onChange={e => setEditData(p => ({ ...p, status_notes: e.target.value }))} className="h-8 text-xs" placeholder="Notes…" />
-                        ) : <span className="text-muted-foreground text-xs truncate block">{row.status_notes ?? '—'}</span>}
+                          <Textarea
+                            value={editData.status_notes ?? ''}
+                            onChange={e => setEditData(p => ({ ...p, status_notes: e.target.value }))}
+                            className="text-xs min-h-[56px] resize-none w-44"
+                            placeholder="Notes…"
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground line-clamp-2 block">{row.status_notes ?? <span className="opacity-40">—</span>}</span>
+                        )}
                       </td>
-                      <td className="px-4 py-3 text-right">
+
+                      {/* Actions */}
+                      <td className="px-3 py-3 text-right">
                         {isEditing ? (
-                          <div className="flex gap-1 justify-end">
-                            <Button size="sm" onClick={() => saveEdit(row)} className="h-7 text-xs bg-gold text-surface-dark hover:bg-gold-light">Save</Button>
-                            <Button size="sm" variant="ghost" onClick={() => setEditRow(null)} className="h-7 text-xs">Cancel</Button>
+                          <div className="flex gap-1 justify-end items-center">
+                            <Button
+                              size="sm"
+                              onClick={() => saveEdit(row)}
+                              disabled={saving}
+                              className="h-7 text-xs bg-gold text-surface-dark hover:bg-gold-light gap-1 px-2.5"
+                            >
+                              {saving ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                              Save
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={cancelEdit}
+                              className="h-7 text-xs px-2"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
                           </div>
                         ) : (
-                          <Button variant="ghost" size="sm" onClick={() => startEdit(row)} className="h-7 text-xs text-gold hover:bg-gold/10">Edit</Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => startEdit(row)}
+                            className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                            Edit
+                          </Button>
                         )}
                       </td>
                     </tr>
@@ -237,6 +462,13 @@ export default function DispatchPortal() {
               </tbody>
             </table>
           </div>
+
+          {/* Footer count */}
+          {!loading && filteredRows.length > 0 && (
+            <div className="px-4 py-2.5 border-t border-border bg-muted/20 text-xs text-muted-foreground">
+              Showing {filteredRows.length} of {rows.length} active operator{rows.length !== 1 ? 's' : ''}
+            </div>
+          )}
         </div>
       </div>
     </StaffLayout>
