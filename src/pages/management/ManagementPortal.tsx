@@ -7,8 +7,9 @@ import PipelineDashboard from '../staff/PipelineDashboard';
 import OperatorDetailPanel from '../staff/OperatorDetailPanel';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import StaffDirectory from '@/components/management/StaffDirectory';
+import FaqManager from '@/components/management/FaqManager';
 import {
-  LayoutDashboard, Users, ClipboardList, Truck, UserPlus,
+  LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle,
   CheckCircle2, Clock, AlertTriangle, ChevronRight,
   Search, RefreshCcw, Eye
 } from 'lucide-react';
