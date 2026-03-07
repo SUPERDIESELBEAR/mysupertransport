@@ -3,11 +3,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  LayoutDashboard, Users, Truck, FileText, MessageSquare, Bell,
+  LayoutDashboard, Users, Truck, FileText, MessageSquare,
   LogOut, Menu, X, ChevronDown, Settings
 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import type { Database } from '@/integrations/supabase/types';
+import NotificationBell from '@/components/NotificationBell';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -139,9 +140,7 @@ export default function StaffLayout({ children, navItems, currentPath, onNavigat
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
           <div className="flex-1" />
-          <button className="relative text-muted-foreground hover:text-foreground transition-colors p-2">
-            <Bell className="h-5 w-5" />
-          </button>
+          <NotificationBell />
         </header>
 
         {/* Page content */}
