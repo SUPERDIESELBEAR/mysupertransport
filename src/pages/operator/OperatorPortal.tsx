@@ -7,6 +7,7 @@ import {
   CheckCircle2, Circle, Clock, AlertTriangle, ChevronRight,
   Truck, Bell, MessageSquare, BookOpen, HelpCircle, FileText, LogOut, Menu, X
 } from 'lucide-react';
+import logo from '@/assets/supertransport-logo.png';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 

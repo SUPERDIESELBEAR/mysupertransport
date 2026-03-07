@@ -6,6 +6,7 @@ import {
   LayoutDashboard, Users, Truck, FileText, MessageSquare, Bell,
   LogOut, Menu, X, ChevronDown, Settings
 } from 'lucide-react';
+import logo from '@/assets/supertransport-logo.png';
 import type { Database } from '@/integrations/supabase/types';
 
 type AppRole = Database['public']['Enums']['app_role'];
