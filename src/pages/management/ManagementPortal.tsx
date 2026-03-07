@@ -7,10 +7,11 @@ import PipelineDashboard from '../staff/PipelineDashboard';
 import OperatorDetailPanel from '../staff/OperatorDetailPanel';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import StaffDirectory from '@/components/management/StaffDirectory';
+import DispatchBoard from './DispatchBoard';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus,
-  CheckCircle2, Clock, AlertTriangle, XCircle, ChevronRight,
-  Search, Filter, RefreshCcw, Eye
+  CheckCircle2, Clock, AlertTriangle, ChevronRight,
+  Search, RefreshCcw, Eye
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
