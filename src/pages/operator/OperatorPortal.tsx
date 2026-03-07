@@ -11,6 +11,7 @@ import {
 import logo from '@/assets/supertransport-logo.png';
 import OperatorDocumentUpload from '@/components/operator/OperatorDocumentUpload';
 import { OperatorResourceLibrary, OperatorFAQ } from '@/components/operator/OperatorResourcesAndFAQ';
+import OperatorMessagesView from '@/components/operator/OperatorMessagesView';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq';
@@ -184,6 +185,7 @@ export default function OperatorPortal() {
   const navItems = [
     { view: 'progress' as OperatorView, label: 'My Progress', icon: <CheckCircle2 className="h-5 w-5" /> },
     { view: 'documents' as OperatorView, label: 'Documents', icon: <Upload className="h-5 w-5" /> },
+    { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
     { view: 'resources' as OperatorView, label: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> },
   ];
@@ -468,14 +470,8 @@ export default function OperatorPortal() {
         {/* ── FAQ VIEW ── */}
         {view === 'faq' && <OperatorFAQ />}
 
-        {/* ── MESSAGES placeholder ── */}
-        {view === 'messages' && (
-          <div className="bg-white border border-border rounded-2xl p-8 text-center">
-            <MessageSquare className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-            <h2 className="font-semibold text-foreground mb-1">Messages</h2>
-            <p className="text-sm text-muted-foreground">Messaging with your coordinator — coming soon.</p>
-          </div>
-        )}
+        {/* ── MESSAGES VIEW ── */}
+        {view === 'messages' && <OperatorMessagesView />}
       </div>
     </div>
   );
