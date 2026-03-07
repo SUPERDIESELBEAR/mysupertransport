@@ -69,10 +69,24 @@ export default function MessagesView() {
 
   // ── Load operators with profile names ─────────────────────────────────────
   const loadOperators = useCallback(async () => {
-    const { data } = await supabase
-      .from('operators')
-      .select('id, user_id, profiles!inner(user_id, first_name, last_name)');
-    if (data) setOperators(data as unknown as Operator[]);
+    // Step 1: fetch operators
+    const { data: ops } = await supabase.from('operators').select('id, user_id');
+    if (!ops || ops.length === 0) { setLoadingThreads(false); return; }
+
+    // Step 2: fetch profiles for those user_ids
+    const userIds = ops.map(o => o.user_id);
+    const { data: profs } = await supabase
+      .from('profiles')
+      .select('user_id, first_name, last_name')
+      .in('user_id', userIds);
+
+    // Merge
+    const merged: Operator[] = ops.map(op => ({
+      id: op.id,
+      user_id: op.user_id,
+      profiles: profs?.find(p => p.user_id === op.user_id) ?? null,
+    }));
+    setOperators(merged);
   }, []);
 
   // ── Build thread list from messages ───────────────────────────────────────
