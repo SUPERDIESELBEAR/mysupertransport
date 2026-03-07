@@ -264,7 +264,7 @@ export default function OperatorPortal() {
             {onboardingStatus.insurance_added_date && (
               <div className="mt-4 p-4 bg-status-complete/10 border border-status-complete/30 rounded-xl">
                 <p className="text-status-complete font-semibold flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5" /> You're fully onboarded! Welcome to the SuperTransport family.
+                  <CheckCircle2 className="h-5 w-5" /> You're fully onboarded! Welcome to the SUPERTRANSPORT family.
                 </p>
               </div>
             )}

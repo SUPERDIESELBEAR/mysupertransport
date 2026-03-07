@@ -24,6 +24,16 @@ interface EmployerBlockProps {
 function EmployerBlock({ index, value, onChange }: EmployerBlockProps) {
   const set = (field: keyof EmployerRecord, v: string) => onChange({ ...value, [field]: v });
   const isOptional = index > 0;
+  const isCurrentEmployer = index === 0;
+  const isCurrentlyEmployed = value.end_date === 'Present';
+
+  const handleCurrentlyEmployedToggle = () => {
+    if (isCurrentlyEmployed) {
+      set('end_date', '');
+    } else {
+      set('end_date', 'Present');
+    }
+  };
 
   return (
     <div className="border border-border rounded-xl p-4 sm:p-5 space-y-4 bg-secondary/30">
@@ -58,10 +68,11 @@ function EmployerBlock({ index, value, onChange }: EmployerBlockProps) {
 
       <FormField label="Reason for Leaving">
         <AppTextarea
-          value={value.reason_leaving}
+          value={isCurrentlyEmployed ? 'Currently Employed' : value.reason_leaving}
           onChange={e => set('reason_leaving', e.target.value)}
-          placeholder="Reason for leaving"
+          placeholder={isCurrentlyEmployed ? 'Currently Employed' : 'Reason for leaving'}
           rows={2}
+          disabled={isCurrentlyEmployed}
         />
       </FormField>
 
@@ -84,12 +95,33 @@ function EmployerBlock({ index, value, onChange }: EmployerBlockProps) {
         </FormField>
         <FormField label="End Date (MM/YYYY)">
           <AppInput
-            value={value.end_date}
+            value={isCurrentlyEmployed ? 'Present' : value.end_date}
             onChange={e => set('end_date', e.target.value)}
             placeholder="12/2023"
+            disabled={isCurrentlyEmployed}
+            className={isCurrentlyEmployed ? 'bg-secondary text-muted-foreground' : ''}
           />
         </FormField>
       </div>
+
+      {isCurrentEmployer && (
+        <label className="flex items-center gap-2.5 cursor-pointer group">
+          <input
+            type="checkbox"
+            checked={isCurrentlyEmployed}
+            onChange={handleCurrentlyEmployedToggle}
+            className="h-4 w-4 rounded accent-[hsl(var(--gold))]"
+          />
+          <span className="text-sm text-foreground group-hover:text-gold transition-colors">
+            I am currently employed here
+          </span>
+          {isCurrentlyEmployed && (
+            <span className="text-xs text-gold font-medium bg-gold/10 px-2 py-0.5 rounded-full">
+              End date set to "Present"
+            </span>
+          )}
+        </label>
+      )}
     </div>
   );
 }

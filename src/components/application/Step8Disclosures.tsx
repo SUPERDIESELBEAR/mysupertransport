@@ -41,7 +41,7 @@ export default function Step8Disclosures({ data, onChange, errors }: Props) {
       <section className="space-y-3">
         <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Fair Credit Reporting Act Authorization</h3>
         <div className="p-4 bg-secondary border border-border rounded-xl text-xs text-muted-foreground leading-relaxed max-h-36 overflow-y-auto">
-          I hereby authorize SuperTransport LLC to conduct a background investigation through a consumer reporting agency as permitted by the Fair Credit Reporting Act. This investigation may include, but is not limited to: Social Security Number verification, residential history, employment history, education verification, personal and professional references, credit history, criminal records, motor vehicle records (MVR), and any other public records deemed relevant. I understand that this investigation is a condition of my application and continued employment, and that I have the right to request disclosure of the nature and scope of any investigation.
+          I hereby authorize SUPERTRANSPORT LLC to conduct a background investigation through a consumer reporting agency as permitted by the Fair Credit Reporting Act. This investigation may include, but is not limited to: Social Security Number verification, residential history, employment history, education verification, personal and professional references, credit history, criminal records, motor vehicle records (MVR), and any other public records deemed relevant. I understand that this investigation is a condition of my application and continued employment, and that I have the right to request disclosure of the nature and scope of any investigation.
         </div>
       </section>
 
@@ -67,7 +67,7 @@ export default function Step8Disclosures({ data, onChange, errors }: Props) {
             id="auth_employers"
             checked={data.auth_previous_employers}
             onChange={v => onChange('auth_previous_employers', v)}
-            label="I authorize the release of employment records, performance information, and other relevant data from previous employers and government agencies to SuperTransport LLC."
+            label="I authorize the release of employment records, performance information, and other relevant data from previous employers and government agencies to SUPERTRANSPORT LLC."
             error={errors.auth_previous_employers}
           />
         </div>
@@ -116,7 +116,7 @@ export default function Step8Disclosures({ data, onChange, errors }: Props) {
         <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Certificate of Receipt — Company Testing Policy</h3>
         <div className="p-4 bg-secondary border border-border rounded-xl text-xs text-muted-foreground leading-relaxed max-h-48 overflow-y-auto">
           <p className="font-semibold text-foreground mb-2">SUPERTRANSPORT LLC — Federal Motor Carrier Safety Compliance Notice</p>
-          <p className="mb-2">By accepting these terms, you acknowledge that you have received, read, and understand SuperTransport LLC's Drug and Alcohol Policy as required by 49 CFR §382.601. You certify that you are familiar with the requirements of 49 CFR Parts 40, 382, and 391, and you agree to comply with all applicable FMCSA regulations while operating under SuperTransport LLC's authority.</p>
+          <p className="mb-2">By accepting these terms, you acknowledge that you have received, read, and understand SUPERTRANSPORT LLC's Drug and Alcohol Policy as required by 49 CFR §382.601. You certify that you are familiar with the requirements of 49 CFR Parts 40, 382, and 391, and you agree to comply with all applicable FMCSA regulations while operating under SUPERTRANSPORT LLC's authority.</p>
           <p className="mb-2">You acknowledge that: (1) you are subject to controlled substance and alcohol testing as a condition of employment; (2) a positive test result or refusal to test will result in immediate removal from safety-sensitive duties; (3) you understand the consequences of violations and your rights as described in the policy.</p>
           <p>You certify that all information provided in this application is accurate and complete to the best of your knowledge, and that providing false information may result in disqualification from consideration or termination of employment.</p>
         </div>

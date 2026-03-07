@@ -93,7 +93,7 @@ export default function LoginPage() {
 
           <div className="mt-6 pt-5 border-t border-surface-dark-border text-center">
             <p className="text-surface-dark-muted text-xs">
-              Applying to drive with SuperTransport?{' '}
+              Applying to drive with SUPERTRANSPORT?{' '}
               <a href="/apply" className="text-gold hover:text-gold-light underline underline-offset-2">
                 Start your application
               </a>
