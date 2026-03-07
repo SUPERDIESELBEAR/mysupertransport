@@ -17,7 +17,9 @@ interface NotificationPayload {
   applicant_name?: string;
   applicant_email?: string;
   operator_name?: string;
+  operator_email?: string;  // direct operator email for milestone notifications
   milestone?: string;
+  milestone_key?: string;   // machine-readable key: 'ica_complete' | 'mvr_approved' | 'pe_clear'
   document_type?: string;
   operator_id?: string;
   reviewer_notes?: string;
@@ -90,6 +92,28 @@ async function sendEmail(to: string, subject: string, html: string, resendKey: s
   }
 }
 
+// ─── Milestone copy for operator-facing emails ───────────────────────────────
+const MILESTONE_OPERATOR_COPY: Record<string, { heading: string; body: (name: string) => string }> = {
+  ica_complete: {
+    heading: '✅ Your ICA Agreement is Complete',
+    body: (name) => `<p>Hi ${name},</p>
+      <p>Great news — your <strong>Independent Contractor Agreement (ICA)</strong> has been signed and is now on file. This is a major step in your onboarding with SUPERTRANSPORT LLC.</p>
+      <p>Our team will be in touch shortly with the next steps. You can log in to your portal at any time to check your onboarding progress.</p>`,
+  },
+  mvr_approved: {
+    heading: '✅ Background Check Approved',
+    body: (name) => `<p>Hi ${name},</p>
+      <p>Your <strong>MVR and Clearinghouse background check</strong> has been reviewed and <strong>approved</strong>.</p>
+      <p>You're cleared to continue the onboarding process. Log in to your portal to see your current status.</p>`,
+  },
+  pe_clear: {
+    heading: '✅ Pre-Employment Screening — Clear',
+    body: (name) => `<p>Hi ${name},</p>
+      <p>Your <strong>pre-employment drug & alcohol screening</strong> result has come back <strong>clear</strong>.</p>
+      <p>This clears the way for your ICA to be issued. Our onboarding team will reach out with next steps shortly.</p>`,
+  },
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -134,6 +158,18 @@ Deno.serve(async (req) => {
 
       if (!op?.assigned_onboarding_staff) return null;
       const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(op.assigned_onboarding_staff);
+      return user?.email ?? null;
+    };
+
+    // ── Helper: get operator's auth email by operator_id ─────────────────
+    const getOperatorEmail = async (operatorId: string): Promise<string | null> => {
+      const { data: op } = await supabaseAdmin
+        .from('operators')
+        .select('user_id')
+        .eq('id', operatorId)
+        .single();
+      if (!op?.user_id) return null;
+      const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(op.user_id);
       return user?.email ?? null;
     };
 
@@ -208,24 +244,62 @@ Deno.serve(async (req) => {
         const operatorId = payload.operator_id;
         if (!operatorId) break;
 
+        const name = payload.operator_name || 'Driver';
+        const milestone = payload.milestone || 'a step';
+        const milestoneKey = payload.milestone_key;
+
+        // ── 1. Notify staff ──────────────────────────────────────────────
         const staffEmail = await getAssignedStaffEmail(operatorId);
         const mgmtEmails = await getManagementEmails();
-        const recipients = [...new Set([...(staffEmail ? [staffEmail] : []), ...mgmtEmails])];
-        if (!recipients.length) break;
+        const staffRecipients = [...new Set([...(staffEmail ? [staffEmail] : []), ...mgmtEmails])];
 
-        const name = payload.operator_name || 'An operator';
-        const milestone = payload.milestone || 'a step';
-        const subject = `Onboarding Update: ${name}`;
-        const html = buildEmail(
-          subject,
-          '✅ Onboarding Milestone Reached',
-          `<p><strong>${name}</strong> has completed a step in their onboarding process.</p>
-           <p><strong>Milestone:</strong> ${milestone}</p>
-           <p>Log in to the Staff Portal to view their full onboarding status.</p>`,
-          { label: 'View Pipeline', url: `${appUrl}/staff` }
-        );
+        if (staffRecipients.length > 0) {
+          const staffSubject = `Onboarding Update: ${name}`;
+          const staffHtml = buildEmail(
+            staffSubject,
+            '✅ Onboarding Milestone Reached',
+            `<p><strong>${name}</strong> has completed a step in their onboarding process.</p>
+             <p><strong>Milestone:</strong> ${milestone}</p>
+             <p>Log in to the Staff Portal to view their full onboarding status.</p>`,
+            { label: 'View Pipeline', url: `${appUrl}/staff` }
+          );
+          await Promise.all(staffRecipients.map(e => sendEmail(e, staffSubject, staffHtml, RESEND_API_KEY)));
+        }
 
-        await Promise.all(recipients.map(e => sendEmail(e, subject, html, RESEND_API_KEY)));
+        // ── 2. Notify operator ───────────────────────────────────────────
+        const operatorEmail = payload.operator_email || await getOperatorEmail(operatorId);
+        const copy = milestoneKey ? MILESTONE_OPERATOR_COPY[milestoneKey] : null;
+
+        if (operatorEmail && copy) {
+          const operatorSubject = copy.heading.replace(/^[^\w]+/, ''); // strip emoji for subject
+          const operatorHtml = buildEmail(
+            operatorSubject,
+            copy.heading,
+            copy.body(name) + `<p style="margin-top:24px;">If you have any questions, contact us at <a href="mailto:recruiting@supertransportllc.com" style="color:#C9A84C;">recruiting@supertransportllc.com</a>.</p>`,
+            { label: 'View My Onboarding Status', url: `${appUrl}/dashboard` }
+          );
+          await sendEmail(operatorEmail, operatorSubject, operatorHtml, RESEND_API_KEY);
+        }
+
+        // ── 3. Log in-app notification for operator ──────────────────────
+        if (operatorId && copy) {
+          const { data: opRow } = await supabaseAdmin
+            .from('operators')
+            .select('user_id')
+            .eq('id', operatorId)
+            .single();
+          if (opRow?.user_id) {
+            await supabaseAdmin.from('notifications').insert({
+              user_id: opRow.user_id,
+              type: 'onboarding_milestone',
+              title: copy.heading.replace(/^[^\w]+/, ''),
+              body: `Your onboarding has reached a new milestone: ${milestone}`,
+              channel: 'in_app',
+              link: '/dashboard',
+            });
+          }
+        }
+
         break;
       }
 

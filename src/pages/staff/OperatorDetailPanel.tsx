@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,8 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, User, FileCheck, Truck, Shield, Package, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -42,6 +43,7 @@ type OnboardingStatus = {
 
 export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDetailPanelProps) {
   const { toast } = useToast();
+  const { session } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [operatorName, setOperatorName] = useState('');
@@ -49,6 +51,10 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<Partial<OnboardingStatus>>({});
   const [statusId, setStatusId] = useState<string | null>(null);
+  // Track the last-saved values of milestone fields to detect transitions
+  const savedMilestones = useRef<{ ica_status: string; mvr_ch_approval: string; pe_screening_result: string }>({
+    ica_status: '', mvr_ch_approval: '', pe_screening_result: '',
+  });
 
   useEffect(() => {
     fetchOperatorDetail();
@@ -77,6 +83,12 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       if (os) {
         setStatus(os);
         setStatusId(os.id);
+        // Snapshot current milestone values as baseline
+        savedMilestones.current = {
+          ica_status: os.ica_status ?? '',
+          mvr_ch_approval: os.mvr_ch_approval ?? '',
+          pe_screening_result: os.pe_screening_result ?? '',
+        };
       }
     }
     setLoading(false);
@@ -84,6 +96,28 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
 
   const handleSave = async () => {
     setSaving(true);
+
+    // ── Detect milestone transitions before saving ──────────────────────
+    const prev = savedMilestones.current;
+    const milestones: { key: string; label: string; triggered: boolean }[] = [
+      {
+        key: 'ica_complete',
+        label: 'ICA Agreement Signed & Complete',
+        triggered: prev.ica_status !== 'complete' && status.ica_status === 'complete',
+      },
+      {
+        key: 'mvr_approved',
+        label: 'MVR / Clearinghouse Background Check Approved',
+        triggered: prev.mvr_ch_approval !== 'approved' && status.mvr_ch_approval === 'approved',
+      },
+      {
+        key: 'pe_clear',
+        label: 'Pre-Employment Screening — Clear',
+        triggered: prev.pe_screening_result !== 'clear' && status.pe_screening_result === 'clear',
+      },
+    ];
+    const triggeredMilestones = milestones.filter(m => m.triggered);
+
     const { error } = await supabase
       .from('operators')
       .update({ notes })
@@ -99,7 +133,42 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       toast({ title: 'Error saving', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Saved successfully', description: 'Operator record has been updated.' });
+
+      // ── Fire milestone notifications ──────────────────────────────────
+      if (triggeredMilestones.length > 0) {
+        for (const m of triggeredMilestones) {
+          try {
+            await supabase.functions.invoke('send-notification', {
+              body: {
+                type: 'onboarding_milestone',
+                operator_id: operatorId,
+                operator_name: operatorName,
+                operator_email: operatorEmail || undefined,
+                milestone: m.label,
+                milestone_key: m.key,
+              },
+              headers: session?.access_token
+                ? { Authorization: `Bearer ${session.access_token}` }
+                : undefined,
+            });
+            toast({
+              title: `📧 Milestone email sent`,
+              description: `Notified ${operatorName}: ${m.label}`,
+            });
+          } catch (notifErr) {
+            console.error('Milestone notification error:', notifErr);
+          }
+        }
+
+        // Update snapshot so re-saves don't re-fire
+        savedMilestones.current = {
+          ica_status: status.ica_status ?? prev.ica_status,
+          mvr_ch_approval: status.mvr_ch_approval ?? prev.mvr_ch_approval,
+          pe_screening_result: status.pe_screening_result ?? prev.pe_screening_result,
+        };
+      }
     }
+
     setSaving(false);
   };
 
