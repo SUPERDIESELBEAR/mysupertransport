@@ -192,9 +192,9 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const SelectField = ({ label, field, options }: { label: string; field: keyof OnboardingStatus; options: { value: string; label: string }[] }) => (
     <div className="space-y-1.5">
       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
-      <Select value={(status[field] as string) ?? ''} onValueChange={v => updateStatus(field, v)}>
+      <Select value={(status[field] as string) || undefined} onValueChange={v => updateStatus(field, v)}>
         <SelectTrigger className="h-9 text-sm">
-          <SelectValue />
+          <SelectValue placeholder="—" />
         </SelectTrigger>
         <SelectContent>
           {options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
