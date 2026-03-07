@@ -196,9 +196,11 @@ export default function ApplicationForm() {
       const payload = buildPayload(formData, token, true);
 
       if (applicationId) {
-        await supabase.from('applications').update(payload).eq('id', applicationId);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from('applications') as any).update(payload).eq('id', applicationId);
       } else {
-        const { data } = await supabase.from('applications').insert(payload).select('id').single();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data } = await (supabase.from('applications') as any).insert(payload).select('id').single();
         if (data) setApplicationId(data.id);
       }
       localStorage.setItem(DRAFT_TOKEN_KEY, token);
@@ -212,13 +214,14 @@ export default function ApplicationForm() {
     setSubmitting(true);
     try {
       const token = localStorage.getItem(DRAFT_TOKEN_KEY) || crypto.randomUUID();
-      const payload = buildPayload(formData, token, false);
-      payload.submitted_at = new Date().toISOString();
+      const payload = { ...buildPayload(formData, token, false), submitted_at: new Date().toISOString() };
 
       if (applicationId) {
-        await supabase.from('applications').update(payload).eq('id', applicationId);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from('applications') as any).update(payload).eq('id', applicationId);
       } else {
-        await supabase.from('applications').insert(payload);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from('applications') as any).insert(payload);
       }
       localStorage.removeItem(DRAFT_TOKEN_KEY);
       setSubmitted(true);
