@@ -233,7 +233,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
               <FileCheck className="h-4 w-4 text-gold" />
               <h3 className="font-semibold text-foreground text-sm">Stage 4 — Missouri Registration</h3>
             </div>
-            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700 mb-3">
+            <div className="p-3 rounded-lg bg-status-progress/10 border border-status-progress/30 text-xs text-status-progress mb-3">
               ⚠ Missouri requires Title + Form 2290 + signed ICA submitted together. Partial submissions are not accepted. ICA must be Complete before submitting.
             </div>
             <div className="space-y-3">
