@@ -248,13 +248,21 @@ export default function OperatorPortal() {
               <button
                 key={item.view}
                 onClick={() => setView(item.view)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                   view === item.view
                     ? 'bg-gold/15 text-gold'
                     : 'text-surface-dark-muted hover:text-surface-dark-foreground hover:bg-surface-dark-card'
                 }`}
               >
-                {item.icon} {item.label}
+                <span className="relative">
+                  {item.icon}
+                  {item.view === 'messages' && unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </span>
+                {item.label}
               </button>
             ))}
           </nav>
