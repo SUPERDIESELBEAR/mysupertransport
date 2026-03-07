@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
-  Truck, Bell, MessageSquare, BookOpen, HelpCircle, FileText,
+  Truck, MessageSquare, BookOpen, HelpCircle, FileText,
   LogOut, Menu, X, Upload, Shield, Package, FileCheck
 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
