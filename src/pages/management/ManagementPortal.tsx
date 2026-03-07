@@ -360,9 +360,7 @@ export default function ManagementPortal() {
         )}
 
         {view === 'staff' && (
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            <p>Staff directory — coming soon</p>
-          </div>
+          <StaffDirectory />
         )}
       </StaffLayout>
 
