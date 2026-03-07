@@ -47,7 +47,9 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
 
   const fetchOperators = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+
+    // Step 1: fetch operators + onboarding_status
+    const { data: opData } = await supabase
       .from('operators')
       .select(`
         id,
@@ -62,37 +64,42 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
           fuel_card_issued,
           insurance_added_date,
           fully_onboarded
-        ),
-        profiles!operators_user_id_fkey (
-          first_name,
-          last_name,
-          phone,
-          home_state
         )
       `);
 
-    if (data) {
-      const rows: OperatorRow[] = data.map((op: any) => {
-        const os = op.onboarding_status?.[0] ?? {};
-        const profile = op.profiles ?? {};
-        return {
-          id: op.id,
-          user_id: op.user_id,
-          first_name: profile.first_name,
-          last_name: profile.last_name,
-          phone: profile.phone,
-          home_state: profile.home_state,
-          assigned_staff_name: null,
-          current_stage: computeStage(os),
-          fully_onboarded: os.fully_onboarded ?? false,
-          mvr_ch_approval: os.mvr_ch_approval ?? 'pending',
-          pe_screening_result: os.pe_screening_result ?? 'pending',
-          ica_status: os.ica_status ?? 'not_issued',
-          insurance_added_date: os.insurance_added_date ?? null,
-        };
-      });
-      setOperators(rows);
+    if (!opData) { setLoading(false); return; }
+
+    // Step 2: fetch profiles by user_id list
+    const userIds = opData.map((o: any) => o.user_id).filter(Boolean);
+    const profileMap: Record<string, any> = {};
+    if (userIds.length > 0) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, phone, home_state')
+        .in('user_id', userIds);
+      (profileData ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
     }
+
+    const rows: OperatorRow[] = opData.map((op: any) => {
+      const os = op.onboarding_status?.[0] ?? {};
+      const profile = profileMap[op.user_id] ?? {};
+      return {
+        id: op.id,
+        user_id: op.user_id,
+        first_name: profile.first_name ?? null,
+        last_name: profile.last_name ?? null,
+        phone: profile.phone ?? null,
+        home_state: profile.home_state ?? null,
+        assigned_staff_name: null,
+        current_stage: computeStage(os),
+        fully_onboarded: os.fully_onboarded ?? false,
+        mvr_ch_approval: os.mvr_ch_approval ?? 'pending',
+        pe_screening_result: os.pe_screening_result ?? 'pending',
+        ica_status: os.ica_status ?? 'not_issued',
+        insurance_added_date: os.insurance_added_date ?? null,
+      };
+    });
+    setOperators(rows);
     setLoading(false);
   };
 
