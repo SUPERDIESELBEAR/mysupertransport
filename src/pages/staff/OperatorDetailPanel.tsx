@@ -43,6 +43,7 @@ type OnboardingStatus = {
 
 export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDetailPanelProps) {
   const { toast } = useToast();
+  const { session } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [operatorName, setOperatorName] = useState('');
@@ -50,6 +51,10 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<Partial<OnboardingStatus>>({});
   const [statusId, setStatusId] = useState<string | null>(null);
+  // Track the last-saved values of milestone fields to detect transitions
+  const savedMilestones = useRef<{ ica_status: string; mvr_ch_approval: string; pe_screening_result: string }>({
+    ica_status: '', mvr_ch_approval: '', pe_screening_result: '',
+  });
 
   useEffect(() => {
     fetchOperatorDetail();
