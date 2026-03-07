@@ -51,9 +51,7 @@ export default function StaffPortal() {
         <FaqManager />
       )}
       {currentView === 'resources' && (
-        <div className="flex items-center justify-center h-64 text-muted-foreground">
-          <p>Resource Library — coming soon</p>
-        </div>
+        <ResourceLibraryManager />
       )}
     </StaffLayout>
   );
