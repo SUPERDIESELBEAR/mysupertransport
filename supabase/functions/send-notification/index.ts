@@ -88,7 +88,8 @@ async function sendEmail(to: string, subject: string, html: string, resendKey: s
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Resend error [${res.status}]: ${err}`);
+    // Log but don't throw — email failure must not block in-app notifications
+    console.warn(`Resend warning [${res.status}] to ${to}: ${err}`);
   }
 }
 
