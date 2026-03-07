@@ -2,12 +2,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
@@ -39,6 +39,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Fetch application for email data
+    const { data: app } = await supabaseAdmin
+      .from('applications')
+      .select('email, first_name, last_name')
+      .eq('id', application_id)
+      .single();
+
     const { error } = await supabaseAdmin
       .from('applications')
       .update({
@@ -53,6 +60,21 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: error.message }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Fire denial notification email (fire-and-forget)
+    if (app?.email) {
+      const notifUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`;
+      fetch(notifUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+        body: JSON.stringify({
+          type: 'application_denied',
+          applicant_name: `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || app.email,
+          applicant_email: app.email,
+          reviewer_notes: reviewer_notes ?? null,
+        }),
+      }).catch(e => console.error('Notification fire-and-forget error:', e));
     }
 
     return new Response(JSON.stringify({ success: true }), {
