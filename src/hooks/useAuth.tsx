@@ -77,11 +77,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Set up auth state listener BEFORE calling getSession
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    let initialised = false;
+
+    // Primary: resolve session on mount and set loading=false once
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
       if (session?.user) {
         await Promise.all([
           fetchRoles(session.user.id),
@@ -92,18 +93,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setActiveRoleState(null);
         setProfile(null);
       }
+      initialised = true;
       setLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Secondary: keep state in sync on sign-in / sign-out / token refresh
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+
       if (session?.user) {
-        Promise.all([
+        await Promise.all([
           fetchRoles(session.user.id),
           fetchProfile(session.user.id),
-        ]).then(() => setLoading(false));
+        ]);
       } else {
+        setRoles([]);
+        setActiveRoleState(null);
+        setProfile(null);
+      }
+
+      // Only clear loading here if getSession hasn't resolved yet
+      if (!initialised) {
+        initialised = true;
         setLoading(false);
       }
     });
