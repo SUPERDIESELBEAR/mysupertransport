@@ -224,6 +224,24 @@ export default function ApplicationForm() {
         await (supabase.from('applications') as any).insert(payload);
       }
       localStorage.removeItem(DRAFT_TOKEN_KEY);
+
+      // Fire-and-forget: notify management of new application
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      fetch(`${supabaseUrl}/functions/v1/send-notification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+          'apikey': anonKey,
+        },
+        body: JSON.stringify({
+          type: 'new_application',
+          applicant_name: `${formData.first_name} ${formData.last_name}`.trim() || formData.email,
+          applicant_email: formData.email,
+        }),
+      }).catch(() => {/* non-critical */});
+
       setSubmitted(true);
     } finally {
       setSubmitting(false);

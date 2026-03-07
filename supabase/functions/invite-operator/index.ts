@@ -2,12 +2,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
@@ -17,7 +17,6 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // Verify the caller is authenticated and is management/staff
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -33,7 +32,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check caller is staff
     const { data: roleCheck } = await supabaseAdmin
       .from('user_roles')
       .select('role')
@@ -54,7 +52,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch the application
     const { data: app, error: appError } = await supabaseAdmin
       .from('applications')
       .select('*')
@@ -91,7 +88,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Send invite email via Supabase Auth admin invite
+    // Send Supabase auth invite
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       app.email,
       {
@@ -100,22 +97,20 @@ Deno.serve(async (req) => {
           last_name: app.last_name ?? '',
           invited_as: 'operator',
         },
-        redirectTo: `${Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '') ?? ''}/dashboard`,
+        redirectTo: 'https://id-preview--ab645bc4-83af-495c-aca5-d40c7ca0fb70.lovable.app/dashboard',
       }
     );
 
     if (inviteError) {
-      // User may already exist — try to look them up and just create operator record
       console.error('Invite error (may already exist):', inviteError.message);
     }
 
-    // Get the invited user's id
+    // Resolve invited user id
     let invitedUserId: string | null = null;
     if (inviteData?.user) {
       invitedUserId = inviteData.user.id;
     } else {
-      // Try to find existing user by email
-      const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+      const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
       const existing = users?.find(u => u.email === app.email);
       if (existing) invitedUserId = existing.id;
     }
@@ -126,23 +121,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Update application with the user_id
-    await supabaseAdmin
-      .from('applications')
-      .update({ user_id: invitedUserId })
-      .eq('id', application_id);
+    await supabaseAdmin.from('applications').update({ user_id: invitedUserId }).eq('id', application_id);
+    await supabaseAdmin.from('user_roles').upsert({ user_id: invitedUserId, role: 'operator' }, { onConflict: 'user_id,role' });
 
-    // Assign 'operator' role (idempotent upsert)
-    await supabaseAdmin
-      .from('user_roles')
-      .upsert({ user_id: invitedUserId, role: 'operator' }, { onConflict: 'user_id,role' });
-
-    // Create operator record if not already exists
-    const { data: existingOp } = await supabaseAdmin
-      .from('operators')
-      .select('id')
-      .eq('user_id', invitedUserId)
-      .maybeSingle();
+    const { data: existingOp } = await supabaseAdmin.from('operators').select('id').eq('user_id', invitedUserId).maybeSingle();
 
     if (!existingOp) {
       const { data: newOp, error: opError } = await supabaseAdmin
@@ -158,12 +140,22 @@ Deno.serve(async (req) => {
       if (opError) {
         console.error('Operator create error:', opError.message);
       } else if (newOp) {
-        // Seed onboarding_status record
-        await supabaseAdmin
-          .from('onboarding_status')
-          .insert({ operator_id: newOp.id });
+        await supabaseAdmin.from('onboarding_status').insert({ operator_id: newOp.id });
       }
     }
+
+    // Fire approval notification email (fire-and-forget)
+    const notifUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`;
+    fetch(notifUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+      body: JSON.stringify({
+        type: 'application_approved',
+        applicant_name: `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || app.email,
+        applicant_email: app.email,
+        reviewer_notes: reviewer_notes ?? null,
+      }),
+    }).catch(e => console.error('Notification fire-and-forget error:', e));
 
     return new Response(JSON.stringify({ success: true, user_id: invitedUserId }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
