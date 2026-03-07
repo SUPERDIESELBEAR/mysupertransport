@@ -272,9 +272,7 @@ export default function OperatorPortal() {
           </nav>
 
           <div className="flex items-center gap-1">
-            <button className="relative text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors">
-              <Bell className="h-5 w-5" />
-            </button>
+            <NotificationBell variant="dark" />
             <button
               onClick={signOut}
               className="hidden md:flex text-surface-dark-muted hover:text-destructive p-2 rounded-lg hover:bg-surface-dark-card transition-colors"
