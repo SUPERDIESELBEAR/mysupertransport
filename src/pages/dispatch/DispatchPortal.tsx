@@ -811,6 +811,22 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
                     {/* Card footer — actions */}
                     <div className="px-4 pb-4 pt-0 flex items-center justify-between gap-2">
+                      {/* Card footer left: Call + Message */}
+                      <div className="flex items-center gap-1">
+                        {row.phone && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            asChild
+                            className="h-7 text-xs gap-1 px-2.5 text-muted-foreground hover:text-status-complete hover:bg-status-complete/10"
+                            title={`Call ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
+                          >
+                            <a href={`tel:${row.phone}`}>
+                              <Phone className="h-3 w-3" />
+                              Call
+                            </a>
+                          </Button>
+                        )}
                       {/* Message quick-action — opens compose modal */}
                       <Button
                         variant="ghost"
