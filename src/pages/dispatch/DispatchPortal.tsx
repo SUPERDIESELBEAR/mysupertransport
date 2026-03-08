@@ -751,13 +751,19 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
                     {/* Card footer — actions */}
                     <div className="px-4 pb-4 pt-0 flex items-center justify-between gap-2">
-                      {/* Message quick-action — always visible */}
+                      {/* Message quick-action — opens compose modal */}
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          setMessageInitialUserId(row.operator_user_id);
-                          setActivePage('dispatch-messages');
+                          const name = `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || 'Operator';
+                          setQuickCompose({
+                            operatorUserId: row.operator_user_id,
+                            name,
+                            unit: row.unit_number,
+                            status: STATUS_CONFIG[row.dispatch_status].label,
+                          });
+                          setComposeBody('');
                         }}
                         className={`h-7 text-xs gap-1 px-2.5 relative ${
                           unreadPerOperator[row.operator_user_id]
