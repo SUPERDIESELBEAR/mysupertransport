@@ -433,13 +433,13 @@ export default function StaffDirectory() {
 
                     {/* Manage access */}
                     <div className="col-span-1 flex justify-end">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                        onClick={() => setManagingMember(member)}
-                        title="Manage access"
-                      >
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                          onClick={() => { setManagingMember(member); setEditingPhone(member.phone ?? ''); setPhoneEditActive(false); }}
+                          title="Manage access"
+                        >
                         <Settings2 className="h-4 w-4" />
                       </Button>
                     </div>
