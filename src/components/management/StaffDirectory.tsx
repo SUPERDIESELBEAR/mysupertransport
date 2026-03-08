@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   UserPlus, RefreshCcw, Mail, Shield, Truck, Users,
   Search, X, ChevronDown, Clock, Settings2, Plus, Minus,
-  AlertTriangle, CheckCircle2
+  AlertTriangle, CheckCircle2, Phone
 } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -70,6 +70,7 @@ export default function StaffDirectory() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteFirstName, setInviteFirstName] = useState('');
   const [inviteLastName, setInviteLastName] = useState('');
+  const [invitePhone, setInvitePhone] = useState('');
   const [inviteRole, setInviteRole] = useState<StaffRole>('onboarding_staff');
   const [inviting, setInviting] = useState(false);
 
@@ -115,6 +116,7 @@ export default function StaffDirectory() {
           role: inviteRole,
           first_name: inviteFirstName.trim() || undefined,
           last_name: inviteLastName.trim() || undefined,
+          phone: invitePhone.trim() || undefined,
         },
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
@@ -130,6 +132,7 @@ export default function StaffDirectory() {
       setInviteEmail('');
       setInviteFirstName('');
       setInviteLastName('');
+      setInvitePhone('');
       setInviteRole('onboarding_staff');
       await fetchStaff();
     } catch (err) {
@@ -585,21 +588,43 @@ export default function StaffDirectory() {
                 </div>
               </div>
 
-              {/* Email */}
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                  Email Address <span className="text-destructive">*</span>
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <input
-                    type="email"
-                    required
-                    value={inviteEmail}
-                    onChange={e => setInviteEmail(e.target.value)}
-                    placeholder="jane@supertransportllc.com"
-                    className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
-                  />
+              {/* Email + Phone row */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                    Email Address <span className="text-destructive">*</span>
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="email"
+                      required
+                      value={inviteEmail}
+                      onChange={e => setInviteEmail(e.target.value)}
+                      placeholder="jane@supertransportllc.com"
+                      className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+                    />
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                    Phone Number
+                    {inviteRole === 'dispatcher' && (
+                      <span className="ml-1.5 text-[10px] bg-blue-500/15 text-blue-600 border border-blue-300 px-1.5 py-0.5 rounded-full">
+                        Shown to operators in Truck Down alerts
+                      </span>
+                    )}
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="tel"
+                      value={invitePhone}
+                      onChange={e => setInvitePhone(e.target.value)}
+                      placeholder="(555) 000-0000"
+                      className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+                    />
+                  </div>
                 </div>
               </div>
 
