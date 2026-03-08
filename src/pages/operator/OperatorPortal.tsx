@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import {
