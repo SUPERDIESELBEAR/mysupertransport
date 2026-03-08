@@ -477,8 +477,36 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                         <Badge className="status-progress border text-xs">In Progress</Badge>
                       )}
                     </td>
-                    <td className="px-4 py-3 hidden xl:table-cell text-muted-foreground text-xs">
-                      {op.assigned_staff_name ?? <span className="italic text-muted-foreground/60">Unassigned</span>}
+                    <td className="px-4 py-3 hidden xl:table-cell">
+                      <div className="flex items-center gap-1.5 min-w-[160px]">
+                        {assigningMap[op.id] && (
+                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
+                        )}
+                        <Select
+                          value={op.assigned_staff_id ?? 'unassigned'}
+                          onValueChange={val => handleAssignCoordinator(op.id, val === 'unassigned' ? null : val)}
+                          disabled={assigningMap[op.id]}
+                        >
+                          <SelectTrigger className="h-7 text-xs border-dashed hover:border-solid hover:border-gold/60 focus:ring-0 focus:border-gold/60 transition-colors bg-transparent">
+                            <SelectValue>
+                              {op.assigned_staff_name
+                                ? <span className="text-foreground">{op.assigned_staff_name}</span>
+                                : <span className="italic text-muted-foreground/60">Unassigned</span>
+                              }
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">
+                              <span className="italic text-muted-foreground">Unassigned</span>
+                            </SelectItem>
+                            {staffOptions.map(s => (
+                              <SelectItem key={s.user_id} value={s.user_id}>
+                                {s.full_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Button
