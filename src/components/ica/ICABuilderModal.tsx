@@ -99,8 +99,8 @@ export default function ICABuilderModal({
     const path = `${folder}/${operatorId}-${Date.now()}.png`;
     const { error } = await supabase.storage.from('ica-signatures').upload(path, blob, { contentType: 'image/png', upsert: true });
     if (error) throw error;
-    const { data: { publicUrl } } = supabase.storage.from('ica-signatures').getPublicUrl(path);
-    return publicUrl;
+    // Store the storage path, not a public URL (bucket is private)
+    return path;
   };
 
   const handleSaveAndSend = async () => {

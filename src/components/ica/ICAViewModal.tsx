@@ -4,6 +4,18 @@ import { X, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ICADocumentView from './ICADocumentView';
 
+const SIGNED_URL_TTL = 3600; // 1 hour
+
+async function toSignedUrl(path: string | null | undefined): Promise<string | null> {
+  if (!path) return null;
+  // Already a full URL (legacy records stored publicUrl) — return as-is
+  if (path.startsWith('http')) return path;
+  const { data } = await supabase.storage
+    .from('ica-signatures')
+    .createSignedUrl(path, SIGNED_URL_TTL);
+  return data?.signedUrl ?? null;
+}
+
 interface ICAViewModalProps {
   operatorId: string;
   operatorName: string;
@@ -23,7 +35,22 @@ export default function ICAViewModal({ operatorId, operatorName, onClose }: ICAV
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      setContract(data);
+
+      if (data) {
+        // Resolve signed URLs for private-bucket signature images
+        const rawData = data as Record<string, any>;
+        const [carrierUrl, contractorUrl] = await Promise.all([
+          toSignedUrl(rawData.carrier_signature_url),
+          toSignedUrl(rawData.contractor_signature_url),
+        ]);
+        setContract({
+          ...rawData,
+          carrier_signature_url: carrierUrl,
+          contractor_signature_url: contractorUrl,
+        });
+      } else {
+        setContract(null);
+      }
       setLoading(false);
     };
     fetch();
