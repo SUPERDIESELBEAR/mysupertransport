@@ -10,7 +10,8 @@ type NotificationType =
   | 'application_approved'
   | 'application_denied'
   | 'onboarding_milestone'
-  | 'document_uploaded';
+  | 'document_uploaded'
+  | 'dispatch_status_change';
 
 interface NotificationPayload {
   type: NotificationType;
@@ -23,6 +24,11 @@ interface NotificationPayload {
   document_type?: string;
   operator_id?: string;
   reviewer_notes?: string;
+  // dispatch_status_change fields
+  new_status?: string;
+  current_load_lane?: string;
+  eta_redispatch?: string;
+  status_notes?: string;
 }
 
 // ─── Email HTML builder ─────────────────────────────────────────────────────
