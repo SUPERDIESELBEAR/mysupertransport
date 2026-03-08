@@ -176,7 +176,11 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
       `);
 
     if (data) {
-      const onboarded = (data as any[]).filter(op => op.onboarding_status?.[0]?.fully_onboarded);
+      // onboarding_status and active_dispatch are one-to-one relations — Supabase returns
+      // them as plain objects (or null), not arrays. Normalise both to handle either shape.
+      const getOne = (val: any) => (Array.isArray(val) ? val[0] : val) ?? null;
+
+      const onboarded = (data as any[]).filter(op => getOne(op.onboarding_status)?.fully_onboarded);
       const userIds = onboarded.map(op => op.user_id).filter(Boolean);
       const profileMap: Record<string, any> = {};
       if (userIds.length > 0) {
@@ -189,7 +193,8 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
       const mapped: DispatchRow[] = onboarded
         .map(op => {
-          const d = op.active_dispatch?.[0] ?? {};
+          const d = getOne(op.active_dispatch) ?? {};
+          const os = getOne(op.onboarding_status) ?? {};
           const p = profileMap[op.user_id] ?? {};
           return {
             operator_id: op.id,
@@ -198,7 +203,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
             last_name: p.last_name ?? null,
             phone: p.phone ?? null,
             home_state: p.home_state ?? null,
-            unit_number: op.onboarding_status?.[0]?.unit_number ?? op.unit_number ?? null,
+            unit_number: os.unit_number ?? op.unit_number ?? null,
             dispatch_status: (d.dispatch_status ?? 'not_dispatched') as DispatchStatusType,
             assigned_dispatcher: d.assigned_dispatcher ?? null,
             current_load_lane: d.current_load_lane ?? null,
