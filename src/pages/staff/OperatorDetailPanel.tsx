@@ -102,13 +102,21 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       const os = (op as any).onboarding_status?.[0];
       if (os) {
         setStatus(os);
-        setStatusId(os.id);
+      setStatusId(os.id);
         // Snapshot current milestone values as baseline
         savedMilestones.current = {
           ica_status: os.ica_status ?? '',
           mvr_ch_approval: os.mvr_ch_approval ?? '',
           pe_screening_result: os.pe_screening_result ?? '',
           insurance_added_date: os.insurance_added_date ?? null,
+          form_2290: os.form_2290 ?? '',
+          truck_title: os.truck_title ?? '',
+          truck_photos: os.truck_photos ?? '',
+          truck_inspection: os.truck_inspection ?? '',
+          decal_applied: os.decal_applied ?? '',
+          eld_installed: os.eld_installed ?? '',
+          fuel_card_issued: os.fuel_card_issued ?? '',
+          mo_reg_received: os.mo_reg_received ?? '',
         };
       }
     }
