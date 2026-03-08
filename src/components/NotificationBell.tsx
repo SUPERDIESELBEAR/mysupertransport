@@ -187,7 +187,13 @@ export default function NotificationBell({ variant = 'light' }: NotificationBell
               notifications.map(n => (
                 <button
                   key={n.id}
-                  onClick={() => { if (!n.read_at) markRead(n.id); }}
+                  onClick={() => {
+                    if (!n.read_at) markRead(n.id);
+                    if (n.link) {
+                      setOpen(false);
+                      navigate(n.link);
+                    }
+                  }}
                   className={itemClass(!n.read_at)}
                 >
                   <div className="flex items-start gap-3">
