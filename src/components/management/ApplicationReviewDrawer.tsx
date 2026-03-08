@@ -144,6 +144,36 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
   const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email;
 
+  const revealSSN = async () => {
+    setSsnLoading(true);
+    setSsnError(null);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token ?? anonKey;
+      const res = await fetch(`${supabaseUrl}/functions/v1/decrypt-ssn`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+          'apikey': anonKey,
+        },
+        body: JSON.stringify({ application_id: app.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Decryption failed');
+      // Format SSN as XXX-XX-XXXX
+      const raw = data.ssn?.replace(/\D/g, '') ?? '';
+      setSsnValue(raw.length === 9 ? `${raw.slice(0,3)}-${raw.slice(3,5)}-${raw.slice(5)}` : data.ssn);
+      setSsnVisible(true);
+    } catch (err: any) {
+      setSsnError(err.message ?? 'Failed to reveal SSN');
+    } finally {
+      setSsnLoading(false);
+    }
+  };
+
   const handleAction = async (action: 'approve' | 'deny') => {
     setLoading(true);
     try {
