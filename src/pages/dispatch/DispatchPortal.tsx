@@ -11,10 +11,17 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
-  LayoutGrid, List, Phone, Siren
+  LayoutGrid, List, Phone, Siren, Send, ExternalLink
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+
+interface QuickComposeTarget {
+  operatorUserId: string;
+  name: string;
+  unit: string | null;
+  status: string;
+}
 
 type DispatchStatusType = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
 type FilterTab = 'all' | DispatchStatusType;
