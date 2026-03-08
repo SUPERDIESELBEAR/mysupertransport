@@ -361,7 +361,7 @@ export default function ManagementPortal() {
         )}
 
         {view === 'dispatch' && (
-          <DispatchBoard />
+          <DispatchPortal embedded />
         )}
 
         {view === 'staff' && (
