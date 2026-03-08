@@ -529,9 +529,20 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                         <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
                         {cfg.label}
                       </Badge>
-                      {row.unit_number && (
-                        <span className="font-mono text-xs bg-background/80 border border-border px-2 py-0.5 rounded text-foreground">{row.unit_number}</span>
-                      )}
+                      <div className="flex items-center gap-2 ml-auto">
+                        {row.updated_at && (
+                          <span
+                            className="flex items-center gap-1 text-[10px] text-muted-foreground"
+                            title={new Date(row.updated_at).toLocaleString()}
+                          >
+                            <Clock className="h-3 w-3 shrink-0" />
+                            {formatDistanceToNow(new Date(row.updated_at), { addSuffix: true })}
+                          </span>
+                        )}
+                        {row.unit_number && (
+                          <span className="font-mono text-xs bg-background/80 border border-border px-2 py-0.5 rounded text-foreground">{row.unit_number}</span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Card body */}
