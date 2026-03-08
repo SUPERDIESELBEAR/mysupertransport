@@ -811,7 +811,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
                     {/* Card footer — actions */}
                     <div className="px-4 pb-4 pt-0 flex items-center justify-between gap-2">
-                      {/* Card footer left: Call + Message */}
+                      {/* Left: Call + Message */}
                       <div className="flex items-center gap-1">
                         {row.phone && (
                           <Button
@@ -827,37 +827,38 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                             </a>
                           </Button>
                         )}
-                      {/* Message quick-action — opens compose modal */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const name = `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || 'Operator';
-                          setQuickCompose({
-                            operatorUserId: row.operator_user_id,
-                            name,
-                            unit: row.unit_number,
-                            status: STATUS_CONFIG[row.dispatch_status].label,
-                          });
-                          setComposeBody('');
-                        }}
-                        className={`h-7 text-xs gap-1 px-2.5 relative ${
-                          unreadPerOperator[row.operator_user_id]
-                            ? 'text-primary hover:text-primary hover:bg-primary/10'
-                            : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
-                        }`}
-                        title={`Message ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}${unreadPerOperator[row.operator_user_id] ? ` (${unreadPerOperator[row.operator_user_id]} unread)` : ''}`}
-                      >
-                        <span className="relative">
-                          <MessageSquare className="h-3 w-3" />
-                          {!!unreadPerOperator[row.operator_user_id] && (
-                            <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-destructive text-[9px] font-bold text-white flex items-center justify-center leading-none">
-                              {unreadPerOperator[row.operator_user_id] > 9 ? '9+' : unreadPerOperator[row.operator_user_id]}
-                            </span>
-                          )}
-                        </span>
-                        Message
-                      </Button>
+                        {/* Message quick-action — opens compose modal */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const name = `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || 'Operator';
+                            setQuickCompose({
+                              operatorUserId: row.operator_user_id,
+                              name,
+                              unit: row.unit_number,
+                              status: STATUS_CONFIG[row.dispatch_status].label,
+                            });
+                            setComposeBody('');
+                          }}
+                          className={`h-7 text-xs gap-1 px-2.5 relative ${
+                            unreadPerOperator[row.operator_user_id]
+                              ? 'text-primary hover:text-primary hover:bg-primary/10'
+                              : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
+                          }`}
+                          title={`Message ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}${unreadPerOperator[row.operator_user_id] ? ` (${unreadPerOperator[row.operator_user_id]} unread)` : ''}`}
+                        >
+                          <span className="relative">
+                            <MessageSquare className="h-3 w-3" />
+                            {!!unreadPerOperator[row.operator_user_id] && (
+                              <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-destructive text-[9px] font-bold text-white flex items-center justify-center leading-none">
+                                {unreadPerOperator[row.operator_user_id] > 9 ? '9+' : unreadPerOperator[row.operator_user_id]}
+                              </span>
+                            )}
+                          </span>
+                          Message
+                        </Button>
+                      </div>
 
                       <div className="flex gap-2">
                         {isEditing ? (
