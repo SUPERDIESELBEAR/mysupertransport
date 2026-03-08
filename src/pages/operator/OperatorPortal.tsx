@@ -56,11 +56,20 @@ export default function OperatorPortal() {
       .single();
 
     if (op) {
-      setOperatorId((op as any).id);
+      const opId = (op as any).id;
+      setOperatorId(opId);
       // onboarding_status is a 1:1 relation — returns object, not array
       const os = (op as any).onboarding_status ?? {};
       setOnboardingStatus(os);
       setUploadedDocs((op as any).operator_documents ?? []);
+
+      // Fetch current dispatch status
+      const { data: dispatch } = await supabase
+        .from('active_dispatch')
+        .select('dispatch_status')
+        .eq('operator_id', opId)
+        .maybeSingle();
+      setDispatchStatus((dispatch as any)?.dispatch_status ?? null);
     }
   }, [user]);
 
