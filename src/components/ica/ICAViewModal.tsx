@@ -35,7 +35,21 @@ export default function ICAViewModal({ operatorId, operatorName, onClose }: ICAV
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      setContract(data);
+
+      if (data) {
+        // Resolve signed URLs for private-bucket signature images
+        const [carrierUrl, contractorUrl] = await Promise.all([
+          toSignedUrl((data as any).carrier_signature_url),
+          toSignedUrl((data as any).contractor_signature_url),
+        ]);
+        setContract({
+          ...data,
+          carrier_signature_url: carrierUrl,
+          contractor_signature_url: contractorUrl,
+        });
+      } else {
+        setContract(null);
+      }
       setLoading(false);
     };
     fetch();
