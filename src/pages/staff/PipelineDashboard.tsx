@@ -93,10 +93,17 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
 
     if (!opData) { setLoading(false); return; }
 
-    // Collect all user IDs (operators + assigned staff)
+    // Fetch all staff/management user IDs for the coordinator dropdown
+    const { data: staffRoles } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .in('role', ['onboarding_staff', 'management']);
+    const allStaffUserIds = (staffRoles ?? []).map((r: any) => r.user_id);
+
+    // Collect all user IDs (operators + all staff)
     const operatorUserIds = opData.map((o: any) => o.user_id).filter(Boolean);
-    const staffUserIds = opData.map((o: any) => o.assigned_onboarding_staff).filter(Boolean);
-    const allUserIds = [...new Set([...operatorUserIds, ...staffUserIds])];
+    const assignedStaffIds = opData.map((o: any) => o.assigned_onboarding_staff).filter(Boolean);
+    const allUserIds = [...new Set([...operatorUserIds, ...assignedStaffIds, ...allStaffUserIds])];
 
     const profileMap: Record<string, any> = {};
     if (allUserIds.length > 0) {
@@ -107,9 +114,9 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
       (profileData ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
     }
 
-    // Build unique staff options for coordinator dropdown
+    // Build staff options from ALL staff/management roles
     const staffMap: Record<string, StaffOption> = {};
-    staffUserIds.forEach((uid: string) => {
+    allStaffUserIds.forEach((uid: string) => {
       const p = profileMap[uid];
       if (p) {
         staffMap[uid] = {
