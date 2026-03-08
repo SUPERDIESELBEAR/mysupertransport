@@ -126,9 +126,15 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny }: ApplicationReviewDrawerProps) {
+  const { roles } = useAuth();
+  const isManagement = roles.includes('management');
   const [notes, setNotes] = useState('');
   const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | null>(null);
   const [loading, setLoading] = useState(false);
+  const [ssnVisible, setSsnVisible] = useState(false);
+  const [ssnValue, setSsnValue] = useState<string | null>(null);
+  const [ssnLoading, setSsnLoading] = useState(false);
+  const [ssnError, setSsnError] = useState<string | null>(null);
 
   if (!app) return null;
 
