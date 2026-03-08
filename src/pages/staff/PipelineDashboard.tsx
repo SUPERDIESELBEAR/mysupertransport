@@ -66,6 +66,21 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
   const [statusFilter, setStatusFilter] = useState('all');
   const [coordinatorFilter, setCoordinatorFilter] = useState('all');
 
+  // Sort state
+  type SortKey = 'name' | 'stage' | 'coordinator';
+  type SortDir = 'asc' | 'desc';
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
   useEffect(() => {
     fetchOperators();
   }, []);
