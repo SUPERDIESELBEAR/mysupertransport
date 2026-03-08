@@ -45,6 +45,7 @@ export default function OperatorPortal() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
   const [assignedDispatcher, setAssignedDispatcher] = useState<{ name: string; phone: string | null } | null>(null);
+  const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
 
@@ -454,11 +455,22 @@ export default function OperatorPortal() {
         {view === 'faq' && <OperatorFAQ />}
 
         {/* ── MESSAGES VIEW ── */}
-        {view === 'messages' && <OperatorMessagesView />}
+        {view === 'messages' && (
+          <OperatorMessagesView
+            initialUserId={messageInitialUserId ?? undefined}
+            onThreadSelected={() => setMessageInitialUserId(null)}
+          />
+        )}
 
         {/* ── DISPATCH STATUS VIEW ── */}
         {view === 'dispatch' && operatorId && (
-          <OperatorDispatchStatus operatorId={operatorId} />
+          <OperatorDispatchStatus
+            operatorId={operatorId}
+            onMessageDispatcher={(dispatcherUserId) => {
+              setMessageInitialUserId(dispatcherUserId);
+              setView('messages');
+            }}
+          />
         )}
       </div>
     </div>

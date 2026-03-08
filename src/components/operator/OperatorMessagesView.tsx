@@ -53,11 +53,16 @@ function initials(name: string) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function OperatorMessagesView() {
+interface OperatorMessagesViewProps {
+  initialUserId?: string;
+  onThreadSelected?: () => void;
+}
+
+export default function OperatorMessagesView({ initialUserId, onThreadSelected }: OperatorMessagesViewProps = {}) {
   const { user } = useAuth();
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(initialUserId ?? null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -76,17 +81,15 @@ export default function OperatorMessagesView() {
       .select('sender_id, recipient_id')
       .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`);
 
-    if (!msgs || msgs.length === 0) {
-      setLoadingThreads(false);
-      return;
-    }
+    // Collect unique "other" user IDs from existing threads
+    const fromMsgs = msgs
+      ? Array.from(new Set(msgs.map(m => m.sender_id === user.id ? m.recipient_id : m.sender_id)))
+      : [];
 
-    // Collect unique "other" user IDs (staff)
-    const staffUserIds = Array.from(
-      new Set(
-        msgs.map(m => m.sender_id === user.id ? m.recipient_id : m.sender_id)
-      )
-    );
+    // If an initialUserId (e.g. dispatcher) was passed in, always include them
+    const staffUserIds = initialUserId && !fromMsgs.includes(initialUserId)
+      ? [...fromMsgs, initialUserId]
+      : fromMsgs;
 
     if (staffUserIds.length === 0) { setLoadingThreads(false); return; }
 
@@ -102,7 +105,7 @@ export default function OperatorMessagesView() {
         return { user_id: uid, first_name: p?.first_name ?? null, last_name: p?.last_name ?? null };
       })
     );
-  }, [user?.id]);
+  }, [user?.id, initialUserId]);
 
   // ── Build thread summaries ─────────────────────────────────────────────────
   const buildThreads = useCallback(async (staff: StaffMember[]) => {
@@ -152,11 +155,12 @@ export default function OperatorMessagesView() {
     setThreads(built);
     setLoadingThreads(false);
 
-    // Auto-select first thread
+    // Auto-select: prefer initialUserId (dispatcher shortcut), then first thread
     if (built.length > 0 && !selectedUserId) {
-      setSelectedUserId(built[0].staffUserId);
+      const target = initialUserId && built.find(t => t.staffUserId === initialUserId);
+      setSelectedUserId(target ? target.staffUserId : built[0].staffUserId);
     }
-  }, [user?.id, selectedUserId]);
+  }, [user?.id, selectedUserId, initialUserId]);
 
   // ── Load messages for selected thread ─────────────────────────────────────
   const loadMessages = useCallback(async (otherUserId: string) => {
