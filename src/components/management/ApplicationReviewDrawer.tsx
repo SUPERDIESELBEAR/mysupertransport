@@ -301,6 +301,46 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                 </div>
               </div>
             )}
+
+            {/* SSN Reveal — management only */}
+            {isManagement && (
+              <div className="pt-2 border-t border-border mt-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                    <Lock className="h-3.5 w-3.5 text-gold" />
+                    Social Security Number
+                  </div>
+                  {!ssnVisible ? (
+                    <button
+                      onClick={revealSSN}
+                      disabled={ssnLoading}
+                      className="flex items-center gap-1.5 text-xs text-gold hover:text-gold-light font-medium transition-colors disabled:opacity-50"
+                    >
+                      {ssnLoading
+                        ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Decrypting…</>
+                        : <><Eye className="h-3.5 w-3.5" /> Reveal SSN</>
+                      }
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { setSsnVisible(false); setSsnValue(null); }}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
+                    >
+                      <EyeOff className="h-3.5 w-3.5" /> Hide
+                    </button>
+                  )}
+                </div>
+                {ssnError && (
+                  <p className="text-xs text-destructive mt-1">{ssnError}</p>
+                )}
+                {ssnVisible && ssnValue && (
+                  <div className="mt-2 px-3 py-2 bg-gold/10 border border-gold/30 rounded-lg">
+                    <span className="text-sm font-mono font-semibold text-foreground tracking-widest">{ssnValue}</span>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">This view is logged to the audit trail.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </Section>
 
           {/* Uploaded Documents */}
