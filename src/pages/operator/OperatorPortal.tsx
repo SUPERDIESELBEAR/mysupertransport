@@ -1,18 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
-  Truck, MessageSquare, BookOpen, HelpCircle, FileText,
-  LogOut, Menu, X, Upload, Shield, Package, FileCheck
+  MessageSquare, BookOpen, HelpCircle, FileText,
+  LogOut, Menu, X, Upload, Shield, FileCheck, Truck
 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import OperatorDocumentUpload from '@/components/operator/OperatorDocumentUpload';
 import { OperatorResourceLibrary, OperatorFAQ } from '@/components/operator/OperatorResourcesAndFAQ';
 import OperatorMessagesView from '@/components/operator/OperatorMessagesView';
 import NotificationBell from '@/components/NotificationBell';
+import OperatorStatusPage from '@/components/operator/OperatorStatusPage';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq';
@@ -326,185 +325,16 @@ export default function OperatorPortal() {
 
         {/* ── PROGRESS VIEW ── */}
         {view === 'progress' && (
-          <>
-            {/* Header greeting */}
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                Welcome back, {displayName}.
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">Here's your onboarding status.</p>
-            </div>
-
-            {/* Progress summary card */}
-            <div className="bg-surface-dark rounded-2xl p-5 text-white shadow-xl">
-              {isFullyOnboarded ? (
-                <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 rounded-full bg-status-complete/20 border-2 border-status-complete flex items-center justify-center shrink-0">
-                    <CheckCircle2 className="h-7 w-7 text-status-complete" />
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-white">Fully Onboarded!</p>
-                    <p className="text-surface-dark-muted text-sm mt-0.5">Welcome to the SUPERTRANSPORT family. You're ready to dispatch.</p>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <p className="text-surface-dark-muted text-xs font-medium uppercase tracking-widest mb-1">Overall Progress</p>
-                      <p className="text-3xl font-bold text-gold">{progressPct}%</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-surface-dark-muted text-xs">{completedStages} of {stages.length} stages</p>
-                      {onboardingStatus.unit_number && (
-                        <p className="text-gold font-semibold text-sm mt-1">Unit {onboardingStatus.unit_number}</p>
-                      )}
-                    </div>
-                  </div>
-                  {/* Progress bar */}
-                  <div className="h-2 bg-surface-dark-border rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gold rounded-full transition-all duration-700"
-                      style={{ width: `${progressPct}%` }}
-                    />
-                  </div>
-                  {/* What's next */}
-                  {currentStage && (
-                    <div className={`mt-4 p-3 rounded-xl border ${
-                      currentStage.status === 'action_required'
-                        ? 'bg-destructive/10 border-destructive/30'
-                        : 'bg-gold/10 border-gold/25'
-                    }`}>
-                      <p className="text-xs font-semibold text-gold-muted uppercase tracking-wide mb-1">
-                        {currentStage.status === 'action_required' ? '⚠ Action Required' : "What's Next"}
-                      </p>
-                      {currentStage.status === 'action_required' ? (
-                        <p className="text-white text-sm">
-                          Stage {currentStage.number}: <strong>{currentStage.title}</strong> requires your attention. Contact your coordinator.
-                        </p>
-                      ) : currentStage.status === 'not_started' && currentStage.number === 2 ? (
-                        <p className="text-white text-sm">
-                          Upload your documents in the <button onClick={() => setView('documents')} className="text-gold underline font-medium">Documents tab</button> to move forward.
-                        </p>
-                      ) : currentStage.number === 3 && onboardingStatus.ica_status === 'sent_for_signature' ? (
-                        <p className="text-white text-sm">
-                          Your ICA Agreement is ready to sign. Check your email for the PandaDoc link.
-                        </p>
-                      ) : (
-                        <p className="text-white text-sm">
-                          <strong>Stage {currentStage.number}: {currentStage.title}</strong> — {currentStage.description}.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Stage cards */}
-            <div className="space-y-3">
-              {stages.map((stage, idx) => {
-                const cfg = statusConfig[stage.status];
-                const isFuture = stage.status === 'not_started' && idx > (currentStageIndex >= 0 ? currentStageIndex : 0);
-                const showSubsteps = stage.status !== 'not_started' && stage.substeps.length > 0;
-
-                return (
-                  <div
-                    key={stage.number}
-                    className={`bg-white border rounded-2xl overflow-hidden transition-all duration-200 ${cfg.color} ${isFuture ? 'opacity-50' : ''}`}
-                  >
-                    <div className="p-4 sm:p-5">
-                      <div className="flex items-start gap-3">
-                        {/* Stage number / icon */}
-                        <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 text-sm font-bold ${
-                          stage.status === 'complete' ? 'bg-status-complete/15 text-status-complete' :
-                          stage.status === 'action_required' ? 'bg-destructive/15 text-destructive' :
-                          stage.status === 'in_progress' ? 'bg-gold/15 text-gold' :
-                          'bg-muted text-muted-foreground'
-                        }`}>
-                          {stage.status === 'complete' ? <CheckCircle2 className="h-4 w-4" /> : stage.number}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-gold shrink-0">{stage.icon}</span>
-                            <p className="font-semibold text-foreground text-sm">{stage.title}</p>
-                            {stage.status !== 'not_started' && (
-                              <Badge className={`text-[10px] px-1.5 py-0 border ${cfg.badge}`}>
-                                {stage.status === 'complete' ? 'Complete' :
-                                 stage.status === 'action_required' ? 'Action Required' :
-                                 'In Progress'}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">{stage.description}</p>
-
-                          {/* Substeps */}
-                          {showSubsteps && (
-                            <div className="mt-3 space-y-2 pl-1">
-                              {stage.substeps.map(sub => (
-                                <div key={sub.label} className="flex items-center justify-between text-xs">
-                                  <span className="text-muted-foreground">{sub.label}</span>
-                                  <span className={`font-medium ${
-                                    sub.status === 'complete' ? 'text-status-complete' :
-                                    sub.status === 'action_required' ? 'text-destructive' :
-                                    sub.status === 'in_progress' ? 'text-gold' :
-                                    'text-muted-foreground'
-                                  }`}>{sub.value}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Hint for not_started stages that are next */}
-                          {stage.status === 'not_started' && !isFuture && stage.hint && (
-                            <p className="mt-2 text-xs text-muted-foreground italic">{stage.hint}</p>
-                          )}
-
-                          {/* ICA sign CTA */}
-                          {stage.number === 3 && onboardingStatus.ica_status === 'sent_for_signature' && (
-                            <div className="mt-3">
-                              <Button className="bg-gold text-surface-dark hover:bg-gold-light text-xs h-8 gap-1.5 font-semibold">
-                                <FileText className="h-3.5 w-3.5" /> Open ICA to Sign
-                              </Button>
-                            </div>
-                          )}
-
-                          {/* Documents upload shortcut */}
-                          {stage.number === 2 && stage.status === 'not_started' && (
-                            <div className="mt-3">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setView('documents')}
-                                className="text-xs h-8 gap-1.5 border-gold/40 text-gold hover:bg-gold/10"
-                              >
-                                <Upload className="h-3.5 w-3.5" /> Upload Documents
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Right status icon */}
-                        <div className="shrink-0 mt-0.5">{cfg.icon}</div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Contact footer */}
-            <div className="bg-white border border-border rounded-2xl p-5 text-center">
-              <p className="text-sm font-medium text-foreground mb-1">Questions about your onboarding?</p>
-              <p className="text-xs text-muted-foreground">
-                Contact your coordinator or email{' '}
-                <a href="mailto:recruiting@supertransportllc.com" className="text-gold hover:underline font-medium">
-                  recruiting@supertransportllc.com
-                </a>
-              </p>
-            </div>
-          </>
+          <OperatorStatusPage
+            stages={stages}
+            isFullyOnboarded={isFullyOnboarded}
+            progressPct={progressPct}
+            completedStages={completedStages}
+            currentStage={currentStage}
+            onboardingStatus={onboardingStatus}
+            onNavigateTo={(v) => setView(v as OperatorView)}
+            displayName={displayName}
+          />
         )}
 
         {/* ── DOCUMENTS VIEW ── */}
