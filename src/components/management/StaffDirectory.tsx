@@ -116,6 +116,7 @@ export default function StaffDirectory() {
           role: inviteRole,
           first_name: inviteFirstName.trim() || undefined,
           last_name: inviteLastName.trim() || undefined,
+          phone: invitePhone.trim() || undefined,
         },
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
@@ -131,6 +132,7 @@ export default function StaffDirectory() {
       setInviteEmail('');
       setInviteFirstName('');
       setInviteLastName('');
+      setInvitePhone('');
       setInviteRole('onboarding_staff');
       await fetchStaff();
     } catch (err) {
