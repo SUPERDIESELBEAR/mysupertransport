@@ -91,7 +91,25 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
 
   useEffect(() => {
     fetchOperatorDetail();
+    fetchDispatchHistory();
   }, [operatorId]);
+
+  const fetchDispatchHistory = async () => {
+    const { data: dispatch } = await supabase
+      .from('active_dispatch')
+      .select('dispatch_status')
+      .eq('operator_id', operatorId)
+      .maybeSingle();
+    setCurrentDispatchStatus((dispatch as any)?.dispatch_status ?? null);
+
+    const { data } = await supabase
+      .from('dispatch_status_history' as any)
+      .select('id, dispatch_status, current_load_lane, status_notes, changed_at')
+      .eq('operator_id', operatorId)
+      .order('changed_at', { ascending: false })
+      .limit(10);
+    setDispatchHistory((data as DispatchHistoryEntry[]) ?? []);
+  };
 
   const fetchOperatorDetail = async () => {
     setLoading(true);
