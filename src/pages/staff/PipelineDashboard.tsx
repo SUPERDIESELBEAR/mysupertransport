@@ -154,6 +154,37 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     return 'in_progress';
   };
 
+  const handleAssignCoordinator = async (operatorId: string, staffUserId: string | null) => {
+    setAssigningMap(prev => ({ ...prev, [operatorId]: true }));
+
+    const { error } = await supabase
+      .from('operators')
+      .update({ assigned_onboarding_staff: staffUserId })
+      .eq('id', operatorId);
+
+    if (error) {
+      toast({ title: 'Failed to assign coordinator', description: error.message, variant: 'destructive' });
+    } else {
+      // Optimistic local update
+      const staffOption = staffOptions.find(s => s.user_id === staffUserId) ?? null;
+      setOperators(prev => prev.map(op =>
+        op.id === operatorId
+          ? { ...op, assigned_staff_id: staffUserId, assigned_staff_name: staffOption?.full_name ?? null }
+          : op
+      ));
+      toast({
+        title: staffUserId ? 'Coordinator assigned' : 'Coordinator removed',
+        description: staffUserId
+          ? `Assigned to ${staffOption?.full_name ?? 'coordinator'}`
+          : 'Operator is now unassigned',
+      });
+    }
+
+    setAssigningMap(prev => ({ ...prev, [operatorId]: false }));
+  };
+
+
+
   const filtered = operators.filter(op => {
     const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.toLowerCase();
     const matchSearch = name.includes(search.toLowerCase()) || (op.phone ?? '').includes(search);
