@@ -6,9 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Mail } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { formatDistanceToNow } from 'date-fns';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -41,6 +42,21 @@ type OnboardingStatus = {
   fully_onboarded: boolean | null;
 };
 
+type DispatchHistoryEntry = {
+  id: string;
+  dispatch_status: string;
+  current_load_lane: string | null;
+  status_notes: string | null;
+  changed_at: string;
+};
+
+const DISPATCH_STATUS_CONFIG: Record<string, { label: string; dotClass: string; badgeClass: string; emoji: string }> = {
+  not_dispatched: { label: 'Not Dispatched', dotClass: 'bg-muted-foreground', badgeClass: 'bg-muted text-muted-foreground border-border', emoji: '⏸' },
+  dispatched:     { label: 'Dispatched',     dotClass: 'bg-status-complete',   badgeClass: 'bg-status-complete/10 text-status-complete border-status-complete/30', emoji: '🚛' },
+  home:           { label: 'Home',           dotClass: 'bg-status-progress',   badgeClass: 'bg-status-progress/10 text-status-progress border-status-progress/30', emoji: '🏠' },
+  truck_down:     { label: 'Truck Down',     dotClass: 'bg-destructive',       badgeClass: 'bg-destructive/10 text-destructive border-destructive/30', emoji: '🔴' },
+};
+
 export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDetailPanelProps) {
   const { toast } = useToast();
   const { session } = useAuth();
@@ -51,6 +67,8 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<Partial<OnboardingStatus>>({});
   const [statusId, setStatusId] = useState<string | null>(null);
+  const [dispatchHistory, setDispatchHistory] = useState<DispatchHistoryEntry[]>([]);
+  const [currentDispatchStatus, setCurrentDispatchStatus] = useState<string | null>(null);
   // Track the last-saved values of milestone fields to detect transitions
   const savedMilestones = useRef<{
     ica_status: string;
@@ -73,7 +91,25 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
 
   useEffect(() => {
     fetchOperatorDetail();
+    fetchDispatchHistory();
   }, [operatorId]);
+
+  const fetchDispatchHistory = async () => {
+    const { data: dispatch } = await supabase
+      .from('active_dispatch')
+      .select('dispatch_status')
+      .eq('operator_id', operatorId)
+      .maybeSingle();
+    setCurrentDispatchStatus((dispatch as any)?.dispatch_status ?? null);
+
+    const { data } = await supabase
+      .from('dispatch_status_history' as any)
+      .select('id, dispatch_status, current_load_lane, status_notes, changed_at')
+      .eq('operator_id', operatorId)
+      .order('changed_at', { ascending: false })
+      .limit(10);
+    setDispatchHistory((data as unknown as DispatchHistoryEntry[]) ?? []);
+  };
 
   const fetchOperatorDetail = async () => {
     setLoading(true);
@@ -496,6 +532,75 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           </div>
         </div>
       </div>
+
+      {/* Dispatch Status History */}
+      {status.fully_onboarded && (
+        <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-gold" />
+              <h3 className="font-semibold text-foreground text-sm">Dispatch Status History</h3>
+            </div>
+            {currentDispatchStatus && DISPATCH_STATUS_CONFIG[currentDispatchStatus] && (
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${DISPATCH_STATUS_CONFIG[currentDispatchStatus].badgeClass}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${DISPATCH_STATUS_CONFIG[currentDispatchStatus].dotClass}`} />
+                Current: {DISPATCH_STATUS_CONFIG[currentDispatchStatus].label}
+              </span>
+            )}
+          </div>
+
+          {dispatchHistory.length === 0 ? (
+            <div className="text-center py-6 text-muted-foreground">
+              <Truck className="h-8 w-8 mx-auto mb-2 opacity-30" />
+              <p className="text-xs">No dispatch history recorded yet.</p>
+            </div>
+          ) : (
+            <div className="relative">
+              {/* vertical line */}
+              <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+              <div className="space-y-4">
+                {dispatchHistory.map((entry, idx) => {
+                  const cfg = DISPATCH_STATUS_CONFIG[entry.dispatch_status] ?? DISPATCH_STATUS_CONFIG['not_dispatched'];
+                  return (
+                    <div key={entry.id} className="flex gap-4 relative">
+                      {/* dot */}
+                      <div className={`h-3.5 w-3.5 rounded-full border-2 border-white shadow-sm shrink-0 mt-0.5 z-10 ${cfg.dotClass}`} />
+                      <div className="flex-1 min-w-0 pb-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${cfg.badgeClass}`}>
+                            {cfg.emoji} {cfg.label}
+                          </span>
+                          {idx === 0 && (
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gold/15 text-gold border border-gold/30">Latest</span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
+                          {entry.current_load_lane && (
+                            <span className="text-xs text-muted-foreground">
+                              <span className="font-medium text-foreground">Lane:</span> {entry.current_load_lane}
+                            </span>
+                          )}
+                          {entry.status_notes && (
+                            <span className="text-xs text-muted-foreground">
+                              <span className="font-medium text-foreground">Note:</span> {entry.status_notes}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          {formatDistanceToNow(new Date(entry.changed_at), { addSuffix: true })}
+                          <span className="ml-1.5 text-muted-foreground/60">
+                            · {new Date(entry.changed_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Internal Notes */}
       <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
