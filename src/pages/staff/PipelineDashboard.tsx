@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X } from 'lucide-react';
+import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface OperatorRow {
   id: string;
@@ -51,9 +52,12 @@ const STAGES = [
 ];
 
 export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardProps) {
+  const { toast } = useToast();
   const [operators, setOperators] = useState<OperatorRow[]>([]);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
   const [loading, setLoading] = useState(true);
+  // Track which operator rows are currently saving a coordinator assignment
+  const [assigningMap, setAssigningMap] = useState<Record<string, boolean>>({});
   const [showFilters, setShowFilters] = useState(false);
 
   // Filter state
@@ -89,10 +93,17 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
 
     if (!opData) { setLoading(false); return; }
 
-    // Collect all user IDs (operators + assigned staff)
+    // Fetch all staff/management user IDs for the coordinator dropdown
+    const { data: staffRoles } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .in('role', ['onboarding_staff', 'management']);
+    const allStaffUserIds = (staffRoles ?? []).map((r: any) => r.user_id);
+
+    // Collect all user IDs (operators + all staff)
     const operatorUserIds = opData.map((o: any) => o.user_id).filter(Boolean);
-    const staffUserIds = opData.map((o: any) => o.assigned_onboarding_staff).filter(Boolean);
-    const allUserIds = [...new Set([...operatorUserIds, ...staffUserIds])];
+    const assignedStaffIds = opData.map((o: any) => o.assigned_onboarding_staff).filter(Boolean);
+    const allUserIds = [...new Set([...operatorUserIds, ...assignedStaffIds, ...allStaffUserIds])];
 
     const profileMap: Record<string, any> = {};
     if (allUserIds.length > 0) {
@@ -103,9 +114,9 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
       (profileData ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
     }
 
-    // Build unique staff options for coordinator dropdown
+    // Build staff options from ALL staff/management roles
     const staffMap: Record<string, StaffOption> = {};
-    staffUserIds.forEach((uid: string) => {
+    allStaffUserIds.forEach((uid: string) => {
       const p = profileMap[uid];
       if (p) {
         staffMap[uid] = {
@@ -149,6 +160,37 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     if (op.mvr_ch_approval === 'denied' || op.pe_screening_result === 'non_clear') return 'alert';
     return 'in_progress';
   };
+
+  const handleAssignCoordinator = async (operatorId: string, staffUserId: string | null) => {
+    setAssigningMap(prev => ({ ...prev, [operatorId]: true }));
+
+    const { error } = await supabase
+      .from('operators')
+      .update({ assigned_onboarding_staff: staffUserId })
+      .eq('id', operatorId);
+
+    if (error) {
+      toast({ title: 'Failed to assign coordinator', description: error.message, variant: 'destructive' });
+    } else {
+      // Optimistic local update
+      const staffOption = staffOptions.find(s => s.user_id === staffUserId) ?? null;
+      setOperators(prev => prev.map(op =>
+        op.id === operatorId
+          ? { ...op, assigned_staff_id: staffUserId, assigned_staff_name: staffOption?.full_name ?? null }
+          : op
+      ));
+      toast({
+        title: staffUserId ? 'Coordinator assigned' : 'Coordinator removed',
+        description: staffUserId
+          ? `Assigned to ${staffOption?.full_name ?? 'coordinator'}`
+          : 'Operator is now unassigned',
+      });
+    }
+
+    setAssigningMap(prev => ({ ...prev, [operatorId]: false }));
+  };
+
+
 
   const filtered = operators.filter(op => {
     const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.toLowerCase();
@@ -442,8 +484,36 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                         <Badge className="status-progress border text-xs">In Progress</Badge>
                       )}
                     </td>
-                    <td className="px-4 py-3 hidden xl:table-cell text-muted-foreground text-xs">
-                      {op.assigned_staff_name ?? <span className="italic text-muted-foreground/60">Unassigned</span>}
+                    <td className="px-4 py-3 hidden xl:table-cell">
+                      <div className="flex items-center gap-1.5 min-w-[160px]">
+                        {assigningMap[op.id] && (
+                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
+                        )}
+                        <Select
+                          value={op.assigned_staff_id ?? 'unassigned'}
+                          onValueChange={val => handleAssignCoordinator(op.id, val === 'unassigned' ? null : val)}
+                          disabled={assigningMap[op.id]}
+                        >
+                          <SelectTrigger className="h-7 text-xs border-dashed hover:border-solid hover:border-gold/60 focus:ring-0 focus:border-gold/60 transition-colors bg-transparent">
+                            <SelectValue>
+                              {op.assigned_staff_name
+                                ? <span className="text-foreground">{op.assigned_staff_name}</span>
+                                : <span className="italic text-muted-foreground/60">Unassigned</span>
+                              }
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">
+                              <span className="italic text-muted-foreground">Unassigned</span>
+                            </SelectItem>
+                            {staffOptions.map(s => (
+                              <SelectItem key={s.user_id} value={s.user_id}>
+                                {s.full_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Button
