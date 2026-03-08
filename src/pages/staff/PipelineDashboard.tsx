@@ -568,6 +568,20 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                         <Badge className="status-progress border text-xs">In Progress</Badge>
                       )}
                     </td>
+                    {/* Dispatch status badge — only shown for fully onboarded operators */}
+                    <td className="px-4 py-3 hidden lg:table-cell">
+                      {op.dispatch_status ? (() => {
+                        const cfg = DISPATCH_BADGE[op.dispatch_status];
+                        return (
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${cfg.className}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+                            {cfg.label}
+                          </span>
+                        );
+                      })() : (
+                        <span className="text-muted-foreground/40 text-xs">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 hidden xl:table-cell">
                       <div className="flex items-center gap-1.5 min-w-[160px]">
                         {assigningMap[op.id] && (
