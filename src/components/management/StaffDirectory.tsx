@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   UserPlus, RefreshCcw, Mail, Shield, Truck, Users,
-  Search, X, ChevronDown, Clock, CheckCircle2
+  Search, X, ChevronDown, Clock, Settings2, Plus, Minus,
+  AlertTriangle, CheckCircle2
 } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -17,28 +18,32 @@ interface StaffMember {
   user_id: string;
   first_name: string | null;
   last_name: string | null;
-  email?: string;
+  email: string | null;
   account_status: string;
   created_at: string;
   updated_at: string;
   roles: AppRole[];
+  assigned_operator_count: number;
 }
 
-const ROLE_CONFIG: Record<StaffRole, { label: string; icon: React.ReactNode; color: string }> = {
+const ROLE_CONFIG: Record<StaffRole, { label: string; icon: React.ReactNode; color: string; desc: string }> = {
   management: {
     label: 'Management',
     icon: <Shield className="h-3 w-3" />,
     color: 'bg-gold/15 text-gold-muted border-gold/30',
+    desc: 'Full access: applications, pipeline, staff, and dispatch.',
   },
   onboarding_staff: {
     label: 'Onboarding Staff',
     icon: <Users className="h-3 w-3" />,
     color: 'bg-status-complete/15 text-status-complete border-status-complete/30',
+    desc: 'Manage operator pipeline, onboarding status, and documents.',
   },
   dispatcher: {
     label: 'Dispatcher',
     icon: <Truck className="h-3 w-3" />,
     color: 'bg-blue-500/15 text-blue-600 border-blue-300',
+    desc: 'Manage active dispatch statuses and load assignments.',
   },
 };
 
@@ -49,8 +54,10 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   denied: { label: 'Denied', color: 'bg-destructive/15 text-destructive border-destructive/30' },
 };
 
+const ALL_STAFF_ROLES: StaffRole[] = ['onboarding_staff', 'dispatcher', 'management'];
+
 export default function StaffDirectory() {
-  const { session } = useAuth();
+  const { session, user } = useAuth();
   const { toast } = useToast();
 
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -66,41 +73,32 @@ export default function StaffDirectory() {
   const [inviteRole, setInviteRole] = useState<StaffRole>('onboarding_staff');
   const [inviting, setInviting] = useState(false);
 
+  // Manage access panel
+  const [managingMember, setManagingMember] = useState<StaffMember | null>(null);
+  const [roleActionLoading, setRoleActionLoading] = useState<string | null>(null);
+
   const fetchStaff = useCallback(async () => {
     setLoading(true);
     try {
-      // Get all staff roles
-      const { data: roleRows } = await supabase
-        .from('user_roles')
-        .select('user_id, role')
-        .in('role', ['management', 'onboarding_staff', 'dispatcher'] as AppRole[]);
+      const { data, error } = await supabase.functions.invoke('get-staff-list', {
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
 
-      if (!roleRows?.length) {
-        setStaff([]);
-        return;
-      }
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-      const staffUserIds = [...new Set(roleRows.map(r => r.user_id))];
-
-      // Get profiles for those user_ids
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, first_name, last_name, account_status, created_at, updated_at')
-        .in('user_id', staffUserIds);
-
-      if (!profiles) return;
-
-      // Merge roles into profiles
-      const merged: StaffMember[] = profiles.map(p => ({
-        ...p,
-        roles: roleRows.filter(r => r.user_id === p.user_id).map(r => r.role),
-      }));
-
-      setStaff(merged);
+      setStaff(data.staff ?? []);
+    } catch (err) {
+      console.error('fetchStaff error:', err);
+      toast({
+        title: 'Failed to load staff',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [session?.access_token, toast]);
 
   useEffect(() => {
     fetchStaff();
@@ -145,6 +143,52 @@ export default function StaffDirectory() {
     }
   };
 
+  const handleRoleChange = async (memberId: string, role: StaffRole, action: 'add' | 'remove') => {
+    const key = `${memberId}-${role}-${action}`;
+    setRoleActionLoading(key);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-staff-list', {
+        method: 'POST',
+        body: { action, user_id: memberId, role },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({
+        title: action === 'add' ? '✅ Role Added' : 'Role Removed',
+        description: `${ROLE_CONFIG[role].label} ${action === 'add' ? 'granted' : 'revoked'} successfully.`,
+      });
+
+      // Update local state optimistically for managing panel
+      setStaff(prev => prev.map(m => {
+        if (m.user_id !== memberId) return m;
+        const newRoles = action === 'add'
+          ? [...m.roles, role as AppRole]
+          : m.roles.filter(r => r !== role);
+        return { ...m, roles: newRoles };
+      }));
+
+      // Also update managingMember in place
+      setManagingMember(prev => {
+        if (!prev || prev.user_id !== memberId) return prev;
+        const newRoles = action === 'add'
+          ? [...prev.roles, role as AppRole]
+          : prev.roles.filter(r => r !== role);
+        return { ...prev, roles: newRoles };
+      });
+    } catch (err) {
+      toast({
+        title: 'Role Update Failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setRoleActionLoading(null);
+    }
+  };
+
   const filteredStaff = staff.filter(s => {
     const matchesRole = roleFilter === 'all' || s.roles.includes(roleFilter as AppRole);
     if (!matchesRole) return false;
@@ -164,8 +208,7 @@ export default function StaffDirectory() {
   const formatDate = (iso: string) => {
     const d = new Date(iso);
     const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays}d ago`;
@@ -187,42 +230,55 @@ export default function StaffDirectory() {
             <RefreshCcw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button size="sm" onClick={() => setShowInvite(true)} className="gap-1.5 bg-surface-dark text-surface-dark-foreground hover:bg-surface-dark/90">
+          <Button
+            size="sm"
+            onClick={() => setShowInvite(true)}
+            className="gap-1.5 bg-surface-dark text-surface-dark-foreground hover:bg-surface-dark/90"
+          >
             <UserPlus className="h-4 w-4" />
             Invite Staff Member
           </Button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search by name or email..."
-            className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
-          />
-        </div>
+      {/* Role stat pills */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { key: 'all', label: 'All Staff', icon: <Users className="h-4 w-4" />, color: 'bg-secondary' },
+          { key: 'management', label: 'Management', icon: <Shield className="h-4 w-4 text-gold" />, color: 'bg-gold/10' },
+          { key: 'onboarding_staff', label: 'Onboarding', icon: <Users className="h-4 w-4 text-status-complete" />, color: 'bg-status-complete/10' },
+          { key: 'dispatcher', label: 'Dispatchers', icon: <Truck className="h-4 w-4 text-blue-500" />, color: 'bg-blue-500/10' },
+        ].map(item => (
+          <button
+            key={item.key}
+            onClick={() => setRoleFilter(item.key as StaffRole | 'all')}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left ${
+              roleFilter === item.key
+                ? 'border-surface-dark shadow-sm bg-white ring-1 ring-surface-dark/20'
+                : 'border-border bg-white hover:bg-secondary/40'
+            }`}
+          >
+            <div className={`h-8 w-8 rounded-lg ${item.color} flex items-center justify-center shrink-0`}>
+              {item.icon}
+            </div>
+            <div>
+              <p className="text-xl font-bold text-foreground leading-none">{counts[item.key as keyof typeof counts]}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{item.label}</p>
+            </div>
+          </button>
+        ))}
+      </div>
 
-        <div className="flex rounded-lg border border-border bg-white overflow-hidden shrink-0">
-          {(['all', 'management', 'onboarding_staff', 'dispatcher'] as const).map(r => (
-            <button
-              key={r}
-              onClick={() => setRoleFilter(r)}
-              className={`px-3 py-2 text-xs font-medium transition-colors border-r border-border last:border-0 whitespace-nowrap ${
-                roleFilter === r
-                  ? 'bg-surface-dark text-white'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
-              }`}
-            >
-              {r === 'all' ? 'All' : r === 'onboarding_staff' ? 'Onboarding' : r.charAt(0).toUpperCase() + r.slice(1)}
-              <span className="ml-1.5 opacity-60">({counts[r]})</span>
-            </button>
-          ))}
-        </div>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Search by name or email…"
+          className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+        />
       </div>
 
       {/* Staff Table */}
@@ -233,7 +289,9 @@ export default function StaffDirectory() {
           <div className="py-16 text-center">
             <Users className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
             <p className="text-muted-foreground text-sm">
-              {staff.length === 0 ? 'No staff members found. Invite your first team member!' : 'No staff members match the current filter.'}
+              {staff.length === 0
+                ? 'No staff members found. Invite your first team member!'
+                : 'No staff members match the current filter.'}
             </p>
             {staff.length === 0 && (
               <Button
@@ -249,64 +307,109 @@ export default function StaffDirectory() {
           <>
             {/* Table header */}
             <div className="grid grid-cols-12 px-5 py-3 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
-              <span className="col-span-4">Name</span>
-              <span className="col-span-3">Roles</span>
-              <span className="col-span-2">Status</span>
-              <span className="col-span-3">Last Updated</span>
+              <span className="col-span-3">Name</span>
+              <span className="col-span-3">Email</span>
+              <span className="col-span-2">Roles</span>
+              <span className="col-span-1 text-center">Operators</span>
+              <span className="col-span-2">Status · Joined</span>
+              <span className="col-span-1 text-right">Access</span>
             </div>
 
             <div className="divide-y divide-border">
               {filteredStaff.map(member => {
                 const name = [member.first_name, member.last_name].filter(Boolean).join(' ') || '(No name set)';
                 const statusCfg = STATUS_CONFIG[member.account_status] ?? STATUS_CONFIG.pending;
+                const initial = (member.first_name?.[0] ?? member.last_name?.[0] ?? '?').toUpperCase();
 
                 return (
                   <div key={member.user_id} className="grid grid-cols-12 items-center px-5 py-4 hover:bg-secondary/20 transition-colors">
-                    {/* Name */}
-                    <div className="col-span-4">
+                    {/* Name + avatar */}
+                    <div className="col-span-3">
                       <div className="flex items-center gap-3">
                         <div className="h-9 w-9 rounded-full bg-surface-dark flex items-center justify-center shrink-0">
-                          <span className="text-sm font-semibold text-gold">
-                            {(member.first_name?.[0] ?? member.last_name?.[0] ?? '?').toUpperCase()}
-                          </span>
+                          <span className="text-sm font-semibold text-gold">{initial}</span>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground">{name}</p>
+                          <p className="text-sm font-medium text-foreground truncate">{name}</p>
                           <p className="text-xs text-muted-foreground">
-                            Joined {formatDate(member.created_at)}
+                            {member.user_id === user?.id ? (
+                              <span className="text-gold font-medium">You</span>
+                            ) : (
+                              formatDate(member.created_at)
+                            )}
                           </p>
                         </div>
                       </div>
                     </div>
 
+                    {/* Email */}
+                    <div className="col-span-3 min-w-0">
+                      {member.email ? (
+                        <a
+                          href={`mailto:${member.email}`}
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-gold transition-colors truncate"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                          <span className="truncate">{member.email}</span>
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/50">—</span>
+                      )}
+                    </div>
+
                     {/* Roles */}
-                    <div className="col-span-3 flex flex-wrap gap-1.5">
+                    <div className="col-span-2 flex flex-wrap gap-1">
                       {member.roles
-                        .filter(r => ['management', 'onboarding_staff', 'dispatcher'].includes(r))
+                        .filter(r => ALL_STAFF_ROLES.includes(r as StaffRole))
                         .map(r => {
                           const cfg = ROLE_CONFIG[r as StaffRole];
                           return (
                             <Badge key={r} className={`text-xs border gap-1 ${cfg.color}`}>
                               {cfg.icon}
-                              {cfg.label}
+                              <span className="hidden lg:inline">{cfg.label}</span>
                             </Badge>
                           );
                         })}
                     </div>
 
-                    {/* Status */}
+                    {/* Operator count */}
+                    <div className="col-span-1 text-center">
+                      {member.roles.includes('onboarding_staff') || member.roles.includes('management') ? (
+                        <span className={`inline-flex items-center justify-center h-6 min-w-[1.5rem] px-1.5 rounded-full text-xs font-bold ${
+                          member.assigned_operator_count > 0
+                            ? 'bg-gold/15 text-gold-muted'
+                            : 'bg-secondary text-muted-foreground'
+                        }`}>
+                          {member.assigned_operator_count}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/40">—</span>
+                      )}
+                    </div>
+
+                    {/* Status + joined */}
                     <div className="col-span-2">
                       <Badge className={`text-xs border ${statusCfg.color}`}>
                         {statusCfg.label}
                       </Badge>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                        <Clock className="h-3 w-3 shrink-0" />
+                        {formatDate(member.created_at)}
+                      </div>
                     </div>
 
-                    {/* Last Updated */}
-                    <div className="col-span-3">
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Clock className="h-3.5 w-3.5 shrink-0" />
-                        {formatDate(member.updated_at)}
-                      </div>
+                    {/* Manage access */}
+                    <div className="col-span-1 flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                        onClick={() => setManagingMember(member)}
+                        title="Manage access"
+                      >
+                        <Settings2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 );
@@ -319,6 +422,127 @@ export default function StaffDirectory() {
       <p className="text-xs text-muted-foreground text-right">
         Showing {filteredStaff.length} of {staff.length} staff member{staff.length !== 1 ? 's' : ''}
       </p>
+
+      {/* ── Manage Access Modal ── */}
+      {managingMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setManagingMember(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md animate-scale-in">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-border">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-surface-dark flex items-center justify-center shrink-0">
+                  <span className="text-base font-bold text-gold">
+                    {(managingMember.first_name?.[0] ?? managingMember.last_name?.[0] ?? '?').toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-foreground">
+                    {[managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || '(No name set)'}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">{managingMember.email ?? 'No email'}</p>
+                </div>
+              </div>
+              <button onClick={() => setManagingMember(null)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Role Access</p>
+                <div className="space-y-2">
+                  {ALL_STAFF_ROLES.map(role => {
+                    const cfg = ROLE_CONFIG[role];
+                    const hasRole = managingMember.roles.includes(role as AppRole);
+                    const isSelf = managingMember.user_id === user?.id;
+                    const cantRemove = isSelf && role === 'management';
+                    const loadingKey = `${managingMember.user_id}-${role}-${hasRole ? 'remove' : 'add'}`;
+                    const isLoading = roleActionLoading === loadingKey;
+
+                    return (
+                      <div
+                        key={role}
+                        className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${
+                          hasRole ? 'bg-secondary/40 border-border' : 'bg-white border-border'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${cfg.color}`}>
+                            {cfg.icon}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{cfg.label}</p>
+                            <p className="text-xs text-muted-foreground">{cfg.desc}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          {hasRole && (
+                            <span className="flex items-center gap-1 text-xs text-status-complete">
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Active
+                            </span>
+                          )}
+                          {cantRemove ? (
+                            <span className="text-xs text-muted-foreground/50 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" /> Protected
+                            </span>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant={hasRole ? 'outline' : 'default'}
+                              disabled={isLoading}
+                              onClick={() => handleRoleChange(managingMember.user_id, role, hasRole ? 'remove' : 'add')}
+                              className={`h-7 px-2.5 text-xs gap-1 ${
+                                hasRole
+                                  ? 'text-destructive border-destructive/30 hover:bg-destructive/10'
+                                  : 'bg-surface-dark text-surface-dark-foreground hover:bg-surface-dark/90'
+                              }`}
+                            >
+                              {isLoading ? (
+                                <RefreshCcw className="h-3 w-3 animate-spin" />
+                              ) : hasRole ? (
+                                <><Minus className="h-3 w-3" /> Remove</>
+                              ) : (
+                                <><Plus className="h-3 w-3" /> Grant</>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Account status summary */}
+              <div className="pt-1 border-t border-border">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Account status</span>
+                  <Badge className={`text-xs border ${STATUS_CONFIG[managingMember.account_status]?.color ?? ''}`}>
+                    {STATUS_CONFIG[managingMember.account_status]?.label ?? managingMember.account_status}
+                  </Badge>
+                </div>
+                {(managingMember.roles.includes('onboarding_staff') || managingMember.roles.includes('management')) && (
+                  <div className="flex items-center justify-between text-xs mt-2">
+                    <span className="text-muted-foreground">Assigned operators</span>
+                    <span className="font-semibold text-foreground">{managingMember.assigned_operator_count}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="px-6 pb-5">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setManagingMember(null)}
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Invite Modal ── */}
       {showInvite && (
@@ -397,15 +621,12 @@ export default function StaffDirectory() {
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 </div>
 
-                {/* Role description */}
                 <div className={`mt-2 px-3 py-2 rounded-lg text-xs border ${ROLE_CONFIG[inviteRole].color}`}>
                   <div className="flex items-center gap-1.5 font-medium mb-0.5">
                     {ROLE_CONFIG[inviteRole].icon}
                     {ROLE_CONFIG[inviteRole].label}
                   </div>
-                  {inviteRole === 'management' && 'Full access: applications, pipeline, staff, and dispatch overview.'}
-                  {inviteRole === 'onboarding_staff' && 'Manage operator pipeline, onboarding status, and documents.'}
-                  {inviteRole === 'dispatcher' && 'Manage active dispatch statuses and load assignments.'}
+                  {ROLE_CONFIG[inviteRole].desc}
                 </div>
               </div>
 
@@ -426,15 +647,9 @@ export default function StaffDirectory() {
                   disabled={inviting || !inviteEmail.trim()}
                 >
                   {inviting ? (
-                    <>
-                      <RefreshCcw className="h-4 w-4 animate-spin" />
-                      Sending…
-                    </>
+                    <><RefreshCcw className="h-4 w-4 animate-spin" /> Sending…</>
                   ) : (
-                    <>
-                      <Mail className="h-4 w-4" />
-                      Send Invitation
-                    </>
+                    <><Mail className="h-4 w-4" /> Send Invitation</>
                   )}
                 </Button>
               </div>
