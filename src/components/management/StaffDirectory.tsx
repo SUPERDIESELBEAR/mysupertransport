@@ -546,6 +546,67 @@ export default function StaffDirectory() {
                 </div>
               </div>
 
+              {/* Phone number */}
+              <div className="pt-1 border-t border-border">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Phone Number</p>
+                  {managingMember.roles.includes('dispatcher' as AppRole) && (
+                    <span className="text-[10px] bg-blue-500/15 text-blue-600 border border-blue-300 px-1.5 py-0.5 rounded-full">
+                      Shown in Truck Down alerts
+                    </span>
+                  )}
+                </div>
+                {phoneEditActive ? (
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                      <input
+                        type="tel"
+                        value={editingPhone}
+                        onChange={e => setEditingPhone(e.target.value)}
+                        placeholder="(555) 000-0000"
+                        maxLength={30}
+                        autoFocus
+                        className="w-full pl-8 pr-3 py-1.5 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      disabled={phoneSaving}
+                      onClick={handlePhoneUpdate}
+                      className="h-8 px-3 text-xs bg-surface-dark text-surface-dark-foreground hover:bg-surface-dark/90 gap-1"
+                    >
+                      {phoneSaving ? <RefreshCcw className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={phoneSaving}
+                      onClick={() => { setPhoneEditActive(false); setEditingPhone(managingMember.phone ?? ''); }}
+                      className="h-8 px-3 text-xs"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div
+                    className="flex items-center justify-between px-3 py-2 rounded-lg border border-dashed border-border bg-secondary/30 cursor-pointer hover:bg-secondary/50 transition-colors group"
+                    onClick={() => setPhoneEditActive(true)}
+                  >
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                      {managingMember.phone ? (
+                        <span className="text-foreground">{managingMember.phone}</span>
+                      ) : (
+                        <span className="text-muted-foreground/60 italic">No phone on file</span>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground/50 group-hover:text-muted-foreground transition-colors">Edit</span>
+                  </div>
+                )}
+              </div>
+
               {/* Account status summary */}
               <div className="pt-1 border-t border-border">
                 <div className="flex items-center justify-between text-xs">
