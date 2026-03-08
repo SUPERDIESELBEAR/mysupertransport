@@ -230,7 +230,9 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
       const matchStatus = statusFilter === 'all' || getStatus(op) === statusFilter;
       const matchCoordinator = coordinatorFilter === 'all' ||
         (coordinatorFilter === 'unassigned' ? !op.assigned_staff_id : op.assigned_staff_id === coordinatorFilter);
-      return matchSearch && matchStage && matchStatus && matchCoordinator;
+      const matchDispatch = dispatchFilter === 'all' || op.dispatch_status === dispatchFilter ||
+        (dispatchFilter === 'not_dispatched' && op.dispatch_status === null);
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch;
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
