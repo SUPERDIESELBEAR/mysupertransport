@@ -39,6 +39,7 @@ function AppRoutes() {
       <Route path="/apply" element={<ApplicationForm />} />
       <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/dashboard" replace />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/welcome" element={<WelcomeOperator />} />
 
       {/* Protected routes */}
       <Route path="/dashboard" element={
