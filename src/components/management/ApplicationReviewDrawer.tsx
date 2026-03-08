@@ -170,9 +170,18 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
               {app.submitted_at ? `Submitted ${new Date(app.submitted_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : 'Draft'}
             </p>
           </div>
-          <button onClick={onClose} className="text-surface-dark-muted hover:text-white transition-colors p-1">
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handlePrint}
+              title="Print / Save as PDF"
+              className="text-surface-dark-muted hover:text-white transition-colors p-1.5 rounded-md hover:bg-white/10"
+            >
+              <Printer className="h-4 w-4" />
+            </button>
+            <button onClick={onClose} className="text-surface-dark-muted hover:text-white transition-colors p-1">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable content */}
