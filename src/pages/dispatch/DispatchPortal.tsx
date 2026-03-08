@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import MessagesView from '@/components/staff/MessagesView';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
-  LayoutGrid, List, Phone
+  LayoutGrid, List, Phone, Siren
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
