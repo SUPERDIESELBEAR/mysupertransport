@@ -18,6 +18,7 @@ interface StaffMember {
   user_id: string;
   first_name: string | null;
   last_name: string | null;
+  phone: string | null;
   email: string | null;
   account_status: string;
   created_at: string;
