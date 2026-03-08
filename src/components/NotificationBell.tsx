@@ -22,6 +22,7 @@ interface NotificationBellProps {
 
 export default function NotificationBell({ variant = 'light' }: NotificationBellProps) {
   const { session } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
