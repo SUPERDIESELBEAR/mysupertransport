@@ -258,6 +258,11 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // ── Sync initialUserId prop → select that thread immediately ─────────────
+  useEffect(() => {
+    if (initialUserId) setSelectedUserId(initialUserId);
+  }, [initialUserId]);
+
   // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
     loadOperators();
