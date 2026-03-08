@@ -75,6 +75,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
   const [stageFilter, setStageFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [coordinatorFilter, setCoordinatorFilter] = useState('all');
+  const [dispatchFilter, setDispatchFilter] = useState<'all' | DispatchStatus>('all');
 
   // Sort state
   type SortKey = 'name' | 'stage' | 'coordinator';
