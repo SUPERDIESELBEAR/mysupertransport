@@ -10,6 +10,7 @@ import StaffDirectory from '@/components/management/StaffDirectory';
 import FaqManager from '@/components/management/FaqManager';
 import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import ActivityLog from '@/components/management/ActivityLog';
+import DispatchBoard from '../dispatch/DispatchPortal';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight,
@@ -360,13 +361,7 @@ export default function ManagementPortal() {
         )}
 
         {view === 'dispatch' && (
-          <div className="flex flex-col items-center justify-center h-64 gap-3">
-            <Truck className="h-10 w-10 text-muted-foreground/30" />
-            <p className="text-muted-foreground text-sm">The Dispatch Board is in the dedicated Dispatch portal.</p>
-            <Button variant="outline" size="sm" onClick={() => window.location.href = '/dispatch'} className="gap-2">
-              <Truck className="h-4 w-4" /> Open Dispatch Portal
-            </Button>
-          </div>
+          <DispatchBoard />
         )}
 
         {view === 'staff' && (

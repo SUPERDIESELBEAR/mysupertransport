@@ -12,9 +12,10 @@ import { OperatorResourceLibrary, OperatorFAQ } from '@/components/operator/Oper
 import OperatorMessagesView from '@/components/operator/OperatorMessagesView';
 import NotificationBell from '@/components/NotificationBell';
 import OperatorStatusPage from '@/components/operator/OperatorStatusPage';
+import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq';
+type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch';
 
 interface Stage {
   number: number;
@@ -227,10 +228,11 @@ export default function OperatorPortal() {
   const navItems = [
     { view: 'progress' as OperatorView, label: 'My Progress', icon: <CheckCircle2 className="h-5 w-5" /> },
     { view: 'documents' as OperatorView, label: 'Documents', icon: <Upload className="h-5 w-5" /> },
+    { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
     { view: 'resources' as OperatorView, label: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> },
-  ];
+  ].filter(item => !('onlyOnboarded' in item) || isFullyOnboarded);
 
   const statusConfig: Record<StageStatus, { color: string; badge: string; icon: React.ReactNode }> = {
     complete: { color: 'border-status-complete/30 bg-status-complete/5', badge: 'bg-status-complete/15 text-status-complete border-status-complete/30', icon: <CheckCircle2 className="h-5 w-5 text-status-complete" /> },
@@ -358,6 +360,11 @@ export default function OperatorPortal() {
 
         {/* ── MESSAGES VIEW ── */}
         {view === 'messages' && <OperatorMessagesView />}
+
+        {/* ── DISPATCH STATUS VIEW ── */}
+        {view === 'dispatch' && operatorId && (
+          <OperatorDispatchStatus operatorId={operatorId} />
+        )}
       </div>
     </div>
   );
