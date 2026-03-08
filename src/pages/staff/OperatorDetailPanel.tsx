@@ -281,9 +281,9 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       if (triggeredMilestones.length > 0 || statusId) {
         // Only log if something meaningfully changed (milestones triggered)
         if (triggeredMilestones.length > 0) {
-          supabase.from('audit_log' as any).insert({
+          void supabase.from('audit_log' as any).insert({
             actor_id: session?.user?.id ?? null,
-            actor_name: null, // resolved server-side ideally; null falls back to actor_id lookup in UI
+            actor_name: null,
             action: 'operator_status_updated',
             entity_type: 'operator',
             entity_id: operatorId,
@@ -291,7 +291,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
             metadata: {
               milestones: triggeredMilestones.map(m => m.label),
             },
-          }).then(() => {}).catch((e: unknown) => console.error('Audit log error:', e));
+          });
         }
       }
     }
