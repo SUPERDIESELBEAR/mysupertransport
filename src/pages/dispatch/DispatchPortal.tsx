@@ -115,8 +115,8 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
       .from('operators')
       .select(`
         id,
+        user_id,
         unit_number,
-        profiles!operators_user_id_fkey (first_name, last_name, phone, home_state),
         onboarding_status (fully_onboarded, unit_number),
         active_dispatch (id, dispatch_status, assigned_dispatcher, current_load_lane, eta_redispatch, status_notes)
       `);
