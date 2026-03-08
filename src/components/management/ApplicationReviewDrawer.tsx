@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   X, CheckCircle2, XCircle, User, Phone, Mail, MapPin, Calendar,
-  Briefcase, Car, FileText, ShieldAlert, ChevronRight, AlertTriangle, Loader2
+  Briefcase, Car, FileText, ShieldAlert, ChevronRight, AlertTriangle, Loader2, Printer
 } from 'lucide-react';
 
 interface ApplicationReviewDrawerProps {
