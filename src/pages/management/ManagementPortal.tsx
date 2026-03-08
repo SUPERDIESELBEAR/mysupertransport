@@ -9,15 +9,16 @@ import ApplicationReviewDrawer, { type FullApplication } from '@/components/mana
 import StaffDirectory from '@/components/management/StaffDirectory';
 import FaqManager from '@/components/management/FaqManager';
 import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
+import ActivityLog from '@/components/management/ActivityLog';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight,
-  Search, RefreshCcw, Eye
+  Search, RefreshCcw, Eye, ScrollText
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity';
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all';
 
 const STATUS_COLORS: Record<string, string> = {
