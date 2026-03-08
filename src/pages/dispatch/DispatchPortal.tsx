@@ -213,6 +213,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
             current_load_lane: d.current_load_lane ?? null,
             eta_redispatch: d.eta_redispatch ?? null,
             status_notes: d.status_notes ?? null,
+            updated_at: d.updated_at ?? null,
           };
         })
         .sort((a, b) => {
