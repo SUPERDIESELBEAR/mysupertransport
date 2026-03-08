@@ -154,11 +154,14 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
     return () => { supabase.removeChannel(channel); };
   }, [session?.user?.id]);
 
-  // Clear badge when navigating to Messages tab
+  // Clear badges when navigating to Messages tab
   const handleNavigate = (path: string) => {
     const p = path as 'dispatch' | 'dispatch-messages';
     setActivePage(p);
-    if (p === 'dispatch-messages') setUnreadMessages(0);
+    if (p === 'dispatch-messages') {
+      setUnreadMessages(0);
+      setUnreadPerOperator({});
+    }
   };
 
   useEffect(() => {
