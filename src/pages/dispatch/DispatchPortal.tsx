@@ -516,8 +516,13 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   ];
 
   return (
-    <StaffLayout navItems={navItems} currentPath="dispatch" onNavigate={() => {}} title="Dispatch">
-      {board}
+    <StaffLayout
+      navItems={navItems}
+      currentPath={activePage}
+      onNavigate={(path) => setActivePage(path as 'dispatch' | 'dispatch-messages')}
+      title="Dispatch"
+    >
+      {activePage === 'dispatch-messages' ? <MessagesView /> : board}
     </StaffLayout>
   );
 }
