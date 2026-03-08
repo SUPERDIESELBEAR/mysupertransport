@@ -214,15 +214,26 @@ export default function OperatorDispatchStatus({ operatorId, onMessageDispatcher
                   )}
                 </div>
               </div>
-              {dispatcher?.phone && (
-                <a
-                  href={`tel:${dispatcher.phone}`}
-                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-surface-dark text-surface-dark-foreground hover:bg-surface-dark/90 transition-colors shrink-0"
-                >
-                  <Phone className="h-3.5 w-3.5" />
-                  Call
-                </a>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {dispatcher?.phone && (
+                  <a
+                    href={`tel:${dispatcher.phone}`}
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-surface-dark text-surface-dark-foreground hover:bg-surface-dark/90 transition-colors"
+                  >
+                    <Phone className="h-3.5 w-3.5" />
+                    Call
+                  </a>
+                )}
+                {onMessageDispatcher && (
+                  <button
+                    onClick={() => onMessageDispatcher(dispatch.assigned_dispatcher!)}
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-gold/15 text-gold hover:bg-gold/25 transition-colors"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    Message
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
