@@ -199,6 +199,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
           const p = profileMap[op.user_id] ?? {};
           return {
             operator_id: op.id,
+            operator_user_id: op.user_id,
             dispatch_id: d.id ?? null,
             first_name: p.first_name ?? null,
             last_name: p.last_name ?? null,
