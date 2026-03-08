@@ -1,12 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
-  CheckCircle2, Circle, Clock, AlertTriangle,
-  Truck, MessageSquare, BookOpen, HelpCircle, FileText,
-  LogOut, Menu, X, Upload, Shield, Package, FileCheck
+  CheckCircle2,
+  MessageSquare, BookOpen, HelpCircle, FileText,
+  LogOut, Menu, X, Upload, Shield, FileCheck, Truck
 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import OperatorDocumentUpload from '@/components/operator/OperatorDocumentUpload';
