@@ -54,11 +54,15 @@ function initials(name: string) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function MessagesView() {
+interface MessagesViewProps {
+  initialUserId?: string | null;
+}
+
+export default function MessagesView({ initialUserId }: MessagesViewProps = {}) {
   const { user } = useAuth();
   const [operators, setOperators] = useState<Operator[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(initialUserId ?? null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
