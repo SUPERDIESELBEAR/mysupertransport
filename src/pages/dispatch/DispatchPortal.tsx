@@ -835,15 +835,30 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                             </Button>
                           </div>
                         ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => startEdit(row)}
-                            className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5"
-                          >
-                            <Edit2 className="h-3 w-3" />
-                            Edit
-                          </Button>
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setMessageInitialUserId(row.operator_user_id);
+                                setActivePage('dispatch-messages');
+                              }}
+                              className="h-7 text-xs text-muted-foreground hover:text-primary hover:bg-primary/10 gap-1 px-2.5"
+                              title={`Message ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                              Message
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => startEdit(row)}
+                              className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                              Edit
+                            </Button>
+                          </div>
                         )}
                       </td>
                     </tr>
