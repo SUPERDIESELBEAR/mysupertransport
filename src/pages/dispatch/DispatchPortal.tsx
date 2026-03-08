@@ -625,33 +625,50 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                     </div>
 
                     {/* Card footer — actions */}
-                    <div className="px-4 pb-4 pt-0 flex justify-end gap-2">
-                      {isEditing ? (
-                        <>
+                    <div className="px-4 pb-4 pt-0 flex items-center justify-between gap-2">
+                      {/* Message quick-action — always visible */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setMessageInitialUserId(row.operator_user_id);
+                          setActivePage('dispatch-messages');
+                        }}
+                        className="h-7 text-xs text-muted-foreground hover:text-primary hover:bg-primary/10 gap-1 px-2.5"
+                        title={`Message ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
+                      >
+                        <MessageSquare className="h-3 w-3" />
+                        Message
+                      </Button>
+
+                      <div className="flex gap-2">
+                        {isEditing ? (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={() => saveEdit(row)}
+                              disabled={saving}
+                              className="h-7 text-xs bg-gold text-surface-dark hover:bg-gold-light gap-1 px-3"
+                            >
+                              {saving ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                              Save
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-7 text-xs px-2">
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        ) : (
                           <Button
+                            variant="ghost"
                             size="sm"
-                            onClick={() => saveEdit(row)}
-                            disabled={saving}
-                            className="h-7 text-xs bg-gold text-surface-dark hover:bg-gold-light gap-1 px-3"
+                            onClick={() => startEdit(row)}
+                            className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5"
                           >
-                            {saving ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                            Save
+                            <Edit2 className="h-3 w-3" />
+                            Edit
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-7 text-xs px-2">
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => startEdit(row)}
-                          className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5"
-                        >
-                          <Edit2 className="h-3 w-3" />
-                          Edit
-                        </Button>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
