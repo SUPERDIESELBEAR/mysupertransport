@@ -57,8 +57,18 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
     mvr_ch_approval: string;
     pe_screening_result: string;
     insurance_added_date: string | null;
+    form_2290: string;
+    truck_title: string;
+    truck_photos: string;
+    truck_inspection: string;
+    decal_applied: string;
+    eld_installed: string;
+    fuel_card_issued: string;
+    mo_reg_received: string;
   }>({
     ica_status: '', mvr_ch_approval: '', pe_screening_result: '', insurance_added_date: null,
+    form_2290: '', truck_title: '', truck_photos: '', truck_inspection: '',
+    decal_applied: '', eld_installed: '', fuel_card_issued: '', mo_reg_received: '',
   });
 
   useEffect(() => {
@@ -92,13 +102,21 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       const os = (op as any).onboarding_status?.[0];
       if (os) {
         setStatus(os);
-        setStatusId(os.id);
+      setStatusId(os.id);
         // Snapshot current milestone values as baseline
         savedMilestones.current = {
           ica_status: os.ica_status ?? '',
           mvr_ch_approval: os.mvr_ch_approval ?? '',
           pe_screening_result: os.pe_screening_result ?? '',
           insurance_added_date: os.insurance_added_date ?? null,
+          form_2290: os.form_2290 ?? '',
+          truck_title: os.truck_title ?? '',
+          truck_photos: os.truck_photos ?? '',
+          truck_inspection: os.truck_inspection ?? '',
+          decal_applied: os.decal_applied ?? '',
+          eld_installed: os.eld_installed ?? '',
+          fuel_card_issued: os.fuel_card_issued ?? '',
+          mo_reg_received: os.mo_reg_received ?? '',
         };
       }
     }
@@ -113,7 +131,41 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
     const isNewlyFullyOnboarded =
       !prev.insurance_added_date && !!status.insurance_added_date;
 
+    // Check if all docs are now received (all four fields = 'received')
+    const allDocsReceived =
+      status.form_2290 === 'received' &&
+      status.truck_title === 'received' &&
+      status.truck_photos === 'received' &&
+      status.truck_inspection === 'received';
+    const wasAllDocsReceived =
+      prev.form_2290 === 'received' &&
+      prev.truck_title === 'received' &&
+      prev.truck_photos === 'received' &&
+      prev.truck_inspection === 'received';
+
+    // Check if any doc transitioned to 'requested' (first time)
+    const anyDocJustRequested =
+      (prev.form_2290 !== 'requested' && status.form_2290 === 'requested') ||
+      (prev.truck_title !== 'requested' && status.truck_title === 'requested') ||
+      (prev.truck_photos !== 'requested' && status.truck_photos === 'requested') ||
+      (prev.truck_inspection !== 'requested' && status.truck_inspection === 'requested');
+
+    // Equipment ready: all three equipment items just became complete together
+    const equipmentReady =
+      status.decal_applied === 'yes' &&
+      status.eld_installed === 'yes' &&
+      status.fuel_card_issued === 'yes';
+    const wasEquipmentReady =
+      prev.decal_applied === 'yes' &&
+      prev.eld_installed === 'yes' &&
+      prev.fuel_card_issued === 'yes';
+
     const milestones: { key: string; label: string; triggered: boolean }[] = [
+      {
+        key: 'ica_sent',
+        label: 'ICA Agreement Sent for Signature',
+        triggered: prev.ica_status !== 'sent_for_signature' && status.ica_status === 'sent_for_signature',
+      },
       {
         key: 'ica_complete',
         label: 'ICA Agreement Signed & Complete',
@@ -128,6 +180,26 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
         key: 'pe_clear',
         label: 'Pre-Employment Screening — Clear',
         triggered: prev.pe_screening_result !== 'clear' && status.pe_screening_result === 'clear',
+      },
+      {
+        key: 'docs_requested',
+        label: 'Documents Requested — Please Upload Your Documents',
+        triggered: anyDocJustRequested,
+      },
+      {
+        key: 'docs_approved',
+        label: 'All Documents Received & Approved',
+        triggered: !wasAllDocsReceived && allDocsReceived,
+      },
+      {
+        key: 'equipment_ready',
+        label: 'Equipment Setup Complete (Decal, ELD, Fuel Card)',
+        triggered: !wasEquipmentReady && equipmentReady,
+      },
+      {
+        key: 'mo_reg_received',
+        label: 'Missouri Registration Received',
+        triggered: prev.mo_reg_received !== 'yes' && status.mo_reg_received === 'yes',
       },
       {
         key: 'fully_onboarded',
@@ -180,8 +252,8 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
                 : undefined,
             });
             toast({
-              title: m.key === 'fully_onboarded' ? '🎉 Operator fully onboarded!' : `📧 Milestone email sent`,
-              description: `Notified ${operatorName}: ${m.label}`,
+              title: m.key === 'fully_onboarded' ? '🎉 Operator fully onboarded!' : `📩 Operator notified`,
+              description: `${operatorName}: ${m.label}`,
             });
           } catch (notifErr) {
             console.error('Milestone notification error:', notifErr);
@@ -194,6 +266,14 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           mvr_ch_approval: status.mvr_ch_approval ?? prev.mvr_ch_approval,
           pe_screening_result: status.pe_screening_result ?? prev.pe_screening_result,
           insurance_added_date: status.insurance_added_date ?? prev.insurance_added_date,
+          form_2290: status.form_2290 ?? prev.form_2290,
+          truck_title: status.truck_title ?? prev.truck_title,
+          truck_photos: status.truck_photos ?? prev.truck_photos,
+          truck_inspection: status.truck_inspection ?? prev.truck_inspection,
+          decal_applied: status.decal_applied ?? prev.decal_applied,
+          eld_installed: status.eld_installed ?? prev.eld_installed,
+          fuel_card_issued: status.fuel_card_issued ?? prev.fuel_card_issued,
+          mo_reg_received: status.mo_reg_received ?? prev.mo_reg_received,
         };
       }
     }
