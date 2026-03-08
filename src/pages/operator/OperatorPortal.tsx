@@ -44,8 +44,24 @@ export default function OperatorPortal() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
+  const [assignedDispatcher, setAssignedDispatcher] = useState<{ name: string; phone: string | null } | null>(null);
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
+
+  const fetchDispatcherInfo = useCallback(async (dispatcherUserId: string | null) => {
+    if (!dispatcherUserId) { setAssignedDispatcher(null); return; }
+    const { data } = await supabase
+      .from('profiles')
+      .select('first_name, last_name, phone')
+      .eq('user_id', dispatcherUserId)
+      .maybeSingle();
+    if (data) {
+      setAssignedDispatcher({
+        name: [data.first_name, data.last_name].filter(Boolean).join(' ') || 'Dispatcher',
+        phone: data.phone ?? null,
+      });
+    }
+  }, []);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -63,15 +79,16 @@ export default function OperatorPortal() {
       setOnboardingStatus(os);
       setUploadedDocs((op as any).operator_documents ?? []);
 
-      // Fetch current dispatch status
+      // Fetch current dispatch status + assigned dispatcher
       const { data: dispatch } = await supabase
         .from('active_dispatch')
-        .select('dispatch_status')
+        .select('dispatch_status, assigned_dispatcher')
         .eq('operator_id', opId)
         .maybeSingle();
       setDispatchStatus((dispatch as any)?.dispatch_status ?? null);
+      fetchDispatcherInfo((dispatch as any)?.assigned_dispatcher ?? null);
     }
-  }, [user]);
+  }, [user, fetchDispatcherInfo]);
 
   const fetchUnreadCount = useCallback(async () => {
     if (!user) return;
