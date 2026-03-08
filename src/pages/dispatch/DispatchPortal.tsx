@@ -75,6 +75,7 @@ interface DispatchPortalProps {
 
 export default function DispatchPortal({ embedded = false }: DispatchPortalProps) {
   const { toast } = useToast();
+  const { session } = useAuth();
   const [activePage, setActivePage] = useState<'dispatch' | 'dispatch-messages'>('dispatch');
   const [rows, setRows] = useState<DispatchRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,6 +86,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
   const [liveIndicator, setLiveIndicator] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
