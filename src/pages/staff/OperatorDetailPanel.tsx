@@ -669,6 +669,15 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           }}
         />
       )}
+
+      {/* ICA View Modal */}
+      {showICAView && (
+        <ICAViewModal
+          operatorId={operatorId}
+          operatorName={operatorName}
+          onClose={() => setShowICAView(false)}
+        />
+      )}
     </div>
   );
 }
