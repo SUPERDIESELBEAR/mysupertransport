@@ -52,9 +52,12 @@ const STAGES = [
 ];
 
 export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardProps) {
+  const { toast } = useToast();
   const [operators, setOperators] = useState<OperatorRow[]>([]);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
   const [loading, setLoading] = useState(true);
+  // Track which operator rows are currently saving a coordinator assignment
+  const [assigningMap, setAssigningMap] = useState<Record<string, boolean>>({});
   const [showFilters, setShowFilters] = useState(false);
 
   // Filter state
