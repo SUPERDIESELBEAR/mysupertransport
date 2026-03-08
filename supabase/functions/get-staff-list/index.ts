@@ -56,8 +56,12 @@ Deno.serve(async (req) => {
       return data ? `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim() || (callerUser.email ?? 'Unknown') : (callerUser.email ?? 'Unknown');
     };
 
-    // Handle role update requests (POST with action)
-    if (req.method === 'POST') {
+    // Handle role update requests (POST with action body)
+    // Only parse JSON if there's a non-empty body to avoid SyntaxError on bodyless POSTs
+    const contentLength = req.headers.get('content-length');
+    const hasBody = contentLength !== null ? parseInt(contentLength) > 0 : false;
+
+    if (req.method === 'POST' && hasBody) {
       const body = await req.json();
       const { action, user_id, role, target_name } = body as {
         action: string;
