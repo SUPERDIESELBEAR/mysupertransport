@@ -214,7 +214,28 @@ export default function ApplicationForm() {
     setSubmitting(true);
     try {
       const token = localStorage.getItem(DRAFT_TOKEN_KEY) || crypto.randomUUID();
-      const payload = { ...buildPayload(formData, token, false), submitted_at: new Date().toISOString() };
+
+      // Encrypt SSN via secure backend function before storing
+      let ssnEncrypted: string | null = null;
+      if (formData.ssn) {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const { data: { session } } = await supabase.auth.getSession();
+        const authToken = session?.access_token ?? anonKey;
+        const encRes = await fetch(`${supabaseUrl}/functions/v1/encrypt-ssn`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`,
+            'apikey': anonKey,
+          },
+          body: JSON.stringify({ ssn: formData.ssn }),
+        });
+        const encData = await encRes.json();
+        ssnEncrypted = encData.encrypted ?? null;
+      }
+
+      const payload = { ...buildPayload(formData, token, false, ssnEncrypted), submitted_at: new Date().toISOString() };
 
       if (applicationId) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
