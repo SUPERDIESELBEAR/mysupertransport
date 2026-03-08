@@ -3,8 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   X, CheckCircle2, XCircle, User, Phone, Mail, MapPin, Calendar,
-  Briefcase, Car, FileText, ShieldAlert, ChevronRight, AlertTriangle, Loader2, Printer
+  Briefcase, Car, FileText, ShieldAlert, ChevronRight, AlertTriangle, Loader2, Printer,
+  Eye, EyeOff, Lock
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ApplicationReviewDrawerProps {
   app: FullApplication | null;
