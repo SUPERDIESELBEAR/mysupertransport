@@ -319,8 +319,8 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All stages</SelectItem>
-                  {STAGES.map((s, i) => (
-                    <SelectItem key={s} value={s}>Stage {i + 1} — {s.split('— ')[1]}</SelectItem>
+                  {STAGES.map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
