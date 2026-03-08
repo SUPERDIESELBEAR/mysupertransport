@@ -429,6 +429,40 @@ Deno.serve(async (req) => {
           });
         }
 
+        // ── Email the operator themselves on Truck Down ─────────────────
+        if (newStatus === 'truck_down') {
+          try {
+            const operatorEmail = await getOperatorEmail(operatorId);
+            if (operatorEmail) {
+              const operatorName = payload.operator_name || 'Driver';
+              const notesRow = payload.status_notes
+                ? `<p style="background:#fff5f5;border-left:4px solid #e53e3e;padding:12px 16px;border-radius:4px;margin:16px 0;"><strong>Note from your dispatcher:</strong> ${payload.status_notes}</p>`
+                : '';
+              const laneRow = payload.current_load_lane
+                ? `<p><strong>Load / Lane:</strong> ${payload.current_load_lane}</p>`
+                : '';
+              const operatorEmailBody = `
+                <p>Hi ${operatorName},</p>
+                <p>Your dispatch status has been updated to <strong style="color:#b91c1c;">🔴 Truck Down</strong> by your dispatcher.</p>
+                ${laneRow}
+                ${notesRow}
+                <p>Please reach out to your dispatcher as soon as possible to coordinate next steps.</p>
+                <p style="margin-top:16px;">You can view your current status and send a message to your dispatcher in your portal.</p>
+              `;
+              const operatorSubject = `🔴 Action Required — Your Truck is Marked Down`;
+              const operatorHtml = buildEmail(
+                operatorSubject,
+                '🔴 Truck Down — Action Required',
+                operatorEmailBody,
+                { label: 'View My Portal', url: `${appUrl}/dashboard` }
+              );
+              await sendEmail(operatorEmail, operatorSubject, operatorHtml, RESEND_API_KEY);
+            }
+          } catch (opEmailErr) {
+            console.warn('Truck Down operator email failed:', opEmailErr);
+          }
+        }
+
         // ── Email the dispatcher + management on Truck Down ─────────────
         if (newStatus === 'truck_down') {
           try {
