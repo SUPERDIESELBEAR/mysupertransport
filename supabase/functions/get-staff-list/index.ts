@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
 
     const { data: profiles } = await supabaseAdmin
       .from('profiles')
-      .select('user_id, first_name, last_name, account_status, created_at, updated_at')
+      .select('user_id, first_name, last_name, phone, account_status, created_at, updated_at')
       .in('user_id', staffUserIds);
 
     const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
