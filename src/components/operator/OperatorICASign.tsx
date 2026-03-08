@@ -77,7 +77,8 @@ export default function OperatorICASign() {
       const { error: uploadErr } = await supabase.storage.from('ica-signatures').upload(path, blob, { contentType: 'image/png', upsert: true });
       if (uploadErr) throw uploadErr;
 
-      const { data: { publicUrl } } = supabase.storage.from('ica-signatures').getPublicUrl(path);
+      // Store the storage path, not a public URL (bucket is private)
+      const publicUrl = path;
 
       const { error } = await supabase
         .from('ica_contracts' as any)

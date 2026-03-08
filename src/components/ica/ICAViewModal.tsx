@@ -4,6 +4,18 @@ import { X, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ICADocumentView from './ICADocumentView';
 
+const SIGNED_URL_TTL = 3600; // 1 hour
+
+async function toSignedUrl(path: string | null | undefined): Promise<string | null> {
+  if (!path) return null;
+  // Already a full URL (legacy records stored publicUrl) — return as-is
+  if (path.startsWith('http')) return path;
+  const { data } = await supabase.storage
+    .from('ica-signatures')
+    .createSignedUrl(path, SIGNED_URL_TTL);
+  return data?.signedUrl ?? null;
+}
+
 interface ICAViewModalProps {
   operatorId: string;
   operatorName: string;
