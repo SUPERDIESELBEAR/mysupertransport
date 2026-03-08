@@ -63,15 +63,53 @@ Deno.serve(async (req) => {
 
     if (req.method === 'POST' && hasBody) {
       const body = await req.json();
-      const { action, user_id, role, target_name } = body as {
+      const { action, user_id, role, target_name, phone } = body as {
         action: string;
         user_id: string;
-        role: string;
+        role?: string;
         target_name?: string;
+        phone?: string;
       };
 
-      if (!user_id || !role) {
-        return new Response(JSON.stringify({ error: 'user_id and role are required' }), {
+      if (!user_id) {
+        return new Response(JSON.stringify({ error: 'user_id is required' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // ── Update phone ──────────────────────────────────────────────────
+      if (action === 'update_phone') {
+        const sanitizedPhone = (phone ?? '').trim().slice(0, 30);
+        const { error: phoneErr } = await supabaseAdmin
+          .from('profiles')
+          .update({ phone: sanitizedPhone || null })
+          .eq('user_id', user_id);
+
+        if (phoneErr) {
+          return new Response(JSON.stringify({ error: phoneErr.message }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const actorName = await getActorName();
+        supabaseAdmin.from('audit_log').insert({
+          actor_id: callerUser.id,
+          actor_name: actorName,
+          action: 'phone_updated',
+          entity_type: 'staff_profile',
+          entity_id: user_id,
+          entity_label: target_name ?? user_id,
+          metadata: { target_user_id: user_id },
+        }).then(() => {}).catch(e => console.error('Audit log error:', e));
+
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // ── Role add / remove ─────────────────────────────────────────────
+      if (!role) {
+        return new Response(JSON.stringify({ error: 'role is required' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
