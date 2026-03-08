@@ -478,6 +478,9 @@ export default function OperatorPortal() {
             }}
           />
         )}
+
+        {/* ── ICA SIGNING VIEW ── */}
+        {view === 'ica' && <OperatorICASign />}
       </div>
     </div>
   );
