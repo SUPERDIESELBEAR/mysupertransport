@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import MessagesView from '@/components/staff/MessagesView';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
-  LayoutGrid, List, Phone
+  LayoutGrid, List, Phone, Siren
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -110,7 +110,25 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [historyMap, setHistoryMap] = useState<Record<string, StatusHistoryEntry[]>>({});
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
+  const [highlightedCard, setHighlightedCard] = useState<string | null>(null);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const scrollToCard = useCallback((operatorId: string) => {
+    // Switch to cards view if in table mode
+    setViewMode('cards');
+    // Clear any active tab filter so the card is visible
+    setActiveTab('all');
+    // Highlight the card
+    setHighlightedCard(operatorId);
+    // Scroll after a short delay to let the view settle
+    setTimeout(() => {
+      const el = cardRefs.current[operatorId];
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Clear highlight after 3 s
+      setTimeout(() => setHighlightedCard(null), 3000);
+    }, 100);
+  }, []);
 
   // ── Unread message counts (total + per-operator) ─────────────────────────
   const fetchUnreadCounts = async (operatorUserIds?: string[]) => {
@@ -440,6 +458,43 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
         </div>
       </div>
 
+      {/* ── Truck Down Alert Banner ── */}
+      {counts.truck_down > 0 && !loading && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 animate-fade-in">
+          <div className="flex items-center gap-2 shrink-0">
+            <Siren className="h-4 w-4 text-destructive animate-pulse shrink-0" />
+            <span className="text-sm font-bold text-destructive">
+              {counts.truck_down === 1 ? '1 Truck Down' : `${counts.truck_down} Trucks Down`}
+            </span>
+            <span className="text-destructive/60 text-xs hidden sm:inline">—</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {rows
+              .filter(r => r.dispatch_status === 'truck_down')
+              .map(r => {
+                const name = `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || 'Unknown';
+                const unit = r.unit_number ? ` · ${r.unit_number}` : '';
+                return (
+                  <button
+                    key={r.operator_id}
+                    onClick={() => scrollToCard(r.operator_id)}
+                    className="flex items-center gap-1.5 bg-destructive/15 hover:bg-destructive/25 border border-destructive/30 rounded-lg px-2.5 py-1 text-xs font-semibold text-destructive transition-colors"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                    {name}{unit}
+                  </button>
+                );
+              })}
+          </div>
+          <button
+            onClick={() => { setActiveTab('truck_down'); }}
+            className="text-xs text-destructive/70 hover:text-destructive underline underline-offset-2 shrink-0 ml-auto hidden sm:block"
+          >
+            View all
+          </button>
+        </div>
+      )}
+
       {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {[
@@ -528,8 +583,11 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                 return (
                   <div
                     key={row.operator_id}
-                    className={`bg-white border-2 rounded-2xl shadow-sm overflow-hidden transition-all duration-200 ${
-                      row.dispatch_status === 'truck_down'
+                    ref={el => { cardRefs.current[row.operator_id] = el; }}
+                    className={`bg-white border-2 rounded-2xl shadow-sm overflow-hidden transition-all duration-300 ${
+                      highlightedCard === row.operator_id
+                        ? 'border-destructive ring-4 ring-destructive/30 scale-[1.01]'
+                        : row.dispatch_status === 'truck_down'
                         ? 'border-destructive/40'
                         : row.dispatch_status === 'dispatched'
                         ? 'border-status-complete/30'
