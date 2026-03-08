@@ -106,6 +106,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
   const [historyMap, setHistoryMap] = useState<Record<string, StatusHistoryEntry[]>>({});
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
+  const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Unread message count ──────────────────────────────────────────────────
