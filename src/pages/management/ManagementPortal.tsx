@@ -39,6 +39,27 @@ export default function ManagementPortal() {
   const [loadingApps, setLoadingApps] = useState(false);
   const [selectedApp, setSelectedApp] = useState<FullApplication | null>(null);
   const [metrics, setMetrics] = useState({ pending: 0, onboarding: 0, active: 0, alerts: 0 });
+  const [truckDownCount, setTruckDownCount] = useState(0);
+
+  const fetchTruckDownCount = useCallback(async () => {
+    const { count } = await supabase
+      .from('active_dispatch')
+      .select('id', { count: 'exact', head: true })
+      .eq('dispatch_status', 'truck_down');
+    setTruckDownCount(count ?? 0);
+  }, []);
+
+  // Subscribe to realtime changes on active_dispatch to keep the banner live
+  useEffect(() => {
+    fetchTruckDownCount();
+    const channel = supabase
+      .channel('mgmt-truck-down-banner')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'active_dispatch' }, () => {
+        fetchTruckDownCount();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchTruckDownCount]);
 
   const fetchMetrics = useCallback(async () => {
     const [appsRes, opsRes, dispRes, alertsRes] = await Promise.all([
