@@ -175,7 +175,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
         user_id,
         unit_number,
         onboarding_status (fully_onboarded, unit_number),
-        active_dispatch (id, dispatch_status, assigned_dispatcher, current_load_lane, eta_redispatch, status_notes)
+        active_dispatch (id, dispatch_status, assigned_dispatcher, current_load_lane, eta_redispatch, status_notes, updated_at)
       `);
 
     if (data) {
