@@ -938,7 +938,9 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
       onNavigate={handleNavigate}
       title="Dispatch"
     >
-      {activePage === 'dispatch-messages' ? <MessagesView /> : board}
+      {activePage === 'dispatch-messages'
+        ? <MessagesView initialUserId={messageInitialUserId} />
+        : board}
     </StaffLayout>
   );
 }
