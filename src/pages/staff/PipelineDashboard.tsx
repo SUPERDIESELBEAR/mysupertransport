@@ -256,12 +256,14 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     stageFilter !== 'all',
     statusFilter !== 'all',
     coordinatorFilter !== 'all',
+    dispatchFilter !== 'all',
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
     setStageFilter('all');
     setStatusFilter('all');
     setCoordinatorFilter('all');
+    setDispatchFilter('all');
     setSearch('');
   };
 
