@@ -141,6 +141,26 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
     }, 100);
   }, []);
 
+  // ── Quick-compose send ────────────────────────────────────────────────────
+  const sendQuickMessage = async () => {
+    if (!quickCompose || !composeBody.trim() || !session?.user?.id) return;
+    setComposeSending(true);
+    const { error } = await supabase.from('messages').insert({
+      sender_id: session.user.id,
+      recipient_id: quickCompose.operatorUserId,
+      body: composeBody.trim(),
+    });
+    setComposeSending(false);
+    if (error) {
+      toast({ title: 'Failed to send', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Message sent', description: `Sent to ${quickCompose.name}.` });
+      setComposeBody('');
+      setQuickCompose(null);
+      fetchUnreadCounts();
+    }
+  };
+
   // ── Unread message counts (total + per-operator) ─────────────────────────
   const fetchUnreadCounts = async (operatorUserIds?: string[]) => {
     if (!session?.user?.id) return;
