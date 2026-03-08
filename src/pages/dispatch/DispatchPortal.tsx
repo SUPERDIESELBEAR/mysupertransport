@@ -110,7 +110,25 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [historyMap, setHistoryMap] = useState<Record<string, StatusHistoryEntry[]>>({});
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
+  const [highlightedCard, setHighlightedCard] = useState<string | null>(null);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const scrollToCard = useCallback((operatorId: string) => {
+    // Switch to cards view if in table mode
+    setViewMode('cards');
+    // Clear any active tab filter so the card is visible
+    setActiveTab('all');
+    // Highlight the card
+    setHighlightedCard(operatorId);
+    // Scroll after a short delay to let the view settle
+    setTimeout(() => {
+      const el = cardRefs.current[operatorId];
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Clear highlight after 3 s
+      setTimeout(() => setHighlightedCard(null), 3000);
+    }, 100);
+  }, []);
 
   // ── Unread message counts (total + per-operator) ─────────────────────────
   const fetchUnreadCounts = async (operatorUserIds?: string[]) => {
