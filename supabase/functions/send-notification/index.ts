@@ -336,11 +336,16 @@ Deno.serve(async (req) => {
 
         if (operatorEmail && copy) {
           const operatorSubject = copy.heading.replace(/^[^\w]+/, ''); // strip emoji for subject
+          // Use deep-link for ica_sent so operator lands directly on the ICA signing tab
+          const ctaUrl = milestoneKey === 'ica_sent'
+            ? `${appUrl}/dashboard?tab=ica`
+            : `${appUrl}/dashboard`;
+          const ctaLabel = milestoneKey === 'ica_sent' ? 'Review & Sign Your ICA' : 'View My Onboarding Status';
           const operatorHtml = buildEmail(
             operatorSubject,
             copy.heading,
             copy.body(name) + `<p style="margin-top:24px;">If you have any questions, contact us at <a href="mailto:recruiting@supertransportllc.com" style="color:#C9A84C;">recruiting@supertransportllc.com</a>.</p>`,
-            { label: 'View My Onboarding Status', url: `${appUrl}/dashboard` }
+            { label: ctaLabel, url: ctaUrl }
           );
           await sendEmail(operatorEmail, operatorSubject, operatorHtml, RESEND_API_KEY);
         }
@@ -353,13 +358,17 @@ Deno.serve(async (req) => {
             .eq('id', operatorId)
             .single();
           if (opRow?.user_id) {
+            // Deep-link ica_sent notification directly to the ICA signing tab
+            const notifLink = milestoneKey === 'ica_sent' ? '/dashboard?tab=ica' : '/dashboard';
             await supabaseAdmin.from('notifications').insert({
               user_id: opRow.user_id,
               type: 'onboarding_milestone',
               title: copy.heading.replace(/^[^\w]+/, ''),
-              body: `Your onboarding has reached a new milestone: ${milestone}`,
+              body: milestoneKey === 'ica_sent'
+                ? 'Your Independent Contractor Agreement is ready for your signature. Tap to review and sign now.'
+                : `Your onboarding has reached a new milestone: ${milestone}`,
               channel: 'in_app',
-              link: '/dashboard',
+              link: notifLink,
             });
           }
         }

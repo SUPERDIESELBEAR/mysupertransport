@@ -38,7 +38,12 @@ interface UploadedDoc {
 
 export default function OperatorPortal() {
   const { profile, user, signOut } = useAuth();
-  const [view, setView] = useState<OperatorView>('progress');
+  const [view, setView] = useState<OperatorView>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab === 'ica') return 'ica';
+    return 'progress';
+  });
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
