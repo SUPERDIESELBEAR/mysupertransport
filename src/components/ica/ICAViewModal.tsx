@@ -130,7 +130,7 @@ export default function ICAViewModal({ operatorId, operatorName, onClose }: ICAV
                     />
                   ) : (
                     <div className="h-20 flex items-center justify-center border border-dashed border-border rounded-lg">
-                      <span className="text-xs text-amber-600">Awaiting signature</span>
+                      <span className="text-xs text-status-action">Awaiting signature</span>
                     </div>
                   )}
                   <div className="border-t border-border pt-2 space-y-0.5">
