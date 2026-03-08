@@ -6,9 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import ICABuilderModal from '@/components/ica/ICABuilderModal';
 import { formatDistanceToNow } from 'date-fns';
 
 interface OperatorDetailPanelProps {
@@ -64,6 +65,8 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [saving, setSaving] = useState(false);
   const [operatorName, setOperatorName] = useState('');
   const [operatorEmail, setOperatorEmail] = useState('');
+  const [showICABuilder, setShowICABuilder] = useState(false);
+  const [applicationData, setApplicationData] = useState<any>(null);
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<Partial<OnboardingStatus>>({});
   const [statusId, setStatusId] = useState<string | null>(null);
@@ -117,7 +120,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
     // Step 1: fetch operator core data
     const { data: op } = await supabase
       .from('operators')
-      .select(`id, user_id, notes, onboarding_status (*), applications (email)`)
+      .select(`id, user_id, notes, onboarding_status (*), applications (email, first_name, last_name, phone, address_street, address_city, address_state, address_zip)`)
       .eq('id', operatorId)
       .single();
 
@@ -134,6 +137,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       );
       const app = (op as any).applications;
       setOperatorEmail(app?.email ?? '');
+      setApplicationData(app ?? null);
       setNotes((op as any).notes ?? '');
       const os = (op as any).onboarding_status?.[0];
       if (os) {
@@ -450,10 +454,22 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
                 PE Screening must be Clear before sending ICA.
               </div>
             )}
-            {status.pe_screening_result === 'clear' && (
-              <Button variant="outline" size="sm" className="w-full border-gold text-gold hover:bg-gold/10 text-xs">
-                Send ICA via PandaDoc
+            {status.pe_screening_result === 'clear' && status.ica_status !== 'complete' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-gold text-gold hover:bg-gold/10 text-xs gap-1.5"
+                onClick={() => setShowICABuilder(true)}
+              >
+                <FilePen className="h-3.5 w-3.5" />
+                {status.ica_status === 'sent_for_signature' ? 'View / Edit ICA' : 'Prepare & Send ICA'}
               </Button>
+            )}
+            {status.ica_status === 'complete' && (
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-status-complete/10 border border-status-complete/30">
+                <CheckCircle2 className="h-3.5 w-3.5 text-status-complete" />
+                <span className="text-xs text-status-complete font-medium">ICA Fully Executed</span>
+              </div>
             )}
           </div>
         </div>
@@ -613,6 +629,22 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           className="min-h-[100px] text-sm"
         />
       </div>
+
+      {/* ICA Builder Modal */}
+      {showICABuilder && (
+        <ICABuilderModal
+          operatorId={operatorId}
+          operatorName={operatorName}
+          operatorEmail={operatorEmail}
+          applicationData={applicationData}
+          onClose={() => setShowICABuilder(false)}
+          onSent={() => {
+            setShowICABuilder(false);
+            updateStatus('ica_status', 'sent_for_signature');
+            toast({ title: 'ICA sent', description: `${operatorName} will be notified to review and sign.` });
+          }}
+        />
+      )}
     </div>
   );
 }

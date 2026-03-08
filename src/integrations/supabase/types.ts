@@ -410,6 +410,119 @@ export type Database = {
         }
         Relationships: []
       }
+      ica_contracts: {
+        Row: {
+          carrier_signature_url: string | null
+          carrier_signed_at: string | null
+          carrier_signed_by: string | null
+          carrier_title: string | null
+          carrier_typed_name: string | null
+          contractor_signature_url: string | null
+          contractor_signed_at: string | null
+          contractor_typed_name: string | null
+          created_at: string
+          equipment_location: string | null
+          id: string
+          lease_effective_date: string | null
+          lease_termination_date: string | null
+          linehaul_split_pct: number
+          operator_id: string
+          owner_address: string | null
+          owner_business_name: string | null
+          owner_city: string | null
+          owner_ein_ssn: string | null
+          owner_email: string | null
+          owner_phone: string | null
+          owner_state: string | null
+          owner_zip: string | null
+          status: string
+          trailer_number: string | null
+          truck_make: string | null
+          truck_model: string | null
+          truck_plate: string | null
+          truck_plate_state: string | null
+          truck_vin: string | null
+          truck_year: string | null
+          updated_at: string
+        }
+        Insert: {
+          carrier_signature_url?: string | null
+          carrier_signed_at?: string | null
+          carrier_signed_by?: string | null
+          carrier_title?: string | null
+          carrier_typed_name?: string | null
+          contractor_signature_url?: string | null
+          contractor_signed_at?: string | null
+          contractor_typed_name?: string | null
+          created_at?: string
+          equipment_location?: string | null
+          id?: string
+          lease_effective_date?: string | null
+          lease_termination_date?: string | null
+          linehaul_split_pct?: number
+          operator_id: string
+          owner_address?: string | null
+          owner_business_name?: string | null
+          owner_city?: string | null
+          owner_ein_ssn?: string | null
+          owner_email?: string | null
+          owner_phone?: string | null
+          owner_state?: string | null
+          owner_zip?: string | null
+          status?: string
+          trailer_number?: string | null
+          truck_make?: string | null
+          truck_model?: string | null
+          truck_plate?: string | null
+          truck_plate_state?: string | null
+          truck_vin?: string | null
+          truck_year?: string | null
+          updated_at?: string
+        }
+        Update: {
+          carrier_signature_url?: string | null
+          carrier_signed_at?: string | null
+          carrier_signed_by?: string | null
+          carrier_title?: string | null
+          carrier_typed_name?: string | null
+          contractor_signature_url?: string | null
+          contractor_signed_at?: string | null
+          contractor_typed_name?: string | null
+          created_at?: string
+          equipment_location?: string | null
+          id?: string
+          lease_effective_date?: string | null
+          lease_termination_date?: string | null
+          linehaul_split_pct?: number
+          operator_id?: string
+          owner_address?: string | null
+          owner_business_name?: string | null
+          owner_city?: string | null
+          owner_ein_ssn?: string | null
+          owner_email?: string | null
+          owner_phone?: string | null
+          owner_state?: string | null
+          owner_zip?: string | null
+          status?: string
+          trailer_number?: string | null
+          truck_make?: string | null
+          truck_model?: string | null
+          truck_plate?: string | null
+          truck_plate_state?: string | null
+          truck_vin?: string | null
+          truck_year?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ica_contracts_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body: string

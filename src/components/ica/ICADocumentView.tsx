@@ -1,0 +1,350 @@
+import { useRef } from 'react';
+import SignatureCanvas from 'react-signature-canvas';
+
+interface ICAData {
+  truck_year: string;
+  truck_make: string;
+  truck_model: string;
+  truck_vin: string;
+  truck_plate: string;
+  truck_plate_state: string;
+  trailer_number: string;
+  owner_business_name: string;
+  owner_ein_ssn: string;
+  owner_address: string;
+  owner_city: string;
+  owner_state: string;
+  owner_zip: string;
+  owner_phone: string;
+  owner_email: string;
+  linehaul_split_pct: number;
+  lease_effective_date: string;
+  lease_termination_date: string;
+  equipment_location: string;
+}
+
+interface ICADocumentViewProps {
+  data: ICAData;
+  operatorName: string;
+  previewMode?: boolean;
+  carrierSignatureUrl?: string | null;
+  carrierTypedName?: string;
+  carrierTitle?: string;
+  carrierSignedAt?: string | null;
+  contractorSignatureUrl?: string | null;
+  contractorTypedName?: string;
+  contractorSignedAt?: string | null;
+  // For operator live signing
+  contractorSigRef?: React.RefObject<SignatureCanvas>;
+  contractorSignedName?: string;
+  onContractorSignedNameChange?: (v: string) => void;
+}
+
+const fmt = (v: string | null | undefined) => v || '___________________________';
+const fmtDate = (v: string | null | undefined) => v ? new Date(v).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '___________________________';
+
+export default function ICADocumentView({
+  data, operatorName, previewMode = false,
+  carrierSignatureUrl, carrierTypedName, carrierTitle, carrierSignedAt,
+  contractorSignatureUrl, contractorTypedName, contractorSignedAt,
+  contractorSigRef, contractorSignedName, onContractorSignedNameChange
+}: ICADocumentViewProps) {
+
+  const fullTruck = [data.truck_year, data.truck_make, data.truck_model].filter(Boolean).join(' ');
+  const ownerAddr = [data.owner_city, data.owner_state, data.owner_zip].filter(Boolean).join(', ');
+
+  return (
+    <div className="bg-white text-foreground text-sm font-serif leading-relaxed rounded-xl border border-border overflow-hidden">
+      {/* Document header */}
+      <div className="bg-surface-dark text-white text-center py-8 px-6">
+        <p className="text-xs tracking-[0.3em] uppercase text-gold mb-1">SUPERTRANSPORT</p>
+        <p className="text-[10px] tracking-widest text-surface-dark-muted mb-4">POSITIVE. THINKING. TRANSPORT.</p>
+        <h1 className="text-2xl font-bold">Independent Contractor Agreement</h1>
+        <p className="text-sm text-surface-dark-muted mt-1">SUPERTRANSPORT, LLC · PO Box 4, Pleasant Hill, Missouri 64080</p>
+      </div>
+
+      <div className="p-8 space-y-8">
+        {/* Parties */}
+        <section>
+          <p className="text-base">
+            This Agreement is entered into by and between <strong>SUPERTRANSPORT, LLC</strong> ("Carrier") and{' '}
+            <strong className="underline underline-offset-2">{operatorName || fmt(null)}</strong> ("Contractor").
+          </p>
+          <p className="mt-3 text-muted-foreground text-xs leading-relaxed">
+            Carrier is a for-hire motor carrier subject to Federal Motor Carrier Safety Administration (FMCSA) regulations. Contractor is an independent business entity owning or leasing the equipment described in Appendix A and desires to lease said equipment with driver(s) to Carrier for the transportation of freight under Carrier's operating authority.
+          </p>
+        </section>
+
+        <Divider />
+
+        {/* Sections 1–13 */}
+        <ClauseSection num="1" title="Independent Contractor Relationship">
+          Contractor is an independent contractor and not an employee, agent, or partner of Carrier. Contractor shall be responsible for all taxes, insurance, workers' compensation (or occupational accident), and employment obligations related to its business. Nothing in this Agreement shall create an employer-employee relationship. Carrier's control is limited solely to that required by FMCSA regulations to ensure public safety and compliance.
+        </ClauseSection>
+
+        <ClauseSection num="2" title="Equipment Lease & Possession">
+          Contractor leases to Carrier the equipment listed in Appendix A for use under Carrier's authority per 49 C.F.R. § 376. Carrier shall have exclusive possession and control during the term of this lease for regulatory purposes only. Contractor retains full control over operations, drivers, and business methods. The lease shall remain in effect month-to-month until terminated as provided herein.
+        </ClauseSection>
+
+        <ClauseSection num="3" title="Compensation & Settlement">
+          Carrier shall pay Contractor <strong>{data.linehaul_split_pct}%</strong> of adjusted gross linehaul revenue, less deductions and agreed expenses (Appendix B). Payment will be made within 15 days after Carrier's receipt of all required delivery documents. Missing or incomplete documents may incur a $50 administrative deduction.
+          <br /><br />
+          Each settlement will include a detailed statement showing gross revenue, deductions, and net pay. Contractor has 30 days to dispute any settlement item; undisputed amounts thereafter are deemed final. Upon termination, final settlement shall occur within 45 days after all documents are received and equipment returned.
+        </ClauseSection>
+
+        <ClauseSection num="3A" title="Documentation Requirements">
+          <ol className="list-decimal list-inside space-y-1 text-xs text-muted-foreground">
+            <li>Required Documents: Contractor must obtain, complete, and submit all shipping documentation, including BOLs, PODs, lumper receipts, scale tickets, and any other documents required by Carrier, customer, or factoring company.</li>
+            <li>Submission Timeline: All documentation must be uploaded or delivered within 24 hours of delivery or before the next dispatch, whichever occurs first.</li>
+            <li>Accuracy & Completion: Incomplete, missing, or unsigned documents will be deemed non-compliant and may delay settlement.</li>
+            <li>Carrier Assistance: Carrier may assist in retrieving missing documents; however, administrative or third-party retrieval costs may be deducted from Contractor's settlement.</li>
+            <li>Acknowledgment: Contractor acknowledges that accurate and timely documentation is a condition precedent to payment.</li>
+          </ol>
+        </ClauseSection>
+
+        <ClauseSection num="4" title="Security Deposit">
+          Contractor agrees to maintain a $2,000 refundable security deposit per power unit with Carrier as assurance for the performance of obligations under this Agreement. Deducted automatically at $200 per week until $2,000 is reached. Any unused portion will be refunded within 45 days after termination.
+        </ClauseSection>
+
+        <ClauseSection num="5" title="Insurance & Liability">
+          Carrier maintains public liability and cargo insurance per federal requirements. Contractor shall maintain: Occupational Accident or Workers' Compensation ($1 million minimum); Non-Trucking Liability ($1 million minimum); Physical Damage (optional via Carrier). Contractor is responsible for the first $2,000 of any cargo or accident claim caused by its negligence.
+        </ClauseSection>
+
+        <ClauseSection num="6" title="Contractor Responsibilities">
+          Contractor is solely responsible for: fuel, permits, tolls, taxes, and maintenance; hiring, training, and paying drivers; DOT, FMCSA, and IFTA compliance; safe operation and load securement; immediate reporting of accidents, fines, or out-of-service events. Contractor indemnifies and holds Carrier harmless from all claims or penalties arising from its operations.
+        </ClauseSection>
+
+        <ClauseSection num="6A" title="Passenger Policy">
+          Contractor and its drivers may not transport passengers while operating under this Agreement without prior written authorization from Carrier per 49 C.F.R. § 392.60. Authorized passengers must execute a Passenger Authorization and Liability Waiver before any trip. Contractor assumes all risk for any injury or loss involving unauthorized passengers.
+        </ClauseSection>
+
+        <ClauseSection num="7" title="Operational Independence">
+          Contractor may accept or reject load offers from Carrier and is free to determine its own methods, routes, and schedules consistent with federal and state safety regulations. While the leased equipment is under the authority and control of SUPERTRANSPORT, LLC, Contractor shall not haul freight for any other carrier unless prior written authorization is granted by Carrier.
+        </ClauseSection>
+
+        <ClauseSection num="8" title="Right of Set-Off">
+          Carrier may deduct or offset from any settlement amounts owed to Contractor any unpaid obligations, advances, fines, or unreturned equipment.
+        </ClauseSection>
+
+        <ClauseSection num="9" title="Confidentiality & Non-Solicitation">
+          Contractor shall not disclose Carrier's rates, customers, or data, nor solicit freight or transport loads for any customer introduced by Carrier for one year after termination.
+        </ClauseSection>
+
+        <ClauseSection num="10" title="Termination">
+          Either party may terminate upon 15 days' written notice. Carrier may terminate immediately for safety violations, fraud, or disqualification. Contractor has five business days to cure minor breaches. Upon termination, Contractor must promptly return all Carrier property and identification.
+        </ClauseSection>
+
+        <ClauseSection num="11" title="Electronic Communication & Signatures">
+          All notices, approvals, and settlements may be electronic. Electronic signatures are legally binding.
+        </ClauseSection>
+
+        <ClauseSection num="12" title="Dispute Resolution">
+          Disputes shall be resolved by binding arbitration under AAA Commercial Rules in Cass County, Missouri, governed by Missouri law.
+        </ClauseSection>
+
+        <ClauseSection num="13" title="Entire Agreement">
+          This Agreement, including Appendices A–D and exhibits, constitutes the full understanding between the parties and may only be modified in writing signed by both. May be executed in counterparts.
+          <br /><br />
+          <em className="text-xs text-muted-foreground">Note: Separate signatures are not required for Appendices A–D except where indicated for equipment transfers or optional insurance acknowledgments. All appendices are incorporated by reference and enforceable as part of this Agreement.</em>
+        </ClauseSection>
+
+        <Divider />
+
+        {/* Signature Page */}
+        <section>
+          <h2 className="text-base font-bold text-foreground mb-6 uppercase tracking-wide">Signature Page</h2>
+          <div className="grid grid-cols-2 gap-8">
+            {/* Carrier */}
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground border-b border-border pb-1">Carrier</p>
+              <p className="font-semibold">SUPERTRANSPORT, LLC</p>
+              <p className="text-xs text-muted-foreground">PO Box 4, Pleasant Hill, MO 64080</p>
+              {carrierSignatureUrl ? (
+                <div className="border border-border rounded-lg p-2 bg-secondary/20">
+                  <img src={carrierSignatureUrl} alt="Carrier signature" className="h-16 w-auto" />
+                </div>
+              ) : (
+                <div className="border-b border-foreground/30 h-16 flex items-end pb-1">
+                  <span className="text-xs text-muted-foreground">Signature</span>
+                </div>
+              )}
+              <SigLine label="Name" value={carrierTypedName} />
+              <SigLine label="Title" value={carrierTitle} />
+              <SigLine label="Date" value={carrierSignedAt ? fmtDate(carrierSignedAt) : undefined} />
+            </div>
+
+            {/* Contractor */}
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground border-b border-border pb-1">Contractor</p>
+              <p className="font-semibold">{operatorName}</p>
+              {contractorSigRef && !previewMode ? (
+                <div className="space-y-2">
+                  <div className="border-2 border-dashed border-gold/40 rounded-lg overflow-hidden bg-white">
+                    <SignatureCanvas
+                      ref={contractorSigRef}
+                      canvasProps={{ width: 300, height: 100, className: 'w-full' }}
+                      penColor="#1a1a1a"
+                    />
+                  </div>
+                  <button
+                    onClick={() => contractorSigRef.current?.clear()}
+                    className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Clear signature
+                  </button>
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground">Typed Full Name</p>
+                    <input
+                      value={contractorSignedName ?? ''}
+                      onChange={e => onContractorSignedNameChange?.(e.target.value)}
+                      className="w-full border-b border-foreground/30 bg-transparent text-sm outline-none py-1"
+                      placeholder="Type your full name"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Date: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                </div>
+              ) : contractorSignatureUrl ? (
+                <div className="border border-border rounded-lg p-2 bg-secondary/20">
+                  <img src={contractorSignatureUrl} alt="Contractor signature" className="h-16 w-auto" />
+                </div>
+              ) : (
+                <div className="border-b border-foreground/30 h-16 flex items-end pb-1">
+                  <span className="text-xs text-muted-foreground">Signature</span>
+                </div>
+              )}
+              <SigLine label="Name" value={contractorTypedName || contractorSignedName} />
+              <SigLine label="Date" value={contractorSignedAt ? fmtDate(contractorSignedAt) : undefined} />
+            </div>
+          </div>
+        </section>
+
+        <Divider />
+
+        {/* Appendix A */}
+        <section>
+          <AppendixHeader letter="A" title="Equipment Identification" />
+          <table className="w-full text-sm border-collapse mt-4">
+            <tbody>
+              <AppRow label="Year / Make / Model" value={fullTruck || fmt(null)} />
+              <AppRow label="VIN" value={fmt(data.truck_vin)} />
+              <AppRow label="License Plate & State" value={[data.truck_plate, data.truck_plate_state].filter(Boolean).join(' / ') || fmt(null)} />
+              <AppRow label="Trailer Number / VIN (if leased)" value={fmt(data.trailer_number)} />
+              <AppRow label="Owner / Business Name" value={fmt(data.owner_business_name)} />
+              <AppRow label="EIN or SSN" value={fmt(data.owner_ein_ssn)} />
+              <AppRow label="Address" value={fmt(data.owner_address)} />
+              <AppRow label="City / State / ZIP" value={ownerAddr || fmt(null)} />
+              <AppRow label="Phone / Email" value={[data.owner_phone, data.owner_email].filter(Boolean).join(' / ') || fmt(null)} />
+            </tbody>
+          </table>
+        </section>
+
+        <Divider />
+
+        {/* Appendix B */}
+        <section>
+          <AppendixHeader letter="B" title="Compensation & Deductions" />
+          <table className="w-full text-sm border-collapse mt-4">
+            <tbody>
+              <AppRow label="Linehaul Split" value={`Contractor receives ${data.linehaul_split_pct}% of adjusted gross linehaul revenue.`} highlight />
+              <AppRow label="Settlement" value="Weekly, within 15 days after all required paperwork." />
+              <AppRow label="Deductions" value="Insurance, fuel, maintenance, trailer rental, permits, and operating expenses itemized per settlement." />
+              <AppRow label="Disputes" value="Contractor has 30 days from receipt to dispute any settlement." />
+              <AppRow label="Final Settlement" value="Within 45 days after termination and return of equipment." />
+            </tbody>
+          </table>
+        </section>
+
+        <Divider />
+
+        {/* Appendix C — Condition and Comments removed per user request */}
+        <section>
+          <AppendixHeader letter="C" title="Equipment Receipt & Return" />
+          <table className="w-full text-sm border-collapse mt-4">
+            <tbody>
+              <AppRow label="Equipment (Year / Make / VIN)" value={[fullTruck, data.truck_vin].filter(Boolean).join(' · ') || fmt(null)} />
+              <AppRow label="Lease Effective Date" value={fmtDate(data.lease_effective_date)} />
+              <AppRow label="Lease Termination Date" value={data.lease_termination_date ? fmtDate(data.lease_termination_date) : fmt(null)} />
+              <AppRow label="Location" value={fmt(data.equipment_location)} />
+              <AppRow label="Carrier Representative" value={fmt(carrierTypedName)} />
+              <AppRow label="Contractor" value={fmt(contractorTypedName || contractorSignedName)} />
+              <AppRow label="Date" value={fmtDate(data.lease_effective_date)} />
+            </tbody>
+          </table>
+        </section>
+
+        <Divider />
+
+        {/* Appendix D */}
+        <section>
+          <AppendixHeader letter="D" title="Insurance & Startup Acknowledgment" />
+          <table className="w-full text-sm border-collapse mt-4">
+            <thead>
+              <tr className="bg-secondary/50">
+                <th className="text-left p-2 text-xs font-semibold border border-border">Category</th>
+                <th className="text-left p-2 text-xs font-semibold border border-border">Description</th>
+                <th className="text-left p-2 text-xs font-semibold border border-border">Responsibility</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['Required Insurance', 'Occupational Accident, Non-Trucking Liability', 'Contractor'],
+                ['Optional Insurance', 'Physical Damage via Carrier (if elected)', 'Contractor'],
+                ['Compliance Fees', 'Registration, Plates, 2290, setup costs', 'Contractor'],
+                ['Equipment or Trailer Lease', 'Weekly deduction if applicable', 'Contractor'],
+                ['Other Authorized Deductions', 'ELD, BestPass, Transponder', 'Contractor'],
+              ].map(([cat, desc, resp]) => (
+                <tr key={cat} className="border-b border-border">
+                  <td className="p-2 text-xs border border-border font-medium">{cat}</td>
+                  <td className="p-2 text-xs border border-border text-muted-foreground">{desc}</td>
+                  <td className="p-2 text-xs border border-border">{resp}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function Divider() {
+  return <hr className="border-border" />;
+}
+
+function ClauseSection({ num, title, children }: { num: string; title: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h3 className="text-sm font-bold text-foreground mb-2">{num}. {title}</h3>
+      <p className="text-xs text-muted-foreground leading-relaxed">{children}</p>
+    </section>
+  );
+}
+
+function AppendixHeader({ letter, title }: { letter: string; title: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-8 h-8 rounded-full bg-gold/15 text-gold text-sm font-bold flex items-center justify-center border border-gold/30">{letter}</span>
+      <h2 className="text-base font-bold text-foreground">Appendix {letter} – {title}</h2>
+    </div>
+  );
+}
+
+function AppRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <tr className="border-b border-border">
+      <td className="py-2 pr-4 font-medium text-xs text-muted-foreground w-48 border border-border px-3">{label}</td>
+      <td className={`py-2 text-xs border border-border px-3 ${highlight ? 'font-bold text-gold' : 'text-foreground'}`}>{value}</td>
+    </tr>
+  );
+}
+
+function SigLine({ label, value }: { label: string; value?: string }) {
+  return (
+    <div className="flex items-baseline gap-2 text-xs">
+      <span className="text-muted-foreground w-10 shrink-0">{label}:</span>
+      <span className={`border-b border-foreground/30 flex-1 min-h-[1.25rem] ${value ? 'text-foreground font-medium' : 'text-muted-foreground/40'}`}>
+        {value || ''}
+      </span>
+    </div>
+  );
+}

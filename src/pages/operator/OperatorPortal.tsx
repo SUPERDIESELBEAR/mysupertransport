@@ -13,9 +13,10 @@ import OperatorMessagesView from '@/components/operator/OperatorMessagesView';
 import NotificationBell from '@/components/NotificationBell';
 import OperatorStatusPage from '@/components/operator/OperatorStatusPage';
 import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus';
+import OperatorICASign from '@/components/operator/OperatorICASign';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch';
+type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica';
 
 interface Stage {
   number: number;
@@ -274,11 +275,16 @@ export default function OperatorPortal() {
   const navItems = [
     { view: 'progress' as OperatorView, label: 'My Progress', icon: <CheckCircle2 className="h-5 w-5" /> },
     { view: 'documents' as OperatorView, label: 'Documents', icon: <Upload className="h-5 w-5" /> },
+    { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete' },
     { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
     { view: 'resources' as OperatorView, label: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> },
-  ].filter(item => !('onlyOnboarded' in item) || isFullyOnboarded);
+  ].filter(item => {
+    if ('onlyOnboarded' in item && !isFullyOnboarded) return false;
+    if ('showIf' in item && !item.showIf) return false;
+    return true;
+  });
 
   const statusConfig: Record<StageStatus, { color: string; badge: string; icon: React.ReactNode }> = {
     complete: { color: 'border-status-complete/30 bg-status-complete/5', badge: 'bg-status-complete/15 text-status-complete border-status-complete/30', icon: <CheckCircle2 className="h-5 w-5 text-status-complete" /> },
@@ -472,6 +478,9 @@ export default function OperatorPortal() {
             }}
           />
         )}
+
+        {/* ── ICA SIGNING VIEW ── */}
+        {view === 'ica' && <OperatorICASign />}
       </div>
     </div>
   );
