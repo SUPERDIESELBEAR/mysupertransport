@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Truck, MapPin, Clock, AlertTriangle, CheckCircle2, Home, Radio, Phone, User } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Truck, MapPin, Clock, AlertTriangle, CheckCircle2, Home, Radio, Phone, MessageSquare } from 'lucide-react';
 
 type DispatchStatusType = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
 
@@ -22,6 +21,7 @@ interface DispatcherInfo {
 
 interface Props {
   operatorId: string;
+  onMessageDispatcher?: (dispatcherUserId: string) => void;
 }
 
 const STATUS_CONFIG: Record<DispatchStatusType, {
