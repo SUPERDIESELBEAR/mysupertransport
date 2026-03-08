@@ -44,6 +44,13 @@ export default function OperatorPortal() {
     if (tab === 'ica') return 'ica';
     return 'progress';
   });
+
+  // React to in-app notification deep-links that navigate() while portal is already mounted
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab === 'ica') setView('ica');
+  }, [window.location.search]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
