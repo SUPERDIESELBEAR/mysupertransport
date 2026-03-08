@@ -104,32 +104,52 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [search, setSearch] = useState('');
   const [liveIndicator, setLiveIndicator] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  // Map of operator_user_id → unread count for per-card badges
+  const [unreadPerOperator, setUnreadPerOperator] = useState<Record<string, number>>({});
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
   const [historyMap, setHistoryMap] = useState<Record<string, StatusHistoryEntry[]>>({});
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Unread message count ──────────────────────────────────────────────────
-  const fetchUnreadCount = async () => {
+  // ── Unread message counts (total + per-operator) ─────────────────────────
+  const fetchUnreadCounts = async (operatorUserIds?: string[]) => {
     if (!session?.user?.id) return;
+
+    // Total unread for nav badge
     const { count } = await supabase
       .from('messages')
       .select('*', { count: 'exact', head: true })
       .eq('recipient_id', session.user.id)
       .is('read_at', null);
     setUnreadMessages(count ?? 0);
+
+    // Per-operator unread — fetch all unread messages sent to this dispatcher
+    // and group by sender_id (which is the operator's user_id)
+    const { data: unreadData } = await supabase
+      .from('messages')
+      .select('sender_id')
+      .eq('recipient_id', session.user.id)
+      .is('read_at', null);
+
+    if (unreadData) {
+      const grouped: Record<string, number> = {};
+      unreadData.forEach(({ sender_id }) => {
+        grouped[sender_id] = (grouped[sender_id] ?? 0) + 1;
+      });
+      setUnreadPerOperator(grouped);
+    }
   };
 
   useEffect(() => {
     if (!session?.user?.id) return;
-    fetchUnreadCount();
+    fetchUnreadCounts();
     const channel = supabase
       .channel('dispatch-messages-unread')
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'messages',
         filter: `recipient_id=eq.${session.user.id}`,
-      }, () => fetchUnreadCount())
+      }, () => fetchUnreadCounts())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [session?.user?.id]);
