@@ -429,39 +429,74 @@ Deno.serve(async (req) => {
           });
         }
 
-        // ── Email the dispatcher on Truck Down ──────────────────────────
-        if (newStatus === 'truck_down' && payload.caller_user_id) {
+        // ── Email the dispatcher + management on Truck Down ─────────────
+        if (newStatus === 'truck_down') {
           try {
-            const { data: { user: dispatcherUser } } = await supabaseAdmin.auth.admin.getUserById(payload.caller_user_id);
-            const dispatcherEmail = dispatcherUser?.email;
+            const operatorName = payload.operator_name || 'Operator';
+            const unitNumber = payload.unit_number ? ` (Unit #${payload.unit_number})` : '';
+            const notesRow = payload.status_notes
+              ? `<tr><td style="padding:6px 0;color:#888;font-size:13px;width:120px;">Notes</td><td style="padding:6px 0;font-size:14px;font-weight:600;color:#b91c1c;">${payload.status_notes}</td></tr>`
+              : '';
+            const laneRow = payload.current_load_lane
+              ? `<tr><td style="padding:6px 0;color:#888;font-size:13px;">Load / Lane</td><td style="padding:6px 0;font-size:14px;">${payload.current_load_lane}</td></tr>`
+              : '';
 
-            if (dispatcherEmail) {
-              const operatorName = payload.operator_name || 'Operator';
-              const unitNumber = payload.unit_number ? ` (Unit #${payload.unit_number})` : '';
-              const notesRow = payload.status_notes
-                ? `<tr><td style="padding:6px 0;color:#888;font-size:13px;width:120px;">Notes</td><td style="padding:6px 0;font-size:14px;font-weight:600;color:#b91c1c;">${payload.status_notes}</td></tr>`
-                : '';
-              const laneRow = payload.current_load_lane
-                ? `<tr><td style="padding:6px 0;color:#888;font-size:13px;">Load / Lane</td><td style="padding:6px 0;font-size:14px;">${payload.current_load_lane}</td></tr>`
-                : '';
+            const emailBody = `
+              <p>A <strong>Truck Down</strong> status has been recorded for one of your operators. Immediate attention may be required.</p>
+              <table style="width:100%;border-collapse:collapse;margin:20px 0;background:#fff5f5;border-radius:8px;padding:16px;border:1px solid #fecaca;">
+                <tr><td style="padding:6px 0;color:#888;font-size:13px;width:120px;">Operator</td><td style="padding:6px 0;font-size:14px;font-weight:600;">${operatorName}${unitNumber}</td></tr>
+                <tr><td style="padding:6px 0;color:#888;font-size:13px;">Status</td><td style="padding:6px 0;font-size:14px;font-weight:700;color:#b91c1c;">🔴 Truck Down</td></tr>
+                ${laneRow}
+                ${notesRow}
+              </table>
+              <p style="font-size:13px;color:#666;">Logged at ${new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' })} CT</p>
+            `;
+            const subject = `🔴 Truck Down Alert — ${operatorName}${unitNumber}`;
+            const html = buildEmail(subject, '🔴 Truck Down Alert', emailBody, { label: 'Open Dispatch Board', url: `${appUrl}/dispatch` });
 
-              const emailBody = `
-                <p>A <strong>Truck Down</strong> status has been recorded for one of your operators. Immediate attention may be required.</p>
-                <table style="width:100%;border-collapse:collapse;margin:20px 0;background:#fff5f5;border-radius:8px;padding:16px;border:1px solid #fecaca;">
-                  <tr><td style="padding:6px 0;color:#888;font-size:13px;width:120px;">Operator</td><td style="padding:6px 0;font-size:14px;font-weight:600;">${operatorName}${unitNumber}</td></tr>
-                  <tr><td style="padding:6px 0;color:#888;font-size:13px;">Status</td><td style="padding:6px 0;font-size:14px;font-weight:700;color:#b91c1c;">🔴 Truck Down</td></tr>
-                  ${laneRow}
-                  ${notesRow}
-                </table>
-                <p style="font-size:13px;color:#666;">Logged at ${new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' })} CT</p>
-              `;
+            // Collect recipients: dispatcher who set the status + all management users
+            const recipientEmails = new Set<string>();
 
-              const subject = `🔴 Truck Down Alert — ${operatorName}${unitNumber}`;
-              const html = buildEmail(subject, '🔴 Truck Down Alert', emailBody, { label: 'Open Dispatch Board', url: `${appUrl}/dispatch` });
-              await sendEmail(dispatcherEmail, subject, html, RESEND_API_KEY);
+            if (payload.caller_user_id) {
+              const { data: { user: dispatcherUser } } = await supabaseAdmin.auth.admin.getUserById(payload.caller_user_id);
+              if (dispatcherUser?.email) recipientEmails.add(dispatcherUser.email);
+            }
+
+            // Fetch management role users
+            const { data: mgmtRoles } = await supabaseAdmin
+              .from('user_roles')
+              .select('user_id')
+              .eq('role', 'management');
+
+            if (mgmtRoles?.length) {
+              const { data: { users: allUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+              const mgmtIds = new Set(mgmtRoles.map(r => r.user_id));
+              allUsers?.filter(u => mgmtIds.has(u.id) && u.email).forEach(u => recipientEmails.add(u.email!));
+            }
+
+            await Promise.all([...recipientEmails].map(e => sendEmail(e, subject, html, RESEND_API_KEY)));
+
+            // Also create an in-app notification for each management user
+            if (mgmtRoles?.length) {
+              const { data: mgmtRolesForNotif } = await supabaseAdmin
+                .from('user_roles')
+                .select('user_id')
+                .eq('role', 'management');
+              if (mgmtRolesForNotif?.length) {
+                await supabaseAdmin.from('notifications').insert(
+                  mgmtRolesForNotif.map(r => ({
+                    user_id: r.user_id,
+                    type: 'dispatch_status_change',
+                    title: `🔴 Truck Down — ${operatorName}${unitNumber}`,
+                    body: `Truck Down status set${payload.status_notes ? `: ${payload.status_notes}` : ''}`,
+                    channel: 'in_app',
+                    link: '/dispatch',
+                  }))
+                );
+              }
             }
           } catch (emailErr) {
-            console.warn('Truck Down dispatcher email failed:', emailErr);
+            console.warn('Truck Down alert email failed:', emailErr);
           }
         }
 
