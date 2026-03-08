@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import MessagesView from '@/components/staff/MessagesView';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -74,6 +75,7 @@ interface DispatchPortalProps {
 
 export default function DispatchPortal({ embedded = false }: DispatchPortalProps) {
   const { toast } = useToast();
+  const { session } = useAuth();
   const [activePage, setActivePage] = useState<'dispatch' | 'dispatch-messages'>('dispatch');
   const [rows, setRows] = useState<DispatchRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +86,39 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
   const [liveIndicator, setLiveIndicator] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Unread message count ──────────────────────────────────────────────────
+  const fetchUnreadCount = async () => {
+    if (!session?.user?.id) return;
+    const { count } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('recipient_id', session.user.id)
+      .is('read_at', null);
+    setUnreadMessages(count ?? 0);
+  };
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    fetchUnreadCount();
+    const channel = supabase
+      .channel('dispatch-messages-unread')
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'messages',
+        filter: `recipient_id=eq.${session.user.id}`,
+      }, () => fetchUnreadCount())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [session?.user?.id]);
+
+  // Clear badge when navigating to Messages tab
+  const handleNavigate = (path: string) => {
+    const p = path as 'dispatch' | 'dispatch-messages';
+    setActivePage(p);
+    if (p === 'dispatch-messages') setUnreadMessages(0);
+  };
 
   useEffect(() => {
     fetchDispatch();
@@ -512,14 +546,14 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
   const navItems = [
     { label: 'Dispatch Board', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
-    { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages' },
+    { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages', badge: unreadMessages || undefined },
   ];
 
   return (
     <StaffLayout
       navItems={navItems}
       currentPath={activePage}
-      onNavigate={(path) => setActivePage(path as 'dispatch' | 'dispatch-messages')}
+      onNavigate={handleNavigate}
       title="Dispatch"
     >
       {activePage === 'dispatch-messages' ? <MessagesView /> : board}
