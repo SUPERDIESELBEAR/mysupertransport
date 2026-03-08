@@ -39,6 +39,7 @@ interface UploadedDoc {
 
 export default function OperatorPortal() {
   const { profile, user, signOut } = useAuth();
+  const location = useLocation();
   const [view, setView] = useState<OperatorView>(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
@@ -46,12 +47,12 @@ export default function OperatorPortal() {
     return 'progress';
   });
 
-  // React to in-app notification deep-links that navigate() while portal is already mounted
+  // React to in-app notification deep-links when navigate() is called while portal is already mounted
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
     if (tab === 'ica') setView('ica');
-  }, [window.location.search]);
+  }, [location.search]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
