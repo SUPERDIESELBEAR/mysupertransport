@@ -207,15 +207,33 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
 
 
 
-  const filtered = operators.filter(op => {
-    const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.toLowerCase();
-    const matchSearch = name.includes(search.toLowerCase()) || (op.phone ?? '').includes(search);
-    const matchStage = stageFilter === 'all' || op.current_stage === stageFilter;
-    const matchStatus = statusFilter === 'all' || getStatus(op) === statusFilter;
-    const matchCoordinator = coordinatorFilter === 'all' ||
-      (coordinatorFilter === 'unassigned' ? !op.assigned_staff_id : op.assigned_staff_id === coordinatorFilter);
-    return matchSearch && matchStage && matchStatus && matchCoordinator;
-  });
+  const filtered = operators
+    .filter(op => {
+      const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.toLowerCase();
+      const matchSearch = name.includes(search.toLowerCase()) || (op.phone ?? '').includes(search);
+      const matchStage = stageFilter === 'all' || op.current_stage === stageFilter;
+      const matchStatus = statusFilter === 'all' || getStatus(op) === statusFilter;
+      const matchCoordinator = coordinatorFilter === 'all' ||
+        (coordinatorFilter === 'unassigned' ? !op.assigned_staff_id : op.assigned_staff_id === coordinatorFilter);
+      return matchSearch && matchStage && matchStatus && matchCoordinator;
+    })
+    .sort((a, b) => {
+      if (!sortKey) return 0;
+      let av = '';
+      let bv = '';
+      if (sortKey === 'name') {
+        av = `${a.first_name ?? ''} ${a.last_name ?? ''}`.trim().toLowerCase();
+        bv = `${b.first_name ?? ''} ${b.last_name ?? ''}`.trim().toLowerCase();
+      } else if (sortKey === 'stage') {
+        av = a.current_stage;
+        bv = b.current_stage;
+      } else if (sortKey === 'coordinator') {
+        av = (a.assigned_staff_name ?? '').toLowerCase();
+        bv = (b.assigned_staff_name ?? '').toLowerCase();
+      }
+      const cmp = av.localeCompare(bv);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
 
   const activeFilterCount = [
     stageFilter !== 'all',
