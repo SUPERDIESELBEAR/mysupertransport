@@ -509,7 +509,8 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   if (embedded) return board;
 
   const navItems = [
-    { label: 'Active Operators', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
+    { label: 'Dispatch Board', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
+    { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages' },
   ];
 
   return (
