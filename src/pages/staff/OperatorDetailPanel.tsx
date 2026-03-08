@@ -42,6 +42,21 @@ type OnboardingStatus = {
   fully_onboarded: boolean | null;
 };
 
+type DispatchHistoryEntry = {
+  id: string;
+  dispatch_status: string;
+  current_load_lane: string | null;
+  status_notes: string | null;
+  changed_at: string;
+};
+
+const DISPATCH_STATUS_CONFIG: Record<string, { label: string; dotClass: string; badgeClass: string; emoji: string }> = {
+  not_dispatched: { label: 'Not Dispatched', dotClass: 'bg-muted-foreground', badgeClass: 'bg-muted text-muted-foreground border-border', emoji: '⏸' },
+  dispatched:     { label: 'Dispatched',     dotClass: 'bg-status-complete',   badgeClass: 'bg-status-complete/10 text-status-complete border-status-complete/30', emoji: '🚛' },
+  home:           { label: 'Home',           dotClass: 'bg-status-progress',   badgeClass: 'bg-status-progress/10 text-status-progress border-status-progress/30', emoji: '🏠' },
+  truck_down:     { label: 'Truck Down',     dotClass: 'bg-destructive',       badgeClass: 'bg-destructive/10 text-destructive border-destructive/30', emoji: '🔴' },
+};
+
 export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDetailPanelProps) {
   const { toast } = useToast();
   const { session } = useAuth();
@@ -52,6 +67,8 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<Partial<OnboardingStatus>>({});
   const [statusId, setStatusId] = useState<string | null>(null);
+  const [dispatchHistory, setDispatchHistory] = useState<DispatchHistoryEntry[]>([]);
+  const [currentDispatchStatus, setCurrentDispatchStatus] = useState<string | null>(null);
   // Track the last-saved values of milestone fields to detect transitions
   const savedMilestones = useRef<{
     ica_status: string;
