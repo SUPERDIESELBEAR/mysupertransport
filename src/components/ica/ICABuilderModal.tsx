@@ -68,12 +68,12 @@ export default function ICABuilderModal({
   const [carrierTitle, setCarrierTitle] = useState('');
 
   const [data, setData] = useState<ICAData>({
-    truck_year: '',
+    truck_year: new Date().getFullYear().toString(),
     truck_make: '',
     truck_model: '',
     truck_vin: '',
     truck_plate: '',
-    truck_plate_state: '',
+    truck_plate_state: applicationData?.address_state ?? 'MO',
     trailer_number: '',
     owner_business_name: operatorName,
     owner_ein_ssn: '',
