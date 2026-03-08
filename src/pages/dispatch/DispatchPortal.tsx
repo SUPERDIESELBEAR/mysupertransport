@@ -583,8 +583,11 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                 return (
                   <div
                     key={row.operator_id}
-                    className={`bg-white border-2 rounded-2xl shadow-sm overflow-hidden transition-all duration-200 ${
-                      row.dispatch_status === 'truck_down'
+                    ref={el => { cardRefs.current[row.operator_id] = el; }}
+                    className={`bg-white border-2 rounded-2xl shadow-sm overflow-hidden transition-all duration-300 ${
+                      highlightedCard === row.operator_id
+                        ? 'border-destructive ring-4 ring-destructive/30 scale-[1.01]'
+                        : row.dispatch_status === 'truck_down'
                         ? 'border-destructive/40'
                         : row.dispatch_status === 'dispatched'
                         ? 'border-status-complete/30'
