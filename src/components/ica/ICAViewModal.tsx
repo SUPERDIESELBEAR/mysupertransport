@@ -38,12 +38,13 @@ export default function ICAViewModal({ operatorId, operatorName, onClose }: ICAV
 
       if (data) {
         // Resolve signed URLs for private-bucket signature images
+        const rawData = data as Record<string, any>;
         const [carrierUrl, contractorUrl] = await Promise.all([
-          toSignedUrl((data as any).carrier_signature_url),
-          toSignedUrl((data as any).contractor_signature_url),
+          toSignedUrl(rawData.carrier_signature_url),
+          toSignedUrl(rawData.contractor_signature_url),
         ]);
         setContract({
-          ...data,
+          ...rawData,
           carrier_signature_url: carrierUrl,
           contractor_signature_url: contractorUrl,
         });
