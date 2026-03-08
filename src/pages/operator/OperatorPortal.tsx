@@ -12,9 +12,10 @@ import { OperatorResourceLibrary, OperatorFAQ } from '@/components/operator/Oper
 import OperatorMessagesView from '@/components/operator/OperatorMessagesView';
 import NotificationBell from '@/components/NotificationBell';
 import OperatorStatusPage from '@/components/operator/OperatorStatusPage';
+import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq';
+type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch';
 
 interface Stage {
   number: number;
