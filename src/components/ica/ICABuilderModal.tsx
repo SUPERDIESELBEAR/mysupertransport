@@ -142,6 +142,23 @@ export default function ICABuilderModal({
         await supabase.from('onboarding_status').update({ ica_status: 'sent_for_signature' }).eq('id', os.id);
       }
 
+      // Fire in-app + email notification to operator
+      try {
+        await supabase.functions.invoke('send-notification', {
+          body: {
+            type: 'onboarding_milestone',
+            operator_id: operatorId,
+            operator_name: operatorName,
+            operator_email: operatorEmail,
+            milestone: 'ICA Agreement Sent for Signature',
+            milestone_key: 'ica_sent',
+          },
+        });
+      } catch (notifErr) {
+        // Non-blocking — notification failure should not prevent the send from completing
+        console.warn('Notification send failed:', notifErr);
+      }
+
       toast({ title: 'ICA sent to operator', description: `${operatorName} can now review and sign.` });
       onSent();
     } catch (err: any) {
