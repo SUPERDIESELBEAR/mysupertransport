@@ -262,6 +262,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
       fetchDispatch(true);
 
       // Fire in-app notification to operator (only for meaningful statuses)
+      // Also emails the dispatcher when truck_down is set
       if (newStatus !== 'not_dispatched') {
         const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
         fetch(`https://${projectId}.supabase.co/functions/v1/send-notification`, {
@@ -270,10 +271,13 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
           body: JSON.stringify({
             type: 'dispatch_status_change',
             operator_id: row.operator_id,
+            operator_name: `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || 'Operator',
+            unit_number: row.unit_number ?? null,
             new_status: newStatus,
             current_load_lane: editData.current_load_lane || null,
             eta_redispatch: editData.eta_redispatch || null,
             status_notes: editData.status_notes || null,
+            caller_user_id: session?.user?.id ?? null,
           }),
         }).catch(console.error); // fire-and-forget
       }
