@@ -78,6 +78,9 @@ export default function StaffDirectory() {
   // Manage access panel
   const [managingMember, setManagingMember] = useState<StaffMember | null>(null);
   const [roleActionLoading, setRoleActionLoading] = useState<string | null>(null);
+  const [editingPhone, setEditingPhone] = useState('');
+  const [phoneEditActive, setPhoneEditActive] = useState(false);
+  const [phoneSaving, setPhoneSaving] = useState(false);
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
