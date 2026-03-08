@@ -454,10 +454,22 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
                 PE Screening must be Clear before sending ICA.
               </div>
             )}
-            {status.pe_screening_result === 'clear' && (
-              <Button variant="outline" size="sm" className="w-full border-gold text-gold hover:bg-gold/10 text-xs">
-                Send ICA via PandaDoc
+            {status.pe_screening_result === 'clear' && status.ica_status !== 'complete' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-gold text-gold hover:bg-gold/10 text-xs gap-1.5"
+                onClick={() => setShowICABuilder(true)}
+              >
+                <FilePen className="h-3.5 w-3.5" />
+                {status.ica_status === 'sent_for_signature' ? 'View / Edit ICA' : 'Prepare & Send ICA'}
               </Button>
+            )}
+            {status.ica_status === 'complete' && (
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-status-complete/10 border border-status-complete/30">
+                <CheckCircle2 className="h-3.5 w-3.5 text-status-complete" />
+                <span className="text-xs text-status-complete font-medium">ICA Fully Executed</span>
+              </div>
             )}
           </div>
         </div>
