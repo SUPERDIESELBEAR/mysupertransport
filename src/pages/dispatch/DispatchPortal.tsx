@@ -200,9 +200,10 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
   const saveEdit = async (row: DispatchRow) => {
     setSaving(true);
+    const newStatus = editData.dispatch_status ?? 'not_dispatched';
     const payload = {
       operator_id: row.operator_id,
-      dispatch_status: editData.dispatch_status ?? 'not_dispatched',
+      dispatch_status: newStatus,
       current_load_lane: editData.current_load_lane || null,
       eta_redispatch: editData.eta_redispatch || null,
       status_notes: editData.status_notes || null,
@@ -223,6 +224,23 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
       toast({ title: 'Dispatch updated', description: `${row.first_name} ${row.last_name} status saved.` });
       setEditRow(null);
       fetchDispatch(true);
+
+      // Fire in-app notification to operator (only for meaningful statuses)
+      if (newStatus !== 'not_dispatched') {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        fetch(`https://${projectId}.supabase.co/functions/v1/send-notification`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+          body: JSON.stringify({
+            type: 'dispatch_status_change',
+            operator_id: row.operator_id,
+            new_status: newStatus,
+            current_load_lane: editData.current_load_lane || null,
+            eta_redispatch: editData.eta_redispatch || null,
+            status_notes: editData.status_notes || null,
+          }),
+        }).catch(console.error); // fire-and-forget
+      }
     }
   };
 

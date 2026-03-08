@@ -10,7 +10,8 @@ type NotificationType =
   | 'application_approved'
   | 'application_denied'
   | 'onboarding_milestone'
-  | 'document_uploaded';
+  | 'document_uploaded'
+  | 'dispatch_status_change';
 
 interface NotificationPayload {
   type: NotificationType;
@@ -23,6 +24,11 @@ interface NotificationPayload {
   document_type?: string;
   operator_id?: string;
   reviewer_notes?: string;
+  // dispatch_status_change fields
+  new_status?: string;
+  current_load_lane?: string;
+  eta_redispatch?: string;
+  status_notes?: string;
 }
 
 // ─── Email HTML builder ─────────────────────────────────────────────────────
@@ -381,6 +387,45 @@ Deno.serve(async (req) => {
         );
 
         await Promise.all(recipients.map(e => sendEmail(e, subject, html, RESEND_API_KEY)));
+        break;
+      }
+
+      case 'dispatch_status_change': {
+        const operatorId = payload.operator_id;
+        if (!operatorId) break;
+
+        const STATUS_LABELS: Record<string, { emoji: string; label: string }> = {
+          dispatched:     { emoji: '🚛', label: 'Dispatched' },
+          home:           { emoji: '🏠', label: 'Home' },
+          truck_down:     { emoji: '🔴', label: 'Truck Down' },
+          not_dispatched: { emoji: '⏸️', label: 'Not Dispatched' },
+        };
+        const newStatus = payload.new_status ?? 'not_dispatched';
+        const statusInfo = STATUS_LABELS[newStatus] ?? { emoji: '🔔', label: newStatus };
+
+        // Build notification body
+        const laneInfo = payload.current_load_lane ? ` — Lane: ${payload.current_load_lane}` : '';
+        const etaInfo = payload.eta_redispatch ? ` — ETA: ${payload.eta_redispatch}` : '';
+        const notesInfo = payload.status_notes ? ` — Note: ${payload.status_notes}` : '';
+        const notifBody = `Your status has been updated to ${statusInfo.label}${laneInfo}${etaInfo}${notesInfo}`;
+
+        // Look up operator's user_id
+        const { data: opRow } = await supabaseAdmin
+          .from('operators')
+          .select('user_id')
+          .eq('id', operatorId)
+          .single();
+
+        if (opRow?.user_id) {
+          await supabaseAdmin.from('notifications').insert({
+            user_id: opRow.user_id,
+            type: 'dispatch_status_change',
+            title: `${statusInfo.emoji} Dispatch Status: ${statusInfo.label}`,
+            body: notifBody,
+            channel: 'in_app',
+            link: '/dashboard',
+          });
+        }
         break;
       }
 
