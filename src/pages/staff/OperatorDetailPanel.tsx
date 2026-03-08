@@ -10,6 +10,7 @@ import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle,
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
+import ICAViewModal from '@/components/ica/ICAViewModal';
 import { formatDistanceToNow } from 'date-fns';
 
 interface OperatorDetailPanelProps {
