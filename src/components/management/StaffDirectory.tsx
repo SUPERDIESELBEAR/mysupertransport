@@ -70,6 +70,7 @@ export default function StaffDirectory() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteFirstName, setInviteFirstName] = useState('');
   const [inviteLastName, setInviteLastName] = useState('');
+  const [invitePhone, setInvitePhone] = useState('');
   const [inviteRole, setInviteRole] = useState<StaffRole>('onboarding_staff');
   const [inviting, setInviting] = useState(false);
 
