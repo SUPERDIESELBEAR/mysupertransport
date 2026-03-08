@@ -1055,6 +1055,20 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                           </div>
                         ) : (
                           <div className="flex gap-1 justify-end">
+                            {row.phone && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                asChild
+                                className="h-7 text-xs gap-1 px-2.5 text-muted-foreground hover:text-status-complete hover:bg-status-complete/10"
+                                title={`Call ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
+                              >
+                                <a href={`tel:${row.phone}`}>
+                                  <Phone className="h-3 w-3" />
+                                  Call
+                                </a>
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
