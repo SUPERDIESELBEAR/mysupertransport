@@ -10,6 +10,7 @@ import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle,
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
+import ICAViewModal from '@/components/ica/ICAViewModal';
 import { formatDistanceToNow } from 'date-fns';
 
 interface OperatorDetailPanelProps {
@@ -66,6 +67,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [operatorName, setOperatorName] = useState('');
   const [operatorEmail, setOperatorEmail] = useState('');
   const [showICABuilder, setShowICABuilder] = useState(false);
+  const [showICAView, setShowICAView] = useState(false);
   const [applicationData, setApplicationData] = useState<any>(null);
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<Partial<OnboardingStatus>>({});
@@ -466,10 +468,32 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
               </Button>
             )}
             {status.ica_status === 'complete' && (
-              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-status-complete/10 border border-status-complete/30">
-                <CheckCircle2 className="h-3.5 w-3.5 text-status-complete" />
-                <span className="text-xs text-status-complete font-medium">ICA Fully Executed</span>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-status-complete/10 border border-status-complete/30">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-status-complete" />
+                  <span className="text-xs text-status-complete font-medium">ICA Fully Executed</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-border text-foreground hover:bg-secondary text-xs gap-1.5"
+                  onClick={() => setShowICAView(true)}
+                >
+                  <FileCheck className="h-3.5 w-3.5" />
+                  View Executed ICA
+                </Button>
               </div>
+            )}
+            {status.ica_status === 'sent_for_signature' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-border text-foreground hover:bg-secondary text-xs gap-1.5"
+                onClick={() => setShowICAView(true)}
+              >
+                <FileCheck className="h-3.5 w-3.5" />
+                View Sent ICA
+              </Button>
             )}
           </div>
         </div>
@@ -643,6 +667,15 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
             updateStatus('ica_status', 'sent_for_signature');
             toast({ title: 'ICA sent', description: `${operatorName} will be notified to review and sign.` });
           }}
+        />
+      )}
+
+      {/* ICA View Modal */}
+      {showICAView && (
+        <ICAViewModal
+          operatorId={operatorId}
+          operatorName={operatorName}
+          onClose={() => setShowICAView(false)}
         />
       )}
     </div>
