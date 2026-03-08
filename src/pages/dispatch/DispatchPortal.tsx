@@ -33,6 +33,7 @@ interface DispatchRow {
   current_load_lane: string | null;
   eta_redispatch: string | null;
   status_notes: string | null;
+  updated_at: string | null;
 }
 
 interface StatusHistoryEntry {
