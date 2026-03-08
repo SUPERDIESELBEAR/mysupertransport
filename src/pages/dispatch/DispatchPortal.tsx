@@ -469,7 +469,197 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
         </div>
       </div>
 
-      {/* Table */}
+      {/* Cards view */}
+      {viewMode === 'cards' && (
+        <div>
+          {loading ? (
+            <div className="flex flex-col items-center gap-3 py-16">
+              <div className="h-7 w-7 animate-spin rounded-full border-2 border-gold border-t-transparent" />
+              <p className="text-sm text-muted-foreground">Loading operators…</p>
+            </div>
+          ) : filteredRows.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-16">
+              <Truck className="h-8 w-8 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">
+                {search ? 'No operators match your search.' : activeTab === 'all' ? 'No active operators yet.' : `No operators with status "${STATUS_CONFIG[activeTab as DispatchStatusType]?.label}".`}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredRows.map(row => {
+                const cfg = STATUS_CONFIG[row.dispatch_status];
+                const isEditing = editRow === row.operator_id;
+                const fullName = `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || '—';
+                const initials = [row.first_name?.[0], row.last_name?.[0]].filter(Boolean).join('').toUpperCase() || '?';
+
+                return (
+                  <div
+                    key={row.operator_id}
+                    className={`bg-white border-2 rounded-2xl shadow-sm overflow-hidden transition-all duration-200 ${
+                      row.dispatch_status === 'truck_down'
+                        ? 'border-destructive/40'
+                        : row.dispatch_status === 'dispatched'
+                        ? 'border-status-complete/30'
+                        : row.dispatch_status === 'home'
+                        ? 'border-status-progress/30'
+                        : 'border-border'
+                    }`}
+                  >
+                    {/* Card header — status strip */}
+                    <div className={`px-4 py-2.5 flex items-center justify-between gap-3 ${
+                      row.dispatch_status === 'truck_down'
+                        ? 'bg-destructive/8'
+                        : row.dispatch_status === 'dispatched'
+                        ? 'bg-status-complete/8'
+                        : row.dispatch_status === 'home'
+                        ? 'bg-status-progress/8'
+                        : 'bg-muted/40'
+                    }`}>
+                      <Badge className={`${cfg.badgeClass} text-xs gap-1`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
+                        {cfg.label}
+                      </Badge>
+                      {row.unit_number && (
+                        <span className="font-mono text-xs bg-background/80 border border-border px-2 py-0.5 rounded text-foreground">{row.unit_number}</span>
+                      )}
+                    </div>
+
+                    {/* Card body */}
+                    <div className="p-4 space-y-3">
+                      {/* Operator identity */}
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-surface-dark flex items-center justify-center shrink-0">
+                          <span className="text-sm font-bold text-gold">{initials}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground text-sm truncate">{fullName}</p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            {row.phone && (
+                              <a href={`tel:${row.phone}`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-gold transition-colors">
+                                <Phone className="h-3 w-3" />{row.phone}
+                              </a>
+                            )}
+                            {row.home_state && (
+                              <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                                <MapPin className="h-2.5 w-2.5" />{row.home_state}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Load / Lane + ETA — the key at-a-glance fields */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-muted/40 rounded-lg px-3 py-2">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Load / Lane</p>
+                          {isEditing ? (
+                            <Input
+                              value={editData.current_load_lane ?? ''}
+                              onChange={e => setEditData(p => ({ ...p, current_load_lane: e.target.value }))}
+                              className="h-7 text-xs px-2"
+                              placeholder="e.g. ATL→CHI"
+                            />
+                          ) : (
+                            <p className="text-sm font-semibold font-mono text-foreground truncate">
+                              {row.current_load_lane || <span className="text-muted-foreground/50 font-normal text-xs">—</span>}
+                            </p>
+                          )}
+                        </div>
+                        <div className="bg-muted/40 rounded-lg px-3 py-2">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">ETA Redispatch</p>
+                          {isEditing ? (
+                            <Input
+                              value={editData.eta_redispatch ?? ''}
+                              onChange={e => setEditData(p => ({ ...p, eta_redispatch: e.target.value }))}
+                              className="h-7 text-xs px-2"
+                              placeholder="e.g. Fri AM"
+                            />
+                          ) : (
+                            <p className="text-sm font-semibold text-foreground truncate">
+                              {row.eta_redispatch || <span className="text-muted-foreground/50 font-normal text-xs">—</span>}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Status select (editing) */}
+                      {isEditing && (
+                        <div className="space-y-2">
+                          <Select
+                            value={editData.dispatch_status}
+                            onValueChange={v => setEditData(p => ({ ...p, dispatch_status: v as DispatchStatusType }))}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="not_dispatched">Not Dispatched</SelectItem>
+                              <SelectItem value="dispatched">Dispatched</SelectItem>
+                              <SelectItem value="home">Home</SelectItem>
+                              <SelectItem value="truck_down">Truck Down</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Textarea
+                            value={editData.status_notes ?? ''}
+                            onChange={e => setEditData(p => ({ ...p, status_notes: e.target.value }))}
+                            className="text-xs min-h-[52px] resize-none"
+                            placeholder="Notes…"
+                          />
+                        </div>
+                      )}
+
+                      {/* Notes (view mode) */}
+                      {!isEditing && row.status_notes && (
+                        <p className="text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2 line-clamp-2 italic">
+                          {row.status_notes}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Card footer — actions */}
+                    <div className="px-4 pb-4 pt-0 flex justify-end gap-2">
+                      {isEditing ? (
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => saveEdit(row)}
+                            disabled={saving}
+                            className="h-7 text-xs bg-gold text-surface-dark hover:bg-gold-light gap-1 px-3"
+                          >
+                            {saving ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                            Save
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-7 text-xs px-2">
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEdit(row)}
+                          className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                          Edit
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {!loading && filteredRows.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-3 text-right">
+              Showing {filteredRows.length} of {rows.length} active operator{rows.length !== 1 ? 's' : ''}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Table view */}
+      {viewMode === 'table' && (
       <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
