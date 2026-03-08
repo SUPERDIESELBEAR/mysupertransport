@@ -373,25 +373,51 @@ export default function OperatorPortal() {
 
         {/* ── TRUCK DOWN ALERT BANNER ── */}
         {dispatchStatus === 'truck_down' && (
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-destructive/10 border border-destructive/40 rounded-xl px-4 py-3.5 animate-fade-in">
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/15 shrink-0">
-                <TriangleAlert className="h-4 w-4 text-destructive animate-pulse" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-destructive leading-tight">🔴 Your Truck is Marked Down</p>
-                <p className="text-xs text-destructive/70 mt-0.5 leading-snug">
-                  Your dispatcher has flagged your truck as out of service. Please check your messages or contact your dispatcher immediately.
-                </p>
+          <div className="bg-destructive/10 border border-destructive/40 rounded-xl px-4 py-3.5 animate-fade-in space-y-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/15 shrink-0">
+                  <TriangleAlert className="h-4 w-4 text-destructive animate-pulse" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-destructive leading-tight">🔴 Your Truck is Marked Down</p>
+                  <p className="text-xs text-destructive/70 mt-0.5 leading-snug">
+                    Your dispatcher has flagged your truck as out of service. Contact your dispatcher immediately.
+                  </p>
+                </div>
               </div>
+              <button
+                onClick={() => setView('messages')}
+                className="shrink-0 flex items-center gap-1.5 bg-destructive text-white text-xs font-semibold px-3 py-2 rounded-lg hover:bg-destructive/90 transition-colors"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                Message Dispatcher
+              </button>
             </div>
-            <button
-              onClick={() => setView('messages')}
-              className="shrink-0 flex items-center gap-1.5 bg-destructive text-white text-xs font-semibold px-3 py-2 rounded-lg hover:bg-destructive/90 transition-colors"
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-              Message Dispatcher
-            </button>
+            {/* Dispatcher contact info */}
+            {assignedDispatcher && (
+              <div className="flex items-center gap-3 border-t border-destructive/20 pt-2.5">
+                <div className="h-7 w-7 rounded-full bg-destructive/15 flex items-center justify-center shrink-0">
+                  <span className="text-destructive text-xs font-bold">
+                    {assignedDispatcher.name.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-3 min-w-0">
+                  <span className="text-xs font-semibold text-foreground">{assignedDispatcher.name}</span>
+                  {assignedDispatcher.phone ? (
+                    <a
+                      href={`tel:${assignedDispatcher.phone}`}
+                      className="text-xs text-destructive font-medium hover:underline flex items-center gap-1"
+                    >
+                      <Phone className="h-3 w-3" />
+                      {assignedDispatcher.phone}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground italic">No phone on file — use messages</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
