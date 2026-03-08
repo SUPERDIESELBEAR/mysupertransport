@@ -439,7 +439,7 @@ export default function ApplicationForm() {
 }
 
 // ─── Payload builder ──────────────────────────────────────────────────────
-function buildPayload(data: ApplicationFormData, token: string, isDraft: boolean): Record<string, unknown> {
+function buildPayload(data: ApplicationFormData, token: string, isDraft: boolean, ssnEncrypted?: string | null): Record<string, unknown> {
   return {
     draft_token: token,
     is_draft: isDraft,
@@ -489,7 +489,8 @@ function buildPayload(data: ApplicationFormData, token: string, isDraft: boolean
     dot_positive_test_past_2yr: data.dot_positive_test_past_2yr === 'yes' ? true : data.dot_positive_test_past_2yr === 'no' ? false : null,
     dot_return_to_duty_docs: data.dot_return_to_duty_docs === 'yes' ? true : data.dot_return_to_duty_docs === 'no' ? false : null,
     testing_policy_accepted: data.testing_policy_accepted,
-    ssn_encrypted: data.ssn ? btoa(data.ssn) : null,
+    // SSN is encrypted server-side via AES-256-GCM; never stored as plaintext
+    ssn_encrypted: ssnEncrypted ?? null,
     typed_full_name: data.typed_full_name || null,
     signature_image_url: data.signature_image_url || null,
     signed_date: data.signed_date || null,
