@@ -53,11 +53,16 @@ function initials(name: string) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function OperatorMessagesView() {
+interface OperatorMessagesViewProps {
+  initialUserId?: string;
+  onThreadSelected?: () => void;
+}
+
+export default function OperatorMessagesView({ initialUserId, onThreadSelected }: OperatorMessagesViewProps = {}) {
   const { user } = useAuth();
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(initialUserId ?? null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
