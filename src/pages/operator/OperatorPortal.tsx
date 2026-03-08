@@ -360,6 +360,11 @@ export default function OperatorPortal() {
 
         {/* ── MESSAGES VIEW ── */}
         {view === 'messages' && <OperatorMessagesView />}
+
+        {/* ── DISPATCH STATUS VIEW ── */}
+        {view === 'dispatch' && operatorId && (
+          <OperatorDispatchStatus operatorId={operatorId} />
+        )}
       </div>
     </div>
   );
