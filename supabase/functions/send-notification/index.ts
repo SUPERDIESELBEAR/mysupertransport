@@ -113,6 +113,18 @@ const MILESTONE_OPERATOR_COPY: Record<string, { heading: string; body: (name: st
       <p>Your <strong>pre-employment drug & alcohol screening</strong> result has come back <strong>clear</strong>.</p>
       <p>This clears the way for your ICA to be issued. Our onboarding team will reach out with next steps shortly.</p>`,
   },
+  fully_onboarded: {
+    heading: '🎉 Welcome to SUPERTRANSPORT — You\'re Fully Onboarded!',
+    body: (name) => `<p>Hi ${name},</p>
+      <p>Congratulations — you have officially completed the onboarding process and are now a <strong>fully active owner-operator</strong> with SUPERTRANSPORT LLC!</p>
+      <p>Here's what happens next:</p>
+      <ul style="padding-left:20px;line-height:2;">
+        <li>Your dispatcher will be in touch to get you set up with your first load.</li>
+        <li>Log in to your portal to view dispatch updates and messages.</li>
+        <li>If you have any questions, our team is always here to help.</li>
+      </ul>
+      <p style="margin-top:16px;">We're thrilled to have you on the road with us. Welcome to the SUPERTRANSPORT family!</p>`,
+  },
 };
 
 Deno.serve(async (req) => {
