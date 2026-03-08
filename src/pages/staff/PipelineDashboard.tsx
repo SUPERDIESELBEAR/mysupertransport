@@ -4,8 +4,17 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+type DispatchStatus = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
+
+const DISPATCH_BADGE: Record<DispatchStatus, { label: string; className: string; dot: string }> = {
+  not_dispatched: { label: 'Not Dispatched', className: 'bg-muted text-muted-foreground border-border',          dot: 'bg-muted-foreground' },
+  dispatched:     { label: 'Dispatched',     className: 'bg-status-complete/10 text-status-complete border-status-complete/30', dot: 'bg-status-complete' },
+  home:           { label: 'Home',           className: 'bg-status-progress/10 text-status-progress border-status-progress/30', dot: 'bg-status-progress' },
+  truck_down:     { label: 'Truck Down',     className: 'bg-destructive/10 text-destructive border-destructive/30',             dot: 'bg-destructive' },
+};
 
 interface OperatorRow {
   id: string;
@@ -22,6 +31,7 @@ interface OperatorRow {
   pe_screening_result: string;
   ica_status: string;
   insurance_added_date: string | null;
+  dispatch_status: DispatchStatus | null;
 }
 
 interface StaffOption {
@@ -88,9 +98,8 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
   const fetchOperators = async () => {
     setLoading(true);
 
-    const { data: opData } = await supabase
-      .from('operators')
-      .select(`
+    const [{ data: opData }, { data: staffRoles }] = await Promise.all([
+      supabase.from('operators').select(`
         id,
         user_id,
         assigned_onboarding_staff,
@@ -104,32 +113,36 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
           insurance_added_date,
           fully_onboarded
         )
-      `);
+      `),
+      supabase.from('user_roles').select('user_id').in('role', ['onboarding_staff', 'management']),
+    ]);
 
     if (!opData) { setLoading(false); return; }
 
-    // Fetch all staff/management user IDs for the coordinator dropdown
-    const { data: staffRoles } = await supabase
-      .from('user_roles')
-      .select('user_id')
-      .in('role', ['onboarding_staff', 'management']);
     const allStaffUserIds = (staffRoles ?? []).map((r: any) => r.user_id);
 
-    // Collect all user IDs (operators + all staff)
+    // Fetch dispatch statuses for all operators in parallel with profiles
+    const operatorIds = opData.map((o: any) => o.id).filter(Boolean);
     const operatorUserIds = opData.map((o: any) => o.user_id).filter(Boolean);
     const assignedStaffIds = opData.map((o: any) => o.assigned_onboarding_staff).filter(Boolean);
     const allUserIds = [...new Set([...operatorUserIds, ...assignedStaffIds, ...allStaffUserIds])];
 
-    const profileMap: Record<string, any> = {};
-    if (allUserIds.length > 0) {
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('user_id, first_name, last_name, phone, home_state')
-        .in('user_id', allUserIds);
-      (profileData ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
-    }
+    const [profileResult, dispatchResult] = await Promise.all([
+      allUserIds.length > 0
+        ? supabase.from('profiles').select('user_id, first_name, last_name, phone, home_state').in('user_id', allUserIds)
+        : Promise.resolve({ data: [] }),
+      operatorIds.length > 0
+        ? supabase.from('active_dispatch').select('operator_id, dispatch_status').in('operator_id', operatorIds)
+        : Promise.resolve({ data: [] }),
+    ]);
 
-    // Build staff options from ALL staff/management roles
+    const profileMap: Record<string, any> = {};
+    ((profileResult.data as any[]) ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
+
+    const dispatchMap: Record<string, DispatchStatus> = {};
+    ((dispatchResult.data as any[]) ?? []).forEach((d: any) => { dispatchMap[d.operator_id] = d.dispatch_status; });
+
+    // Build staff options
     const staffMap: Record<string, StaffOption> = {};
     allStaffUserIds.forEach((uid: string) => {
       const p = profileMap[uid];
@@ -164,6 +177,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
         pe_screening_result: os.pe_screening_result ?? 'pending',
         ica_status: os.ica_status ?? 'not_issued',
         insurance_added_date: os.insurance_added_date ?? null,
+        dispatch_status: dispatchMap[op.id] ?? null,
       };
     });
     setOperators(rows);
@@ -498,6 +512,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                   </button>
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Status</th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">Dispatch</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
                   <button
                     onClick={() => handleSort('coordinator')}
@@ -517,7 +532,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={8} className="text-center py-12 text-muted-foreground">
                     <div className="flex justify-center">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                     </div>
@@ -525,7 +540,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={8} className="text-center py-12 text-muted-foreground">
                     {operators.length === 0 ? 'No operators in the pipeline yet.' : 'No operators match your filters.'}
                   </td>
                 </tr>
@@ -551,6 +566,20 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                         <Badge className="status-action border text-xs">Alert</Badge>
                       ) : (
                         <Badge className="status-progress border text-xs">In Progress</Badge>
+                      )}
+                    </td>
+                    {/* Dispatch status badge — only shown for fully onboarded operators */}
+                    <td className="px-4 py-3 hidden lg:table-cell">
+                      {op.dispatch_status ? (() => {
+                        const cfg = DISPATCH_BADGE[op.dispatch_status];
+                        return (
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${cfg.className}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+                            {cfg.label}
+                          </span>
+                        );
+                      })() : (
+                        <span className="text-muted-foreground/40 text-xs">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3 hidden xl:table-cell">
