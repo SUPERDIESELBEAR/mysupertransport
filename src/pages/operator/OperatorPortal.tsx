@@ -115,10 +115,11 @@ export default function OperatorPortal() {
         filter: `operator_id=eq.${operatorId}`,
       }, (payload: any) => {
         setDispatchStatus(payload.new?.dispatch_status ?? null);
+        fetchDispatcherInfo(payload.new?.assigned_dispatcher ?? null);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [operatorId]);
+  }, [operatorId, fetchDispatcherInfo]);
 
   // Clear unread count when messages tab is opened
   useEffect(() => {
