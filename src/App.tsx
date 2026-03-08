@@ -44,7 +44,7 @@ function AppRoutes() {
         !user ? <Navigate to="/login" replace /> :
         activeRole === 'management' ? <ManagementPortal /> :
         activeRole === 'onboarding_staff' ? <StaffPortal /> :
-        activeRole === 'dispatcher' ? <DispatchPortal /> :
+        activeRole === 'dispatcher' ? <Navigate to="/dispatch" replace /> :
         activeRole === 'operator' ? <OperatorPortal /> :
         <ApplicationStatus />
       } />

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import StaffLayout from '@/components/layouts/StaffLayout';
+import MessagesView from '@/components/staff/MessagesView';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
-  Search, Edit2, X, Save, RefreshCw, MapPin
+  Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -73,6 +74,7 @@ interface DispatchPortalProps {
 
 export default function DispatchPortal({ embedded = false }: DispatchPortalProps) {
   const { toast } = useToast();
+  const [activePage, setActivePage] = useState<'dispatch' | 'dispatch-messages'>('dispatch');
   const [rows, setRows] = useState<DispatchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -509,12 +511,18 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   if (embedded) return board;
 
   const navItems = [
-    { label: 'Active Operators', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
+    { label: 'Dispatch Board', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
+    { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages' },
   ];
 
   return (
-    <StaffLayout navItems={navItems} currentPath="dispatch" onNavigate={() => {}} title="Dispatch">
-      {board}
+    <StaffLayout
+      navItems={navItems}
+      currentPath={activePage}
+      onNavigate={(path) => setActivePage(path as 'dispatch' | 'dispatch-messages')}
+      title="Dispatch"
+    >
+      {activePage === 'dispatch-messages' ? <MessagesView /> : board}
     </StaffLayout>
   );
 }
