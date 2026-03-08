@@ -373,6 +373,10 @@ export default function ManagementPortal() {
           <StaffDirectory />
         )}
 
+        {view === 'activity' && (
+          <ActivityLog />
+        )}
+
         {view === 'faq' && (
           <FaqManager />
         )}
