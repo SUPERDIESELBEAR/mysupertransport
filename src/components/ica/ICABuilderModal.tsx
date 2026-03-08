@@ -171,8 +171,8 @@ export default function ICABuilderModal({
     }
   };
 
-  const canProceedStep0 = data.truck_year && data.truck_make && data.truck_vin && data.owner_business_name;
-  const canProceedStep2 = carrierTypedName && carrierTitle;
+  const canProceedStep0 = !!(data.truck_vin && data.owner_business_name);
+  const canProceedStep2 = !!(carrierTypedName && carrierTitle);
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end">
