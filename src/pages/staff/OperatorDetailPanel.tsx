@@ -57,8 +57,18 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
     mvr_ch_approval: string;
     pe_screening_result: string;
     insurance_added_date: string | null;
+    form_2290: string;
+    truck_title: string;
+    truck_photos: string;
+    truck_inspection: string;
+    decal_applied: string;
+    eld_installed: string;
+    fuel_card_issued: string;
+    mo_reg_received: string;
   }>({
     ica_status: '', mvr_ch_approval: '', pe_screening_result: '', insurance_added_date: null,
+    form_2290: '', truck_title: '', truck_photos: '', truck_inspection: '',
+    decal_applied: '', eld_installed: '', fuel_card_issued: '', mo_reg_received: '',
   });
 
   useEffect(() => {
