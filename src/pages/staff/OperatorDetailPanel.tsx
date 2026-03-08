@@ -108,7 +108,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       .eq('operator_id', operatorId)
       .order('changed_at', { ascending: false })
       .limit(10);
-    setDispatchHistory((data as DispatchHistoryEntry[]) ?? []);
+    setDispatchHistory((data as unknown as DispatchHistoryEntry[]) ?? []);
   };
 
   const fetchOperatorDetail = async () => {
