@@ -629,6 +629,22 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           className="min-h-[100px] text-sm"
         />
       </div>
+
+      {/* ICA Builder Modal */}
+      {showICABuilder && (
+        <ICABuilderModal
+          operatorId={operatorId}
+          operatorName={operatorName}
+          operatorEmail={operatorEmail}
+          applicationData={applicationData}
+          onClose={() => setShowICABuilder(false)}
+          onSent={() => {
+            setShowICABuilder(false);
+            updateStatus('ica_status', 'sent_for_signature');
+            toast({ title: 'ICA sent', description: `${operatorName} will be notified to review and sign.` });
+          }}
+        />
+      )}
     </div>
   );
 }
