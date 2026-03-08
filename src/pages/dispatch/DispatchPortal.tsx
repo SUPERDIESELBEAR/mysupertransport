@@ -458,6 +458,43 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
         </div>
       </div>
 
+      {/* ── Truck Down Alert Banner ── */}
+      {counts.truck_down > 0 && !loading && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 animate-fade-in">
+          <div className="flex items-center gap-2 shrink-0">
+            <Siren className="h-4 w-4 text-destructive animate-pulse shrink-0" />
+            <span className="text-sm font-bold text-destructive">
+              {counts.truck_down === 1 ? '1 Truck Down' : `${counts.truck_down} Trucks Down`}
+            </span>
+            <span className="text-destructive/60 text-xs hidden sm:inline">—</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {rows
+              .filter(r => r.dispatch_status === 'truck_down')
+              .map(r => {
+                const name = `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || 'Unknown';
+                const unit = r.unit_number ? ` · ${r.unit_number}` : '';
+                return (
+                  <button
+                    key={r.operator_id}
+                    onClick={() => scrollToCard(r.operator_id)}
+                    className="flex items-center gap-1.5 bg-destructive/15 hover:bg-destructive/25 border border-destructive/30 rounded-lg px-2.5 py-1 text-xs font-semibold text-destructive transition-colors"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                    {name}{unit}
+                  </button>
+                );
+              })}
+          </div>
+          <button
+            onClick={() => { setActiveTab('truck_down'); }}
+            className="text-xs text-destructive/70 hover:text-destructive underline underline-offset-2 shrink-0 ml-auto hidden sm:block"
+          >
+            View all
+          </button>
+        </div>
+      )}
+
       {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {[
