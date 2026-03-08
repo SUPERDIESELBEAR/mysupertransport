@@ -52,8 +52,13 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [status, setStatus] = useState<Partial<OnboardingStatus>>({});
   const [statusId, setStatusId] = useState<string | null>(null);
   // Track the last-saved values of milestone fields to detect transitions
-  const savedMilestones = useRef<{ ica_status: string; mvr_ch_approval: string; pe_screening_result: string }>({
-    ica_status: '', mvr_ch_approval: '', pe_screening_result: '',
+  const savedMilestones = useRef<{
+    ica_status: string;
+    mvr_ch_approval: string;
+    pe_screening_result: string;
+    insurance_added_date: string | null;
+  }>({
+    ica_status: '', mvr_ch_approval: '', pe_screening_result: '', insurance_added_date: null,
   });
 
   useEffect(() => {
@@ -93,6 +98,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           ica_status: os.ica_status ?? '',
           mvr_ch_approval: os.mvr_ch_approval ?? '',
           pe_screening_result: os.pe_screening_result ?? '',
+          insurance_added_date: os.insurance_added_date ?? null,
         };
       }
     }
