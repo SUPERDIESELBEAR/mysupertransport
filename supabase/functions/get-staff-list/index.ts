@@ -46,10 +46,25 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Helper: get actor name
+    const getActorName = async (): Promise<string> => {
+      const { data } = await supabaseAdmin
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('user_id', callerUser.id)
+        .maybeSingle();
+      return data ? `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim() || (callerUser.email ?? 'Unknown') : (callerUser.email ?? 'Unknown');
+    };
+
     // Handle role update requests (POST with action)
     if (req.method === 'POST') {
       const body = await req.json();
-      const { action, user_id, role } = body as { action: string; user_id: string; role: string };
+      const { action, user_id, role, target_name } = body as {
+        action: string;
+        user_id: string;
+        role: string;
+        target_name?: string;
+      };
 
       if (!user_id || !role) {
         return new Response(JSON.stringify({ error: 'user_id and role are required' }), {
@@ -88,13 +103,24 @@ Deno.serve(async (req) => {
         });
       }
 
+      // ── Audit log ────────────────────────────────────────────────────
+      const actorName = await getActorName();
+      supabaseAdmin.from('audit_log').insert({
+        actor_id: callerUser.id,
+        actor_name: actorName,
+        action: action === 'add' ? 'role_added' : 'role_removed',
+        entity_type: 'staff_role',
+        entity_id: user_id,
+        entity_label: target_name ?? user_id,
+        metadata: { role, target_user_id: user_id },
+      }).then(() => {}).catch(e => console.error('Audit log error:', e));
+
       return new Response(JSON.stringify({ success: true }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // GET: Fetch full staff list
-    // 1. Get all staff role rows
     const { data: roleRows } = await supabaseAdmin
       .from('user_roles')
       .select('user_id, role')
@@ -108,20 +134,17 @@ Deno.serve(async (req) => {
 
     const staffUserIds = [...new Set(roleRows.map((r) => r.user_id))];
 
-    // 2. Get profiles
     const { data: profiles } = await supabaseAdmin
       .from('profiles')
       .select('user_id, first_name, last_name, account_status, created_at, updated_at')
       .in('user_id', staffUserIds);
 
-    // 3. Get emails from auth.users via admin API
     const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
     const emailMap: Record<string, string> = {};
     for (const u of authUsers ?? []) {
       if (u.email) emailMap[u.id] = u.email;
     }
 
-    // 4. Get assigned operator counts per staff member
     const { data: operators } = await supabaseAdmin
       .from('operators')
       .select('assigned_onboarding_staff')
@@ -134,7 +157,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 5. Merge everything
     const staff = (profiles ?? []).map((p) => ({
       user_id: p.user_id,
       first_name: p.first_name,

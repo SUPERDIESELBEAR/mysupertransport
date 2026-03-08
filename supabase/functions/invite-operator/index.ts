@@ -144,6 +144,27 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Audit log ──────────────────────────────────────────────────────
+    const callerProfile = await supabaseAdmin
+      .from('profiles')
+      .select('first_name, last_name')
+      .eq('user_id', callerUser.id)
+      .maybeSingle();
+    const actorName = callerProfile.data
+      ? `${callerProfile.data.first_name ?? ''} ${callerProfile.data.last_name ?? ''}`.trim() || callerUser.email
+      : callerUser.email;
+    const applicantName = `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || app.email;
+
+    supabaseAdmin.from('audit_log').insert({
+      actor_id: callerUser.id,
+      actor_name: actorName,
+      action: 'application_approved',
+      entity_type: 'application',
+      entity_id: application_id,
+      entity_label: applicantName,
+      metadata: { applicant_email: app.email, reviewer_notes: reviewer_notes ?? null },
+    }).then(() => {}).catch(e => console.error('Audit log error:', e));
+
     // Fire approval notification email (fire-and-forget)
     const notifUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`;
     fetch(notifUrl, {
@@ -151,7 +172,7 @@ Deno.serve(async (req) => {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
       body: JSON.stringify({
         type: 'application_approved',
-        applicant_name: `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || app.email,
+        applicant_name: applicantName,
         applicant_email: app.email,
         reviewer_notes: reviewer_notes ?? null,
       }),

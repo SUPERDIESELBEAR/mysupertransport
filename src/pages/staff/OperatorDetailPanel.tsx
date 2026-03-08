@@ -276,6 +276,24 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           mo_reg_received: status.mo_reg_received ?? prev.mo_reg_received,
         };
       }
+
+      // ── Write audit log for operator status changes ───────────────────
+      if (triggeredMilestones.length > 0 || statusId) {
+        // Only log if something meaningfully changed (milestones triggered)
+        if (triggeredMilestones.length > 0) {
+          void supabase.from('audit_log' as any).insert({
+            actor_id: session?.user?.id ?? null,
+            actor_name: null,
+            action: 'operator_status_updated',
+            entity_type: 'operator',
+            entity_id: operatorId,
+            entity_label: operatorName,
+            metadata: {
+              milestones: triggeredMilestones.map(m => m.label),
+            },
+          });
+        }
+      }
     }
 
     setSaving(false);

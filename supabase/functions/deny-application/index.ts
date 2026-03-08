@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch application for email data
+    // Fetch application for email / audit data
     const { data: app } = await supabaseAdmin
       .from('applications')
       .select('email, first_name, last_name')
@@ -60,6 +60,29 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: error.message }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // ── Audit log ──────────────────────────────────────────────────────
+    if (app) {
+      const callerProfile = await supabaseAdmin
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('user_id', callerUser.id)
+        .maybeSingle();
+      const actorName = callerProfile.data
+        ? `${callerProfile.data.first_name ?? ''} ${callerProfile.data.last_name ?? ''}`.trim() || callerUser.email
+        : callerUser.email;
+      const applicantName = `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || app.email;
+
+      supabaseAdmin.from('audit_log').insert({
+        actor_id: callerUser.id,
+        actor_name: actorName,
+        action: 'application_denied',
+        entity_type: 'application',
+        entity_id: application_id,
+        entity_label: applicantName,
+        metadata: { applicant_email: app.email, reviewer_notes: reviewer_notes ?? null },
+      }).then(() => {}).catch(e => console.error('Audit log error:', e));
     }
 
     // Fire denial notification email (fire-and-forget)
