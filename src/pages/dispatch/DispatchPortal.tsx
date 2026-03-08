@@ -546,14 +546,14 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
   const navItems = [
     { label: 'Dispatch Board', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
-    { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages' },
+    { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages', badge: unreadMessages || undefined },
   ];
 
   return (
     <StaffLayout
       navItems={navItems}
       currentPath={activePage}
-      onNavigate={(path) => setActivePage(path as 'dispatch' | 'dispatch-messages')}
+      onNavigate={handleNavigate}
       title="Dispatch"
     >
       {activePage === 'dispatch-messages' ? <MessagesView /> : board}
