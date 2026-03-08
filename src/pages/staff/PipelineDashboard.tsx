@@ -31,6 +31,7 @@ interface OperatorRow {
   pe_screening_result: string;
   ica_status: string;
   insurance_added_date: string | null;
+  dispatch_status: DispatchStatus | null;
 }
 
 interface StaffOption {
