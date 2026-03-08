@@ -101,11 +101,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { email, role, first_name, last_name } = await req.json() as {
+    const { email, role, first_name, last_name, phone } = await req.json() as {
       email: string;
       role: StaffRole;
       first_name?: string;
       last_name?: string;
+      phone?: string;
     };
 
     if (!email || !role) {
@@ -117,6 +118,13 @@ Deno.serve(async (req) => {
     const validRoles: StaffRole[] = ['onboarding_staff', 'dispatcher', 'management'];
     if (!validRoles.includes(role)) {
       return new Response(JSON.stringify({ error: 'Invalid role' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate phone length if provided
+    if (phone && phone.trim().length > 30) {
+      return new Response(JSON.stringify({ error: 'Phone number is too long' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -168,11 +176,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Upsert profile
+    // Upsert profile (include phone if provided)
     await supabaseAdmin.from('profiles').upsert({
       user_id: invitedUserId,
       first_name: first_name ?? null,
       last_name: last_name ?? null,
+      phone: phone?.trim() || null,
       invited_by: callerUser.id,
       account_status: 'pending',
     }, { onConflict: 'user_id' });
