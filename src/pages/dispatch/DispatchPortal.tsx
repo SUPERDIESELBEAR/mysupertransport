@@ -118,6 +118,10 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [highlightedCard, setHighlightedCard] = useState<string | null>(null);
+  // Quick-compose modal state
+  const [quickCompose, setQuickCompose] = useState<QuickComposeTarget | null>(null);
+  const [composeBody, setComposeBody] = useState('');
+  const [composeSending, setComposeSending] = useState(false);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
