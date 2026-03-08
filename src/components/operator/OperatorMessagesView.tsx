@@ -81,17 +81,15 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
       .select('sender_id, recipient_id')
       .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`);
 
-    if (!msgs || msgs.length === 0) {
-      setLoadingThreads(false);
-      return;
-    }
+    // Collect unique "other" user IDs from existing threads
+    const fromMsgs = msgs
+      ? Array.from(new Set(msgs.map(m => m.sender_id === user.id ? m.recipient_id : m.sender_id)))
+      : [];
 
-    // Collect unique "other" user IDs (staff)
-    const staffUserIds = Array.from(
-      new Set(
-        msgs.map(m => m.sender_id === user.id ? m.recipient_id : m.sender_id)
-      )
-    );
+    // If an initialUserId (e.g. dispatcher) was passed in, always include them
+    const staffUserIds = initialUserId && !fromMsgs.includes(initialUserId)
+      ? [...fromMsgs, initialUserId]
+      : fromMsgs;
 
     if (staffUserIds.length === 0) { setLoadingThreads(false); return; }
 
@@ -107,7 +105,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
         return { user_id: uid, first_name: p?.first_name ?? null, last_name: p?.last_name ?? null };
       })
     );
-  }, [user?.id]);
+  }, [user?.id, initialUserId]);
 
   // ── Build thread summaries ─────────────────────────────────────────────────
   const buildThreads = useCallback(async (staff: StaffMember[]) => {
