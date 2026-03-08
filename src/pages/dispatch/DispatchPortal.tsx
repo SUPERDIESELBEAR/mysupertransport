@@ -880,6 +880,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
           </div>
         )}
       </div>
+      )}
     </div>
   );
 
