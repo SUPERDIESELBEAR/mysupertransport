@@ -10,9 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
-  Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare
+  Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { formatDistanceToNow } from 'date-fns';
 
 type DispatchStatusType = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
 type FilterTab = 'all' | DispatchStatusType;
@@ -32,12 +33,21 @@ interface DispatchRow {
   status_notes: string | null;
 }
 
+interface StatusHistoryEntry {
+  id: string;
+  dispatch_status: DispatchStatusType;
+  current_load_lane: string | null;
+  status_notes: string | null;
+  changed_at: string;
+}
+
 const STATUS_CONFIG: Record<DispatchStatusType, {
   label: string;
   rowClass: string;
   badgeClass: string;
   dotColor: string;
   tabActiveClass: string;
+  historyDot: string;
 }> = {
   not_dispatched: {
     label: 'Not Dispatched',
@@ -45,6 +55,7 @@ const STATUS_CONFIG: Record<DispatchStatusType, {
     badgeClass: 'status-neutral border',
     dotColor: 'bg-muted-foreground',
     tabActiveClass: 'bg-muted text-foreground border-muted-foreground/40',
+    historyDot: 'bg-muted-foreground/60',
   },
   dispatched: {
     label: 'Dispatched',
@@ -52,6 +63,7 @@ const STATUS_CONFIG: Record<DispatchStatusType, {
     badgeClass: 'status-complete border',
     dotColor: 'bg-status-complete',
     tabActiveClass: 'bg-status-complete/15 text-status-complete border-status-complete/40',
+    historyDot: 'bg-status-complete',
   },
   home: {
     label: 'Home',
@@ -59,6 +71,7 @@ const STATUS_CONFIG: Record<DispatchStatusType, {
     badgeClass: 'status-progress border',
     dotColor: 'bg-status-progress',
     tabActiveClass: 'bg-status-progress/15 text-status-progress border-status-progress/40',
+    historyDot: 'bg-status-progress',
   },
   truck_down: {
     label: 'Truck Down',
@@ -66,6 +79,7 @@ const STATUS_CONFIG: Record<DispatchStatusType, {
     badgeClass: 'status-action border',
     dotColor: 'bg-destructive',
     tabActiveClass: 'bg-destructive/15 text-destructive border-destructive/40',
+    historyDot: 'bg-destructive',
   },
 };
 
@@ -87,6 +101,8 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [search, setSearch] = useState('');
   const [liveIndicator, setLiveIndicator] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
+  const [historyMap, setHistoryMap] = useState<Record<string, StatusHistoryEntry[]>>({});
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Unread message count ──────────────────────────────────────────────────
@@ -195,9 +211,49 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
           return order[a.dispatch_status] - order[b.dispatch_status];
         });
       setRows(mapped);
+
+      // Fetch history for any already-expanded rows
+      const currentExpanded = expandedHistory;
+      if (currentExpanded.size > 0) {
+        const opIds = mapped.map(r => r.operator_id).filter(id => currentExpanded.has(id));
+        if (opIds.length > 0) fetchHistoryForOperators(opIds);
+      }
     }
     setLoading(false);
     setRefreshing(false);
+  };
+
+  const fetchHistoryForOperators = async (operatorIds: string[]) => {
+    const { data } = await supabase
+      .from('dispatch_status_history' as any)
+      .select('id, operator_id, dispatch_status, current_load_lane, status_notes, changed_at')
+      .in('operator_id', operatorIds)
+      .order('changed_at', { ascending: false })
+      .limit(3 * operatorIds.length);
+
+    if (data) {
+      const grouped: Record<string, StatusHistoryEntry[]> = {};
+      (data as any[]).forEach(entry => {
+        if (!grouped[entry.operator_id]) grouped[entry.operator_id] = [];
+        if (grouped[entry.operator_id].length < 3) {
+          grouped[entry.operator_id].push(entry as StatusHistoryEntry);
+        }
+      });
+      setHistoryMap(prev => ({ ...prev, ...grouped }));
+    }
+  };
+
+  const toggleHistory = async (operatorId: string) => {
+    const next = new Set(expandedHistory);
+    if (next.has(operatorId)) {
+      next.delete(operatorId);
+    } else {
+      next.add(operatorId);
+      if (!historyMap[operatorId]) {
+        await fetchHistoryForOperators([operatorId]);
+      }
+    }
+    setExpandedHistory(next);
   };
 
   const counts = useMemo(() => ({
@@ -259,10 +315,14 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
     } else {
       toast({ title: 'Dispatch updated', description: `${row.first_name} ${row.last_name} status saved.` });
       setEditRow(null);
+      // Invalidate history cache for this operator so it refreshes on next expand
+      setHistoryMap(prev => {
+        const next = { ...prev };
+        delete next[row.operator_id];
+        return next;
+      });
       fetchDispatch(true);
 
-      // Fire in-app notification to operator (only for meaningful statuses)
-      // Also emails the dispatcher when truck_down is set
       if (newStatus !== 'not_dispatched') {
         const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
         fetch(`https://${projectId}.supabase.co/functions/v1/send-notification`, {
@@ -279,7 +339,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
             status_notes: editData.status_notes || null,
             caller_user_id: session?.user?.id ?? null,
           }),
-        }).catch(console.error); // fire-and-forget
+        }).catch(console.error);
       }
     }
   };
@@ -423,115 +483,177 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
               ) : filteredRows.map(row => {
                 const cfg = STATUS_CONFIG[row.dispatch_status];
                 const isEditing = editRow === row.operator_id;
+                const isHistoryExpanded = expandedHistory.has(row.operator_id);
+                const history = historyMap[row.operator_id] ?? [];
                 const fullName = `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || '—';
 
                 return (
-                  <tr
-                    key={row.operator_id}
-                    className={`transition-colors ${isEditing ? 'bg-gold/[0.04] border-l-2 border-l-gold' : cfg.rowClass + ' hover:bg-muted/30'}`}
-                  >
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-foreground text-sm">{fullName}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {row.phone && <span className="text-xs text-muted-foreground">{row.phone}</span>}
-                        {row.home_state && (
-                          <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
-                            <MapPin className="h-2.5 w-2.5" />{row.home_state}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded text-foreground">{row.unit_number ?? '—'}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {isEditing ? (
-                        <Select
-                          value={editData.dispatch_status}
-                          onValueChange={v => setEditData(p => ({ ...p, dispatch_status: v as DispatchStatusType }))}
-                        >
-                          <SelectTrigger className="h-8 text-xs w-38 min-w-[140px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="not_dispatched">Not Dispatched</SelectItem>
-                            <SelectItem value="dispatched">Dispatched</SelectItem>
-                            <SelectItem value="home">Home</SelectItem>
-                            <SelectItem value="truck_down">Truck Down</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Badge className={`${cfg.badgeClass} text-xs gap-1`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
-                          {cfg.label}
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 hidden lg:table-cell">
-                      {isEditing ? (
-                        <Input
-                          value={editData.current_load_lane ?? ''}
-                          onChange={e => setEditData(p => ({ ...p, current_load_lane: e.target.value }))}
-                          className="h-8 text-xs w-36"
-                          placeholder="e.g. ATL→CHI"
-                        />
-                      ) : (
-                        <span className="text-xs text-muted-foreground font-mono">{row.current_load_lane ?? <span className="opacity-40">—</span>}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 hidden lg:table-cell">
-                      {isEditing ? (
-                        <Input
-                          value={editData.eta_redispatch ?? ''}
-                          onChange={e => setEditData(p => ({ ...p, eta_redispatch: e.target.value }))}
-                          className="h-8 text-xs w-28"
-                          placeholder="e.g. Fri AM"
-                        />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">{row.eta_redispatch ?? <span className="opacity-40">—</span>}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 hidden xl:table-cell max-w-[220px]">
-                      {isEditing ? (
-                        <Textarea
-                          value={editData.status_notes ?? ''}
-                          onChange={e => setEditData(p => ({ ...p, status_notes: e.target.value }))}
-                          className="text-xs min-h-[56px] resize-none w-44"
-                          placeholder="Notes…"
-                        />
-                      ) : (
-                        <span className="text-xs text-muted-foreground line-clamp-2 block">{row.status_notes ?? <span className="opacity-40">—</span>}</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      {isEditing ? (
-                        <div className="flex gap-1 justify-end items-center">
-                          <Button
-                            size="sm"
-                            onClick={() => saveEdit(row)}
-                            disabled={saving}
-                            className="h-7 text-xs bg-gold text-surface-dark hover:bg-gold-light gap-1 px-2.5"
-                          >
-                            {saving ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                            Save
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-7 text-xs px-2">
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
+                  <>
+                    <tr
+                      key={row.operator_id}
+                      className={`transition-colors ${isEditing ? 'bg-gold/[0.04] border-l-2 border-l-gold' : cfg.rowClass + ' hover:bg-muted/30'}`}
+                    >
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-foreground text-sm">{fullName}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {row.phone && <span className="text-xs text-muted-foreground">{row.phone}</span>}
+                          {row.home_state && (
+                            <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                              <MapPin className="h-2.5 w-2.5" />{row.home_state}
+                            </span>
+                          )}
                         </div>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => startEdit(row)}
-                          className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5"
+                        {/* History toggle */}
+                        <button
+                          onClick={() => toggleHistory(row.operator_id)}
+                          className="flex items-center gap-1 mt-1.5 text-[11px] text-muted-foreground hover:text-gold transition-colors"
                         >
-                          <Edit2 className="h-3 w-3" />
-                          Edit
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
+                          <Clock className="h-3 w-3" />
+                          History
+                          {isHistoryExpanded
+                            ? <ChevronUp className="h-3 w-3" />
+                            : <ChevronDown className="h-3 w-3" />
+                          }
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded text-foreground">{row.unit_number ?? '—'}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {isEditing ? (
+                          <Select
+                            value={editData.dispatch_status}
+                            onValueChange={v => setEditData(p => ({ ...p, dispatch_status: v as DispatchStatusType }))}
+                          >
+                            <SelectTrigger className="h-8 text-xs w-38 min-w-[140px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="not_dispatched">Not Dispatched</SelectItem>
+                              <SelectItem value="dispatched">Dispatched</SelectItem>
+                              <SelectItem value="home">Home</SelectItem>
+                              <SelectItem value="truck_down">Truck Down</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Badge className={`${cfg.badgeClass} text-xs gap-1`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
+                            {cfg.label}
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        {isEditing ? (
+                          <Input
+                            value={editData.current_load_lane ?? ''}
+                            onChange={e => setEditData(p => ({ ...p, current_load_lane: e.target.value }))}
+                            className="h-8 text-xs w-36"
+                            placeholder="e.g. ATL→CHI"
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground font-mono">{row.current_load_lane ?? <span className="opacity-40">—</span>}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        {isEditing ? (
+                          <Input
+                            value={editData.eta_redispatch ?? ''}
+                            onChange={e => setEditData(p => ({ ...p, eta_redispatch: e.target.value }))}
+                            className="h-8 text-xs w-28"
+                            placeholder="e.g. Fri AM"
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{row.eta_redispatch ?? <span className="opacity-40">—</span>}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 hidden xl:table-cell max-w-[220px]">
+                        {isEditing ? (
+                          <Textarea
+                            value={editData.status_notes ?? ''}
+                            onChange={e => setEditData(p => ({ ...p, status_notes: e.target.value }))}
+                            className="text-xs min-h-[56px] resize-none w-44"
+                            placeholder="Notes…"
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground line-clamp-2 block">{row.status_notes ?? <span className="opacity-40">—</span>}</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        {isEditing ? (
+                          <div className="flex gap-1 justify-end items-center">
+                            <Button
+                              size="sm"
+                              onClick={() => saveEdit(row)}
+                              disabled={saving}
+                              className="h-7 text-xs bg-gold text-surface-dark hover:bg-gold-light gap-1 px-2.5"
+                            >
+                              {saving ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                              Save
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-7 text-xs px-2">
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => startEdit(row)}
+                            className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                            Edit
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* Status history expansion row */}
+                    {isHistoryExpanded && (
+                      <tr key={`${row.operator_id}-history`} className="bg-muted/20">
+                        <td colSpan={7} className="px-6 py-3">
+                          <div className="flex items-start gap-2 mb-2">
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Last 3 Status Changes</p>
+                          </div>
+                          {history.length === 0 ? (
+                            <p className="text-xs text-muted-foreground pl-5">No history recorded yet.</p>
+                          ) : (
+                            <div className="pl-5 flex flex-col gap-2">
+                              {history.map((entry, idx) => {
+                                const hcfg = STATUS_CONFIG[entry.dispatch_status] ?? STATUS_CONFIG.not_dispatched;
+                                return (
+                                  <div key={entry.id} className="flex items-start gap-3">
+                                    {/* Timeline dot + line */}
+                                    <div className="flex flex-col items-center shrink-0 mt-1">
+                                      <span className={`h-2 w-2 rounded-full ${hcfg.historyDot} ring-2 ring-background`} />
+                                      {idx < history.length - 1 && (
+                                        <span className="w-px h-4 bg-border mt-0.5" />
+                                      )}
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 min-w-0">
+                                      <Badge className={`${hcfg.badgeClass} text-[10px] gap-1 px-1.5 py-0`}>
+                                        {hcfg.label}
+                                      </Badge>
+                                      {entry.current_load_lane && (
+                                        <span className="text-[11px] font-mono text-muted-foreground">{entry.current_load_lane}</span>
+                                      )}
+                                      {entry.status_notes && (
+                                        <span className="text-[11px] text-muted-foreground italic truncate max-w-[240px]">{entry.status_notes}</span>
+                                      )}
+                                      <span className="text-[11px] text-muted-foreground/60 shrink-0">
+                                        {formatDistanceToNow(new Date(entry.changed_at), { addSuffix: true })}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 );
               })}
             </tbody>

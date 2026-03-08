@@ -286,6 +286,44 @@ export type Database = {
         }
         Relationships: []
       }
+      dispatch_status_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          current_load_lane: string | null
+          dispatch_status: Database["public"]["Enums"]["dispatch_status"]
+          id: string
+          operator_id: string
+          status_notes: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          current_load_lane?: string | null
+          dispatch_status: Database["public"]["Enums"]["dispatch_status"]
+          id?: string
+          operator_id: string
+          status_notes?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          current_load_lane?: string | null
+          dispatch_status?: Database["public"]["Enums"]["dispatch_status"]
+          id?: string
+          operator_id?: string
+          status_notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_status_history_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           created_at: string
