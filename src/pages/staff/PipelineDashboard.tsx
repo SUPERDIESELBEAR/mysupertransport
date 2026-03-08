@@ -403,7 +403,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
 
         {/* Expandable filter panel */}
         {showFilters && (
-          <div className="bg-muted/40 border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fade-in">
+          <div className="bg-muted/40 border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
             {/* Stage filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stage</label>
@@ -432,6 +432,23 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                   <SelectItem value="in_progress">In Progress</SelectItem>
                   <SelectItem value="onboarded">Fully Onboarded</SelectItem>
                   <SelectItem value="alert">Alert / Denied</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Dispatch filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dispatch Status</label>
+              <Select value={dispatchFilter} onValueChange={v => setDispatchFilter(v as 'all' | DispatchStatus)}>
+                <SelectTrigger className="h-9 bg-white">
+                  <SelectValue placeholder="All dispatch statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All dispatch statuses</SelectItem>
+                  <SelectItem value="dispatched">🟢 Dispatched</SelectItem>
+                  <SelectItem value="home">🟠 Home</SelectItem>
+                  <SelectItem value="truck_down">🔴 Truck Down</SelectItem>
+                  <SelectItem value="not_dispatched">⚫ Not Dispatched</SelectItem>
                 </SelectContent>
               </Select>
             </div>
