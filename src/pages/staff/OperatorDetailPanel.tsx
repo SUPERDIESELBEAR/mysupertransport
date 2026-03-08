@@ -468,10 +468,32 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
               </Button>
             )}
             {status.ica_status === 'complete' && (
-              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-status-complete/10 border border-status-complete/30">
-                <CheckCircle2 className="h-3.5 w-3.5 text-status-complete" />
-                <span className="text-xs text-status-complete font-medium">ICA Fully Executed</span>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-status-complete/10 border border-status-complete/30">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-status-complete" />
+                  <span className="text-xs text-status-complete font-medium">ICA Fully Executed</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-border text-foreground hover:bg-secondary text-xs gap-1.5"
+                  onClick={() => setShowICAView(true)}
+                >
+                  <FileCheck className="h-3.5 w-3.5" />
+                  View Executed ICA
+                </Button>
               </div>
+            )}
+            {status.ica_status === 'sent_for_signature' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-border text-foreground hover:bg-secondary text-xs gap-1.5"
+                onClick={() => setShowICAView(true)}
+              >
+                <FileCheck className="h-3.5 w-3.5" />
+                View Sent ICA
+              </Button>
             )}
           </div>
         </div>
