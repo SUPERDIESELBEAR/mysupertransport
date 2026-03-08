@@ -371,9 +371,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
           {/* Existing reviewer notes */}
           {app.reviewer_notes && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <p className="text-xs font-semibold text-amber-800 mb-1">Previous Reviewer Notes</p>
-              <p className="text-sm text-amber-900">{app.reviewer_notes}</p>
+            <div className="bg-status-progress/10 border border-status-progress/30 rounded-lg p-3">
+              <p className="text-xs font-semibold text-status-progress mb-1">Previous Reviewer Notes</p>
+              <p className="text-sm text-foreground">{app.reviewer_notes}</p>
             </div>
           )}
         </div>
