@@ -86,6 +86,23 @@ export default function OperatorPortal() {
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchUnreadCount(); }, [fetchUnreadCount]);
 
+  // Realtime: update dispatch status live so the banner appears/disappears without refresh
+  useEffect(() => {
+    if (!operatorId) return;
+    const channel = supabase
+      .channel(`operator-dispatch-status-${operatorId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'active_dispatch',
+        filter: `operator_id=eq.${operatorId}`,
+      }, (payload: any) => {
+        setDispatchStatus(payload.new?.dispatch_status ?? null);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [operatorId]);
+
   // Clear unread count when messages tab is opened
   useEffect(() => {
     if (view === 'messages') {
