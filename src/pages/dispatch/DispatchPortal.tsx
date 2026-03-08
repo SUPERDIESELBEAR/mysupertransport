@@ -747,6 +747,66 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                           {row.status_notes}
                         </p>
                       )}
+
+                      {/* ── Status history timeline ── */}
+                      {!isEditing && (() => {
+                        const isHistoryExpanded = expandedHistory.has(row.operator_id);
+                        const history = historyMap[row.operator_id] ?? [];
+                        return (
+                          <>
+                            <button
+                              onClick={() => toggleHistory(row.operator_id)}
+                              className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-gold transition-colors w-full pt-1"
+                            >
+                              <Clock className="h-3 w-3 shrink-0" />
+                              <span className="font-medium">History</span>
+                              {isHistoryExpanded
+                                ? <ChevronUp className="h-3 w-3 ml-auto" />
+                                : <ChevronDown className="h-3 w-3 ml-auto" />
+                              }
+                            </button>
+                            {isHistoryExpanded && (
+                              <div className="border-t border-border pt-2 mt-1">
+                                {history.length === 0 ? (
+                                  <p className="text-[11px] text-muted-foreground pl-1">No history recorded yet.</p>
+                                ) : (
+                                  <div className="flex flex-col gap-1.5">
+                                    {history.map((entry, idx) => {
+                                      const hcfg = STATUS_CONFIG[entry.dispatch_status] ?? STATUS_CONFIG.not_dispatched;
+                                      return (
+                                        <div key={entry.id} className="flex items-start gap-2.5">
+                                          <div className="flex flex-col items-center shrink-0 mt-1">
+                                            <span className={`h-2 w-2 rounded-full ${hcfg.historyDot} ring-2 ring-background`} />
+                                            {idx < history.length - 1 && (
+                                              <span className="w-px h-4 bg-border mt-0.5" />
+                                            )}
+                                          </div>
+                                          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                              <Badge className={`${hcfg.badgeClass} text-[10px] gap-1 px-1.5 py-0 h-4`}>
+                                                {hcfg.label}
+                                              </Badge>
+                                              {entry.current_load_lane && (
+                                                <span className="text-[11px] font-mono text-muted-foreground">{entry.current_load_lane}</span>
+                                              )}
+                                              <span className="text-[10px] text-muted-foreground/60 ml-auto shrink-0">
+                                                {formatDistanceToNow(new Date(entry.changed_at), { addSuffix: true })}
+                                              </span>
+                                            </div>
+                                            {entry.status_notes && (
+                                              <span className="text-[11px] text-muted-foreground italic truncate">{entry.status_notes}</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
 
                     {/* Card footer — actions */}
