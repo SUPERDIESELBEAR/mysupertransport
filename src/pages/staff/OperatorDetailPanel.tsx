@@ -110,6 +110,9 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
 
     // ── Detect milestone transitions before saving ──────────────────────
     const prev = savedMilestones.current;
+    const isNewlyFullyOnboarded =
+      !prev.insurance_added_date && !!status.insurance_added_date;
+
     const milestones: { key: string; label: string; triggered: boolean }[] = [
       {
         key: 'ica_complete',
@@ -126,6 +129,11 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
         label: 'Pre-Employment Screening — Clear',
         triggered: prev.pe_screening_result !== 'clear' && status.pe_screening_result === 'clear',
       },
+      {
+        key: 'fully_onboarded',
+        label: 'Fully Onboarded — Welcome to SUPERTRANSPORT!',
+        triggered: isNewlyFullyOnboarded,
+      },
     ];
     const triggeredMilestones = milestones.filter(m => m.triggered);
 
@@ -135,9 +143,19 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       .eq('id', operatorId);
 
     if (statusId) {
+      // Auto-set fully_onboarded when insurance date is first added
+      const fullyOnboardedOverride = isNewlyFullyOnboarded ? { fully_onboarded: true } : {};
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id: _id, fully_onboarded: _fo, ...updateData } = status as any;
-      await supabase.from('onboarding_status').update(updateData).eq('id', statusId);
+      await supabase
+        .from('onboarding_status')
+        .update({ ...updateData, ...fullyOnboardedOverride })
+        .eq('id', statusId);
+
+      // Reflect in local state so the header badge updates immediately
+      if (isNewlyFullyOnboarded) {
+        setStatus(prev => ({ ...prev, fully_onboarded: true }));
+      }
     }
 
     if (error) {
@@ -163,7 +181,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
                 : undefined,
             });
             toast({
-              title: `📧 Milestone email sent`,
+              title: m.key === 'fully_onboarded' ? '🎉 Operator fully onboarded!' : `📧 Milestone email sent`,
               description: `Notified ${operatorName}: ${m.label}`,
             });
           } catch (notifErr) {
@@ -176,6 +194,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           ica_status: status.ica_status ?? prev.ica_status,
           mvr_ch_approval: status.mvr_ch_approval ?? prev.mvr_ch_approval,
           pe_screening_result: status.pe_screening_result ?? prev.pe_screening_result,
+          insurance_added_date: status.insurance_added_date ?? prev.insurance_added_date,
         };
       }
     }
