@@ -143,16 +143,15 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       .eq('id', operatorId);
 
     if (statusId) {
-      // Auto-set fully_onboarded when insurance date is first added
-      const fullyOnboardedOverride = isNewlyFullyOnboarded ? { fully_onboarded: true } : {};
+      // fully_onboarded is a DB-generated column (insurance_added_date IS NOT NULL) — never write it
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id: _id, fully_onboarded: _fo, ...updateData } = status as any;
       await supabase
         .from('onboarding_status')
-        .update({ ...updateData, ...fullyOnboardedOverride })
+        .update(updateData)
         .eq('id', statusId);
 
-      // Reflect in local state so the header badge updates immediately
+      // Reflect generated value in local state immediately so header badge updates
       if (isNewlyFullyOnboarded) {
         setStatus(prev => ({ ...prev, fully_onboarded: true }));
       }
