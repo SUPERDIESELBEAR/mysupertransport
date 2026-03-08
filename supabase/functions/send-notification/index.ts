@@ -405,13 +405,13 @@ Deno.serve(async (req) => {
         const newStatus = payload.new_status ?? 'not_dispatched';
         const statusInfo = STATUS_LABELS[newStatus] ?? { emoji: '🔔', label: newStatus };
 
-        // Build notification body
+        // Build in-app notification body for operator
         const laneInfo = payload.current_load_lane ? ` — Lane: ${payload.current_load_lane}` : '';
         const etaInfo = payload.eta_redispatch ? ` — ETA: ${payload.eta_redispatch}` : '';
         const notesInfo = payload.status_notes ? ` — Note: ${payload.status_notes}` : '';
         const notifBody = `Your status has been updated to ${statusInfo.label}${laneInfo}${etaInfo}${notesInfo}`;
 
-        // Look up operator's user_id
+        // Look up operator's user_id and name
         const { data: opRow } = await supabaseAdmin
           .from('operators')
           .select('user_id')
@@ -428,6 +428,43 @@ Deno.serve(async (req) => {
             link: '/dashboard',
           });
         }
+
+        // ── Email the dispatcher on Truck Down ──────────────────────────
+        if (newStatus === 'truck_down' && payload.caller_user_id) {
+          try {
+            const { data: { user: dispatcherUser } } = await supabaseAdmin.auth.admin.getUserById(payload.caller_user_id);
+            const dispatcherEmail = dispatcherUser?.email;
+
+            if (dispatcherEmail) {
+              const operatorName = payload.operator_name || 'Operator';
+              const unitNumber = payload.unit_number ? ` (Unit #${payload.unit_number})` : '';
+              const notesRow = payload.status_notes
+                ? `<tr><td style="padding:6px 0;color:#888;font-size:13px;width:120px;">Notes</td><td style="padding:6px 0;font-size:14px;font-weight:600;color:#b91c1c;">${payload.status_notes}</td></tr>`
+                : '';
+              const laneRow = payload.current_load_lane
+                ? `<tr><td style="padding:6px 0;color:#888;font-size:13px;">Load / Lane</td><td style="padding:6px 0;font-size:14px;">${payload.current_load_lane}</td></tr>`
+                : '';
+
+              const emailBody = `
+                <p>A <strong>Truck Down</strong> status has been recorded for one of your operators. Immediate attention may be required.</p>
+                <table style="width:100%;border-collapse:collapse;margin:20px 0;background:#fff5f5;border-radius:8px;padding:16px;border:1px solid #fecaca;">
+                  <tr><td style="padding:6px 0;color:#888;font-size:13px;width:120px;">Operator</td><td style="padding:6px 0;font-size:14px;font-weight:600;">${operatorName}${unitNumber}</td></tr>
+                  <tr><td style="padding:6px 0;color:#888;font-size:13px;">Status</td><td style="padding:6px 0;font-size:14px;font-weight:700;color:#b91c1c;">🔴 Truck Down</td></tr>
+                  ${laneRow}
+                  ${notesRow}
+                </table>
+                <p style="font-size:13px;color:#666;">Logged at ${new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' })} CT</p>
+              `;
+
+              const subject = `🔴 Truck Down Alert — ${operatorName}${unitNumber}`;
+              const html = buildEmail(subject, '🔴 Truck Down Alert', emailBody, { label: 'Open Dispatch Board', url: `${appUrl}/dispatch` });
+              await sendEmail(dispatcherEmail, subject, html, RESEND_API_KEY);
+            }
+          } catch (emailErr) {
+            console.warn('Truck Down dispatcher email failed:', emailErr);
+          }
+        }
+
         break;
       }
 
