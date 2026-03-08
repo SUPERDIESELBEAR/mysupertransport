@@ -469,12 +469,48 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/50">
-                <th className="text-left px-4 py-3 font-semibold text-foreground">Name</th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground">
+                  <button
+                    onClick={() => handleSort('name')}
+                    className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
+                  >
+                    Name
+                    {sortKey === 'name'
+                      ? sortDir === 'asc'
+                        ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                        : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                      : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                  </button>
+                </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Phone</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">State</th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground">Current Stage</th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground">
+                  <button
+                    onClick={() => handleSort('stage')}
+                    className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
+                  >
+                    Current Stage
+                    {sortKey === 'stage'
+                      ? sortDir === 'asc'
+                        ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                        : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                      : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                  </button>
+                </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Status</th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">Coordinator</th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
+                  <button
+                    onClick={() => handleSort('coordinator')}
+                    className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
+                  >
+                    Coordinator
+                    {sortKey === 'coordinator'
+                      ? sortDir === 'asc'
+                        ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                        : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                      : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                  </button>
+                </th>
                 <th className="text-right px-4 py-3" />
               </tr>
             </thead>
