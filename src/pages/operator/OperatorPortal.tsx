@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText,
-  LogOut, Menu, X, Upload, Shield, FileCheck, Truck
+  LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert
 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import OperatorDocumentUpload from '@/components/operator/OperatorDocumentUpload';
@@ -43,6 +43,7 @@ export default function OperatorPortal() {
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
 
@@ -55,11 +56,20 @@ export default function OperatorPortal() {
       .single();
 
     if (op) {
-      setOperatorId((op as any).id);
+      const opId = (op as any).id;
+      setOperatorId(opId);
       // onboarding_status is a 1:1 relation — returns object, not array
       const os = (op as any).onboarding_status ?? {};
       setOnboardingStatus(os);
       setUploadedDocs((op as any).operator_documents ?? []);
+
+      // Fetch current dispatch status
+      const { data: dispatch } = await supabase
+        .from('active_dispatch')
+        .select('dispatch_status')
+        .eq('operator_id', opId)
+        .maybeSingle();
+      setDispatchStatus((dispatch as any)?.dispatch_status ?? null);
     }
   }, [user]);
 
@@ -75,6 +85,23 @@ export default function OperatorPortal() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchUnreadCount(); }, [fetchUnreadCount]);
+
+  // Realtime: update dispatch status live so the banner appears/disappears without refresh
+  useEffect(() => {
+    if (!operatorId) return;
+    const channel = supabase
+      .channel(`operator-dispatch-status-${operatorId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'active_dispatch',
+        filter: `operator_id=eq.${operatorId}`,
+      }, (payload: any) => {
+        setDispatchStatus(payload.new?.dispatch_status ?? null);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [operatorId]);
 
   // Clear unread count when messages tab is opened
   useEffect(() => {
@@ -325,6 +352,30 @@ export default function OperatorPortal() {
       </header>
 
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+
+        {/* ── TRUCK DOWN ALERT BANNER ── */}
+        {dispatchStatus === 'truck_down' && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-destructive/10 border border-destructive/40 rounded-xl px-4 py-3.5 animate-fade-in">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/15 shrink-0">
+                <TriangleAlert className="h-4 w-4 text-destructive animate-pulse" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-destructive leading-tight">🔴 Your Truck is Marked Down</p>
+                <p className="text-xs text-destructive/70 mt-0.5 leading-snug">
+                  Your dispatcher has flagged your truck as out of service. Please check your messages or contact your dispatcher immediately.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setView('messages')}
+              className="shrink-0 flex items-center gap-1.5 bg-destructive text-white text-xs font-semibold px-3 py-2 rounded-lg hover:bg-destructive/90 transition-colors"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              Message Dispatcher
+            </button>
+          </div>
+        )}
 
         {/* ── PROGRESS VIEW ── */}
         {view === 'progress' && (
