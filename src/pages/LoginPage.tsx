@@ -11,7 +11,7 @@ import logo from '@/assets/supertransport-logo.png';
 type View = 'login' | 'forgot';
 
 export default function LoginPage() {
-  const { signIn, user, isDispatcher, isManagement, isOnboardingStaff, loading } = useAuth();
+  const { signIn, user, isDispatcher, isManagement, isOnboardingStaff, loading: authLoading } = useAuth();
   const [view, setView] = useState<View>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,13 +19,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
-  const { signIn, user, isDispatcher, isManagement, isOnboardingStaff, loading } = useAuth();
-
-  // Role-based redirect on login
-  if (user && !loading) {
+  // Role-based redirect: dispatcher-only users go straight to /dispatch
+  if (user && !authLoading) {
     if (isDispatcher && !isManagement && !isOnboardingStaff) return <Navigate to="/dispatch" replace />;
     return <Navigate to="/dashboard" replace />;
   }
+
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
