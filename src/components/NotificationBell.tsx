@@ -68,7 +68,7 @@ export default function NotificationBell({ variant = 'light' }: NotificationBell
       .eq('user_id', session.user.id)
       .eq('channel', 'in_app')
       .order('sent_at', { ascending: false })
-      .limit(20);
+      .limit(10);
     setNotifications(data ?? []);
     setLoading(false);
   };
