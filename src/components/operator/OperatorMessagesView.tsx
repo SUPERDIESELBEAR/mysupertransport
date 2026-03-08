@@ -155,11 +155,12 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
     setThreads(built);
     setLoadingThreads(false);
 
-    // Auto-select first thread
+    // Auto-select: prefer initialUserId (dispatcher shortcut), then first thread
     if (built.length > 0 && !selectedUserId) {
-      setSelectedUserId(built[0].staffUserId);
+      const target = initialUserId && built.find(t => t.staffUserId === initialUserId);
+      setSelectedUserId(target ? target.staffUserId : built[0].staffUserId);
     }
-  }, [user?.id, selectedUserId]);
+  }, [user?.id, selectedUserId, initialUserId]);
 
   // ── Load messages for selected thread ─────────────────────────────────────
   const loadMessages = useCallback(async (otherUserId: string) => {
