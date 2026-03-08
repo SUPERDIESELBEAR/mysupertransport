@@ -92,7 +92,7 @@ export default function ICAViewModal({ operatorId, operatorName, onClose }: ICAV
                         {new Date(contract.contractor_signed_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                       </p>
                     ) : (
-                      <p className="text-xs text-amber-600 font-medium mt-0.5">Awaiting contractor signature</p>
+                      <p className="text-xs text-status-action font-medium mt-0.5">Awaiting contractor signature</p>
                     )}
                   </div>
                 </div>
