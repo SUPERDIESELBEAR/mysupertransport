@@ -55,7 +55,8 @@ export default function OperatorPortal() {
 
     if (op) {
       setOperatorId((op as any).id);
-      const os = (op as any).onboarding_status?.[0] ?? {};
+      // onboarding_status is a 1:1 relation — returns object, not array
+      const os = (op as any).onboarding_status ?? {};
       setOnboardingStatus(os);
       setUploadedDocs((op as any).operator_documents ?? []);
     }
