@@ -196,6 +196,31 @@ export default function StaffDirectory() {
     }
   };
 
+  const handlePhoneUpdate = async () => {
+    if (!managingMember) return;
+    setPhoneSaving(true);
+    try {
+      const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
+      const { data, error } = await supabase.functions.invoke('get-staff-list', {
+        method: 'POST',
+        body: { action: 'update_phone', user_id: managingMember.user_id, phone: editingPhone, target_name: memberName },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const saved = editingPhone.trim() || null;
+      setManagingMember(prev => prev ? { ...prev, phone: saved } : prev);
+      setStaff(prev => prev.map(m => m.user_id === managingMember.user_id ? { ...m, phone: saved } : m));
+      setPhoneEditActive(false);
+      toast({ title: '✅ Phone Updated', description: 'Phone number saved successfully.' });
+    } catch (err) {
+      toast({ title: 'Update Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setPhoneSaving(false);
+    }
+  };
+
   const filteredStaff = staff.filter(s => {
     const matchesRole = roleFilter === 'all' || s.roles.includes(roleFilter as AppRole);
     if (!matchesRole) return false;
