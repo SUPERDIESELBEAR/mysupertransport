@@ -75,6 +75,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
   const [stageFilter, setStageFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [coordinatorFilter, setCoordinatorFilter] = useState('all');
+  const [dispatchFilter, setDispatchFilter] = useState<'all' | DispatchStatus>('all');
 
   // Sort state
   type SortKey = 'name' | 'stage' | 'coordinator';
@@ -229,7 +230,9 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
       const matchStatus = statusFilter === 'all' || getStatus(op) === statusFilter;
       const matchCoordinator = coordinatorFilter === 'all' ||
         (coordinatorFilter === 'unassigned' ? !op.assigned_staff_id : op.assigned_staff_id === coordinatorFilter);
-      return matchSearch && matchStage && matchStatus && matchCoordinator;
+      const matchDispatch = dispatchFilter === 'all' || op.dispatch_status === dispatchFilter ||
+        (dispatchFilter === 'not_dispatched' && op.dispatch_status === null);
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch;
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
@@ -253,12 +256,14 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     stageFilter !== 'all',
     statusFilter !== 'all',
     coordinatorFilter !== 'all',
+    dispatchFilter !== 'all',
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
     setStageFilter('all');
     setStatusFilter('all');
     setCoordinatorFilter('all');
+    setDispatchFilter('all');
     setSearch('');
   };
 
@@ -398,7 +403,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
 
         {/* Expandable filter panel */}
         {showFilters && (
-          <div className="bg-muted/40 border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fade-in">
+          <div className="bg-muted/40 border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
             {/* Stage filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stage</label>
@@ -427,6 +432,23 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                   <SelectItem value="in_progress">In Progress</SelectItem>
                   <SelectItem value="onboarded">Fully Onboarded</SelectItem>
                   <SelectItem value="alert">Alert / Denied</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Dispatch filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dispatch Status</label>
+              <Select value={dispatchFilter} onValueChange={v => setDispatchFilter(v as 'all' | DispatchStatus)}>
+                <SelectTrigger className="h-9 bg-white">
+                  <SelectValue placeholder="All dispatch statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All dispatch statuses</SelectItem>
+                  <SelectItem value="dispatched">🟢 Dispatched</SelectItem>
+                  <SelectItem value="home">🟠 Home</SelectItem>
+                  <SelectItem value="truck_down">🔴 Truck Down</SelectItem>
+                  <SelectItem value="not_dispatched">⚫ Not Dispatched</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -472,6 +494,12 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                 ? 'Unassigned'
                 : staffOptions.find(s => s.user_id === coordinatorFilter)?.full_name ?? coordinatorFilter}
               <button onClick={() => setCoordinatorFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+            </span>
+          )}
+          {dispatchFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 bg-gold/10 text-gold border border-gold/30 text-xs px-2.5 py-1 rounded-full font-medium">
+              {DISPATCH_BADGE[dispatchFilter as DispatchStatus]?.label ?? dispatchFilter}
+              <button onClick={() => setDispatchFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
             </span>
           )}
         </div>
