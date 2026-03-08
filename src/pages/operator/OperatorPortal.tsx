@@ -455,11 +455,22 @@ export default function OperatorPortal() {
         {view === 'faq' && <OperatorFAQ />}
 
         {/* ── MESSAGES VIEW ── */}
-        {view === 'messages' && <OperatorMessagesView />}
+        {view === 'messages' && (
+          <OperatorMessagesView
+            initialUserId={messageInitialUserId ?? undefined}
+            onThreadSelected={() => setMessageInitialUserId(null)}
+          />
+        )}
 
         {/* ── DISPATCH STATUS VIEW ── */}
         {view === 'dispatch' && operatorId && (
-          <OperatorDispatchStatus operatorId={operatorId} />
+          <OperatorDispatchStatus
+            operatorId={operatorId}
+            onMessageDispatcher={(dispatcherUserId) => {
+              setMessageInitialUserId(dispatcherUserId);
+              setView('messages');
+            }}
+          />
         )}
       </div>
     </div>
