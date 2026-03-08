@@ -670,10 +670,21 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                           setMessageInitialUserId(row.operator_user_id);
                           setActivePage('dispatch-messages');
                         }}
-                        className="h-7 text-xs text-muted-foreground hover:text-primary hover:bg-primary/10 gap-1 px-2.5"
-                        title={`Message ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
+                        className={`h-7 text-xs gap-1 px-2.5 relative ${
+                          unreadPerOperator[row.operator_user_id]
+                            ? 'text-primary hover:text-primary hover:bg-primary/10'
+                            : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
+                        }`}
+                        title={`Message ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}${unreadPerOperator[row.operator_user_id] ? ` (${unreadPerOperator[row.operator_user_id]} unread)` : ''}`}
                       >
-                        <MessageSquare className="h-3 w-3" />
+                        <span className="relative">
+                          <MessageSquare className="h-3 w-3" />
+                          {!!unreadPerOperator[row.operator_user_id] && (
+                            <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-destructive text-[9px] font-bold text-white flex items-center justify-center leading-none">
+                              {unreadPerOperator[row.operator_user_id] > 9 ? '9+' : unreadPerOperator[row.operator_user_id]}
+                            </span>
+                          )}
+                        </span>
                         Message
                       </Button>
 
