@@ -214,7 +214,28 @@ export default function ApplicationForm() {
     setSubmitting(true);
     try {
       const token = localStorage.getItem(DRAFT_TOKEN_KEY) || crypto.randomUUID();
-      const payload = { ...buildPayload(formData, token, false), submitted_at: new Date().toISOString() };
+
+      // Encrypt SSN via secure backend function before storing
+      let ssnEncrypted: string | null = null;
+      if (formData.ssn) {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const { data: { session } } = await supabase.auth.getSession();
+        const authToken = session?.access_token ?? anonKey;
+        const encRes = await fetch(`${supabaseUrl}/functions/v1/encrypt-ssn`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`,
+            'apikey': anonKey,
+          },
+          body: JSON.stringify({ ssn: formData.ssn }),
+        });
+        const encData = await encRes.json();
+        ssnEncrypted = encData.encrypted ?? null;
+      }
+
+      const payload = { ...buildPayload(formData, token, false, ssnEncrypted), submitted_at: new Date().toISOString() };
 
       if (applicationId) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -418,7 +439,7 @@ export default function ApplicationForm() {
 }
 
 // ─── Payload builder ──────────────────────────────────────────────────────
-function buildPayload(data: ApplicationFormData, token: string, isDraft: boolean): Record<string, unknown> {
+function buildPayload(data: ApplicationFormData, token: string, isDraft: boolean, ssnEncrypted?: string | null): Record<string, unknown> {
   return {
     draft_token: token,
     is_draft: isDraft,
@@ -468,7 +489,8 @@ function buildPayload(data: ApplicationFormData, token: string, isDraft: boolean
     dot_positive_test_past_2yr: data.dot_positive_test_past_2yr === 'yes' ? true : data.dot_positive_test_past_2yr === 'no' ? false : null,
     dot_return_to_duty_docs: data.dot_return_to_duty_docs === 'yes' ? true : data.dot_return_to_duty_docs === 'no' ? false : null,
     testing_policy_accepted: data.testing_policy_accepted,
-    ssn_encrypted: data.ssn ? btoa(data.ssn) : null,
+    // SSN is encrypted server-side via AES-256-GCM; never stored as plaintext
+    ssn_encrypted: ssnEncrypted ?? null,
     typed_full_name: data.typed_full_name || null,
     signature_image_url: data.signature_image_url || null,
     signed_date: data.signed_date || null,

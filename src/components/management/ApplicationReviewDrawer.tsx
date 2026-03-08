@@ -3,8 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   X, CheckCircle2, XCircle, User, Phone, Mail, MapPin, Calendar,
-  Briefcase, Car, FileText, ShieldAlert, ChevronRight, AlertTriangle, Loader2, Printer
+  Briefcase, Car, FileText, ShieldAlert, ChevronRight, AlertTriangle, Loader2, Printer,
+  Eye, EyeOff, Lock
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ApplicationReviewDrawerProps {
   app: FullApplication | null;
@@ -123,9 +126,15 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny }: ApplicationReviewDrawerProps) {
+  const { roles } = useAuth();
+  const isManagement = roles.includes('management');
   const [notes, setNotes] = useState('');
   const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | null>(null);
   const [loading, setLoading] = useState(false);
+  const [ssnVisible, setSsnVisible] = useState(false);
+  const [ssnValue, setSsnValue] = useState<string | null>(null);
+  const [ssnLoading, setSsnLoading] = useState(false);
+  const [ssnError, setSsnError] = useState<string | null>(null);
 
   if (!app) return null;
 
@@ -134,6 +143,36 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   };
 
   const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email;
+
+  const revealSSN = async () => {
+    setSsnLoading(true);
+    setSsnError(null);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token ?? anonKey;
+      const res = await fetch(`${supabaseUrl}/functions/v1/decrypt-ssn`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+          'apikey': anonKey,
+        },
+        body: JSON.stringify({ application_id: app.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Decryption failed');
+      // Format SSN as XXX-XX-XXXX
+      const raw = data.ssn?.replace(/\D/g, '') ?? '';
+      setSsnValue(raw.length === 9 ? `${raw.slice(0,3)}-${raw.slice(3,5)}-${raw.slice(5)}` : data.ssn);
+      setSsnVisible(true);
+    } catch (err: any) {
+      setSsnError(err.message ?? 'Failed to reveal SSN');
+    } finally {
+      setSsnLoading(false);
+    }
+  };
 
   const handleAction = async (action: 'approve' | 'deny') => {
     setLoading(true);
@@ -262,6 +301,46 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                 </div>
               </div>
             )}
+
+            {/* SSN Reveal — management only */}
+            {isManagement && (
+              <div className="pt-2 border-t border-border mt-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                    <Lock className="h-3.5 w-3.5 text-gold" />
+                    Social Security Number
+                  </div>
+                  {!ssnVisible ? (
+                    <button
+                      onClick={revealSSN}
+                      disabled={ssnLoading}
+                      className="flex items-center gap-1.5 text-xs text-gold hover:text-gold-light font-medium transition-colors disabled:opacity-50"
+                    >
+                      {ssnLoading
+                        ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Decrypting…</>
+                        : <><Eye className="h-3.5 w-3.5" /> Reveal SSN</>
+                      }
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { setSsnVisible(false); setSsnValue(null); }}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
+                    >
+                      <EyeOff className="h-3.5 w-3.5" /> Hide
+                    </button>
+                  )}
+                </div>
+                {ssnError && (
+                  <p className="text-xs text-destructive mt-1">{ssnError}</p>
+                )}
+                {ssnVisible && ssnValue && (
+                  <div className="mt-2 px-3 py-2 bg-gold/10 border border-gold/30 rounded-lg">
+                    <span className="text-sm font-mono font-semibold text-foreground tracking-widest">{ssnValue}</span>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">This view is logged to the audit trail.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </Section>
 
           {/* Uploaded Documents */}
@@ -292,9 +371,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
           {/* Existing reviewer notes */}
           {app.reviewer_notes && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <p className="text-xs font-semibold text-amber-800 mb-1">Previous Reviewer Notes</p>
-              <p className="text-sm text-amber-900">{app.reviewer_notes}</p>
+            <div className="bg-status-progress/10 border border-status-progress/30 rounded-lg p-3">
+              <p className="text-xs font-semibold text-status-progress mb-1">Previous Reviewer Notes</p>
+              <p className="text-sm text-foreground">{app.reviewer_notes}</p>
             </div>
           )}
         </div>
