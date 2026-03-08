@@ -390,6 +390,45 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case 'dispatch_status_change': {
+        const operatorId = payload.operator_id;
+        if (!operatorId) break;
+
+        const STATUS_LABELS: Record<string, { emoji: string; label: string }> = {
+          dispatched:     { emoji: '🚛', label: 'Dispatched' },
+          home:           { emoji: '🏠', label: 'Home' },
+          truck_down:     { emoji: '🔴', label: 'Truck Down' },
+          not_dispatched: { emoji: '⏸️', label: 'Not Dispatched' },
+        };
+        const newStatus = payload.new_status ?? 'not_dispatched';
+        const statusInfo = STATUS_LABELS[newStatus] ?? { emoji: '🔔', label: newStatus };
+
+        // Build notification body
+        const laneInfo = payload.current_load_lane ? ` — Lane: ${payload.current_load_lane}` : '';
+        const etaInfo = payload.eta_redispatch ? ` — ETA: ${payload.eta_redispatch}` : '';
+        const notesInfo = payload.status_notes ? ` — Note: ${payload.status_notes}` : '';
+        const notifBody = `Your status has been updated to ${statusInfo.label}${laneInfo}${etaInfo}${notesInfo}`;
+
+        // Look up operator's user_id
+        const { data: opRow } = await supabaseAdmin
+          .from('operators')
+          .select('user_id')
+          .eq('id', operatorId)
+          .single();
+
+        if (opRow?.user_id) {
+          await supabaseAdmin.from('notifications').insert({
+            user_id: opRow.user_id,
+            type: 'dispatch_status_change',
+            title: `${statusInfo.emoji} Dispatch Status: ${statusInfo.label}`,
+            body: notifBody,
+            channel: 'in_app',
+            link: '/dashboard',
+          });
+        }
+        break;
+      }
+
       default:
         return new Response(JSON.stringify({ error: `Unknown notification type: ${type}` }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
