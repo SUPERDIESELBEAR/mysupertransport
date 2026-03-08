@@ -104,41 +104,64 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [search, setSearch] = useState('');
   const [liveIndicator, setLiveIndicator] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  // Map of operator_user_id → unread count for per-card badges
+  const [unreadPerOperator, setUnreadPerOperator] = useState<Record<string, number>>({});
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
   const [historyMap, setHistoryMap] = useState<Record<string, StatusHistoryEntry[]>>({});
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Unread message count ──────────────────────────────────────────────────
-  const fetchUnreadCount = async () => {
+  // ── Unread message counts (total + per-operator) ─────────────────────────
+  const fetchUnreadCounts = async (operatorUserIds?: string[]) => {
     if (!session?.user?.id) return;
+
+    // Total unread for nav badge
     const { count } = await supabase
       .from('messages')
       .select('*', { count: 'exact', head: true })
       .eq('recipient_id', session.user.id)
       .is('read_at', null);
     setUnreadMessages(count ?? 0);
+
+    // Per-operator unread — fetch all unread messages sent to this dispatcher
+    // and group by sender_id (which is the operator's user_id)
+    const { data: unreadData } = await supabase
+      .from('messages')
+      .select('sender_id')
+      .eq('recipient_id', session.user.id)
+      .is('read_at', null);
+
+    if (unreadData) {
+      const grouped: Record<string, number> = {};
+      unreadData.forEach(({ sender_id }) => {
+        grouped[sender_id] = (grouped[sender_id] ?? 0) + 1;
+      });
+      setUnreadPerOperator(grouped);
+    }
   };
 
   useEffect(() => {
     if (!session?.user?.id) return;
-    fetchUnreadCount();
+    fetchUnreadCounts();
     const channel = supabase
       .channel('dispatch-messages-unread')
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'messages',
         filter: `recipient_id=eq.${session.user.id}`,
-      }, () => fetchUnreadCount())
+      }, () => fetchUnreadCounts())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [session?.user?.id]);
 
-  // Clear badge when navigating to Messages tab
+  // Clear badges when navigating to Messages tab
   const handleNavigate = (path: string) => {
     const p = path as 'dispatch' | 'dispatch-messages';
     setActivePage(p);
-    if (p === 'dispatch-messages') setUnreadMessages(0);
+    if (p === 'dispatch-messages') {
+      setUnreadMessages(0);
+      setUnreadPerOperator({});
+    }
   };
 
   useEffect(() => {
@@ -647,10 +670,21 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                           setMessageInitialUserId(row.operator_user_id);
                           setActivePage('dispatch-messages');
                         }}
-                        className="h-7 text-xs text-muted-foreground hover:text-primary hover:bg-primary/10 gap-1 px-2.5"
-                        title={`Message ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
+                        className={`h-7 text-xs gap-1 px-2.5 relative ${
+                          unreadPerOperator[row.operator_user_id]
+                            ? 'text-primary hover:text-primary hover:bg-primary/10'
+                            : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
+                        }`}
+                        title={`Message ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}${unreadPerOperator[row.operator_user_id] ? ` (${unreadPerOperator[row.operator_user_id]} unread)` : ''}`}
                       >
-                        <MessageSquare className="h-3 w-3" />
+                        <span className="relative">
+                          <MessageSquare className="h-3 w-3" />
+                          {!!unreadPerOperator[row.operator_user_id] && (
+                            <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-destructive text-[9px] font-bold text-white flex items-center justify-center leading-none">
+                              {unreadPerOperator[row.operator_user_id] > 9 ? '9+' : unreadPerOperator[row.operator_user_id]}
+                            </span>
+                          )}
+                        </span>
                         Message
                       </Button>
 
@@ -856,10 +890,21 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                                 setMessageInitialUserId(row.operator_user_id);
                                 setActivePage('dispatch-messages');
                               }}
-                              className="h-7 text-xs text-muted-foreground hover:text-primary hover:bg-primary/10 gap-1 px-2.5"
-                              title={`Message ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
+                              className={`h-7 text-xs gap-1 px-2.5 relative ${
+                                unreadPerOperator[row.operator_user_id]
+                                  ? 'text-primary hover:text-primary hover:bg-primary/10'
+                                  : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
+                              }`}
+                              title={`Message ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}${unreadPerOperator[row.operator_user_id] ? ` (${unreadPerOperator[row.operator_user_id]} unread)` : ''}`}
                             >
-                              <MessageSquare className="h-3 w-3" />
+                              <span className="relative">
+                                <MessageSquare className="h-3 w-3" />
+                                {!!unreadPerOperator[row.operator_user_id] && (
+                                  <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-destructive text-[9px] font-bold text-white flex items-center justify-center leading-none">
+                                    {unreadPerOperator[row.operator_user_id] > 9 ? '9+' : unreadPerOperator[row.operator_user_id]}
+                                  </span>
+                                )}
+                              </span>
                               Message
                             </Button>
                             <Button
