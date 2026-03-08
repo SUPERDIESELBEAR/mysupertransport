@@ -10,7 +10,7 @@ import StaffDirectory from '@/components/management/StaffDirectory';
 import FaqManager from '@/components/management/FaqManager';
 import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import ActivityLog from '@/components/management/ActivityLog';
-import DispatchBoard from '../dispatch/DispatchPortal';
+import DispatchPortal from '../dispatch/DispatchPortal';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight,
@@ -361,7 +361,7 @@ export default function ManagementPortal() {
         )}
 
         {view === 'dispatch' && (
-          <DispatchBoard />
+          <DispatchPortal embedded />
         )}
 
         {view === 'staff' && (
