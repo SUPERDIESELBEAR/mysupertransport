@@ -496,6 +496,12 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
               <button onClick={() => setCoordinatorFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
             </span>
           )}
+          {dispatchFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 bg-gold/10 text-gold border border-gold/30 text-xs px-2.5 py-1 rounded-full font-medium">
+              {DISPATCH_BADGE[dispatchFilter as DispatchStatus]?.label ?? dispatchFilter}
+              <button onClick={() => setDispatchFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+            </span>
+          )}
         </div>
       )}
 
