@@ -176,6 +176,33 @@ export default function ManagementPortal() {
   return (
     <>
       <StaffLayout navItems={navItems} currentPath={view} onNavigate={(p) => setView(p as ManagementView)} title="Management">
+        {/* ── TRUCK DOWN ALERT BANNER ── */}
+        {truckDownCount > 0 && (
+          <div className="mb-5 flex items-center justify-between gap-4 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 animate-fade-in">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/15 shrink-0">
+                <TriangleAlert className="h-4 w-4 text-destructive animate-pulse" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-destructive leading-tight">
+                  {truckDownCount} Operator{truckDownCount !== 1 ? 's' : ''} Truck Down
+                </p>
+                <p className="text-xs text-destructive/70 leading-tight mt-0.5">
+                  Immediate attention may be required
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setView('dispatch')}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs gap-1.5 shrink-0"
+            >
+              <Truck className="h-3.5 w-3.5" />
+              View Dispatch Board
+            </Button>
+          </div>
+        )}
+
         {/* ── OVERVIEW ── */}
         {view === 'overview' && (
           <div className="space-y-6 animate-fade-in">
