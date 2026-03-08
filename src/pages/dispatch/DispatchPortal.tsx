@@ -21,6 +21,7 @@ type FilterTab = 'all' | DispatchStatusType;
 
 interface DispatchRow {
   operator_id: string;
+  operator_user_id: string;
   dispatch_id: string | null;
   first_name: string | null;
   last_name: string | null;
