@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2 } from 'lucide-react';
+import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface OperatorRow {
@@ -65,6 +65,21 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
   const [stageFilter, setStageFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [coordinatorFilter, setCoordinatorFilter] = useState('all');
+
+  // Sort state
+  type SortKey = 'name' | 'stage' | 'coordinator';
+  type SortDir = 'asc' | 'desc';
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
 
   useEffect(() => {
     fetchOperators();
@@ -192,15 +207,33 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
 
 
 
-  const filtered = operators.filter(op => {
-    const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.toLowerCase();
-    const matchSearch = name.includes(search.toLowerCase()) || (op.phone ?? '').includes(search);
-    const matchStage = stageFilter === 'all' || op.current_stage === stageFilter;
-    const matchStatus = statusFilter === 'all' || getStatus(op) === statusFilter;
-    const matchCoordinator = coordinatorFilter === 'all' ||
-      (coordinatorFilter === 'unassigned' ? !op.assigned_staff_id : op.assigned_staff_id === coordinatorFilter);
-    return matchSearch && matchStage && matchStatus && matchCoordinator;
-  });
+  const filtered = operators
+    .filter(op => {
+      const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.toLowerCase();
+      const matchSearch = name.includes(search.toLowerCase()) || (op.phone ?? '').includes(search);
+      const matchStage = stageFilter === 'all' || op.current_stage === stageFilter;
+      const matchStatus = statusFilter === 'all' || getStatus(op) === statusFilter;
+      const matchCoordinator = coordinatorFilter === 'all' ||
+        (coordinatorFilter === 'unassigned' ? !op.assigned_staff_id : op.assigned_staff_id === coordinatorFilter);
+      return matchSearch && matchStage && matchStatus && matchCoordinator;
+    })
+    .sort((a, b) => {
+      if (!sortKey) return 0;
+      let av = '';
+      let bv = '';
+      if (sortKey === 'name') {
+        av = `${a.first_name ?? ''} ${a.last_name ?? ''}`.trim().toLowerCase();
+        bv = `${b.first_name ?? ''} ${b.last_name ?? ''}`.trim().toLowerCase();
+      } else if (sortKey === 'stage') {
+        av = a.current_stage;
+        bv = b.current_stage;
+      } else if (sortKey === 'coordinator') {
+        av = (a.assigned_staff_name ?? '').toLowerCase();
+        bv = (b.assigned_staff_name ?? '').toLowerCase();
+      }
+      const cmp = av.localeCompare(bv);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
 
   const activeFilterCount = [
     stageFilter !== 'all',
@@ -436,12 +469,48 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/50">
-                <th className="text-left px-4 py-3 font-semibold text-foreground">Name</th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground">
+                  <button
+                    onClick={() => handleSort('name')}
+                    className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
+                  >
+                    Name
+                    {sortKey === 'name'
+                      ? sortDir === 'asc'
+                        ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                        : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                      : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                  </button>
+                </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Phone</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">State</th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground">Current Stage</th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground">
+                  <button
+                    onClick={() => handleSort('stage')}
+                    className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
+                  >
+                    Current Stage
+                    {sortKey === 'stage'
+                      ? sortDir === 'asc'
+                        ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                        : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                      : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                  </button>
+                </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Status</th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">Coordinator</th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
+                  <button
+                    onClick={() => handleSort('coordinator')}
+                    className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
+                  >
+                    Coordinator
+                    {sortKey === 'coordinator'
+                      ? sortDir === 'asc'
+                        ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                        : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                      : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                  </button>
+                </th>
                 <th className="text-right px-4 py-3" />
               </tr>
             </thead>
