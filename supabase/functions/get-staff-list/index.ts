@@ -203,6 +203,7 @@ Deno.serve(async (req) => {
       user_id: p.user_id,
       first_name: p.first_name,
       last_name: p.last_name,
+      phone: p.phone ?? null,
       email: emailMap[p.user_id] ?? null,
       account_status: p.account_status,
       created_at: p.created_at,
