@@ -66,7 +66,7 @@ const STATUS_CONFIG: Record<DispatchStatusType, {
   },
 };
 
-export default function OperatorDispatchStatus({ operatorId }: Props) {
+export default function OperatorDispatchStatus({ operatorId, onMessageDispatcher }: Props) {
   const [dispatch, setDispatch] = useState<DispatchData | null>(null);
   const [dispatcher, setDispatcher] = useState<DispatcherInfo | null>(null);
   const [loading, setLoading] = useState(true);
