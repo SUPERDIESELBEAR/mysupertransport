@@ -120,7 +120,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
     // Step 1: fetch operator core data
     const { data: op } = await supabase
       .from('operators')
-      .select(`id, user_id, notes, onboarding_status (*), applications (email)`)
+      .select(`id, user_id, notes, onboarding_status (*), applications (email, first_name, last_name, phone, address_street, address_city, address_state, address_zip)`)
       .eq('id', operatorId)
       .single();
 
@@ -137,6 +137,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       );
       const app = (op as any).applications;
       setOperatorEmail(app?.email ?? '');
+      setApplicationData(app ?? null);
       setNotes((op as any).notes ?? '');
       const os = (op as any).onboarding_status?.[0];
       if (os) {
