@@ -95,6 +95,13 @@ async function sendEmail(to: string, subject: string, html: string, resendKey: s
 
 // ─── Milestone copy for operator-facing emails ───────────────────────────────
 const MILESTONE_OPERATOR_COPY: Record<string, { heading: string; body: (name: string) => string }> = {
+  ica_sent: {
+    heading: '📝 Action Required: Sign Your ICA Agreement',
+    body: (name) => `<p>Hi ${name},</p>
+      <p>Your <strong>Independent Contractor Agreement (ICA)</strong> has been prepared and sent for your signature.</p>
+      <p>Please check your email for a link from <strong>PandaDoc</strong> and sign it at your earliest convenience to keep your onboarding on track.</p>
+      <p>Once signed, our team will proceed with the next steps.</p>`,
+  },
   ica_complete: {
     heading: '✅ Your ICA Agreement is Complete',
     body: (name) => `<p>Hi ${name},</p>
@@ -112,6 +119,42 @@ const MILESTONE_OPERATOR_COPY: Record<string, { heading: string; body: (name: st
     body: (name) => `<p>Hi ${name},</p>
       <p>Your <strong>pre-employment drug & alcohol screening</strong> result has come back <strong>clear</strong>.</p>
       <p>This clears the way for your ICA to be issued. Our onboarding team will reach out with next steps shortly.</p>`,
+  },
+  docs_requested: {
+    heading: '📋 Action Required: Submit Your Documents',
+    body: (name) => `<p>Hi ${name},</p>
+      <p>Your onboarding coordinator has requested that you upload your required documents.</p>
+      <p>Please log in to your portal and navigate to the <strong>Documents</strong> tab to upload the following:</p>
+      <ul style="padding-left:20px;line-height:2;">
+        <li>Form 2290 (Heavy Vehicle Use Tax)</li>
+        <li>Truck Title</li>
+        <li>Truck Photos (exterior, all sides)</li>
+        <li>Truck Inspection Report</li>
+      </ul>
+      <p>Submit all documents as soon as possible to keep your onboarding moving forward.</p>`,
+  },
+  docs_approved: {
+    heading: '✅ Your Documents Have Been Approved',
+    body: (name) => `<p>Hi ${name},</p>
+      <p>All of your required documents have been <strong>received and approved</strong> by our team.</p>
+      <p>This is a great milestone — we're one step closer to getting you on the road! Log in to your portal to see your updated onboarding progress.</p>`,
+  },
+  equipment_ready: {
+    heading: '🚛 Equipment Setup Complete',
+    body: (name) => `<p>Hi ${name},</p>
+      <p>Your equipment setup has been completed:</p>
+      <ul style="padding-left:20px;line-height:2;">
+        <li>✅ Decal applied</li>
+        <li>✅ ELD device installed</li>
+        <li>✅ Fuel card issued</li>
+      </ul>
+      <p>You're almost there! Our team is finalizing your insurance and activation. We'll be in touch very soon.</p>`,
+  },
+  mo_reg_received: {
+    heading: '✅ Missouri Registration Received',
+    body: (name) => `<p>Hi ${name},</p>
+      <p>Great news — your <strong>Missouri Registration</strong> has been received and is on file.</p>
+      <p>Log in to your portal to check your latest onboarding status.</p>`,
   },
   fully_onboarded: {
     heading: '🎉 Welcome to SUPERTRANSPORT — You\'re Fully Onboarded!',
