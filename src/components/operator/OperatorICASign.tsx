@@ -63,7 +63,23 @@ export default function OperatorICASign() {
       .limit(1)
       .maybeSingle();
 
-    setContract(data as unknown as ICAData);
+    if (data) {
+      const raw = data as Record<string, any>;
+      // Resolve signed URLs for private bucket
+      const resolveUrl = async (path: string | null) => {
+        if (!path) return null;
+        if (path.startsWith('http')) return path;
+        const { data: sd } = await supabase.storage.from('ica-signatures').createSignedUrl(path, 3600);
+        return sd?.signedUrl ?? null;
+      };
+      const [carrierUrl, contractorUrl] = await Promise.all([
+        resolveUrl(raw.carrier_signature_url),
+        resolveUrl(raw.contractor_signature_url),
+      ]);
+      setContract({ ...raw, carrier_signature_url: carrierUrl, contractor_signature_url: contractorUrl } as unknown as ICAData);
+    } else {
+      setContract(null);
+    }
     setLoading(false);
   };
 
