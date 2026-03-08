@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText,
-  LogOut, Menu, X, Upload, Shield, FileCheck, Truck
+  LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert
 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import OperatorDocumentUpload from '@/components/operator/OperatorDocumentUpload';
