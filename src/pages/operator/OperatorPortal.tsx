@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  CheckCircle2,
+  CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText,
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck
 } from 'lucide-react';
