@@ -122,18 +122,28 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
       `);
 
     if (data) {
-      const mapped: DispatchRow[] = (data as any[])
-        .filter(op => op.onboarding_status?.[0]?.fully_onboarded)
+      const onboarded = (data as any[]).filter(op => op.onboarding_status?.[0]?.fully_onboarded);
+      const userIds = onboarded.map(op => op.user_id).filter(Boolean);
+      const profileMap: Record<string, any> = {};
+      if (userIds.length > 0) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name, phone, home_state')
+          .in('user_id', userIds);
+        (profileData ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
+      }
+
+      const mapped: DispatchRow[] = onboarded
         .map(op => {
           const d = op.active_dispatch?.[0] ?? {};
-          const p = op.profiles ?? {};
+          const p = profileMap[op.user_id] ?? {};
           return {
             operator_id: op.id,
             dispatch_id: d.id ?? null,
-            first_name: p.first_name,
-            last_name: p.last_name,
-            phone: p.phone,
-            home_state: p.home_state,
+            first_name: p.first_name ?? null,
+            last_name: p.last_name ?? null,
+            phone: p.phone ?? null,
+            home_state: p.home_state ?? null,
             unit_number: op.onboarding_status?.[0]?.unit_number ?? op.unit_number ?? null,
             dispatch_status: (d.dispatch_status ?? 'not_dispatched') as DispatchStatusType,
             assigned_dispatcher: d.assigned_dispatcher ?? null,
