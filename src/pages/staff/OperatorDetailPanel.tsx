@@ -534,7 +534,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       </div>
 
       {/* Dispatch Status History */}
-      {status.fully_onboarded && (
+      {(status.fully_onboarded || dispatchHistory.length > 0 || currentDispatchStatus) && (
         <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
