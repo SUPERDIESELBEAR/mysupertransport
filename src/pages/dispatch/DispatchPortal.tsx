@@ -89,6 +89,37 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [unreadMessages, setUnreadMessages] = useState(0);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Unread message count ──────────────────────────────────────────────────
+  const fetchUnreadCount = async () => {
+    if (!session?.user?.id) return;
+    const { count } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('recipient_id', session.user.id)
+      .is('read_at', null);
+    setUnreadMessages(count ?? 0);
+  };
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    fetchUnreadCount();
+    const channel = supabase
+      .channel('dispatch-messages-unread')
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'messages',
+        filter: `recipient_id=eq.${session.user.id}`,
+      }, () => fetchUnreadCount())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [session?.user?.id]);
+
+  // Clear badge when navigating to Messages tab
+  const handleNavigate = (path: string) => {
+    const p = path as 'dispatch' | 'dispatch-messages';
+    setActivePage(p);
+    if (p === 'dispatch-messages') setUnreadMessages(0);
+  };
+
   useEffect(() => {
     fetchDispatch();
 
