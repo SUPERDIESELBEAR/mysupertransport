@@ -29,6 +29,8 @@ interface NotificationPayload {
   current_load_lane?: string;
   eta_redispatch?: string;
   status_notes?: string;
+  unit_number?: string;       // operator unit number for dispatcher email
+  caller_user_id?: string;    // user_id of the dispatcher who set the status
 }
 
 // ─── Email HTML builder ─────────────────────────────────────────────────────
