@@ -141,7 +141,7 @@ export default function ActivityLog() {
 
     const { data, error } = await query;
     if (!error && data) {
-      const typed = data as AuditEntry[];
+      const typed = data as unknown as AuditEntry[];
       setEntries(prev => pageNum === 0 ? typed : [...prev, ...typed]);
       setHasMore(typed.length === PAGE_SIZE + 1);
       // Trim the extra row used to detect next page
