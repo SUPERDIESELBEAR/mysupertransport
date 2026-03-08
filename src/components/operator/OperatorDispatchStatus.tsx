@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Truck, MapPin, Clock, AlertTriangle, CheckCircle2, Home, Radio } from 'lucide-react';
+import { Truck, MapPin, Clock, AlertTriangle, CheckCircle2, Home, Radio, Phone, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 type DispatchStatusType = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
@@ -11,6 +11,13 @@ interface DispatchData {
   eta_redispatch: string | null;
   status_notes: string | null;
   updated_at: string;
+  assigned_dispatcher: string | null;
+}
+
+interface DispatcherInfo {
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
 }
 
 interface Props {
@@ -61,18 +68,33 @@ const STATUS_CONFIG: Record<DispatchStatusType, {
 
 export default function OperatorDispatchStatus({ operatorId }: Props) {
   const [dispatch, setDispatch] = useState<DispatchData | null>(null);
+  const [dispatcher, setDispatcher] = useState<DispatcherInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [liveFlash, setLiveFlash] = useState(false);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchDispatcherInfo = async (dispatcherUserId: string) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('first_name, last_name, phone')
+      .eq('user_id', dispatcherUserId)
+      .maybeSingle();
+    setDispatcher(data as DispatcherInfo | null);
+  };
 
   const fetchDispatch = async (silent = false) => {
     if (!silent) setLoading(true);
     const { data } = await supabase
       .from('active_dispatch')
-      .select('dispatch_status, current_load_lane, eta_redispatch, status_notes, updated_at')
+      .select('dispatch_status, current_load_lane, eta_redispatch, status_notes, updated_at, assigned_dispatcher')
       .eq('operator_id', operatorId)
       .maybeSingle();
     setDispatch(data as DispatchData | null);
+    if (data?.assigned_dispatcher) {
+      await fetchDispatcherInfo(data.assigned_dispatcher);
+    } else {
+      setDispatcher(null);
+    }
     setLoading(false);
   };
 
@@ -113,6 +135,12 @@ export default function OperatorDispatchStatus({ operatorId }: Props) {
   const lastUpdated = dispatch?.updated_at
     ? new Date(dispatch.updated_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
     : null;
+
+  const dispatcherName = dispatcher
+    ? [dispatcher.first_name, dispatcher.last_name].filter(Boolean).join(' ') || null
+    : null;
+
+  const dispatcherInitial = dispatcherName?.[0]?.toUpperCase() ?? '?';
 
   return (
     <div className="space-y-6">
@@ -157,6 +185,47 @@ export default function OperatorDispatchStatus({ operatorId }: Props) {
             )}
           </div>
         </div>
+
+        {/* Dispatcher contact — shown whenever a dispatcher is assigned */}
+        {dispatch && dispatch.assigned_dispatcher && (
+          <div className="mt-5 pt-5 border-t border-border/60">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Your Dispatcher</p>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-full bg-surface-dark flex items-center justify-center shrink-0">
+                  <span className="text-sm font-bold text-gold">{dispatcherInitial}</span>
+                </div>
+                <div>
+                  {dispatcherName ? (
+                    <p className="text-sm font-semibold text-foreground">{dispatcherName}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">Dispatcher assigned</p>
+                  )}
+                  {dispatcher?.phone ? (
+                    <a
+                      href={`tel:${dispatcher.phone}`}
+                      className="flex items-center gap-1 text-xs text-gold hover:text-gold/80 transition-colors mt-0.5"
+                    >
+                      <Phone className="h-3 w-3" />
+                      {dispatcher.phone}
+                    </a>
+                  ) : (
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">No phone on file</p>
+                  )}
+                </div>
+              </div>
+              {dispatcher?.phone && (
+                <a
+                  href={`tel:${dispatcher.phone}`}
+                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-surface-dark text-surface-dark-foreground hover:bg-surface-dark/90 transition-colors shrink-0"
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  Call
+                </a>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Info grid */}
