@@ -1,0 +1,1 @@
+INSERT INTO public.messages (sender_id, recipient_id, body, read_at) VALUES ('5cca4f77-c4a9-4c4d-bcf7-f950965c1ffe', '5cca4f77-c4a9-4c4d-bcf7-f950965c1ffe', '🧪 Test: operator message to verify dispatch badge appears', NULL);
