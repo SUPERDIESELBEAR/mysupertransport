@@ -65,6 +65,8 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [saving, setSaving] = useState(false);
   const [operatorName, setOperatorName] = useState('');
   const [operatorEmail, setOperatorEmail] = useState('');
+  const [showICABuilder, setShowICABuilder] = useState(false);
+  const [applicationData, setApplicationData] = useState<any>(null);
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<Partial<OnboardingStatus>>({});
   const [statusId, setStatusId] = useState<string | null>(null);
