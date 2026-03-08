@@ -533,6 +533,75 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
         </div>
       </div>
 
+      {/* Dispatch Status History */}
+      {status.fully_onboarded && (
+        <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-gold" />
+              <h3 className="font-semibold text-foreground text-sm">Dispatch Status History</h3>
+            </div>
+            {currentDispatchStatus && DISPATCH_STATUS_CONFIG[currentDispatchStatus] && (
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${DISPATCH_STATUS_CONFIG[currentDispatchStatus].badgeClass}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${DISPATCH_STATUS_CONFIG[currentDispatchStatus].dotClass}`} />
+                Current: {DISPATCH_STATUS_CONFIG[currentDispatchStatus].label}
+              </span>
+            )}
+          </div>
+
+          {dispatchHistory.length === 0 ? (
+            <div className="text-center py-6 text-muted-foreground">
+              <Truck className="h-8 w-8 mx-auto mb-2 opacity-30" />
+              <p className="text-xs">No dispatch history recorded yet.</p>
+            </div>
+          ) : (
+            <div className="relative">
+              {/* vertical line */}
+              <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+              <div className="space-y-4">
+                {dispatchHistory.map((entry, idx) => {
+                  const cfg = DISPATCH_STATUS_CONFIG[entry.dispatch_status] ?? DISPATCH_STATUS_CONFIG['not_dispatched'];
+                  return (
+                    <div key={entry.id} className="flex gap-4 relative">
+                      {/* dot */}
+                      <div className={`h-3.5 w-3.5 rounded-full border-2 border-white shadow-sm shrink-0 mt-0.5 z-10 ${cfg.dotClass}`} />
+                      <div className="flex-1 min-w-0 pb-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${cfg.badgeClass}`}>
+                            {cfg.emoji} {cfg.label}
+                          </span>
+                          {idx === 0 && (
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gold/15 text-gold border border-gold/30">Latest</span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
+                          {entry.current_load_lane && (
+                            <span className="text-xs text-muted-foreground">
+                              <span className="font-medium text-foreground">Lane:</span> {entry.current_load_lane}
+                            </span>
+                          )}
+                          {entry.status_notes && (
+                            <span className="text-xs text-muted-foreground">
+                              <span className="font-medium text-foreground">Note:</span> {entry.status_notes}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          {formatDistanceToNow(new Date(entry.changed_at), { addSuffix: true })}
+                          <span className="ml-1.5 text-muted-foreground/60">
+                            · {new Date(entry.changed_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Internal Notes */}
       <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
         <Label className="text-sm font-semibold text-foreground mb-2 block">Internal Notes</Label>
