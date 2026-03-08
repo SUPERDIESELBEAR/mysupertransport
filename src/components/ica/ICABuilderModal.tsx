@@ -68,12 +68,12 @@ export default function ICABuilderModal({
   const [carrierTitle, setCarrierTitle] = useState('');
 
   const [data, setData] = useState<ICAData>({
-    truck_year: '',
+    truck_year: new Date().getFullYear().toString(),
     truck_make: '',
     truck_model: '',
     truck_vin: '',
     truck_plate: '',
-    truck_plate_state: '',
+    truck_plate_state: applicationData?.address_state ?? 'MO',
     trailer_number: '',
     owner_business_name: operatorName,
     owner_ein_ssn: '',
@@ -171,8 +171,8 @@ export default function ICABuilderModal({
     }
   };
 
-  const canProceedStep0 = data.truck_year && data.truck_make && data.truck_vin && data.owner_business_name;
-  const canProceedStep2 = carrierTypedName && carrierTitle;
+  const canProceedStep0 = !!(data.truck_vin && data.owner_business_name);
+  const canProceedStep2 = !!(carrierTypedName && carrierTitle);
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end">
