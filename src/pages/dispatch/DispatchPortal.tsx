@@ -11,10 +11,17 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
-  LayoutGrid, List, Phone, Siren
+  LayoutGrid, List, Phone, Siren, Send, ExternalLink
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+
+interface QuickComposeTarget {
+  operatorUserId: string;
+  name: string;
+  unit: string | null;
+  status: string;
+}
 
 type DispatchStatusType = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
 type FilterTab = 'all' | DispatchStatusType;
@@ -111,6 +118,10 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [highlightedCard, setHighlightedCard] = useState<string | null>(null);
+  // Quick-compose modal state
+  const [quickCompose, setQuickCompose] = useState<QuickComposeTarget | null>(null);
+  const [composeBody, setComposeBody] = useState('');
+  const [composeSending, setComposeSending] = useState(false);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -129,6 +140,26 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
       setTimeout(() => setHighlightedCard(null), 3000);
     }, 100);
   }, []);
+
+  // ── Quick-compose send ────────────────────────────────────────────────────
+  const sendQuickMessage = async () => {
+    if (!quickCompose || !composeBody.trim() || !session?.user?.id) return;
+    setComposeSending(true);
+    const { error } = await supabase.from('messages').insert({
+      sender_id: session.user.id,
+      recipient_id: quickCompose.operatorUserId,
+      body: composeBody.trim(),
+    });
+    setComposeSending(false);
+    if (error) {
+      toast({ title: 'Failed to send', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Message sent', description: `Sent to ${quickCompose.name}.` });
+      setComposeBody('');
+      setQuickCompose(null);
+      fetchUnreadCounts();
+    }
+  };
 
   // ── Unread message counts (total + per-operator) ─────────────────────────
   const fetchUnreadCounts = async (operatorUserIds?: string[]) => {
@@ -720,13 +751,19 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
                     {/* Card footer — actions */}
                     <div className="px-4 pb-4 pt-0 flex items-center justify-between gap-2">
-                      {/* Message quick-action — always visible */}
+                      {/* Message quick-action — opens compose modal */}
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          setMessageInitialUserId(row.operator_user_id);
-                          setActivePage('dispatch-messages');
+                          const name = `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || 'Operator';
+                          setQuickCompose({
+                            operatorUserId: row.operator_user_id,
+                            name,
+                            unit: row.unit_number,
+                            status: STATUS_CONFIG[row.dispatch_status].label,
+                          });
+                          setComposeBody('');
                         }}
                         className={`h-7 text-xs gap-1 px-2.5 relative ${
                           unreadPerOperator[row.operator_user_id]
@@ -1047,6 +1084,101 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
     { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages', badge: unreadMessages || undefined },
   ];
 
+  // ── Quick-compose modal ────────────────────────────────────────────────────
+  const quickComposeModal = quickCompose && (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+      onClick={() => { setQuickCompose(null); setComposeBody(''); }}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+
+      {/* Panel */}
+      <div
+        className="relative w-full sm:max-w-md bg-background border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl p-0 overflow-hidden animate-fade-in"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className={`px-4 py-3 flex items-center justify-between gap-3 border-b border-border ${
+          quickCompose.status === 'Truck Down'
+            ? 'bg-destructive/8'
+            : quickCompose.status === 'Dispatched'
+            ? 'bg-status-complete/8'
+            : quickCompose.status === 'Home'
+            ? 'bg-status-progress/8'
+            : 'bg-muted/40'
+        }`}>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="h-8 w-8 rounded-full bg-surface-dark flex items-center justify-center shrink-0">
+              <span className="text-xs font-bold text-gold">
+                {quickCompose.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?'}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-sm text-foreground truncate">{quickCompose.name}</p>
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span>{quickCompose.status}</span>
+                {quickCompose.unit && <><span>·</span><span className="font-mono">Unit {quickCompose.unit}</span></>}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Open full thread link */}
+            <button
+              onClick={() => {
+                setMessageInitialUserId(quickCompose.operatorUserId);
+                setActivePage('dispatch-messages');
+                setQuickCompose(null);
+                setComposeBody('');
+              }}
+              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors px-2 py-1 rounded-md hover:bg-primary/10"
+              title="Open full message thread"
+            >
+              <ExternalLink className="h-3 w-3" />
+              Full thread
+            </button>
+            <button
+              onClick={() => { setQuickCompose(null); setComposeBody(''); }}
+              className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Compose area */}
+        <div className="p-4 space-y-3">
+          <Textarea
+            value={composeBody}
+            onChange={e => setComposeBody(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) sendQuickMessage();
+            }}
+            placeholder={`Message ${quickCompose.name}…`}
+            className="min-h-[80px] resize-none text-sm"
+            autoFocus
+          />
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[11px] text-muted-foreground">
+              ⌘↵ to send
+            </span>
+            <Button
+              onClick={sendQuickMessage}
+              disabled={composeSending || !composeBody.trim()}
+              size="sm"
+              className="gap-1.5 bg-gold text-surface-dark hover:bg-gold-light"
+            >
+              {composeSending
+                ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                : <Send className="h-3.5 w-3.5" />}
+              Send
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <StaffLayout
       navItems={navItems}
@@ -1054,6 +1186,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
       onNavigate={handleNavigate}
       title="Dispatch"
     >
+      {quickComposeModal}
       {activePage === 'dispatch-messages'
         ? <MessagesView initialUserId={messageInitialUserId} />
         : board}
