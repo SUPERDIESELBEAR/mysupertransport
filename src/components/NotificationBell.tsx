@@ -101,6 +101,7 @@ export default function NotificationBell({ variant = 'light' }: NotificationBell
     new_application: '📋',
     application_approved: '✅',
     application_denied: '❌',
+    dispatch_status_change: '🚛',
   };
 
   // Style tokens by variant
