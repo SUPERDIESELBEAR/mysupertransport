@@ -129,6 +129,10 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
   if (!app) return null;
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email;
 
   const handleAction = async (action: 'approve' | 'deny') => {

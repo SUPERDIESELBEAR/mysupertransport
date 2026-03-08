@@ -18,6 +18,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Role-based redirect: dispatcher-only users go straight to /dispatch
   if (user && !authLoading) {
