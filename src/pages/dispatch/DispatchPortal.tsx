@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
-  Search, Edit2, X, Save, RefreshCw, MapPin
+  Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
