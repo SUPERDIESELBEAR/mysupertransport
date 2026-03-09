@@ -104,8 +104,9 @@ interface DispatchPortalProps {
 export default function DispatchPortal({ embedded = false }: DispatchPortalProps) {
   const { toast } = useToast();
   const { session } = useAuth();
+  const [searchParams] = useSearchParams();
   const [prefOpen, setPrefOpen] = useState(false);
-  const [activePage, setActivePage] = useState<'dispatch' | 'dispatch-messages'>('dispatch');
+  const [activePage, setActivePage] = useState<'dispatch' | 'dispatch-messages' | 'dispatch-notifications'>('dispatch');
   const [rows, setRows] = useState<DispatchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -116,6 +117,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [search, setSearch] = useState('');
   const [liveIndicator, setLiveIndicator] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   // Map of operator_user_id → unread count for per-card badges
   const [unreadPerOperator, setUnreadPerOperator] = useState<Record<string, number>>({});
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
