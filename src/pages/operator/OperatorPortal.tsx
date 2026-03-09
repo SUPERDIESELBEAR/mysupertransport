@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import OperatorNotificationPreferencesModal from '@/components/operator/OperatorNotificationPreferencesModal';
 import { useAuth } from '@/hooks/useAuth';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
@@ -17,6 +17,7 @@ import NotificationBell from '@/components/NotificationBell';
 import OperatorStatusPage from '@/components/operator/OperatorStatusPage';
 import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus';
 import OperatorICASign from '@/components/operator/OperatorICASign';
+import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications';
