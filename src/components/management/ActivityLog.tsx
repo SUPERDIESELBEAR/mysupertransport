@@ -318,18 +318,54 @@ function buildDetailText(entry: AuditEntry): string {
   }
 }
 
+// Flatten metadata into deterministic key columns for export
+const META_EXPORT_KEYS = [
+  'applicant_name',
+  'applicant_email',
+  'reviewer_notes',
+  'role',
+  'target_user',
+  'milestones',
+  'changed_fields',
+] as const;
+
+function metaColValue(entry: AuditEntry, key: string): string {
+  const v = (entry.metadata ?? {})[key];
+  if (v === undefined || v === null) return '';
+  if (Array.isArray(v)) return v.join('; ');
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+}
+
 function exportToCsv(rows: AuditEntry[], currentFilter: string, dateFrom?: Date, dateTo?: Date) {
-  const headers = ['Timestamp', 'Action', 'Actor', 'Subject', 'Detail', 'Entity Type', 'Entity ID'];
+  const metaLabels = META_EXPORT_KEYS.map(k =>
+    `Meta: ${k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}`
+  );
+  const headers = [
+    'Timestamp',
+    'Action',
+    'Actor',
+    'Actor ID',
+    'Subject',
+    'Subject ID',
+    'Entity Type',
+    'Detail',
+    ...metaLabels,
+    'Full Metadata (JSON)',
+  ];
   const lines = [
     headers.join(','),
     ...rows.map(e => [
       new Date(e.created_at).toISOString(),
       ACTION_CONFIG[e.action]?.label ?? e.action,
       e.actor_name ?? '',
+      e.actor_id ?? '',
       e.entity_label ?? '',
-      buildDetailText(e),
-      e.entity_type,
       e.entity_id ?? '',
+      e.entity_type,
+      buildDetailText(e),
+      ...META_EXPORT_KEYS.map(k => metaColValue(e, k)),
+      e.metadata ? JSON.stringify(e.metadata) : '',
     ].map(csvCell).join(',')),
   ];
   const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
