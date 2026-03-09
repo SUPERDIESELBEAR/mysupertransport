@@ -781,10 +781,20 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             <p className="text-sm text-muted-foreground">{operatorEmail}</p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={saving} className="bg-gold text-surface-dark font-semibold hover:bg-gold-light gap-2">
-          <Save className="h-4 w-4" />
-          {saving ? 'Saving…' : 'Save Changes'}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button onClick={handleSave} disabled={saving} className="bg-gold text-surface-dark font-semibold hover:bg-gold-light gap-2">
+              <Save className="h-4 w-4" />
+              {saving ? 'Saving…' : 'Save Changes'}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs flex items-center gap-1.5">
+            <span className="text-muted-foreground">Keyboard shortcut:</span>
+            <kbd className="px-1 py-0.5 rounded border border-border bg-muted text-foreground font-mono text-[10px] leading-none">
+              {navigator.platform.startsWith('Mac') ? '⌘S' : 'Ctrl+S'}
+            </kbd>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Status overview */}
