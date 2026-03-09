@@ -37,12 +37,21 @@ interface Props {
   onUploadComplete: () => void;
 }
 
-export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboardingStatus: _onboardingStatus, onUploadComplete }: Props) {
+export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboardingStatus, onUploadComplete }: Props) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const getUploaded = (key: string) => uploadedDocs.filter(d => d.document_type === key);
+
+  // Derive review status badge for doc slots that are tracked in onboarding_status
+  const getReviewStatus = (key: string): 'received' | 'pending' | null => {
+    const val = onboardingStatus[key];
+    if (val === 'received') return 'received';
+    const uploaded = uploadedDocs.filter(d => d.document_type === key);
+    if (uploaded.length > 0 && val === 'requested') return 'pending';
+    return null;
+  };
 
   const handleUpload = async (slot: DocumentSlot, file: File) => {
     if (!file) return;
