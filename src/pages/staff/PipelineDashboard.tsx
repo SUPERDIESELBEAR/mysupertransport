@@ -98,6 +98,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
   const [statusFilter, setStatusFilter] = useState('all');
   const [coordinatorFilter, setCoordinatorFilter] = useState('all');
   const [dispatchFilter, setDispatchFilter] = useState<'all' | DispatchStatus>('all');
+  const [progressFilter, setProgressFilter] = useState<'all' | 'low' | 'mid' | 'high'>('all');
 
   // Sort state
   type SortKey = 'name' | 'stage' | 'coordinator' | 'progress';
@@ -277,7 +278,11 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
         (coordinatorFilter === 'unassigned' ? !op.assigned_staff_id : op.assigned_staff_id === coordinatorFilter);
       const matchDispatch = dispatchFilter === 'all' || op.dispatch_status === dispatchFilter ||
         (dispatchFilter === 'not_dispatched' && op.dispatch_status === null);
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch;
+      const matchProgress = progressFilter === 'all' ||
+        (progressFilter === 'low' && op.progress_pct <= 33) ||
+        (progressFilter === 'mid' && op.progress_pct >= 34 && op.progress_pct <= 66) ||
+        (progressFilter === 'high' && op.progress_pct >= 67);
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress;
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
@@ -306,6 +311,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     statusFilter !== 'all',
     coordinatorFilter !== 'all',
     dispatchFilter !== 'all',
+    progressFilter !== 'all',
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
@@ -313,6 +319,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     setStatusFilter('all');
     setCoordinatorFilter('all');
     setDispatchFilter('all');
+    setProgressFilter('all');
     setSearch('');
   };
 
@@ -452,7 +459,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
 
         {/* Expandable filter panel */}
         {showFilters && (
-          <div className="bg-muted/40 border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
+          <div className="bg-muted/40 border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 animate-fade-in">
             {/* Stage filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stage</label>
@@ -518,6 +525,22 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Progress filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Progress</label>
+              <Select value={progressFilter} onValueChange={v => setProgressFilter(v as typeof progressFilter)}>
+                <SelectTrigger className="h-9 bg-white">
+                  <SelectValue placeholder="All progress" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All progress</SelectItem>
+                  <SelectItem value="low">0–33% — Early stage</SelectItem>
+                  <SelectItem value="mid">34–66% — Midway</SelectItem>
+                  <SelectItem value="high">67–100% — Near complete</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         )}
       </div>
@@ -549,6 +572,12 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
             <span className="inline-flex items-center gap-1 bg-gold/10 text-gold border border-gold/30 text-xs px-2.5 py-1 rounded-full font-medium">
               {DISPATCH_BADGE[dispatchFilter as DispatchStatus]?.label ?? dispatchFilter}
               <button onClick={() => setDispatchFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+            </span>
+          )}
+          {progressFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 bg-gold/10 text-gold border border-gold/30 text-xs px-2.5 py-1 rounded-full font-medium">
+              {progressFilter === 'low' ? '0–33%' : progressFilter === 'mid' ? '34–66%' : '67–100%'}
+              <button onClick={() => setProgressFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
             </span>
           )}
         </div>
