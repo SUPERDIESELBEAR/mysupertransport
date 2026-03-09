@@ -587,8 +587,17 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           >
             <div className="bg-white/95 backdrop-blur border-b border-border shadow-sm py-2 px-4">
               <div className="flex items-center gap-3 max-w-4xl">
-                <span className="text-[11px] font-semibold text-muted-foreground whitespace-nowrap shrink-0 uppercase tracking-wide">
-                  {completedCount}/{stages.length} Complete
+                {/* Operator name */}
+                <span className="text-xs font-semibold text-foreground whitespace-nowrap shrink-0 hidden sm:block">
+                  {operatorName}
+                </span>
+                <span className="text-muted-foreground hidden sm:block">·</span>
+                {/* Progress percentage — prominent */}
+                <span
+                  className="text-sm font-bold whitespace-nowrap shrink-0 tabular-nums"
+                  style={{ color: completedCount === stages.length ? 'hsl(var(--status-complete))' : 'hsl(var(--gold-main))' }}
+                >
+                  {pct}%
                 </span>
                 <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                   <div
