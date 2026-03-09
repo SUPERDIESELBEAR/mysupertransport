@@ -187,6 +187,8 @@ export default function ApplicationForm() {
   const handleChange = useCallback((field: keyof ApplicationFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setErrors(prev => ({ ...prev, [field]: undefined }));
+    // Clear duplicate email block if user edits their email
+    if (field === 'email') setDuplicateEmailBlocked(false);
   }, []);
 
   // ── Save draft ──────────────────────────────────────────────────────────
