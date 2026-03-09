@@ -230,7 +230,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       </div>
 
       <p className="text-xs text-muted-foreground text-center">
-        Accepted formats: PDF, JPG, PNG · Max 20MB per file
+        Accepted formats: PDF, JPG, PNG · Max 10 MB per file
       </p>
     </div>
   );
