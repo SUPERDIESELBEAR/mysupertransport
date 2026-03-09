@@ -72,6 +72,11 @@ export default function StaffPortal() {
     setCurrentView('pipeline');
   };
 
+  const handleMessageOperator = (userId: string) => {
+    setMessageInitialUserId(userId);
+    setCurrentView('messages');
+  };
+
   return (
     <StaffLayout
       navItems={navItems}
