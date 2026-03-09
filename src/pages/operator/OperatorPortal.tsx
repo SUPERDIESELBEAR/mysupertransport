@@ -44,16 +44,16 @@ export default function OperatorPortal() {
   const location = useLocation();
   const [view, setView] = useState<OperatorView>(() => {
     const params = new URLSearchParams(window.location.search);
-    const tab = params.get('tab');
-    if (tab === 'ica') return 'ica';
+    const tab = params.get('tab') as OperatorView | null;
+    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications'].includes(tab)) return tab;
     return 'progress';
   });
 
   // React to in-app notification deep-links when navigate() is called while portal is already mounted
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const tab = params.get('tab');
-    if (tab === 'ica') setView('ica');
+    const tab = params.get('tab') as OperatorView | null;
+    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications'].includes(tab)) setView(tab);
   }, [location.search]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [operatorId, setOperatorId] = useState<string | null>(null);
