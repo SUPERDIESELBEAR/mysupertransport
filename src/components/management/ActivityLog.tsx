@@ -434,7 +434,7 @@ function highlightMatch(text: string, query: string): React.ReactNode {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function ActivityLog() {
+export default function ActivityLog({ onNavigate }: { onNavigate?: (action: DeepLinkAction) => void }) {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
