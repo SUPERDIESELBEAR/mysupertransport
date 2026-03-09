@@ -100,7 +100,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
   const [dispatchFilter, setDispatchFilter] = useState<'all' | DispatchStatus>('all');
 
   // Sort state
-  type SortKey = 'name' | 'stage' | 'coordinator';
+  type SortKey = 'name' | 'stage' | 'coordinator' | 'progress';
   type SortDir = 'asc' | 'desc';
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
@@ -281,6 +281,10 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
+      if (sortKey === 'progress') {
+        const cmp = a.progress_pct - b.progress_pct;
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
       let av = '';
       let bv = '';
       if (sortKey === 'name') {
@@ -585,6 +589,19 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                   </button>
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Status</th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
+                  <button
+                    onClick={() => handleSort('progress')}
+                    className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
+                  >
+                    Progress
+                    {sortKey === 'progress'
+                      ? sortDir === 'asc'
+                        ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                        : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                      : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                  </button>
+                </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">Docs</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">Dispatch</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
@@ -606,7 +623,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={9} className="text-center py-12 text-muted-foreground">
                     <div className="flex justify-center">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                     </div>
@@ -614,7 +631,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={9} className="text-center py-12 text-muted-foreground">
                     {operators.length === 0 ? 'No operators in the pipeline yet.' : 'No operators match your filters.'}
                   </td>
                 </tr>
@@ -663,13 +680,24 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                       )}
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">
-                      {op.doc_count > 0 ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-status-progress/10 text-status-progress border-status-progress/30">
-                          {op.doc_count} file{op.doc_count !== 1 ? 's' : ''}
+                      <div className="flex items-center gap-2 min-w-[100px]">
+                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${op.progress_pct}%`,
+                              background: op.progress_pct === 100
+                                ? 'hsl(var(--status-complete))'
+                                : 'hsl(var(--gold-main))',
+                            }}
+                          />
+                        </div>
+                        <span className={`text-[11px] font-bold tabular-nums shrink-0 ${
+                          op.progress_pct === 100 ? 'text-status-complete' : 'text-muted-foreground'
+                        }`}>
+                          {op.progress_pct}%
                         </span>
-                      ) : (
-                        <span className="text-muted-foreground/40 text-xs">—</span>
-                      )}
+                      </div>
                     </td>
                     {/* Dispatch status badge — only shown for fully onboarded operators */}
                     <td className="px-4 py-3 hidden lg:table-cell">
