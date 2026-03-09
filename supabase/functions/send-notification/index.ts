@@ -591,30 +591,42 @@ Deno.serve(async (req) => {
             }
 
             // Fetch management role users
+            // Fetch management role users (filtered by email pref for truck_down)
             const { data: mgmtRoles } = await supabaseAdmin
               .from('user_roles')
               .select('user_id')
               .eq('role', 'management');
 
             if (mgmtRoles?.length) {
-              const { data: { users: allUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-              const mgmtIds = new Set(mgmtRoles.map(r => r.user_id));
-              allUsers?.filter(u => mgmtIds.has(u.id) && u.email).forEach(u => recipientEmails.add(u.email!));
-            }
+              const mgmtIds = mgmtRoles.map(r => r.user_id);
 
-            await Promise.all([...recipientEmails].map(e => sendEmail(e, subject, html, RESEND_API_KEY)));
-
-            // Also create an in-app notification for each management user
-            if (mgmtRoles?.length) {
-              const { data: mgmtRolesForNotif } = await supabaseAdmin
-                .from('user_roles')
+              // Email: filter by email_enabled preference
+              const { data: emailOptedOut } = await supabaseAdmin
+                .from('notification_preferences')
                 .select('user_id')
-                .eq('role', 'management');
-              if (mgmtRolesForNotif?.length) {
+                .in('user_id', mgmtIds)
+                .eq('event_type', 'truck_down')
+                .eq('email_enabled', false);
+              const emailOptedOutIds = new Set((emailOptedOut ?? []).map(r => r.user_id));
+              const { data: { users: allUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+              allUsers
+                ?.filter(u => mgmtIds.includes(u.id) && !emailOptedOutIds.has(u.id) && u.email)
+                .forEach(u => recipientEmails.add(u.email!));
+
+              // In-app: filter by in_app_enabled preference
+              const { data: inAppOptedOut } = await supabaseAdmin
+                .from('notification_preferences')
+                .select('user_id')
+                .in('user_id', mgmtIds)
+                .eq('event_type', 'truck_down')
+                .eq('in_app_enabled', false);
+              const inAppOptedOutIds = new Set((inAppOptedOut ?? []).map(r => r.user_id));
+              const inAppRecipients = mgmtRoles.filter(r => !inAppOptedOutIds.has(r.user_id));
+              if (inAppRecipients.length) {
                 await supabaseAdmin.from('notifications').insert(
-                  mgmtRolesForNotif.map(r => ({
+                  inAppRecipients.map(r => ({
                     user_id: r.user_id,
-                    type: 'dispatch_status_change',
+                    type: 'truck_down',
                     title: `🔴 Truck Down — ${operatorName}${unitNumber}`,
                     body: `Truck Down status set${payload.status_notes ? `: ${payload.status_notes}` : ''}`,
                     channel: 'in_app',
