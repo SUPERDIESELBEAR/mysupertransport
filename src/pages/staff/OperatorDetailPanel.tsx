@@ -191,6 +191,15 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           fuel_card_issued: os.fuel_card_issued ?? '',
           mo_reg_received: os.mo_reg_received ?? '',
         };
+        // Auto-collapse stages that are already complete on load
+        const autoCollapse = new Set<string>();
+        if (os.mvr_ch_approval === 'approved') autoCollapse.add('stage1');
+        if (os.form_2290 === 'received' && os.truck_title === 'received' && os.truck_photos === 'received' && os.truck_inspection === 'received') autoCollapse.add('stage2');
+        if (os.ica_status === 'complete') autoCollapse.add('stage3');
+        if (os.mo_reg_received === 'yes') autoCollapse.add('stage4');
+        if (os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes') autoCollapse.add('stage5');
+        if (os.insurance_added_date) autoCollapse.add('stage6');
+        if (autoCollapse.size > 0) setCollapsedStages(autoCollapse);
       }
     }
     setLoading(false);
