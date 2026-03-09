@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -86,6 +87,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const savedSnapshot = useRef<{ status: Partial<OnboardingStatus>; notes: string } | null>(null);
+  const [navGuard, setNavGuard] = useState<null | { action: () => void }>(null);
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
@@ -582,6 +584,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
   const isAlert = status.mvr_ch_approval === 'denied' || status.pe_screening_result === 'non_clear';
 
+  const hasUnsavedChanges = savedSnapshot.current !== null && (
+    JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
+    savedSnapshot.current.notes !== notes
+  );
+
+  const guardedNavigate = (action: () => void) => {
+    if (hasUnsavedChanges) {
+      setNavGuard({ action });
+    } else {
+      action();
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl">
 
@@ -597,10 +612,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         ];
         const completedCount = stages.filter(s => s.complete).length;
         const pct = Math.round((completedCount / stages.length) * 100);
-        const hasUnsavedChanges = savedSnapshot.current !== null && (
-          JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
-          savedSnapshot.current.notes !== notes
-        );
         return (
           <div
             className={`sticky top-0 z-30 -mx-6 px-6 transition-all duration-300 ${
@@ -707,7 +718,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
-                          onClick={() => onMessageOperator(operatorUserId)}
+                          onClick={() => guardedNavigate(() => onMessageOperator(operatorUserId))}
                           className="ml-1 h-6 w-6 rounded flex items-center justify-center border border-border text-muted-foreground hover:text-foreground hover:border-gold transition-all"
                         >
                           <MessageSquare className="h-3 w-3" />
@@ -746,7 +757,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5 text-muted-foreground hover:text-foreground">
+          <Button variant="ghost" size="sm" onClick={() => guardedNavigate(onBack)} className="gap-1.5 text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> Pipeline
           </Button>
           <div>
@@ -1373,6 +1384,27 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           onClose={() => setShowICAView(false)}
         />
       )}
+
+      {/* Unsaved changes nav guard */}
+      <AlertDialog open={!!navGuard} onOpenChange={(open) => { if (!open) setNavGuard(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes to <strong>{operatorName}</strong>. If you leave now, your changes will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setNavGuard(null)}>Stay & Save</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { navGuard?.action(); setNavGuard(null); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Leave Without Saving
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
