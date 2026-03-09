@@ -69,10 +69,17 @@ Deno.serve(async (req) => {
       .eq('role', 'management');
 
     if (mgmtRoles && mgmtRoles.length > 0) {
+      const applicantLabel = app
+        ? (`${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || app.email)
+        : 'An applicant';
+      const notifBody = reviewer_notes
+        ? `${applicantLabel}'s application has been denied. Reason: ${reviewer_notes}`
+        : `${applicantLabel}'s application has been denied.`;
+
       const notifRows = mgmtRoles.map(({ user_id }) => ({
         user_id,
         title: 'Application Denied',
-        body: `${app ? (`${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || app.email) : 'An applicant'}'s application has been denied.`,
+        body: notifBody,
         type: 'application_denied',
         channel: 'in_app',
         link: '/dashboard?view=applications&status=denied',
