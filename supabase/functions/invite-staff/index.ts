@@ -214,6 +214,22 @@ Deno.serve(async (req) => {
       }).catch(e => console.error('Resend error:', e));
     }
 
+    // Write audit log entry
+    await supabaseAdmin.from('audit_log').insert({
+      actor_id: callerUser.id,
+      actor_name: inviterName,
+      action: 'staff_invited',
+      entity_type: 'staff',
+      entity_id: invitedUserId,
+      entity_label: inviteeName,
+      metadata: {
+        email,
+        role,
+        role_label: ROLE_LABELS[role],
+        phone: phone?.trim() || null,
+      },
+    });
+
     return new Response(JSON.stringify({ success: true, user_id: invitedUserId }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
