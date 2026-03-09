@@ -525,6 +525,22 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Progress filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Progress</label>
+              <Select value={progressFilter} onValueChange={v => setProgressFilter(v as typeof progressFilter)}>
+                <SelectTrigger className="h-9 bg-white">
+                  <SelectValue placeholder="All progress" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All progress</SelectItem>
+                  <SelectItem value="low">0–33% — Early stage</SelectItem>
+                  <SelectItem value="mid">34–66% — Midway</SelectItem>
+                  <SelectItem value="high">67–100% — Near complete</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         )}
       </div>
