@@ -75,6 +75,25 @@ const FILTER_OPTIONS = [
   { value: 'operator_status_updated', label: 'Onboarding Updates' },
 ];
 
+const DATE_PRESETS = [
+  {
+    label: 'Today',
+    getRange: () => ({ from: startOfToday(), to: endOfToday() }),
+  },
+  {
+    label: 'Last 7 days',
+    getRange: () => ({ from: startOfDay(subDays(new Date(), 6)), to: endOfToday() }),
+  },
+  {
+    label: 'Last 30 days',
+    getRange: () => ({ from: startOfDay(subDays(new Date(), 29)), to: endOfToday() }),
+  },
+  {
+    label: 'This month',
+    getRange: () => ({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) }),
+  },
+];
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
