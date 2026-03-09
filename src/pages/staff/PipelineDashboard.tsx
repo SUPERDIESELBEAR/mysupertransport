@@ -607,6 +607,15 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                         <Badge className="status-progress border text-xs">In Progress</Badge>
                       )}
                     </td>
+                    <td className="px-4 py-3 hidden lg:table-cell">
+                      {op.doc_count > 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-status-progress/10 text-status-progress border-status-progress/30">
+                          {op.doc_count} file{op.doc_count !== 1 ? 's' : ''}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/40 text-xs">—</span>
+                      )}
+                    </td>
                     {/* Dispatch status badge — only shown for fully onboarded operators */}
                     <td className="px-4 py-3 hidden lg:table-cell">
                       {op.dispatch_status ? (() => {
