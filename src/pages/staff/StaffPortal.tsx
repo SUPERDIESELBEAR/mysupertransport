@@ -15,6 +15,7 @@ export default function StaffPortal() {
   const { user } = useAuth();
   const [currentView, setCurrentView] = useState<StaffView>('pipeline');
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
+  const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const viewRef = useRef(currentView);
   useEffect(() => { viewRef.current = currentView; }, [currentView]);
