@@ -210,13 +210,45 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
     return () => { supabase.removeChannel(channel); };
   }, [session?.user?.id]);
 
-  // Clear badges when navigating to Messages tab
+  // Fetch + realtime for unread notification count
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const fetch = async () => {
+      const { count } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', session.user.id)
+        .is('read_at', null);
+      setUnreadNotifCount(count ?? 0);
+    };
+    fetch();
+    const channel = supabase
+      .channel('dispatch-unread-notif-badge')
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${session.user.id}`,
+      }, () => setUnreadNotifCount(prev => prev + 1))
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [session?.user?.id]);
+
+  // Deep-link: ?tab=notifications
+  useEffect(() => {
+    if (searchParams.get('tab') === 'notifications') {
+      setActivePage('dispatch-notifications');
+    }
+  }, [searchParams]);
+
+  // Clear badges when navigating to the respective tab
   const handleNavigate = (path: string) => {
-    const p = path as 'dispatch' | 'dispatch-messages';
+    const p = path as 'dispatch' | 'dispatch-messages' | 'dispatch-notifications';
     setActivePage(p);
     if (p === 'dispatch-messages') {
       setUnreadMessages(0);
       setUnreadPerOperator({});
+    }
+    if (p === 'dispatch-notifications') {
+      setUnreadNotifCount(0);
     }
   };
 
