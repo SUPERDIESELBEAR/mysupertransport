@@ -33,6 +33,16 @@ interface OperatorRow {
   insurance_added_date: string | null;
   dispatch_status: DispatchStatus | null;
   doc_count: number;
+  // Progress fields
+  form_2290: string;
+  truck_title: string;
+  truck_photos: string;
+  truck_inspection: string;
+  mo_reg_received: string;
+  decal_applied: string;
+  eld_installed: string;
+  fuel_card_issued: string;
+  progress_pct: number;
 }
 
 interface StaffOption {
@@ -42,6 +52,17 @@ interface StaffOption {
 
 interface PipelineDashboardProps {
   onOpenOperator: (operatorId: string) => void;
+}
+
+function computeProgress(os: Record<string, string | boolean | null>): number {
+  let done = 0;
+  if (os.mvr_ch_approval === 'approved') done++;
+  if (os.form_2290 === 'received' && os.truck_title === 'received' && os.truck_photos === 'received' && os.truck_inspection === 'received') done++;
+  if (os.ica_status === 'complete') done++;
+  if (os.mo_reg_received === 'yes') done++;
+  if (os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes') done++;
+  if (os.insurance_added_date) done++;
+  return Math.round((done / 6) * 100);
 }
 
 function computeStage(os: Record<string, string | boolean | null>): string {
@@ -113,7 +134,12 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
           eld_installed,
           fuel_card_issued,
           insurance_added_date,
-          fully_onboarded
+          fully_onboarded,
+          form_2290,
+          truck_title,
+          truck_photos,
+          truck_inspection,
+          mo_reg_received
         )
       `),
       supabase.from('user_roles').select('user_id').in('role', ['onboarding_staff', 'management']),
@@ -189,6 +215,15 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
         insurance_added_date: os.insurance_added_date ?? null,
         dispatch_status: dispatchMap[op.id] ?? null,
         doc_count: docCountMap[op.id] ?? 0,
+        form_2290: os.form_2290 ?? 'not_started',
+        truck_title: os.truck_title ?? 'not_started',
+        truck_photos: os.truck_photos ?? 'not_started',
+        truck_inspection: os.truck_inspection ?? 'not_started',
+        mo_reg_received: os.mo_reg_received ?? 'not_yet',
+        decal_applied: os.decal_applied ?? 'no',
+        eld_installed: os.eld_installed ?? 'no',
+        fuel_card_issued: os.fuel_card_issued ?? 'no',
+        progress_pct: computeProgress(os),
       };
     });
     setOperators(rows);
@@ -594,9 +629,29 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{op.phone ?? '—'}</td>
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
                     <td className="px-4 py-3">
-                      <Badge variant="outline" className="text-xs border-gold/40 text-gold bg-gold/5">
-                        {op.current_stage}
-                      </Badge>
+                      <div className="space-y-1 min-w-[140px]">
+                        <div className="flex items-center justify-between gap-2">
+                          <Badge variant="outline" className="text-xs border-gold/40 text-gold bg-gold/5 truncate max-w-[120px]">
+                            {op.current_stage}
+                          </Badge>
+                          <span className={`text-[11px] font-bold tabular-nums shrink-0 ${
+                            op.progress_pct === 100 ? 'text-status-complete' : 'text-muted-foreground'
+                          }`}>
+                            {op.progress_pct}%
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${op.progress_pct}%`,
+                              background: op.progress_pct === 100
+                                ? 'hsl(var(--status-complete))'
+                                : 'hsl(var(--gold-main))',
+                            }}
+                          />
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       {op.fully_onboarded ? (
