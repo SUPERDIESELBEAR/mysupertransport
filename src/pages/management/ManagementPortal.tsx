@@ -18,6 +18,11 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity';
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all';
@@ -33,6 +38,8 @@ export default function ManagementPortal() {
   const { session } = useAuth();
   const [view, setView] = useState<ManagementView>('overview');
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
+  const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
+  const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const [applications, setApplications] = useState<FullApplication[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
   const [searchQuery, setSearchQuery] = useState('');
@@ -162,6 +169,24 @@ export default function ManagementPortal() {
 
   const pendingApps = applications.filter(a => a.review_status === 'pending');
 
+  const handleNavigate = (path: string) => {
+    if (view === 'operator-detail' && operatorHasUnsavedChanges) {
+      setPendingNavPath(path);
+    } else {
+      setView(path as ManagementView);
+      if (path !== 'operator-detail') setSelectedOperatorId(null);
+    }
+  };
+
+  const confirmNavigation = () => {
+    if (pendingNavPath) {
+      setOperatorHasUnsavedChanges(false);
+      setView(pendingNavPath as ManagementView);
+      if (pendingNavPath !== 'operator-detail') setSelectedOperatorId(null);
+      setPendingNavPath(null);
+    }
+  };
+
   const navItems = [
     { label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
     { label: 'Applications', icon: <ClipboardList className="h-4 w-4" />, path: 'applications' },
@@ -175,7 +200,7 @@ export default function ManagementPortal() {
 
   return (
     <>
-      <StaffLayout navItems={navItems} currentPath={view} onNavigate={(p) => setView(p as ManagementView)} title="Management">
+      <StaffLayout navItems={navItems} currentPath={view} onNavigate={handleNavigate} title="Management">
         {/* ── TRUCK DOWN ALERT BANNER ── */}
         {truckDownCount > 0 && (
           <div className="mb-5 flex items-center justify-between gap-4 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 animate-fade-in">
@@ -405,7 +430,11 @@ export default function ManagementPortal() {
         )}
 
         {view === 'operator-detail' && selectedOperatorId && (
-          <OperatorDetailPanel operatorId={selectedOperatorId} onBack={() => setView('pipeline')} />
+          <OperatorDetailPanel
+            operatorId={selectedOperatorId}
+            onBack={() => { setOperatorHasUnsavedChanges(false); setView('pipeline'); }}
+            onUnsavedChangesChange={setOperatorHasUnsavedChanges}
+          />
         )}
 
         {view === 'dispatch' && (
@@ -438,6 +467,26 @@ export default function ManagementPortal() {
           onDeny={handleDeny}
         />
       )}
+
+      <AlertDialog open={!!pendingNavPath} onOpenChange={(open) => { if (!open) setPendingNavPath(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes on this operator. If you leave now, your changes will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingNavPath(null)}>Stay & Save</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmNavigation}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Leave Without Saving
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
