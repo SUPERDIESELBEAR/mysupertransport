@@ -100,12 +100,12 @@ export default function NotificationPreferencesModal({ open, onClose }: Props) {
       return;
     }
 
-    // Show checkmark, then fade it out after 1.4 s
+    // Show checkmark, then fade it out after 2.5 s
     setCellStatus(key, 'saved');
     timers.current[key] = setTimeout(() => {
       setCellStatus(key, null);
       delete timers.current[key];
-    }, 1400);
+    }, 2500);
   };
 
   return (
