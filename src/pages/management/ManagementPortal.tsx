@@ -219,6 +219,7 @@ export default function ManagementPortal() {
     { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
     { label: 'Staff', icon: <UserPlus className="h-4 w-4" />, path: 'staff' },
     { label: 'Activity', icon: <ScrollText className="h-4 w-4" />, path: 'activity' },
+    { label: 'Notifications', icon: <BellRing className="h-4 w-4" />, path: 'notifications' },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
     { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
   ];
