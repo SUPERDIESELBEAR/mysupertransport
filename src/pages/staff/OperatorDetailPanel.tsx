@@ -158,17 +158,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     onUnsavedChangesChange?.(hasChanges);
   }, [status, notes]);
 
-  // Cmd+S / Ctrl+S keyboard shortcut to save
+  // Cmd+S / Ctrl+S keyboard shortcut to save (only when there are unsaved changes and not already saving)
+  const saveShortcutRef = useRef<() => void>(() => {});
+  saveShortcutRef.current = () => { if (!saving) handleSave(); };
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
-        handleSave();
+        saveShortcutRef.current();
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [status, notes]);
+  }, []);
 
   const fetchDispatchHistory = async () => {
     const { data: dispatch } = await supabase
