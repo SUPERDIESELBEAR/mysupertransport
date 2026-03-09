@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Notify all management users ────────────────────────────────────
+    // ── Notify management users (respecting in_app preferences) ───────
     const { data: mgmtRoles } = await supabaseAdmin
       .from('user_roles')
       .select('user_id')
@@ -76,16 +76,30 @@ Deno.serve(async (req) => {
         ? `${applicantLabel}'s application has been denied. Reason: ${reviewer_notes}`
         : `${applicantLabel}'s application has been denied.`;
 
-      const notifRows = mgmtRoles.map(({ user_id }) => ({
-        user_id,
-        title: 'Application Denied',
-        body: notifBody,
-        type: 'application_denied',
-        channel: 'in_app',
-        link: '/dashboard?view=applications&status=denied',
-      }));
-      await supabaseAdmin.from('notifications').insert(notifRows);
+      // Filter to users with in_app enabled (default = enabled if no row)
+      const { data: optedOut } = await supabaseAdmin
+        .from('notification_preferences')
+        .select('user_id')
+        .in('user_id', mgmtRoles.map(r => r.user_id))
+        .eq('event_type', 'application_denied')
+        .eq('in_app_enabled', false);
+      const optedOutIds = new Set((optedOut ?? []).map(r => r.user_id));
+
+      const notifRows = mgmtRoles
+        .filter(({ user_id }) => !optedOutIds.has(user_id))
+        .map(({ user_id }) => ({
+          user_id,
+          title: 'Application Denied',
+          body: notifBody,
+          type: 'application_denied',
+          channel: 'in_app',
+          link: '/dashboard?view=applications&status=denied',
+        }));
+      if (notifRows.length > 0) {
+        await supabaseAdmin.from('notifications').insert(notifRows);
+      }
     }
+
 
     // ── Audit log ──────────────────────────────────────────────────────
     if (app) {
