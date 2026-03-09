@@ -109,10 +109,10 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
         </p>
       </div>
 
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+      <div className="bg-accent/10 border border-accent/30 rounded-xl p-4">
         <div className="flex gap-2.5">
-          <AlertCircle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-800 leading-relaxed">
+          <AlertCircle className="h-4 w-4 text-gold shrink-0 mt-0.5" />
+          <p className="text-xs text-foreground/70 leading-relaxed">
             <strong>Important:</strong> Missouri registration requires Form 2290, Truck Title, and a signed ICA Agreement to be submitted together. Upload all three before your onboarding coordinator submits to the state.
           </p>
         </div>
@@ -122,16 +122,23 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
         {DOCUMENT_SLOTS.map(slot => {
           const uploaded = getUploaded(slot.key);
           const isUploading = uploading === slot.key;
+          const reviewStatus = getReviewStatus(slot.key);
 
           return (
-            <div key={slot.key} className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
+            <div key={slot.key} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
               <div className="p-4">
                 <div className="flex items-start gap-3">
                   {/* Icon */}
                   <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
+                    reviewStatus === 'received' ? 'bg-status-complete/10' :
+                    reviewStatus === 'pending' ? 'bg-info/10' :
                     uploaded.length > 0 ? 'bg-status-complete/10' : 'bg-secondary'
                   }`}>
-                    {uploaded.length > 0
+                    {reviewStatus === 'received'
+                      ? <CheckCircle2 className="h-5 w-5 text-status-complete" />
+                      : reviewStatus === 'pending'
+                      ? <Clock className="h-5 w-5 text-info" />
+                      : uploaded.length > 0
                       ? <CheckCircle2 className="h-5 w-5 text-status-complete" />
                       : <FileText className="h-5 w-5 text-muted-foreground" />
                     }
@@ -142,7 +149,19 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-medium text-foreground text-sm">{slot.label}</p>
                       {slot.required && <span className="text-[10px] bg-gold/15 text-gold-muted px-1.5 py-0.5 rounded font-medium">Required</span>}
-                      {uploaded.length > 0 && <span className="text-[10px] bg-status-complete/15 text-status-complete px-1.5 py-0.5 rounded font-medium">Submitted</span>}
+                      {reviewStatus === 'received' && (
+                        <span className="text-[10px] bg-status-complete/15 text-status-complete px-1.5 py-0.5 rounded font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" /> Received
+                        </span>
+                      )}
+                      {reviewStatus === 'pending' && (
+                        <span className="text-[10px] bg-info/10 text-info px-1.5 py-0.5 rounded font-semibold flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> Pending Review
+                        </span>
+                      )}
+                      {!reviewStatus && uploaded.length > 0 && (
+                        <span className="text-[10px] bg-status-complete/15 text-status-complete px-1.5 py-0.5 rounded font-medium">Submitted</span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">{slot.description}</p>
 
