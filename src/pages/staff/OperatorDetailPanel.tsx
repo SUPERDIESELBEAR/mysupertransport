@@ -974,7 +974,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           const s4Complete = status.mo_reg_received === 'yes';
           const s4Collapsed = collapsedStages.has('stage4');
           return (
-            <div className={`bg-white border rounded-xl shadow-sm transition-colors ${s4Complete ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stage4'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s4Complete ? 'border-status-complete' : 'border-border'}`}>
               <button onClick={() => toggleStage('stage4')} className="w-full flex items-center justify-between px-5 py-4 text-left">
                 <div className="flex items-center gap-2">
                   <FileCheck className={`h-4 w-4 ${s4Complete ? 'text-status-complete' : 'text-gold'}`} />
