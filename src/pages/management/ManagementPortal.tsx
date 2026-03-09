@@ -42,7 +42,7 @@ export default function ManagementPortal() {
   const [searchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const v = searchParams.get('view') as ManagementView | null;
-    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity'].includes(v)) ? v : 'overview';
+    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications'].includes(v)) ? v : 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
