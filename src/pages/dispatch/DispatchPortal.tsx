@@ -3,6 +3,7 @@ import StaffLayout from '@/components/layouts/StaffLayout';
 import MessagesView from '@/components/staff/MessagesView';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { sanitizeText } from '@/lib/sanitize';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -377,12 +378,16 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const saveEdit = async (row: DispatchRow) => {
     setSaving(true);
     const newStatus = editData.dispatch_status ?? 'not_dispatched';
+    // Sanitize free-text fields before persisting
+    const lane = editData.current_load_lane ? sanitizeText(editData.current_load_lane) : null;
+    const eta = editData.eta_redispatch ? sanitizeText(editData.eta_redispatch) : null;
+    const notes = editData.status_notes ? sanitizeText(editData.status_notes) : null;
     const payload = {
       operator_id: row.operator_id,
       dispatch_status: newStatus,
-      current_load_lane: editData.current_load_lane || null,
-      eta_redispatch: editData.eta_redispatch || null,
-      status_notes: editData.status_notes || null,
+      current_load_lane: lane || null,
+      eta_redispatch: eta || null,
+      status_notes: notes || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -418,9 +423,9 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
             operator_name: `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || 'Operator',
             unit_number: row.unit_number ?? null,
             new_status: newStatus,
-            current_load_lane: editData.current_load_lane || null,
-            eta_redispatch: editData.eta_redispatch || null,
-            status_notes: editData.status_notes || null,
+            current_load_lane: lane || null,
+            eta_redispatch: eta || null,
+            status_notes: notes || null,
             caller_user_id: session?.user?.id ?? null,
           }),
         }).catch(console.error);

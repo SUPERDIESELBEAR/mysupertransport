@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
 import { Send, MessageSquare, Search, User, Circle } from 'lucide-react';
+import { sanitizeText } from '@/lib/sanitize';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -196,7 +197,9 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
   const sendMessage = async () => {
     if (!user?.id || !selectedUserId || !newMessage.trim()) return;
     setSending(true);
-    const body = newMessage.trim();
+    // Sanitize before storing to prevent XSS
+    const body = sanitizeText(newMessage.trim());
+    if (!body) { setSending(false); return; }
     setNewMessage('');
 
     const { data: inserted } = await supabase
