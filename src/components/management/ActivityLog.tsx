@@ -10,7 +10,7 @@ import {
   Milestone, RefreshCcw, Activity, ChevronDown, ChevronRight, Download, CalendarIcon, X,
   User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone
 } from 'lucide-react';
-...
+
 const ACTION_CONFIG: Record<string, {
   label: string;
   icon: React.ReactNode;
