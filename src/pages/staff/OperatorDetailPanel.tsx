@@ -538,6 +538,50 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
                 View Sent ICA
               </Button>
             )}
+
+            {/* Void ICA — available when a contract has been issued (sent or complete) */}
+            {(status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
+              <div className="pt-1 border-t border-border">
+                {!showVoidConfirm ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive text-xs gap-1.5"
+                    onClick={() => setShowVoidConfirm(true)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Void ICA &amp; Re-issue
+                  </Button>
+                ) : (
+                  <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/30 space-y-3">
+                    <p className="text-xs font-medium text-destructive">
+                      ⚠ This will permanently delete the current ICA contract and reset the status to "Not Issued". This cannot be undone.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="flex-1 text-xs h-7 gap-1.5"
+                        onClick={handleVoidICA}
+                        disabled={voidingICA}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        {voidingICA ? 'Voiding…' : 'Yes, Void ICA'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-xs h-7"
+                        onClick={() => setShowVoidConfirm(false)}
+                        disabled={voidingICA}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
