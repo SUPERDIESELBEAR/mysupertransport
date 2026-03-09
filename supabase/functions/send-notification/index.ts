@@ -330,6 +330,43 @@ Deno.serve(async (req) => {
           await Promise.all(staffRecipients.map(e => sendEmail(e, staffSubject, staffHtml, RESEND_API_KEY)));
         }
 
+        // ── 1b. In-app notification for assigned staff ───────────────────
+        if (milestoneKey === 'ica_complete') {
+          const { data: opRow } = await supabaseAdmin
+            .from('operators')
+            .select('assigned_onboarding_staff')
+            .eq('id', operatorId)
+            .single();
+          const staffUserId = opRow?.assigned_onboarding_staff;
+          if (staffUserId) {
+            await supabaseAdmin.from('notifications').insert({
+              user_id: staffUserId,
+              type: 'onboarding_milestone',
+              title: `✍️ ICA Signed — ${name}`,
+              body: `${name} has signed their Independent Contractor Agreement. The ICA is now fully executed.`,
+              channel: 'in_app',
+              link: '/staff',
+            });
+          }
+          // Also notify all management users in-app
+          const { data: mgmtRows } = await supabaseAdmin
+            .from('user_roles')
+            .select('user_id')
+            .eq('role', 'management');
+          if (mgmtRows?.length) {
+            await supabaseAdmin.from('notifications').insert(
+              mgmtRows.map(r => ({
+                user_id: r.user_id,
+                type: 'onboarding_milestone',
+                title: `✍️ ICA Signed — ${name}`,
+                body: `${name} has signed their Independent Contractor Agreement. The ICA is now fully executed.`,
+                channel: 'in_app',
+                link: '/staff',
+              }))
+            );
+          }
+        }
+
         // ── 2. Notify operator ───────────────────────────────────────────
         const operatorEmail = payload.operator_email || await getOperatorEmail(operatorId);
         const copy = milestoneKey ? MILESTONE_OPERATOR_COPY[milestoneKey] : null;

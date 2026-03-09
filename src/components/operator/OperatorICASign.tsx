@@ -115,6 +115,31 @@ export default function OperatorICASign() {
         await supabase.from('onboarding_status').update({ ica_status: 'complete' }).eq('id', os.id);
       }
 
+      // Fire ICA complete notifications (operator + assigned staff)
+      try {
+        const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        await fetch(
+          `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/send-notification`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session!.access_token}`,
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+            body: JSON.stringify({
+              type: 'onboarding_milestone',
+              milestone_key: 'ica_complete',
+              milestone: 'ICA Agreement Fully Executed',
+              operator_id: operatorId,
+              operator_name: operatorName,
+            }),
+          }
+        );
+      } catch (notifErr) {
+        console.warn('ICA complete notification failed (non-blocking):', notifErr);
+      }
+
       toast({ title: 'ICA Signed!', description: 'Your Independent Contractor Agreement has been fully executed.' });
       fetchContract();
     } catch (err: any) {
