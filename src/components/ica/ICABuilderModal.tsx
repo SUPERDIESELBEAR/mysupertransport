@@ -351,7 +351,7 @@ export default function ICABuilderModal({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                    <Pen className="h-3.5 w-3.5" /> Carrier Signature
+                    <Pen className="h-3.5 w-3.5" /> Carrier Signature <span className="normal-case font-normal text-muted-foreground/60">(optional)</span>
                   </Label>
                   <button
                     onClick={() => carrierSigRef.current?.clear()}
@@ -367,7 +367,7 @@ export default function ICABuilderModal({
                     penColor="#1a1a1a"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">Sign above with your mouse or touch input</p>
+                <p className="text-xs text-muted-foreground">Sign above with your mouse or touch input — or leave blank to send without a drawn signature.</p>
               </div>
               <p className="text-xs text-muted-foreground bg-secondary/50 border border-border rounded-lg p-3">
                 By signing, you confirm this agreement is authorized on behalf of SUPERTRANSPORT, LLC and will be sent to the operator for their review and signature. Date: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
