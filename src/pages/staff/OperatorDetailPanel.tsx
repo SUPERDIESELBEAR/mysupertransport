@@ -313,23 +313,23 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
             console.error('Milestone notification error:', notifErr);
           }
         }
-
-        // Update snapshot so re-saves don't re-fire
-        savedMilestones.current = {
-          ica_status: status.ica_status ?? prev.ica_status,
-          mvr_ch_approval: status.mvr_ch_approval ?? prev.mvr_ch_approval,
-          pe_screening_result: status.pe_screening_result ?? prev.pe_screening_result,
-          insurance_added_date: status.insurance_added_date ?? prev.insurance_added_date,
-          form_2290: status.form_2290 ?? prev.form_2290,
-          truck_title: status.truck_title ?? prev.truck_title,
-          truck_photos: status.truck_photos ?? prev.truck_photos,
-          truck_inspection: status.truck_inspection ?? prev.truck_inspection,
-          decal_applied: status.decal_applied ?? prev.decal_applied,
-          eld_installed: status.eld_installed ?? prev.eld_installed,
-          fuel_card_issued: status.fuel_card_issued ?? prev.fuel_card_issued,
-          mo_reg_received: status.mo_reg_received ?? prev.mo_reg_received,
-        };
       }
+
+      // ── Update snapshot (always, so re-saves don't re-fire) ──────────
+      savedMilestones.current = {
+        ica_status: status.ica_status ?? prev.ica_status,
+        mvr_ch_approval: status.mvr_ch_approval ?? prev.mvr_ch_approval,
+        pe_screening_result: status.pe_screening_result ?? prev.pe_screening_result,
+        insurance_added_date: status.insurance_added_date ?? prev.insurance_added_date,
+        form_2290: status.form_2290 ?? prev.form_2290,
+        truck_title: status.truck_title ?? prev.truck_title,
+        truck_photos: status.truck_photos ?? prev.truck_photos,
+        truck_inspection: status.truck_inspection ?? prev.truck_inspection,
+        decal_applied: status.decal_applied ?? prev.decal_applied,
+        eld_installed: status.eld_installed ?? prev.eld_installed,
+        fuel_card_issued: status.fuel_card_issued ?? prev.fuel_card_issued,
+        mo_reg_received: status.mo_reg_received ?? prev.mo_reg_received,
+      };
 
       // ── Per-doc received notifications → operator ─────────────────────
       if (operatorUserId) {
@@ -346,6 +346,10 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
             body: `Your ${docLabel} has been reviewed and received by your onboarding coordinator.`,
             channel: 'in_app',
             link: '/operator?tab=documents',
+          });
+          toast({
+            title: `✅ ${docLabel} received`,
+            description: `${operatorName} has been notified.`,
           });
         }
       }
