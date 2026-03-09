@@ -32,6 +32,10 @@ interface NotificationPayload {
   status_notes?: string;
   unit_number?: string;       // operator unit number for dispatcher email
   caller_user_id?: string;    // user_id of the dispatcher who set the status
+  // new_message fields
+  recipient_user_id?: string; // operator's auth user_id
+  sender_name?: string;       // staff member's display name
+  message_preview?: string;   // truncated first ~120 chars of message body
 }
 
 // ─── Email HTML builder ─────────────────────────────────────────────────────
