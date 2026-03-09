@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
@@ -64,6 +64,8 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const { session } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [voidingICA, setVoidingICA] = useState(false);
+  const [showVoidConfirm, setShowVoidConfirm] = useState(false);
   const [operatorName, setOperatorName] = useState('');
   const [operatorEmail, setOperatorEmail] = useState('');
   const [showICABuilder, setShowICABuilder] = useState(false);
@@ -341,6 +343,47 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
     setSaving(false);
   };
 
+  const handleVoidICA = async () => {
+    setVoidingICA(true);
+    try {
+      // Delete the ica_contracts record for this operator
+      const { error: delError } = await supabase
+        .from('ica_contracts' as any)
+        .delete()
+        .eq('operator_id', operatorId);
+      if (delError) throw delError;
+
+      // Reset ica_status on onboarding_status
+      if (statusId) {
+        const { error: updError } = await supabase
+          .from('onboarding_status')
+          .update({ ica_status: 'not_issued' })
+          .eq('id', statusId);
+        if (updError) throw updError;
+      }
+
+      // Log the void action
+      void supabase.from('audit_log' as any).insert({
+        actor_id: session?.user?.id ?? null,
+        actor_name: null,
+        action: 'ica_voided',
+        entity_type: 'operator',
+        entity_id: operatorId,
+        entity_label: operatorName,
+        metadata: { previous_ica_status: status.ica_status },
+      });
+
+      setStatus(prev => ({ ...prev, ica_status: 'not_issued' }));
+      savedMilestones.current.ica_status = 'not_issued';
+      setShowVoidConfirm(false);
+      toast({ title: 'ICA voided', description: 'The contract has been cleared. You can now prepare a new ICA.' });
+    } catch (err: any) {
+      toast({ title: 'Error voiding ICA', description: err.message, variant: 'destructive' });
+    } finally {
+      setVoidingICA(false);
+    }
+  };
+
   const updateStatus = (field: keyof OnboardingStatus, value: string | null) => {
     setStatus(prev => ({ ...prev, [field]: value }));
   };
@@ -494,6 +537,50 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
                 <FileCheck className="h-3.5 w-3.5" />
                 View Sent ICA
               </Button>
+            )}
+
+            {/* Void ICA — available when a contract has been issued (sent or complete) */}
+            {(status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
+              <div className="pt-1 border-t border-border">
+                {!showVoidConfirm ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive text-xs gap-1.5"
+                    onClick={() => setShowVoidConfirm(true)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Void ICA &amp; Re-issue
+                  </Button>
+                ) : (
+                  <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/30 space-y-3">
+                    <p className="text-xs font-medium text-destructive">
+                      ⚠ This will permanently delete the current ICA contract and reset the status to "Not Issued". This cannot be undone.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="flex-1 text-xs h-7 gap-1.5"
+                        onClick={handleVoidICA}
+                        disabled={voidingICA}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        {voidingICA ? 'Voiding…' : 'Yes, Void ICA'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-xs h-7"
+                        onClick={() => setShowVoidConfirm(false)}
+                        disabled={voidingICA}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
