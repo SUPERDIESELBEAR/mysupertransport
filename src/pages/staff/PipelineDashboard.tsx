@@ -100,7 +100,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
   const [dispatchFilter, setDispatchFilter] = useState<'all' | DispatchStatus>('all');
 
   // Sort state
-  type SortKey = 'name' | 'stage' | 'coordinator';
+  type SortKey = 'name' | 'stage' | 'coordinator' | 'progress';
   type SortDir = 'asc' | 'desc';
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
