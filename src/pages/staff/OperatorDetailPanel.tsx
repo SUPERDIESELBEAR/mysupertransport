@@ -925,8 +925,9 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
                 )}
               </div>
             )}
-          </div>
-        </div>
+            </div>
+          );
+        })()}
 
         {/* Stage 4 — Missouri Registration (conditional) */}
         {status.registration_status === 'needs_mo_reg' && (
