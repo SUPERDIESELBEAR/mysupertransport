@@ -64,6 +64,8 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const { session } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [voidingICA, setVoidingICA] = useState(false);
+  const [showVoidConfirm, setShowVoidConfirm] = useState(false);
   const [operatorName, setOperatorName] = useState('');
   const [operatorEmail, setOperatorEmail] = useState('');
   const [showICABuilder, setShowICABuilder] = useState(false);
