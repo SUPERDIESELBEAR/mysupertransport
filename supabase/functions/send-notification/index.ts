@@ -373,11 +373,16 @@ Deno.serve(async (req) => {
 
         if (operatorEmail && copy) {
           const operatorSubject = copy.heading.replace(/^[^\w]+/, ''); // strip emoji for subject
-          // Use deep-link for ica_sent so operator lands directly on the ICA signing tab
-          const ctaUrl = milestoneKey === 'ica_sent'
+          // Deep-link ICA milestones directly to the ICA tab
+          const icaMilestones = ['ica_sent', 'ica_complete'];
+          const ctaUrl = icaMilestones.includes(milestoneKey ?? '')
             ? `${appUrl}/dashboard?tab=ica`
             : `${appUrl}/dashboard`;
-          const ctaLabel = milestoneKey === 'ica_sent' ? 'Review & Sign Your ICA' : 'View My Onboarding Status';
+          const ctaLabel = milestoneKey === 'ica_sent'
+            ? 'Review & Sign Your ICA'
+            : milestoneKey === 'ica_complete'
+            ? 'View Executed Agreement'
+            : 'View My Onboarding Status';
           const operatorHtml = buildEmail(
             operatorSubject,
             copy.heading,
@@ -395,15 +400,18 @@ Deno.serve(async (req) => {
             .eq('id', operatorId)
             .single();
           if (opRow?.user_id) {
-            // Deep-link ica_sent notification directly to the ICA signing tab
-            const notifLink = milestoneKey === 'ica_sent' ? '/dashboard?tab=ica' : '/dashboard';
+            const icaMilestones = ['ica_sent', 'ica_complete'];
+            const notifLink = icaMilestones.includes(milestoneKey ?? '') ? '/dashboard?tab=ica' : '/dashboard';
+            const notifBody = milestoneKey === 'ica_sent'
+              ? 'Your Independent Contractor Agreement is ready for your signature. Tap to review and sign now.'
+              : milestoneKey === 'ica_complete'
+              ? 'Your ICA Agreement is fully executed and on file. Tap to view the signed agreement.'
+              : `Your onboarding has reached a new milestone: ${milestone}`;
             await supabaseAdmin.from('notifications').insert({
               user_id: opRow.user_id,
               type: 'onboarding_milestone',
               title: copy.heading.replace(/^[^\w]+/, ''),
-              body: milestoneKey === 'ica_sent'
-                ? 'Your Independent Contractor Agreement is ready for your signature. Tap to review and sign now.'
-                : `Your onboarding has reached a new milestone: ${milestone}`,
+              body: notifBody,
               channel: 'in_app',
               link: notifLink,
             });
