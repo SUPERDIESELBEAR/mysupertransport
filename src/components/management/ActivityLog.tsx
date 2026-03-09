@@ -155,8 +155,33 @@ function MetaRow({ icon, label, value }: { icon: React.ReactNode; label: string;
   );
 }
 
-function EntryExpandedPanel({ entry }: { entry: AuditEntry }) {
+type DeepLinkAction =
+  | { type: 'operator'; operatorId: string }
+  | { type: 'staff' };
+
+function EntryExpandedPanel({
+  entry,
+  onNavigate,
+}: {
+  entry: AuditEntry;
+  onNavigate?: (action: DeepLinkAction) => void;
+}) {
   const meta = entry.metadata ?? {};
+
+  // Resolve deep-link target
+  const deepLink: DeepLinkAction | null = (() => {
+    if (entry.entity_type === 'operator' && entry.entity_id) {
+      return { type: 'operator', operatorId: entry.entity_id };
+    }
+    if (entry.entity_type === 'staff_profile') {
+      return { type: 'staff' };
+    }
+    // role events targeting a staff user
+    if ((entry.action === 'role_added' || entry.action === 'role_removed') && entry.entity_type !== 'operator') {
+      return { type: 'staff' };
+    }
+    return null;
+  })();
 
   // Build action-specific structured fields
   const structuredRows: { icon: React.ReactNode; label: string; value: React.ReactNode }[] = [];
@@ -227,9 +252,20 @@ function EntryExpandedPanel({ entry }: { entry: AuditEntry }) {
 
   return (
     <div className="mt-2 ml-0.5 rounded-lg border border-border bg-secondary/30 overflow-hidden">
-      <div className="px-3 py-1.5 bg-muted/40 border-b border-border flex items-center gap-1.5">
-        <Info className="h-3 w-3 text-muted-foreground" />
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Entry Detail</span>
+      <div className="px-3 py-1.5 bg-muted/40 border-b border-border flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <Info className="h-3 w-3 text-muted-foreground" />
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Entry Detail</span>
+        </div>
+        {deepLink && onNavigate && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onNavigate(deepLink); }}
+            className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-gold/15 text-gold border border-gold/30 hover:bg-gold/25 transition-colors"
+          >
+            <ExternalLink className="h-2.5 w-2.5" />
+            {deepLink.type === 'operator' ? 'Go to Operator' : 'Go to Staff Directory'}
+          </button>
+        )}
       </div>
       <div className="px-3 py-1">
         {structuredRows.map((row, i) => (
