@@ -652,6 +652,26 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
                       </Tooltip>
                     ))}
                   </div>
+                  {/* Copy email quick-action */}
+                  {operatorEmail && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(operatorEmail);
+                            setCopiedEmail(true);
+                            setTimeout(() => setCopiedEmail(false), 2000);
+                          }}
+                          className="ml-1 h-6 w-6 rounded flex items-center justify-center border border-border text-muted-foreground hover:text-foreground hover:border-gold transition-all"
+                        >
+                          {copiedEmail ? <Check className="h-3 w-3 text-status-complete" /> : <Copy className="h-3 w-3" />}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">
+                        {copiedEmail ? '✓ Copied!' : `Copy email — ${operatorEmail}`}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </TooltipProvider>
               </div>
             </div>
