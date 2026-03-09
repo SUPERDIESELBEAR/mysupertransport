@@ -142,6 +142,37 @@ export default function ICABuilderModal({
         await supabase.from('onboarding_status').update({ ica_status: 'sent_for_signature' }).eq('id', os.id);
       }
 
+      // Write audit log entry
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('user_id', user?.id ?? '')
+          .maybeSingle();
+        const actorName = profile
+          ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || user?.email
+          : user?.email;
+        await supabase.from('audit_log').insert({
+          actor_id: user?.id ?? null,
+          actor_name: actorName ?? null,
+          action: 'ica_issued',
+          entity_type: 'operator',
+          entity_id: operatorId,
+          entity_label: operatorName,
+          metadata: {
+            operator_email: operatorEmail,
+            truck: [data.truck_year, data.truck_make, data.truck_model].filter(Boolean).join(' ') || null,
+            truck_vin: data.truck_vin || null,
+            linehaul_split_pct: data.linehaul_split_pct,
+            lease_effective_date: data.lease_effective_date || null,
+            contract_id: result.data ? (result.data as any).id : null,
+          },
+        });
+      } catch (auditErr) {
+        console.warn('Audit log write failed:', auditErr);
+      }
+
       // Fire in-app + email notification to operator
       try {
         await supabase.functions.invoke('send-notification', {
