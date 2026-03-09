@@ -167,6 +167,14 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
     setLoading(false);
   };
 
+  // Map doc field keys to human-readable labels
+  const DOC_LABELS: Record<string, string> = {
+    form_2290: 'Form 2290',
+    truck_title: 'Truck Title',
+    truck_photos: 'Truck Photos',
+    truck_inspection: 'Truck Inspection Report',
+  };
+
   const handleSave = async () => {
     setSaving(true);
 
