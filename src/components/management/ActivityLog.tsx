@@ -333,8 +333,31 @@ export default function ActivityLog() {
     setActivePreset(preset.label);
   };
 
-
-  return (
+  // Fetch counts for each action filter respecting current date range
+  useEffect(() => {
+    const actionValues = FILTER_OPTIONS.filter(o => o.value !== 'all').map(o => o.value);
+    Promise.all(
+      actionValues.map(async (action) => {
+        let q = supabase
+          .from('audit_log' as any)
+          .select('id', { count: 'exact', head: true })
+          .eq('action', action);
+        if (dateFrom) q = q.gte('created_at', startOfDay(dateFrom).toISOString());
+        if (dateTo)   q = q.lte('created_at', endOfDay(dateTo).toISOString());
+        const { count } = await q;
+        return [action, count ?? 0] as [string, number];
+      })
+    ).then((results) => {
+      const map: Record<string, number> = {};
+      let total = 0;
+      results.forEach(([action, count]) => {
+        map[action] = count;
+        total += count;
+      });
+      map['all'] = total;
+      setCounts(map);
+    });
+  }, [dateFrom, dateTo]);
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
