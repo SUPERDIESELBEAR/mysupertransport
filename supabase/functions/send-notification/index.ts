@@ -239,6 +239,17 @@ Deno.serve(async (req) => {
       return data?.email_enabled ?? true; // default enabled
     };
 
+    // ── Helper: check if a specific user has in-app enabled for an event ──
+    const userInAppEnabled = async (userId: string, eventType: string): Promise<boolean> => {
+      const { data } = await supabaseAdmin
+        .from('notification_preferences')
+        .select('in_app_enabled')
+        .eq('user_id', userId)
+        .eq('event_type', eventType)
+        .maybeSingle();
+      return data?.in_app_enabled ?? true; // default enabled
+    };
+
     // ── Helper: get assigned staff email for an operator ─────────────────
     const getAssignedStaffEmail = async (operatorId: string): Promise<string | null> => {
       const { data: op } = await supabaseAdmin
