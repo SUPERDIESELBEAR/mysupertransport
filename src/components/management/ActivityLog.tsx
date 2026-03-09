@@ -365,6 +365,39 @@ function DatePickerButton({
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+// ── Search helpers ────────────────────────────────────────────────────────────
+
+function entryMatchesSearch(entry: AuditEntry, needle: string): boolean {
+  if (!needle) return true;
+  const q = needle.toLowerCase();
+  const haystack = [
+    entry.actor_name,
+    entry.entity_label,
+    entry.entity_type,
+    entry.action,
+    entry.actor_id,
+    entry.entity_id,
+    ACTION_CONFIG[entry.action]?.label,
+    entry.metadata ? JSON.stringify(entry.metadata) : '',
+  ].filter(Boolean).join(' ').toLowerCase();
+  return haystack.includes(q);
+}
+
+function highlightMatch(text: string, query: string): React.ReactNode {
+  if (!query || !text) return text;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return text;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-gold/30 text-foreground rounded-sm px-0.5">{text.slice(idx, idx + query.length)}</mark>
+      {text.slice(idx + query.length)}
+    </>
+  );
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function ActivityLog() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -377,6 +410,19 @@ export default function ActivityLog() {
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [searchRaw, setSearchRaw] = useState('');
+  const [search, setSearch] = useState('');
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = (val: string) => {
+    setSearchRaw(val);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => setSearch(val.trim()), 250);
+  };
+
+  const filteredEntries = search
+    ? entries.filter(e => entryMatchesSearch(e, search))
+    : entries;
 
   const fetchLog = useCallback(async (
     pageNum = 0,
