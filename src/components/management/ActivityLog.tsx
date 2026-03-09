@@ -623,46 +623,73 @@ export default function ActivityLog() {
                 color: 'text-muted-foreground',
                 bg: 'bg-muted border-border',
               };
+              const isExpanded = expandedId === entry.id;
 
               return (
-                <div key={entry.id} className="flex gap-4 px-5 py-4 hover:bg-secondary/20 transition-colors">
-                  {/* Icon + spine */}
-                  <div className="flex flex-col items-center shrink-0 pt-0.5">
-                    <div className={`h-8 w-8 rounded-full border flex items-center justify-center ${cfg.bg} ${cfg.color}`}>
-                      {cfg.icon}
+                <div key={entry.id} className={cn('transition-colors', isExpanded ? 'bg-secondary/30' : 'hover:bg-secondary/20')}>
+                  <button
+                    className="w-full text-left flex gap-4 px-5 py-4 group"
+                    onClick={() => setExpandedId(isExpanded ? null : entry.id)}
+                    aria-expanded={isExpanded}
+                  >
+                    {/* Icon + spine */}
+                    <div className="flex flex-col items-center shrink-0 pt-0.5">
+                      <div className={`h-8 w-8 rounded-full border flex items-center justify-center ${cfg.bg} ${cfg.color}`}>
+                        {cfg.icon}
+                      </div>
+                      {idx < entries.length - 1 && !isExpanded && (
+                        <div className="w-px flex-1 bg-border mt-2 min-h-3" />
+                      )}
                     </div>
-                    {idx < entries.length - 1 && (
-                      <div className="w-px flex-1 bg-border mt-2 min-h-3" />
-                    )}
-                  </div>
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0 pb-1">
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className={`text-xs font-semibold uppercase tracking-wide ${cfg.color}`}>
-                            {cfg.label}
-                          </span>
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 pb-1">
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-xs font-semibold uppercase tracking-wide ${cfg.color}`}>
+                              {cfg.label}
+                            </span>
+                          </div>
+                          {entry.entity_label && (
+                            <p className="text-sm font-medium text-foreground mt-0.5">{entry.entity_label}</p>
+                          )}
+                          <EntryDetail entry={entry} />
                         </div>
-                        {entry.entity_label && (
-                          <p className="text-sm font-medium text-foreground mt-0.5">{entry.entity_label}</p>
-                        )}
-                        <EntryDetail entry={entry} />
+                        <div className="flex items-start gap-2 shrink-0">
+                          <div className="text-right">
+                            <p className="text-xs text-muted-foreground">{timeAgo(entry.created_at)}</p>
+                            <p className="text-xs text-muted-foreground/60 mt-0.5">
+                              {new Date(entry.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                          <div className={cn(
+                            'mt-0.5 h-5 w-5 rounded flex items-center justify-center border transition-all',
+                            isExpanded
+                              ? 'bg-surface-dark text-white border-surface-dark'
+                              : 'text-muted-foreground border-border group-hover:border-gold/50 group-hover:text-foreground'
+                          )}>
+                            {isExpanded
+                              ? <ChevronDown className="h-3 w-3" />
+                              : <ChevronRight className="h-3 w-3" />
+                            }
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-xs text-muted-foreground">{timeAgo(entry.created_at)}</p>
-                        <p className="text-xs text-muted-foreground/60 mt-0.5">
-                          {new Date(entry.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      {entry.actor_name && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          by <span className="font-medium text-foreground">{entry.actor_name}</span>
                         </p>
-                      </div>
+                      )}
                     </div>
-                    {entry.actor_name && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        by <span className="font-medium text-foreground">{entry.actor_name}</span>
-                      </p>
-                    )}
-                  </div>
+                  </button>
+
+                  {/* Expanded detail panel */}
+                  {isExpanded && (
+                    <div className="px-5 pb-4 ml-12">
+                      <EntryExpandedPanel entry={entry} />
+                    </div>
+                  )}
                 </div>
               );
             })}
