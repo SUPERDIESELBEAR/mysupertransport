@@ -122,6 +122,7 @@ const FILTER_OPTIONS = [
   { value: 'operator_invited', label: 'Operator Invitations' },
   { value: 'ica_issued', label: 'ICA Issued' },
   { value: 'ica_signed', label: 'ICA Signed' },
+  { value: 'onboarding_completed', label: 'Onboarding Completed' },
 ];
 
 const DATE_PRESETS = [
