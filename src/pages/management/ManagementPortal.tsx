@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import NotificationPreferencesModal from '@/components/management/NotificationPreferencesModal';
 import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import { supabase } from '@/integrations/supabase/client';
