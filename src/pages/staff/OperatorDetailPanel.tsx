@@ -453,6 +453,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       }
     }
 
+    savedSnapshot.current = { status, notes };
     setSaving(false);
   };
 
