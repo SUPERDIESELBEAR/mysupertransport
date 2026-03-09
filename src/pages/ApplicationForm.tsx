@@ -108,6 +108,7 @@ export default function ApplicationForm() {
   const [submitted, setSubmitted] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [applicationId, setApplicationId] = useState<string | null>(null);
+  const [duplicateEmailBlocked, setDuplicateEmailBlocked] = useState(false);
 
   // ── Load draft on mount ─────────────────────────────────────────────────
   useEffect(() => {
