@@ -169,6 +169,24 @@ export default function ManagementPortal() {
 
   const pendingApps = applications.filter(a => a.review_status === 'pending');
 
+  const handleNavigate = (path: string) => {
+    if (view === 'operator-detail' && operatorHasUnsavedChanges) {
+      setPendingNavPath(path);
+    } else {
+      setView(path as ManagementView);
+      if (path !== 'operator-detail') setSelectedOperatorId(null);
+    }
+  };
+
+  const confirmNavigation = () => {
+    if (pendingNavPath) {
+      setOperatorHasUnsavedChanges(false);
+      setView(pendingNavPath as ManagementView);
+      if (pendingNavPath !== 'operator-detail') setSelectedOperatorId(null);
+      setPendingNavPath(null);
+    }
+  };
+
   const navItems = [
     { label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
     { label: 'Applications', icon: <ClipboardList className="h-4 w-4" />, path: 'applications' },
