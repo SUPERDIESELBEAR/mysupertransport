@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import StaffLayout from '@/components/layouts/StaffLayout';
@@ -7,27 +8,42 @@ import OperatorDetailPanel from './OperatorDetailPanel';
 import FaqManager from '@/components/management/FaqManager';
 import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import MessagesView from '@/components/staff/MessagesView';
+import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources';
+type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources' | 'notifications';
 
 export default function StaffPortal() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [currentView, setCurrentView] = useState<StaffView>('pipeline');
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const viewRef = useRef(currentView);
 
-  // Fetch initial unread count
+  // Deep-link: ?tab=notifications or ?operator=...
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const operatorId = searchParams.get('operator');
+    if (tab === 'notifications') {
+      setCurrentView('notifications');
+    } else if (operatorId) {
+      setSelectedOperatorId(operatorId);
+      setCurrentView('operator-detail');
+    }
+  }, [searchParams]);
+
+  // Fetch initial unread message count
   useEffect(() => {
     if (!user) return;
     supabase
@@ -38,12 +54,27 @@ export default function StaffPortal() {
       .then(({ count }) => setUnreadCount(count ?? 0));
   }, [user]);
 
-  // Clear badge when Messages tab is opened
+  // Fetch initial unread notification count
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .is('read_at', null)
+      .then(({ count }) => setUnreadNotifCount(count ?? 0));
+  }, [user]);
+
+  // Clear badges when tabs are opened
   useEffect(() => {
     if (currentView === 'messages') setUnreadCount(0);
+    if (currentView === 'notifications') setUnreadNotifCount(0);
   }, [currentView]);
 
-  // Realtime: increment badge when a new message arrives (subscribe once per user)
+  // Keep viewRef in sync for realtime callbacks
+  useEffect(() => { viewRef.current = currentView; }, [currentView]);
+
+  // Realtime: increment message badge
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -62,11 +93,31 @@ export default function StaffPortal() {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
+  // Realtime: increment notification badge
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('staff-unread-notif-badge')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${user.id}`,
+      }, () => {
+        if (viewRef.current !== 'notifications') {
+          setUnreadNotifCount(prev => prev + 1);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
   const navItems = [
     { label: 'Pipeline', icon: <LayoutDashboard className="h-4 w-4" />, path: 'pipeline' },
     { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'messages', badge: unreadCount },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
     { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
+    { label: 'Notifications', icon: <Bell className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
   ];
 
   const handleOpenOperator = (operatorId: string) => {
@@ -145,6 +196,9 @@ export default function StaffPortal() {
       )}
       {currentView === 'resources' && (
         <ResourceLibraryManager />
+      )}
+      {currentView === 'notifications' && (
+        <NotificationHistory />
       )}
     </StaffLayout>
 

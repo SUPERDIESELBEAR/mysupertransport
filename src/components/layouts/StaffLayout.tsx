@@ -168,7 +168,7 @@ export default function StaffLayout({ children, navItems, currentPath, onNavigat
           </button>
           <div className="flex-1" />
           {headerActions}
-          <NotificationBell />
+          <NotificationBell notificationsPath="/staff?tab=notifications" />
         </header>
 
         {/* Page content */}
