@@ -448,7 +448,7 @@ export default function OperatorPortal() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-[hsl(var(--gold)/0.15)] shrink-0">
-                  <FileText className="h-4.5 w-4.5 text-gold animate-pulse" />
+                  <FileText className="h-5 w-5 text-gold animate-pulse" />
                 </span>
                 <div>
                   <p className="text-sm font-semibold text-gold leading-tight">
