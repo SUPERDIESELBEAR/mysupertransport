@@ -535,7 +535,7 @@ export default function ActivityLog() {
           <h1 className="text-2xl font-bold text-foreground">Activity Log</h1>
           <p className="text-sm text-muted-foreground mt-1">Audit trail of all significant actions across the platform</p>
         </div>
-        {/* Search bar */}
+        {/* Search + actions */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -555,8 +555,6 @@ export default function ActivityLog() {
               </button>
             )}
           </div>
-        </div>
-        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
