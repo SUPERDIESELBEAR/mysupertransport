@@ -53,7 +53,7 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
     const channel = supabase
       .channel('notifications-bell')
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'notifications',
         filter: `user_id=eq.${session.user.id}`,
