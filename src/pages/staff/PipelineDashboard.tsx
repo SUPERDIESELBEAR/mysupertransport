@@ -278,7 +278,11 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
         (coordinatorFilter === 'unassigned' ? !op.assigned_staff_id : op.assigned_staff_id === coordinatorFilter);
       const matchDispatch = dispatchFilter === 'all' || op.dispatch_status === dispatchFilter ||
         (dispatchFilter === 'not_dispatched' && op.dispatch_status === null);
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch;
+      const matchProgress = progressFilter === 'all' ||
+        (progressFilter === 'low' && op.progress_pct <= 33) ||
+        (progressFilter === 'mid' && op.progress_pct >= 34 && op.progress_pct <= 66) ||
+        (progressFilter === 'high' && op.progress_pct >= 67);
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress;
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
