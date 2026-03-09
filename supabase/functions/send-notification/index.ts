@@ -668,21 +668,25 @@ Deno.serve(async (req) => {
         const senderName = payload.sender_name || 'Your coordinator';
         const preview = payload.message_preview || 'You have a new message.';
 
-        // ── 1. In-app notification ────────────────────────────────────────
-        await supabaseAdmin.from('notifications').insert({
-          user_id: recipientUserId,
-          type: 'new_message',
-          title: `💬 New message from ${senderName}`,
-          body: preview.length > 120 ? preview.slice(0, 117) + '…' : preview,
-          channel: 'in_app',
-          link: '/dashboard?tab=messages',
-        });
+        // ── 1. In-app notification (respect in_app pref) ─────────────────
+        const msgInAppOk = await userInAppEnabled(recipientUserId, 'new_message');
+        if (msgInAppOk) {
+          await supabaseAdmin.from('notifications').insert({
+            user_id: recipientUserId,
+            type: 'new_message',
+            title: `💬 New message from ${senderName}`,
+            body: preview.length > 120 ? preview.slice(0, 117) + '…' : preview,
+            channel: 'in_app',
+            link: '/dashboard?tab=messages',
+          });
+        }
 
-        // ── 2. Email the operator ─────────────────────────────────────────
+        // ── 2. Email the operator (respect email pref) ────────────────────
+        const msgEmailOk = await userEmailEnabled(recipientUserId, 'new_message');
         try {
           const { data: { user: recipientUser } } = await supabaseAdmin.auth.admin.getUserById(recipientUserId);
           const recipientEmail = recipientUser?.email;
-          if (recipientEmail) {
+          if (recipientEmail && msgEmailOk) {
             const subject = `New message from ${senderName} — SUPERTRANSPORT`;
             const html = buildEmail(
               subject,
