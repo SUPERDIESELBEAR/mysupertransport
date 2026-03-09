@@ -504,6 +504,10 @@ export default function ManagementPortal() {
         {view === 'resources' && (
           <ResourceLibraryManager />
         )}
+
+        {view === 'notifications' && (
+          <NotificationHistory />
+        )}
       </StaffLayout>
 
       {/* Application Review Drawer (rendered outside layout to overlay correctly) */}
