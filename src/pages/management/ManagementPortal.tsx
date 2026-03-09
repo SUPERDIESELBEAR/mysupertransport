@@ -430,7 +430,11 @@ export default function ManagementPortal() {
         )}
 
         {view === 'operator-detail' && selectedOperatorId && (
-          <OperatorDetailPanel operatorId={selectedOperatorId} onBack={() => setView('pipeline')} />
+          <OperatorDetailPanel
+            operatorId={selectedOperatorId}
+            onBack={() => { setOperatorHasUnsavedChanges(false); setView('pipeline'); }}
+            onUnsavedChangesChange={setOperatorHasUnsavedChanges}
+          />
         )}
 
         {view === 'dispatch' && (
