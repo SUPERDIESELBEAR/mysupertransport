@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
-  Milestone, RefreshCcw, Activity, ChevronDown
+  Milestone, RefreshCcw, Activity, ChevronDown, Download
 } from 'lucide-react';
 
 interface AuditEntry {
