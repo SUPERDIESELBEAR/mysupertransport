@@ -60,6 +60,7 @@ export default function OperatorPortal() {
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
   const [assignedDispatcher, setAssignedDispatcher] = useState<{ name: string; phone: string | null } | null>(null);
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
@@ -119,8 +120,19 @@ export default function OperatorPortal() {
     setUnreadCount(count ?? 0);
   }, [user]);
 
+  const fetchUnreadNotifCount = useCallback(async () => {
+    if (!user) return;
+    const { count } = await supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .is('read_at', null);
+    setUnreadNotifCount(count ?? 0);
+  }, [user]);
+
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchUnreadCount(); }, [fetchUnreadCount]);
+  useEffect(() => { fetchUnreadNotifCount(); }, [fetchUnreadNotifCount]);
 
   // Realtime: update dispatch status live so the banner appears/disappears without refresh
   useEffect(() => {
@@ -142,9 +154,8 @@ export default function OperatorPortal() {
 
   // Clear unread count when messages tab is opened
   useEffect(() => {
-    if (view === 'messages') {
-      setUnreadCount(0);
-    }
+    if (view === 'messages') setUnreadCount(0);
+    if (view === 'notifications') setUnreadNotifCount(0);
   }, [view]);
 
   // Realtime: increment badge when a new message arrives (subscribe once per user)
@@ -166,6 +177,21 @@ export default function OperatorPortal() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user]); // only re-subscribe when user changes
+
+  // Realtime: update notification badge when a new notification arrives
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('operator-unread-notif-badge')
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${user.id}`,
+      }, () => {
+        if (viewRef.current !== 'notifications') fetchUnreadNotifCount();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, fetchUnreadNotifCount]);
 
   const displayName = profile?.first_name ?? 'Operator';
 
@@ -297,7 +323,7 @@ export default function OperatorPortal() {
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
     { view: 'resources' as OperatorView, label: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> },
-    { view: 'notifications' as OperatorView, label: 'Notifications', icon: <Bell className="h-5 w-5" /> },
+    { view: 'notifications' as OperatorView, label: 'Notifications', icon: <Bell className="h-5 w-5" />, badge: unreadNotifCount },
   ].filter(item => {
     if ('onlyOnboarded' in item && !isFullyOnboarded) return false;
     if ('showIf' in item && !item.showIf) return false;
@@ -334,9 +360,14 @@ export default function OperatorPortal() {
               >
                 <span className="relative">
                   {item.icon}
-                  {item.view === 'messages' && unreadCount > 0 && (
+                  {(item.view === 'messages' && unreadCount > 0) && (
                     <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
                       {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                  {'badge' in item && item.badge != null && item.badge > 0 && item.view !== 'messages' && (
+                    <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                      {(item.badge as number) > 99 ? '99+' : item.badge}
                     </span>
                   )}
                 </span>
@@ -384,9 +415,14 @@ export default function OperatorPortal() {
                 >
                   <span className="relative">
                     {item.icon}
-                    {item.view === 'messages' && unreadCount > 0 && (
+                    {(item.view === 'messages' && unreadCount > 0) && (
                       <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
                         {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                    {'badge' in item && item.badge != null && item.badge > 0 && item.view !== 'messages' && (
+                      <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                        {(item.badge as number) > 99 ? '99+' : item.badge}
                       </span>
                     )}
                   </span>

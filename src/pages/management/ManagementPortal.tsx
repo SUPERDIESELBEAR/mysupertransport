@@ -58,6 +58,7 @@ export default function ManagementPortal() {
   const [metrics, setMetrics] = useState({ pending: 0, onboarding: 0, active: 0, alerts: 0 });
   const [truckDownCount, setTruckDownCount] = useState(0);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
 
 
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
@@ -81,6 +82,16 @@ export default function ManagementPortal() {
     setTruckDownCount(count ?? 0);
   }, []);
 
+  const fetchUnreadNotifCount = useCallback(async () => {
+    if (!session?.user?.id) return;
+    const { count } = await supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', session.user.id)
+      .is('read_at', null);
+    setUnreadNotifCount(count ?? 0);
+  }, [session?.user?.id]);
+
   // Subscribe to realtime changes on active_dispatch to keep the banner live
   useEffect(() => {
     fetchTruckDownCount();
@@ -92,6 +103,25 @@ export default function ManagementPortal() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchTruckDownCount]);
+
+  // Subscribe to realtime for unread notification count
+  useEffect(() => {
+    fetchUnreadNotifCount();
+    if (!session?.user?.id) return;
+    const channel = supabase
+      .channel('mgmt-unread-notif-count')
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${session.user.id}`,
+      }, () => fetchUnreadNotifCount())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchUnreadNotifCount, session?.user?.id]);
+
+  // Clear badge when visiting notifications view
+  useEffect(() => {
+    if (view === 'notifications') setUnreadNotifCount(0);
+  }, [view]);
 
   const fetchMetrics = useCallback(async () => {
     const [appsRes, opsRes, dispRes, alertsRes] = await Promise.all([
@@ -219,7 +249,7 @@ export default function ManagementPortal() {
     { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
     { label: 'Staff', icon: <UserPlus className="h-4 w-4" />, path: 'staff' },
     { label: 'Activity', icon: <ScrollText className="h-4 w-4" />, path: 'activity' },
-    { label: 'Notifications', icon: <BellRing className="h-4 w-4" />, path: 'notifications' },
+    { label: 'Notifications', icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
     { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
   ];
