@@ -541,7 +541,11 @@ Deno.serve(async (req) => {
         if (newStatus === 'truck_down') {
           try {
             const operatorEmail = await getOperatorEmail(operatorId);
-            if (operatorEmail) {
+            // Resolve operator user_id for pref check (re-use opRow already fetched above)
+            const opEmailEnabled = opRow?.user_id
+              ? await userEmailEnabled(opRow.user_id, 'dispatch_status_change')
+              : true;
+            if (operatorEmail && opEmailEnabled) {
               const operatorName = payload.operator_name || 'Driver';
               const notesRow = payload.status_notes
                 ? `<p style="background:#fff5f5;border-left:4px solid #e53e3e;padding:12px 16px;border-radius:4px;margin:16px 0;"><strong>Note from your dispatcher:</strong> ${payload.status_notes}</p>`
