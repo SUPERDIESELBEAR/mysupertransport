@@ -584,9 +584,54 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
               const isRequesting = requestingDoc === field;
               const alreadyRequested = current === 'requested';
               const received = current === 'received';
+              const files = docFiles[field as string] ?? [];
+              const fileCount = files.length;
               return (
                 <div key={field as string} className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
+                    {fileCount > 0 && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="flex items-center gap-1 text-[11px] font-medium text-info hover:text-info/80 transition-colors cursor-pointer leading-none">
+                            <Paperclip className="h-3 w-3" />
+                            {fileCount} {fileCount === 1 ? 'file' : 'files'} uploaded
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent side="top" align="start" className="w-72 p-0">
+                          <div className="p-3 border-b border-border">
+                            <p className="text-xs font-semibold text-foreground">{label} — Uploaded Files</p>
+                          </div>
+                          <ul className="divide-y divide-border max-h-48 overflow-y-auto">
+                            {files.map(f => (
+                              <li key={f.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium text-foreground truncate max-w-[160px]">
+                                    {f.file_name ?? 'Unnamed file'}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {format(new Date(f.uploaded_at), 'MMM d, yyyy')}
+                                  </p>
+                                </div>
+                                {f.file_url ? (
+                                  <a
+                                    href={f.file_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-[11px] text-gold hover:text-gold-light font-medium shrink-0"
+                                  >
+                                    View <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                ) : (
+                                  <span className="text-[11px] text-muted-foreground shrink-0">No URL</span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
                   <div className="flex gap-1.5">
                     <div className="flex-1">
                       <Select value={current} onValueChange={v => updateStatus(field, v)}>
