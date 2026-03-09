@@ -89,6 +89,12 @@ const ACTION_CONFIG: Record<string, {
     color: 'text-cyan-600',
     bg: 'bg-cyan-50 border-cyan-200',
   },
+  ica_issued: {
+    label: 'ICA Issued',
+    icon: <FilePen className="h-4 w-4" />,
+    color: 'text-amber-600',
+    bg: 'bg-amber-50 border-amber-200',
+  },
 };
 
 const FILTER_OPTIONS = [
@@ -102,6 +108,7 @@ const FILTER_OPTIONS = [
   { value: 'document_uploaded', label: 'Document Uploads' },
   { value: 'staff_invited', label: 'Staff Invitations' },
   { value: 'operator_invited', label: 'Operator Invitations' },
+  { value: 'ica_issued', label: 'ICA Issued' },
 ];
 
 const DATE_PRESETS = [
