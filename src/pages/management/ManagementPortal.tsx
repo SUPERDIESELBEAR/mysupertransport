@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import NotificationPreferencesModal from '@/components/management/NotificationPreferencesModal';
 import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,7 +16,7 @@ import DispatchPortal from '../dispatch/DispatchPortal';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight,
-  Search, RefreshCcw, Eye, ScrollText, TriangleAlert
+  Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -55,6 +56,8 @@ export default function ManagementPortal() {
   const [selectedApp, setSelectedApp] = useState<FullApplication | null>(null);
   const [metrics, setMetrics] = useState({ pending: 0, onboarding: 0, active: 0, alerts: 0 });
   const [truckDownCount, setTruckDownCount] = useState(0);
+  const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
+
 
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
   useEffect(() => {
@@ -221,7 +224,22 @@ export default function ManagementPortal() {
 
   return (
     <>
-      <StaffLayout navItems={navItems} currentPath={view} onNavigate={handleNavigate} title="Management">
+      <NotificationPreferencesModal open={notifPrefsOpen} onClose={() => setNotifPrefsOpen(false)} />
+      <StaffLayout
+        navItems={navItems}
+        currentPath={view}
+        onNavigate={handleNavigate}
+        title="Management"
+        headerActions={
+          <button
+            onClick={() => setNotifPrefsOpen(true)}
+            title="Notification preferences"
+            className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-muted"
+          >
+            <Settings2 className="h-5 w-5" />
+          </button>
+        }
+      >
         {/* ── TRUCK DOWN ALERT BANNER ── */}
         {truckDownCount > 0 && (
           <div className="mb-5 flex items-center justify-between gap-4 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 animate-fade-in">

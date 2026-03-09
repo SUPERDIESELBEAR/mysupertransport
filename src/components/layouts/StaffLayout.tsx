@@ -23,6 +23,7 @@ interface StaffLayoutProps {
   currentPath: string;
   onNavigate: (path: string) => void;
   title: string;
+  headerActions?: ReactNode;
 }
 
 const roleColors: Record<AppRole, string> = {
@@ -41,7 +42,7 @@ const roleLabels: Record<AppRole, string> = {
   applicant: 'Applicant',
 };
 
-export default function StaffLayout({ children, navItems, currentPath, onNavigate, title }: StaffLayoutProps) {
+export default function StaffLayout({ children, navItems, currentPath, onNavigate, title, headerActions }: StaffLayoutProps) {
   const { profile, roles, activeRole, setActiveRole, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [roleSwitchOpen, setRoleSwitchOpen] = useState(false);
@@ -166,6 +167,7 @@ export default function StaffLayout({ children, navItems, currentPath, onNavigat
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
           <div className="flex-1" />
+          {headerActions}
           <NotificationBell />
         </header>
 

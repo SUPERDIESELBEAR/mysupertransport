@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
       : callerUser.email;
     const applicantName = `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || app.email;
 
-    // ── In-app notifications → all management users ────────────────────
+    // ── In-app notifications → management users who want them ─────────
     const { data: mgmtRoles } = await supabaseAdmin
       .from('user_roles')
       .select('user_id')
@@ -166,16 +166,30 @@ Deno.serve(async (req) => {
 
     if (mgmtRoles && mgmtRoles.length > 0 && operatorId) {
       const notifLink = `/staff?operator=${operatorId}`;
-      const notifRows = mgmtRoles.map(({ user_id }) => ({
-        user_id,
-        title: 'Application Approved',
-        body: `${applicantName} has been approved and invited as an Operator.`,
-        type: 'application_approved',
-        channel: 'in_app' as const,
-        link: notifLink,
-      }));
-      supabaseAdmin.from('notifications').insert(notifRows)
-        .then(({ error }) => { if (error) console.error('Mgmt notification error:', error.message); });
+
+      // Filter to users with in_app enabled (default = enabled if no row)
+      const { data: optedOut } = await supabaseAdmin
+        .from('notification_preferences')
+        .select('user_id')
+        .in('user_id', mgmtRoles.map(r => r.user_id))
+        .eq('event_type', 'application_approved')
+        .eq('in_app_enabled', false);
+      const optedOutIds = new Set((optedOut ?? []).map(r => r.user_id));
+
+      const notifRows = mgmtRoles
+        .filter(({ user_id }) => !optedOutIds.has(user_id))
+        .map(({ user_id }) => ({
+          user_id,
+          title: 'Application Approved',
+          body: `${applicantName} has been approved and invited as an Operator.`,
+          type: 'application_approved',
+          channel: 'in_app' as const,
+          link: notifLink,
+        }));
+      if (notifRows.length > 0) {
+        supabaseAdmin.from('notifications').insert(notifRows)
+          .then(({ error }) => { if (error) console.error('Mgmt notification error:', error.message); });
+      }
     }
 
     // ── Audit log ──────────────────────────────────────────────────────

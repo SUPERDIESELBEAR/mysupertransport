@@ -203,8 +203,8 @@ Deno.serve(async (req) => {
     const payload: NotificationPayload = await req.json();
     const { type } = payload;
 
-    // ── Helper: get all management/staff emails ──────────────────────────
-    const getManagementEmails = async (): Promise<string[]> => {
+    // ── Helper: get all management/staff emails filtered by email pref ──
+    const getManagementEmails = async (eventType: string): Promise<string[]> => {
       const { data: mgmtRoles } = await supabaseAdmin
         .from('user_roles')
         .select('user_id')
@@ -212,9 +212,31 @@ Deno.serve(async (req) => {
 
       if (!mgmtRoles?.length) return [];
 
+      // Filter out users who have explicitly disabled email for this event type
       const userIds = mgmtRoles.map(r => r.user_id);
+      const { data: optedOut } = await supabaseAdmin
+        .from('notification_preferences')
+        .select('user_id')
+        .in('user_id', userIds)
+        .eq('event_type', eventType)
+        .eq('email_enabled', false);
+      const optedOutIds = new Set((optedOut ?? []).map(r => r.user_id));
+      const filteredIds = userIds.filter(id => !optedOutIds.has(id));
+
+      if (!filteredIds.length) return [];
       const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-      return users?.filter(u => userIds.includes(u.id) && u.email).map(u => u.email!) ?? [];
+      return users?.filter(u => filteredIds.includes(u.id) && u.email).map(u => u.email!) ?? [];
+    };
+
+    // ── Helper: check if a specific user has email enabled for an event ──
+    const userEmailEnabled = async (userId: string, eventType: string): Promise<boolean> => {
+      const { data } = await supabaseAdmin
+        .from('notification_preferences')
+        .select('email_enabled')
+        .eq('user_id', userId)
+        .eq('event_type', eventType)
+        .maybeSingle();
+      return data?.email_enabled ?? true; // default enabled
     };
 
     // ── Helper: get assigned staff email for an operator ─────────────────
@@ -250,7 +272,7 @@ Deno.serve(async (req) => {
       case 'new_application': {
         const name = payload.applicant_name || 'A new applicant';
         const email = payload.applicant_email || '';
-        const mgmtEmails = await getManagementEmails();
+        const mgmtEmails = await getManagementEmails('new_application');
 
         if (mgmtEmails.length === 0) break;
 
@@ -273,6 +295,7 @@ Deno.serve(async (req) => {
         const email = payload.applicant_email;
         if (!email) break;
 
+        // Applicant emails are always sent (they are not management users with preferences)
         const subject = 'Your SUPERTRANSPORT Application Has Been Approved!';
         const html = buildEmail(
           subject,
@@ -294,6 +317,7 @@ Deno.serve(async (req) => {
         const email = payload.applicant_email;
         if (!email) break;
 
+        // Applicant emails are always sent (they are not management users with preferences)
         const subject = 'Update on Your SUPERTRANSPORT Application';
         const html = buildEmail(
           subject,
@@ -317,9 +341,9 @@ Deno.serve(async (req) => {
         const milestone = payload.milestone || 'a step';
         const milestoneKey = payload.milestone_key;
 
-        // ── 1. Notify staff ──────────────────────────────────────────────
+        // ── 1. Notify staff (respecting email preferences) ───────────────
         const staffEmail = await getAssignedStaffEmail(operatorId);
-        const mgmtEmails = await getManagementEmails();
+        const mgmtEmails = await getManagementEmails('onboarding_milestone');
         const staffRecipients = [...new Set([...(staffEmail ? [staffEmail] : []), ...mgmtEmails])];
 
         if (staffRecipients.length > 0) {
@@ -353,22 +377,33 @@ Deno.serve(async (req) => {
               link: '/staff',
             });
           }
-          // Also notify all management users in-app
+          // Also notify management users who have in_app enabled for onboarding_milestone
           const { data: mgmtRows } = await supabaseAdmin
             .from('user_roles')
             .select('user_id')
             .eq('role', 'management');
           if (mgmtRows?.length) {
-            await supabaseAdmin.from('notifications').insert(
-              mgmtRows.map(r => ({
-                user_id: r.user_id,
-                type: 'onboarding_milestone',
-                title: `✍️ ICA Signed — ${name}`,
-                body: `${name} has signed their Independent Contractor Agreement. The ICA is now fully executed.`,
-                channel: 'in_app',
-                link: '/staff',
-              }))
-            );
+            const mgmtIds = mgmtRows.map(r => r.user_id);
+            const { data: optedOut } = await supabaseAdmin
+              .from('notification_preferences')
+              .select('user_id')
+              .in('user_id', mgmtIds)
+              .eq('event_type', 'onboarding_milestone')
+              .eq('in_app_enabled', false);
+            const optedOutIds = new Set((optedOut ?? []).map(r => r.user_id));
+            const filtered = mgmtRows.filter(r => !optedOutIds.has(r.user_id));
+            if (filtered.length) {
+              await supabaseAdmin.from('notifications').insert(
+                filtered.map(r => ({
+                  user_id: r.user_id,
+                  type: 'onboarding_milestone',
+                  title: `✍️ ICA Signed — ${name}`,
+                  body: `${name} has signed their Independent Contractor Agreement. The ICA is now fully executed.`,
+                  channel: 'in_app',
+                  link: '/staff',
+                }))
+              );
+            }
           }
         }
 
@@ -431,7 +466,7 @@ Deno.serve(async (req) => {
         if (!operatorId) break;
 
         const staffEmail = await getAssignedStaffEmail(operatorId);
-        const mgmtEmails = await getManagementEmails();
+        const mgmtEmails = await getManagementEmails('document_uploaded');
         const recipients = [...new Set([...(staffEmail ? [staffEmail] : []), ...mgmtEmails])];
         if (!recipients.length) break;
 
@@ -556,30 +591,42 @@ Deno.serve(async (req) => {
             }
 
             // Fetch management role users
+            // Fetch management role users (filtered by email pref for truck_down)
             const { data: mgmtRoles } = await supabaseAdmin
               .from('user_roles')
               .select('user_id')
               .eq('role', 'management');
 
             if (mgmtRoles?.length) {
-              const { data: { users: allUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-              const mgmtIds = new Set(mgmtRoles.map(r => r.user_id));
-              allUsers?.filter(u => mgmtIds.has(u.id) && u.email).forEach(u => recipientEmails.add(u.email!));
-            }
+              const mgmtIds = mgmtRoles.map(r => r.user_id);
 
-            await Promise.all([...recipientEmails].map(e => sendEmail(e, subject, html, RESEND_API_KEY)));
-
-            // Also create an in-app notification for each management user
-            if (mgmtRoles?.length) {
-              const { data: mgmtRolesForNotif } = await supabaseAdmin
-                .from('user_roles')
+              // Email: filter by email_enabled preference
+              const { data: emailOptedOut } = await supabaseAdmin
+                .from('notification_preferences')
                 .select('user_id')
-                .eq('role', 'management');
-              if (mgmtRolesForNotif?.length) {
+                .in('user_id', mgmtIds)
+                .eq('event_type', 'truck_down')
+                .eq('email_enabled', false);
+              const emailOptedOutIds = new Set((emailOptedOut ?? []).map(r => r.user_id));
+              const { data: { users: allUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+              allUsers
+                ?.filter(u => mgmtIds.includes(u.id) && !emailOptedOutIds.has(u.id) && u.email)
+                .forEach(u => recipientEmails.add(u.email!));
+
+              // In-app: filter by in_app_enabled preference
+              const { data: inAppOptedOut } = await supabaseAdmin
+                .from('notification_preferences')
+                .select('user_id')
+                .in('user_id', mgmtIds)
+                .eq('event_type', 'truck_down')
+                .eq('in_app_enabled', false);
+              const inAppOptedOutIds = new Set((inAppOptedOut ?? []).map(r => r.user_id));
+              const inAppRecipients = mgmtRoles.filter(r => !inAppOptedOutIds.has(r.user_id));
+              if (inAppRecipients.length) {
                 await supabaseAdmin.from('notifications').insert(
-                  mgmtRolesForNotif.map(r => ({
+                  inAppRecipients.map(r => ({
                     user_id: r.user_id,
-                    type: 'dispatch_status_change',
+                    type: 'truck_down',
                     title: `🔴 Truck Down — ${operatorName}${unitNumber}`,
                     body: `Truck Down status set${payload.status_notes ? `: ${payload.status_notes}` : ''}`,
                     channel: 'in_app',
