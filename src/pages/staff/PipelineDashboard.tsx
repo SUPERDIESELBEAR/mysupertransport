@@ -680,13 +680,24 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                       )}
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">
-                      {op.doc_count > 0 ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-status-progress/10 text-status-progress border-status-progress/30">
-                          {op.doc_count} file{op.doc_count !== 1 ? 's' : ''}
+                      <div className="flex items-center gap-2 min-w-[100px]">
+                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${op.progress_pct}%`,
+                              background: op.progress_pct === 100
+                                ? 'hsl(var(--status-complete))'
+                                : 'hsl(var(--gold-main))',
+                            }}
+                          />
+                        </div>
+                        <span className={`text-[11px] font-bold tabular-nums shrink-0 ${
+                          op.progress_pct === 100 ? 'text-status-complete' : 'text-muted-foreground'
+                        }`}>
+                          {op.progress_pct}%
                         </span>
-                      ) : (
-                        <span className="text-muted-foreground/40 text-xs">—</span>
-                      )}
+                      </div>
                     </td>
                     {/* Dispatch status badge — only shown for fully onboarded operators */}
                     <td className="px-4 py-3 hidden lg:table-cell">
