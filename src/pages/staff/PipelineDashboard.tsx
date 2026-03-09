@@ -574,6 +574,12 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
               <button onClick={() => setDispatchFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
             </span>
           )}
+          {progressFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 bg-gold/10 text-gold border border-gold/30 text-xs px-2.5 py-1 rounded-full font-medium">
+              {progressFilter === 'low' ? '0–33%' : progressFilter === 'mid' ? '34–66%' : '67–100%'}
+              <button onClick={() => setProgressFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+            </span>
+          )}
         </div>
       )}
 
