@@ -68,6 +68,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [showVoidConfirm, setShowVoidConfirm] = useState(false);
   const [operatorName, setOperatorName] = useState('');
   const [operatorEmail, setOperatorEmail] = useState('');
+  const [operatorUserId, setOperatorUserId] = useState<string | null>(null);
   const [showICABuilder, setShowICABuilder] = useState(false);
   const [showICAView, setShowICAView] = useState(false);
   const [applicationData, setApplicationData] = useState<any>(null);
