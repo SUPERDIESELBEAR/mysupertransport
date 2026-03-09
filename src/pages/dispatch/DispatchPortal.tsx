@@ -1216,6 +1216,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const navItems = [
     { label: 'Dispatch Board', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
     { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages', badge: unreadMessages || undefined },
+    { label: 'Notifications', icon: <Bell className="h-4 w-4" />, path: 'dispatch-notifications', badge: unreadNotifCount || undefined },
   ];
 
   // ── Quick-compose modal ────────────────────────────────────────────────────
