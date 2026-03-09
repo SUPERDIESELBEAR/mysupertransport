@@ -1384,6 +1384,27 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           onClose={() => setShowICAView(false)}
         />
       )}
+
+      {/* Unsaved changes nav guard */}
+      <AlertDialog open={!!navGuard} onOpenChange={(open) => { if (!open) setNavGuard(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes to <strong>{operatorName}</strong>. If you leave now, your changes will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setNavGuard(null)}>Stay & Save</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { navGuard?.action(); setNavGuard(null); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Leave Without Saving
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
