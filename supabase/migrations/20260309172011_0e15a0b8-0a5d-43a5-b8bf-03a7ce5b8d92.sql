@@ -1,0 +1,1 @@
+UPDATE public.onboarding_status SET pe_screening_result = 'clear' WHERE id = 'ee601a2b-b5c4-430a-b89d-f5cb73c8b87a'
