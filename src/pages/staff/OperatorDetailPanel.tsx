@@ -664,7 +664,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
         const completedCount = stages.filter(s => s.complete).length;
         const pct = Math.round((completedCount / stages.length) * 100);
         return (
-          <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
+          <div ref={progressBarRef} className="bg-white border border-border rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-foreground uppercase tracking-wide">Onboarding Progress</span>
               <span className="text-xs font-bold text-foreground">{completedCount} / {stages.length} stages complete</span>
