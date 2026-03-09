@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
-import { Send, MessageSquare, Search, User, Circle } from 'lucide-react';
+import { Send, MessageSquare, Search, User, Circle, CheckCheck } from 'lucide-react';
 import { sanitizeText } from '@/lib/sanitize';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -227,6 +227,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
 
     const channel = supabase
       .channel(`operator-messages-${user.id}`)
+      // New incoming messages
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -258,6 +259,20 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
         setThreads(prev =>
           prev.map(t => t.staffUserId === msg.sender_id ? { ...t, unreadCount: 0 } : t)
         );
+      })
+      // Read receipts: staff marked one of our messages as read
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: `sender_id=eq.${user.id}`,
+      }, (payload) => {
+        const updated = payload.new as Message;
+        if (updated.read_at) {
+          setMessages(prev =>
+            prev.map(m => m.id === updated.id ? { ...m, read_at: updated.read_at } : m)
+          );
+        }
       })
       .subscribe();
 
@@ -456,10 +471,17 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
                                 >
                                   {m.body}
                                 </div>
-                                <p className={`text-[10px] text-muted-foreground mt-1 ${isMe ? 'text-right' : 'text-left'}`}>
+                                <p className={`text-[10px] text-muted-foreground mt-1 flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
                                   {format(new Date(m.sent_at), 'h:mm a')}
-                                  {isMe && m.read_at && (
-                                    <span className="ml-1 text-primary/60">· Read</span>
+                                  {isMe && (
+                                    m.read_at ? (
+                                      <span className="flex items-center gap-0.5 text-primary/70 font-medium">
+                                        <CheckCheck className="h-3 w-3" />
+                                        <span>Seen</span>
+                                      </span>
+                                    ) : (
+                                      <CheckCheck className="h-3 w-3 text-muted-foreground/40" />
+                                    )
                                   )}
                                 </p>
                               </div>

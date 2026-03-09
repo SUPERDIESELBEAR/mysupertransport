@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
-import { Send, MessageSquare, Search, User, Circle } from 'lucide-react';
+import { Send, MessageSquare, Search, User, Circle, CheckCheck } from 'lucide-react';
 import { sanitizeText } from '@/lib/sanitize';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -219,6 +219,7 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
 
     const channel = supabase
       .channel(`thread-${selectedUserId}`)
+      // New incoming messages
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -226,11 +227,9 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
         filter: `recipient_id=eq.${user.id}`,
       }, async (payload) => {
         const msg = payload.new as Message;
-        // Ignore messages sent by myself (already added optimistically)
         if (msg.sender_id === user.id) return;
 
         if (msg.sender_id !== selectedUserId) {
-          // Update unread count for a different thread
           setThreads(prev =>
             prev.map(t =>
               t.operatorUserId === msg.sender_id
@@ -240,7 +239,6 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
           );
           return;
         }
-        // It's the open thread — append (dedup by id) and mark read
         setMessages(prev => {
           if (prev.some(m => m.id === msg.id)) return prev;
           return [...prev, msg];
@@ -249,6 +247,20 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
           .from('messages')
           .update({ read_at: new Date().toISOString() })
           .eq('id', msg.id);
+      })
+      // Read receipts: operator marked one of our messages as read
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: `sender_id=eq.${user.id}`,
+      }, (payload) => {
+        const updated = payload.new as Message;
+        if (updated.read_at) {
+          setMessages(prev =>
+            prev.map(m => m.id === updated.id ? { ...m, read_at: updated.read_at } : m)
+          );
+        }
       })
       .subscribe();
 
@@ -447,10 +459,17 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
                             >
                               {m.body}
                             </div>
-                            <p className={`text-[10px] text-muted-foreground mt-1 ${isMe ? 'text-right' : 'text-left'}`}>
+                            <p className={`text-[10px] text-muted-foreground mt-1 flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
                               {format(new Date(m.sent_at), 'h:mm a')}
-                              {isMe && m.read_at && (
-                                <span className="ml-1 text-primary/60">· Read</span>
+                              {isMe && (
+                                m.read_at ? (
+                                  <span className="flex items-center gap-0.5 text-primary/70 font-medium">
+                                    <CheckCheck className="h-3 w-3" />
+                                    <span>Seen</span>
+                                  </span>
+                                ) : (
+                                  <CheckCheck className="h-3 w-3 text-muted-foreground/40" />
+                                )
                               )}
                             </p>
                           </div>
