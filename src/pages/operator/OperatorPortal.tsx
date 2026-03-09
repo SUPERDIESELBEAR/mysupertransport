@@ -5,7 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
-  MessageSquare, BookOpen, HelpCircle, FileText,
+  MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone
 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
