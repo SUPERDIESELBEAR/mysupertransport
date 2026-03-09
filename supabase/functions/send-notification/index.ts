@@ -596,6 +596,49 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case 'new_message': {
+        const recipientUserId = payload.recipient_user_id;
+        if (!recipientUserId) break;
+
+        const senderName = payload.sender_name || 'Your coordinator';
+        const preview = payload.message_preview || 'You have a new message.';
+
+        // ── 1. In-app notification ────────────────────────────────────────
+        await supabaseAdmin.from('notifications').insert({
+          user_id: recipientUserId,
+          type: 'new_message',
+          title: `💬 New message from ${senderName}`,
+          body: preview.length > 120 ? preview.slice(0, 117) + '…' : preview,
+          channel: 'in_app',
+          link: '/dashboard?tab=messages',
+        });
+
+        // ── 2. Email the operator ─────────────────────────────────────────
+        try {
+          const { data: { user: recipientUser } } = await supabaseAdmin.auth.admin.getUserById(recipientUserId);
+          const recipientEmail = recipientUser?.email;
+          if (recipientEmail) {
+            const subject = `New message from ${senderName} — SUPERTRANSPORT`;
+            const html = buildEmail(
+              subject,
+              `💬 You have a new message`,
+              `<p>Hi,</p>
+              <p><strong>${senderName}</strong> from your onboarding team has sent you a new message:</p>
+              <blockquote style="border-left:4px solid #C9A84C;padding:12px 16px;margin:16px 0;background:#fdf9ee;border-radius:0 6px 6px 0;color:#444;font-style:italic;">
+                "${preview.length > 300 ? preview.slice(0, 297) + '…' : preview}"
+              </blockquote>
+              <p>Log in to your portal to read the full message and reply.</p>`,
+              { label: 'View Message', url: `${appUrl}/dashboard?tab=messages` }
+            );
+            await sendEmail(recipientEmail, subject, html, RESEND_API_KEY);
+          }
+        } catch (emailErr) {
+          console.warn('New message email to operator failed:', emailErr);
+        }
+
+        break;
+      }
+
       default:
         return new Response(JSON.stringify({ error: `Unknown notification type: ${type}` }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
