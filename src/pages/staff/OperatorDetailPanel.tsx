@@ -80,6 +80,15 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [currentDispatchStatus, setCurrentDispatchStatus] = useState<string | null>(null);
   type DocFileRow = { id: string; file_name: string | null; file_url: string | null; uploaded_at: string };
   const [docFiles, setDocFiles] = useState<Record<string, DocFileRow[]>>({});
+  const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
+
+  const toggleStage = (stageKey: string) => {
+    setCollapsedStages(prev => {
+      const next = new Set(prev);
+      next.has(stageKey) ? next.delete(stageKey) : next.add(stageKey);
+      return next;
+    });
+  };
 
   // Track the last-saved values of milestone fields to detect transitions
   const savedMilestones = useRef<{
