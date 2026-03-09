@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle, FileText, Target, Paperclip, Truck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,6 +23,9 @@ interface NotificationBellProps {
 export default function NotificationBell({ variant = 'light' }: NotificationBellProps) {
   const { session } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isOperatorPortal = location.pathname.startsWith('/operator');
+  const historyPath = isOperatorPortal ? '/operator?tab=notifications' : '/dashboard?view=notifications';
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -247,7 +250,7 @@ export default function NotificationBell({ variant = 'light' }: NotificationBell
               <button
                 onClick={() => {
                   setOpen(false);
-                  navigate('/dashboard?view=notifications');
+                  navigate(historyPath);
                 }}
                 className={`text-xs font-medium transition-colors ${isDark ? 'text-gold hover:text-gold-light' : 'text-gold hover:text-gold-light'}`}
               >

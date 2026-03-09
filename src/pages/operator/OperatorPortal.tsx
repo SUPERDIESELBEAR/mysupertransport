@@ -6,8 +6,9 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
-  LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone
+  LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell,
 } from 'lucide-react';
+import NotificationHistory from '@/components/management/NotificationHistory';
 import logo from '@/assets/supertransport-logo.png';
 import OperatorDocumentUpload from '@/components/operator/OperatorDocumentUpload';
 import { OperatorResourceLibrary, OperatorFAQ } from '@/components/operator/OperatorResourcesAndFAQ';
@@ -18,7 +19,7 @@ import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus
 import OperatorICASign from '@/components/operator/OperatorICASign';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica';
+type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications';
 
 interface Stage {
   number: number;
@@ -43,16 +44,16 @@ export default function OperatorPortal() {
   const location = useLocation();
   const [view, setView] = useState<OperatorView>(() => {
     const params = new URLSearchParams(window.location.search);
-    const tab = params.get('tab');
-    if (tab === 'ica') return 'ica';
+    const tab = params.get('tab') as OperatorView | null;
+    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications'].includes(tab)) return tab;
     return 'progress';
   });
 
   // React to in-app notification deep-links when navigate() is called while portal is already mounted
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const tab = params.get('tab');
-    if (tab === 'ica') setView('ica');
+    const tab = params.get('tab') as OperatorView | null;
+    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications'].includes(tab)) setView(tab);
   }, [location.search]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [operatorId, setOperatorId] = useState<string | null>(null);
@@ -296,6 +297,7 @@ export default function OperatorPortal() {
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
     { view: 'resources' as OperatorView, label: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> },
+    { view: 'notifications' as OperatorView, label: 'Notifications', icon: <Bell className="h-5 w-5" /> },
   ].filter(item => {
     if ('onlyOnboarded' in item && !isFullyOnboarded) return false;
     if ('showIf' in item && !item.showIf) return false;
@@ -573,6 +575,9 @@ export default function OperatorPortal() {
 
         {/* ── ICA SIGNING VIEW ── */}
         {view === 'ica' && <OperatorICASign />}
+
+        {/* ── NOTIFICATIONS VIEW ── */}
+        {view === 'notifications' && <NotificationHistory />}
       </div>
     </div>
     </>
