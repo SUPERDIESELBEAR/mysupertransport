@@ -588,9 +588,14 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           >
             <div className="bg-white/95 backdrop-blur border-b border-border shadow-sm py-2 px-4">
               <div className="flex items-center gap-3 max-w-4xl">
-                {/* Operator name */}
-                <span className="text-xs font-semibold text-foreground whitespace-nowrap shrink-0 hidden sm:block">
-                  {operatorName}
+                {/* Operator name + unit number */}
+                <span className="hidden sm:flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs font-semibold text-foreground whitespace-nowrap">{operatorName}</span>
+                  {status.unit_number && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border whitespace-nowrap">
+                      #{status.unit_number}
+                    </span>
+                  )}
                 </span>
                 <span className="text-muted-foreground hidden sm:block">·</span>
                 {/* Progress percentage — prominent */}
