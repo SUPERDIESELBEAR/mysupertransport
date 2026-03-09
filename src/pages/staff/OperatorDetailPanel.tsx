@@ -567,10 +567,25 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
         </div>
 
         {/* Stage 2 — Documents */}
-        <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <FileCheck className="h-4 w-4 text-gold" />
-            <h3 className="font-semibold text-foreground text-sm">Stage 2 — Documents</h3>
+        {(() => {
+          const allDocsComplete =
+            status.form_2290 === 'received' &&
+            status.truck_title === 'received' &&
+            status.truck_photos === 'received' &&
+            status.truck_inspection === 'received';
+          return (
+        <div className={`bg-white border rounded-xl p-5 shadow-sm ${allDocsComplete ? 'border-status-complete' : 'border-border'}`}>
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <div className="flex items-center gap-2">
+              <FileCheck className={`h-4 w-4 ${allDocsComplete ? 'text-status-complete' : 'text-gold'}`} />
+              <h3 className="font-semibold text-foreground text-sm">Stage 2 — Documents</h3>
+            </div>
+            {allDocsComplete && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                All Documents Complete
+              </span>
+            )}
           </div>
           <div className="space-y-3">
             <SelectField label="Registration Status" field="registration_status" options={regOptions} />
