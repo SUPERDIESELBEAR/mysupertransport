@@ -279,6 +279,29 @@ export default function ApplicationForm() {
       return;
     }
     setErrors({});
+    setDuplicateEmailBlocked(false);
+
+    // ── Duplicate email guard (runs async after step 1 validation passes) ──
+    if (step === 1) {
+      supabase
+        .from('applications')
+        .select('id')
+        .eq('email', formData.email.trim().toLowerCase())
+        .eq('is_draft', false)
+        .limit(1)
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            setDuplicateEmailBlocked(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            setDuplicateEmailBlocked(false);
+            setStep(s => s + 1);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }
+        });
+      return; // wait for async result
+    }
+
     setStep(s => s + 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
