@@ -446,7 +446,14 @@ export default function ManagementPortal() {
         )}
 
         {view === 'activity' && (
-          <ActivityLog />
+          <ActivityLog onNavigate={(action) => {
+            if (action.type === 'operator' && action.operatorId) {
+              setSelectedOperatorId(action.operatorId);
+              setView('operator-detail');
+            } else if (action.type === 'staff') {
+              setView('staff');
+            }
+          }} />
         )}
 
         {view === 'faq' && (
