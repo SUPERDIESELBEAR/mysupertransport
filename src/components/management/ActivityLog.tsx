@@ -8,21 +8,9 @@ import { cn } from '@/lib/utils';
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
   Milestone, RefreshCcw, Activity, ChevronDown, ChevronRight, Download, CalendarIcon, X,
-  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink
+  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone
 } from 'lucide-react';
-
-interface AuditEntry {
-  id: string;
-  actor_id: string | null;
-  actor_name: string | null;
-  action: string;
-  entity_type: string;
-  entity_id: string | null;
-  entity_label: string | null;
-  metadata: Record<string, unknown> | null;
-  created_at: string;
-}
-
+...
 const ACTION_CONFIG: Record<string, {
   label: string;
   icon: React.ReactNode;
@@ -65,6 +53,12 @@ const ACTION_CONFIG: Record<string, {
     color: 'text-blue-600',
     bg: 'bg-blue-50 border-blue-200',
   },
+  phone_updated: {
+    label: 'Phone Updated',
+    icon: <Phone className="h-4 w-4" />,
+    color: 'text-violet-600',
+    bg: 'bg-violet-50 border-violet-200',
+  },
 };
 
 const FILTER_OPTIONS = [
@@ -74,6 +68,7 @@ const FILTER_OPTIONS = [
   { value: 'role_added', label: 'Roles Granted' },
   { value: 'role_removed', label: 'Roles Revoked' },
   { value: 'operator_status_updated', label: 'Onboarding Updates' },
+  { value: 'phone_updated', label: 'Phone Updates' },
 ];
 
 const DATE_PRESETS = [
