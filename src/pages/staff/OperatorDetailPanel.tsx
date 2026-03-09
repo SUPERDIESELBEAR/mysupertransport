@@ -360,7 +360,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
     const { error } = await supabase
       .from('operators')
-      .update({ notes })
+      .update({ notes: sanitizeText(notes) })
       .eq('id', operatorId);
 
     if (statusId) {
