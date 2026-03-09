@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react';
-import { Upload, CheckCircle2, Loader2, X } from 'lucide-react';
+import { Upload, CheckCircle2, Loader2, X, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationFormData } from './types';
 import { FormField } from './FormField';
+import { validateFile } from '@/lib/validateFile';
 
 interface Props {
   data: ApplicationFormData;
@@ -26,8 +27,16 @@ function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,applic
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File) => {
-    setUploading(true);
     setUploadError('');
+
+    // ── Validate before uploading ─────────────────────────────────────────
+    const { valid, error: validationError } = validateFile(file);
+    if (!valid) {
+      setUploadError(validationError!);
+      return;
+    }
+
+    setUploading(true);
     try {
       const ext = file.name.split('.').pop();
       const path = `applications/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
@@ -75,7 +84,7 @@ function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,applic
         <div
           onDrop={handleDrop}
           onDragOver={e => e.preventDefault()}
-          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors hover:border-gold/50 hover:bg-gold/5 ${error ? 'border-destructive' : 'border-border'}`}
+          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors hover:border-gold/50 hover:bg-gold/5 ${(error || uploadError) ? 'border-destructive' : 'border-border'}`}
           onClick={() => inputRef.current?.click()}
         >
           {uploading ? (
@@ -87,7 +96,7 @@ function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,applic
             <div className="flex flex-col items-center gap-2">
               <Upload className="h-6 w-6 text-muted-foreground" />
               <p className="text-sm font-medium text-foreground">Tap to upload or drag & drop</p>
-              <p className="text-xs text-muted-foreground">JPG, PNG, or PDF</p>
+              <p className="text-xs text-muted-foreground">JPG, PNG, or PDF · Max 10 MB</p>
             </div>
           )}
           <input
@@ -110,6 +119,13 @@ export default function Step7Documents({ data, onChange, errors }: Props) {
         <h2 className="text-xl font-bold text-foreground mb-1">Document Uploads</h2>
         <p className="text-sm text-muted-foreground">
           Upload clear photos or scans of the following documents. JPG, PNG, and PDF files are accepted.
+        </p>
+      </div>
+
+      <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+        <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+        <p className="text-xs text-amber-800">
+          <strong>File requirements:</strong> PDF, JPG, or PNG only · Maximum 10 MB per file
         </p>
       </div>
 

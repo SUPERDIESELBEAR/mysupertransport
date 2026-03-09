@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Truck, Save, ChevronLeft, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react';
+import { Truck, Save, ChevronLeft, ChevronRight, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import FormProgress from '@/components/application/FormProgress';
 import Step1Personal from '@/components/application/Step1Personal';
@@ -108,6 +108,7 @@ export default function ApplicationForm() {
   const [submitted, setSubmitted] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [applicationId, setApplicationId] = useState<string | null>(null);
+  const [duplicateEmailBlocked, setDuplicateEmailBlocked] = useState(false);
 
   // ── Load draft on mount ─────────────────────────────────────────────────
   useEffect(() => {
@@ -186,6 +187,8 @@ export default function ApplicationForm() {
   const handleChange = useCallback((field: keyof ApplicationFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setErrors(prev => ({ ...prev, [field]: undefined }));
+    // Clear duplicate email block if user edits their email
+    if (field === 'email') setDuplicateEmailBlocked(false);
   }, []);
 
   // ── Save draft ──────────────────────────────────────────────────────────
@@ -278,6 +281,29 @@ export default function ApplicationForm() {
       return;
     }
     setErrors({});
+    setDuplicateEmailBlocked(false);
+
+    // ── Duplicate email guard (runs async after step 1 validation passes) ──
+    if (step === 1) {
+      supabase
+        .from('applications')
+        .select('id')
+        .eq('email', formData.email.trim().toLowerCase())
+        .eq('is_draft', false)
+        .limit(1)
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            setDuplicateEmailBlocked(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            setDuplicateEmailBlocked(false);
+            setStep(s => s + 1);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }
+        });
+      return; // wait for async result
+    }
+
     setStep(s => s + 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -360,6 +386,22 @@ export default function ApplicationForm() {
 
         {/* Progress */}
         <FormProgress currentStep={step} totalSteps={9} stepLabels={STEP_LABELS} />
+
+        {/* Duplicate email warning */}
+        {duplicateEmailBlocked && (
+          <div className="mb-5 flex items-start gap-3 p-4 bg-amber-50 border border-amber-300 rounded-xl">
+            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800">Application already submitted</p>
+              <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                An application has already been submitted for <strong>{formData.email}</strong>. If you believe this is an error or need to reapply, please contact us at{' '}
+                <a href="mailto:recruiting@supertransportllc.com" className="underline font-medium">
+                  recruiting@supertransportllc.com
+                </a>.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Error summary */}
         {Object.keys(errors).length > 0 && (

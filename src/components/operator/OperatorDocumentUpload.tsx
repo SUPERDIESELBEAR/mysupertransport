@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, FileText, CheckCircle2, Loader2, ExternalLink, AlertCircle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { validateFile } from '@/lib/validateFile';
 
 interface DocumentSlot {
   key: string;
@@ -55,6 +56,15 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
 
   const handleUpload = async (slot: DocumentSlot, file: File) => {
     if (!file) return;
+
+    // ── Validate before uploading ───────────────────────────────────────────
+    const allowDocs = slot.key === 'other';
+    const { valid, error: validationError } = validateFile(file, allowDocs);
+    if (!valid) {
+      toast({ title: 'Invalid file', description: validationError, variant: 'destructive' });
+      return;
+    }
+
     setUploading(slot.key);
 
     try {
@@ -220,7 +230,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       </div>
 
       <p className="text-xs text-muted-foreground text-center">
-        Accepted formats: PDF, JPG, PNG · Max 20MB per file
+        Accepted formats: PDF, JPG, PNG · Max 10 MB per file
       </p>
     </div>
   );
