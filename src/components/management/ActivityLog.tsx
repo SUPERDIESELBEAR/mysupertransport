@@ -384,20 +384,38 @@ export default function ActivityLog() {
         {/* Separator */}
         <div className="w-px h-5 bg-border mx-1" />
 
+        {/* Date preset shortcuts */}
+        {DATE_PRESETS.map(preset => (
+          <button
+            key={preset.label}
+            onClick={() => applyPreset(preset)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+              activePreset === preset.label
+                ? 'bg-gold/20 text-foreground border-gold/50'
+                : 'bg-white text-muted-foreground border-border hover:border-gold/50 hover:text-foreground'
+            }`}
+          >
+            {preset.label}
+          </button>
+        ))}
+
+        {/* Separator */}
+        <div className="w-px h-5 bg-border mx-1" />
+
         {/* Date range pickers */}
         <DatePickerButton
           label="From date"
           date={dateFrom}
-          onSelect={setDateFrom}
-          onClear={() => setDateFrom(undefined)}
+          onSelect={(d) => { setDateFrom(d); setActivePreset(null); }}
+          onClear={() => { setDateFrom(undefined); setActivePreset(null); }}
           disabled={dateTo ? (d) => d > dateTo : undefined}
         />
         <span className="text-xs text-muted-foreground">–</span>
         <DatePickerButton
           label="To date"
           date={dateTo}
-          onSelect={setDateTo}
-          onClear={() => setDateTo(undefined)}
+          onSelect={(d) => { setDateTo(d); setActivePreset(null); }}
+          onClear={() => { setDateTo(undefined); setActivePreset(null); }}
           disabled={dateFrom ? (d) => d < dateFrom : undefined}
         />
 
