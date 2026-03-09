@@ -38,6 +38,8 @@ export default function ManagementPortal() {
   const { session } = useAuth();
   const [view, setView] = useState<ManagementView>('overview');
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
+  const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
+  const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const [applications, setApplications] = useState<FullApplication[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
   const [searchQuery, setSearchQuery] = useState('');
