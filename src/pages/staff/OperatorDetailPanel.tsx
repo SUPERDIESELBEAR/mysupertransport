@@ -6,12 +6,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
 import ICAViewModal from '@/components/ica/ICAViewModal';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -77,6 +78,9 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [statusId, setStatusId] = useState<string | null>(null);
   const [dispatchHistory, setDispatchHistory] = useState<DispatchHistoryEntry[]>([]);
   const [currentDispatchStatus, setCurrentDispatchStatus] = useState<string | null>(null);
+  type DocFileRow = { id: string; file_name: string | null; file_url: string | null; uploaded_at: string };
+  const [docFiles, setDocFiles] = useState<Record<string, DocFileRow[]>>({});
+
   // Track the last-saved values of milestone fields to detect transitions
   const savedMilestones = useRef<{
     ica_status: string;
@@ -122,15 +126,30 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const fetchOperatorDetail = async () => {
     setLoading(true);
 
-    // Step 1: fetch operator core data
-    const { data: op } = await supabase
-      .from('operators')
-      .select(`id, user_id, notes, onboarding_status (*), applications (email, first_name, last_name, phone, address_street, address_city, address_state, address_zip)`)
-      .eq('id', operatorId)
-      .single();
+    // Fetch operator core data and doc files in parallel
+    const [{ data: op }, { data: opDocs }] = await Promise.all([
+      supabase
+        .from('operators')
+        .select(`id, user_id, notes, onboarding_status (*), applications (email, first_name, last_name, phone, address_street, address_city, address_state, address_zip)`)
+        .eq('id', operatorId)
+        .single(),
+      supabase
+        .from('operator_documents')
+        .select('id, document_type, file_name, file_url, uploaded_at')
+        .eq('operator_id', operatorId)
+        .order('uploaded_at', { ascending: false }),
+    ]);
+
+    // Group doc files by document_type
+    const grouped: Record<string, DocFileRow[]> = {};
+    for (const doc of (opDocs ?? []) as any[]) {
+      if (!grouped[doc.document_type]) grouped[doc.document_type] = [];
+      grouped[doc.document_type].push(doc);
+    }
+    setDocFiles(grouped);
 
     if (op) {
-      // Step 2: fetch profile separately to avoid FK hint issues
+      // Fetch profile separately to avoid FK hint issues
       const { data: profile } = await supabase
         .from('profiles')
         .select('first_name, last_name')
@@ -148,8 +167,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       const os = (op as any).onboarding_status ?? null;
       if (os) {
         setStatus(os);
-      setStatusId(os.id);
-        // Snapshot current milestone values as baseline
+        setStatusId(os.id);
         savedMilestones.current = {
           ica_status: os.ica_status ?? '',
           mvr_ch_approval: os.mvr_ch_approval ?? '',
@@ -566,9 +584,54 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
               const isRequesting = requestingDoc === field;
               const alreadyRequested = current === 'requested';
               const received = current === 'received';
+              const files = docFiles[field as string] ?? [];
+              const fileCount = files.length;
               return (
                 <div key={field as string} className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
+                    {fileCount > 0 && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="flex items-center gap-1 text-[11px] font-medium text-info hover:text-info/80 transition-colors cursor-pointer leading-none">
+                            <Paperclip className="h-3 w-3" />
+                            {fileCount} {fileCount === 1 ? 'file' : 'files'} uploaded
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent side="top" align="start" className="w-72 p-0">
+                          <div className="p-3 border-b border-border">
+                            <p className="text-xs font-semibold text-foreground">{label} — Uploaded Files</p>
+                          </div>
+                          <ul className="divide-y divide-border max-h-48 overflow-y-auto">
+                            {files.map(f => (
+                              <li key={f.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium text-foreground truncate max-w-[160px]">
+                                    {f.file_name ?? 'Unnamed file'}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {format(new Date(f.uploaded_at), 'MMM d, yyyy')}
+                                  </p>
+                                </div>
+                                {f.file_url ? (
+                                  <a
+                                    href={f.file_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-[11px] text-gold hover:text-gold-light font-medium shrink-0"
+                                  >
+                                    View <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                ) : (
+                                  <span className="text-[11px] text-muted-foreground shrink-0">No URL</span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
                   <div className="flex gap-1.5">
                     <div className="flex-1">
                       <Select value={current} onValueChange={v => updateStatus(field, v)}>
