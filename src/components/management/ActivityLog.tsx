@@ -71,6 +71,12 @@ const ACTION_CONFIG: Record<string, {
     color: 'text-violet-600',
     bg: 'bg-violet-50 border-violet-200',
   },
+  document_uploaded: {
+    label: 'Document Uploaded',
+    icon: <Upload className="h-4 w-4" />,
+    color: 'text-teal-600',
+    bg: 'bg-teal-50 border-teal-200',
+  },
 };
 
 const FILTER_OPTIONS = [
@@ -81,6 +87,7 @@ const FILTER_OPTIONS = [
   { value: 'role_removed', label: 'Roles Revoked' },
   { value: 'operator_status_updated', label: 'Onboarding Updates' },
   { value: 'phone_updated', label: 'Phone Updates' },
+  { value: 'document_uploaded', label: 'Document Uploads' },
 ];
 
 const DATE_PRESETS = [
