@@ -37,7 +37,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function ManagementPortal() {
   const { toast } = useToast();
   const { session } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const v = searchParams.get('view') as ManagementView | null;
     return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity'].includes(v)) ? v : 'overview';
