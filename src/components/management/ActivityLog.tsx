@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
   Milestone, RefreshCcw, Activity, ChevronDown, ChevronRight, Download, CalendarIcon, X,
-  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload
+  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus
 } from 'lucide-react';
 
 interface AuditEntry {
@@ -77,6 +77,12 @@ const ACTION_CONFIG: Record<string, {
     color: 'text-teal-600',
     bg: 'bg-teal-50 border-teal-200',
   },
+  staff_invited: {
+    label: 'Staff Invited',
+    icon: <MailPlus className="h-4 w-4" />,
+    color: 'text-indigo-600',
+    bg: 'bg-indigo-50 border-indigo-200',
+  },
 };
 
 const FILTER_OPTIONS = [
@@ -88,6 +94,7 @@ const FILTER_OPTIONS = [
   { value: 'operator_status_updated', label: 'Onboarding Updates' },
   { value: 'phone_updated', label: 'Phone Updates' },
   { value: 'document_uploaded', label: 'Document Uploads' },
+  { value: 'staff_invited', label: 'Staff Invitations' },
 ];
 
 const DATE_PRESETS = [
