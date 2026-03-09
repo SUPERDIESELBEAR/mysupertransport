@@ -957,6 +957,10 @@ export type Database = {
         | "inspection_report"
         | "ica_summary"
         | "other"
+        | "form_2290"
+        | "truck_title"
+        | "truck_photos"
+        | "truck_inspection"
       pandadoc_status: "sent" | "viewed" | "completed"
       registration_type: "own_registration" | "needs_mo_reg"
       resource_category:
@@ -1129,6 +1133,10 @@ export const Constants = {
         "inspection_report",
         "ica_summary",
         "other",
+        "form_2290",
+        "truck_title",
+        "truck_photos",
+        "truck_inspection",
       ],
       pandadoc_status: ["sent", "viewed", "completed"],
       registration_type: ["own_registration", "needs_mo_reg"],
