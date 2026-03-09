@@ -221,6 +221,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         setStatus(os);
         setStatusId(os.id);
         savedSnapshot.current = { status: os, notes: (op as any).notes ?? '' };
+        savedMilestones.current = {
           ica_status: os.ica_status ?? '',
           mvr_ch_approval: os.mvr_ch_approval ?? '',
           pe_screening_result: os.pe_screening_result ?? '',
