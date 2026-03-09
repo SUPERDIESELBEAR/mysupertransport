@@ -393,19 +393,32 @@ export default function ActivityLog() {
 
       {/* Filter bar */}
       <div className="flex flex-wrap gap-2 items-center">
-        {FILTER_OPTIONS.map(opt => (
-          <button
-            key={opt.value}
-            onClick={() => setFilter(opt.value)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-              filter === opt.value
-                ? 'bg-surface-dark text-white border-surface-dark'
-                : 'bg-white text-muted-foreground border-border hover:border-gold/50 hover:text-foreground'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
+        {FILTER_OPTIONS.map(opt => {
+          const count = counts[opt.value];
+          const isActive = filter === opt.value;
+          return (
+            <button
+              key={opt.value}
+              onClick={() => setFilter(opt.value)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                isActive
+                  ? 'bg-surface-dark text-white border-surface-dark'
+                  : 'bg-white text-muted-foreground border-border hover:border-gold/50 hover:text-foreground'
+              }`}
+            >
+              {opt.label}
+              {count !== undefined && (
+                <span className={`inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] rounded-full px-1 text-[10px] font-semibold leading-none ${
+                  isActive
+                    ? 'bg-white/20 text-white'
+                    : 'bg-muted text-muted-foreground'
+                }`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
 
         {/* Separator */}
         <div className="w-px h-5 bg-border mx-1" />
