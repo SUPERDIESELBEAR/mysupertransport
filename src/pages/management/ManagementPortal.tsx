@@ -56,6 +56,18 @@ export default function ManagementPortal() {
   const [metrics, setMetrics] = useState({ pending: 0, onboarding: 0, active: 0, alerts: 0 });
   const [truckDownCount, setTruckDownCount] = useState(0);
 
+  // Sync view/statusFilter when URL params change (e.g. notification deep-links)
+  useEffect(() => {
+    const v = searchParams.get('view') as ManagementView | null;
+    const s = searchParams.get('status') as StatusFilter | null;
+    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity'].includes(v)) {
+      setView(v);
+    }
+    if (s && ['pending','approved','denied','all'].includes(s)) {
+      setStatusFilter(s);
+    }
+  }, [searchParams]);
+
 
   const fetchTruckDownCount = useCallback(async () => {
     const { count } = await supabase
