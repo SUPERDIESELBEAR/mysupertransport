@@ -728,7 +728,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                           {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
                         </p>
                         {op.unread_count > 0 && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-bold leading-none shrink-0">
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-bold leading-none shrink-0 md:hidden">
                             <MessageSquare className="h-2.5 w-2.5" />
                             {op.unread_count}
                           </span>
