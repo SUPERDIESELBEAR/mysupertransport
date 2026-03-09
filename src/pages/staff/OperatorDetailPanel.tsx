@@ -600,6 +600,16 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
                 >
                   {pct}%
                 </span>
+                {/* Dispatch status badge */}
+                {currentDispatchStatus && currentDispatchStatus !== 'not_dispatched' && (() => {
+                  const cfg = DISPATCH_STATUS_CONFIG[currentDispatchStatus];
+                  return cfg ? (
+                    <span className={`hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cfg.badgeClass} whitespace-nowrap shrink-0`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotClass} shrink-0`} />
+                      {cfg.emoji} {cfg.label}
+                    </span>
+                  ) : null;
+                })()}
                 <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
