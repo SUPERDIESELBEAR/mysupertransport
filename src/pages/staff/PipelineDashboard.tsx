@@ -32,6 +32,7 @@ interface OperatorRow {
   ica_status: string;
   insurance_added_date: string | null;
   dispatch_status: DispatchStatus | null;
+  doc_count: number;
 }
 
 interface StaffOption {
