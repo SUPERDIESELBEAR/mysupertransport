@@ -203,8 +203,8 @@ Deno.serve(async (req) => {
     const payload: NotificationPayload = await req.json();
     const { type } = payload;
 
-    // ── Helper: get all management/staff emails ──────────────────────────
-    const getManagementEmails = async (): Promise<string[]> => {
+    // ── Helper: get all management/staff emails filtered by email pref ──
+    const getManagementEmails = async (eventType: string): Promise<string[]> => {
       const { data: mgmtRoles } = await supabaseAdmin
         .from('user_roles')
         .select('user_id')
@@ -212,9 +212,31 @@ Deno.serve(async (req) => {
 
       if (!mgmtRoles?.length) return [];
 
+      // Filter out users who have explicitly disabled email for this event type
       const userIds = mgmtRoles.map(r => r.user_id);
+      const { data: optedOut } = await supabaseAdmin
+        .from('notification_preferences')
+        .select('user_id')
+        .in('user_id', userIds)
+        .eq('event_type', eventType)
+        .eq('email_enabled', false);
+      const optedOutIds = new Set((optedOut ?? []).map(r => r.user_id));
+      const filteredIds = userIds.filter(id => !optedOutIds.has(id));
+
+      if (!filteredIds.length) return [];
       const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-      return users?.filter(u => userIds.includes(u.id) && u.email).map(u => u.email!) ?? [];
+      return users?.filter(u => filteredIds.includes(u.id) && u.email).map(u => u.email!) ?? [];
+    };
+
+    // ── Helper: check if a specific user has email enabled for an event ──
+    const userEmailEnabled = async (userId: string, eventType: string): Promise<boolean> => {
+      const { data } = await supabaseAdmin
+        .from('notification_preferences')
+        .select('email_enabled')
+        .eq('user_id', userId)
+        .eq('event_type', eventType)
+        .maybeSingle();
+      return data?.email_enabled ?? true; // default enabled
     };
 
     // ── Helper: get assigned staff email for an operator ─────────────────
