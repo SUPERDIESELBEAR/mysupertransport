@@ -470,6 +470,44 @@ export default function OperatorPortal() {
           </div>
         )}
 
+        {/* ── DOCUMENTS REQUESTED BANNER ── */}
+        {(() => {
+          const requestedDocs = [
+            onboardingStatus.form_2290 === 'requested' && 'Form 2290',
+            onboardingStatus.truck_title === 'requested' && 'Truck Title',
+            onboardingStatus.truck_photos === 'requested' && 'Truck Photos',
+            onboardingStatus.truck_inspection === 'requested' && 'Truck Inspection',
+          ].filter(Boolean) as string[];
+          if (requestedDocs.length === 0 || view === 'documents') return null;
+          return (
+            <div className="bg-blue-50 border border-blue-300 rounded-xl px-4 py-4 animate-fade-in">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 shrink-0">
+                    <Upload className="h-5 w-5 text-blue-600 animate-pulse" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-blue-700 leading-tight">
+                      📎 Documents Requested — Upload Required
+                    </p>
+                    <p className="text-xs text-blue-600/80 mt-0.5 leading-snug">
+                      Your coordinator is waiting for:{' '}
+                      <span className="font-semibold">{requestedDocs.join(', ')}</span>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setView('documents')}
+                  className="shrink-0 flex items-center gap-1.5 bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Upload Documents
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── PROGRESS VIEW ── */}
         {view === 'progress' && (
           <OperatorStatusPage
