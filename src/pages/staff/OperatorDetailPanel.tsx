@@ -149,6 +149,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     fetchDispatchHistory();
   }, [operatorId]);
 
+  // Notify parent of unsaved changes state
+  useEffect(() => {
+    const hasChanges = savedSnapshot.current !== null && (
+      JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
+      savedSnapshot.current.notes !== notes
+    );
+    onUnsavedChangesChange?.(hasChanges);
+  }, [status, notes]);
+
   // Cmd+S / Ctrl+S keyboard shortcut to save
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
