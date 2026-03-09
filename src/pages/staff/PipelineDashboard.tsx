@@ -34,6 +34,7 @@ interface OperatorRow {
   insurance_added_date: string | null;
   dispatch_status: DispatchStatus | null;
   doc_count: number;
+  unread_count: number;
   // Progress fields
   form_2290: string;
   truck_title: string;
