@@ -62,6 +62,24 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Notify all management users ────────────────────────────────────
+    const { data: mgmtRoles } = await supabaseAdmin
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'management');
+
+    if (mgmtRoles && mgmtRoles.length > 0) {
+      const notifRows = mgmtRoles.map(({ user_id }) => ({
+        user_id,
+        title: 'Application Denied',
+        body: `${app ? (`${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || app.email) : 'An applicant'}'s application has been denied.`,
+        type: 'application_denied',
+        channel: 'in_app',
+        link: '/staff/applications?status=denied',
+      }));
+      await supabaseAdmin.from('notifications').insert(notifRows);
+    }
+
     // ── Audit log ──────────────────────────────────────────────────────
     if (app) {
       const callerProfile = await supabaseAdmin
