@@ -756,8 +756,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         <span className="hidden sm:inline">Save</span>
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs">
-                      Save Changes
+                    <TooltipContent side="bottom" className="text-xs flex items-center gap-1.5">
+                      <span className="text-muted-foreground">Save Changes</span>
+                      <kbd className="px-1 py-0.5 rounded border border-border bg-muted text-foreground font-mono text-[10px] leading-none">
+                        {navigator.platform.startsWith('Mac') ? '⌘S' : 'Ctrl+S'}
+                      </kbd>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
