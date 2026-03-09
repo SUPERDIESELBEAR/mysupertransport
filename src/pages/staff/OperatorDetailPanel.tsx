@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -610,22 +611,32 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
                     }}
                   />
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  {stages.map((s, i) => (
-                    <button
-                      key={s.key}
-                      onClick={() => scrollToStage(s.key)}
-                      title={`Jump to ${s.label}`}
-                      className={`h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-bold border-2 transition-all hover:scale-110 ${
-                        s.complete
-                          ? 'bg-status-complete border-status-complete text-white'
-                          : 'bg-background border-border text-muted-foreground hover:border-gold hover:text-gold'
-                      }`}
-                    >
-                      {s.complete ? '✓' : i + 1}
-                    </button>
-                  ))}
-                </div>
+                <TooltipProvider delayDuration={150}>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {stages.map((s, i) => (
+                      <Tooltip key={s.key}>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => scrollToStage(s.key)}
+                            className={`h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-bold border-2 transition-all hover:scale-110 ${
+                              s.complete
+                                ? 'bg-status-complete border-status-complete text-white'
+                                : 'bg-background border-border text-muted-foreground hover:border-gold hover:text-gold'
+                            }`}
+                          >
+                            {s.complete ? '✓' : i + 1}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">
+                          <span className="font-semibold">{s.label}</span>
+                          <span className={`ml-1.5 ${s.complete ? 'text-status-complete' : 'text-muted-foreground'}`}>
+                            — {s.complete ? '✓ Complete' : 'Pending'}
+                          </span>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </TooltipProvider>
               </div>
             </div>
           </div>
