@@ -85,6 +85,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
+  const savedSnapshot = useRef<{ status: Partial<OnboardingStatus>; notes: string } | null>(null);
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
@@ -219,6 +220,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       if (os) {
         setStatus(os);
         setStatusId(os.id);
+        savedSnapshot.current = { status: os, notes: (op as any).notes ?? '' };
         savedMilestones.current = {
           ica_status: os.ica_status ?? '',
           mvr_ch_approval: os.mvr_ch_approval ?? '',
@@ -451,6 +453,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       }
     }
 
+    savedSnapshot.current = { status, notes };
     setSaving(false);
   };
 
@@ -594,6 +597,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         ];
         const completedCount = stages.filter(s => s.complete).length;
         const pct = Math.round((completedCount / stages.length) * 100);
+        const hasUnsavedChanges = savedSnapshot.current !== null && (
+          JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
+          savedSnapshot.current.notes !== notes
+        );
         return (
           <div
             className={`sticky top-0 z-30 -mx-6 px-6 transition-all duration-300 ${
@@ -603,6 +610,16 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             <div className="bg-white/95 backdrop-blur border-b border-border shadow-sm py-2 px-4">
               <div className="flex items-center gap-3 max-w-4xl">
                 {/* Operator name + unit number */}
+                {/* Unsaved changes indicator */}
+                {hasUnsavedChanges && (
+                  <span
+                    className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap border"
+                    style={{ color: 'hsl(35 90% 40%)', background: 'hsl(35 90% 97%)', borderColor: 'hsl(35 80% 75%)' }}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: 'hsl(35 90% 45%)' }} />
+                    Unsaved
+                  </span>
+                )}
                 <span className="hidden sm:flex items-center gap-1.5 shrink-0">
                   <span className="text-xs font-semibold text-foreground whitespace-nowrap">{operatorName}</span>
                   {status.unit_number && (
