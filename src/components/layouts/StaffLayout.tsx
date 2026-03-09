@@ -170,7 +170,7 @@ export default function StaffLayout({ children, navItems, currentPath, onNavigat
           </button>
           <div className="flex-1" />
           {headerActions}
-          <NotificationBell notificationsPath="/staff?tab=notifications" />
+          <NotificationBell notificationsPath={notificationsPath} />
         </header>
 
         {/* Page content */}
