@@ -197,7 +197,9 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
   const sendMessage = async () => {
     if (!user?.id || !selectedUserId || !newMessage.trim()) return;
     setSending(true);
-    const body = newMessage.trim();
+    // Sanitize before storing to prevent XSS
+    const body = sanitizeText(newMessage.trim());
+    if (!body) { setSending(false); return; }
     setNewMessage('');
 
     const { data: inserted } = await supabase
