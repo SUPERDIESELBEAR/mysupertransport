@@ -261,6 +261,7 @@ export default function ActivityLog() {
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [counts, setCounts] = useState<Record<string, number>>({});
 
   const fetchLog = useCallback(async (
     pageNum = 0,
