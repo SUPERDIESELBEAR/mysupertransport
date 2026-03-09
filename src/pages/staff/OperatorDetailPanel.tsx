@@ -654,21 +654,21 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
             status.truck_title === 'received' &&
             status.truck_photos === 'received' &&
             status.truck_inspection === 'received';
+          const s2Collapsed = collapsedStages.has('stage2');
           return (
-        <div className={`bg-white border rounded-xl p-5 shadow-sm ${allDocsComplete ? 'border-status-complete' : 'border-border'}`}>
-          <div className="flex items-center justify-between gap-2 mb-4">
+        <div className={`bg-white border rounded-xl shadow-sm transition-colors ${allDocsComplete ? 'border-status-complete' : 'border-border'}`}>
+          <button onClick={() => toggleStage('stage2')} className="w-full flex items-center justify-between px-5 py-4 text-left">
             <div className="flex items-center gap-2">
               <FileCheck className={`h-4 w-4 ${allDocsComplete ? 'text-status-complete' : 'text-gold'}`} />
               <h3 className="font-semibold text-foreground text-sm">Stage 2 — Documents</h3>
             </div>
-            {allDocsComplete && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                All Documents Complete
-              </span>
-            )}
-          </div>
-          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              {allDocsComplete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />All Docs Complete</span>}
+              {s2Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+            </div>
+          </button>
+          {!s2Collapsed && (
+          <div className="px-5 pb-5 space-y-3">
             <SelectField label="Registration Status" field="registration_status" options={regOptions} />
             {/* Doc fields with inline Request buttons */}
             {([
@@ -814,6 +814,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
               );
             })}
           </div>
+          )}
         </div>
           );
         })()}
@@ -994,37 +995,51 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
         })()}
 
         {/* Stage 6 — Insurance */}
-        <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <Shield className="h-4 w-4 text-gold" />
-            <h3 className="font-semibold text-foreground text-sm">Stage 6 — Insurance</h3>
-          </div>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Added to Insurance Date</Label>
-              <Input
-                type="date"
-                value={status.insurance_added_date ?? ''}
-                onChange={e => updateStatus('insurance_added_date', e.target.value || null)}
-                className="h-9 text-sm"
-              />
+        {(() => {
+          const s6Complete = !!status.insurance_added_date;
+          const s6Collapsed = collapsedStages.has('stage6');
+          return (
+            <div className={`bg-white border rounded-xl shadow-sm transition-colors ${s6Complete ? 'border-status-complete' : 'border-border'}`}>
+              <button onClick={() => toggleStage('stage6')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+                <div className="flex items-center gap-2">
+                  <Shield className={`h-4 w-4 ${s6Complete ? 'text-status-complete' : 'text-gold'}`} />
+                  <h3 className="font-semibold text-foreground text-sm">Stage 6 — Insurance</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {s6Complete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Fully Onboarded</span>}
+                  {s6Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+              {!s6Collapsed && (
+                <div className="px-5 pb-5 space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Added to Insurance Date</Label>
+                    <Input
+                      type="date"
+                      value={status.insurance_added_date ?? ''}
+                      onChange={e => updateStatus('insurance_added_date', e.target.value || null)}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assigned Unit Number</Label>
+                    <Input
+                      value={status.unit_number ?? ''}
+                      onChange={e => updateStatus('unit_number', e.target.value || null)}
+                      placeholder="e.g. ST-042"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  {s6Complete && (
+                    <Badge className="status-complete border text-xs w-full justify-center">
+                      ✓ FULLY ONBOARDED
+                    </Badge>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assigned Unit Number</Label>
-              <Input
-                value={status.unit_number ?? ''}
-                onChange={e => updateStatus('unit_number', e.target.value || null)}
-                placeholder="e.g. ST-042"
-                className="h-9 text-sm"
-              />
-            </div>
-            {status.insurance_added_date && (
-              <Badge className="status-complete border text-xs w-full justify-center">
-                ✓ FULLY ONBOARDED
-              </Badge>
-            )}
-          </div>
-        </div>
+          );
+        })()}
       </div>
 
       {/* Dispatch Status History */}
