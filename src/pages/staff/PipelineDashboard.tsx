@@ -715,7 +715,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={10} className="text-center py-12 text-muted-foreground">
                     {operators.length === 0 ? 'No operators in the pipeline yet.' : 'No operators match your filters.'}
                   </td>
                 </tr>
@@ -723,9 +723,17 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                 filtered.map(op => (
                   <tr key={op.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-foreground">
-                        {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-foreground">
+                          {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
+                        </p>
+                        {op.unread_count > 0 && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-bold leading-none shrink-0">
+                            <MessageSquare className="h-2.5 w-2.5" />
+                            {op.unread_count}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{op.phone ?? '—'}</td>
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
