@@ -584,6 +584,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
   const isAlert = status.mvr_ch_approval === 'denied' || status.pe_screening_result === 'non_clear';
 
+  const hasUnsavedChanges = savedSnapshot.current !== null && (
+    JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
+    savedSnapshot.current.notes !== notes
+  );
+
+  const guardedNavigate = (action: () => void) => {
+    if (hasUnsavedChanges) {
+      setNavGuard({ action });
+    } else {
+      action();
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl">
 
