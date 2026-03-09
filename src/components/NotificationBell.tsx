@@ -235,13 +235,26 @@ export default function NotificationBell({ variant = 'light' }: NotificationBell
           </div>
 
           {/* Footer */}
-          {notifications.length > 0 && (
-            <div className={footerClass}>
-              <p className={`text-[10px] text-center ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`}>
-                Showing last {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
-              </p>
+          <div className={footerClass}>
+            <div className="flex items-center justify-between">
+              {notifications.length > 0 ? (
+                <p className={`text-[10px] ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`}>
+                  Showing last {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
+                </p>
+              ) : (
+                <span />
+              )}
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  navigate('/dashboard?view=notifications');
+                }}
+                className={`text-xs font-medium transition-colors ${isDark ? 'text-gold hover:text-gold-light' : 'text-gold hover:text-gold-light'}`}
+              >
+                View all →
+              </button>
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>
