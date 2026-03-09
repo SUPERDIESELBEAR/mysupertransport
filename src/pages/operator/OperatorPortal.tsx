@@ -344,6 +344,13 @@ export default function OperatorPortal() {
           </nav>
 
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setNotifPrefOpen(true)}
+              title="Notification preferences"
+              className="text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors"
+            >
+              <SlidersHorizontal className="h-5 w-5" />
+            </button>
             <NotificationBell variant="dark" />
             <button
               onClick={signOut}
