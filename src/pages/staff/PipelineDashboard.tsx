@@ -54,6 +54,17 @@ interface PipelineDashboardProps {
   onOpenOperator: (operatorId: string) => void;
 }
 
+function computeProgress(os: Record<string, string | boolean | null>): number {
+  let done = 0;
+  if (os.mvr_ch_approval === 'approved') done++;
+  if (os.form_2290 === 'received' && os.truck_title === 'received' && os.truck_photos === 'received' && os.truck_inspection === 'received') done++;
+  if (os.ica_status === 'complete') done++;
+  if (os.mo_reg_received === 'yes') done++;
+  if (os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes') done++;
+  if (os.insurance_added_date) done++;
+  return Math.round((done / 6) * 100);
+}
+
 function computeStage(os: Record<string, string | boolean | null>): string {
   if (os.insurance_added_date) return 'Stage 6 — Insurance';
   if (os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes') return 'Stage 5 — Equipment';
