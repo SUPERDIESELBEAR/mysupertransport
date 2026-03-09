@@ -115,6 +115,7 @@ const FILTER_OPTIONS = [
   { value: 'staff_invited', label: 'Staff Invitations' },
   { value: 'operator_invited', label: 'Operator Invitations' },
   { value: 'ica_issued', label: 'ICA Issued' },
+  { value: 'ica_signed', label: 'ICA Signed' },
 ];
 
 const DATE_PRESETS = [
