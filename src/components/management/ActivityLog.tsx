@@ -239,21 +239,33 @@ export default function ActivityLog() {
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Activity Log</h1>
           <p className="text-sm text-muted-foreground mt-1">Audit trail of all significant actions across the platform</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => { setPage(0); setEntries([]); fetchLog(0, filter); }}
-          disabled={loading}
-          className="gap-1.5"
-        >
-          <RefreshCcw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            disabled={exporting || loading || entries.length === 0}
+            className="gap-1.5"
+          >
+            <Download className={`h-3.5 w-3.5 ${exporting ? 'animate-bounce' : ''}`} />
+            {exporting ? 'Exporting…' : 'Export CSV'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setPage(0); setEntries([]); fetchLog(0, filter); }}
+            disabled={loading}
+            className="gap-1.5"
+          >
+            <RefreshCcw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Filter bar */}
