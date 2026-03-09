@@ -441,6 +441,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
 
   // Track which doc fields are currently being "requested" (for button loading state)
   const [requestingDoc, setRequestingDoc] = useState<string | null>(null);
+  const [markingReceived, setMarkingReceived] = useState<string | null>(null);
 
   const handleRequestDoc = async (field: keyof OnboardingStatus, label: string) => {
     if (!statusId) return;
