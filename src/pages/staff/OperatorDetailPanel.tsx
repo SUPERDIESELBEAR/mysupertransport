@@ -932,30 +932,37 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
         })()}
 
         {/* Stage 4 — Missouri Registration (conditional) */}
-        {status.registration_status === 'needs_mo_reg' && (
-          <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <FileCheck className="h-4 w-4 text-gold" />
-              <h3 className="font-semibold text-foreground text-sm">Stage 4 — Missouri Registration</h3>
+        {status.registration_status === 'needs_mo_reg' && (() => {
+          const s4Complete = status.mo_reg_received === 'yes';
+          const s4Collapsed = collapsedStages.has('stage4');
+          return (
+            <div className={`bg-white border rounded-xl shadow-sm transition-colors ${s4Complete ? 'border-status-complete' : 'border-border'}`}>
+              <button onClick={() => toggleStage('stage4')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+                <div className="flex items-center gap-2">
+                  <FileCheck className={`h-4 w-4 ${s4Complete ? 'text-status-complete' : 'text-gold'}`} />
+                  <h3 className="font-semibold text-foreground text-sm">Stage 4 — Missouri Registration</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {s4Complete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>}
+                  {s4Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+              {!s4Collapsed && (
+                <div className="px-5 pb-5 space-y-3">
+                  <div className="p-3 rounded-lg bg-status-progress/10 border border-status-progress/30 text-xs text-status-progress">
+                    ⚠ Missouri requires Title + Form 2290 + signed ICA submitted together. Partial submissions are not accepted. ICA must be Complete before submitting.
+                  </div>
+                  <SelectField label="MO Docs Submitted" field="mo_docs_submitted" options={moDocsOptions} />
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Expected Approval Date</Label>
+                    <Input type="date" value={status.mo_expected_approval_date ?? ''} onChange={e => updateStatus('mo_expected_approval_date', e.target.value || null)} className="h-9 text-sm" />
+                  </div>
+                  <SelectField label="MO Registration Received" field="mo_reg_received" options={moRegOptions} />
+                </div>
+              )}
             </div>
-            <div className="p-3 rounded-lg bg-status-progress/10 border border-status-progress/30 text-xs text-status-progress mb-3">
-              ⚠ Missouri requires Title + Form 2290 + signed ICA submitted together. Partial submissions are not accepted. ICA must be Complete before submitting.
-            </div>
-            <div className="space-y-3">
-              <SelectField label="MO Docs Submitted" field="mo_docs_submitted" options={moDocsOptions} />
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Expected Approval Date</Label>
-                <Input
-                  type="date"
-                  value={status.mo_expected_approval_date ?? ''}
-                  onChange={e => updateStatus('mo_expected_approval_date', e.target.value || null)}
-                  className="h-9 text-sm"
-                />
-              </div>
-              <SelectField label="MO Registration Received" field="mo_reg_received" options={moRegOptions} />
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Stage 5 — Equipment */}
         {(() => {
