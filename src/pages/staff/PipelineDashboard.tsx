@@ -32,6 +32,7 @@ interface OperatorRow {
   ica_status: string;
   insurance_added_date: string | null;
   dispatch_status: DispatchStatus | null;
+  doc_count: number;
 }
 
 interface StaffOption {
@@ -128,12 +129,15 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     const assignedStaffIds = opData.map((o: any) => o.assigned_onboarding_staff).filter(Boolean);
     const allUserIds = [...new Set([...operatorUserIds, ...assignedStaffIds, ...allStaffUserIds])];
 
-    const [profileResult, dispatchResult] = await Promise.all([
+    const [profileResult, dispatchResult, docResult] = await Promise.all([
       allUserIds.length > 0
         ? supabase.from('profiles').select('user_id, first_name, last_name, phone, home_state').in('user_id', allUserIds)
         : Promise.resolve({ data: [] }),
       operatorIds.length > 0
         ? supabase.from('active_dispatch').select('operator_id, dispatch_status').in('operator_id', operatorIds)
+        : Promise.resolve({ data: [] }),
+      operatorIds.length > 0
+        ? supabase.from('operator_documents').select('operator_id').in('operator_id', operatorIds)
         : Promise.resolve({ data: [] }),
     ]);
 
@@ -142,6 +146,11 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
 
     const dispatchMap: Record<string, DispatchStatus> = {};
     ((dispatchResult.data as any[]) ?? []).forEach((d: any) => { dispatchMap[d.operator_id] = d.dispatch_status; });
+
+    const docCountMap: Record<string, number> = {};
+    ((docResult.data as any[]) ?? []).forEach((d: any) => {
+      docCountMap[d.operator_id] = (docCountMap[d.operator_id] ?? 0) + 1;
+    });
 
     // Build staff options
     const staffMap: Record<string, StaffOption> = {};
@@ -179,6 +188,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
         ica_status: os.ica_status ?? 'not_issued',
         insurance_added_date: os.insurance_added_date ?? null,
         dispatch_status: dispatchMap[op.id] ?? null,
+        doc_count: docCountMap[op.id] ?? 0,
       };
     });
     setOperators(rows);
@@ -540,6 +550,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                   </button>
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Status</th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">Docs</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">Dispatch</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
                   <button
@@ -594,6 +605,15 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                         <Badge className="status-action border text-xs">Alert</Badge>
                       ) : (
                         <Badge className="status-progress border text-xs">In Progress</Badge>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 hidden lg:table-cell">
+                      {op.doc_count > 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border bg-status-progress/10 text-status-progress border-status-progress/30">
+                          {op.doc_count} file{op.doc_count !== 1 ? 's' : ''}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/40 text-xs">—</span>
                       )}
                     </td>
                     {/* Dispatch status badge — only shown for fully onboarded operators */}
