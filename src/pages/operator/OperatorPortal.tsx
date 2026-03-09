@@ -18,7 +18,7 @@ import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus
 import OperatorICASign from '@/components/operator/OperatorICASign';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica';
+type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications';
 
 interface Stage {
   number: number;
