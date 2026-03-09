@@ -466,7 +466,7 @@ Deno.serve(async (req) => {
         if (!operatorId) break;
 
         const staffEmail = await getAssignedStaffEmail(operatorId);
-        const mgmtEmails = await getManagementEmails();
+        const mgmtEmails = await getManagementEmails('document_uploaded');
         const recipients = [...new Set([...(staffEmail ? [staffEmail] : []), ...mgmtEmails])];
         if (!recipients.length) break;
 
