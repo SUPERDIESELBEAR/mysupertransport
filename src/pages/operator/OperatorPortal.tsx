@@ -384,7 +384,7 @@ export default function OperatorPortal() {
             >
               <SlidersHorizontal className="h-5 w-5" />
             </button>
-            <NotificationBell variant="dark" notificationsPath="/dashboard?tab=notifications" />
+            <NotificationBell variant="dark" notificationsPath="/operator?tab=notifications" />
             <button
               onClick={signOut}
               className="hidden md:flex text-surface-dark-muted hover:text-destructive p-2 rounded-lg hover:bg-surface-dark-card transition-colors"
