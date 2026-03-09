@@ -261,6 +261,7 @@ export default function ActivityLog() {
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [counts, setCounts] = useState<Record<string, number>>({});
 
   const fetchLog = useCallback(async (
     pageNum = 0,
@@ -332,6 +333,31 @@ export default function ActivityLog() {
     setActivePreset(preset.label);
   };
 
+  // Fetch counts for each action filter respecting current date range
+  useEffect(() => {
+    const actionValues = FILTER_OPTIONS.filter(o => o.value !== 'all').map(o => o.value);
+    Promise.all(
+      actionValues.map(async (action) => {
+        let q = supabase
+          .from('audit_log' as any)
+          .select('id', { count: 'exact', head: true })
+          .eq('action', action);
+        if (dateFrom) q = q.gte('created_at', startOfDay(dateFrom).toISOString());
+        if (dateTo)   q = q.lte('created_at', endOfDay(dateTo).toISOString());
+        const { count } = await q;
+        return [action, count ?? 0] as [string, number];
+      })
+    ).then((results) => {
+      const map: Record<string, number> = {};
+      let total = 0;
+      results.forEach(([action, count]) => {
+        map[action] = count;
+        total += count;
+      });
+      map['all'] = total;
+      setCounts(map);
+    });
+  }, [dateFrom, dateTo]);
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -367,19 +393,32 @@ export default function ActivityLog() {
 
       {/* Filter bar */}
       <div className="flex flex-wrap gap-2 items-center">
-        {FILTER_OPTIONS.map(opt => (
-          <button
-            key={opt.value}
-            onClick={() => setFilter(opt.value)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-              filter === opt.value
-                ? 'bg-surface-dark text-white border-surface-dark'
-                : 'bg-white text-muted-foreground border-border hover:border-gold/50 hover:text-foreground'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
+        {FILTER_OPTIONS.map(opt => {
+          const count = counts[opt.value];
+          const isActive = filter === opt.value;
+          return (
+            <button
+              key={opt.value}
+              onClick={() => setFilter(opt.value)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                isActive
+                  ? 'bg-surface-dark text-white border-surface-dark'
+                  : 'bg-white text-muted-foreground border-border hover:border-gold/50 hover:text-foreground'
+              }`}
+            >
+              {opt.label}
+              {count !== undefined && (
+                <span className={`inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] rounded-full px-1 text-[10px] font-semibold leading-none ${
+                  isActive
+                    ? 'bg-white/20 text-white'
+                    : 'bg-muted text-muted-foreground'
+                }`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
 
         {/* Separator */}
         <div className="w-px h-5 bg-border mx-1" />
