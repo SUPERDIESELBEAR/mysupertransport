@@ -385,6 +385,22 @@ export default function ApplicationForm() {
         {/* Progress */}
         <FormProgress currentStep={step} totalSteps={9} stepLabels={STEP_LABELS} />
 
+        {/* Duplicate email warning */}
+        {duplicateEmailBlocked && (
+          <div className="mb-5 flex items-start gap-3 p-4 bg-amber-50 border border-amber-300 rounded-xl">
+            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800">Application already submitted</p>
+              <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                An application has already been submitted for <strong>{formData.email}</strong>. If you believe this is an error or need to reapply, please contact us at{' '}
+                <a href="mailto:recruiting@supertransportllc.com" className="underline font-medium">
+                  recruiting@supertransportllc.com
+                </a>.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Error summary */}
         {Object.keys(errors).length > 0 && (
           <div className="mb-5 p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-xs text-destructive font-medium">
