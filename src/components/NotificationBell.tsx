@@ -65,6 +65,13 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
     return () => { supabase.removeChannel(channel); };
   }, [session?.user?.id]);
 
+  // Clear bell badge when parent signals that notifications page is open
+  useEffect(() => {
+    if (clearBadge) {
+      setNotifications(prev => prev.map(n => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));
+    }
+  }, [clearBadge]);
+
   const fetchNotifications = async () => {
     if (!session?.user?.id) return;
     setLoading(true);
