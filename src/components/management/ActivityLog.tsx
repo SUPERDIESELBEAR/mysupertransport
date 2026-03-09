@@ -7,7 +7,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
-  Milestone, RefreshCcw, Activity, ChevronDown, Download, CalendarIcon, X
+  Milestone, RefreshCcw, Activity, ChevronDown, ChevronRight, Download, CalendarIcon, X,
+  User, Tag, Hash, Clock, StickyNote, Settings2, Info
 } from 'lucide-react';
 
 interface AuditEntry {
@@ -141,6 +142,119 @@ function EntryDetail({ entry }: { entry: AuditEntry }) {
   }
 }
 
+// ── Expanded detail panel ─────────────────────────────────────────────────────
+
+function MetaRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
+  if (!value && value !== 0) return null;
+  return (
+    <div className="flex items-start gap-2.5 py-2 border-b border-border/50 last:border-0">
+      <span className="text-muted-foreground/60 mt-0.5 shrink-0">{icon}</span>
+      <span className="text-xs text-muted-foreground w-28 shrink-0 font-medium">{label}</span>
+      <span className="text-xs text-foreground break-all">{value}</span>
+    </div>
+  );
+}
+
+function EntryExpandedPanel({ entry }: { entry: AuditEntry }) {
+  const meta = entry.metadata ?? {};
+
+  // Build action-specific structured fields
+  const structuredRows: { icon: React.ReactNode; label: string; value: React.ReactNode }[] = [];
+
+  if (entry.actor_name) {
+    structuredRows.push({ icon: <User className="h-3.5 w-3.5" />, label: 'Actor', value: entry.actor_name });
+  }
+  if (entry.actor_id) {
+    structuredRows.push({ icon: <Hash className="h-3.5 w-3.5" />, label: 'Actor ID', value: <span className="font-mono text-[10px]">{entry.actor_id}</span> });
+  }
+  if (entry.entity_label) {
+    structuredRows.push({ icon: <Tag className="h-3.5 w-3.5" />, label: 'Subject', value: entry.entity_label });
+  }
+  if (entry.entity_id) {
+    structuredRows.push({ icon: <Hash className="h-3.5 w-3.5" />, label: 'Subject ID', value: <span className="font-mono text-[10px]">{entry.entity_id}</span> });
+  }
+  structuredRows.push({ icon: <Tag className="h-3.5 w-3.5" />, label: 'Entity Type', value: entry.entity_type });
+  structuredRows.push({
+    icon: <Clock className="h-3.5 w-3.5" />,
+    label: 'Timestamp',
+    value: new Date(entry.created_at).toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'medium' })
+  });
+
+  // Action-specific metadata
+  switch (entry.action) {
+    case 'application_approved':
+    case 'application_denied':
+      if (meta.applicant_name) structuredRows.push({ icon: <User className="h-3.5 w-3.5" />, label: 'Applicant', value: meta.applicant_name as string });
+      if (meta.applicant_email) structuredRows.push({ icon: <Info className="h-3.5 w-3.5" />, label: 'Email', value: meta.applicant_email as string });
+      if (meta.reviewer_notes) structuredRows.push({ icon: <StickyNote className="h-3.5 w-3.5" />, label: 'Reviewer Notes', value: <span className="italic">"{meta.reviewer_notes as string}"</span> });
+      break;
+    case 'role_added':
+    case 'role_removed':
+      if (meta.role) structuredRows.push({ icon: <Shield className="h-3.5 w-3.5" />, label: 'Role', value: formatRole(meta.role as string) });
+      if (meta.target_user) structuredRows.push({ icon: <User className="h-3.5 w-3.5" />, label: 'Target User', value: meta.target_user as string });
+      break;
+    case 'operator_status_updated':
+    case 'onboarding_milestone': {
+      const milestones = meta.milestones as string[] | undefined;
+      if (milestones?.length) {
+        structuredRows.push({
+          icon: <Milestone className="h-3.5 w-3.5" />,
+          label: 'Milestones',
+          value: (
+            <span className="flex flex-col gap-0.5">
+              {milestones.map((m, i) => <span key={i} className="inline-block">{m}</span>)}
+            </span>
+          )
+        });
+      }
+      const changedFields = meta.changed_fields as Record<string, unknown> | undefined;
+      if (changedFields) {
+        Object.entries(changedFields).forEach(([k, v]) => {
+          structuredRows.push({
+            icon: <Settings2 className="h-3.5 w-3.5" />,
+            label: k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+            value: String(v),
+          });
+        });
+      }
+      break;
+    }
+  }
+
+  // Remaining raw metadata keys not already shown
+  const shownKeys = new Set(['applicant_name', 'applicant_email', 'reviewer_notes', 'role', 'target_user', 'milestones', 'changed_fields']);
+  const rawExtras = Object.entries(meta).filter(([k]) => !shownKeys.has(k));
+
+  return (
+    <div className="mt-2 ml-0.5 rounded-lg border border-border bg-secondary/30 overflow-hidden">
+      <div className="px-3 py-1.5 bg-muted/40 border-b border-border flex items-center gap-1.5">
+        <Info className="h-3 w-3 text-muted-foreground" />
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Entry Detail</span>
+      </div>
+      <div className="px-3 py-1">
+        {structuredRows.map((row, i) => (
+          <MetaRow key={i} icon={row.icon} label={row.label} value={row.value} />
+        ))}
+        {rawExtras.length > 0 && (
+          <>
+            <div className="pt-2 pb-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Additional Metadata</span>
+            </div>
+            {rawExtras.map(([k, v]) => (
+              <MetaRow
+                key={k}
+                icon={<Settings2 className="h-3.5 w-3.5" />}
+                label={k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                value={typeof v === 'object' ? <span className="font-mono text-[10px] break-all">{JSON.stringify(v)}</span> : String(v)}
+              />
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const PAGE_SIZE = 20;
 
 // ── CSV helpers ───────────────────────────────────────────────────────────────
@@ -257,6 +371,7 @@ export default function ActivityLog() {
   const [exporting, setExporting] = useState(false);
   const [filter, setFilter] = useState('all');
   const [hasMore, setHasMore] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
@@ -508,46 +623,73 @@ export default function ActivityLog() {
                 color: 'text-muted-foreground',
                 bg: 'bg-muted border-border',
               };
+              const isExpanded = expandedId === entry.id;
 
               return (
-                <div key={entry.id} className="flex gap-4 px-5 py-4 hover:bg-secondary/20 transition-colors">
-                  {/* Icon + spine */}
-                  <div className="flex flex-col items-center shrink-0 pt-0.5">
-                    <div className={`h-8 w-8 rounded-full border flex items-center justify-center ${cfg.bg} ${cfg.color}`}>
-                      {cfg.icon}
+                <div key={entry.id} className={cn('transition-colors', isExpanded ? 'bg-secondary/30' : 'hover:bg-secondary/20')}>
+                  <button
+                    className="w-full text-left flex gap-4 px-5 py-4 group"
+                    onClick={() => setExpandedId(isExpanded ? null : entry.id)}
+                    aria-expanded={isExpanded}
+                  >
+                    {/* Icon + spine */}
+                    <div className="flex flex-col items-center shrink-0 pt-0.5">
+                      <div className={`h-8 w-8 rounded-full border flex items-center justify-center ${cfg.bg} ${cfg.color}`}>
+                        {cfg.icon}
+                      </div>
+                      {idx < entries.length - 1 && !isExpanded && (
+                        <div className="w-px flex-1 bg-border mt-2 min-h-3" />
+                      )}
                     </div>
-                    {idx < entries.length - 1 && (
-                      <div className="w-px flex-1 bg-border mt-2 min-h-3" />
-                    )}
-                  </div>
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0 pb-1">
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className={`text-xs font-semibold uppercase tracking-wide ${cfg.color}`}>
-                            {cfg.label}
-                          </span>
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 pb-1">
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-xs font-semibold uppercase tracking-wide ${cfg.color}`}>
+                              {cfg.label}
+                            </span>
+                          </div>
+                          {entry.entity_label && (
+                            <p className="text-sm font-medium text-foreground mt-0.5">{entry.entity_label}</p>
+                          )}
+                          <EntryDetail entry={entry} />
                         </div>
-                        {entry.entity_label && (
-                          <p className="text-sm font-medium text-foreground mt-0.5">{entry.entity_label}</p>
-                        )}
-                        <EntryDetail entry={entry} />
+                        <div className="flex items-start gap-2 shrink-0">
+                          <div className="text-right">
+                            <p className="text-xs text-muted-foreground">{timeAgo(entry.created_at)}</p>
+                            <p className="text-xs text-muted-foreground/60 mt-0.5">
+                              {new Date(entry.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                          <div className={cn(
+                            'mt-0.5 h-5 w-5 rounded flex items-center justify-center border transition-all',
+                            isExpanded
+                              ? 'bg-surface-dark text-white border-surface-dark'
+                              : 'text-muted-foreground border-border group-hover:border-gold/50 group-hover:text-foreground'
+                          )}>
+                            {isExpanded
+                              ? <ChevronDown className="h-3 w-3" />
+                              : <ChevronRight className="h-3 w-3" />
+                            }
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-xs text-muted-foreground">{timeAgo(entry.created_at)}</p>
-                        <p className="text-xs text-muted-foreground/60 mt-0.5">
-                          {new Date(entry.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      {entry.actor_name && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          by <span className="font-medium text-foreground">{entry.actor_name}</span>
                         </p>
-                      </div>
+                      )}
                     </div>
-                    {entry.actor_name && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        by <span className="font-medium text-foreground">{entry.actor_name}</span>
-                      </p>
-                    )}
-                  </div>
+                  </button>
+
+                  {/* Expanded detail panel */}
+                  {isExpanded && (
+                    <div className="px-5 pb-4 ml-12">
+                      <EntryExpandedPanel entry={entry} />
+                    </div>
+                  )}
                 </div>
               );
             })}
