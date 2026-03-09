@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
-  Milestone, RefreshCcw, Activity, ChevronDown
+  Milestone, RefreshCcw, Activity, ChevronDown, Download
 } from 'lucide-react';
 
 interface AuditEntry {
@@ -120,9 +120,62 @@ function EntryDetail({ entry }: { entry: AuditEntry }) {
 
 const PAGE_SIZE = 20;
 
+// ── CSV helpers ───────────────────────────────────────────────────────────────
+
+function csvCell(val: unknown): string {
+  if (val === null || val === undefined) return '';
+  const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+  // Wrap in quotes if it contains commas, quotes, or newlines
+  if (/[",\n\r]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  return str;
+}
+
+function buildDetailText(entry: AuditEntry): string {
+  const meta = entry.metadata ?? {};
+  switch (entry.action) {
+    case 'application_approved':
+    case 'application_denied':
+      return [meta.applicant_email, meta.reviewer_notes].filter(Boolean).join(' — ');
+    case 'role_added':
+    case 'role_removed':
+      return `${entry.action === 'role_added' ? 'Granted' : 'Revoked'} ${formatRole(meta.role as string)} role`;
+    case 'operator_status_updated':
+      return (meta.milestones as string[])?.join(', ') ?? 'Status updated';
+    default:
+      return '';
+  }
+}
+
+function exportToCsv(rows: AuditEntry[], currentFilter: string) {
+  const headers = ['Timestamp', 'Action', 'Actor', 'Subject', 'Detail', 'Entity Type', 'Entity ID'];
+  const lines = [
+    headers.join(','),
+    ...rows.map(e => [
+      new Date(e.created_at).toISOString(),
+      ACTION_CONFIG[e.action]?.label ?? e.action,
+      e.actor_name ?? '',
+      e.entity_label ?? '',
+      buildDetailText(e),
+      e.entity_type,
+      e.entity_id ?? '',
+    ].map(csvCell).join(',')),
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const filterLabel = currentFilter === 'all' ? 'all' : currentFilter;
+  a.href = url;
+  a.download = `audit-log-${filterLabel}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function ActivityLog() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [filter, setFilter] = useState('all');
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(0);
@@ -144,7 +197,6 @@ export default function ActivityLog() {
       const typed = data as unknown as AuditEntry[];
       setEntries(prev => pageNum === 0 ? typed : [...prev, ...typed]);
       setHasMore(typed.length === PAGE_SIZE + 1);
-      // Trim the extra row used to detect next page
       if (typed.length === PAGE_SIZE + 1) {
         setEntries(prev => prev.slice(0, -1));
       }
@@ -164,24 +216,56 @@ export default function ActivityLog() {
     fetchLog(next, filter);
   };
 
+  // Fetch ALL matching rows (no pagination limit) then trigger download
+  const handleExport = async () => {
+    setExporting(true);
+    let query = supabase
+      .from('audit_log' as any)
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(5000); // safety ceiling — well above any realistic audit log size
+
+    if (filter !== 'all') {
+      query = query.eq('action', filter);
+    }
+
+    const { data } = await query;
+    if (data && data.length > 0) {
+      exportToCsv(data as unknown as AuditEntry[], filter);
+    }
+    setExporting(false);
+  };
+
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Activity Log</h1>
           <p className="text-sm text-muted-foreground mt-1">Audit trail of all significant actions across the platform</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => { setPage(0); setEntries([]); fetchLog(0, filter); }}
-          disabled={loading}
-          className="gap-1.5"
-        >
-          <RefreshCcw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            disabled={exporting || loading || entries.length === 0}
+            className="gap-1.5"
+          >
+            <Download className={`h-3.5 w-3.5 ${exporting ? 'animate-bounce' : ''}`} />
+            {exporting ? 'Exporting…' : 'Export CSV'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setPage(0); setEntries([]); fetchLog(0, filter); }}
+            disabled={loading}
+            className="gap-1.5"
+          >
+            <RefreshCcw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Filter bar */}
