@@ -575,6 +575,9 @@ export default function OperatorPortal() {
 
         {/* ── ICA SIGNING VIEW ── */}
         {view === 'ica' && <OperatorICASign />}
+
+        {/* ── NOTIFICATIONS VIEW ── */}
+        {view === 'notifications' && <NotificationHistory />}
       </div>
     </div>
     </>
