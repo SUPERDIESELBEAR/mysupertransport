@@ -612,8 +612,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 {/* Operator name + unit number */}
                 {/* Unsaved changes indicator */}
                 {hasUnsavedChanges && (
-                  <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  <span
+                    className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap border"
+                    style={{ color: 'hsl(35 90% 40%)', background: 'hsl(35 90% 97%)', borderColor: 'hsl(35 80% 75%)' }}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: 'hsl(35 90% 45%)' }} />
                     Unsaved
                   </span>
                 )}
