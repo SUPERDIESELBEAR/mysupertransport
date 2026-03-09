@@ -297,6 +297,7 @@ export default function OperatorPortal() {
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
     { view: 'resources' as OperatorView, label: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> },
+    { view: 'notifications' as OperatorView, label: 'Notifications', icon: <Bell className="h-5 w-5" /> },
   ].filter(item => {
     if ('onlyOnboarded' in item && !isFullyOnboarded) return false;
     if ('showIf' in item && !item.showIf) return false;
