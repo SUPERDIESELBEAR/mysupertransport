@@ -492,66 +492,58 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
     searchDebounceRef.current = setTimeout(() => setSearch(val.trim()), 250);
   };
 
-  const filteredEntries = search
-    ? entries.filter(e => entryMatchesSearch(e, search))
-    : entries;
-
+  // Server-side fetch using the search_audit_log RPC (covers all rows, incl. metadata)
   const fetchLog = useCallback(async (
     pageNum = 0,
     currentFilter = filter,
     from = dateFrom,
     to = dateTo,
+    currentSearch = search,
   ) => {
     setLoading(true);
-    let query = supabase
-      .from('audit_log' as any)
-      .select('*')
-      .order('created_at', { ascending: false })
-      .range(pageNum * PAGE_SIZE, pageNum * PAGE_SIZE + PAGE_SIZE);
-
-    if (currentFilter !== 'all') query = query.eq('action', currentFilter);
-    if (from) query = query.gte('created_at', startOfDay(from).toISOString());
-    if (to)   query = query.lte('created_at', endOfDay(to).toISOString());
-
-    const { data, error } = await query;
+    const { data, error } = await (supabase as any).rpc('search_audit_log', {
+      p_search: currentSearch || null,
+      p_action: currentFilter !== 'all' ? currentFilter : null,
+      p_from:   from ? startOfDay(from).toISOString() : null,
+      p_to:     to   ? endOfDay(to).toISOString()   : null,
+      p_limit:  PAGE_SIZE + 1,
+      p_offset: pageNum * PAGE_SIZE,
+    });
     if (!error && data) {
-      const typed = data as unknown as AuditEntry[];
-      setEntries(prev => pageNum === 0 ? typed : [...prev, ...typed]);
-      setHasMore(typed.length === PAGE_SIZE + 1);
-      if (typed.length === PAGE_SIZE + 1) {
-        setEntries(prev => prev.slice(0, -1));
-      }
+      const typed = data as AuditEntry[];
+      const hasNextPage = typed.length === PAGE_SIZE + 1;
+      const page = hasNextPage ? typed.slice(0, -1) : typed;
+      setEntries(prev => pageNum === 0 ? page : [...prev, ...page]);
+      setHasMore(hasNextPage);
     }
     setLoading(false);
-  }, [filter, dateFrom, dateTo]);
+  }, [filter, dateFrom, dateTo, search]);
 
+  // Re-fetch on filter, date, or debounced search change
   useEffect(() => {
     setPage(0);
     setEntries([]);
-    fetchLog(0, filter, dateFrom, dateTo);
-  }, [filter, dateFrom, dateTo]);
+    fetchLog(0, filter, dateFrom, dateTo, search);
+  }, [filter, dateFrom, dateTo, search]);
 
   const handleLoadMore = () => {
     const next = page + 1;
     setPage(next);
-    fetchLog(next, filter, dateFrom, dateTo);
+    fetchLog(next, filter, dateFrom, dateTo, search);
   };
 
   const handleExport = async () => {
     setExporting(true);
-    let query = supabase
-      .from('audit_log' as any)
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(5000);
-
-    if (filter !== 'all') query = query.eq('action', filter);
-    if (dateFrom) query = query.gte('created_at', startOfDay(dateFrom).toISOString());
-    if (dateTo)   query = query.lte('created_at', endOfDay(dateTo).toISOString());
-
-    const { data } = await query;
+    const { data } = await (supabase as any).rpc('search_audit_log', {
+      p_search: search || null,
+      p_action: filter !== 'all' ? filter : null,
+      p_from:   dateFrom ? startOfDay(dateFrom).toISOString() : null,
+      p_to:     dateTo   ? endOfDay(dateTo).toISOString()     : null,
+      p_limit:  5000,
+      p_offset: 0,
+    });
     if (data && data.length > 0) {
-      exportToCsv(data as unknown as AuditEntry[], filter, dateFrom, dateTo);
+      exportToCsv(data as AuditEntry[], filter, dateFrom, dateTo);
     }
     setExporting(false);
   };
@@ -742,7 +734,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
         {search && !loading && (
           <div className="px-5 py-2 bg-gold/5 border-b border-gold/20 flex items-center justify-between gap-2">
             <span className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{filteredEntries.length}</span> result{filteredEntries.length !== 1 ? 's' : ''} for <span className="font-medium text-foreground">"{search}"</span>
+              Searching all records — <span className="font-medium text-foreground">{entries.length}{hasMore ? '+' : ''}</span> result{entries.length !== 1 ? 's' : ''} for <span className="font-medium text-foreground">"{search}"</span>
             </span>
             <button onClick={() => { setSearchRaw(''); setSearch(''); }} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
               <X className="h-3 w-3" /> Clear search
@@ -754,7 +746,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
             <RefreshCcw className="h-6 w-6 animate-spin opacity-40" />
             <p className="text-sm">Loading activity…</p>
           </div>
-        ) : filteredEntries.length === 0 ? (
+        ) : entries.length === 0 ? (
           <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
             <Activity className="h-10 w-10 opacity-20" />
             <p className="text-sm font-medium">{search ? 'No matching entries' : 'No activity found'}</p>
@@ -768,7 +760,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {filteredEntries.map((entry, idx) => {
+            {entries.map((entry, idx) => {
               const cfg = ACTION_CONFIG[entry.action] ?? {
                 label: entry.action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
                 icon: <Shield className="h-4 w-4" />,
@@ -789,7 +781,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
                       <div className={`h-8 w-8 rounded-full border flex items-center justify-center ${cfg.bg} ${cfg.color}`}>
                         {cfg.icon}
                       </div>
-                      {idx < filteredEntries.length - 1 && !isExpanded && (
+                      {idx < entries.length - 1 && !isExpanded && (
                         <div className="w-px flex-1 bg-border mt-2 min-h-3" />
                       )}
                     </div>

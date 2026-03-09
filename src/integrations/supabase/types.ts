@@ -923,6 +923,33 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      search_audit_log: {
+        Args: {
+          p_action?: string
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_to?: string
+        }
+        Returns: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          created_at: string
+          entity_id: string | null
+          entity_label: string | null
+          entity_type: string
+          id: string
+          metadata: Json | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "audit_log"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       account_status: "pending" | "active" | "denied" | "inactive"
