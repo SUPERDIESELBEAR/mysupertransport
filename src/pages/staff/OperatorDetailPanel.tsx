@@ -610,6 +610,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             <div className="bg-white/95 backdrop-blur border-b border-border shadow-sm py-2 px-4">
               <div className="flex items-center gap-3 max-w-4xl">
                 {/* Operator name + unit number */}
+                {/* Unsaved changes indicator */}
+                {hasUnsavedChanges && (
+                  <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    Unsaved
+                  </span>
+                )}
                 <span className="hidden sm:flex items-center gap-1.5 shrink-0">
                   <span className="text-xs font-semibold text-foreground whitespace-nowrap">{operatorName}</span>
                   {status.unit_number && (
