@@ -143,7 +143,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       setOperatorEmail(app?.email ?? '');
       setApplicationData(app ?? null);
       setNotes((op as any).notes ?? '');
-      const os = (op as any).onboarding_status?.[0];
+      const os = (op as any).onboarding_status ?? null;
       if (os) {
         setStatus(os);
       setStatusId(os.id);
