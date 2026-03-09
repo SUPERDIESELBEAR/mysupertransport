@@ -459,7 +459,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
 
         {/* Expandable filter panel */}
         {showFilters && (
-          <div className="bg-muted/40 border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
+          <div className="bg-muted/40 border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 animate-fade-in">
             {/* Stage filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stage</label>
