@@ -56,6 +56,15 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
 
   const handleUpload = async (slot: DocumentSlot, file: File) => {
     if (!file) return;
+
+    // ── Validate before uploading ───────────────────────────────────────────
+    const allowDocs = slot.key === 'other';
+    const { valid, error: validationError } = validateFile(file, allowDocs);
+    if (!valid) {
+      toast({ title: 'Invalid file', description: validationError, variant: 'destructive' });
+      return;
+    }
+
     setUploading(slot.key);
 
     try {
