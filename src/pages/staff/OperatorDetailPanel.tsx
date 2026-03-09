@@ -925,6 +925,8 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
                 )}
               </div>
             )}
+                </div>
+              )}
             </div>
           );
         })()}
