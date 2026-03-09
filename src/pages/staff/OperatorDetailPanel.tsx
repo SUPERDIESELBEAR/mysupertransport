@@ -586,12 +586,12 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       {/* Stage Completion Progress Bar */}
       {(() => {
         const stages = [
-          { label: 'Background',  complete: status.mvr_ch_approval === 'approved' },
-          { label: 'Documents',   complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received' },
-          { label: 'ICA',         complete: status.ica_status === 'complete' },
-          { label: 'MO Reg',      complete: status.mo_reg_received === 'yes' },
-          { label: 'Equipment',   complete: status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' },
-          { label: 'Insurance',   complete: !!status.insurance_added_date },
+          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' },
+          { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received' },
+          { label: 'ICA',        key: 'stage3', complete: status.ica_status === 'complete' },
+          { label: 'MO Reg',     key: 'stage4', complete: status.mo_reg_received === 'yes' },
+          { label: 'Equipment',  key: 'stage5', complete: status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' },
+          { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date },
         ];
         const completedCount = stages.filter(s => s.complete).length;
         const pct = Math.round((completedCount / stages.length) * 100);
@@ -614,18 +614,23 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
             </div>
             <div className="grid grid-cols-6 gap-1">
               {stages.map((s, i) => (
-                <div key={s.label} className="flex flex-col items-center gap-1">
-                  <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${
+                <button
+                  key={s.label}
+                  onClick={() => scrollToStage(s.key)}
+                  title={`Jump to ${s.label}`}
+                  className="flex flex-col items-center gap-1 group focus:outline-none"
+                >
+                  <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors group-hover:scale-110 group-hover:shadow-sm ${
                     s.complete
                       ? 'bg-status-complete border-status-complete text-white'
-                      : 'bg-background border-border text-muted-foreground'
+                      : 'bg-background border-border text-muted-foreground group-hover:border-gold group-hover:text-gold'
                   }`}>
                     {s.complete ? '✓' : i + 1}
                   </div>
-                  <span className={`text-[10px] text-center leading-tight ${s.complete ? 'text-status-complete font-medium' : 'text-muted-foreground'}`}>
+                  <span className={`text-[10px] text-center leading-tight transition-colors ${s.complete ? 'text-status-complete font-medium' : 'text-muted-foreground group-hover:text-foreground'}`}>
                     {s.label}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>
