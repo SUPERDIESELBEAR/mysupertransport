@@ -450,37 +450,34 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       }
 
       // ── Write audit log for operator status changes ───────────────────
-      if (triggeredMilestones.length > 0 || statusId) {
-        // Only log if something meaningfully changed (milestones triggered)
-        if (triggeredMilestones.length > 0) {
-          void supabase.from('audit_log' as any).insert({
-            actor_id: session?.user?.id ?? null,
-            actor_name: null,
-            action: 'operator_status_updated',
-            entity_type: 'operator',
-            entity_id: operatorId,
-            entity_label: operatorName,
-            metadata: {
-              milestones: triggeredMilestones.map(m => m.label),
-            },
-          });
-        }
-        // ── Write a dedicated onboarding_completed entry ─────────────
-        if (isNewlyFullyOnboarded) {
-          void supabase.from('audit_log' as any).insert({
-            actor_id: session?.user?.id ?? null,
-            actor_name: null,
-            action: 'onboarding_completed',
-            entity_type: 'operator',
-            entity_id: operatorId,
-            entity_label: operatorName,
-            metadata: {
-              completed_at: new Date().toISOString(),
-              insurance_added_date: status.insurance_added_date,
-              unit_number: status.unit_number ?? null,
-            },
-          });
-        }
+      if (triggeredMilestones.length > 0) {
+        supabase.from('audit_log' as any).insert({
+          actor_id: session?.user?.id ?? null,
+          actor_name: operatorName,
+          action: 'operator_status_updated',
+          entity_type: 'operator',
+          entity_id: operatorId,
+          entity_label: operatorName,
+          metadata: {
+            milestones: triggeredMilestones.map(m => m.label),
+          },
+        }).then(({ error }) => { if (error) console.error('[audit] operator_status_updated:', error); });
+      }
+      // ── Write a dedicated onboarding_completed entry ─────────────
+      if (isNewlyFullyOnboarded) {
+        supabase.from('audit_log' as any).insert({
+          actor_id: session?.user?.id ?? null,
+          actor_name: operatorName,
+          action: 'onboarding_completed',
+          entity_type: 'operator',
+          entity_id: operatorId,
+          entity_label: operatorName,
+          metadata: {
+            completed_at: new Date().toISOString(),
+            insurance_added_date: status.insurance_added_date,
+            unit_number: status.unit_number ?? null,
+          },
+        }).then(({ error }) => { if (error) console.error('[audit] onboarding_completed:', error); });
       }
     }
 
