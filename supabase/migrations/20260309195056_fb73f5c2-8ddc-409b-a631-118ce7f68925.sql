@@ -1,0 +1,1 @@
+INSERT INTO public.applications (first_name, last_name, email, review_status, submitted_at, is_draft) VALUES ('Notes', 'Denytest', 'notesdenytest@example.com', 'pending', now(), false);
