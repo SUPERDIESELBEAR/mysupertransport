@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow, format } from 'date-fns';
 import {
   Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle,
-  FileText, Target, Paperclip, Truck, RefreshCcw, CheckCheck, Filter,
+  FileText, Target, Paperclip, Truck, RefreshCcw, CheckCheck, Filter, ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -221,7 +221,7 @@ export default function NotificationHistory() {
                       if (n.link) navigate(n.link);
                     }}
                     className={`grid grid-cols-12 items-start gap-2 px-5 py-4 transition-colors group ${
-                      n.link ? 'cursor-pointer hover:bg-secondary/30' : 'cursor-default hover:bg-secondary/10'
+                      n.link ? 'cursor-pointer hover:bg-secondary/40' : 'cursor-default hover:bg-secondary/10'
                     } ${isUnread ? 'bg-gold/5' : ''}`}
                   >
                     {/* Notification col */}
@@ -229,10 +229,15 @@ export default function NotificationHistory() {
                       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${cfg.bg} mt-0.5`}>
                         <Icon className={`h-4 w-4 ${cfg.color}`} strokeWidth={2} />
                       </span>
-                      <div className="min-w-0">
-                        <p className={`text-sm leading-snug ${isUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
-                          {n.title}
-                        </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className={`text-sm leading-snug truncate ${isUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
+                            {n.title}
+                          </p>
+                          {n.link && (
+                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:text-gold/70" />
+                          )}
+                        </div>
                         {n.body && (
                           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>
                         )}
@@ -260,7 +265,7 @@ export default function NotificationHistory() {
                     <div className="col-span-2 flex justify-end items-start pt-0.5">
                       {isUnread ? (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gold bg-gold/10 border border-gold/30 px-2 py-0.5 rounded-full">
-                          <span className="h-1.5 w-1.5 rounded-full bg-gold" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-gold animate-pulse" />
                           Unread
                         </span>
                       ) : (
