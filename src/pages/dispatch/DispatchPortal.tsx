@@ -1335,6 +1335,8 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
         {quickComposeModal}
         {activePage === 'dispatch-messages'
           ? <MessagesView initialUserId={messageInitialUserId} />
+          : activePage === 'dispatch-notifications'
+          ? <NotificationHistory />
           : board}
       </StaffLayout>
     </>
