@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle, FileText, Target, Paperclip, Truck, X, Loader2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle, FileText, Target, Paperclip, Truck, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Switch } from '@/components/ui/switch';
