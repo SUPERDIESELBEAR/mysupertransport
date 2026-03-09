@@ -471,10 +471,17 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
                                 >
                                   {m.body}
                                 </div>
-                                <p className={`text-[10px] text-muted-foreground mt-1 ${isMe ? 'text-right' : 'text-left'}`}>
+                                <p className={`text-[10px] text-muted-foreground mt-1 flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
                                   {format(new Date(m.sent_at), 'h:mm a')}
-                                  {isMe && m.read_at && (
-                                    <span className="ml-1 text-primary/60">· Read</span>
+                                  {isMe && (
+                                    m.read_at ? (
+                                      <span className="flex items-center gap-0.5 text-primary/70 font-medium">
+                                        <CheckCheck className="h-3 w-3" />
+                                        <span>Seen</span>
+                                      </span>
+                                    ) : (
+                                      <CheckCheck className="h-3 w-3 text-muted-foreground/40" />
+                                    )
                                   )}
                                 </p>
                               </div>
