@@ -24,6 +24,8 @@ interface StaffLayoutProps {
   onNavigate: (path: string) => void;
   title: string;
   headerActions?: ReactNode;
+  /** Path for the bell dropdown 'View all →' link. Defaults to /staff?tab=notifications */
+  notificationsPath?: string;
 }
 
 const roleColors: Record<AppRole, string> = {
@@ -42,7 +44,7 @@ const roleLabels: Record<AppRole, string> = {
   applicant: 'Applicant',
 };
 
-export default function StaffLayout({ children, navItems, currentPath, onNavigate, title, headerActions }: StaffLayoutProps) {
+export default function StaffLayout({ children, navItems, currentPath, onNavigate, title, headerActions, notificationsPath = '/staff?tab=notifications' }: StaffLayoutProps) {
   const { profile, roles, activeRole, setActiveRole, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [roleSwitchOpen, setRoleSwitchOpen] = useState(false);
@@ -168,7 +170,7 @@ export default function StaffLayout({ children, navItems, currentPath, onNavigat
           </button>
           <div className="flex-1" />
           {headerActions}
-          <NotificationBell notificationsPath="/staff?tab=notifications" />
+          <NotificationBell notificationsPath={notificationsPath} />
         </header>
 
         {/* Page content */}

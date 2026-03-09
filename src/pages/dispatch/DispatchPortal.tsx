@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import MessagesView from '@/components/staff/MessagesView';
+import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
-  LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal
+  LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -102,8 +104,9 @@ interface DispatchPortalProps {
 export default function DispatchPortal({ embedded = false }: DispatchPortalProps) {
   const { toast } = useToast();
   const { session } = useAuth();
+  const [searchParams] = useSearchParams();
   const [prefOpen, setPrefOpen] = useState(false);
-  const [activePage, setActivePage] = useState<'dispatch' | 'dispatch-messages'>('dispatch');
+  const [activePage, setActivePage] = useState<'dispatch' | 'dispatch-messages' | 'dispatch-notifications'>('dispatch');
   const [rows, setRows] = useState<DispatchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -114,6 +117,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [search, setSearch] = useState('');
   const [liveIndicator, setLiveIndicator] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   // Map of operator_user_id → unread count for per-card badges
   const [unreadPerOperator, setUnreadPerOperator] = useState<Record<string, number>>({});
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
@@ -206,13 +210,45 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
     return () => { supabase.removeChannel(channel); };
   }, [session?.user?.id]);
 
-  // Clear badges when navigating to Messages tab
+  // Fetch + realtime for unread notification count
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const fetch = async () => {
+      const { count } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', session.user.id)
+        .is('read_at', null);
+      setUnreadNotifCount(count ?? 0);
+    };
+    fetch();
+    const channel = supabase
+      .channel('dispatch-unread-notif-badge')
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${session.user.id}`,
+      }, () => setUnreadNotifCount(prev => prev + 1))
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [session?.user?.id]);
+
+  // Deep-link: ?tab=notifications
+  useEffect(() => {
+    if (searchParams.get('tab') === 'notifications') {
+      setActivePage('dispatch-notifications');
+    }
+  }, [searchParams]);
+
+  // Clear badges when navigating to the respective tab
   const handleNavigate = (path: string) => {
-    const p = path as 'dispatch' | 'dispatch-messages';
+    const p = path as 'dispatch' | 'dispatch-messages' | 'dispatch-notifications';
     setActivePage(p);
     if (p === 'dispatch-messages') {
       setUnreadMessages(0);
       setUnreadPerOperator({});
+    }
+    if (p === 'dispatch-notifications') {
+      setUnreadNotifCount(0);
     }
   };
 
@@ -1180,6 +1216,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const navItems = [
     { label: 'Dispatch Board', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
     { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages', badge: unreadMessages || undefined },
+    { label: 'Notifications', icon: <Bell className="h-4 w-4" />, path: 'dispatch-notifications', badge: unreadNotifCount || undefined },
   ];
 
   // ── Quick-compose modal ────────────────────────────────────────────────────
@@ -1285,6 +1322,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
         currentPath={activePage}
         onNavigate={handleNavigate}
         title="Dispatch"
+        notificationsPath="/dispatch?tab=notifications"
         headerActions={
           <button
             onClick={() => setPrefOpen(true)}
@@ -1298,6 +1336,8 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
         {quickComposeModal}
         {activePage === 'dispatch-messages'
           ? <MessagesView initialUserId={messageInitialUserId} />
+          : activePage === 'dispatch-notifications'
+          ? <NotificationHistory />
           : board}
       </StaffLayout>
     </>
