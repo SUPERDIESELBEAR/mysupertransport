@@ -590,6 +590,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     savedSnapshot.current.notes !== notes
   );
 
+  // Notify parent whenever unsaved state changes
+  useEffect(() => {
+    onUnsavedChangesChange?.(hasUnsavedChanges);
+  }, [hasUnsavedChanges]);
+
   const guardedNavigate = (action: () => void) => {
     if (hasUnsavedChanges) {
       setNavGuard({ action });
