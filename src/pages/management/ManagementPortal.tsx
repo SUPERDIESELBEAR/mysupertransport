@@ -200,7 +200,7 @@ export default function ManagementPortal() {
 
   return (
     <>
-      <StaffLayout navItems={navItems} currentPath={view} onNavigate={(p) => setView(p as ManagementView)} title="Management">
+      <StaffLayout navItems={navItems} currentPath={view} onNavigate={handleNavigate} title="Management">
         {/* ── TRUCK DOWN ALERT BANNER ── */}
         {truckDownCount > 0 && (
           <div className="mb-5 flex items-center justify-between gap-4 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 animate-fade-in">
