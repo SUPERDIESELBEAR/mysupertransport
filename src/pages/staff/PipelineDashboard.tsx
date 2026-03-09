@@ -550,6 +550,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                   </button>
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Status</th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">Docs</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">Dispatch</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
                   <button
