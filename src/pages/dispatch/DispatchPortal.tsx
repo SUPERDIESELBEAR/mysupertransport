@@ -1322,6 +1322,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
         currentPath={activePage}
         onNavigate={handleNavigate}
         title="Dispatch"
+        notificationsPath="/dispatch?tab=notifications"
         headerActions={
           <button
             onClick={() => setPrefOpen(true)}
