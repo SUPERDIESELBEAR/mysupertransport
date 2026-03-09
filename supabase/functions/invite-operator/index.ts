@@ -155,15 +155,33 @@ Deno.serve(async (req) => {
       : callerUser.email;
     const applicantName = `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || app.email;
 
-    supabaseAdmin.from('audit_log').insert({
-      actor_id: callerUser.id,
-      actor_name: actorName,
-      action: 'application_approved',
-      entity_type: 'application',
-      entity_id: application_id,
-      entity_label: applicantName,
-      metadata: { applicant_email: app.email, reviewer_notes: reviewer_notes ?? null },
-    }).then(() => {}).catch(e => console.error('Audit log error:', e));
+    // Write both audit entries in parallel (fire-and-forget)
+    Promise.all([
+      supabaseAdmin.from('audit_log').insert({
+        actor_id: callerUser.id,
+        actor_name: actorName,
+        action: 'application_approved',
+        entity_type: 'application',
+        entity_id: application_id,
+        entity_label: applicantName,
+        metadata: { applicant_email: app.email, reviewer_notes: reviewer_notes ?? null },
+      }),
+      supabaseAdmin.from('audit_log').insert({
+        actor_id: callerUser.id,
+        actor_name: actorName,
+        action: 'operator_invited',
+        entity_type: 'operator',
+        entity_id: invitedUserId,
+        entity_label: applicantName,
+        metadata: {
+          email: app.email,
+          application_id,
+          first_name: app.first_name ?? null,
+          last_name: app.last_name ?? null,
+          reviewer_notes: reviewer_notes ?? null,
+        },
+      }),
+    ]).catch(e => console.error('Audit log error:', e));
 
     // Fire approval notification email (fire-and-forget)
     const notifUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`;
