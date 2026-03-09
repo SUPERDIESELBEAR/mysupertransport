@@ -102,6 +102,7 @@ interface DispatchPortalProps {
 export default function DispatchPortal({ embedded = false }: DispatchPortalProps) {
   const { toast } = useToast();
   const { session } = useAuth();
+  const [prefOpen, setPrefOpen] = useState(false);
   const [activePage, setActivePage] = useState<'dispatch' | 'dispatch-messages'>('dispatch');
   const [rows, setRows] = useState<DispatchRow[]>([]);
   const [loading, setLoading] = useState(true);

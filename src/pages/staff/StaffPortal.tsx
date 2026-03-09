@@ -104,13 +104,25 @@ export default function StaffPortal() {
     }
   };
 
+  const [prefOpen, setPrefOpen] = useState(false);
+
   return (
     <>
+    <StaffNotificationPreferencesModal open={prefOpen} onClose={() => setPrefOpen(false)} />
     <StaffLayout
       navItems={navItems}
       currentPath={currentView}
       onNavigate={handleNavigate}
       title="Onboarding"
+      headerActions={
+        <button
+          onClick={() => setPrefOpen(true)}
+          title="Notification preferences"
+          className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-muted"
+        >
+          <SlidersHorizontal className="h-4.5 w-4.5" />
+        </button>
+      }
     >
       {currentView === 'pipeline' && (
         <PipelineDashboard onOpenOperator={handleOpenOperator} />
