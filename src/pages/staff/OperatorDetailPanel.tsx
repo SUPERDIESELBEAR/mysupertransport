@@ -331,6 +331,25 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
         };
       }
 
+      // ── Per-doc received notifications → operator ─────────────────────
+      if (operatorUserId) {
+        const docFields: Array<keyof OnboardingStatus> = ['form_2290', 'truck_title', 'truck_photos', 'truck_inspection'];
+        const justReceived = docFields.filter(
+          f => prev[f as keyof typeof prev] !== 'received' && status[f] === 'received'
+        );
+        for (const f of justReceived) {
+          const docLabel = DOC_LABELS[f as string] ?? f;
+          await supabase.from('notifications').insert({
+            user_id: operatorUserId,
+            type: 'doc_received',
+            title: `Your ${docLabel} has been received`,
+            body: `Your ${docLabel} has been reviewed and received by your onboarding coordinator.`,
+            channel: 'in_app',
+            link: '/operator?tab=documents',
+          });
+        }
+      }
+
       // ── Write audit log for operator status changes ───────────────────
       if (triggeredMilestones.length > 0 || statusId) {
         // Only log if something meaningfully changed (milestones triggered)
