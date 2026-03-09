@@ -33,6 +33,7 @@ interface UploadedDoc {
 interface Props {
   operatorId: string;
   uploadedDocs: UploadedDoc[];
+  onboardingStatus: Record<string, string | null>;
   onUploadComplete: () => void;
 }
 
