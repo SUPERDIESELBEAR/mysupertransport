@@ -388,6 +388,49 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
     setStatus(prev => ({ ...prev, [field]: value }));
   };
 
+  // Track which doc fields are currently being "requested" (for button loading state)
+  const [requestingDoc, setRequestingDoc] = useState<string | null>(null);
+
+  const handleRequestDoc = async (field: keyof OnboardingStatus, label: string) => {
+    if (!statusId) return;
+    setRequestingDoc(field as string);
+    try {
+      const { error } = await supabase
+        .from('onboarding_status')
+        .update({ [field]: 'requested' })
+        .eq('id', statusId);
+      if (error) throw error;
+
+      // Update local state & milestone snapshot
+      setStatus(prev => ({ ...prev, [field]: 'requested' }));
+      savedMilestones.current = { ...savedMilestones.current, [field]: 'requested' };
+
+      // Notify the operator via the existing edge function
+      await supabase.functions.invoke('send-notification', {
+        body: {
+          type: 'onboarding_milestone',
+          operator_id: operatorId,
+          operator_name: operatorName,
+          operator_email: operatorEmail || undefined,
+          milestone: `Documents Requested — Please Upload Your Documents`,
+          milestone_key: 'docs_requested',
+        },
+        headers: session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : undefined,
+      });
+
+      toast({
+        title: `${label} requested`,
+        description: `${operatorName} has been notified to upload this document.`,
+      });
+    } catch (err: any) {
+      toast({ title: 'Error requesting document', description: err.message, variant: 'destructive' });
+    } finally {
+      setRequestingDoc(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
