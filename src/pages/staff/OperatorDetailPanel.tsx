@@ -78,6 +78,9 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [statusId, setStatusId] = useState<string | null>(null);
   const [dispatchHistory, setDispatchHistory] = useState<DispatchHistoryEntry[]>([]);
   const [currentDispatchStatus, setCurrentDispatchStatus] = useState<string | null>(null);
+  type DocFileRow = { id: string; file_name: string | null; file_url: string | null; uploaded_at: string };
+  const [docFiles, setDocFiles] = useState<Record<string, DocFileRow[]>>({});
+
   // Track the last-saved values of milestone fields to detect transitions
   const savedMilestones = useRef<{
     ica_status: string;
