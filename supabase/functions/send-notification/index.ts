@@ -11,7 +11,8 @@ type NotificationType =
   | 'application_denied'
   | 'onboarding_milestone'
   | 'document_uploaded'
-  | 'dispatch_status_change';
+  | 'dispatch_status_change'
+  | 'new_message';
 
 interface NotificationPayload {
   type: NotificationType;
