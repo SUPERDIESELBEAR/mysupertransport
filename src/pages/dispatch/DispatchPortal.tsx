@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import MessagesView from '@/components/staff/MessagesView';
+import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { sanitizeText } from '@/lib/sanitize';
@@ -12,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
-  LayoutGrid, List, Phone, Siren, Send, ExternalLink
+  LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -101,6 +102,7 @@ interface DispatchPortalProps {
 export default function DispatchPortal({ embedded = false }: DispatchPortalProps) {
   const { toast } = useToast();
   const { session } = useAuth();
+  const [prefOpen, setPrefOpen] = useState(false);
   const [activePage, setActivePage] = useState<'dispatch' | 'dispatch-messages'>('dispatch');
   const [rows, setRows] = useState<DispatchRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1276,16 +1278,28 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   );
 
   return (
-    <StaffLayout
-      navItems={navItems}
-      currentPath={activePage}
-      onNavigate={handleNavigate}
-      title="Dispatch"
-    >
-      {quickComposeModal}
-      {activePage === 'dispatch-messages'
-        ? <MessagesView initialUserId={messageInitialUserId} />
-        : board}
-    </StaffLayout>
+    <>
+      <StaffNotificationPreferencesModal open={prefOpen} onClose={() => setPrefOpen(false)} />
+      <StaffLayout
+        navItems={navItems}
+        currentPath={activePage}
+        onNavigate={handleNavigate}
+        title="Dispatch"
+        headerActions={
+          <button
+            onClick={() => setPrefOpen(true)}
+            title="Notification preferences"
+            className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-muted"
+          >
+            <SlidersHorizontal className="h-4.5 w-4.5" />
+          </button>
+        }
+      >
+        {quickComposeModal}
+        {activePage === 'dispatch-messages'
+          ? <MessagesView initialUserId={messageInitialUserId} />
+          : board}
+      </StaffLayout>
+    </>
   );
 }
