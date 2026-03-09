@@ -120,8 +120,19 @@ export default function OperatorPortal() {
     setUnreadCount(count ?? 0);
   }, [user]);
 
+  const fetchUnreadNotifCount = useCallback(async () => {
+    if (!user) return;
+    const { count } = await supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .is('read_at', null);
+    setUnreadNotifCount(count ?? 0);
+  }, [user]);
+
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchUnreadCount(); }, [fetchUnreadCount]);
+  useEffect(() => { fetchUnreadNotifCount(); }, [fetchUnreadNotifCount]);
 
   // Realtime: update dispatch status live so the banner appears/disappears without refresh
   useEffect(() => {
@@ -143,9 +154,8 @@ export default function OperatorPortal() {
 
   // Clear unread count when messages tab is opened
   useEffect(() => {
-    if (view === 'messages') {
-      setUnreadCount(0);
-    }
+    if (view === 'messages') setUnreadCount(0);
+    if (view === 'notifications') setUnreadNotifCount(0);
   }, [view]);
 
   // Realtime: increment badge when a new message arrives (subscribe once per user)
@@ -167,6 +177,21 @@ export default function OperatorPortal() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user]); // only re-subscribe when user changes
+
+  // Realtime: update notification badge when a new notification arrives
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('operator-unread-notif-badge')
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${user.id}`,
+      }, () => {
+        if (viewRef.current !== 'notifications') fetchUnreadNotifCount();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, fetchUnreadNotifCount]);
 
   const displayName = profile?.first_name ?? 'Operator';
 
