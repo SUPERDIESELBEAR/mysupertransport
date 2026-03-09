@@ -442,6 +442,34 @@ export default function OperatorPortal() {
           </div>
         )}
 
+        {/* ── ICA ACTION-REQUIRED BANNER ── */}
+        {onboardingStatus.ica_status === 'sent_for_signature' && view !== 'ica' && (
+          <div className="bg-[hsl(var(--gold)/0.08)] border border-[hsl(var(--gold)/0.5)] rounded-xl px-4 py-4 animate-fade-in">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-[hsl(var(--gold)/0.15)] shrink-0">
+                  <FileText className="h-4.5 w-4.5 text-gold animate-pulse" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-gold leading-tight">
+                    ✍️ Action Required — Sign Your ICA Agreement
+                  </p>
+                  <p className="text-xs text-gold/70 mt-0.5 leading-snug">
+                    Your Independent Contractor Agreement is ready and waiting for your signature.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setView('ica')}
+                className="shrink-0 flex items-center gap-1.5 bg-gold text-surface-dark text-xs font-bold px-4 py-2 rounded-lg hover:bg-gold-light transition-colors shadow-sm"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Review &amp; Sign Now
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── PROGRESS VIEW ── */}
         {view === 'progress' && (
           <OperatorStatusPage
