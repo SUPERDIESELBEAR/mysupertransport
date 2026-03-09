@@ -734,7 +734,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
         {search && !loading && (
           <div className="px-5 py-2 bg-gold/5 border-b border-gold/20 flex items-center justify-between gap-2">
             <span className="text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{filteredEntries.length}</span> result{filteredEntries.length !== 1 ? 's' : ''} for <span className="font-medium text-foreground">"{search}"</span>
+              Searching all records — <span className="font-medium text-foreground">{entries.length}{hasMore ? '+' : ''}</span> result{entries.length !== 1 ? 's' : ''} for <span className="font-medium text-foreground">"{search}"</span>
             </span>
             <button onClick={() => { setSearchRaw(''); setSearch(''); }} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
               <X className="h-3 w-3" /> Clear search
@@ -746,7 +746,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
             <RefreshCcw className="h-6 w-6 animate-spin opacity-40" />
             <p className="text-sm">Loading activity…</p>
           </div>
-        ) : filteredEntries.length === 0 ? (
+        ) : entries.length === 0 ? (
           <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
             <Activity className="h-10 w-10 opacity-20" />
             <p className="text-sm font-medium">{search ? 'No matching entries' : 'No activity found'}</p>
@@ -760,7 +760,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {filteredEntries.map((entry, idx) => {
+            {entries.map((entry, idx) => {
               const cfg = ACTION_CONFIG[entry.action] ?? {
                 label: entry.action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
                 icon: <Shield className="h-4 w-4" />,
@@ -781,7 +781,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
                       <div className={`h-8 w-8 rounded-full border flex items-center justify-center ${cfg.bg} ${cfg.color}`}>
                         {cfg.icon}
                       </div>
-                      {idx < filteredEntries.length - 1 && !isExpanded && (
+                      {idx < entries.length - 1 && !isExpanded && (
                         <div className="w-px flex-1 bg-border mt-2 min-h-3" />
                       )}
                     </div>
