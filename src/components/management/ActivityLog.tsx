@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
+import { format, startOfDay, endOfDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
-  Milestone, RefreshCcw, Activity, ChevronDown, Download
+  Milestone, RefreshCcw, Activity, ChevronDown, Download, CalendarIcon, X
 } from 'lucide-react';
 
 interface AuditEntry {
@@ -125,7 +129,6 @@ const PAGE_SIZE = 20;
 function csvCell(val: unknown): string {
   if (val === null || val === undefined) return '';
   const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
-  // Wrap in quotes if it contains commas, quotes, or newlines
   if (/[",\n\r]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
   return str;
 }
@@ -146,7 +149,7 @@ function buildDetailText(entry: AuditEntry): string {
   }
 }
 
-function exportToCsv(rows: AuditEntry[], currentFilter: string) {
+function exportToCsv(rows: AuditEntry[], currentFilter: string, dateFrom?: Date, dateTo?: Date) {
   const headers = ['Timestamp', 'Action', 'Actor', 'Subject', 'Detail', 'Entity Type', 'Entity ID'];
   const lines = [
     headers.join(','),
@@ -164,10 +167,67 @@ function exportToCsv(rows: AuditEntry[], currentFilter: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   const filterLabel = currentFilter === 'all' ? 'all' : currentFilter;
+  const fromStr = dateFrom ? format(dateFrom, 'yyyy-MM-dd') : '';
+  const toStr = dateTo ? format(dateTo, 'yyyy-MM-dd') : '';
+  const datePart = fromStr && toStr ? `_${fromStr}_to_${toStr}` : fromStr ? `_from_${fromStr}` : toStr ? `_to_${toStr}` : '';
   a.href = url;
-  a.download = `audit-log-${filterLabel}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `audit-log-${filterLabel}${datePart}_exported-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ── Date picker button ────────────────────────────────────────────────────────
+
+function DatePickerButton({
+  label,
+  date,
+  onSelect,
+  onClear,
+  disabled,
+}: {
+  label: string;
+  date: Date | undefined;
+  onSelect: (d: Date | undefined) => void;
+  onClear: () => void;
+  disabled?: (d: Date) => boolean;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors',
+            date
+              ? 'bg-surface-dark text-white border-surface-dark'
+              : 'bg-white text-muted-foreground border-border hover:border-gold/50 hover:text-foreground'
+          )}
+        >
+          <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+          {date ? format(date, 'MMM d, yyyy') : label}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={onSelect}
+          disabled={disabled}
+          initialFocus
+          className={cn('p-3 pointer-events-auto')}
+        />
+        {date && (
+          <div className="px-3 pb-3">
+            <button
+              onClick={onClear}
+              className="w-full text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 py-1.5 rounded border border-border hover:border-foreground/30 transition-colors"
+            >
+              <X className="h-3 w-3" /> Clear date
+            </button>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -179,8 +239,15 @@ export default function ActivityLog() {
   const [filter, setFilter] = useState('all');
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(0);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
 
-  const fetchLog = useCallback(async (pageNum = 0, currentFilter = filter) => {
+  const fetchLog = useCallback(async (
+    pageNum = 0,
+    currentFilter = filter,
+    from = dateFrom,
+    to = dateTo,
+  ) => {
     setLoading(true);
     let query = supabase
       .from('audit_log' as any)
@@ -188,9 +255,9 @@ export default function ActivityLog() {
       .order('created_at', { ascending: false })
       .range(pageNum * PAGE_SIZE, pageNum * PAGE_SIZE + PAGE_SIZE);
 
-    if (currentFilter !== 'all') {
-      query = query.eq('action', currentFilter);
-    }
+    if (currentFilter !== 'all') query = query.eq('action', currentFilter);
+    if (from) query = query.gte('created_at', startOfDay(from).toISOString());
+    if (to)   query = query.lte('created_at', endOfDay(to).toISOString());
 
     const { data, error } = await query;
     if (!error && data) {
@@ -202,39 +269,41 @@ export default function ActivityLog() {
       }
     }
     setLoading(false);
-  }, [filter]);
+  }, [filter, dateFrom, dateTo]);
 
   useEffect(() => {
     setPage(0);
     setEntries([]);
-    fetchLog(0, filter);
-  }, [filter]);
+    fetchLog(0, filter, dateFrom, dateTo);
+  }, [filter, dateFrom, dateTo]);
 
   const handleLoadMore = () => {
     const next = page + 1;
     setPage(next);
-    fetchLog(next, filter);
+    fetchLog(next, filter, dateFrom, dateTo);
   };
 
-  // Fetch ALL matching rows (no pagination limit) then trigger download
   const handleExport = async () => {
     setExporting(true);
     let query = supabase
       .from('audit_log' as any)
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(5000); // safety ceiling — well above any realistic audit log size
+      .limit(5000);
 
-    if (filter !== 'all') {
-      query = query.eq('action', filter);
-    }
+    if (filter !== 'all') query = query.eq('action', filter);
+    if (dateFrom) query = query.gte('created_at', startOfDay(dateFrom).toISOString());
+    if (dateTo)   query = query.lte('created_at', endOfDay(dateTo).toISOString());
 
     const { data } = await query;
     if (data && data.length > 0) {
-      exportToCsv(data as unknown as AuditEntry[], filter);
+      exportToCsv(data as unknown as AuditEntry[], filter, dateFrom, dateTo);
     }
     setExporting(false);
   };
+
+  const hasDateFilter = !!dateFrom || !!dateTo;
+  const clearDates = () => { setDateFrom(undefined); setDateTo(undefined); };
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -258,7 +327,7 @@ export default function ActivityLog() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => { setPage(0); setEntries([]); fetchLog(0, filter); }}
+            onClick={() => { setPage(0); setEntries([]); fetchLog(0, filter, dateFrom, dateTo); }}
             disabled={loading}
             className="gap-1.5"
           >
@@ -269,7 +338,7 @@ export default function ActivityLog() {
       </div>
 
       {/* Filter bar */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 items-center">
         {FILTER_OPTIONS.map(opt => (
           <button
             key={opt.value}
@@ -283,7 +352,45 @@ export default function ActivityLog() {
             {opt.label}
           </button>
         ))}
+
+        {/* Separator */}
+        <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Date range pickers */}
+        <DatePickerButton
+          label="From date"
+          date={dateFrom}
+          onSelect={setDateFrom}
+          onClear={() => setDateFrom(undefined)}
+          disabled={dateTo ? (d) => d > dateTo : undefined}
+        />
+        <span className="text-xs text-muted-foreground">–</span>
+        <DatePickerButton
+          label="To date"
+          date={dateTo}
+          onSelect={setDateTo}
+          onClear={() => setDateTo(undefined)}
+          disabled={dateFrom ? (d) => d < dateFrom : undefined}
+        />
+
+        {hasDateFilter && (
+          <button
+            onClick={clearDates}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground border border-transparent hover:border-border transition-colors"
+          >
+            <X className="h-3 w-3" /> Clear dates
+          </button>
+        )}
       </div>
+
+      {/* Active date range summary */}
+      {hasDateFilter && (
+        <p className="text-xs text-muted-foreground -mt-2">
+          Showing entries
+          {dateFrom ? ` from ${format(dateFrom, 'MMM d, yyyy')}` : ''}
+          {dateTo   ? ` to ${format(dateTo, 'MMM d, yyyy')}` : ''}
+        </p>
+      )}
 
       {/* Timeline */}
       <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
@@ -295,8 +402,10 @@ export default function ActivityLog() {
         ) : entries.length === 0 ? (
           <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
             <Activity className="h-10 w-10 opacity-20" />
-            <p className="text-sm font-medium">No activity yet</p>
-            <p className="text-xs">Actions like approvals, role changes, and milestones will appear here.</p>
+            <p className="text-sm font-medium">No activity found</p>
+            <p className="text-xs">
+              {hasDateFilter ? 'Try adjusting the date range or clearing the filter.' : 'Actions like approvals, role changes, and milestones will appear here.'}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-border">
