@@ -281,6 +281,10 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
+      if (sortKey === 'progress') {
+        const cmp = a.progress_pct - b.progress_pct;
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
       let av = '';
       let bv = '';
       if (sortKey === 'name') {
