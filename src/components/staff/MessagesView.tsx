@@ -209,6 +209,25 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
             : t
         )
       );
+
+      // Fire in-app + email notification to operator (non-blocking)
+      const senderProfile = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('user_id', user.id)
+        .single();
+      const senderName = senderProfile.data
+        ? `${senderProfile.data.first_name ?? ''} ${senderProfile.data.last_name ?? ''}`.trim() || 'Your coordinator'
+        : 'Your coordinator';
+
+      supabase.functions.invoke('send-notification', {
+        body: {
+          type: 'new_message',
+          recipient_user_id: selectedUserId,
+          sender_name: senderName,
+          message_preview: body,
+        },
+      }).catch(err => console.warn('Message notification failed:', err));
     }
     setSending(false);
   };
