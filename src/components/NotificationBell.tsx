@@ -20,9 +20,11 @@ interface NotificationBellProps {
   variant?: 'light' | 'dark';
   /** Path to navigate when "View all →" is clicked. Defaults to /dashboard?view=notifications */
   notificationsPath?: string;
+  /** When true, clears the bell's unread badge (e.g. when the notifications history page is open) */
+  clearBadge?: boolean;
 }
 
-export default function NotificationBell({ variant = 'light', notificationsPath = '/dashboard?view=notifications' }: NotificationBellProps) {
+export default function NotificationBell({ variant = 'light', notificationsPath = '/dashboard?view=notifications', clearBadge = false }: NotificationBellProps) {
   const { session } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -62,6 +64,13 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
 
     return () => { supabase.removeChannel(channel); };
   }, [session?.user?.id]);
+
+  // Clear bell badge when parent signals that notifications page is open
+  useEffect(() => {
+    if (clearBadge) {
+      setNotifications(prev => prev.map(n => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));
+    }
+  }, [clearBadge]);
 
   const fetchNotifications = async () => {
     if (!session?.user?.id) return;
