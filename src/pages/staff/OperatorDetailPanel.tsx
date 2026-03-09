@@ -660,7 +660,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           const s1Complete = status.mvr_ch_approval === 'approved';
           const s1Collapsed = collapsedStages.has('stage1');
           return (
-            <div className={`bg-white border rounded-xl shadow-sm transition-colors ${s1Complete ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stage1'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s1Complete ? 'border-status-complete' : 'border-border'}`}>
               <button onClick={() => toggleStage('stage1')} className="w-full flex items-center justify-between px-5 py-4 text-left">
                 <div className="flex items-center gap-2">
                   <Shield className={`h-4 w-4 ${s1Complete ? 'text-status-complete' : 'text-gold'}`} />
