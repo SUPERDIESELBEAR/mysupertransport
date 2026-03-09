@@ -165,7 +165,7 @@ export default function OperatorPortal() {
     if (view === 'notifications') setUnreadNotifCount(0);
   }, [view]);
 
-  // Realtime: increment badge when a new message arrives (subscribe once per user)
+  // Realtime: increment badge + desktop push when a new message arrives (subscribe once per user)
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -175,30 +175,52 @@ export default function OperatorPortal() {
         schema: 'public',
         table: 'messages',
         filter: `recipient_id=eq.${user.id}`,
-      }, () => {
+      }, (payload: any) => {
         // Use ref so we never need to re-subscribe when view changes
         if (viewRef.current !== 'messages') {
           setUnreadCount(prev => prev + 1);
         }
+        // Desktop push for new messages when tab is hidden
+        fireNotification({
+          title: 'New Message',
+          body: payload.new?.body ?? 'You have a new message from your dispatcher.',
+          type: 'new_message',
+          link: '/operator?tab=messages',
+        });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user]); // only re-subscribe when user changes
+  }, [user, fireNotification]); // only re-subscribe when user changes
 
-  // Realtime: update notification badge when a new notification arrives
+  // Realtime: update notification badge + desktop push when a new notification arrives
   useEffect(() => {
     if (!user) return;
     const channel = supabase
       .channel('operator-unread-notif-badge')
       .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'notifications',
+        event: 'INSERT', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${user.id}`,
+      }, (payload: any) => {
+        if (viewRef.current !== 'notifications') fetchUnreadNotifCount();
+        // Desktop push for high-priority notification types (e.g. truck_down)
+        if (payload.new) {
+          fireNotification({
+            title: payload.new.title,
+            body: payload.new.body,
+            type: payload.new.type,
+            link: payload.new.link,
+          });
+        }
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'notifications',
         filter: `user_id=eq.${user.id}`,
       }, () => {
         if (viewRef.current !== 'notifications') fetchUnreadNotifCount();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user, fetchUnreadNotifCount]);
+  }, [user, fetchUnreadNotifCount, fireNotification]);
 
   const displayName = profile?.first_name ?? 'Operator';
 
