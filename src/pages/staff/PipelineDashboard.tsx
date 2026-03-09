@@ -629,9 +629,29 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{op.phone ?? '—'}</td>
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
                     <td className="px-4 py-3">
-                      <Badge variant="outline" className="text-xs border-gold/40 text-gold bg-gold/5">
-                        {op.current_stage}
-                      </Badge>
+                      <div className="space-y-1 min-w-[140px]">
+                        <div className="flex items-center justify-between gap-2">
+                          <Badge variant="outline" className="text-xs border-gold/40 text-gold bg-gold/5 truncate max-w-[120px]">
+                            {op.current_stage}
+                          </Badge>
+                          <span className={`text-[11px] font-bold tabular-nums shrink-0 ${
+                            op.progress_pct === 100 ? 'text-status-complete' : 'text-muted-foreground'
+                          }`}>
+                            {op.progress_pct}%
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${op.progress_pct}%`,
+                              background: op.progress_pct === 100
+                                ? 'hsl(var(--status-complete))'
+                                : 'hsl(var(--gold-main))',
+                            }}
+                          />
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       {op.fully_onboarded ? (
