@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
         body: `${app ? (`${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || app.email) : 'An applicant'}'s application has been denied.`,
         type: 'application_denied',
         channel: 'in_app',
-        link: '/staff/applications?status=denied',
+        link: '/dashboard?view=applications&status=denied',
       }));
       await supabaseAdmin.from('notifications').insert(notifRows);
     }
