@@ -215,6 +215,15 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
         insurance_added_date: os.insurance_added_date ?? null,
         dispatch_status: dispatchMap[op.id] ?? null,
         doc_count: docCountMap[op.id] ?? 0,
+        form_2290: os.form_2290 ?? 'not_started',
+        truck_title: os.truck_title ?? 'not_started',
+        truck_photos: os.truck_photos ?? 'not_started',
+        truck_inspection: os.truck_inspection ?? 'not_started',
+        mo_reg_received: os.mo_reg_received ?? 'not_yet',
+        decal_applied: os.decal_applied ?? 'no',
+        eld_installed: os.eld_installed ?? 'no',
+        fuel_card_issued: os.fuel_card_issued ?? 'no',
+        progress_pct: computeProgress(os),
       };
     });
     setOperators(rows);
