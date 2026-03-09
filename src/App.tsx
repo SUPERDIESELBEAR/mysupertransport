@@ -93,6 +93,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AppRoutes />
+          <IdleWarningModal />
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
