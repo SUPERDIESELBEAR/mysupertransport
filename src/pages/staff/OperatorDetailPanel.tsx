@@ -693,7 +693,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
             status.truck_inspection === 'received';
           const s2Collapsed = collapsedStages.has('stage2');
           return (
-        <div className={`bg-white border rounded-xl shadow-sm transition-colors ${allDocsComplete ? 'border-status-complete' : 'border-border'}`}>
+        <div ref={el => { stageRefs.current['stage2'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${allDocsComplete ? 'border-status-complete' : 'border-border'}`}>
           <button onClick={() => toggleStage('stage2')} className="w-full flex items-center justify-between px-5 py-4 text-left">
             <div className="flex items-center gap-2">
               <FileCheck className={`h-4 w-4 ${allDocsComplete ? 'text-status-complete' : 'text-gold'}`} />
