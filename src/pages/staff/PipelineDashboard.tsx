@@ -129,12 +129,15 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     const assignedStaffIds = opData.map((o: any) => o.assigned_onboarding_staff).filter(Boolean);
     const allUserIds = [...new Set([...operatorUserIds, ...assignedStaffIds, ...allStaffUserIds])];
 
-    const [profileResult, dispatchResult] = await Promise.all([
+    const [profileResult, dispatchResult, docResult] = await Promise.all([
       allUserIds.length > 0
         ? supabase.from('profiles').select('user_id, first_name, last_name, phone, home_state').in('user_id', allUserIds)
         : Promise.resolve({ data: [] }),
       operatorIds.length > 0
         ? supabase.from('active_dispatch').select('operator_id, dispatch_status').in('operator_id', operatorIds)
+        : Promise.resolve({ data: [] }),
+      operatorIds.length > 0
+        ? supabase.from('operator_documents').select('operator_id').in('operator_id', operatorIds)
         : Promise.resolve({ data: [] }),
     ]);
 
@@ -143,6 +146,11 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
 
     const dispatchMap: Record<string, DispatchStatus> = {};
     ((dispatchResult.data as any[]) ?? []).forEach((d: any) => { dispatchMap[d.operator_id] = d.dispatch_status; });
+
+    const docCountMap: Record<string, number> = {};
+    ((docResult.data as any[]) ?? []).forEach((d: any) => {
+      docCountMap[d.operator_id] = (docCountMap[d.operator_id] ?? 0) + 1;
+    });
 
     // Build staff options
     const staffMap: Record<string, StaffOption> = {};
@@ -180,6 +188,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
         ica_status: os.ica_status ?? 'not_issued',
         insurance_added_date: os.insurance_added_date ?? null,
         dispatch_status: dispatchMap[op.id] ?? null,
+        doc_count: docCountMap[op.id] ?? 0,
       };
     });
     setOperators(rows);
