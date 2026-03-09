@@ -88,11 +88,15 @@ export default function StaffPortal() {
         <PipelineDashboard onOpenOperator={handleOpenOperator} />
       )}
       {currentView === 'operator-detail' && selectedOperatorId && (
-        <OperatorDetailPanel operatorId={selectedOperatorId} onBack={handleBackToPipeline} />
+        <OperatorDetailPanel
+          operatorId={selectedOperatorId}
+          onBack={handleBackToPipeline}
+          onMessageOperator={handleMessageOperator}
+        />
       )}
       {currentView === 'messages' && (
         <div className="h-full" style={{ height: 'calc(100vh - 160px)' }}>
-          <MessagesView />
+          <MessagesView initialUserId={messageInitialUserId} />
         </div>
       )}
       {currentView === 'faq' && (
