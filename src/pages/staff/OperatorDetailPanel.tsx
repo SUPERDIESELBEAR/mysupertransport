@@ -966,31 +966,29 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
 
         {/* Stage 5 — Equipment */}
         {(() => {
-          const allEquipmentReady =
-            status.decal_applied === 'yes' &&
-            status.eld_installed === 'yes' &&
-            status.fuel_card_issued === 'yes';
+          const allEquipmentReady = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
+          const s5Collapsed = collapsedStages.has('stage5');
           return (
-            <div className={`bg-white border rounded-xl p-5 shadow-sm ${allEquipmentReady ? 'border-status-complete' : 'border-border'}`}>
-              <div className="flex items-center justify-between gap-2 mb-4">
+            <div className={`bg-white border rounded-xl shadow-sm transition-colors ${allEquipmentReady ? 'border-status-complete' : 'border-border'}`}>
+              <button onClick={() => toggleStage('stage5')} className="w-full flex items-center justify-between px-5 py-4 text-left">
                 <div className="flex items-center gap-2">
                   <Truck className={`h-4 w-4 ${allEquipmentReady ? 'text-status-complete' : 'text-gold'}`} />
                   <h3 className="font-semibold text-foreground text-sm">Stage 5 — Equipment Setup</h3>
                 </div>
-                {allEquipmentReady && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    All Equipment Ready
-                  </span>
-                )}
-              </div>
-              <div className="space-y-3">
-                <SelectField label="Decal Method" field="decal_method" options={methodOptions} />
-                <SelectField label="Decal Applied" field="decal_applied" options={yesNoOptions} />
-                <SelectField label="ELD Method" field="eld_method" options={methodOptions} />
-                <SelectField label="ELD Installed" field="eld_installed" options={yesNoOptions} />
-                <SelectField label="Fuel Card Issued" field="fuel_card_issued" options={yesNoOptions} />
-              </div>
+                <div className="flex items-center gap-2">
+                  {allEquipmentReady && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />All Equipment Ready</span>}
+                  {s5Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+              {!s5Collapsed && (
+                <div className="px-5 pb-5 space-y-3">
+                  <SelectField label="Decal Method" field="decal_method" options={methodOptions} />
+                  <SelectField label="Decal Applied" field="decal_applied" options={yesNoOptions} />
+                  <SelectField label="ELD Method" field="eld_method" options={methodOptions} />
+                  <SelectField label="ELD Installed" field="eld_installed" options={yesNoOptions} />
+                  <SelectField label="Fuel Card Issued" field="fuel_card_issued" options={yesNoOptions} />
+                </div>
+              )}
             </div>
           );
         })()}
