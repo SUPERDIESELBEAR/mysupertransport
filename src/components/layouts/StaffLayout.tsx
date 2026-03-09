@@ -24,6 +24,8 @@ interface StaffLayoutProps {
   onNavigate: (path: string) => void;
   title: string;
   headerActions?: ReactNode;
+  /** Path for the bell dropdown 'View all →' link. Defaults to /staff?tab=notifications */
+  notificationsPath?: string;
 }
 
 const roleColors: Record<AppRole, string> = {
