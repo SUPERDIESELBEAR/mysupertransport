@@ -597,6 +597,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         ];
         const completedCount = stages.filter(s => s.complete).length;
         const pct = Math.round((completedCount / stages.length) * 100);
+        const hasUnsavedChanges = savedSnapshot.current !== null && (
+          JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
+          savedSnapshot.current.notes !== notes
+        );
         return (
           <div
             className={`sticky top-0 z-30 -mx-6 px-6 transition-all duration-300 ${
