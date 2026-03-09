@@ -26,6 +26,7 @@ export default function NotificationBell({ variant = 'light' }: NotificationBell
   const location = useLocation();
   const isOperatorPortal = location.pathname.startsWith('/operator');
   const historyPath = isOperatorPortal ? '/operator?tab=notifications' : '/dashboard?view=notifications';
+  const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
