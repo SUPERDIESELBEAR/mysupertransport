@@ -142,6 +142,119 @@ function EntryDetail({ entry }: { entry: AuditEntry }) {
   }
 }
 
+// ── Expanded detail panel ─────────────────────────────────────────────────────
+
+function MetaRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
+  if (!value && value !== 0) return null;
+  return (
+    <div className="flex items-start gap-2.5 py-2 border-b border-border/50 last:border-0">
+      <span className="text-muted-foreground/60 mt-0.5 shrink-0">{icon}</span>
+      <span className="text-xs text-muted-foreground w-28 shrink-0 font-medium">{label}</span>
+      <span className="text-xs text-foreground break-all">{value}</span>
+    </div>
+  );
+}
+
+function EntryExpandedPanel({ entry }: { entry: AuditEntry }) {
+  const meta = entry.metadata ?? {};
+
+  // Build action-specific structured fields
+  const structuredRows: { icon: React.ReactNode; label: string; value: React.ReactNode }[] = [];
+
+  if (entry.actor_name) {
+    structuredRows.push({ icon: <User className="h-3.5 w-3.5" />, label: 'Actor', value: entry.actor_name });
+  }
+  if (entry.actor_id) {
+    structuredRows.push({ icon: <Hash className="h-3.5 w-3.5" />, label: 'Actor ID', value: <span className="font-mono text-[10px]">{entry.actor_id}</span> });
+  }
+  if (entry.entity_label) {
+    structuredRows.push({ icon: <Tag className="h-3.5 w-3.5" />, label: 'Subject', value: entry.entity_label });
+  }
+  if (entry.entity_id) {
+    structuredRows.push({ icon: <Hash className="h-3.5 w-3.5" />, label: 'Subject ID', value: <span className="font-mono text-[10px]">{entry.entity_id}</span> });
+  }
+  structuredRows.push({ icon: <Tag className="h-3.5 w-3.5" />, label: 'Entity Type', value: entry.entity_type });
+  structuredRows.push({
+    icon: <Clock className="h-3.5 w-3.5" />,
+    label: 'Timestamp',
+    value: new Date(entry.created_at).toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'medium' })
+  });
+
+  // Action-specific metadata
+  switch (entry.action) {
+    case 'application_approved':
+    case 'application_denied':
+      if (meta.applicant_name) structuredRows.push({ icon: <User className="h-3.5 w-3.5" />, label: 'Applicant', value: meta.applicant_name as string });
+      if (meta.applicant_email) structuredRows.push({ icon: <Info className="h-3.5 w-3.5" />, label: 'Email', value: meta.applicant_email as string });
+      if (meta.reviewer_notes) structuredRows.push({ icon: <StickyNote className="h-3.5 w-3.5" />, label: 'Reviewer Notes', value: <span className="italic">"{meta.reviewer_notes as string}"</span> });
+      break;
+    case 'role_added':
+    case 'role_removed':
+      if (meta.role) structuredRows.push({ icon: <Shield className="h-3.5 w-3.5" />, label: 'Role', value: formatRole(meta.role as string) });
+      if (meta.target_user) structuredRows.push({ icon: <User className="h-3.5 w-3.5" />, label: 'Target User', value: meta.target_user as string });
+      break;
+    case 'operator_status_updated':
+    case 'onboarding_milestone': {
+      const milestones = meta.milestones as string[] | undefined;
+      if (milestones?.length) {
+        structuredRows.push({
+          icon: <Milestone className="h-3.5 w-3.5" />,
+          label: 'Milestones',
+          value: (
+            <span className="flex flex-col gap-0.5">
+              {milestones.map((m, i) => <span key={i} className="inline-block">{m}</span>)}
+            </span>
+          )
+        });
+      }
+      const changedFields = meta.changed_fields as Record<string, unknown> | undefined;
+      if (changedFields) {
+        Object.entries(changedFields).forEach(([k, v]) => {
+          structuredRows.push({
+            icon: <Settings2 className="h-3.5 w-3.5" />,
+            label: k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+            value: String(v),
+          });
+        });
+      }
+      break;
+    }
+  }
+
+  // Remaining raw metadata keys not already shown
+  const shownKeys = new Set(['applicant_name', 'applicant_email', 'reviewer_notes', 'role', 'target_user', 'milestones', 'changed_fields']);
+  const rawExtras = Object.entries(meta).filter(([k]) => !shownKeys.has(k));
+
+  return (
+    <div className="mt-2 ml-0.5 rounded-lg border border-border bg-secondary/30 overflow-hidden">
+      <div className="px-3 py-1.5 bg-muted/40 border-b border-border flex items-center gap-1.5">
+        <Info className="h-3 w-3 text-muted-foreground" />
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Entry Detail</span>
+      </div>
+      <div className="px-3 py-1">
+        {structuredRows.map((row, i) => (
+          <MetaRow key={i} icon={row.icon} label={row.label} value={row.value} />
+        ))}
+        {rawExtras.length > 0 && (
+          <>
+            <div className="pt-2 pb-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Additional Metadata</span>
+            </div>
+            {rawExtras.map(([k, v]) => (
+              <MetaRow
+                key={k}
+                icon={<Settings2 className="h-3.5 w-3.5" />}
+                label={k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                value={typeof v === 'object' ? <span className="font-mono text-[10px] break-all">{JSON.stringify(v)}</span> : String(v)}
+              />
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const PAGE_SIZE = 20;
 
 // ── CSV helpers ───────────────────────────────────────────────────────────────
