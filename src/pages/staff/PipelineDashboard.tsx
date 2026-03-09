@@ -122,6 +122,35 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     fetchOperators();
   }, []);
 
+  // Realtime: refresh unread counts when a new message arrives
+  useEffect(() => {
+    const channel = supabase
+      .channel('pipeline-messages-watch')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
+        refreshUnreadCounts();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, () => {
+        refreshUnreadCounts();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const refreshUnreadCounts = async () => {
+    if (!user?.id) return;
+    const { data } = await supabase
+      .from('messages')
+      .select('sender_id')
+      .eq('recipient_id', user.id)
+      .is('read_at', null);
+    if (!data) return;
+    const map: Record<string, number> = {};
+    (data as any[]).forEach((m: any) => {
+      map[m.sender_id] = (map[m.sender_id] ?? 0) + 1;
+    });
+    setOperators(prev => prev.map(op => ({ ...op, unread_count: map[op.user_id] ?? 0 })));
+  };
+
   const fetchOperators = async () => {
     setLoading(true);
 
@@ -159,7 +188,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     const assignedStaffIds = opData.map((o: any) => o.assigned_onboarding_staff).filter(Boolean);
     const allUserIds = [...new Set([...operatorUserIds, ...assignedStaffIds, ...allStaffUserIds])];
 
-    const [profileResult, dispatchResult, docResult] = await Promise.all([
+    const [profileResult, dispatchResult, docResult, unreadResult] = await Promise.all([
       allUserIds.length > 0
         ? supabase.from('profiles').select('user_id, first_name, last_name, phone, home_state').in('user_id', allUserIds)
         : Promise.resolve({ data: [] }),
@@ -168,6 +197,15 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
         : Promise.resolve({ data: [] }),
       operatorIds.length > 0
         ? supabase.from('operator_documents').select('operator_id').in('operator_id', operatorIds)
+        : Promise.resolve({ data: [] }),
+      // Fetch all unread messages sent to the current staff user from operator user IDs
+      user?.id && operatorUserIds.length > 0
+        ? supabase
+            .from('messages')
+            .select('sender_id')
+            .eq('recipient_id', user.id)
+            .in('sender_id', operatorUserIds)
+            .is('read_at', null)
         : Promise.resolve({ data: [] }),
     ]);
 
@@ -180,6 +218,12 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     const docCountMap: Record<string, number> = {};
     ((docResult.data as any[]) ?? []).forEach((d: any) => {
       docCountMap[d.operator_id] = (docCountMap[d.operator_id] ?? 0) + 1;
+    });
+
+    // Build unread count map keyed by operator user_id
+    const unreadMap: Record<string, number> = {};
+    ((unreadResult.data as any[]) ?? []).forEach((m: any) => {
+      unreadMap[m.sender_id] = (unreadMap[m.sender_id] ?? 0) + 1;
     });
 
     // Build staff options
@@ -219,6 +263,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
         insurance_added_date: os.insurance_added_date ?? null,
         dispatch_status: dispatchMap[op.id] ?? null,
         doc_count: docCountMap[op.id] ?? 0,
+        unread_count: unreadMap[op.user_id] ?? 0,
         form_2290: os.form_2290 ?? 'not_started',
         truck_title: os.truck_title ?? 'not_started',
         truck_photos: os.truck_photos ?? 'not_started',
@@ -233,6 +278,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     setOperators(rows);
     setLoading(false);
   };
+
 
   const getStatus = (op: OperatorRow) => {
     if (op.fully_onboarded) return 'onboarded';
