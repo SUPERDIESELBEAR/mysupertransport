@@ -145,6 +145,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     fetchDispatchHistory();
   }, [operatorId]);
 
+  // Cmd+S / Ctrl+S keyboard shortcut to save
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [status, notes]);
+
   const fetchDispatchHistory = async () => {
     const { data: dispatch } = await supabase
       .from('active_dispatch')
