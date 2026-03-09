@@ -619,19 +619,33 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Stage 1 — Background */}
-        <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <Shield className="h-4 w-4 text-gold" />
-            <h3 className="font-semibold text-foreground text-sm">Stage 1 — Background Check</h3>
-          </div>
-          <div className="space-y-3">
-            <SelectField label="MVR Status" field="mvr_status" options={mvrOptions} />
-            <SelectField label="Clearinghouse (CH) Status" field="ch_status" options={mvrOptions} />
-            <SelectField label="MVR/CH Approval" field="mvr_ch_approval" options={approvalOptions} />
-            <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
-            <SelectField label="PE Screening Result" field="pe_screening_result" options={resultOptions} />
-          </div>
-        </div>
+        {(() => {
+          const s1Complete = status.mvr_ch_approval === 'approved';
+          const s1Collapsed = collapsedStages.has('stage1');
+          return (
+            <div className={`bg-white border rounded-xl shadow-sm transition-colors ${s1Complete ? 'border-status-complete' : 'border-border'}`}>
+              <button onClick={() => toggleStage('stage1')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+                <div className="flex items-center gap-2">
+                  <Shield className={`h-4 w-4 ${s1Complete ? 'text-status-complete' : 'text-gold'}`} />
+                  <h3 className="font-semibold text-foreground text-sm">Stage 1 — Background Check</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {s1Complete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>}
+                  {s1Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+              {!s1Collapsed && (
+                <div className="px-5 pb-5 space-y-3">
+                  <SelectField label="MVR Status" field="mvr_status" options={mvrOptions} />
+                  <SelectField label="Clearinghouse (CH) Status" field="ch_status" options={mvrOptions} />
+                  <SelectField label="MVR/CH Approval" field="mvr_ch_approval" options={approvalOptions} />
+                  <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
+                  <SelectField label="PE Screening Result" field="pe_screening_result" options={resultOptions} />
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Stage 2 — Documents */}
         {(() => {
