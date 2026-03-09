@@ -140,6 +140,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       setOperatorName(
         profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || 'Unknown Operator' : 'Unknown Operator'
       );
+      setOperatorUserId((op as any).user_id ?? null);
       const app = (op as any).applications;
       setOperatorEmail(app?.email ?? '');
       setApplicationData(app ?? null);
