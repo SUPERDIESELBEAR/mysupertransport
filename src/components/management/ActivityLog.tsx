@@ -260,6 +260,7 @@ export default function ActivityLog() {
   const [page, setPage] = useState(0);
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [activePreset, setActivePreset] = useState<string | null>(null);
 
   const fetchLog = useCallback(async (
     pageNum = 0,
