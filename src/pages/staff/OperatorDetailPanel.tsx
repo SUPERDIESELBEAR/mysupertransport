@@ -343,6 +343,47 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
     setSaving(false);
   };
 
+  const handleVoidICA = async () => {
+    setVoidingICA(true);
+    try {
+      // Delete the ica_contracts record for this operator
+      const { error: delError } = await supabase
+        .from('ica_contracts' as any)
+        .delete()
+        .eq('operator_id', operatorId);
+      if (delError) throw delError;
+
+      // Reset ica_status on onboarding_status
+      if (statusId) {
+        const { error: updError } = await supabase
+          .from('onboarding_status')
+          .update({ ica_status: 'not_issued' })
+          .eq('id', statusId);
+        if (updError) throw updError;
+      }
+
+      // Log the void action
+      void supabase.from('audit_log' as any).insert({
+        actor_id: session?.user?.id ?? null,
+        actor_name: null,
+        action: 'ica_voided',
+        entity_type: 'operator',
+        entity_id: operatorId,
+        entity_label: operatorName,
+        metadata: { previous_ica_status: status.ica_status },
+      });
+
+      setStatus(prev => ({ ...prev, ica_status: 'not_issued' }));
+      savedMilestones.current.ica_status = 'not_issued';
+      setShowVoidConfirm(false);
+      toast({ title: 'ICA voided', description: 'The contract has been cleared. You can now prepare a new ICA.' });
+    } catch (err: any) {
+      toast({ title: 'Error voiding ICA', description: err.message, variant: 'destructive' });
+    } finally {
+      setVoidingICA(false);
+    }
+  };
+
   const updateStatus = (field: keyof OnboardingStatus, value: string | null) => {
     setStatus(prev => ({ ...prev, [field]: value }));
   };
