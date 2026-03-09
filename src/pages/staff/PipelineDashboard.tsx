@@ -33,6 +33,16 @@ interface OperatorRow {
   insurance_added_date: string | null;
   dispatch_status: DispatchStatus | null;
   doc_count: number;
+  // Progress fields
+  form_2290: string;
+  truck_title: string;
+  truck_photos: string;
+  truck_inspection: string;
+  mo_reg_received: string;
+  decal_applied: string;
+  eld_installed: string;
+  fuel_card_issued: string;
+  progress_pct: number;
 }
 
 interface StaffOption {
