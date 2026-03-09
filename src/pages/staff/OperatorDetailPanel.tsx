@@ -566,6 +566,62 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl">
+
+      {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
+      {(() => {
+        const stages = [
+          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' },
+          { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received' },
+          { label: 'ICA',        key: 'stage3', complete: status.ica_status === 'complete' },
+          { label: 'MO Reg',     key: 'stage4', complete: status.mo_reg_received === 'yes' },
+          { label: 'Equipment',  key: 'stage5', complete: status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' },
+          { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date },
+        ];
+        const completedCount = stages.filter(s => s.complete).length;
+        const pct = Math.round((completedCount / stages.length) * 100);
+        return (
+          <div
+            className={`sticky top-0 z-30 -mx-6 px-6 transition-all duration-300 ${
+              showStickyBar ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'
+            }`}
+          >
+            <div className="bg-white/95 backdrop-blur border-b border-border shadow-sm py-2 px-4">
+              <div className="flex items-center gap-3 max-w-4xl">
+                <span className="text-[11px] font-semibold text-muted-foreground whitespace-nowrap shrink-0 uppercase tracking-wide">
+                  {completedCount}/{stages.length} Complete
+                </span>
+                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${pct}%`,
+                      background: completedCount === stages.length
+                        ? 'hsl(var(--status-complete))'
+                        : 'hsl(var(--gold-main))',
+                    }}
+                  />
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {stages.map((s, i) => (
+                    <button
+                      key={s.key}
+                      onClick={() => scrollToStage(s.key)}
+                      title={`Jump to ${s.label}`}
+                      className={`h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-bold border-2 transition-all hover:scale-110 ${
+                        s.complete
+                          ? 'bg-status-complete border-status-complete text-white'
+                          : 'bg-background border-border text-muted-foreground hover:border-gold hover:text-gold'
+                      }`}
+                    >
+                      {s.complete ? '✓' : i + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
