@@ -575,9 +575,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
                   width: `${pct}%`,
                   background: completedCount === stages.length
                     ? 'hsl(var(--status-complete))'
-                    : completedCount >= 4
-                    ? 'hsl(var(--gold))'
-                    : 'hsl(var(--gold))',
+                    : 'hsl(var(--gold-main))',
                 }}
               />
             </div>
