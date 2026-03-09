@@ -550,6 +550,55 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
         {status.pe_screening_result === 'clear' && <Badge className="status-complete border text-xs">PE Clear</Badge>}
       </div>
 
+      {/* Stage Completion Progress Bar */}
+      {(() => {
+        const stages = [
+          { label: 'Background',  complete: status.mvr_ch_approval === 'approved' },
+          { label: 'Documents',   complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received' },
+          { label: 'ICA',         complete: status.ica_status === 'complete' },
+          { label: 'MO Reg',      complete: status.mo_reg_received === 'yes' },
+          { label: 'Equipment',   complete: status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' },
+          { label: 'Insurance',   complete: !!status.insurance_added_date },
+        ];
+        const completedCount = stages.filter(s => s.complete).length;
+        const pct = Math.round((completedCount / stages.length) * 100);
+        return (
+          <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-foreground uppercase tracking-wide">Onboarding Progress</span>
+              <span className="text-xs font-bold text-foreground">{completedCount} / {stages.length} stages complete</span>
+            </div>
+            <div className="w-full h-2 bg-muted rounded-full overflow-hidden mb-3">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${pct}%`,
+                  background: completedCount === stages.length
+                    ? 'hsl(var(--status-complete))'
+                    : 'hsl(var(--gold-main))',
+                }}
+              />
+            </div>
+            <div className="grid grid-cols-6 gap-1">
+              {stages.map((s, i) => (
+                <div key={s.label} className="flex flex-col items-center gap-1">
+                  <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors ${
+                    s.complete
+                      ? 'bg-status-complete border-status-complete text-white'
+                      : 'bg-background border-border text-muted-foreground'
+                  }`}>
+                    {s.complete ? '✓' : i + 1}
+                  </div>
+                  <span className={`text-[10px] text-center leading-tight ${s.complete ? 'text-status-complete font-medium' : 'text-muted-foreground'}`}>
+                    {s.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Stage 1 — Background */}
         <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
