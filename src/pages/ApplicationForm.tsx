@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Truck, Save, ChevronLeft, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react';
+import { Truck, Save, ChevronLeft, ChevronRight, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import FormProgress from '@/components/application/FormProgress';
 import Step1Personal from '@/components/application/Step1Personal';
