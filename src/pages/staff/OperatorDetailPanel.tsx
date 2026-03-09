@@ -1036,7 +1036,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           const s6Complete = !!status.insurance_added_date;
           const s6Collapsed = collapsedStages.has('stage6');
           return (
-            <div className={`bg-white border rounded-xl shadow-sm transition-colors ${s6Complete ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stage6'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s6Complete ? 'border-status-complete' : 'border-border'}`}>
               <button onClick={() => toggleStage('stage6')} className="w-full flex items-center justify-between px-5 py-4 text-left">
                 <div className="flex items-center gap-2">
                   <Shield className={`h-4 w-4 ${s6Complete ? 'text-status-complete' : 'text-gold'}`} />
