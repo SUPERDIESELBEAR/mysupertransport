@@ -492,66 +492,58 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
     searchDebounceRef.current = setTimeout(() => setSearch(val.trim()), 250);
   };
 
-  const filteredEntries = search
-    ? entries.filter(e => entryMatchesSearch(e, search))
-    : entries;
-
+  // Server-side fetch using the search_audit_log RPC (covers all rows, incl. metadata)
   const fetchLog = useCallback(async (
     pageNum = 0,
     currentFilter = filter,
     from = dateFrom,
     to = dateTo,
+    currentSearch = search,
   ) => {
     setLoading(true);
-    let query = supabase
-      .from('audit_log' as any)
-      .select('*')
-      .order('created_at', { ascending: false })
-      .range(pageNum * PAGE_SIZE, pageNum * PAGE_SIZE + PAGE_SIZE);
-
-    if (currentFilter !== 'all') query = query.eq('action', currentFilter);
-    if (from) query = query.gte('created_at', startOfDay(from).toISOString());
-    if (to)   query = query.lte('created_at', endOfDay(to).toISOString());
-
-    const { data, error } = await query;
+    const { data, error } = await (supabase as any).rpc('search_audit_log', {
+      p_search: currentSearch || null,
+      p_action: currentFilter !== 'all' ? currentFilter : null,
+      p_from:   from ? startOfDay(from).toISOString() : null,
+      p_to:     to   ? endOfDay(to).toISOString()   : null,
+      p_limit:  PAGE_SIZE + 1,
+      p_offset: pageNum * PAGE_SIZE,
+    });
     if (!error && data) {
-      const typed = data as unknown as AuditEntry[];
-      setEntries(prev => pageNum === 0 ? typed : [...prev, ...typed]);
-      setHasMore(typed.length === PAGE_SIZE + 1);
-      if (typed.length === PAGE_SIZE + 1) {
-        setEntries(prev => prev.slice(0, -1));
-      }
+      const typed = data as AuditEntry[];
+      const hasNextPage = typed.length === PAGE_SIZE + 1;
+      const page = hasNextPage ? typed.slice(0, -1) : typed;
+      setEntries(prev => pageNum === 0 ? page : [...prev, ...page]);
+      setHasMore(hasNextPage);
     }
     setLoading(false);
-  }, [filter, dateFrom, dateTo]);
+  }, [filter, dateFrom, dateTo, search]);
 
+  // Re-fetch on filter, date, or debounced search change
   useEffect(() => {
     setPage(0);
     setEntries([]);
-    fetchLog(0, filter, dateFrom, dateTo);
-  }, [filter, dateFrom, dateTo]);
+    fetchLog(0, filter, dateFrom, dateTo, search);
+  }, [filter, dateFrom, dateTo, search]);
 
   const handleLoadMore = () => {
     const next = page + 1;
     setPage(next);
-    fetchLog(next, filter, dateFrom, dateTo);
+    fetchLog(next, filter, dateFrom, dateTo, search);
   };
 
   const handleExport = async () => {
     setExporting(true);
-    let query = supabase
-      .from('audit_log' as any)
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(5000);
-
-    if (filter !== 'all') query = query.eq('action', filter);
-    if (dateFrom) query = query.gte('created_at', startOfDay(dateFrom).toISOString());
-    if (dateTo)   query = query.lte('created_at', endOfDay(dateTo).toISOString());
-
-    const { data } = await query;
+    const { data } = await (supabase as any).rpc('search_audit_log', {
+      p_search: search || null,
+      p_action: filter !== 'all' ? filter : null,
+      p_from:   dateFrom ? startOfDay(dateFrom).toISOString() : null,
+      p_to:     dateTo   ? endOfDay(dateTo).toISOString()     : null,
+      p_limit:  5000,
+      p_offset: 0,
+    });
     if (data && data.length > 0) {
-      exportToCsv(data as unknown as AuditEntry[], filter, dateFrom, dateTo);
+      exportToCsv(data as AuditEntry[], filter, dateFrom, dateTo);
     }
     setExporting(false);
   };
