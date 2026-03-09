@@ -617,6 +617,23 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
         );
       })()}
 
+      {/* Collapse All / Expand All */}
+      {(() => {
+        const allStageKeys = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6'];
+        const allCollapsed = allStageKeys.every(k => collapsedStages.has(k));
+        return (
+          <div className="flex justify-end">
+            <button
+              onClick={() => setCollapsedStages(allCollapsed ? new Set() : new Set(allStageKeys))}
+              className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-muted"
+            >
+              {allCollapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+              {allCollapsed ? 'Expand All' : 'Collapse All'}
+            </button>
+          </div>
+        );
+      })()}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Stage 1 — Background */}
         {(() => {
