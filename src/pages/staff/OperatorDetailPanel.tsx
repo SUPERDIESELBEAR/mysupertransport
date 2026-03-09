@@ -20,6 +20,7 @@ interface OperatorDetailPanelProps {
   operatorId: string;
   onBack: () => void;
   onMessageOperator?: (userId: string) => void;
+  onUnsavedChangesChange?: (hasChanges: boolean) => void;
 }
 
 type OnboardingStatus = {
@@ -63,7 +64,7 @@ const DISPATCH_STATUS_CONFIG: Record<string, { label: string; dotClass: string; 
   truck_down:     { label: 'Truck Down',     dotClass: 'bg-destructive',       badgeClass: 'bg-destructive/10 text-destructive border-destructive/30', emoji: '🔴' },
 };
 
-export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator }: OperatorDetailPanelProps) {
+export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator, onUnsavedChangesChange }: OperatorDetailPanelProps) {
   const { toast } = useToast();
   const { session } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -147,6 +148,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     fetchOperatorDetail();
     fetchDispatchHistory();
   }, [operatorId]);
+
+  // Notify parent of unsaved changes state
+  useEffect(() => {
+    const hasChanges = savedSnapshot.current !== null && (
+      JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
+      savedSnapshot.current.notes !== notes
+    );
+    onUnsavedChangesChange?.(hasChanges);
+  }, [status, notes]);
 
   // Cmd+S / Ctrl+S keyboard shortcut to save
   useEffect(() => {

@@ -8,6 +8,11 @@ import FaqManager from '@/components/management/FaqManager';
 import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import MessagesView from '@/components/staff/MessagesView';
 import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources';
 
@@ -17,8 +22,9 @@ export default function StaffPortal() {
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
+  const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const viewRef = useRef(currentView);
-  useEffect(() => { viewRef.current = currentView; }, [currentView]);
 
   // Fetch initial unread count
   useEffect(() => {
@@ -64,24 +70,45 @@ export default function StaffPortal() {
 
   const handleOpenOperator = (operatorId: string) => {
     setSelectedOperatorId(operatorId);
+    setOperatorHasUnsavedChanges(false);
     setCurrentView('operator-detail');
   };
 
   const handleBackToPipeline = () => {
     setSelectedOperatorId(null);
+    setOperatorHasUnsavedChanges(false);
     setCurrentView('pipeline');
   };
 
   const handleMessageOperator = (userId: string) => {
     setMessageInitialUserId(userId);
+    setOperatorHasUnsavedChanges(false);
     setCurrentView('messages');
   };
 
+  const handleNavigate = (path: string) => {
+    if (currentView === 'operator-detail' && operatorHasUnsavedChanges) {
+      setPendingNavPath(path);
+    } else {
+      setCurrentView(path as StaffView);
+    }
+  };
+
+  const confirmNavigation = () => {
+    if (pendingNavPath) {
+      setOperatorHasUnsavedChanges(false);
+      setCurrentView(pendingNavPath as StaffView);
+      if (pendingNavPath !== 'operator-detail') setSelectedOperatorId(null);
+      setPendingNavPath(null);
+    }
+  };
+
   return (
+    <>
     <StaffLayout
       navItems={navItems}
       currentPath={currentView}
-      onNavigate={(path) => setCurrentView(path as StaffView)}
+      onNavigate={handleNavigate}
       title="Onboarding"
     >
       {currentView === 'pipeline' && (
@@ -92,6 +119,7 @@ export default function StaffPortal() {
           operatorId={selectedOperatorId}
           onBack={handleBackToPipeline}
           onMessageOperator={handleMessageOperator}
+          onUnsavedChangesChange={setOperatorHasUnsavedChanges}
         />
       )}
       {currentView === 'messages' && (
@@ -106,5 +134,26 @@ export default function StaffPortal() {
         <ResourceLibraryManager />
       )}
     </StaffLayout>
+
+    <AlertDialog open={!!pendingNavPath} onOpenChange={(open) => { if (!open) setPendingNavPath(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+          <AlertDialogDescription>
+            You have unsaved changes on this operator. If you leave now, your changes will be lost.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setPendingNavPath(null)}>Stay & Save</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={confirmNavigation}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            Leave Without Saving
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
