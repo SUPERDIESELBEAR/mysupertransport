@@ -673,6 +673,22 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       </TooltipContent>
                     </Tooltip>
                   )}
+                  {/* Message operator quick-action */}
+                  {onMessageOperator && operatorUserId && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => onMessageOperator(operatorUserId)}
+                          className="ml-1 h-6 w-6 rounded flex items-center justify-center border border-border text-muted-foreground hover:text-foreground hover:border-gold transition-all"
+                        >
+                          <MessageSquare className="h-3 w-3" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">
+                        Message {operatorName}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </TooltipProvider>
               </div>
             </div>
