@@ -20,9 +20,11 @@ interface NotificationBellProps {
   variant?: 'light' | 'dark';
   /** Path to navigate when "View all →" is clicked. Defaults to /dashboard?view=notifications */
   notificationsPath?: string;
+  /** When true, clears the bell's unread badge (e.g. when the notifications history page is open) */
+  clearBadge?: boolean;
 }
 
-export default function NotificationBell({ variant = 'light', notificationsPath = '/dashboard?view=notifications' }: NotificationBellProps) {
+export default function NotificationBell({ variant = 'light', notificationsPath = '/dashboard?view=notifications', clearBadge = false }: NotificationBellProps) {
   const { session } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
