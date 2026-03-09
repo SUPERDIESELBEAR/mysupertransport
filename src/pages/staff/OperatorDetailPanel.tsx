@@ -82,12 +82,27 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [docFiles, setDocFiles] = useState<Record<string, DocFileRow[]>>({});
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
 
+  const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
   const toggleStage = (stageKey: string) => {
     setCollapsedStages(prev => {
       const next = new Set(prev);
       next.has(stageKey) ? next.delete(stageKey) : next.add(stageKey);
       return next;
     });
+  };
+
+  const scrollToStage = (stageKey: string) => {
+    // Expand the stage first
+    setCollapsedStages(prev => {
+      const next = new Set(prev);
+      next.delete(stageKey);
+      return next;
+    });
+    // Then scroll after a tick so the card has expanded
+    setTimeout(() => {
+      stageRefs.current[stageKey]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
   };
 
   // Track the last-saved values of milestone fields to detect transitions
