@@ -126,6 +126,8 @@ Deno.serve(async (req) => {
 
     const { data: existingOp } = await supabaseAdmin.from('operators').select('id').eq('user_id', invitedUserId).maybeSingle();
 
+    let operatorId: string | null = existingOp?.id ?? null;
+
     if (!existingOp) {
       const { data: newOp, error: opError } = await supabaseAdmin
         .from('operators')
@@ -140,11 +142,12 @@ Deno.serve(async (req) => {
       if (opError) {
         console.error('Operator create error:', opError.message);
       } else if (newOp) {
+        operatorId = newOp.id;
         await supabaseAdmin.from('onboarding_status').insert({ operator_id: newOp.id });
       }
     }
 
-    // ── Audit log ──────────────────────────────────────────────────────
+    // ── Resolve actor name & applicant name (shared by audit + notifs) ──
     const callerProfile = await supabaseAdmin
       .from('profiles')
       .select('first_name, last_name')
@@ -155,6 +158,27 @@ Deno.serve(async (req) => {
       : callerUser.email;
     const applicantName = `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || app.email;
 
+    // ── In-app notifications → all management users ────────────────────
+    const { data: mgmtRoles } = await supabaseAdmin
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'management');
+
+    if (mgmtRoles && mgmtRoles.length > 0 && operatorId) {
+      const notifLink = `/staff?operator=${operatorId}`;
+      const notifRows = mgmtRoles.map(({ user_id }) => ({
+        user_id,
+        title: 'Application Approved',
+        body: `${applicantName} has been approved and invited as an Operator.`,
+        type: 'application_approved',
+        channel: 'in_app' as const,
+        link: notifLink,
+      }));
+      supabaseAdmin.from('notifications').insert(notifRows)
+        .then(({ error }) => { if (error) console.error('Mgmt notification error:', error.message); });
+    }
+
+    // ── Audit log ──────────────────────────────────────────────────────
     // Write both audit entries in parallel (fire-and-forget)
     Promise.all([
       supabaseAdmin.from('audit_log').insert({
