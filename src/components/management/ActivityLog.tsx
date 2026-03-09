@@ -371,6 +371,7 @@ export default function ActivityLog() {
   const [exporting, setExporting] = useState(false);
   const [filter, setFilter] = useState('all');
   const [hasMore, setHasMore] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
