@@ -323,7 +323,15 @@ export default function ActivityLog() {
   };
 
   const hasDateFilter = !!dateFrom || !!dateTo;
-  const clearDates = () => { setDateFrom(undefined); setDateTo(undefined); };
+  const clearDates = () => { setDateFrom(undefined); setDateTo(undefined); setActivePreset(null); };
+
+  const applyPreset = (preset: typeof DATE_PRESETS[number]) => {
+    const { from, to } = preset.getRange();
+    setDateFrom(from);
+    setDateTo(to);
+    setActivePreset(preset.label);
+  };
+
 
   return (
     <div className="space-y-5 animate-fade-in">
