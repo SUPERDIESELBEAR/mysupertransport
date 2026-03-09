@@ -805,7 +805,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
                   {/* Expanded detail panel */}
                   {isExpanded && (
                     <div className="px-5 pb-4 ml-12">
-                      <EntryExpandedPanel entry={entry} />
+                      <EntryExpandedPanel entry={entry} onNavigate={onNavigate} />
                     </div>
                   )}
                 </div>
