@@ -7,7 +7,8 @@ import OperatorDetailPanel from './OperatorDetailPanel';
 import FaqManager from '@/components/management/FaqManager';
 import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import MessagesView from '@/components/staff/MessagesView';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen } from 'lucide-react';
+import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
