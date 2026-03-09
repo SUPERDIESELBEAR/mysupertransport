@@ -115,6 +115,9 @@ export default function ICABuilderModal({
       const payload = {
         operator_id: operatorId,
         ...data,
+        // Coerce empty date strings to null so Postgres doesn't reject them
+        lease_effective_date: data.lease_effective_date || null,
+        lease_termination_date: data.lease_termination_date || null,
         carrier_typed_name: carrierTypedName,
         carrier_title: carrierTitle,
         carrier_signature_url: carrierSigUrl,
