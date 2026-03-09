@@ -249,7 +249,7 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
               <button
                 onClick={() => {
                   setOpen(false);
-                  navigate(historyPath);
+                  navigate(notificationsPath);
                 }}
                 className={`text-xs font-medium transition-colors ${isDark ? 'text-gold hover:text-gold-light' : 'text-gold hover:text-gold-light'}`}
               >
