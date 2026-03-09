@@ -224,7 +224,22 @@ export default function ManagementPortal() {
 
   return (
     <>
-      <StaffLayout navItems={navItems} currentPath={view} onNavigate={handleNavigate} title="Management">
+      <NotificationPreferencesModal open={notifPrefsOpen} onClose={() => setNotifPrefsOpen(false)} />
+      <StaffLayout
+        navItems={navItems}
+        currentPath={view}
+        onNavigate={handleNavigate}
+        title="Management"
+        headerActions={
+          <button
+            onClick={() => setNotifPrefsOpen(true)}
+            title="Notification preferences"
+            className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-muted"
+          >
+            <Settings2 className="h-5 w-5" />
+          </button>
+        }
+      >
         {/* ── TRUCK DOWN ALERT BANNER ── */}
         {truckDownCount > 0 && (
           <div className="mb-5 flex items-center justify-between gap-4 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 animate-fade-in">
