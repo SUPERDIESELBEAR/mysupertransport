@@ -16,8 +16,7 @@ import DispatchPortal from '../dispatch/DispatchPortal';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight,
-  Search, RefreshCcw, Eye, ScrollText, TriangleAlert
-  Settings2,
+  Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
