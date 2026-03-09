@@ -863,19 +863,35 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
         )}
 
         {/* Stage 5 — Equipment */}
-        <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <Truck className="h-4 w-4 text-gold" />
-            <h3 className="font-semibold text-foreground text-sm">Stage 5 — Equipment Setup</h3>
-          </div>
-          <div className="space-y-3">
-            <SelectField label="Decal Method" field="decal_method" options={methodOptions} />
-            <SelectField label="Decal Applied" field="decal_applied" options={yesNoOptions} />
-            <SelectField label="ELD Method" field="eld_method" options={methodOptions} />
-            <SelectField label="ELD Installed" field="eld_installed" options={yesNoOptions} />
-            <SelectField label="Fuel Card Issued" field="fuel_card_issued" options={yesNoOptions} />
-          </div>
-        </div>
+        {(() => {
+          const allEquipmentReady =
+            status.decal_applied === 'yes' &&
+            status.eld_installed === 'yes' &&
+            status.fuel_card_issued === 'yes';
+          return (
+            <div className={`bg-white border rounded-xl p-5 shadow-sm ${allEquipmentReady ? 'border-status-complete' : 'border-border'}`}>
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <div className="flex items-center gap-2">
+                  <Truck className={`h-4 w-4 ${allEquipmentReady ? 'text-status-complete' : 'text-gold'}`} />
+                  <h3 className="font-semibold text-foreground text-sm">Stage 5 — Equipment Setup</h3>
+                </div>
+                {allEquipmentReady && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    All Equipment Ready
+                  </span>
+                )}
+              </div>
+              <div className="space-y-3">
+                <SelectField label="Decal Method" field="decal_method" options={methodOptions} />
+                <SelectField label="Decal Applied" field="decal_applied" options={yesNoOptions} />
+                <SelectField label="ELD Method" field="eld_method" options={methodOptions} />
+                <SelectField label="ELD Installed" field="eld_installed" options={yesNoOptions} />
+                <SelectField label="Fuel Card Issued" field="fuel_card_issued" options={yesNoOptions} />
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Stage 6 — Insurance */}
         <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
