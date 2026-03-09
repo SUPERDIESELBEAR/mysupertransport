@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
@@ -18,6 +18,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 interface OperatorDetailPanelProps {
   operatorId: string;
   onBack: () => void;
+  onMessageOperator?: (userId: string) => void;
 }
 
 type OnboardingStatus = {
@@ -61,7 +62,7 @@ const DISPATCH_STATUS_CONFIG: Record<string, { label: string; dotClass: string; 
   truck_down:     { label: 'Truck Down',     dotClass: 'bg-destructive',       badgeClass: 'bg-destructive/10 text-destructive border-destructive/30', emoji: '🔴' },
 };
 
-export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDetailPanelProps) {
+export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator }: OperatorDetailPanelProps) {
   const { toast } = useToast();
   const { session } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -669,6 +670,22 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="text-xs">
                         {copiedEmail ? '✓ Copied!' : `Copy email — ${operatorEmail}`}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  {/* Message operator quick-action */}
+                  {onMessageOperator && operatorUserId && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => onMessageOperator(operatorUserId)}
+                          className="ml-1 h-6 w-6 rounded flex items-center justify-center border border-border text-muted-foreground hover:text-foreground hover:border-gold transition-all"
+                        >
+                          <MessageSquare className="h-3 w-3" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">
+                        Message {operatorName}
                       </TooltipContent>
                     </Tooltip>
                   )}

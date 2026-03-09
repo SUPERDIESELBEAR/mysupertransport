@@ -15,6 +15,7 @@ export default function StaffPortal() {
   const { user } = useAuth();
   const [currentView, setCurrentView] = useState<StaffView>('pipeline');
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
+  const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const viewRef = useRef(currentView);
   useEffect(() => { viewRef.current = currentView; }, [currentView]);
@@ -71,6 +72,11 @@ export default function StaffPortal() {
     setCurrentView('pipeline');
   };
 
+  const handleMessageOperator = (userId: string) => {
+    setMessageInitialUserId(userId);
+    setCurrentView('messages');
+  };
+
   return (
     <StaffLayout
       navItems={navItems}
@@ -82,11 +88,15 @@ export default function StaffPortal() {
         <PipelineDashboard onOpenOperator={handleOpenOperator} />
       )}
       {currentView === 'operator-detail' && selectedOperatorId && (
-        <OperatorDetailPanel operatorId={selectedOperatorId} onBack={handleBackToPipeline} />
+        <OperatorDetailPanel
+          operatorId={selectedOperatorId}
+          onBack={handleBackToPipeline}
+          onMessageOperator={handleMessageOperator}
+        />
       )}
       {currentView === 'messages' && (
         <div className="h-full" style={{ height: 'calc(100vh - 160px)' }}>
-          <MessagesView />
+          <MessagesView initialUserId={messageInitialUserId} />
         </div>
       )}
       {currentView === 'faq' && (
