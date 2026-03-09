@@ -43,11 +43,17 @@ interface UploadedDoc {
 export default function OperatorPortal() {
   const { profile, user, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [view, setView] = useState<OperatorView>(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') as OperatorView | null;
     if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications'].includes(tab)) return tab;
     return 'progress';
+  });
+
+  // Desktop push notifications for high-priority events
+  const { fireNotification } = useDesktopNotifications({
+    onNavigate: (link) => navigate(link),
   });
 
   // React to in-app notification deep-links when navigate() is called while portal is already mounted
