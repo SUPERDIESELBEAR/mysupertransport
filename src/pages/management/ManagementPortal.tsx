@@ -82,6 +82,16 @@ export default function ManagementPortal() {
     setTruckDownCount(count ?? 0);
   }, []);
 
+  const fetchUnreadNotifCount = useCallback(async () => {
+    if (!session?.user?.id) return;
+    const { count } = await supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', session.user.id)
+      .is('read_at', null);
+    setUnreadNotifCount(count ?? 0);
+  }, [session?.user?.id]);
+
   // Subscribe to realtime changes on active_dispatch to keep the banner live
   useEffect(() => {
     fetchTruckDownCount();
@@ -93,6 +103,25 @@ export default function ManagementPortal() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchTruckDownCount]);
+
+  // Subscribe to realtime for unread notification count
+  useEffect(() => {
+    fetchUnreadNotifCount();
+    if (!session?.user?.id) return;
+    const channel = supabase
+      .channel('mgmt-unread-notif-count')
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'notifications',
+        filter: `user_id=eq.${session.user.id}`,
+      }, () => fetchUnreadNotifCount())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchUnreadNotifCount, session?.user?.id]);
+
+  // Clear badge when visiting notifications view
+  useEffect(() => {
+    if (view === 'notifications') setUnreadNotifCount(0);
+  }, [view]);
 
   const fetchMetrics = useCallback(async () => {
     const [appsRes, opsRes, dispRes, alertsRes] = await Promise.all([

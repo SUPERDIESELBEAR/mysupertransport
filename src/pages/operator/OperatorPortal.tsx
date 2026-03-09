@@ -60,6 +60,7 @@ export default function OperatorPortal() {
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
   const [assignedDispatcher, setAssignedDispatcher] = useState<{ name: string; phone: string | null } | null>(null);
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
