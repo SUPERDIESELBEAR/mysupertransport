@@ -97,13 +97,27 @@ export default function NotificationBell({ variant = 'light' }: NotificationBell
     );
   };
 
-  const typeIcon: Record<string, string> = {
-    onboarding_milestone: '🎯',
-    document_uploaded: '📎',
-    new_application: '📋',
-    application_approved: '✅',
-    application_denied: '❌',
-    dispatch_status_change: '🚛',
+  const typeIconConfig: Record<string, { icon: React.ElementType; bg: string; color: string }> = {
+    application_approved:   { icon: CheckCircle2,    bg: 'bg-green-100',  color: 'text-green-600' },
+    application_denied:     { icon: XCircle,          bg: 'bg-red-100',    color: 'text-red-500' },
+    truck_down:             { icon: AlertTriangle,    bg: 'bg-yellow-100', color: 'text-yellow-500' },
+    new_message:            { icon: MessageCircle,    bg: 'bg-blue-100',   color: 'text-blue-500' },
+    onboarding_milestone:   { icon: Target,           bg: 'bg-gold/15',    color: 'text-gold' },
+    docs_uploaded:          { icon: Paperclip,        bg: 'bg-muted',      color: 'text-muted-foreground' },
+    document_uploaded:      { icon: Paperclip,        bg: 'bg-muted',      color: 'text-muted-foreground' },
+    new_application:        { icon: FileText,         bg: 'bg-muted',      color: 'text-muted-foreground' },
+    dispatch_status_change: { icon: Truck,            bg: 'bg-muted',      color: 'text-muted-foreground' },
+  };
+  const defaultIconConfig = { icon: Bell, bg: 'bg-muted', color: 'text-muted-foreground' };
+
+  const getTypeIcon = (type: string) => {
+    const cfg = typeIconConfig[type] ?? defaultIconConfig;
+    const Icon = cfg.icon;
+    return (
+      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${cfg.bg}`}>
+        <Icon className={`h-3.5 w-3.5 ${cfg.color}`} strokeWidth={2.5} />
+      </span>
+    );
   };
 
   // Style tokens by variant
