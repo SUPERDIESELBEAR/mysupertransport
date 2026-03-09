@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle, FileText, Target, Paperclip, Truck, Loader2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle, FileText, Target, Paperclip, Truck, Loader2, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Switch } from '@/components/ui/switch';
@@ -17,7 +17,7 @@ const EVENT_TYPES: { type: string; label: string; description: string; icon: Rea
   { type: 'application_denied',     label: 'Application Denied',      description: 'When an applicant is denied',             icon: XCircle,        iconBg: 'bg-red-100',    iconColor: 'text-red-500' },
   { type: 'new_application',        label: 'New Application',         description: 'When a new driver application is submitted', icon: FileText,     iconBg: 'bg-muted',      iconColor: 'text-muted-foreground' },
   { type: 'truck_down',             label: 'Truck Down',              description: 'When an operator reports a truck down',   icon: AlertTriangle,  iconBg: 'bg-yellow-100', iconColor: 'text-yellow-500' },
-  { type: 'dispatch_status_change', label: 'Dispatch Status Change',  description: 'When an operator\'s dispatch status changes', icon: Truck,       iconBg: 'bg-muted',      iconColor: 'text-muted-foreground' },
+  { type: 'dispatch_status_change', label: 'Dispatch Status Change',  description: "When an operator's dispatch status changes", icon: Truck,        iconBg: 'bg-muted',      iconColor: 'text-muted-foreground' },
   { type: 'onboarding_milestone',   label: 'Onboarding Milestone',    description: 'When an operator completes an onboarding step', icon: Target,    iconBg: 'bg-gold/15',    iconColor: 'text-gold' },
   { type: 'docs_uploaded',          label: 'Documents Uploaded',      description: 'When an operator uploads requested documents', icon: Paperclip,  iconBg: 'bg-muted',      iconColor: 'text-muted-foreground' },
   { type: 'new_message',            label: 'New Message',             description: 'When you receive a new message',          icon: MessageCircle,  iconBg: 'bg-blue-100',   iconColor: 'text-blue-500' },
@@ -28,12 +28,21 @@ interface Props {
   onClose: () => void;
 }
 
+// Per-cell state: null | 'saving' | 'saved'
+type CellState = 'saving' | 'saved' | null;
+
 export default function NotificationPreferencesModal({ open, onClose }: Props) {
   const { session } = useAuth();
   const { toast } = useToast();
   const [prefs, setPrefs] = useState<Record<string, EventPref>>({});
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
+  const [cellState, setCellState] = useState<Record<string, CellState>>({});
+  const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  // Clean up timers on unmount
+  useEffect(() => {
+    return () => { Object.values(timers.current).forEach(clearTimeout); };
+  }, []);
 
   useEffect(() => {
     if (open && session?.user?.id) fetchPrefs();
@@ -47,11 +56,9 @@ export default function NotificationPreferencesModal({ open, onClose }: Props) {
       .eq('user_id', session!.user.id);
 
     const map: Record<string, EventPref> = {};
-    // Default all to enabled
     EVENT_TYPES.forEach(e => {
       map[e.type] = { event_type: e.type, in_app_enabled: true, email_enabled: true };
     });
-    // Override with saved prefs
     (data ?? []).forEach(row => {
       map[row.event_type] = { event_type: row.event_type, in_app_enabled: row.in_app_enabled, email_enabled: row.email_enabled };
     });
@@ -59,9 +66,22 @@ export default function NotificationPreferencesModal({ open, onClose }: Props) {
     setLoading(false);
   };
 
+  const setCellStatus = (key: string, status: CellState) => {
+    setCellState(prev => ({ ...prev, [key]: status }));
+  };
+
   const toggle = async (eventType: string, channel: 'in_app_enabled' | 'email_enabled', value: boolean) => {
     if (!session?.user?.id) return;
-    setSaving(`${eventType}-${channel}`);
+
+    const key = `${eventType}-${channel}`;
+
+    // Clear any existing fade-out timer for this cell
+    if (timers.current[key]) {
+      clearTimeout(timers.current[key]);
+      delete timers.current[key];
+    }
+
+    setCellStatus(key, 'saving');
 
     const updated = { ...prefs[eventType], [channel]: value };
     setPrefs(prev => ({ ...prev, [eventType]: updated }));
@@ -74,11 +94,18 @@ export default function NotificationPreferencesModal({ open, onClose }: Props) {
       );
 
     if (error) {
-      // Revert on failure
       setPrefs(prev => ({ ...prev, [eventType]: prefs[eventType] }));
+      setCellStatus(key, null);
       toast({ title: 'Save failed', description: error.message, variant: 'destructive' });
+      return;
     }
-    setSaving(null);
+
+    // Show checkmark, then fade it out after 1.4 s
+    setCellStatus(key, 'saved');
+    timers.current[key] = setTimeout(() => {
+      setCellStatus(key, null);
+      delete timers.current[key];
+    }, 1400);
   };
 
   return (
@@ -118,8 +145,6 @@ export default function NotificationPreferencesModal({ open, onClose }: Props) {
               {EVENT_TYPES.map(ev => {
                 const pref = prefs[ev.type];
                 const Icon = ev.icon;
-                const isSavingInApp = saving === `${ev.type}-in_app_enabled`;
-                const isSavingEmail = saving === `${ev.type}-email_enabled`;
                 return (
                   <div key={ev.type} className="flex items-center gap-4 px-6 py-4 hover:bg-muted/20 transition-colors">
                     <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${ev.iconBg}`}>
@@ -130,22 +155,36 @@ export default function NotificationPreferencesModal({ open, onClose }: Props) {
                       <p className="text-xs text-muted-foreground">{ev.description}</p>
                     </div>
                     <div className="flex items-center gap-6 shrink-0">
-                      <div className="w-14 flex justify-center">
-                        {isSavingInApp ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : (
-                          <Switch
-                            checked={pref?.in_app_enabled ?? true}
-                            onCheckedChange={v => toggle(ev.type, 'in_app_enabled', v)}
-                          />
-                        )}
-                      </div>
-                      <div className="w-14 flex justify-center">
-                        {isSavingEmail ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : (
-                          <Switch
-                            checked={pref?.email_enabled ?? true}
-                            onCheckedChange={v => toggle(ev.type, 'email_enabled', v)}
-                          />
-                        )}
-                      </div>
+                      {(['in_app_enabled', 'email_enabled'] as const).map(channel => {
+                        const key = `${ev.type}-${channel}`;
+                        const state = cellState[key];
+                        return (
+                          <div key={channel} className="w-14 flex justify-center items-center relative">
+                            {state === 'saving' ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            ) : (
+                              <>
+                                <Switch
+                                  checked={channel === 'in_app_enabled' ? (pref?.in_app_enabled ?? true) : (pref?.email_enabled ?? true)}
+                                  onCheckedChange={v => toggle(ev.type, channel, v)}
+                                />
+                                {/* Saved checkmark: fades in then out */}
+                                <span
+                                  className={`
+                                    pointer-events-none absolute -top-1 -right-1
+                                    flex h-4 w-4 items-center justify-center rounded-full
+                                    bg-green-500 text-white shadow-sm
+                                    transition-all duration-300
+                                    ${state === 'saved' ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}
+                                  `}
+                                >
+                                  <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
