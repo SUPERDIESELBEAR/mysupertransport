@@ -87,6 +87,7 @@ const STAGES = [
 
 export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [operators, setOperators] = useState<OperatorRow[]>([]);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
   const [loading, setLoading] = useState(true);
