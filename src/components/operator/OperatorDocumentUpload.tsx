@@ -37,60 +37,12 @@ interface Props {
   onUploadComplete: () => void;
 }
 
-const TRACKED_DOC_KEYS = ['form_2290', 'truck_title', 'truck_photos', 'truck_inspection'] as const;
-
-export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboardingStatus, onUploadComplete }: Props) {
+export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboardingStatus: _onboardingStatus, onUploadComplete }: Props) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const getUploaded = (key: string) => uploadedDocs.filter(d => d.document_type === key);
-
-  const checkAndNotifyStaff = async (newlyUploadedKey: string) => {
-    // Build the updated upload set (include the just-uploaded doc)
-    const uploadedKeys = new Set([...uploadedDocs.map(d => d.document_type), newlyUploadedKey]);
-
-    // Which of the tracked keys are 'requested' in onboarding_status?
-    const requestedKeys = TRACKED_DOC_KEYS.filter(k => onboardingStatus[k] === 'requested');
-
-    // If no docs are requested, nothing to notify about
-    if (requestedKeys.length === 0) return;
-
-    // Check if all requested docs now have at least one upload
-    const allCovered = requestedKeys.every(k => uploadedKeys.has(k));
-    if (!allCovered) return;
-
-    // Fetch operator name and assigned staff
-    const { data: op } = await supabase
-      .from('operators')
-      .select('assigned_onboarding_staff, application_id')
-      .eq('id', operatorId)
-      .maybeSingle();
-
-    if (!op?.assigned_onboarding_staff) return;
-
-    // Get operator's name from their application
-    let operatorName = 'An operator';
-    if (op.application_id) {
-      const { data: app } = await supabase
-        .from('applications')
-        .select('first_name, last_name')
-        .eq('id', op.application_id)
-        .maybeSingle();
-      if (app) {
-        operatorName = [app.first_name, app.last_name].filter(Boolean).join(' ') || operatorName;
-      }
-    }
-
-    await supabase.from('notifications').insert({
-      user_id: op.assigned_onboarding_staff,
-      title: 'Documents uploaded — ready for review',
-      body: `${operatorName} has uploaded all requested documents.`,
-      type: 'docs_uploaded',
-      channel: 'in_app',
-      link: `/staff?operator=${operatorId}`,
-    });
-  };
 
   const handleUpload = async (slot: DocumentSlot, file: File) => {
     if (!file) return;
@@ -124,8 +76,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
         file_url: fileUrl,
       });
 
-      // Fire-and-forget: check if all requested docs are now uploaded
-      checkAndNotifyStaff(slot.key).catch(() => {});
+      // Notification to staff is handled server-side via DB trigger
 
       toast({ title: 'Document uploaded', description: `${slot.label} has been submitted for review.` });
       onUploadComplete();
