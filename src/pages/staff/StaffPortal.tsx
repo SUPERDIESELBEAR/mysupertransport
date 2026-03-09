@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import StaffLayout from '@/components/layouts/StaffLayout';
@@ -7,15 +8,16 @@ import OperatorDetailPanel from './OperatorDetailPanel';
 import FaqManager from '@/components/management/FaqManager';
 import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import MessagesView from '@/components/staff/MessagesView';
+import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources';
+type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources' | 'notifications';
 
 export default function StaffPortal() {
   const { user } = useAuth();
