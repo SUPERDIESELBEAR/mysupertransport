@@ -115,6 +115,30 @@ export default function OperatorICASign() {
         await supabase.from('onboarding_status').update({ ica_status: 'complete' }).eq('id', os.id);
       }
 
+      // Write audit log entry for ica_signed
+      try {
+        await supabase.from('audit_log').insert({
+          entity_type: 'ica_contract',
+          action: 'ica_signed',
+          actor_id: session!.user.id,
+          actor_name: operatorName || 'Operator',
+          entity_id: operatorId ?? undefined,
+          entity_label: operatorName || 'Operator',
+          metadata: {
+            contract_id: contract.id,
+            contractor_typed_name: signedName,
+            signed_at: new Date().toISOString(),
+            truck_year: contract.truck_year,
+            truck_make: contract.truck_make,
+            truck_model: contract.truck_model,
+            truck_vin: contract.truck_vin,
+            linehaul_split_pct: contract.linehaul_split_pct,
+          },
+        });
+      } catch (auditErr) {
+        console.warn('ica_signed audit log failed (non-blocking):', auditErr);
+      }
+
       // Fire ICA complete notifications (operator + assigned staff)
       try {
         const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID;
