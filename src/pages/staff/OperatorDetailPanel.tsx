@@ -81,8 +81,22 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   type DocFileRow = { id: string; file_name: string | null; file_url: string | null; uploaded_at: string };
   const [docFiles, setDocFiles] = useState<Record<string, DocFileRow[]>>({});
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
+  const [showStickyBar, setShowStickyBar] = useState(false);
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const progressBarRef = useRef<HTMLDivElement | null>(null);
+
+  // Show sticky bar when the main progress bar scrolls out of view
+  useEffect(() => {
+    const el = progressBarRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowStickyBar(!entry.isIntersecting),
+      { threshold: 0, rootMargin: '-64px 0px 0px 0px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loading]);
 
   const toggleStage = (stageKey: string) => {
     setCollapsedStages(prev => {
@@ -93,13 +107,11 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   };
 
   const scrollToStage = (stageKey: string) => {
-    // Expand the stage first
     setCollapsedStages(prev => {
       const next = new Set(prev);
       next.delete(stageKey);
       return next;
     });
-    // Then scroll after a tick so the card has expanded
     setTimeout(() => {
       stageRefs.current[stageKey]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
