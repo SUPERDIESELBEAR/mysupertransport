@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
@@ -80,6 +80,15 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [currentDispatchStatus, setCurrentDispatchStatus] = useState<string | null>(null);
   type DocFileRow = { id: string; file_name: string | null; file_url: string | null; uploaded_at: string };
   const [docFiles, setDocFiles] = useState<Record<string, DocFileRow[]>>({});
+  const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
+
+  const toggleStage = (stageKey: string) => {
+    setCollapsedStages(prev => {
+      const next = new Set(prev);
+      next.has(stageKey) ? next.delete(stageKey) : next.add(stageKey);
+      return next;
+    });
+  };
 
   // Track the last-saved values of milestone fields to detect transitions
   const savedMilestones = useRef<{
@@ -182,6 +191,15 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           fuel_card_issued: os.fuel_card_issued ?? '',
           mo_reg_received: os.mo_reg_received ?? '',
         };
+        // Auto-collapse stages that are already complete on load
+        const autoCollapse = new Set<string>();
+        if (os.mvr_ch_approval === 'approved') autoCollapse.add('stage1');
+        if (os.form_2290 === 'received' && os.truck_title === 'received' && os.truck_photos === 'received' && os.truck_inspection === 'received') autoCollapse.add('stage2');
+        if (os.ica_status === 'complete') autoCollapse.add('stage3');
+        if (os.mo_reg_received === 'yes') autoCollapse.add('stage4');
+        if (os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes') autoCollapse.add('stage5');
+        if (os.insurance_added_date) autoCollapse.add('stage6');
+        if (autoCollapse.size > 0) setCollapsedStages(autoCollapse);
       }
     }
     setLoading(false);
@@ -601,19 +619,33 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Stage 1 — Background */}
-        <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <Shield className="h-4 w-4 text-gold" />
-            <h3 className="font-semibold text-foreground text-sm">Stage 1 — Background Check</h3>
-          </div>
-          <div className="space-y-3">
-            <SelectField label="MVR Status" field="mvr_status" options={mvrOptions} />
-            <SelectField label="Clearinghouse (CH) Status" field="ch_status" options={mvrOptions} />
-            <SelectField label="MVR/CH Approval" field="mvr_ch_approval" options={approvalOptions} />
-            <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
-            <SelectField label="PE Screening Result" field="pe_screening_result" options={resultOptions} />
-          </div>
-        </div>
+        {(() => {
+          const s1Complete = status.mvr_ch_approval === 'approved';
+          const s1Collapsed = collapsedStages.has('stage1');
+          return (
+            <div className={`bg-white border rounded-xl shadow-sm transition-colors ${s1Complete ? 'border-status-complete' : 'border-border'}`}>
+              <button onClick={() => toggleStage('stage1')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+                <div className="flex items-center gap-2">
+                  <Shield className={`h-4 w-4 ${s1Complete ? 'text-status-complete' : 'text-gold'}`} />
+                  <h3 className="font-semibold text-foreground text-sm">Stage 1 — Background Check</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {s1Complete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>}
+                  {s1Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+              {!s1Collapsed && (
+                <div className="px-5 pb-5 space-y-3">
+                  <SelectField label="MVR Status" field="mvr_status" options={mvrOptions} />
+                  <SelectField label="Clearinghouse (CH) Status" field="ch_status" options={mvrOptions} />
+                  <SelectField label="MVR/CH Approval" field="mvr_ch_approval" options={approvalOptions} />
+                  <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
+                  <SelectField label="PE Screening Result" field="pe_screening_result" options={resultOptions} />
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Stage 2 — Documents */}
         {(() => {
@@ -787,12 +819,23 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
         })()}
 
         {/* Stage 3 — ICA */}
-        <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <FileCheck className="h-4 w-4 text-gold" />
-            <h3 className="font-semibold text-foreground text-sm">Stage 3 — ICA</h3>
-          </div>
-          <div className="space-y-3">
+        {(() => {
+          const s3Complete = status.ica_status === 'complete';
+          const s3Collapsed = collapsedStages.has('stage3');
+          return (
+            <div className={`bg-white border rounded-xl shadow-sm transition-colors ${s3Complete ? 'border-status-complete' : 'border-border'}`}>
+              <button onClick={() => toggleStage('stage3')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+                <div className="flex items-center gap-2">
+                  <FileCheck className={`h-4 w-4 ${s3Complete ? 'text-status-complete' : 'text-gold'}`} />
+                  <h3 className="font-semibold text-foreground text-sm">Stage 3 — ICA</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {s3Complete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>}
+                  {s3Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+              {!s3Collapsed && (
+                <div className="px-5 pb-5 space-y-3">
             <SelectField label="ICA Status" field="ica_status" options={icaOptions} />
             {status.pe_screening_result !== 'clear' && (
               <div className="p-3 rounded-lg bg-status-action/10 border border-status-action/30 text-xs text-status-action">
@@ -882,62 +925,70 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
                 )}
               </div>
             )}
-          </div>
-        </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Stage 4 — Missouri Registration (conditional) */}
-        {status.registration_status === 'needs_mo_reg' && (
-          <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <FileCheck className="h-4 w-4 text-gold" />
-              <h3 className="font-semibold text-foreground text-sm">Stage 4 — Missouri Registration</h3>
+        {status.registration_status === 'needs_mo_reg' && (() => {
+          const s4Complete = status.mo_reg_received === 'yes';
+          const s4Collapsed = collapsedStages.has('stage4');
+          return (
+            <div className={`bg-white border rounded-xl shadow-sm transition-colors ${s4Complete ? 'border-status-complete' : 'border-border'}`}>
+              <button onClick={() => toggleStage('stage4')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+                <div className="flex items-center gap-2">
+                  <FileCheck className={`h-4 w-4 ${s4Complete ? 'text-status-complete' : 'text-gold'}`} />
+                  <h3 className="font-semibold text-foreground text-sm">Stage 4 — Missouri Registration</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {s4Complete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>}
+                  {s4Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+              {!s4Collapsed && (
+                <div className="px-5 pb-5 space-y-3">
+                  <div className="p-3 rounded-lg bg-status-progress/10 border border-status-progress/30 text-xs text-status-progress">
+                    ⚠ Missouri requires Title + Form 2290 + signed ICA submitted together. Partial submissions are not accepted. ICA must be Complete before submitting.
+                  </div>
+                  <SelectField label="MO Docs Submitted" field="mo_docs_submitted" options={moDocsOptions} />
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Expected Approval Date</Label>
+                    <Input type="date" value={status.mo_expected_approval_date ?? ''} onChange={e => updateStatus('mo_expected_approval_date', e.target.value || null)} className="h-9 text-sm" />
+                  </div>
+                  <SelectField label="MO Registration Received" field="mo_reg_received" options={moRegOptions} />
+                </div>
+              )}
             </div>
-            <div className="p-3 rounded-lg bg-status-progress/10 border border-status-progress/30 text-xs text-status-progress mb-3">
-              ⚠ Missouri requires Title + Form 2290 + signed ICA submitted together. Partial submissions are not accepted. ICA must be Complete before submitting.
-            </div>
-            <div className="space-y-3">
-              <SelectField label="MO Docs Submitted" field="mo_docs_submitted" options={moDocsOptions} />
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Expected Approval Date</Label>
-                <Input
-                  type="date"
-                  value={status.mo_expected_approval_date ?? ''}
-                  onChange={e => updateStatus('mo_expected_approval_date', e.target.value || null)}
-                  className="h-9 text-sm"
-                />
-              </div>
-              <SelectField label="MO Registration Received" field="mo_reg_received" options={moRegOptions} />
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Stage 5 — Equipment */}
         {(() => {
-          const allEquipmentReady =
-            status.decal_applied === 'yes' &&
-            status.eld_installed === 'yes' &&
-            status.fuel_card_issued === 'yes';
+          const allEquipmentReady = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
+          const s5Collapsed = collapsedStages.has('stage5');
           return (
-            <div className={`bg-white border rounded-xl p-5 shadow-sm ${allEquipmentReady ? 'border-status-complete' : 'border-border'}`}>
-              <div className="flex items-center justify-between gap-2 mb-4">
+            <div className={`bg-white border rounded-xl shadow-sm transition-colors ${allEquipmentReady ? 'border-status-complete' : 'border-border'}`}>
+              <button onClick={() => toggleStage('stage5')} className="w-full flex items-center justify-between px-5 py-4 text-left">
                 <div className="flex items-center gap-2">
                   <Truck className={`h-4 w-4 ${allEquipmentReady ? 'text-status-complete' : 'text-gold'}`} />
                   <h3 className="font-semibold text-foreground text-sm">Stage 5 — Equipment Setup</h3>
                 </div>
-                {allEquipmentReady && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    All Equipment Ready
-                  </span>
-                )}
-              </div>
-              <div className="space-y-3">
-                <SelectField label="Decal Method" field="decal_method" options={methodOptions} />
-                <SelectField label="Decal Applied" field="decal_applied" options={yesNoOptions} />
-                <SelectField label="ELD Method" field="eld_method" options={methodOptions} />
-                <SelectField label="ELD Installed" field="eld_installed" options={yesNoOptions} />
-                <SelectField label="Fuel Card Issued" field="fuel_card_issued" options={yesNoOptions} />
-              </div>
+                <div className="flex items-center gap-2">
+                  {allEquipmentReady && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />All Equipment Ready</span>}
+                  {s5Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+              {!s5Collapsed && (
+                <div className="px-5 pb-5 space-y-3">
+                  <SelectField label="Decal Method" field="decal_method" options={methodOptions} />
+                  <SelectField label="Decal Applied" field="decal_applied" options={yesNoOptions} />
+                  <SelectField label="ELD Method" field="eld_method" options={methodOptions} />
+                  <SelectField label="ELD Installed" field="eld_installed" options={yesNoOptions} />
+                  <SelectField label="Fuel Card Issued" field="fuel_card_issued" options={yesNoOptions} />
+                </div>
+              )}
             </div>
           );
         })()}
