@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck } from 'lucide-react';
+import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 type DispatchStatus = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
@@ -33,6 +34,7 @@ interface OperatorRow {
   insurance_added_date: string | null;
   dispatch_status: DispatchStatus | null;
   doc_count: number;
+  unread_count: number;
   // Progress fields
   form_2290: string;
   truck_title: string;
@@ -85,6 +87,7 @@ const STAGES = [
 
 export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [operators, setOperators] = useState<OperatorRow[]>([]);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,6 +121,35 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
   useEffect(() => {
     fetchOperators();
   }, []);
+
+  // Realtime: refresh unread counts when a new message arrives
+  useEffect(() => {
+    const channel = supabase
+      .channel('pipeline-messages-watch')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
+        refreshUnreadCounts();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, () => {
+        refreshUnreadCounts();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const refreshUnreadCounts = async () => {
+    if (!user?.id) return;
+    const { data } = await supabase
+      .from('messages')
+      .select('sender_id')
+      .eq('recipient_id', user.id)
+      .is('read_at', null);
+    if (!data) return;
+    const map: Record<string, number> = {};
+    (data as any[]).forEach((m: any) => {
+      map[m.sender_id] = (map[m.sender_id] ?? 0) + 1;
+    });
+    setOperators(prev => prev.map(op => ({ ...op, unread_count: map[op.user_id] ?? 0 })));
+  };
 
   const fetchOperators = async () => {
     setLoading(true);
@@ -156,7 +188,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     const assignedStaffIds = opData.map((o: any) => o.assigned_onboarding_staff).filter(Boolean);
     const allUserIds = [...new Set([...operatorUserIds, ...assignedStaffIds, ...allStaffUserIds])];
 
-    const [profileResult, dispatchResult, docResult] = await Promise.all([
+    const [profileResult, dispatchResult, docResult, unreadResult] = await Promise.all([
       allUserIds.length > 0
         ? supabase.from('profiles').select('user_id, first_name, last_name, phone, home_state').in('user_id', allUserIds)
         : Promise.resolve({ data: [] }),
@@ -165,6 +197,15 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
         : Promise.resolve({ data: [] }),
       operatorIds.length > 0
         ? supabase.from('operator_documents').select('operator_id').in('operator_id', operatorIds)
+        : Promise.resolve({ data: [] }),
+      // Fetch all unread messages sent to the current staff user from operator user IDs
+      user?.id && operatorUserIds.length > 0
+        ? supabase
+            .from('messages')
+            .select('sender_id')
+            .eq('recipient_id', user.id)
+            .in('sender_id', operatorUserIds)
+            .is('read_at', null)
         : Promise.resolve({ data: [] }),
     ]);
 
@@ -177,6 +218,12 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     const docCountMap: Record<string, number> = {};
     ((docResult.data as any[]) ?? []).forEach((d: any) => {
       docCountMap[d.operator_id] = (docCountMap[d.operator_id] ?? 0) + 1;
+    });
+
+    // Build unread count map keyed by operator user_id
+    const unreadMap: Record<string, number> = {};
+    ((unreadResult.data as any[]) ?? []).forEach((m: any) => {
+      unreadMap[m.sender_id] = (unreadMap[m.sender_id] ?? 0) + 1;
     });
 
     // Build staff options
@@ -216,6 +263,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
         insurance_added_date: os.insurance_added_date ?? null,
         dispatch_status: dispatchMap[op.id] ?? null,
         doc_count: docCountMap[op.id] ?? 0,
+        unread_count: unreadMap[op.user_id] ?? 0,
         form_2290: os.form_2290 ?? 'not_started',
         truck_title: os.truck_title ?? 'not_started',
         truck_photos: os.truck_photos ?? 'not_started',
@@ -230,6 +278,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
     setOperators(rows);
     setLoading(false);
   };
+
 
   const getStatus = (op: OperatorRow) => {
     if (op.fully_onboarded) return 'onboarded';
@@ -646,13 +695,19 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                       : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
                   </button>
                 </th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">
+                  <span className="inline-flex items-center gap-1 text-muted-foreground">
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    Msgs
+                  </span>
+                </th>
                 <th className="text-right px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-12 text-muted-foreground">
+                   <td colSpan={10} className="text-center py-12 text-muted-foreground">
                     <div className="flex justify-center">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                     </div>
@@ -660,7 +715,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={10} className="text-center py-12 text-muted-foreground">
                     {operators.length === 0 ? 'No operators in the pipeline yet.' : 'No operators match your filters.'}
                   </td>
                 </tr>
@@ -668,9 +723,17 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                 filtered.map(op => (
                   <tr key={op.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-foreground">
-                        {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-foreground">
+                          {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
+                        </p>
+                        {op.unread_count > 0 && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-bold leading-none shrink-0 md:hidden">
+                            <MessageSquare className="h-2.5 w-2.5" />
+                            {op.unread_count}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{op.phone ?? '—'}</td>
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
@@ -772,6 +835,16 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                           </SelectContent>
                         </Select>
                       </div>
+                    </td>
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      {op.unread_count > 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30 text-[11px] font-semibold">
+                          <MessageSquare className="h-3 w-3" />
+                          {op.unread_count}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/40 text-xs">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Button
