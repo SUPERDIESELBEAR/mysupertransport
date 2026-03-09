@@ -11,6 +11,18 @@ import {
   User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone
 } from 'lucide-react';
 
+interface AuditEntry {
+  id: string;
+  actor_id: string | null;
+  actor_name: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  entity_label: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
 const ACTION_CONFIG: Record<string, {
   label: string;
   icon: React.ReactNode;
