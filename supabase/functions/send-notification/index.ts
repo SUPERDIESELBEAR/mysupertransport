@@ -524,14 +524,17 @@ Deno.serve(async (req) => {
           .single();
 
         if (opRow?.user_id) {
-          await supabaseAdmin.from('notifications').insert({
-            user_id: opRow.user_id,
-            type: 'dispatch_status_change',
-            title: `${statusInfo.emoji} Dispatch Status: ${statusInfo.label}`,
-            body: notifBody,
-            channel: 'in_app',
-            link: '/dashboard',
-          });
+          const inAppOk = await userInAppEnabled(opRow.user_id, 'dispatch_status_change');
+          if (inAppOk) {
+            await supabaseAdmin.from('notifications').insert({
+              user_id: opRow.user_id,
+              type: 'dispatch_status_change',
+              title: `${statusInfo.emoji} Dispatch Status: ${statusInfo.label}`,
+              body: notifBody,
+              channel: 'in_app',
+              link: '/dashboard',
+            });
+          }
         }
 
         // ── Email the operator themselves on Truck Down ─────────────────
