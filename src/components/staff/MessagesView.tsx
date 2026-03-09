@@ -219,6 +219,7 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
 
     const channel = supabase
       .channel(`thread-${selectedUserId}`)
+      // New incoming messages
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -226,11 +227,9 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
         filter: `recipient_id=eq.${user.id}`,
       }, async (payload) => {
         const msg = payload.new as Message;
-        // Ignore messages sent by myself (already added optimistically)
         if (msg.sender_id === user.id) return;
 
         if (msg.sender_id !== selectedUserId) {
-          // Update unread count for a different thread
           setThreads(prev =>
             prev.map(t =>
               t.operatorUserId === msg.sender_id
@@ -240,7 +239,6 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
           );
           return;
         }
-        // It's the open thread — append (dedup by id) and mark read
         setMessages(prev => {
           if (prev.some(m => m.id === msg.id)) return prev;
           return [...prev, msg];
@@ -249,6 +247,20 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
           .from('messages')
           .update({ read_at: new Date().toISOString() })
           .eq('id', msg.id);
+      })
+      // Read receipts: operator marked one of our messages as read
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: `sender_id=eq.${user.id}`,
+      }, (payload) => {
+        const updated = payload.new as Message;
+        if (updated.read_at) {
+          setMessages(prev =>
+            prev.map(m => m.id === updated.id ? { ...m, read_at: updated.read_at } : m)
+          );
+        }
       })
       .subscribe();
 
