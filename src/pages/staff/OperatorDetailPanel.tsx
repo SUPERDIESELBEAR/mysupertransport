@@ -18,6 +18,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 interface OperatorDetailPanelProps {
   operatorId: string;
   onBack: () => void;
+  onMessageOperator?: (userId: string) => void;
 }
 
 type OnboardingStatus = {
