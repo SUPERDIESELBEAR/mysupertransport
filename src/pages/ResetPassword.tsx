@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Eye, EyeOff, LinkIcon } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 
 export default function ResetPassword() {
@@ -15,19 +15,40 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [validSession, setValidSession] = useState(false);
+  const [validSession, setValidSession] = useState<boolean | null>(null); // null = checking
 
   useEffect(() => {
-    // Supabase puts the recovery token in the URL hash — just check we have a session
+    // onAuthStateChange fires first when there's a recovery token in the hash
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' && session) {
+        setValidSession(true);
+      }
+    });
+
+    // Then check for an existing session (page reload after token processed)
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setValidSession(true);
+      if (session) {
+        setValidSession(true);
+      } else {
+        // No session and no recovery token in hash → expired / invalid
+        const hash = window.location.hash;
+        const hasToken = hash.includes('access_token') || hash.includes('token_type');
+        if (!hasToken) {
+          setValidSession(false);
+        }
+        // If there IS a hash token, wait for onAuthStateChange to fire
+      }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setValidSession(true);
-    });
+    // Fallback: if after 4s we still haven't resolved, treat as expired
+    const fallback = setTimeout(() => {
+      setValidSession(prev => prev === null ? false : prev);
+    }, 4000);
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(fallback);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,6 +74,49 @@ export default function ResetPassword() {
     }
     setLoading(false);
   };
+
+  // ── Checking state ──────────────────────────────────────────────────────────
+  if (validSession === null) {
+    return (
+      <div className="min-h-screen bg-surface-dark flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold border-t-transparent" />
+          <p className="text-surface-dark-muted text-sm">Verifying your link…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Expired / Invalid ───────────────────────────────────────────────────────
+  if (validSession === false) {
+    return (
+      <div className="min-h-screen bg-surface-dark flex items-center justify-center p-4">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute inset-0" style={{
+            backgroundImage: 'radial-gradient(circle at 20% 50%, hsl(41 47% 54% / 0.04) 0%, transparent 50%)'
+          }} />
+        </div>
+        <div className="w-full max-w-md relative text-center">
+          <img src={logo} alt="SUPERTRANSPORT" className="h-24 w-auto mx-auto mb-8" />
+          <div className="bg-surface-dark-card border border-surface-dark-border rounded-xl p-8 shadow-2xl">
+            <div className="h-14 w-14 rounded-full bg-destructive/10 border border-destructive/30 flex items-center justify-center mx-auto mb-4">
+              <LinkIcon className="h-7 w-7 text-destructive" />
+            </div>
+            <h2 className="text-lg font-semibold text-surface-dark-foreground mb-2">Link Expired or Invalid</h2>
+            <p className="text-surface-dark-muted text-sm mb-6 leading-relaxed">
+              This password reset link has expired or already been used. Request a new one from the login page.
+            </p>
+            <Button
+              onClick={() => navigate('/login')}
+              className="w-full bg-gold text-surface-dark font-semibold hover:bg-gold-light h-11"
+            >
+              Back to Sign In
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-surface-dark flex items-center justify-center p-4">
