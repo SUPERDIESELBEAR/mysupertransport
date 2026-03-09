@@ -167,6 +167,7 @@ export default function StaffLayout({ children, navItems, currentPath, onNavigat
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
           <div className="flex-1" />
+          {headerActions}
           <NotificationBell />
         </header>
 
