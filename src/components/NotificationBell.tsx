@@ -18,14 +18,13 @@ interface Notification {
 interface NotificationBellProps {
   /** 'light' (default) = white dropdown on light header; 'dark' = styled for dark header */
   variant?: 'light' | 'dark';
+  /** Path to navigate when "View all →" is clicked. Defaults to /dashboard?view=notifications */
+  notificationsPath?: string;
 }
 
-export default function NotificationBell({ variant = 'light' }: NotificationBellProps) {
+export default function NotificationBell({ variant = 'light', notificationsPath = '/dashboard?view=notifications' }: NotificationBellProps) {
   const { session } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const isOperatorPortal = location.pathname.startsWith('/operator');
-  const historyPath = isOperatorPortal ? '/operator?tab=notifications' : '/dashboard?view=notifications';
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
