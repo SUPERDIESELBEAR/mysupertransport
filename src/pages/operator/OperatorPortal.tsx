@@ -62,6 +62,7 @@ export default function OperatorPortal() {
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
   const [assignedDispatcher, setAssignedDispatcher] = useState<{ name: string; phone: string | null } | null>(null);
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
+  const [notifPrefOpen, setNotifPrefOpen] = useState(false);
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
 
