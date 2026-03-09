@@ -95,6 +95,12 @@ const ACTION_CONFIG: Record<string, {
     color: 'text-amber-600',
     bg: 'bg-amber-50 border-amber-200',
   },
+  ica_signed: {
+    label: 'ICA Signed',
+    icon: <CheckCircle2 className="h-4 w-4" />,
+    color: 'text-emerald-600',
+    bg: 'bg-emerald-50 border-emerald-200',
+  },
 };
 
 const FILTER_OPTIONS = [
