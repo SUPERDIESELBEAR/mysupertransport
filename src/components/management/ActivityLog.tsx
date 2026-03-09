@@ -668,22 +668,37 @@ export default function ActivityLog() {
 
       {/* Timeline */}
       <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+        {/* Search result info bar */}
+        {search && !loading && (
+          <div className="px-5 py-2 bg-gold/5 border-b border-gold/20 flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{filteredEntries.length}</span> result{filteredEntries.length !== 1 ? 's' : ''} for <span className="font-medium text-foreground">"{search}"</span>
+            </span>
+            <button onClick={() => { setSearchRaw(''); setSearch(''); }} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+              <X className="h-3 w-3" /> Clear search
+            </button>
+          </div>
+        )}
         {loading && entries.length === 0 ? (
           <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
             <RefreshCcw className="h-6 w-6 animate-spin opacity-40" />
             <p className="text-sm">Loading activity…</p>
           </div>
-        ) : entries.length === 0 ? (
+        ) : filteredEntries.length === 0 ? (
           <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
             <Activity className="h-10 w-10 opacity-20" />
-            <p className="text-sm font-medium">No activity found</p>
+            <p className="text-sm font-medium">{search ? 'No matching entries' : 'No activity found'}</p>
             <p className="text-xs">
-              {hasDateFilter ? 'Try adjusting the date range or clearing the filter.' : 'Actions like approvals, role changes, and milestones will appear here.'}
+              {search
+                ? `No entries match "${search}". Try a different keyword or clear the search.`
+                : hasDateFilter
+                  ? 'Try adjusting the date range or clearing the filter.'
+                  : 'Actions like approvals, role changes, and milestones will appear here.'}
             </p>
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {entries.map((entry, idx) => {
+            {filteredEntries.map((entry, idx) => {
               const cfg = ACTION_CONFIG[entry.action] ?? {
                 label: entry.action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
                 icon: <Shield className="h-4 w-4" />,
@@ -704,7 +719,7 @@ export default function ActivityLog() {
                       <div className={`h-8 w-8 rounded-full border flex items-center justify-center ${cfg.bg} ${cfg.color}`}>
                         {cfg.icon}
                       </div>
-                      {idx < entries.length - 1 && !isExpanded && (
+                      {idx < filteredEntries.length - 1 && !isExpanded && (
                         <div className="w-px flex-1 bg-border mt-2 min-h-3" />
                       )}
                     </div>
@@ -719,7 +734,9 @@ export default function ActivityLog() {
                             </span>
                           </div>
                           {entry.entity_label && (
-                            <p className="text-sm font-medium text-foreground mt-0.5">{entry.entity_label}</p>
+                            <p className="text-sm font-medium text-foreground mt-0.5">
+                              {highlightMatch(entry.entity_label, search)}
+                            </p>
                           )}
                           <EntryDetail entry={entry} />
                         </div>
@@ -745,7 +762,7 @@ export default function ActivityLog() {
                       </div>
                       {entry.actor_name && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          by <span className="font-medium text-foreground">{entry.actor_name}</span>
+                          by <span className="font-medium text-foreground">{highlightMatch(entry.actor_name, search)}</span>
                         </p>
                       )}
                     </div>
@@ -762,6 +779,7 @@ export default function ActivityLog() {
             })}
           </div>
         )}
+
 
         {hasMore && (
           <div className="px-5 py-3 border-t border-border">
