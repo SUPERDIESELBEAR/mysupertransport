@@ -126,15 +126,30 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const fetchOperatorDetail = async () => {
     setLoading(true);
 
-    // Step 1: fetch operator core data
-    const { data: op } = await supabase
-      .from('operators')
-      .select(`id, user_id, notes, onboarding_status (*), applications (email, first_name, last_name, phone, address_street, address_city, address_state, address_zip)`)
-      .eq('id', operatorId)
-      .single();
+    // Fetch operator core data and doc files in parallel
+    const [{ data: op }, { data: opDocs }] = await Promise.all([
+      supabase
+        .from('operators')
+        .select(`id, user_id, notes, onboarding_status (*), applications (email, first_name, last_name, phone, address_street, address_city, address_state, address_zip)`)
+        .eq('id', operatorId)
+        .single(),
+      supabase
+        .from('operator_documents')
+        .select('id, document_type, file_name, file_url, uploaded_at')
+        .eq('operator_id', operatorId)
+        .order('uploaded_at', { ascending: false }),
+    ]);
+
+    // Group doc files by document_type
+    const grouped: Record<string, DocFileRow[]> = {};
+    for (const doc of (opDocs ?? []) as any[]) {
+      if (!grouped[doc.document_type]) grouped[doc.document_type] = [];
+      grouped[doc.document_type].push(doc);
+    }
+    setDocFiles(grouped);
 
     if (op) {
-      // Step 2: fetch profile separately to avoid FK hint issues
+      // Fetch profile separately to avoid FK hint issues
       const { data: profile } = await supabase
         .from('profiles')
         .select('first_name, last_name')
@@ -152,8 +167,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       const os = (op as any).onboarding_status ?? null;
       if (os) {
         setStatus(os);
-      setStatusId(os.id);
-        // Snapshot current milestone values as baseline
+        setStatusId(os.id);
         savedMilestones.current = {
           ica_status: os.ica_status ?? '',
           mvr_ch_approval: os.mvr_ch_approval ?? '',
