@@ -227,6 +227,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
 
     const channel = supabase
       .channel(`operator-messages-${user.id}`)
+      // New incoming messages
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -258,6 +259,20 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
         setThreads(prev =>
           prev.map(t => t.staffUserId === msg.sender_id ? { ...t, unreadCount: 0 } : t)
         );
+      })
+      // Read receipts: staff marked one of our messages as read
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: `sender_id=eq.${user.id}`,
+      }, (payload) => {
+        const updated = payload.new as Message;
+        if (updated.read_at) {
+          setMessages(prev =>
+            prev.map(m => m.id === updated.id ? { ...m, read_at: updated.read_at } : m)
+          );
+        }
       })
       .subscribe();
 
