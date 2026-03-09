@@ -197,6 +197,9 @@ export default function StaffPortal() {
       {currentView === 'resources' && (
         <ResourceLibraryManager />
       )}
+      {currentView === 'notifications' && (
+        <NotificationHistory />
+      )}
     </StaffLayout>
 
     <AlertDialog open={!!pendingNavPath} onOpenChange={(open) => { if (!open) setPendingNavPath(null); }}>
