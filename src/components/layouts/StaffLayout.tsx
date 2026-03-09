@@ -23,6 +23,7 @@ interface StaffLayoutProps {
   currentPath: string;
   onNavigate: (path: string) => void;
   title: string;
+  headerActions?: ReactNode;
 }
 
 const roleColors: Record<AppRole, string> = {
