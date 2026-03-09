@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
-import { Send, MessageSquare, Search, User, Circle } from 'lucide-react';
+import { Send, MessageSquare, Search, User, Circle, CheckCheck } from 'lucide-react';
 import { sanitizeText } from '@/lib/sanitize';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
