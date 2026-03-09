@@ -836,6 +836,16 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                         </Select>
                       </div>
                     </td>
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      {op.unread_count > 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30 text-[11px] font-semibold">
+                          <MessageSquare className="h-3 w-3" />
+                          {op.unread_count}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/40 text-xs">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <Button
                         variant="ghost"
