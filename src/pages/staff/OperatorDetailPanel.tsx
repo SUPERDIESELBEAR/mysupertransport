@@ -1007,7 +1007,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           const allEquipmentReady = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
           const s5Collapsed = collapsedStages.has('stage5');
           return (
-            <div className={`bg-white border rounded-xl shadow-sm transition-colors ${allEquipmentReady ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stage5'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${allEquipmentReady ? 'border-status-complete' : 'border-border'}`}>
               <button onClick={() => toggleStage('stage5')} className="w-full flex items-center justify-between px-5 py-4 text-left">
                 <div className="flex items-center gap-2">
                   <Truck className={`h-4 w-4 ${allEquipmentReady ? 'text-status-complete' : 'text-gold'}`} />
