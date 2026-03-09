@@ -522,10 +522,58 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
           </div>
           <div className="space-y-3">
             <SelectField label="Registration Status" field="registration_status" options={regOptions} />
-            <SelectField label="Form 2290" field="form_2290" options={docOptions} />
-            <SelectField label="Truck Title" field="truck_title" options={docOptions} />
-            <SelectField label="Truck Photos" field="truck_photos" options={docOptions} />
-            <SelectField label="Truck Inspection" field="truck_inspection" options={docOptions} />
+            {/* Doc fields with inline Request buttons */}
+            {([
+              { field: 'form_2290', label: 'Form 2290' },
+              { field: 'truck_title', label: 'Truck Title' },
+              { field: 'truck_photos', label: 'Truck Photos' },
+              { field: 'truck_inspection', label: 'Truck Inspection' },
+            ] as { field: keyof OnboardingStatus; label: string }[]).map(({ field, label }) => {
+              const current = (status[field] as string) ?? 'not_started';
+              const isRequesting = requestingDoc === field;
+              const alreadyRequested = current === 'requested';
+              const received = current === 'received';
+              return (
+                <div key={field as string} className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
+                  <div className="flex gap-1.5">
+                    <div className="flex-1">
+                      <Select value={current} onValueChange={v => updateStatus(field, v)}>
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder="—" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {docOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={`h-9 px-2.5 text-xs gap-1 shrink-0 transition-colors ${
+                        received
+                          ? 'border-status-complete/40 text-status-complete bg-status-complete/5 cursor-default'
+                          : alreadyRequested
+                          ? 'border-gold/40 text-gold bg-gold/5 cursor-default'
+                          : 'border-info/40 text-info hover:bg-info/10'
+                      }`}
+                      disabled={isRequesting || alreadyRequested || received}
+                      onClick={() => handleRequestDoc(field, label)}
+                      title={received ? 'Document received' : alreadyRequested ? 'Already requested' : `Request ${label} from operator`}
+                    >
+                      {isRequesting ? (
+                        <span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
+                      ) : received ? (
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      ) : (
+                        <Bell className="h-3.5 w-3.5" />
+                      )}
+                      <span>{received ? 'Received' : alreadyRequested ? 'Requested' : 'Request'}</span>
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
