@@ -76,8 +76,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
         file_url: fileUrl,
       });
 
-      // Fire-and-forget: check if all requested docs are now uploaded
-      checkAndNotifyStaff(slot.key).catch(() => {});
+      // Notification to staff is handled server-side via DB trigger
 
       toast({ title: 'Document uploaded', description: `${slot.label} has been submitted for review.` });
       onUploadComplete();
