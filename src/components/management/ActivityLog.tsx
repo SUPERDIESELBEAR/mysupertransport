@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { format, startOfDay, endOfDay, startOfToday, endOfToday, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
   Milestone, RefreshCcw, Activity, ChevronDown, ChevronRight, Download, CalendarIcon, X,
-  User, Tag, Hash, Clock, StickyNote, Settings2, Info
+  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search
 } from 'lucide-react';
 
 interface AuditEntry {
@@ -365,6 +365,39 @@ function DatePickerButton({
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+// ── Search helpers ────────────────────────────────────────────────────────────
+
+function entryMatchesSearch(entry: AuditEntry, needle: string): boolean {
+  if (!needle) return true;
+  const q = needle.toLowerCase();
+  const haystack = [
+    entry.actor_name,
+    entry.entity_label,
+    entry.entity_type,
+    entry.action,
+    entry.actor_id,
+    entry.entity_id,
+    ACTION_CONFIG[entry.action]?.label,
+    entry.metadata ? JSON.stringify(entry.metadata) : '',
+  ].filter(Boolean).join(' ').toLowerCase();
+  return haystack.includes(q);
+}
+
+function highlightMatch(text: string, query: string): React.ReactNode {
+  if (!query || !text) return text;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return text;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-gold/30 text-foreground rounded-sm px-0.5">{text.slice(idx, idx + query.length)}</mark>
+      {text.slice(idx + query.length)}
+    </>
+  );
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function ActivityLog() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -377,6 +410,19 @@ export default function ActivityLog() {
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [searchRaw, setSearchRaw] = useState('');
+  const [search, setSearch] = useState('');
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = (val: string) => {
+    setSearchRaw(val);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => setSearch(val.trim()), 250);
+  };
+
+  const filteredEntries = search
+    ? entries.filter(e => entryMatchesSearch(e, search))
+    : entries;
 
   const fetchLog = useCallback(async (
     pageNum = 0,
@@ -484,12 +530,31 @@ export default function ActivityLog() {
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Activity Log</h1>
           <p className="text-sm text-muted-foreground mt-1">Audit trail of all significant actions across the platform</p>
         </div>
-        <div className="flex items-center gap-2">
+        {/* Search + actions */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search actor, subject, keyword…"
+              value={searchRaw}
+              onChange={e => handleSearchChange(e.target.value)}
+              className="pl-8 pr-8 py-1.5 text-xs rounded-lg border border-border bg-white focus:outline-none focus:ring-1 focus:ring-gold/50 focus:border-gold/50 w-64 text-foreground placeholder:text-muted-foreground transition-colors"
+            />
+            {searchRaw && (
+              <button
+                onClick={() => { setSearchRaw(''); setSearch(''); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
           <Button
             variant="outline"
             size="sm"
@@ -601,22 +666,37 @@ export default function ActivityLog() {
 
       {/* Timeline */}
       <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+        {/* Search result info bar */}
+        {search && !loading && (
+          <div className="px-5 py-2 bg-gold/5 border-b border-gold/20 flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{filteredEntries.length}</span> result{filteredEntries.length !== 1 ? 's' : ''} for <span className="font-medium text-foreground">"{search}"</span>
+            </span>
+            <button onClick={() => { setSearchRaw(''); setSearch(''); }} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+              <X className="h-3 w-3" /> Clear search
+            </button>
+          </div>
+        )}
         {loading && entries.length === 0 ? (
           <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
             <RefreshCcw className="h-6 w-6 animate-spin opacity-40" />
             <p className="text-sm">Loading activity…</p>
           </div>
-        ) : entries.length === 0 ? (
+        ) : filteredEntries.length === 0 ? (
           <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
             <Activity className="h-10 w-10 opacity-20" />
-            <p className="text-sm font-medium">No activity found</p>
+            <p className="text-sm font-medium">{search ? 'No matching entries' : 'No activity found'}</p>
             <p className="text-xs">
-              {hasDateFilter ? 'Try adjusting the date range or clearing the filter.' : 'Actions like approvals, role changes, and milestones will appear here.'}
+              {search
+                ? `No entries match "${search}". Try a different keyword or clear the search.`
+                : hasDateFilter
+                  ? 'Try adjusting the date range or clearing the filter.'
+                  : 'Actions like approvals, role changes, and milestones will appear here.'}
             </p>
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {entries.map((entry, idx) => {
+            {filteredEntries.map((entry, idx) => {
               const cfg = ACTION_CONFIG[entry.action] ?? {
                 label: entry.action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
                 icon: <Shield className="h-4 w-4" />,
@@ -637,7 +717,7 @@ export default function ActivityLog() {
                       <div className={`h-8 w-8 rounded-full border flex items-center justify-center ${cfg.bg} ${cfg.color}`}>
                         {cfg.icon}
                       </div>
-                      {idx < entries.length - 1 && !isExpanded && (
+                      {idx < filteredEntries.length - 1 && !isExpanded && (
                         <div className="w-px flex-1 bg-border mt-2 min-h-3" />
                       )}
                     </div>
@@ -652,7 +732,9 @@ export default function ActivityLog() {
                             </span>
                           </div>
                           {entry.entity_label && (
-                            <p className="text-sm font-medium text-foreground mt-0.5">{entry.entity_label}</p>
+                            <p className="text-sm font-medium text-foreground mt-0.5">
+                              {highlightMatch(entry.entity_label, search)}
+                            </p>
                           )}
                           <EntryDetail entry={entry} />
                         </div>
@@ -678,7 +760,7 @@ export default function ActivityLog() {
                       </div>
                       {entry.actor_name && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          by <span className="font-medium text-foreground">{entry.actor_name}</span>
+                          by <span className="font-medium text-foreground">{highlightMatch(entry.actor_name, search)}</span>
                         </p>
                       )}
                     </div>
@@ -695,6 +777,7 @@ export default function ActivityLog() {
             })}
           </div>
         )}
+
 
         {hasMore && (
           <div className="px-5 py-3 border-t border-border">
