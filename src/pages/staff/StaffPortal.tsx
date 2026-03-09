@@ -8,6 +8,11 @@ import FaqManager from '@/components/management/FaqManager';
 import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import MessagesView from '@/components/staff/MessagesView';
 import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources';
 
@@ -17,8 +22,9 @@ export default function StaffPortal() {
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
+  const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const viewRef = useRef(currentView);
-  useEffect(() => { viewRef.current = currentView; }, [currentView]);
 
   // Fetch initial unread count
   useEffect(() => {

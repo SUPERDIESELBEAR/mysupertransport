@@ -20,6 +20,7 @@ interface OperatorDetailPanelProps {
   operatorId: string;
   onBack: () => void;
   onMessageOperator?: (userId: string) => void;
+  onUnsavedChangesChange?: (hasChanges: boolean) => void;
 }
 
 type OnboardingStatus = {
