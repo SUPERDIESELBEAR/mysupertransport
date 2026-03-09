@@ -527,6 +527,7 @@ export default function OperatorPortal() {
           <OperatorDocumentUpload
             operatorId={operatorId}
             uploadedDocs={uploadedDocs}
+            onboardingStatus={onboardingStatus}
             onUploadComplete={fetchData}
           />
         )}
