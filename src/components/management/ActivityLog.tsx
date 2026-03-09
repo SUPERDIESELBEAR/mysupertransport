@@ -101,6 +101,12 @@ const ACTION_CONFIG: Record<string, {
     color: 'text-emerald-600',
     bg: 'bg-emerald-50 border-emerald-200',
   },
+  onboarding_completed: {
+    label: 'Onboarding Completed',
+    icon: <CheckCircle2 className="h-4 w-4" />,
+    color: 'text-emerald-700',
+    bg: 'bg-emerald-100 border-emerald-300',
+  },
 };
 
 const FILTER_OPTIONS = [
@@ -116,6 +122,7 @@ const FILTER_OPTIONS = [
   { value: 'operator_invited', label: 'Operator Invitations' },
   { value: 'ica_issued', label: 'ICA Issued' },
   { value: 'ica_signed', label: 'ICA Signed' },
+  { value: 'onboarding_completed', label: 'Onboarding Completed' },
 ];
 
 const DATE_PRESETS = [

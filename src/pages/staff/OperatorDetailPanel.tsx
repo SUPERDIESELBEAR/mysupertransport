@@ -465,6 +465,22 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             },
           });
         }
+        // ── Write a dedicated onboarding_completed entry ─────────────
+        if (isNewlyFullyOnboarded) {
+          void supabase.from('audit_log' as any).insert({
+            actor_id: session?.user?.id ?? null,
+            actor_name: null,
+            action: 'onboarding_completed',
+            entity_type: 'operator',
+            entity_id: operatorId,
+            entity_label: operatorName,
+            metadata: {
+              completed_at: new Date().toISOString(),
+              insurance_added_date: status.insurance_added_date,
+              unit_number: status.unit_number ?? null,
+            },
+          });
+        }
       }
     }
 
