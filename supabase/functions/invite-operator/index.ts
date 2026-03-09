@@ -126,6 +126,8 @@ Deno.serve(async (req) => {
 
     const { data: existingOp } = await supabaseAdmin.from('operators').select('id').eq('user_id', invitedUserId).maybeSingle();
 
+    let operatorId: string | null = existingOp?.id ?? null;
+
     if (!existingOp) {
       const { data: newOp, error: opError } = await supabaseAdmin
         .from('operators')
@@ -140,6 +142,7 @@ Deno.serve(async (req) => {
       if (opError) {
         console.error('Operator create error:', opError.message);
       } else if (newOp) {
+        operatorId = newOp.id;
         await supabaseAdmin.from('onboarding_status').insert({ operator_id: newOp.id });
       }
     }
