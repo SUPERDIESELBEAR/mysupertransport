@@ -819,12 +819,23 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
         })()}
 
         {/* Stage 3 — ICA */}
-        <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <FileCheck className="h-4 w-4 text-gold" />
-            <h3 className="font-semibold text-foreground text-sm">Stage 3 — ICA</h3>
-          </div>
-          <div className="space-y-3">
+        {(() => {
+          const s3Complete = status.ica_status === 'complete';
+          const s3Collapsed = collapsedStages.has('stage3');
+          return (
+            <div className={`bg-white border rounded-xl shadow-sm transition-colors ${s3Complete ? 'border-status-complete' : 'border-border'}`}>
+              <button onClick={() => toggleStage('stage3')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+                <div className="flex items-center gap-2">
+                  <FileCheck className={`h-4 w-4 ${s3Complete ? 'text-status-complete' : 'text-gold'}`} />
+                  <h3 className="font-semibold text-foreground text-sm">Stage 3 — ICA</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {s3Complete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>}
+                  {s3Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+              {!s3Collapsed && (
+                <div className="px-5 pb-5 space-y-3">
             <SelectField label="ICA Status" field="ica_status" options={icaOptions} />
             {status.pe_screening_result !== 'clear' && (
               <div className="p-3 rounded-lg bg-status-action/10 border border-status-action/30 text-xs text-status-action">
