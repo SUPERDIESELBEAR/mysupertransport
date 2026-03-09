@@ -68,6 +68,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [showVoidConfirm, setShowVoidConfirm] = useState(false);
   const [operatorName, setOperatorName] = useState('');
   const [operatorEmail, setOperatorEmail] = useState('');
+  const [operatorUserId, setOperatorUserId] = useState<string | null>(null);
   const [showICABuilder, setShowICABuilder] = useState(false);
   const [showICAView, setShowICAView] = useState(false);
   const [applicationData, setApplicationData] = useState<any>(null);
@@ -139,6 +140,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       setOperatorName(
         profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || 'Unknown Operator' : 'Unknown Operator'
       );
+      setOperatorUserId((op as any).user_id ?? null);
       const app = (op as any).applications;
       setOperatorEmail(app?.email ?? '');
       setApplicationData(app ?? null);
@@ -165,6 +167,14 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
       }
     }
     setLoading(false);
+  };
+
+  // Map doc field keys to human-readable labels
+  const DOC_LABELS: Record<string, string> = {
+    form_2290: 'Form 2290',
+    truck_title: 'Truck Title',
+    truck_photos: 'Truck Photos',
+    truck_inspection: 'Truck Inspection Report',
   };
 
   const handleSave = async () => {
@@ -303,22 +313,45 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
             console.error('Milestone notification error:', notifErr);
           }
         }
+      }
 
-        // Update snapshot so re-saves don't re-fire
-        savedMilestones.current = {
-          ica_status: status.ica_status ?? prev.ica_status,
-          mvr_ch_approval: status.mvr_ch_approval ?? prev.mvr_ch_approval,
-          pe_screening_result: status.pe_screening_result ?? prev.pe_screening_result,
-          insurance_added_date: status.insurance_added_date ?? prev.insurance_added_date,
-          form_2290: status.form_2290 ?? prev.form_2290,
-          truck_title: status.truck_title ?? prev.truck_title,
-          truck_photos: status.truck_photos ?? prev.truck_photos,
-          truck_inspection: status.truck_inspection ?? prev.truck_inspection,
-          decal_applied: status.decal_applied ?? prev.decal_applied,
-          eld_installed: status.eld_installed ?? prev.eld_installed,
-          fuel_card_issued: status.fuel_card_issued ?? prev.fuel_card_issued,
-          mo_reg_received: status.mo_reg_received ?? prev.mo_reg_received,
-        };
+      // ── Update snapshot (always, so re-saves don't re-fire) ──────────
+      savedMilestones.current = {
+        ica_status: status.ica_status ?? prev.ica_status,
+        mvr_ch_approval: status.mvr_ch_approval ?? prev.mvr_ch_approval,
+        pe_screening_result: status.pe_screening_result ?? prev.pe_screening_result,
+        insurance_added_date: status.insurance_added_date ?? prev.insurance_added_date,
+        form_2290: status.form_2290 ?? prev.form_2290,
+        truck_title: status.truck_title ?? prev.truck_title,
+        truck_photos: status.truck_photos ?? prev.truck_photos,
+        truck_inspection: status.truck_inspection ?? prev.truck_inspection,
+        decal_applied: status.decal_applied ?? prev.decal_applied,
+        eld_installed: status.eld_installed ?? prev.eld_installed,
+        fuel_card_issued: status.fuel_card_issued ?? prev.fuel_card_issued,
+        mo_reg_received: status.mo_reg_received ?? prev.mo_reg_received,
+      };
+
+      // ── Per-doc received notifications → operator ─────────────────────
+      if (operatorUserId) {
+        const docFields: Array<keyof OnboardingStatus> = ['form_2290', 'truck_title', 'truck_photos', 'truck_inspection'];
+        const justReceived = docFields.filter(
+          f => prev[f as keyof typeof prev] !== 'received' && status[f] === 'received'
+        );
+        for (const f of justReceived) {
+          const docLabel = DOC_LABELS[f as string] ?? f;
+          await supabase.from('notifications').insert({
+            user_id: operatorUserId,
+            type: 'doc_received',
+            title: `Your ${docLabel} has been received`,
+            body: `Your ${docLabel} has been reviewed and received by your onboarding coordinator.`,
+            channel: 'in_app',
+            link: '/operator?tab=documents',
+          });
+          toast({
+            title: `✅ ${docLabel} received`,
+            description: `${operatorName} has been notified.`,
+          });
+        }
       }
 
       // ── Write audit log for operator status changes ───────────────────
