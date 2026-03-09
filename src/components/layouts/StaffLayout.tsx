@@ -42,7 +42,7 @@ const roleLabels: Record<AppRole, string> = {
   applicant: 'Applicant',
 };
 
-export default function StaffLayout({ children, navItems, currentPath, onNavigate, title }: StaffLayoutProps) {
+export default function StaffLayout({ children, navItems, currentPath, onNavigate, title, headerActions }: StaffLayoutProps) {
   const { profile, roles, activeRole, setActiveRole, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [roleSwitchOpen, setRoleSwitchOpen] = useState(false);
