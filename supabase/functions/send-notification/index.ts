@@ -239,6 +239,17 @@ Deno.serve(async (req) => {
       return data?.email_enabled ?? true; // default enabled
     };
 
+    // ── Helper: check if a specific user has in-app enabled for an event ──
+    const userInAppEnabled = async (userId: string, eventType: string): Promise<boolean> => {
+      const { data } = await supabaseAdmin
+        .from('notification_preferences')
+        .select('in_app_enabled')
+        .eq('user_id', userId)
+        .eq('event_type', eventType)
+        .maybeSingle();
+      return data?.in_app_enabled ?? true; // default enabled
+    };
+
     // ── Helper: get assigned staff email for an operator ─────────────────
     const getAssignedStaffEmail = async (operatorId: string): Promise<string | null> => {
       const { data: op } = await supabaseAdmin
@@ -513,21 +524,28 @@ Deno.serve(async (req) => {
           .single();
 
         if (opRow?.user_id) {
-          await supabaseAdmin.from('notifications').insert({
-            user_id: opRow.user_id,
-            type: 'dispatch_status_change',
-            title: `${statusInfo.emoji} Dispatch Status: ${statusInfo.label}`,
-            body: notifBody,
-            channel: 'in_app',
-            link: '/dashboard',
-          });
+          const inAppOk = await userInAppEnabled(opRow.user_id, 'dispatch_status_change');
+          if (inAppOk) {
+            await supabaseAdmin.from('notifications').insert({
+              user_id: opRow.user_id,
+              type: 'dispatch_status_change',
+              title: `${statusInfo.emoji} Dispatch Status: ${statusInfo.label}`,
+              body: notifBody,
+              channel: 'in_app',
+              link: '/dashboard',
+            });
+          }
         }
 
         // ── Email the operator themselves on Truck Down ─────────────────
         if (newStatus === 'truck_down') {
           try {
             const operatorEmail = await getOperatorEmail(operatorId);
-            if (operatorEmail) {
+            // Resolve operator user_id for pref check (re-use opRow already fetched above)
+            const opEmailEnabled = opRow?.user_id
+              ? await userEmailEnabled(opRow.user_id, 'dispatch_status_change')
+              : true;
+            if (operatorEmail && opEmailEnabled) {
               const operatorName = payload.operator_name || 'Driver';
               const notesRow = payload.status_notes
                 ? `<p style="background:#fff5f5;border-left:4px solid #e53e3e;padding:12px 16px;border-radius:4px;margin:16px 0;"><strong>Note from your dispatcher:</strong> ${payload.status_notes}</p>`
@@ -650,21 +668,25 @@ Deno.serve(async (req) => {
         const senderName = payload.sender_name || 'Your coordinator';
         const preview = payload.message_preview || 'You have a new message.';
 
-        // ── 1. In-app notification ────────────────────────────────────────
-        await supabaseAdmin.from('notifications').insert({
-          user_id: recipientUserId,
-          type: 'new_message',
-          title: `💬 New message from ${senderName}`,
-          body: preview.length > 120 ? preview.slice(0, 117) + '…' : preview,
-          channel: 'in_app',
-          link: '/dashboard?tab=messages',
-        });
+        // ── 1. In-app notification (respect in_app pref) ─────────────────
+        const msgInAppOk = await userInAppEnabled(recipientUserId, 'new_message');
+        if (msgInAppOk) {
+          await supabaseAdmin.from('notifications').insert({
+            user_id: recipientUserId,
+            type: 'new_message',
+            title: `💬 New message from ${senderName}`,
+            body: preview.length > 120 ? preview.slice(0, 117) + '…' : preview,
+            channel: 'in_app',
+            link: '/dashboard?tab=messages',
+          });
+        }
 
-        // ── 2. Email the operator ─────────────────────────────────────────
+        // ── 2. Email the operator (respect email pref) ────────────────────
+        const msgEmailOk = await userEmailEnabled(recipientUserId, 'new_message');
         try {
           const { data: { user: recipientUser } } = await supabaseAdmin.auth.admin.getUserById(recipientUserId);
           const recipientEmail = recipientUser?.email;
-          if (recipientEmail) {
+          if (recipientEmail && msgEmailOk) {
             const subject = `New message from ${senderName} — SUPERTRANSPORT`;
             const html = buildEmail(
               subject,
