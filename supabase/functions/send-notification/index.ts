@@ -11,7 +11,8 @@ type NotificationType =
   | 'application_denied'
   | 'onboarding_milestone'
   | 'document_uploaded'
-  | 'dispatch_status_change';
+  | 'dispatch_status_change'
+  | 'new_message';
 
 interface NotificationPayload {
   type: NotificationType;
@@ -31,6 +32,10 @@ interface NotificationPayload {
   status_notes?: string;
   unit_number?: string;       // operator unit number for dispatcher email
   caller_user_id?: string;    // user_id of the dispatcher who set the status
+  // new_message fields
+  recipient_user_id?: string; // operator's auth user_id
+  sender_name?: string;       // staff member's display name
+  message_preview?: string;   // truncated first ~120 chars of message body
 }
 
 // ─── Email HTML builder ─────────────────────────────────────────────────────
@@ -586,6 +591,49 @@ Deno.serve(async (req) => {
           } catch (emailErr) {
             console.warn('Truck Down alert email failed:', emailErr);
           }
+        }
+
+        break;
+      }
+
+      case 'new_message': {
+        const recipientUserId = payload.recipient_user_id;
+        if (!recipientUserId) break;
+
+        const senderName = payload.sender_name || 'Your coordinator';
+        const preview = payload.message_preview || 'You have a new message.';
+
+        // ── 1. In-app notification ────────────────────────────────────────
+        await supabaseAdmin.from('notifications').insert({
+          user_id: recipientUserId,
+          type: 'new_message',
+          title: `💬 New message from ${senderName}`,
+          body: preview.length > 120 ? preview.slice(0, 117) + '…' : preview,
+          channel: 'in_app',
+          link: '/dashboard?tab=messages',
+        });
+
+        // ── 2. Email the operator ─────────────────────────────────────────
+        try {
+          const { data: { user: recipientUser } } = await supabaseAdmin.auth.admin.getUserById(recipientUserId);
+          const recipientEmail = recipientUser?.email;
+          if (recipientEmail) {
+            const subject = `New message from ${senderName} — SUPERTRANSPORT`;
+            const html = buildEmail(
+              subject,
+              `💬 You have a new message`,
+              `<p>Hi,</p>
+              <p><strong>${senderName}</strong> from your onboarding team has sent you a new message:</p>
+              <blockquote style="border-left:4px solid #C9A84C;padding:12px 16px;margin:16px 0;background:#fdf9ee;border-radius:0 6px 6px 0;color:#444;font-style:italic;">
+                "${preview.length > 300 ? preview.slice(0, 297) + '…' : preview}"
+              </blockquote>
+              <p>Log in to your portal to read the full message and reply.</p>`,
+              { label: 'View Message', url: `${appUrl}/dashboard?tab=messages` }
+            );
+            await sendEmail(recipientEmail, subject, html, RESEND_API_KEY);
+          }
+        } catch (emailErr) {
+          console.warn('New message email to operator failed:', emailErr);
         }
 
         break;
