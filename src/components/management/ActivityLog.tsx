@@ -530,10 +530,31 @@ export default function ActivityLog() {
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Activity Log</h1>
           <p className="text-sm text-muted-foreground mt-1">Audit trail of all significant actions across the platform</p>
+        </div>
+        {/* Search bar */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search actor, subject, keyword…"
+              value={searchRaw}
+              onChange={e => handleSearchChange(e.target.value)}
+              className="pl-8 pr-8 py-1.5 text-xs rounded-lg border border-border bg-white focus:outline-none focus:ring-1 focus:ring-gold/50 focus:border-gold/50 w-64 text-foreground placeholder:text-muted-foreground transition-colors"
+            />
+            {searchRaw && (
+              <button
+                onClick={() => { setSearchRaw(''); setSearch(''); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button
