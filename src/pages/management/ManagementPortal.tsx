@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -36,17 +37,25 @@ const STATUS_COLORS: Record<string, string> = {
 export default function ManagementPortal() {
   const { toast } = useToast();
   const { session } = useAuth();
-  const [view, setView] = useState<ManagementView>('overview');
+  const [searchParams] = useSearchParams();
+  const [view, setView] = useState<ManagementView>(() => {
+    const v = searchParams.get('view') as ManagementView | null;
+    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity'].includes(v)) ? v : 'overview';
+  });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const [applications, setApplications] = useState<FullApplication[]>([]);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    const s = searchParams.get('status') as StatusFilter | null;
+    return (s && ['pending','approved','denied','all'].includes(s)) ? s : 'pending';
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingApps, setLoadingApps] = useState(false);
   const [selectedApp, setSelectedApp] = useState<FullApplication | null>(null);
   const [metrics, setMetrics] = useState({ pending: 0, onboarding: 0, active: 0, alerts: 0 });
   const [truckDownCount, setTruckDownCount] = useState(0);
+
 
   const fetchTruckDownCount = useCallback(async () => {
     const { count } = await supabase
