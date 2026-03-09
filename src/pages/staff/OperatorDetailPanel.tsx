@@ -734,6 +734,8 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
             })}
           </div>
         </div>
+          );
+        })()}
 
         {/* Stage 3 — ICA */}
         <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
