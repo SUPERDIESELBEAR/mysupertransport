@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { format, startOfDay, endOfDay } from 'date-fns';
+import { format, startOfDay, endOfDay, startOfToday, endOfToday, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -73,6 +73,25 @@ const FILTER_OPTIONS = [
   { value: 'role_added', label: 'Roles Granted' },
   { value: 'role_removed', label: 'Roles Revoked' },
   { value: 'operator_status_updated', label: 'Onboarding Updates' },
+];
+
+const DATE_PRESETS = [
+  {
+    label: 'Today',
+    getRange: () => ({ from: startOfToday(), to: endOfToday() }),
+  },
+  {
+    label: 'Last 7 days',
+    getRange: () => ({ from: startOfDay(subDays(new Date(), 6)), to: endOfToday() }),
+  },
+  {
+    label: 'Last 30 days',
+    getRange: () => ({ from: startOfDay(subDays(new Date(), 29)), to: endOfToday() }),
+  },
+  {
+    label: 'This month',
+    getRange: () => ({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) }),
+  },
 ];
 
 function timeAgo(dateStr: string): string {
@@ -241,6 +260,7 @@ export default function ActivityLog() {
   const [page, setPage] = useState(0);
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [activePreset, setActivePreset] = useState<string | null>(null);
 
   const fetchLog = useCallback(async (
     pageNum = 0,
@@ -303,7 +323,15 @@ export default function ActivityLog() {
   };
 
   const hasDateFilter = !!dateFrom || !!dateTo;
-  const clearDates = () => { setDateFrom(undefined); setDateTo(undefined); };
+  const clearDates = () => { setDateFrom(undefined); setDateTo(undefined); setActivePreset(null); };
+
+  const applyPreset = (preset: typeof DATE_PRESETS[number]) => {
+    const { from, to } = preset.getRange();
+    setDateFrom(from);
+    setDateTo(to);
+    setActivePreset(preset.label);
+  };
+
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -356,20 +384,38 @@ export default function ActivityLog() {
         {/* Separator */}
         <div className="w-px h-5 bg-border mx-1" />
 
+        {/* Date preset shortcuts */}
+        {DATE_PRESETS.map(preset => (
+          <button
+            key={preset.label}
+            onClick={() => applyPreset(preset)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+              activePreset === preset.label
+                ? 'bg-gold/20 text-foreground border-gold/50'
+                : 'bg-white text-muted-foreground border-border hover:border-gold/50 hover:text-foreground'
+            }`}
+          >
+            {preset.label}
+          </button>
+        ))}
+
+        {/* Separator */}
+        <div className="w-px h-5 bg-border mx-1" />
+
         {/* Date range pickers */}
         <DatePickerButton
           label="From date"
           date={dateFrom}
-          onSelect={setDateFrom}
-          onClear={() => setDateFrom(undefined)}
+          onSelect={(d) => { setDateFrom(d); setActivePreset(null); }}
+          onClear={() => { setDateFrom(undefined); setActivePreset(null); }}
           disabled={dateTo ? (d) => d > dateTo : undefined}
         />
         <span className="text-xs text-muted-foreground">–</span>
         <DatePickerButton
           label="To date"
           date={dateTo}
-          onSelect={setDateTo}
-          onClear={() => setDateTo(undefined)}
+          onSelect={(d) => { setDateTo(d); setActivePreset(null); }}
+          onClear={() => { setDateTo(undefined); setActivePreset(null); }}
           disabled={dateFrom ? (d) => d < dateFrom : undefined}
         />
 
