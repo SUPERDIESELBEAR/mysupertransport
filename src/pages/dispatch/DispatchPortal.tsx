@@ -1278,16 +1278,28 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   );
 
   return (
-    <StaffLayout
-      navItems={navItems}
-      currentPath={activePage}
-      onNavigate={handleNavigate}
-      title="Dispatch"
-    >
-      {quickComposeModal}
-      {activePage === 'dispatch-messages'
-        ? <MessagesView initialUserId={messageInitialUserId} />
-        : board}
-    </StaffLayout>
+    <>
+      <StaffNotificationPreferencesModal open={prefOpen} onClose={() => setPrefOpen(false)} />
+      <StaffLayout
+        navItems={navItems}
+        currentPath={activePage}
+        onNavigate={handleNavigate}
+        title="Dispatch"
+        headerActions={
+          <button
+            onClick={() => setPrefOpen(true)}
+            title="Notification preferences"
+            className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-muted"
+          >
+            <SlidersHorizontal className="h-4.5 w-4.5" />
+          </button>
+        }
+      >
+        {quickComposeModal}
+        {activePage === 'dispatch-messages'
+          ? <MessagesView initialUserId={messageInitialUserId} />
+          : board}
+      </StaffLayout>
+    </>
   );
 }
