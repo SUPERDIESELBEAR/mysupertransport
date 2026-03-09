@@ -87,6 +87,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const savedSnapshot = useRef<{ status: Partial<OnboardingStatus>; notes: string } | null>(null);
+  const [navGuard, setNavGuard] = useState<null | { action: () => void }>(null);
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
