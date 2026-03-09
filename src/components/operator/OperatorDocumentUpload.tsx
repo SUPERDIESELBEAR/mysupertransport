@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileText, CheckCircle2, Loader2, ExternalLink, X, AlertCircle } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, Loader2, ExternalLink, AlertCircle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface DocumentSlot {
