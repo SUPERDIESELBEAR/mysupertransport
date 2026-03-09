@@ -608,16 +608,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   };
 
   // Ctrl+S / Cmd+S keyboard shortcut to save
+  const saveRef = useRef<{ saving: boolean; hasUnsaved: boolean; save: () => void }>({ saving, hasUnsaved: hasUnsavedChanges, save: handleSave });
+  saveRef.current = { saving, hasUnsaved: hasUnsavedChanges, save: handleSave };
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const onKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        if (!saving && hasUnsavedChanges) handleSave();
+        const { saving: s, hasUnsaved, save } = saveRef.current;
+        if (!s && hasUnsaved) save();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [saving, hasUnsavedChanges, handleSave]);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl">
