@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow, format } from 'date-fns';
 import {
   Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle,
-  FileText, Target, Paperclip, Truck, RefreshCcw, CheckCheck, Filter,
+  FileText, Target, Paperclip, Truck, RefreshCcw, CheckCheck, Filter, ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
