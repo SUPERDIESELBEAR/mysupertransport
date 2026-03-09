@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
@@ -83,6 +83,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [docFiles, setDocFiles] = useState<Record<string, DocFileRow[]>>({});
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   const [showStickyBar, setShowStickyBar] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
@@ -651,6 +652,26 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
                       </Tooltip>
                     ))}
                   </div>
+                  {/* Copy email quick-action */}
+                  {operatorEmail && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(operatorEmail);
+                            setCopiedEmail(true);
+                            setTimeout(() => setCopiedEmail(false), 2000);
+                          }}
+                          className="ml-1 h-6 w-6 rounded flex items-center justify-center border border-border text-muted-foreground hover:text-foreground hover:border-gold transition-all"
+                        >
+                          {copiedEmail ? <Check className="h-3 w-3 text-status-complete" /> : <Copy className="h-3 w-3" />}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">
+                        {copiedEmail ? '✓ Copied!' : `Copy email — ${operatorEmail}`}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </TooltipProvider>
               </div>
             </div>
