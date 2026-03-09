@@ -58,6 +58,7 @@ export default function ManagementPortal() {
   const [metrics, setMetrics] = useState({ pending: 0, onboarding: 0, active: 0, alerts: 0 });
   const [truckDownCount, setTruckDownCount] = useState(0);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
 
 
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
