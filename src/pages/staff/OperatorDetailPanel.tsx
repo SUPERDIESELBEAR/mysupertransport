@@ -83,6 +83,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
   const [docFiles, setDocFiles] = useState<Record<string, DocFileRow[]>>({});
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   const [showStickyBar, setShowStickyBar] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
