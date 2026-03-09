@@ -695,6 +695,12 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
                       : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
                   </button>
                 </th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">
+                  <span className="inline-flex items-center gap-1 text-muted-foreground">
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    Msgs
+                  </span>
+                </th>
                 <th className="text-right px-4 py-3" />
               </tr>
             </thead>
