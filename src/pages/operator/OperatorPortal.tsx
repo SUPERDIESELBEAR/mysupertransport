@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import OperatorNotificationPreferencesModal from '@/components/operator/OperatorNotificationPreferencesModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
-  MessageSquare, BookOpen, HelpCircle, FileText,
+  MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone
 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
@@ -61,6 +62,7 @@ export default function OperatorPortal() {
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
   const [assignedDispatcher, setAssignedDispatcher] = useState<{ name: string; phone: string | null } | null>(null);
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
+  const [notifPrefOpen, setNotifPrefOpen] = useState(false);
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
 
@@ -308,6 +310,8 @@ export default function OperatorPortal() {
   };
 
   return (
+    <>
+    <OperatorNotificationPreferencesModal open={notifPrefOpen} onClose={() => setNotifPrefOpen(false)} />
     <div className="min-h-screen bg-secondary">
       {/* Top nav */}
       <header className="bg-surface-dark border-b border-surface-dark-border sticky top-0 z-40">
@@ -340,6 +344,13 @@ export default function OperatorPortal() {
           </nav>
 
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setNotifPrefOpen(true)}
+              title="Notification preferences"
+              className="text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors"
+            >
+              <SlidersHorizontal className="h-5 w-5" />
+            </button>
             <NotificationBell variant="dark" />
             <button
               onClick={signOut}
@@ -564,5 +575,6 @@ export default function OperatorPortal() {
         {view === 'ica' && <OperatorICASign />}
       </div>
     </div>
+    </>
   );
 }
