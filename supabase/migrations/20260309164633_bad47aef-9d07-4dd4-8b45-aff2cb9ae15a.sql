@@ -1,0 +1,1 @@
+CREATE POLICY "Staff can insert audit log entries" ON public.audit_log FOR INSERT WITH CHECK (is_staff(auth.uid()));
