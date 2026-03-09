@@ -441,6 +441,7 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
 
   // Track which doc fields are currently being "requested" (for button loading state)
   const [requestingDoc, setRequestingDoc] = useState<string | null>(null);
+  const [markingReceived, setMarkingReceived] = useState<string | null>(null);
 
   const handleRequestDoc = async (field: keyof OnboardingStatus, label: string) => {
     if (!statusId) return;
@@ -628,6 +629,52 @@ export default function OperatorDetailPanel({ operatorId, onBack }: OperatorDeta
                               </li>
                             ))}
                           </ul>
+                          {/* Mark as Received shortcut */}
+                          {!received && (
+                            <div className="p-2 border-t border-border">
+                              <button
+                                className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold text-status-complete bg-status-complete/10 hover:bg-status-complete/20 border border-status-complete/30 rounded-md py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={markingReceived === (field as string)}
+                                onClick={async () => {
+                                  if (!statusId) return;
+                                  setMarkingReceived(field as string);
+                                  try {
+                                    await supabase.from('onboarding_status').update({ [field]: 'received' }).eq('id', statusId);
+                                    // Update local state & snapshot
+                                    setStatus(prev => ({ ...prev, [field]: 'received' }));
+                                    savedMilestones.current = { ...savedMilestones.current, [field as string]: 'received' };
+                                    // Notify operator
+                                    if (operatorUserId) {
+                                      await supabase.from('notifications').insert({
+                                        user_id: operatorUserId,
+                                        type: 'doc_received',
+                                        title: `Your ${DOC_LABELS[field as string] ?? label} has been received`,
+                                        body: `Your ${DOC_LABELS[field as string] ?? label} has been reviewed and received by your onboarding coordinator.`,
+                                        channel: 'in_app',
+                                        link: '/operator?tab=documents',
+                                      });
+                                    }
+                                    toast({ title: `✅ ${label} marked received`, description: `${operatorName} has been notified.` });
+                                  } catch (err: any) {
+                                    toast({ title: 'Error', description: err.message, variant: 'destructive' });
+                                  } finally {
+                                    setMarkingReceived(null);
+                                  }
+                                }}
+                              >
+                                {markingReceived === (field as string)
+                                  ? <span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
+                                  : <CheckCircle2 className="h-3 w-3" />
+                                }
+                                {markingReceived === (field as string) ? 'Saving…' : 'Mark as Received'}
+                              </button>
+                            </div>
+                          )}
+                          {received && (
+                            <div className="p-2 border-t border-border flex items-center justify-center gap-1.5 text-[11px] font-semibold text-status-complete">
+                              <CheckCircle2 className="h-3 w-3" /> Already marked received
+                            </div>
+                          )}
                         </PopoverContent>
                       </Popover>
                     )}
