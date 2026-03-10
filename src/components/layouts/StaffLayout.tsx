@@ -20,6 +20,8 @@ interface NavItem {
 interface StaffLayoutProps {
   children: ReactNode;
   navItems: NavItem[];
+  /** Subset of navItems to show in the mobile bottom bar. Falls back to navItems if omitted. */
+  mobileNavItems?: NavItem[];
   currentPath: string;
   onNavigate: (path: string) => void;
   title: string;
@@ -44,7 +46,7 @@ const roleLabels: Record<AppRole, string> = {
   applicant: 'Applicant',
 };
 
-export default function StaffLayout({ children, navItems, currentPath, onNavigate, title, headerActions, notificationsPath = '/staff?tab=notifications' }: StaffLayoutProps) {
+export default function StaffLayout({ children, navItems, mobileNavItems, currentPath, onNavigate, title, headerActions, notificationsPath = '/staff?tab=notifications' }: StaffLayoutProps) {
   const { profile, roles, activeRole, setActiveRole, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false); // default closed on mobile
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -232,7 +234,7 @@ export default function StaffLayout({ children, navItems, currentPath, onNavigat
       {/* ── Sticky bottom nav (mobile only) ───────────────────────── */}
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-dark border-t border-surface-dark-border">
         <div className="flex items-stretch h-16">
-          {navItems.map((item) => {
+          {(mobileNavItems ?? navItems).map((item) => {
             const isActive = currentPath === item.path;
             return (
               <button

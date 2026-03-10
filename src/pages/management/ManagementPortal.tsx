@@ -312,14 +312,25 @@ export default function ManagementPortal() {
     { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
   ];
 
+  // Bottom nav on mobile: 5 priority items that fit cleanly at 375px
+  const mobileNavItems = [
+    { label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
+    { label: 'Applic.', icon: <ClipboardList className="h-4 w-4" />, path: 'applications' },
+    { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline' },
+    { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
+    { label: 'Notifs', icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
+  ];
+
   return (
     <>
       <NotificationPreferencesModal open={notifPrefsOpen} onClose={() => setNotifPrefsOpen(false)} />
       <StaffLayout
         navItems={navItems}
+        mobileNavItems={mobileNavItems}
         currentPath={view}
         onNavigate={handleNavigate}
         title="Management"
+        notificationsPath="/dashboard?view=notifications"
         headerActions={
           <button
             onClick={() => setNotifPrefsOpen(true)}
