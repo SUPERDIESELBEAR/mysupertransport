@@ -112,10 +112,20 @@ export default function OperatorPortal() {
       // Fetch current dispatch status + assigned dispatcher
       const { data: dispatch } = await supabase
         .from('active_dispatch')
-        .select('dispatch_status, assigned_dispatcher')
+        .select('dispatch_status, assigned_dispatcher, updated_at')
         .eq('operator_id', opId)
         .maybeSingle();
-      setDispatchStatus((dispatch as any)?.dispatch_status ?? null);
+      const newStatus = (dispatch as any)?.dispatch_status ?? null;
+      const newUpdatedAt = (dispatch as any)?.updated_at ?? null;
+      setDispatchStatus(newStatus);
+      setDispatchUpdatedAt(newUpdatedAt);
+      // Check localStorage for ack state keyed to this specific truck-down event
+      if (newStatus === 'truck_down' && newUpdatedAt) {
+        const ackKey = `truck_down_ack_${opId}_${newUpdatedAt}`;
+        setTruckDownAcked(localStorage.getItem(ackKey) === 'true');
+      } else {
+        setTruckDownAcked(false);
+      }
       fetchDispatcherInfo((dispatch as any)?.assigned_dispatcher ?? null);
     }
   }, [user, fetchDispatcherInfo]);
