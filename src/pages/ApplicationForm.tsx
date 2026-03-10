@@ -419,8 +419,14 @@ export default function ApplicationForm() {
           </div>
         )}
 
-        {/* Step content */}
-        <div className="bg-white border border-border rounded-2xl p-6 shadow-sm">
+        {/* Step content — swipeable on mobile */}
+        <div
+          ref={swipe.ref}
+          onTouchStart={swipe.onTouchStart}
+          onTouchMove={swipe.onTouchMove}
+          onTouchEnd={swipe.onTouchEnd}
+          className="bg-white border border-border rounded-2xl p-6 shadow-sm select-none"
+        >
           {step === 1 && <Step1Personal data={formData} onChange={handleChange} errors={errors} />}
           {step === 2 && <Step2CDL data={formData} onChange={handleChange} errors={errors} />}
           {step === 3 && <Step3Employment data={formData} onChange={handleChange} errors={errors} />}
@@ -431,6 +437,13 @@ export default function ApplicationForm() {
           {step === 8 && <Step8Disclosures data={formData} onChange={handleChange} errors={errors} />}
           {step === 9 && <Step9Signature data={formData} onChange={handleChange} errors={errors} />}
         </div>
+
+        {/* Swipe hint — mobile only, fades after first step */}
+        {step === 1 && (
+          <p className="md:hidden text-center text-xs text-muted-foreground mt-3 opacity-60">
+            Swipe left to advance · Swipe right to go back
+          </p>
+        )}
 
         {/* Navigation — desktop only */}
         <div className="hidden md:flex items-center justify-between mt-6 gap-3">
