@@ -385,7 +385,7 @@ export default function ManagementPortal() {
 
             {/* Live Dispatch Breakdown */}
             <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+              <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-border flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2.5">
                   <Truck className="h-4 w-4 text-muted-foreground" />
                   <h2 className="font-semibold text-foreground">Fleet Status</h2>
@@ -419,20 +419,19 @@ export default function ManagementPortal() {
                   const tooltipLabel = changedAt
                     ? new Date(changedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
                     : null;
-                  // Show tooltip on any cell that has either a name or a timestamp
                   const hasTooltipData = !!(changedByName || tooltipLabel);
                   const triggerText = changedByName ?? (tooltipLabel ? 'Updated' : null);
                   return (
-                    <div key={s.label} className={`flex flex-col items-center justify-center py-5 gap-1 ${s.bg} transition-colors duration-300`}>
-                      <span className={`text-3xl font-bold tabular-nums transition-all duration-300 ${s.color}`}>{s.value}</span>
-                      <span className="text-xs text-muted-foreground font-medium">{s.label}</span>
+                    <div key={s.label} className={`flex flex-col items-center justify-center py-4 sm:py-5 gap-1 ${s.bg} transition-colors duration-300`}>
+                      <span className={`text-2xl sm:text-3xl font-bold tabular-nums transition-all duration-300 ${s.color}`}>{s.value}</span>
+                      <span className="text-xs text-muted-foreground font-medium text-center leading-tight">{s.label}</span>
                       {s.label === 'Truck Down' && s.value > 0 && (
                         <span className="mt-0.5 inline-flex h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
                       )}
                       {hasTooltipData && triggerText && (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="text-[10px] text-muted-foreground/60 leading-tight mt-0.5 truncate max-w-[90px] text-center cursor-default underline decoration-dotted underline-offset-2">
+                            <span className="text-[10px] text-muted-foreground/60 leading-tight mt-0.5 truncate max-w-[80px] text-center cursor-default underline decoration-dotted underline-offset-2">
                               {triggerText}
                             </span>
                           </TooltipTrigger>
