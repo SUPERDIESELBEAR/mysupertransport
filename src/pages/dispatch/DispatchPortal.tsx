@@ -147,6 +147,8 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   // Ref mirror of rows so realtime callbacks can read current operator info synchronously
   const rowsRef = useRef<DispatchRow[]>([]);
+  // Map of operator_id → ISO timestamp of the most recent truck-down acknowledgement
+  const [ackMap, setAckMap] = useState<Record<string, string>>({});
 
   // Keep rowsRef in sync so realtime callbacks can access current operator info
   useEffect(() => { rowsRef.current = rows; }, [rows]);
