@@ -709,6 +709,65 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case 'truck_down': {
+        // Called by the DB trigger via pg_net when any operator transitions to truck_down.
+        // Sends email to all dispatchers + management users (respecting truck_down email prefs).
+        const operatorName = payload.operator_name || 'An operator';
+        const unitNumber   = payload.unit_number ? ` (Unit #${payload.unit_number})` : '';
+        const notesRow     = payload.status_notes
+          ? `<tr><td style="padding:6px 0;color:#888;font-size:13px;width:120px;">Notes</td><td style="padding:6px 0;font-size:14px;font-weight:600;color:#b91c1c;">${payload.status_notes}</td></tr>`
+          : '';
+        const laneRow = payload.current_load_lane
+          ? `<tr><td style="padding:6px 0;color:#888;font-size:13px;">Load / Lane</td><td style="padding:6px 0;font-size:14px;">${payload.current_load_lane}</td></tr>`
+          : '';
+
+        const emailBody = `
+          <p>A <strong>Truck Down</strong> status has been recorded for one of your operators. Immediate attention may be required.</p>
+          <table style="width:100%;border-collapse:collapse;margin:20px 0;background:#fff5f5;border-radius:8px;padding:16px;border:1px solid #fecaca;">
+            <tr><td style="padding:6px 0;color:#888;font-size:13px;width:120px;">Operator</td><td style="padding:6px 0;font-size:14px;font-weight:600;">${operatorName}${unitNumber}</td></tr>
+            <tr><td style="padding:6px 0;color:#888;font-size:13px;">Status</td><td style="padding:6px 0;font-size:14px;font-weight:700;color:#b91c1c;">🔴 Truck Down</td></tr>
+            ${laneRow}
+            ${notesRow}
+          </table>
+          <p style="font-size:13px;color:#666;">Logged at ${new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' })} CT</p>
+        `;
+        const subject = `🔴 Truck Down Alert — ${operatorName}${unitNumber}`;
+        const html = buildEmail(subject, '🔴 Truck Down Alert', emailBody, {
+          label: 'Open Dispatch Board',
+          url: `${appUrl}/dispatch`,
+        });
+
+        // ── Collect all dispatcher + management user IDs ─────────────────
+        const { data: staffRoles } = await supabaseAdmin
+          .from('user_roles')
+          .select('user_id, role')
+          .in('role', ['dispatcher', 'management']);
+
+        if (!staffRoles?.length) break;
+
+        const allStaffIds = [...new Set(staffRoles.map(r => r.user_id))];
+
+        // Filter by email preference for truck_down
+        const { data: emailOptedOut } = await supabaseAdmin
+          .from('notification_preferences')
+          .select('user_id')
+          .in('user_id', allStaffIds)
+          .eq('event_type', 'truck_down')
+          .eq('email_enabled', false);
+        const emailOptedOutIds = new Set((emailOptedOut ?? []).map(r => r.user_id));
+
+        const recipientIds = allStaffIds.filter(id => !emailOptedOutIds.has(id));
+        if (!recipientIds.length) break;
+
+        const { data: { users: allUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+        const recipientEmails = allUsers
+          ?.filter(u => recipientIds.includes(u.id) && u.email)
+          .map(u => u.email!) ?? [];
+
+        await Promise.all(recipientEmails.map(e => sendEmail(e, subject, html, RESEND_API_KEY)));
+        break;
+      }
+
       default:
         return new Response(JSON.stringify({ error: `Unknown notification type: ${type}` }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
