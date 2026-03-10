@@ -888,7 +888,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
       </div>
 
       {/* Bulk action bar */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => { setBulkMode(v => !v); setSelectedIds(new Set()); }}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
@@ -896,7 +896,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
           }`}
         >
           <SlidersHorizontal className="h-3.5 w-3.5" />
-          {bulkMode ? 'Cancel Bulk' : 'Bulk Edit'}
+          {bulkMode ? 'Cancel' : 'Bulk Edit'}
         </button>
         {bulkMode && (
           <>
@@ -907,10 +907,10 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
               {selectedIds.size === filteredRows.length ? 'Deselect all' : `Select all (${filteredRows.length})`}
             </button>
             {selectedIds.size > 0 && (
-              <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto sm:ml-auto">
-                <span className="text-xs font-medium text-foreground">{selectedIds.size} selected — set to:</span>
+              <div className="flex items-center gap-2 flex-wrap w-full mt-1">
+                <span className="text-xs font-medium text-foreground w-full sm:w-auto">{selectedIds.size} selected — set to:</span>
                 <Select value={bulkStatus} onValueChange={v => setBulkStatus(v as DispatchStatusType)}>
-                  <SelectTrigger className="h-8 text-xs w-36">
+                  <SelectTrigger className="h-8 text-xs flex-1 min-w-[130px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -924,7 +924,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                   size="sm"
                   onClick={applyBulkStatus}
                   disabled={bulkSaving}
-                  className="h-8 text-xs bg-gold text-surface-dark hover:bg-gold-light gap-1.5"
+                  className="h-8 text-xs bg-gold text-surface-dark hover:bg-gold-light gap-1.5 shrink-0"
                 >
                   {bulkSaving ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                   Apply
