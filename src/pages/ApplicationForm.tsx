@@ -299,6 +299,7 @@ export default function ApplicationForm() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           } else {
             setDuplicateEmailBlocked(false);
+            setSlideDir('forward');
             setStep(s => s + 1);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }
@@ -306,12 +307,14 @@ export default function ApplicationForm() {
       return; // wait for async result
     }
 
+    setSlideDir('forward');
     setStep(s => s + 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const goBack = () => {
     setErrors({});
+    setSlideDir('back');
     setStep(s => s - 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
