@@ -97,6 +97,7 @@ export default function ManagementPortal() {
     const breakdown = { not_dispatched: 0, dispatched: 0, home: 0, truck_down: 0 };
     // Track the most-recently-updated row per status
     const latestUpdatedBy: Record<string, string | null> = { not_dispatched: null, dispatched: null, home: null, truck_down: null };
+    const latestUpdatedAt: Record<string, string | null> = { not_dispatched: null, dispatched: null, home: null, truck_down: null };
     const seenStatus = new Set<string>();
 
     for (const row of data) {
@@ -105,6 +106,7 @@ export default function ManagementPortal() {
         breakdown[s]++;
         if (!seenStatus.has(s)) {
           latestUpdatedBy[s] = row.updated_by ?? null;
+          latestUpdatedAt[s] = row.updated_at ?? null;
           seenStatus.add(s);
         }
       }
