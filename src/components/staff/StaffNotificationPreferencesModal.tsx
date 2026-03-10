@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Bell, Truck, AlertTriangle, MessageCircle, Target,
-  Paperclip, Check, Loader2, UserCheck,
+  Paperclip, Check, Loader2, UserCheck, Monitor,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { Database } from '@/integrations/supabase/types';
+import { getDesktopNotifPreference, setDesktopNotifPreference } from '@/hooks/useDesktopNotifications';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -100,6 +101,20 @@ export default function StaffNotificationPreferencesModal({ open, onClose }: Pro
   const [cellState, setCellState] = useState<Record<string, CellState>>({});
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
+  // Desktop push notification preference (localStorage)
+  const [desktopEnabled, setDesktopEnabled] = useState(getDesktopNotifPreference);
+  const [browserPermission, setBrowserPermission] = useState<NotificationPermission>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'denied'
+  );
+
+  // Re-read permission state each time modal opens
+  useEffect(() => {
+    if (open && typeof Notification !== 'undefined') {
+      setBrowserPermission(Notification.permission);
+      setDesktopEnabled(getDesktopNotifPreference());
+    }
+  }, [open]);
+
   // Filter event types to only those relevant to the current user's role(s)
   const visibleEvents = EVENT_TYPES.filter(ev =>
     ev.roles.some(r => roles.includes(r))
@@ -181,6 +196,25 @@ export default function StaffNotificationPreferencesModal({ open, onClose }: Pro
     }, 3500);
   };
 
+  const handleDesktopToggle = async (value: boolean) => {
+    if (value && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      const result = await Notification.requestPermission();
+      setBrowserPermission(result);
+      if (result !== 'granted') {
+        toast({
+          title: 'Permission required',
+          description: 'Allow notifications in your browser settings to enable desktop alerts.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+    setDesktopEnabled(value);
+    setDesktopNotifPreference(value);
+  };
+
+  const permissionDenied = browserPermission === 'denied';
+
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="max-w-xl max-h-[85vh] flex flex-col p-0 gap-0">
@@ -195,6 +229,35 @@ export default function StaffNotificationPreferencesModal({ open, onClose }: Pro
             </div>
           </div>
         </DialogHeader>
+
+        {/* Desktop push notifications section */}
+        <div className="px-6 py-4 border-b border-border shrink-0">
+          <div className="flex items-center gap-4">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
+              <Monitor className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={2.5} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">Desktop Push Alerts</p>
+              <p className="text-xs text-muted-foreground">
+                {permissionDenied
+                  ? "Blocked by browser — enable in your browser's site settings"
+                  : 'Truck Down and new message alerts when this tab is in the background'}
+              </p>
+              {permissionDenied && (
+                <p className="text-[11px] text-destructive mt-0.5 font-medium">
+                  Browser permission denied — this cannot be changed from within the app
+                </p>
+              )}
+            </div>
+            <div className="shrink-0">
+              <Switch
+                checked={!permissionDenied && desktopEnabled}
+                onCheckedChange={handleDesktopToggle}
+                disabled={permissionDenied}
+              />
+            </div>
+          </div>
+        </div>
 
         {/* Column headers */}
         <div className="px-6 py-2.5 border-b border-border bg-muted/30 shrink-0">
