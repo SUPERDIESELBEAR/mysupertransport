@@ -1327,8 +1327,27 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                   <>
                     <tr
                       key={row.operator_id}
-                      className={`transition-all duration-300 ${isEditing ? 'bg-gold/[0.04] border-l-2 border-l-gold' : flashedCards.has(row.operator_id) ? 'bg-primary/[0.04] outline outline-1 outline-primary/30' : cfg.rowClass + ' hover:bg-muted/30'}`}
+                      onClick={bulkMode ? () => toggleSelect(row.operator_id) : undefined}
+                      className={`transition-all duration-300 ${bulkMode ? 'cursor-pointer' : ''} ${
+                        bulkMode && selectedIds.has(row.operator_id)
+                          ? 'bg-primary/[0.06] border-l-2 border-l-primary'
+                          : isEditing
+                          ? 'bg-gold/[0.04] border-l-2 border-l-gold'
+                          : flashedCards.has(row.operator_id)
+                          ? 'bg-primary/[0.04] outline outline-1 outline-primary/30'
+                          : cfg.rowClass + ' hover:bg-muted/30'
+                      }`}
                     >
+                      {/* Bulk checkbox cell */}
+                      {bulkMode && (
+                        <td className="w-10 px-3 py-3" onClick={e => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.has(row.operator_id)}
+                            onCheckedChange={() => toggleSelect(row.operator_id)}
+                            aria-label={`Select ${fullName}`}
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <p className="font-semibold text-foreground text-sm">{fullName}</p>
                         <div className="flex items-center gap-2 mt-0.5">
@@ -1341,7 +1360,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                         </div>
                         {/* History toggle */}
                         <button
-                          onClick={() => toggleHistory(row.operator_id)}
+                          onClick={e => { e.stopPropagation(); toggleHistory(row.operator_id); }}
                           className="flex items-center gap-1 mt-1.5 text-[11px] text-muted-foreground hover:text-gold transition-colors"
                         >
                           <Clock className="h-3 w-3" />
