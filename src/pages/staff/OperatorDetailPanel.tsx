@@ -704,7 +704,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-4xl">
+    <div className="space-y-6 animate-fade-in max-w-4xl w-full">
 
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
       {(() => {
