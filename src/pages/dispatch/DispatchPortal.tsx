@@ -11,6 +11,7 @@ import { sanitizeText } from '@/lib/sanitize';
 import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
