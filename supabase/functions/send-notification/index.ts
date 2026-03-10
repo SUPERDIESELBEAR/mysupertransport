@@ -12,6 +12,7 @@ type NotificationType =
   | 'onboarding_milestone'
   | 'document_uploaded'
   | 'dispatch_status_change'
+  | 'truck_down'
   | 'new_message';
 
 interface NotificationPayload {
