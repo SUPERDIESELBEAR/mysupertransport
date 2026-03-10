@@ -439,35 +439,35 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
             </div>
           </div>
         </div>
-        <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-status-complete/10 flex items-center justify-center">
-              <CheckCircle2 className="h-5 w-5 text-status-complete" />
+        <div className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-status-complete/10 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-status-complete" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">{operators.filter(o => o.fully_onboarded).length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-foreground">{operators.filter(o => o.fully_onboarded).length}</p>
               <p className="text-xs text-muted-foreground">Fully Onboarded</p>
             </div>
           </div>
         </div>
-        <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-status-progress/10 flex items-center justify-center">
-              <Clock className="h-5 w-5 text-status-progress" />
+        <div className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-status-progress/10 flex items-center justify-center shrink-0">
+              <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-status-progress" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">{operators.filter(o => !o.fully_onboarded).length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-foreground">{operators.filter(o => !o.fully_onboarded).length}</p>
               <p className="text-xs text-muted-foreground">In Progress</p>
             </div>
           </div>
         </div>
-        <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
+        <div className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">{alertCount}</p>
+              <p className="text-xl sm:text-2xl font-bold text-foreground">{alertCount}</p>
               <p className="text-xs text-muted-foreground">Alerts / Denied</p>
             </div>
           </div>
@@ -479,7 +479,7 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
           return (
             <button
               onClick={() => setDispatchFilter(isActive ? 'all' : 'truck_down')}
-              className={`rounded-xl p-4 shadow-sm border text-left transition-all ${
+              className={`rounded-xl p-3 sm:p-4 shadow-sm border text-left transition-all ${
                 isActive
                   ? 'bg-destructive border-destructive ring-2 ring-destructive/30'
                   : truckDownCount > 0
@@ -487,14 +487,14 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                     : 'bg-white border-border hover:border-foreground/20'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center shrink-0 ${
                   isActive ? 'bg-destructive-foreground/20' : 'bg-destructive/10'
                 }`}>
-                  <Truck className={`h-5 w-5 ${isActive ? 'text-destructive-foreground' : 'text-destructive'}`} />
+                  <Truck className={`h-4 w-4 sm:h-5 sm:w-5 ${isActive ? 'text-destructive-foreground' : 'text-destructive'}`} />
                 </div>
                 <div>
-                  <p className={`text-2xl font-bold ${isActive ? 'text-destructive-foreground' : truckDownCount > 0 ? 'text-destructive' : 'text-foreground'}`}>
+                  <p className={`text-xl sm:text-2xl font-bold ${isActive ? 'text-destructive-foreground' : truckDownCount > 0 ? 'text-destructive' : 'text-foreground'}`}>
                     {truckDownCount}
                   </p>
                   <p className={`text-xs ${isActive ? 'text-destructive-foreground/80' : 'text-muted-foreground'}`}>
