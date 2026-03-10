@@ -137,6 +137,9 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [composeBody, setComposeBody] = useState('');
   const [composeSending, setComposeSending] = useState(false);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks which operator cards are flashing from a live update
+  const [flashedCards, setFlashedCards] = useState<Set<string>>(new Set());
+  const flashTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const scrollToCard = useCallback((operatorId: string) => {
