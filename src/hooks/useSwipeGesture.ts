@@ -19,7 +19,7 @@ interface SwipeOptions {
  * Distinguishes horizontal swipes from vertical scrolling using a ratio check
  * so normal page scrolling is unaffected.
  */
-export function useSwipeGesture<T extends HTMLElement>({
+export function useSwipeGesture<T extends HTMLElement = HTMLDivElement>({
   onSwipeLeft,
   onSwipeRight,
   threshold = 60,
