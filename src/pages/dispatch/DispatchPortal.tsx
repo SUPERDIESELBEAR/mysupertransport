@@ -143,6 +143,8 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [flashedCards, setFlashedCards] = useState<Set<string>>(new Set());
   const flashTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  // Ref mirror of rows so realtime callbacks can read current operator info synchronously
+  const rowsRef = useRef<DispatchRow[]>([]);
 
   const scrollToCard = useCallback((operatorId: string) => {
     // Switch to cards view if in table mode
