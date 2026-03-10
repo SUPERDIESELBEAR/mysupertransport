@@ -743,9 +743,24 @@ Deno.serve(async (req) => {
           .select('user_id, role')
           .in('role', ['dispatcher', 'management']);
 
-        if (!staffRoles?.length) break;
+        // ── Also collect the assigned onboarding staff for this operator ──
+        let assignedOnboardingStaffId: string | null = null;
+        if (payload.operator_id) {
+          const { data: opRow } = await supabaseAdmin
+            .from('operators')
+            .select('assigned_onboarding_staff')
+            .eq('id', payload.operator_id)
+            .maybeSingle();
+          assignedOnboardingStaffId = opRow?.assigned_onboarding_staff ?? null;
+        }
 
-        const allStaffIds = [...new Set(staffRoles.map(r => r.user_id))];
+        // Build deduplicated set of all recipient IDs
+        const baseIds = staffRoles?.length ? [...new Set(staffRoles.map(r => r.user_id))] : [];
+        const allStaffIds = assignedOnboardingStaffId && !baseIds.includes(assignedOnboardingStaffId)
+          ? [...baseIds, assignedOnboardingStaffId]
+          : baseIds;
+
+        if (!allStaffIds.length) break;
 
         // Filter by email preference for truck_down
         const { data: emailOptedOut } = await supabaseAdmin
