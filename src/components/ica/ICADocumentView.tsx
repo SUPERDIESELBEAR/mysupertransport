@@ -332,8 +332,8 @@ function AppendixHeader({ letter, title }: { letter: string; title: string }) {
 function AppRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <tr className="border-b border-border">
-      <td className="py-2 pr-4 font-medium text-xs text-muted-foreground w-48 border border-border px-3">{label}</td>
-      <td className={`py-2 text-xs border border-border px-3 ${highlight ? 'font-bold text-gold' : 'text-foreground'}`}>{value}</td>
+      <td className="py-2 pr-2 font-medium text-xs text-muted-foreground w-[35%] min-w-[90px] border border-border px-2 sm:px-3 align-top">{label}</td>
+      <td className={`py-2 text-xs border border-border px-2 sm:px-3 break-words ${highlight ? 'font-bold text-gold' : 'text-foreground'}`}>{value}</td>
     </tr>
   );
 }
