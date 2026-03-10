@@ -315,6 +315,16 @@ export default function ApplicationForm() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const isLastStep = step === 9;
+
+  // ── Swipe gesture — MUST be above early returns (Rules of Hooks) ────────
+  // Callbacks are no-ops when the form isn't in an interactive state.
+  const swipe = useSwipeGesture({
+    onSwipeLeft: (!submitted && draftLoaded && !isLastStep) ? goNext : undefined,
+    onSwipeRight: (!submitted && draftLoaded && step > 1) ? goBack : undefined,
+    excludeSelector: 'canvas, input, textarea, select, button, [role="combobox"]',
+  });
+
   // ── Submitted confirmation ──────────────────────────────────────────────
   if (submitted) {
     return (
@@ -352,16 +362,6 @@ export default function ApplicationForm() {
       </div>
     );
   }
-
-  const isLastStep = step === 9;
-
-  // ── Swipe gesture (mobile) ──────────────────────────────────────────────
-  // Step 9 excludes canvas so the signature pad isn't disrupted.
-  const swipe = useSwipeGesture({
-    onSwipeLeft: isLastStep ? undefined : goNext,
-    onSwipeRight: step === 1 ? undefined : goBack,
-    excludeSelector: 'canvas, input, textarea, select, button, [role="combobox"]',
-  });
 
   return (
     <div className="min-h-screen bg-secondary">
