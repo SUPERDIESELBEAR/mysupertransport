@@ -322,7 +322,8 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
     <div className="flex h-full gap-0 rounded-xl border border-border overflow-hidden bg-background" style={{ minHeight: 0 }}>
 
       {/* ── Thread list sidebar ────────────────────────────────────────────── */}
-      <div className="w-72 shrink-0 flex flex-col border-r border-border bg-muted/20">
+      {/* On mobile: hide when a conversation is selected; always show on md+ */}
+      <div className={`${selectedUserId ? 'hidden md:flex' : 'flex'} w-full md:w-72 shrink-0 flex-col border-r border-border bg-muted/20`}>
         {/* Header */}
         <div className="px-4 py-4 border-b border-border">
           <div className="flex items-center gap-2 mb-3">
@@ -404,9 +405,10 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
       </div>
 
       {/* ── Message thread panel ───────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* On mobile: only visible when a thread is selected */}
+      <div className={`${selectedUserId ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-w-0`}>
         {!selectedUserId ? (
-          /* Empty state */
+          /* Empty state — only shown on md+ when nothing selected */
           <div className="flex-1 flex flex-col items-center justify-center text-center p-8 gap-3">
             <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center">
               <MessageSquare className="h-6 w-6 text-muted-foreground/40" />
@@ -418,8 +420,15 @@ export default function MessagesView({ initialUserId }: MessagesViewProps = {}) 
           </div>
         ) : (
           <>
-            {/* Thread header */}
+            {/* Thread header — includes back button on mobile */}
             <div className="px-5 py-4 border-b border-border bg-background flex items-center gap-3 shrink-0">
+              <button
+                onClick={() => setSelectedUserId(null)}
+                className="md:hidden h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors shrink-0 -ml-1"
+                aria-label="Back to conversations"
+              >
+                <ArrowLeft className="h-4 w-4 text-muted-foreground" />
+              </button>
               <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
                 <span className="text-primary text-xs font-bold">
                   {selectedThread ? initials(selectedThread.name) : '?'}
