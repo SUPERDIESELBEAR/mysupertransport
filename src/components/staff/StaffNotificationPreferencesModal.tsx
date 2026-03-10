@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Bell, Truck, AlertTriangle, MessageCircle, Target,
-  Paperclip, Check, Loader2, UserCheck,
+  Paperclip, Check, Loader2, UserCheck, Monitor,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { Database } from '@/integrations/supabase/types';
+import { getDesktopNotifPreference, setDesktopNotifPreference } from '@/hooks/useDesktopNotifications';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
