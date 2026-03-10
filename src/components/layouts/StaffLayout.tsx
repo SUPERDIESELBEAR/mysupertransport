@@ -234,7 +234,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
       {/* ── Sticky bottom nav (mobile only) ───────────────────────── */}
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-dark border-t border-surface-dark-border">
         <div className="flex items-stretch h-16">
-          {navItems.map((item) => {
+          {(mobileNavItems ?? navItems).map((item) => {
             const isActive = currentPath === item.path;
             return (
               <button

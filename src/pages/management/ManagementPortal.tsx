@@ -326,9 +326,11 @@ export default function ManagementPortal() {
       <NotificationPreferencesModal open={notifPrefsOpen} onClose={() => setNotifPrefsOpen(false)} />
       <StaffLayout
         navItems={navItems}
+        mobileNavItems={mobileNavItems}
         currentPath={view}
         onNavigate={handleNavigate}
         title="Management"
+        notificationsPath="/dashboard?view=notifications"
         headerActions={
           <button
             onClick={() => setNotifPrefsOpen(true)}
