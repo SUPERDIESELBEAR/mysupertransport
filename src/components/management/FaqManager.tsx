@@ -38,8 +38,13 @@ import {
   ChevronDown,
   HelpCircle,
   Search,
+  History,
+  X,
+  Clock,
+  User,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatDistanceToNow, format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 
 type FaqCategory = Database['public']['Enums']['faq_category'];
@@ -69,6 +74,33 @@ interface FaqRow {
   created_at: string;
 }
 
+interface HistoryEntry {
+  id: string;
+  faq_id: string;
+  question: string;
+  answer: string;
+  category: string;
+  is_published: boolean;
+  changed_by: string | null;
+  changed_by_name: string | null;
+  changed_at: string;
+  change_type: string;
+}
+
+const CHANGE_TYPE_LABEL: Record<string, string> = {
+  create: 'Created',
+  update: 'Edited',
+  publish: 'Published',
+  unpublish: 'Unpublished',
+};
+
+const CHANGE_TYPE_COLOR: Record<string, string> = {
+  create: 'bg-status-complete/10 text-status-complete border-status-complete/30',
+  update: 'bg-primary/10 text-primary border-primary/30',
+  publish: 'bg-green-100 text-green-700 border-green-300',
+  unpublish: 'bg-amber-100 text-amber-700 border-amber-300',
+};
+
 const EMPTY_FORM = { question: '', answer: '', category: 'general_owner_operator' as FaqCategory };
 
 export default function FaqManager() {
@@ -86,6 +118,11 @@ export default function FaqManager() {
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<FaqRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // History panel
+  const [historyFaq, setHistoryFaq] = useState<FaqRow | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // ── Load ──────────────────────────────────────────────────────────────────
   const load = async () => {
@@ -108,6 +145,50 @@ export default function FaqManager() {
     const matchCat = filterCategory === 'all' || f.category === filterCategory;
     return matchSearch && matchCat;
   });
+
+  // ── History helpers ───────────────────────────────────────────────────────
+  const loadHistory = async (faq: FaqRow) => {
+    setHistoryFaq(faq);
+    setHistoryLoading(true);
+    const { data } = await supabase
+      .from('faq_history' as any)
+      .select('*')
+      .eq('faq_id', faq.id)
+      .order('changed_at', { ascending: false })
+      .limit(20);
+    setHistory((data as HistoryEntry[]) ?? []);
+    setHistoryLoading(false);
+  };
+
+  const writeHistory = async (
+    faq: FaqRow,
+    changeType: string,
+    overrideQuestion?: string,
+    overrideAnswer?: string,
+    overrideCategory?: string,
+    overridePublished?: boolean,
+  ) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    let name: string | null = null;
+    if (user?.id) {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('user_id', user.id)
+        .single();
+      if (prof) name = `${prof.first_name ?? ''} ${prof.last_name ?? ''}`.trim() || null;
+    }
+    await (supabase.from('faq_history' as any)).insert({
+      faq_id: faq.id,
+      question: overrideQuestion ?? faq.question,
+      answer: overrideAnswer ?? faq.answer,
+      category: overrideCategory ?? faq.category,
+      is_published: overridePublished ?? faq.is_published,
+      changed_by: user?.id ?? null,
+      changed_by_name: name,
+      change_type: changeType,
+    });
+  };
 
   // ── Open dialog ───────────────────────────────────────────────────────────
   const openCreate = () => {
@@ -135,11 +216,12 @@ export default function FaqManager() {
         .update({ question: form.question.trim(), answer: form.answer.trim(), category: form.category })
         .eq('id', editing.id);
       if (error) { toast.error('Failed to update FAQ.'); setSaving(false); return; }
+      await writeHistory(editing, 'update', form.question.trim(), form.answer.trim(), form.category, editing.is_published);
       toast.success('FAQ updated.');
     } else {
       const maxOrder = faqs.length ? Math.max(...faqs.map(f => f.sort_order)) : -1;
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .from('faq')
         .insert({
           question: form.question.trim(),
@@ -148,8 +230,11 @@ export default function FaqManager() {
           is_published: false,
           sort_order: maxOrder + 1,
           created_by: user?.id ?? null,
-        });
-      if (error) { toast.error('Failed to create FAQ.'); setSaving(false); return; }
+        })
+        .select('id, question, answer, category, is_published, sort_order, created_at')
+        .single();
+      if (error || !inserted) { toast.error('Failed to create FAQ.'); setSaving(false); return; }
+      await writeHistory(inserted as FaqRow, 'create', form.question.trim(), form.answer.trim(), form.category, false);
       toast.success('FAQ created (unpublished).');
     }
     setSaving(false);
@@ -159,13 +244,15 @@ export default function FaqManager() {
 
   // ── Toggle publish ────────────────────────────────────────────────────────
   const togglePublish = async (faq: FaqRow) => {
+    const newVal = !faq.is_published;
     const { error } = await supabase
       .from('faq')
-      .update({ is_published: !faq.is_published })
+      .update({ is_published: newVal })
       .eq('id', faq.id);
     if (error) { toast.error('Failed to update publish status.'); return; }
+    await writeHistory(faq, newVal ? 'publish' : 'unpublish', undefined, undefined, undefined, newVal);
     toast.success(faq.is_published ? 'FAQ unpublished.' : 'FAQ published.');
-    setFaqs(prev => prev.map(f => f.id === faq.id ? { ...f, is_published: !f.is_published } : f));
+    setFaqs(prev => prev.map(f => f.id === faq.id ? { ...f, is_published: newVal } : f));
   };
 
   // ── Delete ────────────────────────────────────────────────────────────────
@@ -283,10 +370,7 @@ export default function FaqManager() {
               {/* Content */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <Badge
-                    variant="secondary"
-                    className="text-xs"
-                  >
+                  <Badge variant="secondary" className="text-xs">
                     {CATEGORY_LABEL[faq.category] ?? faq.category}
                   </Badge>
                   <Badge
@@ -302,6 +386,13 @@ export default function FaqManager() {
 
               {/* Actions */}
               <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => loadHistory(faq)}
+                  title="View edit history"
+                  className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                >
+                  <History className="h-4 w-4" />
+                </button>
                 <button
                   onClick={() => togglePublish(faq)}
                   title={faq.is_published ? 'Unpublish' : 'Publish'}
@@ -392,6 +483,98 @@ export default function FaqManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* History Panel */}
+      {historyFaq && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-end"
+          onClick={() => setHistoryFaq(null)}
+        >
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
+          <div
+            className="relative h-full w-full max-w-md bg-background border-l border-border shadow-2xl flex flex-col animate-fade-in"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-3 bg-muted/20">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <History className="h-4 w-4 text-primary shrink-0" />
+                  <h3 className="font-semibold text-foreground text-sm">Edit History</h3>
+                </div>
+                <p className="text-xs text-muted-foreground line-clamp-2">{historyFaq.question}</p>
+              </div>
+              <button
+                onClick={() => setHistoryFaq(null)}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted transition-colors shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* History list */}
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {historyLoading ? (
+                <div className="flex justify-center py-10">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              ) : history.length === 0 ? (
+                <div className="text-center py-10">
+                  <History className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No history recorded yet.</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">History is tracked from this point forward.</p>
+                </div>
+              ) : (
+                <div className="relative">
+                  {/* Timeline line */}
+                  <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+                  <div className="space-y-5">
+                    {history.map((entry) => (
+                      <div key={entry.id} className="flex gap-4 relative">
+                        {/* Dot */}
+                        <div className={`h-3.5 w-3.5 rounded-full shrink-0 mt-0.5 border-2 border-background ring-2 ${
+                          entry.change_type === 'create' ? 'bg-status-complete ring-status-complete/40' :
+                          entry.change_type === 'publish' ? 'bg-green-500 ring-green-200' :
+                          entry.change_type === 'unpublish' ? 'bg-amber-500 ring-amber-200' :
+                          'bg-primary ring-primary/40'
+                        }`} />
+                        <div className="flex-1 min-w-0 pb-1">
+                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] px-1.5 py-0 h-4 font-semibold ${CHANGE_TYPE_COLOR[entry.change_type] ?? 'bg-muted text-muted-foreground border-border'}`}
+                            >
+                              {CHANGE_TYPE_LABEL[entry.change_type] ?? entry.change_type}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {formatDistanceToNow(new Date(entry.changed_at), { addSuffix: true })}
+                            </span>
+                          </div>
+                          {entry.changed_by_name && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1.5">
+                              <User className="h-3 w-3 shrink-0" />
+                              {entry.changed_by_name}
+                            </p>
+                          )}
+                          {/* Snapshot of content at that point */}
+                          <div className="bg-muted/40 rounded-lg p-2.5 border border-border/60 space-y-1.5">
+                            <p className="text-xs font-medium text-foreground line-clamp-2">{entry.question}</p>
+                            <p className="text-[11px] text-muted-foreground line-clamp-3 whitespace-pre-wrap">{entry.answer}</p>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground/50 mt-1.5">
+                            {format(new Date(entry.changed_at), 'MMM d, yyyy · h:mm a')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
