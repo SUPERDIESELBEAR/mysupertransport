@@ -235,7 +235,7 @@ export default function StaffPortal() {
           </div>
           <Button
             size="sm"
-            onClick={() => setCurrentView('pipeline')}
+            onClick={() => { setPipelineDispatchFilter('truck_down'); setCurrentView('pipeline'); }}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs gap-1.5 shrink-0"
           >
             <Truck className="h-3.5 w-3.5" />
@@ -245,7 +245,10 @@ export default function StaffPortal() {
       )}
 
       {currentView === 'pipeline' && (
-        <PipelineDashboard onOpenOperator={handleOpenOperator} />
+        <PipelineDashboard
+          onOpenOperator={op => { setPipelineDispatchFilter('all'); handleOpenOperator(op); }}
+          initialDispatchFilter={pipelineDispatchFilter}
+        />
       )}
       {currentView === 'operator-detail' && selectedOperatorId && (
         <OperatorDetailPanel
