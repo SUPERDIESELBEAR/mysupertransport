@@ -137,6 +137,9 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [composeBody, setComposeBody] = useState('');
   const [composeSending, setComposeSending] = useState(false);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks which operator cards are flashing from a live update
+  const [flashedCards, setFlashedCards] = useState<Set<string>>(new Set());
+  const flashTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const scrollToCard = useCallback((operatorId: string) => {
@@ -283,6 +286,18 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
     }
   };
 
+  const flashCard = useCallback((operatorId: string) => {
+    if (flashTimers.current[operatorId]) clearTimeout(flashTimers.current[operatorId]);
+    setFlashedCards(prev => new Set(prev).add(operatorId));
+    flashTimers.current[operatorId] = setTimeout(() => {
+      setFlashedCards(prev => {
+        const next = new Set(prev);
+        next.delete(operatorId);
+        return next;
+      });
+    }, 2500);
+  }, []);
+
   useEffect(() => {
     fetchDispatch();
 
@@ -291,11 +306,57 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'active_dispatch' },
-        () => {
+        (payload: any) => {
+          // Flash the live indicator
           setLiveIndicator(true);
           if (liveTimerRef.current) clearTimeout(liveTimerRef.current);
           liveTimerRef.current = setTimeout(() => setLiveIndicator(false), 2000);
-          fetchDispatch(true);
+
+          const newRow = payload.new as Partial<DispatchRow> | null;
+          const operatorId = newRow?.operator_id ?? (payload.old as any)?.operator_id;
+
+          if (!operatorId) {
+            // Fallback: full refresh if we can't identify the operator
+            fetchDispatch(true);
+            return;
+          }
+
+          // Surgical in-place update — no full re-fetch, no flicker
+          setRows(prev => {
+            const idx = prev.findIndex(r => r.operator_id === operatorId);
+            if (idx === -1) {
+              // New operator became fully_onboarded or was added — do a silent refresh
+              fetchDispatch(true);
+              return prev;
+            }
+
+            const updated = { ...prev[idx] };
+            if (newRow?.dispatch_status) updated.dispatch_status = newRow.dispatch_status as DispatchStatusType;
+            if ('current_load_lane' in (newRow ?? {})) updated.current_load_lane = newRow!.current_load_lane ?? null;
+            if ('eta_redispatch' in (newRow ?? {})) updated.eta_redispatch = newRow!.eta_redispatch ?? null;
+            if ('status_notes' in (newRow ?? {})) updated.status_notes = newRow!.status_notes ?? null;
+            if (newRow?.updated_at) updated.updated_at = newRow.updated_at as string;
+            if (newRow?.assigned_dispatcher !== undefined) updated.assigned_dispatcher = newRow.assigned_dispatcher ?? null;
+
+            const next = [...prev];
+            next[idx] = updated;
+
+            // Re-sort by priority: truck_down → not_dispatched → home → dispatched
+            const order: Record<DispatchStatusType, number> = {
+              truck_down: 0, not_dispatched: 1, home: 2, dispatched: 3,
+            };
+            next.sort((a, b) => order[a.dispatch_status] - order[b.dispatch_status]);
+            return next;
+          });
+
+          // Flash the updated card so the change is visually obvious
+          flashCard(operatorId);
+
+          // Refresh history for this operator if it's expanded
+          setExpandedHistory(prev => {
+            if (prev.has(operatorId)) fetchHistoryForOperators([operatorId]);
+            return prev;
+          });
         }
       )
       .subscribe();
@@ -303,8 +364,9 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
     return () => {
       supabase.removeChannel(channel);
       if (liveTimerRef.current) clearTimeout(liveTimerRef.current);
+      Object.values(flashTimers.current).forEach(clearTimeout);
     };
-  }, []);
+  }, [flashCard]);
 
   const fetchDispatch = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -692,6 +754,8 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                     className={`bg-white border-2 rounded-2xl shadow-sm overflow-hidden transition-all duration-300 ${
                       highlightedCard === row.operator_id
                         ? 'border-destructive ring-4 ring-destructive/30 scale-[1.01]'
+                        : flashedCards.has(row.operator_id)
+                        ? 'ring-2 ring-primary/60 border-primary/50 scale-[1.005]'
                         : row.dispatch_status === 'truck_down'
                         ? 'border-destructive/40'
                         : row.dispatch_status === 'dispatched'
@@ -1024,7 +1088,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                   <>
                     <tr
                       key={row.operator_id}
-                      className={`transition-colors ${isEditing ? 'bg-gold/[0.04] border-l-2 border-l-gold' : cfg.rowClass + ' hover:bg-muted/30'}`}
+                      className={`transition-all duration-300 ${isEditing ? 'bg-gold/[0.04] border-l-2 border-l-gold' : flashedCards.has(row.operator_id) ? 'bg-primary/[0.04] outline outline-1 outline-primary/30' : cfg.rowClass + ' hover:bg-muted/30'}`}
                     >
                       <td className="px-4 py-3">
                         <p className="font-semibold text-foreground text-sm">{fullName}</p>
