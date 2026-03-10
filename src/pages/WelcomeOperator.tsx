@@ -211,9 +211,9 @@ export default function WelcomeOperator() {
             <div className="mt-8 pt-6 border-t border-surface-dark-border">
               <p className="text-surface-dark-muted text-xs">
                 Questions? Contact us at{' '}
-                <a href="mailto:dispatch@supertransportllc.com" className="text-gold hover:text-gold-light underline underline-offset-2">
-                  dispatch@supertransportllc.com
-                </a>
+                  <a href="mailto:dispatch@mysupertransport.com" className="text-gold hover:text-gold-light underline underline-offset-2">
+                    dispatch@mysupertransport.com
+                  </a>
               </p>
             </div>
           </div>

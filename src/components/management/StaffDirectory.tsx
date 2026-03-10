@@ -691,7 +691,7 @@ export default function StaffDirectory() {
                       required
                       value={inviteEmail}
                       onChange={e => setInviteEmail(e.target.value)}
-                      placeholder="jane@supertransportllc.com"
+                      placeholder="jane@mysupertransport.com"
                       className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
                     />
                   </div>

@@ -74,7 +74,7 @@ function buildEmail(subject: string, heading: string, body: string, cta?: { labe
         <!-- Footer -->
         <tr>
           <td style="background:#f9f9f9;padding:24px 40px;border-top:1px solid #eee;">
-            <p style="margin:0;color:#999;font-size:12px;">SUPERTRANSPORT LLC &nbsp;·&nbsp; Questions? <a href="mailto:recruiting@supertransportllc.com" style="color:#C9A84C;">recruiting@supertransportllc.com</a></p>
+            <p style="margin:0;color:#999;font-size:12px;">SUPERTRANSPORT LLC &nbsp;·&nbsp; Questions? <a href="mailto:recruiting@mysupertransport.com" style="color:#C9A84C;">recruiting@mysupertransport.com</a></p>
             <p style="margin:6px 0 0;color:#bbb;font-size:11px;">This is an automated notification. Please do not reply to this email.</p>
           </td>
         </tr>
@@ -93,7 +93,7 @@ async function sendEmail(to: string, subject: string, html: string, resendKey: s
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'SUPERTRANSPORT <onboarding@supertransportllc.com>',
+      from: 'SUPERTRANSPORT <onboarding@mysupertransport.com>',
       to: [to],
       subject,
       html,
@@ -338,7 +338,7 @@ Deno.serve(async (req) => {
            <p>Thank you for taking the time to apply with <strong>SUPERTRANSPORT LLC</strong>. After careful review, we are unable to move forward with your application at this time.</p>
            ${payload.reviewer_notes ? `<p style="background:#fff5f5;border-left:4px solid #e53e3e;padding:12px 16px;border-radius:4px;"><strong>Reason:</strong> ${payload.reviewer_notes}</p>` : ''}
            <p>We appreciate your interest in SUPERTRANSPORT and wish you the best in your search.</p>
-           <p>If you have questions, please reach out to us directly at <a href="mailto:recruiting@supertransportllc.com" style="color:#C9A84C;">recruiting@supertransportllc.com</a>.</p>`
+           <p>If you have questions, please reach out to us directly at <a href="mailto:recruiting@mysupertransport.com" style="color:#C9A84C;">recruiting@mysupertransport.com</a>.</p>`
         );
 
         await sendEmail(email, subject, html, RESEND_API_KEY);
@@ -438,7 +438,7 @@ Deno.serve(async (req) => {
           const operatorHtml = buildEmail(
             operatorSubject,
             copy.heading,
-            copy.body(name) + `<p style="margin-top:24px;">If you have any questions, contact us at <a href="mailto:recruiting@supertransportllc.com" style="color:#C9A84C;">recruiting@supertransportllc.com</a>.</p>`,
+            copy.body(name) + `<p style="margin-top:24px;">If you have any questions, contact us at <a href="mailto:recruiting@mysupertransport.com" style="color:#C9A84C;">recruiting@mysupertransport.com</a>.</p>`,
             { label: ctaLabel, url: ctaUrl }
           );
           await sendEmail(operatorEmail, operatorSubject, operatorHtml, RESEND_API_KEY);
