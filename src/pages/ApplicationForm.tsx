@@ -348,8 +348,8 @@ export default function ApplicationForm() {
             <div className="mt-6 pt-5 border-t border-border">
               <p className="text-xs text-muted-foreground">
                 Questions?{' '}
-                <a href="mailto:recruiting@supertransportllc.com" className="text-gold hover:underline">
-                  recruiting@supertransportllc.com
+                <a href="mailto:recruiting@mysupertransport.com" className="text-gold hover:underline">
+                  recruiting@mysupertransport.com
                 </a>
               </p>
             </div>
