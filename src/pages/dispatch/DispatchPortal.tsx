@@ -143,6 +143,12 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [flashedCards, setFlashedCards] = useState<Set<string>>(new Set());
   const flashTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  // Ref mirror of rows so realtime callbacks can read current operator info synchronously
+  const rowsRef = useRef<DispatchRow[]>([]);
+
+  // Keep rowsRef in sync so realtime callbacks can access current operator info
+  useEffect(() => { rowsRef.current = rows; }, [rows]);
+
 
   const scrollToCard = useCallback((operatorId: string) => {
     // Switch to cards view if in table mode
@@ -354,11 +360,25 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
           // Flash the updated card so the change is visually obvious
           flashCard(operatorId);
 
-          // Play chime only when status transitions TO truck_down from something else
+          // Play chime + show toast when status transitions TO truck_down from something else
           const oldStatus = (payload.old as any)?.dispatch_status;
           if (newRow?.dispatch_status === 'truck_down' && oldStatus !== 'truck_down') {
             if (!chimeMuted) playTruckDownChime();
+
+            // Find the operator in the current rows ref to build a descriptive toast
+            const op = rowsRef.current.find(r => r.operator_id === operatorId);
+            const name = op ? [op.first_name, op.last_name].filter(Boolean).join(' ') || 'Unknown' : 'Unknown';
+            const unit = op?.unit_number ? `Unit #${op.unit_number}` : null;
+            const notes = newRow?.status_notes ?? op?.status_notes ?? null;
+
+            toast({
+              title: `🔴 Truck Down — ${name}${unit ? ` · ${unit}` : ''}`,
+              description: notes || 'Status changed to Truck Down.',
+              variant: 'destructive',
+              duration: 8000,
+            });
           }
+
 
           // Refresh history for this operator if it's expanded
           setExpandedHistory(prev => {
