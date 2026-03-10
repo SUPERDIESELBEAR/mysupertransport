@@ -149,6 +149,11 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const rowsRef = useRef<DispatchRow[]>([]);
   // Map of operator_id → ISO timestamp of the most recent truck-down acknowledgement
   const [ackMap, setAckMap] = useState<Record<string, string>>({});
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<DispatchStatusType>('not_dispatched');
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkMode, setBulkMode] = useState(false);
 
   // Keep rowsRef in sync so realtime callbacks can access current operator info
   useEffect(() => { rowsRef.current = rows; }, [rows]);
