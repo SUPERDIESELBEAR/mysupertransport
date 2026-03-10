@@ -56,6 +56,8 @@ type DispatchHistoryEntry = {
   current_load_lane: string | null;
   status_notes: string | null;
   changed_at: string;
+  changed_by: string | null;
+  changed_by_name?: string | null;
 };
 
 const DISPATCH_STATUS_CONFIG: Record<string, { label: string; dotClass: string; badgeClass: string; emoji: string }> = {
