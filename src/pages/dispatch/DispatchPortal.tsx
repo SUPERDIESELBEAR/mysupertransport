@@ -959,8 +959,11 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                   <div
                     key={row.operator_id}
                     ref={el => { cardRefs.current[row.operator_id] = el; }}
-                    className={`bg-white border-2 rounded-2xl shadow-sm overflow-hidden transition-all duration-300 ${
-                      highlightedCard === row.operator_id
+                    onClick={bulkMode ? () => toggleSelect(row.operator_id) : undefined}
+                    className={`bg-white border-2 rounded-2xl shadow-sm overflow-hidden transition-all duration-300 ${bulkMode ? 'cursor-pointer' : ''} ${
+                      bulkMode && selectedIds.has(row.operator_id)
+                        ? 'border-primary ring-2 ring-primary/30'
+                        : highlightedCard === row.operator_id
                         ? 'border-destructive ring-4 ring-destructive/30 scale-[1.01]'
                         : flashedCards.has(row.operator_id)
                         ? 'ring-2 ring-primary/60 border-primary/50 scale-[1.005]'
