@@ -54,6 +54,7 @@ interface StaffOption {
 
 interface PipelineDashboardProps {
   onOpenOperator: (operatorId: string) => void;
+  initialDispatchFilter?: DispatchStatus | 'all';
 }
 
 function computeProgress(os: Record<string, string | boolean | null>): number {
