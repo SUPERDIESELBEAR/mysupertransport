@@ -374,7 +374,7 @@ export default function ApplicationForm() {
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="max-w-2xl mx-auto px-4 py-6 pb-28 md:pb-8">
         {/* FMCSA Notice */}
         {step === 1 && (
           <div className="mb-6 p-4 border border-border rounded-xl bg-white">
@@ -423,8 +423,8 @@ export default function ApplicationForm() {
           {step === 9 && <Step9Signature data={formData} onChange={handleChange} errors={errors} />}
         </div>
 
-        {/* Navigation */}
-        <div className="flex items-center justify-between mt-6 gap-3">
+        {/* Navigation — desktop only */}
+        <div className="hidden md:flex items-center justify-between mt-6 gap-3">
           <button
             type="button"
             onClick={goBack}
@@ -439,7 +439,7 @@ export default function ApplicationForm() {
               type="button"
               onClick={saveDraft}
               disabled={saving}
-              className="hidden sm:flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Save Draft
@@ -476,6 +476,71 @@ export default function ApplicationForm() {
           </p>
         )}
       </div>
+
+      {/* ── Mobile sticky bottom nav ── */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-surface-dark border-t border-surface-dark-border">
+        {/* Step dots */}
+        <div className="flex justify-center gap-1.5 pt-2.5 pb-1">
+          {STEP_LABELS.map((_, i) => (
+            <div
+              key={i}
+              className={`rounded-full transition-all duration-300 ${
+                i + 1 === step
+                  ? 'w-5 h-1.5 bg-gold'
+                  : i + 1 < step
+                  ? 'w-1.5 h-1.5 bg-gold/50'
+                  : 'w-1.5 h-1.5 bg-surface-dark-border'
+              }`}
+            />
+          ))}
+        </div>
+        {/* Step label */}
+        <p className="text-center text-[10px] font-medium text-surface-dark-muted mb-1.5">
+          Step {step} of 9 — {STEP_LABELS[step - 1]}
+        </p>
+        {/* Action row */}
+        <div className="flex items-center gap-2 px-4 pb-safe pb-3">
+          <button
+            type="button"
+            onClick={goBack}
+            disabled={step === 1}
+            className="flex items-center justify-center gap-1.5 h-11 px-4 rounded-xl border border-surface-dark-border text-sm font-medium text-surface-dark-muted hover:text-gold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back
+          </button>
+
+          <button
+            type="button"
+            onClick={saveDraft}
+            disabled={saving}
+            className="flex items-center justify-center h-11 w-11 rounded-xl border border-surface-dark-border text-surface-dark-muted hover:text-gold transition-colors shrink-0"
+            title="Save draft"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          </button>
+
+          {isLastStep ? (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-gold text-surface-dark text-sm font-bold hover:bg-gold-light transition-colors disabled:opacity-50"
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Submit
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={goNext}
+              className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-gold text-surface-dark text-sm font-bold hover:bg-gold-light transition-colors"
+            >
+              Continue <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </nav>
     </div>
   );
 }
