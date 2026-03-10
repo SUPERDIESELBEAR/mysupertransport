@@ -219,17 +219,17 @@ export default function StaffPortal() {
     >
       {/* ── TRUCK DOWN ALERT BANNER ── */}
       {truckDownOperators.length > 0 && (
-        <div className="mb-5 flex items-center justify-between gap-4 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 animate-fade-in">
-          <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/15 shrink-0">
+        <div className="mb-5 flex flex-wrap items-start sm:items-center justify-between gap-3 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 animate-fade-in">
+          <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/15 shrink-0 mt-0.5 sm:mt-0">
               <TriangleAlert className="h-4 w-4 text-destructive animate-pulse" />
             </span>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-destructive leading-tight">
                 {truckDownOperators.length} Operator{truckDownOperators.length !== 1 ? 's' : ''} Truck Down
               </p>
-              <p className="text-xs text-destructive/70 leading-tight mt-0.5">
-                {truckDownOperators.map(o => `${o.name} · ${o.unit}`).join(' · ')}
+              <p className="text-xs text-destructive/70 leading-tight mt-0.5 break-words">
+                {truckDownOperators.map(o => `${o.name} · ${o.unit}`).join('  ·  ')}
               </p>
             </div>
           </div>
