@@ -822,16 +822,16 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
         </div>
       )}
 
-      {/* KPI cards */}
+      {/* KPI cards — 2-col on mobile (5 items → 2+2+1 centred last row), 3-col sm, 5-col lg */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
         {[
           { label: 'Total Active', value: counts.total, icon: <Users className="h-4 w-4 text-gold" />, borderColor: 'border-gold/30', textColor: 'text-gold' },
           { label: 'Dispatched', value: counts.dispatched, icon: <CheckCircle2 className="h-4 w-4 text-status-complete" />, borderColor: 'border-status-complete/30', textColor: 'text-status-complete' },
           { label: 'Home', value: counts.home, icon: <Home className="h-4 w-4 text-status-progress" />, borderColor: 'border-status-progress/30', textColor: 'text-status-progress' },
           { label: 'Truck Down', value: counts.truck_down, icon: <AlertTriangle className="h-4 w-4 text-destructive" />, borderColor: 'border-destructive/30', textColor: 'text-destructive' },
-          { label: 'Not Dispatched', value: counts.not_dispatched, icon: <Truck className="h-4 w-4 text-muted-foreground" />, borderColor: 'border-border', textColor: 'text-muted-foreground' },
+          { label: 'Not Dispatched', value: counts.not_dispatched, icon: <Truck className="h-4 w-4 text-muted-foreground" />, borderColor: 'border-border', textColor: 'text-muted-foreground', spanFull: true },
         ].map(m => (
-          <div key={m.label} className={`bg-white border ${m.borderColor} rounded-xl p-3 shadow-sm`}>
+          <div key={m.label} className={`bg-white border ${m.borderColor} rounded-xl p-3 shadow-sm ${'spanFull' in m && m.spanFull ? 'col-span-2 sm:col-span-1' : ''}`}>
             <div className="flex items-center gap-2">
               {m.icon}
               <div className="min-w-0">
@@ -888,7 +888,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
       </div>
 
       {/* Bulk action bar */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => { setBulkMode(v => !v); setSelectedIds(new Set()); }}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
@@ -896,7 +896,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
           }`}
         >
           <SlidersHorizontal className="h-3.5 w-3.5" />
-          {bulkMode ? 'Cancel Bulk' : 'Bulk Edit'}
+          {bulkMode ? 'Cancel' : 'Bulk Edit'}
         </button>
         {bulkMode && (
           <>
@@ -907,10 +907,10 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
               {selectedIds.size === filteredRows.length ? 'Deselect all' : `Select all (${filteredRows.length})`}
             </button>
             {selectedIds.size > 0 && (
-              <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto sm:ml-auto">
-                <span className="text-xs font-medium text-foreground">{selectedIds.size} selected — set to:</span>
+              <div className="flex items-center gap-2 flex-wrap w-full mt-1">
+                <span className="text-xs font-medium text-foreground w-full sm:w-auto">{selectedIds.size} selected — set to:</span>
                 <Select value={bulkStatus} onValueChange={v => setBulkStatus(v as DispatchStatusType)}>
-                  <SelectTrigger className="h-8 text-xs w-36">
+                  <SelectTrigger className="h-8 text-xs flex-1 min-w-[130px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -924,7 +924,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                   size="sm"
                   onClick={applyBulkStatus}
                   disabled={bulkSaving}
-                  className="h-8 text-xs bg-gold text-surface-dark hover:bg-gold-light gap-1.5"
+                  className="h-8 text-xs bg-gold text-surface-dark hover:bg-gold-light gap-1.5 shrink-0"
                 >
                   {bulkSaving ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                   Apply
@@ -1182,58 +1182,56 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                       })()}
                     </div>
 
-                    {/* Card footer — actions */}
-                    <div className="px-4 pb-4 pt-0 flex items-center justify-between gap-2">
-                      {/* Left: Call + Message */}
-                      <div className="flex items-center gap-1">
-                        {row.phone && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            asChild
-                            className="h-7 text-xs gap-1 px-2.5 text-muted-foreground hover:text-status-complete hover:bg-status-complete/10"
-                            title={`Call ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
-                          >
-                            <a href={`tel:${row.phone}`}>
-                              <Phone className="h-3 w-3" />
-                              Call
-                            </a>
-                          </Button>
-                        )}
-                        {/* Message quick-action — opens compose modal */}
+                    {/* Card footer — actions; wraps to two rows on very small viewports */}
+                    <div className="px-4 pb-4 pt-0 flex flex-wrap items-center gap-1">
+                      {/* Call */}
+                      {row.phone && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            const name = `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || 'Operator';
-                            setQuickCompose({
-                              operatorUserId: row.operator_user_id,
-                              name,
-                              unit: row.unit_number,
-                              status: STATUS_CONFIG[row.dispatch_status].label,
-                            });
-                            setComposeBody('');
-                          }}
-                          className={`h-7 text-xs gap-1 px-2.5 relative ${
-                            unreadPerOperator[row.operator_user_id]
-                              ? 'text-primary hover:text-primary hover:bg-primary/10'
-                              : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
-                          }`}
-                          title={`Message ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}${unreadPerOperator[row.operator_user_id] ? ` (${unreadPerOperator[row.operator_user_id]} unread)` : ''}`}
+                          asChild
+                          className="h-7 text-xs gap-1 px-2.5 text-muted-foreground hover:text-status-complete hover:bg-status-complete/10"
+                          title={`Call ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
                         >
-                          <span className="relative">
-                            <MessageSquare className="h-3 w-3" />
-                            {!!unreadPerOperator[row.operator_user_id] && (
-                              <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-destructive text-[9px] font-bold text-white flex items-center justify-center leading-none">
-                                {unreadPerOperator[row.operator_user_id] > 9 ? '9+' : unreadPerOperator[row.operator_user_id]}
-                              </span>
-                            )}
-                          </span>
-                          Message
+                          <a href={`tel:${row.phone}`}>
+                            <Phone className="h-3 w-3" />
+                            Call
+                          </a>
                         </Button>
-                      </div>
-
-                      <div className="flex gap-2">
+                      )}
+                      {/* Message quick-action */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const name = `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || 'Operator';
+                          setQuickCompose({
+                            operatorUserId: row.operator_user_id,
+                            name,
+                            unit: row.unit_number,
+                            status: STATUS_CONFIG[row.dispatch_status].label,
+                          });
+                          setComposeBody('');
+                        }}
+                        className={`h-7 text-xs gap-1 px-2.5 relative ${
+                          unreadPerOperator[row.operator_user_id]
+                            ? 'text-primary hover:text-primary hover:bg-primary/10'
+                            : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
+                        }`}
+                        title={`Message ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}${unreadPerOperator[row.operator_user_id] ? ` (${unreadPerOperator[row.operator_user_id]} unread)` : ''}`}
+                      >
+                        <span className="relative">
+                          <MessageSquare className="h-3 w-3" />
+                          {!!unreadPerOperator[row.operator_user_id] && (
+                            <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-destructive text-[9px] font-bold text-white flex items-center justify-center leading-none">
+                              {unreadPerOperator[row.operator_user_id] > 9 ? '9+' : unreadPerOperator[row.operator_user_id]}
+                            </span>
+                          )}
+                        </span>
+                        Message
+                      </Button>
+                      {/* Edit / Save / Cancel — pushed to right */}
+                      <div className="flex gap-1 ml-auto">
                         {isEditing ? (
                           <>
                             <Button
@@ -1420,7 +1418,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                         )
                       }
                       </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
+                      <td className="px-4 py-3 hidden lg:table-cell">
                         {isEditing ? (
                           <Input
                             value={editData.current_load_lane ?? ''}
