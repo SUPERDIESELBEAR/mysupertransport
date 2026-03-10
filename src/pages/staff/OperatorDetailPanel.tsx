@@ -931,7 +931,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 }}
               />
             </div>
-            <div className="grid grid-cols-6 gap-1">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1">
               {stages.map((s, i) => (
                 <button
                   key={s.label}
