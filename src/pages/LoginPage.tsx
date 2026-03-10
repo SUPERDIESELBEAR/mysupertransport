@@ -89,10 +89,6 @@ export default function LoginPage() {
                     placeholder="you@mysupertransport.com"
                     className="bg-surface-dark border-surface-dark-border text-surface-dark-foreground placeholder:text-surface-dark-muted focus:border-gold focus:ring-gold"
                     required
-...
-                      placeholder="you@mysupertransport.com"
-                      className="bg-surface-dark border-surface-dark-border text-surface-dark-foreground placeholder:text-surface-dark-muted focus:border-gold focus:ring-gold"
-                      required
                     />
                   </div>
 
