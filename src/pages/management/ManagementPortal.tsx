@@ -432,11 +432,9 @@ export default function ManagementPortal() {
                               {dispatchLastChanged[s.key]}
                             </span>
                           </TooltipTrigger>
-                          {tooltipLabel && (
-                            <TooltipContent side="bottom" className="text-xs">
-                              Last changed {tooltipLabel}
-                            </TooltipContent>
-                          )}
+                          <TooltipContent side="bottom" className="text-xs">
+                            {tooltipLabel ? `Last changed ${tooltipLabel}` : 'No timestamp available'}
+                          </TooltipContent>
                         </Tooltip>
                       )}
                     </div>
