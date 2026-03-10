@@ -153,6 +153,61 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   // Keep rowsRef in sync so realtime callbacks can access current operator info
   useEffect(() => { rowsRef.current = rows; }, [rows]);
 
+  // ── Acknowledgement map: operator_id → ack timestamp ────────────────────
+  const ACK_NOTE = 'Operator acknowledged truck down alert.';
+
+  const fetchAckMap = useCallback(async (operatorIds?: string[]) => {
+    const ids = operatorIds ?? rowsRef.current
+      .filter(r => r.dispatch_status === 'truck_down')
+      .map(r => r.operator_id);
+    if (ids.length === 0) return;
+    const { data } = await supabase
+      .from('dispatch_status_history' as any)
+      .select('operator_id, changed_at, status_notes')
+      .in('operator_id', ids)
+      .eq('status_notes', ACK_NOTE)
+      .order('changed_at', { ascending: false });
+    if (data) {
+      const map: Record<string, string> = {};
+      (data as any[]).forEach(entry => {
+        if (!map[entry.operator_id]) map[entry.operator_id] = entry.changed_at;
+      });
+      setAckMap(map);
+    }
+  }, []);
+
+  // Fetch ack map whenever rows change (truck_down operators might have changed)
+  useEffect(() => {
+    const truckDownIds = rows
+      .filter(r => r.dispatch_status === 'truck_down')
+      .map(r => r.operator_id);
+    if (truckDownIds.length > 0) {
+      fetchAckMap(truckDownIds);
+    } else {
+      setAckMap({});
+    }
+  }, [rows, fetchAckMap]);
+
+  // Realtime subscription for new ack notes
+  useEffect(() => {
+    const channel = supabase
+      .channel('dispatch-ack-history')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'dispatch_status_history' },
+        (payload: any) => {
+          if (payload.new?.status_notes === ACK_NOTE) {
+            setAckMap(prev => ({
+              ...prev,
+              [payload.new.operator_id]: payload.new.changed_at,
+            }));
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
 
   const scrollToCard = useCallback((operatorId: string) => {
     // Switch to cards view if in table mode
