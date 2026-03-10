@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
-  LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell
+  LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell, Volume2, VolumeX
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -124,6 +124,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
   const [liveIndicator, setLiveIndicator] = useState(false);
+  const [chimeMuted, setChimeMuted] = useState(() => localStorage.getItem('dispatch_chime_muted') === 'true');
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   // Map of operator_user_id → unread count for per-card badges
@@ -356,7 +357,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
           // Play chime only when status transitions TO truck_down from something else
           const oldStatus = (payload.old as any)?.dispatch_status;
           if (newRow?.dispatch_status === 'truck_down' && oldStatus !== 'truck_down') {
-            playTruckDownChime();
+            if (!chimeMuted) playTruckDownChime();
           }
 
           // Refresh history for this operator if it's expanded
@@ -595,6 +596,22 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
               <span className={`h-1.5 w-1.5 rounded-full ${liveIndicator ? 'bg-status-complete animate-pulse' : 'bg-muted-foreground'}`} />
               {liveIndicator ? 'Updated' : 'Live'}
             </span>
+            <button
+              onClick={() => setChimeMuted(prev => {
+                const next = !prev;
+                localStorage.setItem('dispatch_chime_muted', String(next));
+                return next;
+              })}
+              title={chimeMuted ? 'Chime muted — click to unmute' : 'Mute Truck Down chime'}
+              className={`flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border transition-all duration-200 cursor-pointer select-none ${
+                chimeMuted
+                  ? 'bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20'
+                  : 'bg-muted text-muted-foreground border-border hover:bg-muted/80 hover:text-foreground'
+              }`}
+            >
+              {chimeMuted ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
+              <span className="hidden sm:inline">{chimeMuted ? 'Muted' : 'Sound'}</span>
+            </button>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
