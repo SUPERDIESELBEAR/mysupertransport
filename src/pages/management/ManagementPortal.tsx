@@ -109,17 +109,19 @@ export default function ManagementPortal() {
     setUnreadNotifCount(count ?? 0);
   }, [session?.user?.id]);
 
-  // Subscribe to realtime changes on active_dispatch to keep the banner live
+  // Subscribe to realtime changes on active_dispatch to keep the banner + overview live
   useEffect(() => {
     fetchTruckDownCount();
+    fetchDispatchBreakdown();
     const channel = supabase
       .channel('mgmt-truck-down-banner')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'active_dispatch' }, () => {
         fetchTruckDownCount();
+        fetchDispatchBreakdown();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchTruckDownCount]);
+  }, [fetchTruckDownCount, fetchDispatchBreakdown]);
 
   // Subscribe to realtime for unread notification count
   useEffect(() => {
