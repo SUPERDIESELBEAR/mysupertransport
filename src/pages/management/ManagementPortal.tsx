@@ -359,26 +359,26 @@ export default function ManagementPortal() {
 
         {/* ── OVERVIEW ── */}
         {view === 'overview' && (
-          <div className="space-y-6 animate-fade-in">
+          <div className="space-y-5 sm:space-y-6 animate-fade-in">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Management Overview</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Management Overview</h1>
               <p className="text-muted-foreground text-sm mt-1">Company-wide snapshot and pending reviews</p>
             </div>
 
             {/* Metric cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
               {[
-                { label: 'Pending Applications', value: metrics.pending, icon: <Clock className="h-5 w-5 text-status-progress" />, color: 'bg-status-progress/10', action: () => { setStatusFilter('pending'); setView('applications'); } },
-                { label: 'In Onboarding', value: metrics.onboarding, icon: <Users className="h-5 w-5 text-gold" />, color: 'bg-gold/10', action: () => setView('pipeline') },
-                { label: 'Active Dispatch', value: metrics.active, icon: <Truck className="h-5 w-5 text-status-complete" />, color: 'bg-status-complete/10', action: () => setView('dispatch') },
-                { label: 'Alerts', value: metrics.alerts, icon: <AlertTriangle className="h-5 w-5 text-destructive" />, color: 'bg-destructive/10', action: () => setView('pipeline') },
+                { label: 'Pending Applications', value: metrics.pending, icon: <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-status-progress" />, color: 'bg-status-progress/10', action: () => { setStatusFilter('pending'); setView('applications'); } },
+                { label: 'In Onboarding', value: metrics.onboarding, icon: <Users className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />, color: 'bg-gold/10', action: () => setView('pipeline') },
+                { label: 'Active Dispatch', value: metrics.active, icon: <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-status-complete" />, color: 'bg-status-complete/10', action: () => setView('dispatch') },
+                { label: 'Alerts', value: metrics.alerts, icon: <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />, color: 'bg-destructive/10', action: () => setView('pipeline') },
               ].map(m => (
-                <button key={m.label} onClick={m.action} className="bg-white border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow text-left group">
-                  <div className={`h-11 w-11 rounded-lg ${m.color} flex items-center justify-center mb-3`}>
+                <button key={m.label} onClick={m.action} className="bg-white border border-border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group">
+                  <div className={`h-8 w-8 sm:h-11 sm:w-11 rounded-lg ${m.color} flex items-center justify-center mb-2 sm:mb-3`}>
                     {m.icon}
                   </div>
-                  <p className="text-3xl font-bold text-foreground">{m.value}</p>
-                  <p className="text-sm text-muted-foreground mt-1">{m.label}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-foreground">{m.value}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-tight">{m.label}</p>
                 </button>
               ))}
             </div>
