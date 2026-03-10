@@ -153,7 +153,7 @@ export default function ICADocumentView({
         {/* Signature Page */}
         <section>
           <h2 className="text-base font-bold text-foreground mb-6 uppercase tracking-wide">Signature Page</h2>
-          <div className="grid grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
             {/* Carrier */}
             <div className="space-y-3">
               <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground border-b border-border pb-1">Carrier</p>
@@ -182,7 +182,7 @@ export default function ICADocumentView({
                   <div className="border-2 border-dashed border-gold/40 rounded-lg overflow-hidden bg-white">
                     <SignatureCanvas
                       ref={contractorSigRef}
-                      canvasProps={{ width: 300, height: 100, className: 'w-full' }}
+                      canvasProps={{ width: 500, height: 120, className: 'w-full h-auto' }}
                       penColor="#1a1a1a"
                     />
                   </div>
