@@ -56,14 +56,14 @@ export default function ICADocumentView({
   return (
     <div className="bg-white text-foreground text-sm font-serif leading-relaxed rounded-xl border border-border overflow-hidden">
       {/* Document header */}
-      <div className="bg-surface-dark text-white text-center py-8 px-6">
+      <div className="bg-surface-dark text-white text-center py-6 px-4">
         <p className="text-xs tracking-[0.3em] uppercase text-gold mb-1">SUPERTRANSPORT</p>
         <p className="text-[10px] tracking-widest text-surface-dark-muted mb-4">POSITIVE. THINKING. TRANSPORT.</p>
-        <h1 className="text-2xl font-bold">Independent Contractor Agreement</h1>
-        <p className="text-sm text-surface-dark-muted mt-1">SUPERTRANSPORT, LLC · PO Box 4, Pleasant Hill, Missouri 64080</p>
+        <h1 className="text-xl sm:text-2xl font-bold">Independent Contractor Agreement</h1>
+        <p className="text-xs sm:text-sm text-surface-dark-muted mt-1">SUPERTRANSPORT, LLC · PO Box 4, Pleasant Hill, Missouri 64080</p>
       </div>
 
-      <div className="p-8 space-y-8">
+      <div className="p-4 sm:p-8 space-y-8">
         {/* Parties */}
         <section>
           <p className="text-base">
@@ -153,7 +153,7 @@ export default function ICADocumentView({
         {/* Signature Page */}
         <section>
           <h2 className="text-base font-bold text-foreground mb-6 uppercase tracking-wide">Signature Page</h2>
-          <div className="grid grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
             {/* Carrier */}
             <div className="space-y-3">
               <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground border-b border-border pb-1">Carrier</p>
@@ -182,7 +182,7 @@ export default function ICADocumentView({
                   <div className="border-2 border-dashed border-gold/40 rounded-lg overflow-hidden bg-white">
                     <SignatureCanvas
                       ref={contractorSigRef}
-                      canvasProps={{ width: 300, height: 100, className: 'w-full' }}
+                      canvasProps={{ width: 500, height: 120, className: 'w-full h-auto' }}
                       penColor="#1a1a1a"
                     />
                   </div>
@@ -277,30 +277,29 @@ export default function ICADocumentView({
         {/* Appendix D */}
         <section>
           <AppendixHeader letter="D" title="Insurance & Startup Acknowledgment" />
-          <table className="w-full text-sm border-collapse mt-4">
-            <thead>
-              <tr className="bg-secondary/50">
-                <th className="text-left p-2 text-xs font-semibold border border-border">Category</th>
-                <th className="text-left p-2 text-xs font-semibold border border-border">Description</th>
-                <th className="text-left p-2 text-xs font-semibold border border-border">Responsibility</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ['Required Insurance', 'Occupational Accident, Non-Trucking Liability', 'Contractor'],
-                ['Optional Insurance', 'Physical Damage via Carrier (if elected)', 'Contractor'],
-                ['Compliance Fees', 'Registration, Plates, 2290, setup costs', 'Contractor'],
-                ['Equipment or Trailer Lease', 'Weekly deduction if applicable', 'Contractor'],
-                ['Other Authorized Deductions', 'ELD, BestPass, Transponder', 'Contractor'],
-              ].map(([cat, desc, resp]) => (
-                <tr key={cat} className="border-b border-border">
-                  <td className="p-2 text-xs border border-border font-medium">{cat}</td>
-                  <td className="p-2 text-xs border border-border text-muted-foreground">{desc}</td>
-                  <td className="p-2 text-xs border border-border">{resp}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {/* Appendix D table — stacks on mobile to avoid 3-col overflow */}
+          <div className="mt-4 space-y-2">
+            {/* Header row — hidden on mobile */}
+            <div className="hidden sm:grid sm:grid-cols-3 bg-secondary/50 rounded-t border border-border">
+              <span className="p-2 text-xs font-semibold border-r border-border">Category</span>
+              <span className="p-2 text-xs font-semibold border-r border-border">Description</span>
+              <span className="p-2 text-xs font-semibold">Responsibility</span>
+            </div>
+            {[
+              ['Required Insurance', 'Occupational Accident, Non-Trucking Liability', 'Contractor'],
+              ['Optional Insurance', 'Physical Damage via Carrier (if elected)', 'Contractor'],
+              ['Compliance Fees', 'Registration, Plates, 2290, setup costs', 'Contractor'],
+              ['Equipment or Trailer Lease', 'Weekly deduction if applicable', 'Contractor'],
+              ['Other Authorized Deductions', 'ELD, BestPass, Transponder', 'Contractor'],
+            ].map(([cat, desc, resp]) => (
+              <div key={cat} className="border border-border rounded sm:rounded-none sm:border-t-0 sm:grid sm:grid-cols-3 text-xs">
+                {/* Mobile: stacked card; Desktop: row */}
+                <div className="p-2 font-medium sm:border-r sm:border-border">{cat}</div>
+                <div className="p-2 text-muted-foreground sm:border-r sm:border-border border-t border-border sm:border-t-0">{desc}</div>
+                <div className="p-2 border-t border-border sm:border-t-0">{resp}</div>
+              </div>
+            ))}
+          </div>
         </section>
       </div>
     </div>
@@ -332,8 +331,8 @@ function AppendixHeader({ letter, title }: { letter: string; title: string }) {
 function AppRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <tr className="border-b border-border">
-      <td className="py-2 pr-4 font-medium text-xs text-muted-foreground w-48 border border-border px-3">{label}</td>
-      <td className={`py-2 text-xs border border-border px-3 ${highlight ? 'font-bold text-gold' : 'text-foreground'}`}>{value}</td>
+      <td className="py-2 pr-2 font-medium text-xs text-muted-foreground w-[35%] min-w-[90px] border border-border px-2 sm:px-3 align-top">{label}</td>
+      <td className={`py-2 text-xs border border-border px-2 sm:px-3 break-words ${highlight ? 'font-bold text-gold' : 'text-foreground'}`}>{value}</td>
     </tr>
   );
 }
