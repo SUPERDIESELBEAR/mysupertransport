@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,7 +10,8 @@ import ResourceLibraryManager from '@/components/management/ResourceLibraryManag
 import MessagesView from '@/components/staff/MessagesView';
 import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
