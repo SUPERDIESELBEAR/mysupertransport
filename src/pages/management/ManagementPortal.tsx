@@ -84,6 +84,21 @@ export default function ManagementPortal() {
     setTruckDownCount(count ?? 0);
   }, []);
 
+  const fetchDispatchBreakdown = useCallback(async () => {
+    const { data } = await supabase
+      .from('active_dispatch')
+      .select('dispatch_status');
+    if (!data) return;
+    const breakdown = { not_dispatched: 0, dispatched: 0, home: 0, truck_down: 0 };
+    for (const row of data) {
+      if (row.dispatch_status in breakdown) breakdown[row.dispatch_status as keyof typeof breakdown]++;
+    }
+    setDispatchBreakdown(breakdown);
+    // flash the live indicator
+    setDispatchLiveFlash(true);
+    setTimeout(() => setDispatchLiveFlash(false), 800);
+  }, []);
+
   const fetchUnreadNotifCount = useCallback(async () => {
     if (!session?.user?.id) return;
     const { count } = await supabase
