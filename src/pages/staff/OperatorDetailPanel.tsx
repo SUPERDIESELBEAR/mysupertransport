@@ -84,6 +84,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [status, setStatus] = useState<Partial<OnboardingStatus>>({});
   const [statusId, setStatusId] = useState<string | null>(null);
   const [dispatchHistory, setDispatchHistory] = useState<DispatchHistoryEntry[]>([]);
+  const [dispatchHistoryTotal, setDispatchHistoryTotal] = useState(0);
+  const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
+  const HISTORY_PAGE_SIZE = 10;
   const [currentDispatchStatus, setCurrentDispatchStatus] = useState<string | null>(null);
   type DocFileRow = { id: string; file_name: string | null; file_url: string | null; uploaded_at: string };
   const [docFiles, setDocFiles] = useState<Record<string, DocFileRow[]>>({});
