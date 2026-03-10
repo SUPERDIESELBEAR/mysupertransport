@@ -737,13 +737,7 @@ Deno.serve(async (req) => {
           url: `${appUrl}/dispatch`,
         });
 
-        // ── Collect all dispatcher + management user IDs ─────────────────
-        const { data: staffRoles } = await supabaseAdmin
-          .from('user_roles')
-          .select('user_id, role')
-          .in('role', ['dispatcher', 'management']);
-
-        // ── Also collect the assigned onboarding staff for this operator ──
+        // ── Resolve assigned onboarding staff for this operator ──────────
         let assignedOnboardingStaffId: string | null = null;
         if (payload.operator_id) {
           const { data: opRow } = await supabaseAdmin
@@ -754,32 +748,55 @@ Deno.serve(async (req) => {
           assignedOnboardingStaffId = opRow?.assigned_onboarding_staff ?? null;
         }
 
-        // Build deduplicated set of all recipient IDs
+        // ── 1. Send staff-specific email with deep-link to operator panel ─
+        if (assignedOnboardingStaffId) {
+          const staffEmailEnabled = await userEmailEnabled(assignedOnboardingStaffId, 'truck_down');
+          if (staffEmailEnabled) {
+            const { data: { user: staffUser } } = await supabaseAdmin.auth.admin.getUserById(assignedOnboardingStaffId);
+            if (staffUser?.email) {
+              const staffDeepLink = payload.operator_id
+                ? `${appUrl}/staff?operator=${payload.operator_id}`
+                : `${appUrl}/staff`;
+              const staffHtml = buildEmail(subject, '🔴 Truck Down Alert', emailBody, {
+                label: 'View Operator in Pipeline',
+                url: staffDeepLink,
+              });
+              await sendEmail(staffUser.email, subject, staffHtml, RESEND_API_KEY);
+            }
+          }
+        }
+
+        // ── 2. Send dispatcher + management emails (link to Dispatch Board) ─
+        const { data: staffRoles } = await supabaseAdmin
+          .from('user_roles')
+          .select('user_id, role')
+          .in('role', ['dispatcher', 'management']);
+
+        // Exclude the assigned onboarding staff — they already received a tailored email above
         const baseIds = staffRoles?.length ? [...new Set(staffRoles.map(r => r.user_id))] : [];
-        const allStaffIds = assignedOnboardingStaffId && !baseIds.includes(assignedOnboardingStaffId)
-          ? [...baseIds, assignedOnboardingStaffId]
+        const dispatchMgmtIds = assignedOnboardingStaffId
+          ? baseIds.filter(id => id !== assignedOnboardingStaffId)
           : baseIds;
 
-        if (!allStaffIds.length) break;
+        if (dispatchMgmtIds.length) {
+          const { data: emailOptedOut } = await supabaseAdmin
+            .from('notification_preferences')
+            .select('user_id')
+            .in('user_id', dispatchMgmtIds)
+            .eq('event_type', 'truck_down')
+            .eq('email_enabled', false);
+          const emailOptedOutIds = new Set((emailOptedOut ?? []).map(r => r.user_id));
+          const recipientIds = dispatchMgmtIds.filter(id => !emailOptedOutIds.has(id));
 
-        // Filter by email preference for truck_down
-        const { data: emailOptedOut } = await supabaseAdmin
-          .from('notification_preferences')
-          .select('user_id')
-          .in('user_id', allStaffIds)
-          .eq('event_type', 'truck_down')
-          .eq('email_enabled', false);
-        const emailOptedOutIds = new Set((emailOptedOut ?? []).map(r => r.user_id));
+          if (recipientIds.length) {
+            const { data: { users: allUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+            const recipientEmails = allUsers
+              ?.filter(u => recipientIds.includes(u.id) && u.email)
+              .map(u => u.email!) ?? [];
+            await Promise.all(recipientEmails.map(e => sendEmail(e, subject, html, RESEND_API_KEY)));
+          }
+        }
 
-        const recipientIds = allStaffIds.filter(id => !emailOptedOutIds.has(id));
-        if (!recipientIds.length) break;
-
-        const { data: { users: allUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-        const recipientEmails = allUsers
-          ?.filter(u => recipientIds.includes(u.id) && u.email)
-          .map(u => u.email!) ?? [];
-
-        await Promise.all(recipientEmails.map(e => sendEmail(e, subject, html, RESEND_API_KEY)));
         break;
       }
 
