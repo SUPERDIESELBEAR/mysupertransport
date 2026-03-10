@@ -157,6 +157,27 @@ export default function StaffPortal() {
   };
 
   const [prefOpen, setPrefOpen] = useState(false);
+  const [truckDownCount, setTruckDownCount] = useState(0);
+
+  const fetchTruckDownCount = useCallback(async () => {
+    const { count } = await supabase
+      .from('active_dispatch')
+      .select('id', { count: 'exact', head: true })
+      .eq('dispatch_status', 'truck_down');
+    setTruckDownCount(count ?? 0);
+  }, []);
+
+  // Subscribe to realtime changes on active_dispatch to keep the banner live
+  useEffect(() => {
+    fetchTruckDownCount();
+    const channel = supabase
+      .channel('staff-truck-down-banner')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'active_dispatch' }, () => {
+        fetchTruckDownCount();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchTruckDownCount]);
 
   return (
     <>
