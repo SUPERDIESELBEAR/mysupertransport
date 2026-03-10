@@ -314,7 +314,7 @@ function ClauseSection({ num, title, children }: { num: string; title: string; c
   return (
     <section>
       <h3 className="text-sm font-bold text-foreground mb-2">{num}. {title}</h3>
-      <p className="text-xs text-muted-foreground leading-relaxed">{children}</p>
+      <div className="text-xs text-muted-foreground leading-relaxed">{children}</div>
     </section>
   );
 }
