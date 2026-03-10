@@ -1272,6 +1272,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                           </div>
                         )
                       </td>
+                      <td className="px-4 py-3 hidden sm:table-cell">
                         {isEditing ? (
                           <Input
                             value={editData.current_load_lane ?? ''}
