@@ -396,7 +396,7 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
       </div>
 
       {/* Metric cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-gold/10 flex items-center justify-center">
@@ -441,6 +441,39 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
             </div>
           </div>
         </div>
+        {/* Truck Down card — clickable to toggle the dispatch filter */}
+        {(() => {
+          const truckDownCount = operators.filter(o => o.dispatch_status === 'truck_down').length;
+          const isActive = dispatchFilter === 'truck_down';
+          return (
+            <button
+              onClick={() => setDispatchFilter(isActive ? 'all' : 'truck_down')}
+              className={`rounded-xl p-4 shadow-sm border text-left transition-all ${
+                isActive
+                  ? 'bg-destructive border-destructive ring-2 ring-destructive/30'
+                  : truckDownCount > 0
+                    ? 'bg-destructive/5 border-destructive/40 hover:bg-destructive/10 hover:border-destructive/60'
+                    : 'bg-white border-border hover:border-foreground/20'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
+                  isActive ? 'bg-destructive-foreground/20' : 'bg-destructive/10'
+                }`}>
+                  <Truck className={`h-5 w-5 ${isActive ? 'text-destructive-foreground' : 'text-destructive'}`} />
+                </div>
+                <div>
+                  <p className={`text-2xl font-bold ${isActive ? 'text-destructive-foreground' : truckDownCount > 0 ? 'text-destructive' : 'text-foreground'}`}>
+                    {truckDownCount}
+                  </p>
+                  <p className={`text-xs ${isActive ? 'text-destructive-foreground/80' : 'text-muted-foreground'}`}>
+                    Truck Down
+                  </p>
+                </div>
+              </div>
+            </button>
+          );
+        })()}
       </div>
 
       {/* Stage breakdown (clickable) */}
