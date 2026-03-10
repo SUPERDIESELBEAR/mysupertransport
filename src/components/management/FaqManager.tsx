@@ -150,8 +150,8 @@ export default function FaqManager() {
   const loadHistory = async (faq: FaqRow) => {
     setHistoryFaq(faq);
     setHistoryLoading(true);
-    const { data } = await supabase
-      .from('faq_history' as any)
+    const { data } = await (supabase as any)
+      .from('faq_history')
       .select('*')
       .eq('faq_id', faq.id)
       .order('changed_at', { ascending: false })
