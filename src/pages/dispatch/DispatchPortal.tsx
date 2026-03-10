@@ -1088,7 +1088,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                   <>
                     <tr
                       key={row.operator_id}
-                      className={`transition-colors ${isEditing ? 'bg-gold/[0.04] border-l-2 border-l-gold' : cfg.rowClass + ' hover:bg-muted/30'}`}
+                      className={`transition-all duration-300 ${isEditing ? 'bg-gold/[0.04] border-l-2 border-l-gold' : flashedCards.has(row.operator_id) ? 'bg-primary/[0.04] outline outline-1 outline-primary/30' : cfg.rowClass + ' hover:bg-muted/30'}`}
                     >
                       <td className="px-4 py-3">
                         <p className="font-semibold text-foreground text-sm">{fullName}</p>
