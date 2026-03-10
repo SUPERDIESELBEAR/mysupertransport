@@ -419,10 +419,10 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
   });
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Onboarding Pipeline</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Onboarding Pipeline</h1>
         <p className="text-muted-foreground text-sm mt-1">Track all operators through the onboarding process</p>
       </div>
 
