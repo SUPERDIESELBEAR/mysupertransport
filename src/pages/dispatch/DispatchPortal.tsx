@@ -210,17 +210,30 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
     const channel = supabase
       .channel('dispatch-messages-unread')
       .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'messages',
+        event: 'INSERT', schema: 'public', table: 'messages',
+        filter: `recipient_id=eq.${session.user.id}`,
+      }, (payload: any) => {
+        fetchUnreadCounts();
+        // Desktop push for new operator messages
+        fireNotification({
+          title: 'New Message from Operator',
+          body: payload.new?.body ?? 'An operator has sent you a new message.',
+          type: 'new_message',
+          link: '/dispatch?tab=dispatch-messages',
+        });
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'messages',
         filter: `recipient_id=eq.${session.user.id}`,
       }, () => fetchUnreadCounts())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [session?.user?.id]);
+  }, [session?.user?.id, fireNotification]);
 
-  // Fetch + realtime for unread notification count
+  // Fetch + realtime for unread notification count + desktop push on truck_down
   useEffect(() => {
     if (!session?.user?.id) return;
-    const fetch = async () => {
+    const fetchCount = async () => {
       const { count } = await supabase
         .from('notifications')
         .select('id', { count: 'exact', head: true })
@@ -228,16 +241,27 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
         .is('read_at', null);
       setUnreadNotifCount(count ?? 0);
     };
-    fetch();
+    fetchCount();
     const channel = supabase
       .channel('dispatch-unread-notif-badge')
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'notifications',
         filter: `user_id=eq.${session.user.id}`,
-      }, () => setUnreadNotifCount(prev => prev + 1))
+      }, (payload: any) => {
+        setUnreadNotifCount(prev => prev + 1);
+        // Desktop push for truck_down notifications sent to this dispatcher
+        if (payload.new) {
+          fireNotification({
+            title: payload.new.title,
+            body: payload.new.body,
+            type: payload.new.type,
+            link: payload.new.link,
+          });
+        }
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [session?.user?.id]);
+  }, [session?.user?.id, fireNotification]);
 
   // Deep-link: ?tab=notifications
   useEffect(() => {

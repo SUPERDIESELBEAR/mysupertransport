@@ -101,6 +101,20 @@ export default function StaffNotificationPreferencesModal({ open, onClose }: Pro
   const [cellState, setCellState] = useState<Record<string, CellState>>({});
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
+  // Desktop push notification preference (localStorage)
+  const [desktopEnabled, setDesktopEnabled] = useState(getDesktopNotifPreference);
+  const [browserPermission, setBrowserPermission] = useState<NotificationPermission>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'denied'
+  );
+
+  // Re-read permission state each time modal opens
+  useEffect(() => {
+    if (open && typeof Notification !== 'undefined') {
+      setBrowserPermission(Notification.permission);
+      setDesktopEnabled(getDesktopNotifPreference());
+    }
+  }, [open]);
+
   // Filter event types to only those relevant to the current user's role(s)
   const visibleEvents = EVENT_TYPES.filter(ev =>
     ev.roles.some(r => roles.includes(r))
