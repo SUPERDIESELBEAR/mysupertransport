@@ -158,6 +158,7 @@ export default function StaffPortal() {
 
   const [prefOpen, setPrefOpen] = useState(false);
   const [truckDownOperators, setTruckDownOperators] = useState<{ name: string; unit: string }[]>([]);
+  const [pipelineDispatchFilter, setPipelineDispatchFilter] = useState<'all' | 'truck_down'>('all');
 
   const fetchTruckDownOperators = useCallback(async () => {
     const { data } = await supabase
