@@ -204,7 +204,7 @@ export default function StaffLayout({ children, navItems, currentPath, onNavigat
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top bar */}
         <header className="h-14 lg:h-16 bg-white border-b border-border flex items-center px-4 lg:px-6 gap-3 lg:gap-4 shrink-0">
-          {/* Mobile hamburger */}
+          {/* Mobile hamburger — only shown when bottom nav is NOT shown; kept for "more" access on tablet */}
           <button
             onClick={() => setMobileSidebarOpen(true)}
             className="lg:hidden text-muted-foreground hover:text-foreground transition-colors"
@@ -223,11 +223,48 @@ export default function StaffLayout({ children, navItems, currentPath, onNavigat
           <NotificationBell notificationsPath={notificationsPath} />
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        {/* Page content — pb-20 on mobile to clear the sticky bottom nav */}
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6">
           {children}
         </main>
       </div>
+
+      {/* ── Sticky bottom nav (mobile only) ───────────────────────── */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-dark border-t border-surface-dark-border">
+        <div className="flex items-stretch h-16">
+          {navItems.map((item) => {
+            const isActive = currentPath === item.path;
+            return (
+              <button
+                key={item.path}
+                onClick={() => { onNavigate(item.path); setMobileSidebarOpen(false); }}
+                className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors min-w-0 px-1
+                  ${isActive
+                    ? 'text-gold'
+                    : 'text-surface-dark-muted hover:text-surface-dark-foreground'
+                  }`}
+              >
+                {/* Active indicator bar */}
+                {isActive && (
+                  <span className="absolute top-0 inset-x-2 h-0.5 bg-gold rounded-b-full" />
+                )}
+                {/* Icon with badge */}
+                <span className="relative">
+                  {item.icon}
+                  {item.badge != null && item.badge > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </span>
+                  )}
+                </span>
+                <span className="truncate w-full text-center leading-tight">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        {/* Safe-area spacer for iOS home indicator */}
+        <div className="h-safe-bottom bg-surface-dark" />
+      </nav>
     </div>
   );
 }

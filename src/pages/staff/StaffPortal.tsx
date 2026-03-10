@@ -259,7 +259,7 @@ export default function StaffPortal() {
         />
       )}
       {currentView === 'messages' && (
-        <div className="h-full" style={{ height: 'calc(100vh - 160px)' }}>
+        <div className="h-full" style={{ height: 'calc(100vh - 160px - 64px)' }}>
           <MessagesView initialUserId={messageInitialUserId} />
         </div>
       )}
