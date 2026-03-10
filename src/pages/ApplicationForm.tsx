@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { supabase } from '@/integrations/supabase/client';
 import { Truck, Save, ChevronLeft, ChevronRight, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
