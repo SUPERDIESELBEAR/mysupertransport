@@ -193,11 +193,11 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                           variant={uploaded.length > 0 ? 'outline' : 'default'}
                           disabled={isUploading}
                           onClick={() => fileInputRefs.current[slot.key]?.click()}
-                          className={`text-xs gap-1 h-8 px-2.5 ${uploaded.length === 0 ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
+                          className={`text-xs gap-1.5 h-9 px-3 min-w-[80px] ${uploaded.length === 0 ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
                         >
                           {isUploading
-                            ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /><span className="hidden sm:inline"> Uploading…</span></>
-                            : <><Upload className="h-3.5 w-3.5" /><span className="hidden sm:inline"> {uploaded.length > 0 ? 'Add More' : 'Upload'}</span></>
+                            ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /><span>Uploading…</span></>
+                            : <><Upload className="h-3.5 w-3.5" /><span>{uploaded.length > 0 ? 'Add More' : 'Upload'}</span></>
                           }
                         </Button>
                       </div>
