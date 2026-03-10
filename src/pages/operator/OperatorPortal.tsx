@@ -512,32 +512,69 @@ export default function OperatorPortal() {
 
         {/* ── TRUCK DOWN ALERT BANNER ── */}
         {dispatchStatus === 'truck_down' && (
-          <div className="bg-destructive/10 border border-destructive/40 rounded-xl px-4 py-3.5 animate-fade-in space-y-3">
+          <div className={`border rounded-xl px-4 py-3.5 animate-fade-in space-y-3 transition-colors duration-500 ${
+            truckDownAcked
+              ? 'bg-muted/40 border-border'
+              : 'bg-destructive/10 border-destructive/40'
+          }`}>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/15 shrink-0">
-                  <TriangleAlert className="h-4 w-4 text-destructive animate-pulse" />
+                <span className={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${truckDownAcked ? 'bg-muted' : 'bg-destructive/15'}`}>
+                  {truckDownAcked
+                    ? <CheckCheck className="h-4 w-4 text-muted-foreground" />
+                    : <TriangleAlert className="h-4 w-4 text-destructive animate-pulse" />
+                  }
                 </span>
                 <div>
-                  <p className="text-sm font-semibold text-destructive leading-tight">🔴 Your Truck is Marked Down</p>
-                  <p className="text-xs text-destructive/70 mt-0.5 leading-snug">
-                    Your dispatcher has flagged your truck as out of service. Contact your dispatcher immediately.
-                  </p>
+                  {truckDownAcked ? (
+                    <>
+                      <p className="text-sm font-semibold text-muted-foreground leading-tight">✅ Truck Down — Acknowledged</p>
+                      <p className="text-xs text-muted-foreground/70 mt-0.5 leading-snug">
+                        You've confirmed you've seen this alert. Your dispatcher has been notified.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold text-destructive leading-tight">🔴 Your Truck is Marked Down</p>
+                      <p className="text-xs text-destructive/70 mt-0.5 leading-snug">
+                        Your dispatcher has flagged your truck as out of service. Contact your dispatcher immediately.
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
-              <button
-                onClick={() => setView('messages')}
-                className="shrink-0 flex items-center gap-1.5 bg-destructive text-white text-xs font-semibold px-3 py-2 rounded-lg hover:bg-destructive/90 transition-colors"
-              >
-                <MessageSquare className="h-3.5 w-3.5" />
-                Message Dispatcher
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {!truckDownAcked && (
+                  <button
+                    onClick={handleTruckDownAck}
+                    disabled={ackLoading}
+                    className="flex items-center gap-1.5 bg-destructive/15 border border-destructive/30 text-destructive text-xs font-semibold px-3 py-2 rounded-lg hover:bg-destructive/25 transition-colors disabled:opacity-60"
+                  >
+                    {ackLoading
+                      ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
+                      : <CheckCheck className="h-3.5 w-3.5" />
+                    }
+                    I Acknowledge
+                  </button>
+                )}
+                <button
+                  onClick={() => setView('messages')}
+                  className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors ${
+                    truckDownAcked
+                      ? 'bg-muted text-muted-foreground hover:bg-muted/80'
+                      : 'bg-destructive text-white hover:bg-destructive/90'
+                  }`}
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  Message Dispatcher
+                </button>
+              </div>
             </div>
             {/* Dispatcher contact info */}
             {assignedDispatcher && (
-              <div className="flex items-center gap-3 border-t border-destructive/20 pt-2.5">
-                <div className="h-7 w-7 rounded-full bg-destructive/15 flex items-center justify-center shrink-0">
-                  <span className="text-destructive text-xs font-bold">
+              <div className={`flex items-center gap-3 border-t pt-2.5 ${truckDownAcked ? 'border-border' : 'border-destructive/20'}`}>
+                <div className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${truckDownAcked ? 'bg-muted' : 'bg-destructive/15'}`}>
+                  <span className={`text-xs font-bold ${truckDownAcked ? 'text-muted-foreground' : 'text-destructive'}`}>
                     {assignedDispatcher.name.charAt(0).toUpperCase()}
                   </span>
                 </div>
@@ -546,7 +583,7 @@ export default function OperatorPortal() {
                   {assignedDispatcher.phone ? (
                     <a
                       href={`tel:${assignedDispatcher.phone}`}
-                      className="text-xs text-destructive font-medium hover:underline flex items-center gap-1"
+                      className={`text-xs font-medium hover:underline flex items-center gap-1 ${truckDownAcked ? 'text-muted-foreground' : 'text-destructive'}`}
                     >
                       <Phone className="h-3 w-3" />
                       {assignedDispatcher.phone}
