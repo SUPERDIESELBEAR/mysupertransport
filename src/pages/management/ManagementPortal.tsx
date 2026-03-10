@@ -344,6 +344,47 @@ export default function ManagementPortal() {
               ))}
             </div>
 
+            {/* Live Dispatch Breakdown */}
+            <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Truck className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="font-semibold text-foreground">Fleet Status</h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full transition-colors duration-300 ${
+                      dispatchLiveFlash
+                        ? 'bg-status-complete/30 text-status-complete'
+                        : 'bg-status-complete/15 text-status-complete'
+                    }`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full bg-status-complete ${dispatchLiveFlash ? 'animate-ping' : 'animate-pulse'}`} />
+                    Live
+                  </span>
+                  <Button variant="ghost" size="sm" onClick={() => setView('dispatch')} className="text-xs gap-1 text-muted-foreground h-7 px-2">
+                    Open Board <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-border">
+                {[
+                  { label: 'Dispatched', value: dispatchBreakdown.dispatched, color: 'text-status-complete', bg: 'bg-status-complete/10' },
+                  { label: 'Not Dispatched', value: dispatchBreakdown.not_dispatched, color: 'text-muted-foreground', bg: 'bg-muted/30' },
+                  { label: 'Home', value: dispatchBreakdown.home, color: 'text-gold', bg: 'bg-gold/10' },
+                  { label: 'Truck Down', value: dispatchBreakdown.truck_down, color: dispatchBreakdown.truck_down > 0 ? 'text-destructive' : 'text-muted-foreground', bg: dispatchBreakdown.truck_down > 0 ? 'bg-destructive/10' : 'bg-muted/20' },
+                ].map((s) => (
+                  <div key={s.label} className={`flex flex-col items-center justify-center py-5 gap-1 ${s.bg} transition-colors duration-300`}>
+                    <span className={`text-3xl font-bold tabular-nums transition-all duration-300 ${s.color}`}>{s.value}</span>
+                    <span className="text-xs text-muted-foreground font-medium">{s.label}</span>
+                    {s.label === 'Truck Down' && s.value > 0 && (
+                      <span className="mt-0.5 inline-flex h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Pending queue preview */}
             <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-border flex items-center justify-between">
