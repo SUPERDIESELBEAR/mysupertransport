@@ -20,6 +20,7 @@ import {
   LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell, Volume2, VolumeX
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import { formatDistanceToNow } from 'date-fns';
 
 interface QuickComposeTarget {
@@ -376,6 +377,15 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
               description: notes || 'Status changed to Truck Down.',
               variant: 'destructive',
               duration: 8000,
+              action: (
+                <ToastAction
+                  altText="Scroll to operator card"
+                  onClick={() => scrollToCard(operatorId)}
+                  className="shrink-0"
+                >
+                  View Card
+                </ToastAction>
+              ),
             });
           }
 
