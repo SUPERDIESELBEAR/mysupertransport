@@ -19,6 +19,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing,
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -58,6 +59,7 @@ export default function ManagementPortal() {
   const [metrics, setMetrics] = useState({ pending: 0, onboarding: 0, active: 0, alerts: 0 });
   const [dispatchBreakdown, setDispatchBreakdown] = useState({ not_dispatched: 0, dispatched: 0, home: 0, truck_down: 0 });
   const [dispatchLastChanged, setDispatchLastChanged] = useState<Record<string, string | null>>({ not_dispatched: null, dispatched: null, home: null, truck_down: null });
+  const [dispatchLastChangedAt, setDispatchLastChangedAt] = useState<Record<string, string | null>>({ not_dispatched: null, dispatched: null, home: null, truck_down: null });
   const [truckDownCount, setTruckDownCount] = useState(0);
   const [dispatchLiveFlash, setDispatchLiveFlash] = useState(false);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
@@ -95,6 +97,7 @@ export default function ManagementPortal() {
     const breakdown = { not_dispatched: 0, dispatched: 0, home: 0, truck_down: 0 };
     // Track the most-recently-updated row per status
     const latestUpdatedBy: Record<string, string | null> = { not_dispatched: null, dispatched: null, home: null, truck_down: null };
+    const latestUpdatedAt: Record<string, string | null> = { not_dispatched: null, dispatched: null, home: null, truck_down: null };
     const seenStatus = new Set<string>();
 
     for (const row of data) {
@@ -103,6 +106,7 @@ export default function ManagementPortal() {
         breakdown[s]++;
         if (!seenStatus.has(s)) {
           latestUpdatedBy[s] = row.updated_by ?? null;
+          latestUpdatedAt[s] = row.updated_at ?? null;
           seenStatus.add(s);
         }
       }
@@ -129,6 +133,7 @@ export default function ManagementPortal() {
 
     setDispatchBreakdown(breakdown);
     setDispatchLastChanged(lastChanged);
+    setDispatchLastChangedAt(latestUpdatedAt);
     setDispatchLiveFlash(true);
     setTimeout(() => setDispatchLiveFlash(false), 800);
   }, []);
@@ -401,27 +406,44 @@ export default function ManagementPortal() {
                   </Button>
                 </div>
               </div>
+              <TooltipProvider>
               <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-border">
                 {[
                   { label: 'Dispatched', key: 'dispatched', value: dispatchBreakdown.dispatched, color: 'text-status-complete', bg: 'bg-status-complete/10' },
                   { label: 'Not Dispatched', key: 'not_dispatched', value: dispatchBreakdown.not_dispatched, color: 'text-muted-foreground', bg: 'bg-muted/30' },
                   { label: 'Home', key: 'home', value: dispatchBreakdown.home, color: 'text-gold', bg: 'bg-gold/10' },
                   { label: 'Truck Down', key: 'truck_down', value: dispatchBreakdown.truck_down, color: dispatchBreakdown.truck_down > 0 ? 'text-destructive' : 'text-muted-foreground', bg: dispatchBreakdown.truck_down > 0 ? 'bg-destructive/10' : 'bg-muted/20' },
-                ].map((s) => (
-                  <div key={s.label} className={`flex flex-col items-center justify-center py-5 gap-1 ${s.bg} transition-colors duration-300`}>
-                    <span className={`text-3xl font-bold tabular-nums transition-all duration-300 ${s.color}`}>{s.value}</span>
-                    <span className="text-xs text-muted-foreground font-medium">{s.label}</span>
-                    {s.label === 'Truck Down' && s.value > 0 && (
-                      <span className="mt-0.5 inline-flex h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
-                    )}
-                    {dispatchLastChanged[s.key] && (
-                      <span className="text-[10px] text-muted-foreground/60 leading-tight mt-0.5 truncate max-w-[90px] text-center" title={`Last changed by ${dispatchLastChanged[s.key]}`}>
-                        {dispatchLastChanged[s.key]}
-                      </span>
-                    )}
-                  </div>
-                ))}
+                ].map((s) => {
+                  const changedAt = dispatchLastChangedAt[s.key];
+                  const tooltipLabel = changedAt
+                    ? new Date(changedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+                    : null;
+                  return (
+                    <div key={s.label} className={`flex flex-col items-center justify-center py-5 gap-1 ${s.bg} transition-colors duration-300`}>
+                      <span className={`text-3xl font-bold tabular-nums transition-all duration-300 ${s.color}`}>{s.value}</span>
+                      <span className="text-xs text-muted-foreground font-medium">{s.label}</span>
+                      {s.label === 'Truck Down' && s.value > 0 && (
+                        <span className="mt-0.5 inline-flex h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
+                      )}
+                      {dispatchLastChanged[s.key] && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-[10px] text-muted-foreground/60 leading-tight mt-0.5 truncate max-w-[90px] text-center cursor-default underline decoration-dotted underline-offset-2">
+                              {dispatchLastChanged[s.key]}
+                            </span>
+                          </TooltipTrigger>
+                          {tooltipLabel && (
+                            <TooltipContent side="bottom" className="text-xs">
+                              Last changed {tooltipLabel}
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
+              </TooltipProvider>
             </div>
 
             {/* Pending queue preview */}
