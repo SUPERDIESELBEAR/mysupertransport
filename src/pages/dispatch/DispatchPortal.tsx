@@ -11,6 +11,7 @@ import { sanitizeText } from '@/lib/sanitize';
 import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -958,8 +959,11 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                   <div
                     key={row.operator_id}
                     ref={el => { cardRefs.current[row.operator_id] = el; }}
-                    className={`bg-white border-2 rounded-2xl shadow-sm overflow-hidden transition-all duration-300 ${
-                      highlightedCard === row.operator_id
+                    onClick={bulkMode ? () => toggleSelect(row.operator_id) : undefined}
+                    className={`bg-white border-2 rounded-2xl shadow-sm overflow-hidden transition-all duration-300 ${bulkMode ? 'cursor-pointer' : ''} ${
+                      bulkMode && selectedIds.has(row.operator_id)
+                        ? 'border-primary ring-2 ring-primary/30'
+                        : highlightedCard === row.operator_id
                         ? 'border-destructive ring-4 ring-destructive/30 scale-[1.01]'
                         : flashedCards.has(row.operator_id)
                         ? 'ring-2 ring-primary/60 border-primary/50 scale-[1.005]'
@@ -982,6 +986,15 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                         ? 'bg-status-progress/8'
                         : 'bg-muted/40'
                     }`}>
+                      {/* Bulk-mode checkbox */}
+                      {bulkMode && (
+                        <Checkbox
+                          checked={selectedIds.has(row.operator_id)}
+                          onCheckedChange={() => toggleSelect(row.operator_id)}
+                          className="shrink-0 mr-1"
+                          aria-label={`Select ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
+                        />
+                      )}
                       <Badge className={`${cfg.badgeClass} text-xs gap-1`}>
                         <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
                         {cfg.label}
@@ -1264,6 +1277,15 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
+                {bulkMode && (
+                  <th className="w-10 px-3 py-3">
+                    <Checkbox
+                      checked={filteredRows.length > 0 && selectedIds.size === filteredRows.length}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Select all operators"
+                    />
+                  </th>
+                )}
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Operator</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Unit #</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
@@ -1305,8 +1327,27 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                   <>
                     <tr
                       key={row.operator_id}
-                      className={`transition-all duration-300 ${isEditing ? 'bg-gold/[0.04] border-l-2 border-l-gold' : flashedCards.has(row.operator_id) ? 'bg-primary/[0.04] outline outline-1 outline-primary/30' : cfg.rowClass + ' hover:bg-muted/30'}`}
+                      onClick={bulkMode ? () => toggleSelect(row.operator_id) : undefined}
+                      className={`transition-all duration-300 ${bulkMode ? 'cursor-pointer' : ''} ${
+                        bulkMode && selectedIds.has(row.operator_id)
+                          ? 'bg-primary/[0.06] border-l-2 border-l-primary'
+                          : isEditing
+                          ? 'bg-gold/[0.04] border-l-2 border-l-gold'
+                          : flashedCards.has(row.operator_id)
+                          ? 'bg-primary/[0.04] outline outline-1 outline-primary/30'
+                          : cfg.rowClass + ' hover:bg-muted/30'
+                      }`}
                     >
+                      {/* Bulk checkbox cell */}
+                      {bulkMode && (
+                        <td className="w-10 px-3 py-3" onClick={e => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.has(row.operator_id)}
+                            onCheckedChange={() => toggleSelect(row.operator_id)}
+                            aria-label={`Select ${fullName}`}
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <p className="font-semibold text-foreground text-sm">{fullName}</p>
                         <div className="flex items-center gap-2 mt-0.5">
@@ -1319,7 +1360,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                         </div>
                         {/* History toggle */}
                         <button
-                          onClick={() => toggleHistory(row.operator_id)}
+                          onClick={e => { e.stopPropagation(); toggleHistory(row.operator_id); }}
                           className="flex items-center gap-1 mt-1.5 text-[11px] text-muted-foreground hover:text-gold transition-colors"
                         >
                           <Clock className="h-3 w-3" />
