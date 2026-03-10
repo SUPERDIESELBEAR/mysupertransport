@@ -907,10 +907,10 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
               {selectedIds.size === filteredRows.length ? 'Deselect all' : `Select all (${filteredRows.length})`}
             </button>
             {selectedIds.size > 0 && (
-              <div className="flex items-center gap-2 ml-auto flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto sm:ml-auto">
                 <span className="text-xs font-medium text-foreground">{selectedIds.size} selected — set to:</span>
                 <Select value={bulkStatus} onValueChange={v => setBulkStatus(v as DispatchStatusType)}>
-                  <SelectTrigger className="h-8 text-xs w-40">
+                  <SelectTrigger className="h-8 text-xs w-36">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
