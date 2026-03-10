@@ -277,30 +277,29 @@ export default function ICADocumentView({
         {/* Appendix D */}
         <section>
           <AppendixHeader letter="D" title="Insurance & Startup Acknowledgment" />
-          <table className="w-full text-sm border-collapse mt-4">
-            <thead>
-              <tr className="bg-secondary/50">
-                <th className="text-left p-2 text-xs font-semibold border border-border">Category</th>
-                <th className="text-left p-2 text-xs font-semibold border border-border">Description</th>
-                <th className="text-left p-2 text-xs font-semibold border border-border">Responsibility</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ['Required Insurance', 'Occupational Accident, Non-Trucking Liability', 'Contractor'],
-                ['Optional Insurance', 'Physical Damage via Carrier (if elected)', 'Contractor'],
-                ['Compliance Fees', 'Registration, Plates, 2290, setup costs', 'Contractor'],
-                ['Equipment or Trailer Lease', 'Weekly deduction if applicable', 'Contractor'],
-                ['Other Authorized Deductions', 'ELD, BestPass, Transponder', 'Contractor'],
-              ].map(([cat, desc, resp]) => (
-                <tr key={cat} className="border-b border-border">
-                  <td className="p-2 text-xs border border-border font-medium">{cat}</td>
-                  <td className="p-2 text-xs border border-border text-muted-foreground">{desc}</td>
-                  <td className="p-2 text-xs border border-border">{resp}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {/* Appendix D table — stacks on mobile to avoid 3-col overflow */}
+          <div className="mt-4 space-y-2">
+            {/* Header row — hidden on mobile */}
+            <div className="hidden sm:grid sm:grid-cols-3 bg-secondary/50 rounded-t border border-border">
+              <span className="p-2 text-xs font-semibold border-r border-border">Category</span>
+              <span className="p-2 text-xs font-semibold border-r border-border">Description</span>
+              <span className="p-2 text-xs font-semibold">Responsibility</span>
+            </div>
+            {[
+              ['Required Insurance', 'Occupational Accident, Non-Trucking Liability', 'Contractor'],
+              ['Optional Insurance', 'Physical Damage via Carrier (if elected)', 'Contractor'],
+              ['Compliance Fees', 'Registration, Plates, 2290, setup costs', 'Contractor'],
+              ['Equipment or Trailer Lease', 'Weekly deduction if applicable', 'Contractor'],
+              ['Other Authorized Deductions', 'ELD, BestPass, Transponder', 'Contractor'],
+            ].map(([cat, desc, resp]) => (
+              <div key={cat} className="border border-border rounded sm:rounded-none sm:border-t-0 sm:grid sm:grid-cols-3 text-xs">
+                {/* Mobile: stacked card; Desktop: row */}
+                <div className="p-2 font-medium sm:border-r sm:border-border">{cat}</div>
+                <div className="p-2 text-muted-foreground sm:border-r sm:border-border border-t border-border sm:border-t-0">{desc}</div>
+                <div className="p-2 border-t border-border sm:border-t-0">{resp}</div>
+              </div>
+            ))}
+          </div>
         </section>
       </div>
     </div>
