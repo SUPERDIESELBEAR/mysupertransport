@@ -415,9 +415,13 @@ export default function ManagementPortal() {
                   { label: 'Truck Down', key: 'truck_down', value: dispatchBreakdown.truck_down, color: dispatchBreakdown.truck_down > 0 ? 'text-destructive' : 'text-muted-foreground', bg: dispatchBreakdown.truck_down > 0 ? 'bg-destructive/10' : 'bg-muted/20' },
                 ].map((s) => {
                   const changedAt = dispatchLastChangedAt[s.key];
+                  const changedByName = dispatchLastChanged[s.key];
                   const tooltipLabel = changedAt
                     ? new Date(changedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
                     : null;
+                  // Show tooltip on any cell that has either a name or a timestamp
+                  const hasTooltipData = !!(changedByName || tooltipLabel);
+                  const triggerText = changedByName ?? (tooltipLabel ? 'Updated' : null);
                   return (
                     <div key={s.label} className={`flex flex-col items-center justify-center py-5 gap-1 ${s.bg} transition-colors duration-300`}>
                       <span className={`text-3xl font-bold tabular-nums transition-all duration-300 ${s.color}`}>{s.value}</span>
@@ -425,15 +429,21 @@ export default function ManagementPortal() {
                       {s.label === 'Truck Down' && s.value > 0 && (
                         <span className="mt-0.5 inline-flex h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
                       )}
-                      {dispatchLastChanged[s.key] && (
+                      {hasTooltipData && triggerText && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <span className="text-[10px] text-muted-foreground/60 leading-tight mt-0.5 truncate max-w-[90px] text-center cursor-default underline decoration-dotted underline-offset-2">
-                              {dispatchLastChanged[s.key]}
+                              {triggerText}
                             </span>
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="text-xs">
-                            {tooltipLabel ? `Last changed ${tooltipLabel}` : 'No timestamp available'}
+                            {changedByName && tooltipLabel
+                              ? `${changedByName} · ${tooltipLabel}`
+                              : changedByName
+                              ? changedByName
+                              : tooltipLabel
+                              ? `Last changed ${tooltipLabel}`
+                              : 'No details available'}
                           </TooltipContent>
                         </Tooltip>
                       )}
