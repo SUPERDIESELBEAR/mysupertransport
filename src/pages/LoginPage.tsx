@@ -89,6 +89,88 @@ export default function LoginPage() {
                     placeholder="you@mysupertransport.com"
                     className="bg-surface-dark border-surface-dark-border text-surface-dark-foreground placeholder:text-surface-dark-muted focus:border-gold focus:ring-gold"
                     required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-surface-dark-foreground text-sm" htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="bg-surface-dark border-surface-dark-border text-surface-dark-foreground placeholder:text-surface-dark-muted focus:border-gold focus:ring-gold pr-10"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-dark-muted hover:text-surface-dark-foreground"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30">
+                    <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                    <p className="text-sm text-destructive">{error}</p>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gold text-surface-dark font-semibold hover:bg-gold-light transition-colors h-11"
+                >
+                  {loading ? 'Signing in…' : 'Sign In'}
+                </Button>
+
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => { setView('forgot'); setError(''); }}
+                    className="text-sm text-surface-dark-muted hover:text-gold transition-colors"
+                  >
+                    Forgot your password?
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
+
+          {/* ── FORGOT PASSWORD VIEW ── */}
+          {view === 'forgot' && (
+            <>
+              <button
+                onClick={() => { setView('login'); setError(''); setResetSent(false); }}
+                className="flex items-center gap-1.5 text-surface-dark-muted hover:text-gold text-sm mb-5 transition-colors"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
+              </button>
+              <h2 className="text-lg font-semibold text-surface-dark-foreground mb-2">Reset Password</h2>
+              {resetSent ? (
+                <div className="flex flex-col items-center gap-3 py-6 text-center">
+                  <CheckCircle2 className="h-10 w-10 text-status-complete" />
+                  <p className="text-surface-dark-foreground font-medium">Check your email</p>
+                  <p className="text-surface-dark-muted text-sm">We've sent a password reset link to <strong>{email}</strong>.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="space-y-5">
+                  <p className="text-surface-dark-muted text-sm mb-4">Enter your email address and we'll send you a link to reset your password.</p>
+                  <div className="space-y-2">
+                    <Label className="text-surface-dark-foreground text-sm" htmlFor="reset-email">Email Address</Label>
+                    <Input
+                      id="reset-email"
+                      type="email"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="you@mysupertransport.com"
+                      className="bg-surface-dark border-surface-dark-border text-surface-dark-foreground placeholder:text-surface-dark-muted focus:border-gold focus:ring-gold"
+                      required
                     />
                   </div>
 
