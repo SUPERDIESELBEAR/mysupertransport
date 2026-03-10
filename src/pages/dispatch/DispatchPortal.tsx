@@ -891,6 +891,16 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                         <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
                         {cfg.label}
                       </Badge>
+                      {/* Operator-acknowledged badge — only on truck_down cards */}
+                      {row.dispatch_status === 'truck_down' && ackMap[row.operator_id] && (
+                        <span
+                          className="flex items-center gap-1 bg-status-complete/10 text-status-complete border border-status-complete/30 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                          title={`Acknowledged ${new Date(ackMap[row.operator_id]).toLocaleString()}`}
+                        >
+                          <CheckCheck className="h-3 w-3 shrink-0" />
+                          Acknowledged
+                        </span>
+                      )}
                       <div className="flex items-center gap-2 ml-auto">
                         {row.updated_at && (
                           <span
