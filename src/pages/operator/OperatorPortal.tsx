@@ -600,7 +600,7 @@ export default function OperatorPortal() {
         {/* ── ICA ACTION-REQUIRED BANNER ── */}
         {onboardingStatus.ica_status === 'sent_for_signature' && view !== 'ica' && (
           <div className="bg-[hsl(var(--gold)/0.08)] border border-[hsl(var(--gold)/0.5)] rounded-xl px-4 py-4 animate-fade-in">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex flex-col items-start gap-3">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-[hsl(var(--gold)/0.15)] shrink-0">
                   <FileText className="h-5 w-5 text-gold animate-pulse" />
@@ -616,7 +616,7 @@ export default function OperatorPortal() {
               </div>
               <button
                 onClick={() => setView('ica')}
-                className="shrink-0 flex items-center gap-1.5 bg-gold text-surface-dark text-xs font-bold px-4 py-2 rounded-lg hover:bg-gold-light transition-colors shadow-sm"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gold text-surface-dark text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-gold-light transition-colors shadow-sm"
               >
                 <FileText className="h-3.5 w-3.5" />
                 Review &amp; Sign Now
