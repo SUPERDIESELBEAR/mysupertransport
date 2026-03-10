@@ -53,6 +53,40 @@ export default function ICADocumentView({
   const fullTruck = [data.truck_year, data.truck_make, data.truck_model].filter(Boolean).join(' ');
   const ownerAddr = [data.owner_city, data.owner_state, data.owner_zip].filter(Boolean).join(', ');
 
+  // DPR-aware signature canvas: resize to container width × device pixel ratio
+  const sigWrapRef = useRef<HTMLDivElement>(null);
+  const rescaleCanvas = useCallback(() => {
+    if (!contractorSigRef?.current || !sigWrapRef.current) return;
+    const canvas = contractorSigRef.current.getCanvas();
+    const dpr = window.devicePixelRatio || 1;
+    const w = sigWrapRef.current.offsetWidth;
+    const h = Math.round(w * 0.28); // ~28% aspect — roughly 120px tall at 430px wide
+    if (canvas.width !== w * dpr) {
+      // Save current drawing, resize, restore
+      const data = contractorSigRef.current.toDataURL();
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      const ctx = canvas.getContext('2d');
+      if (ctx) ctx.scale(dpr, dpr);
+      // Restore previous strokes if any
+      if (data !== 'data:,') {
+        const img = new Image();
+        img.onload = () => ctx?.drawImage(img, 0, 0, w, h);
+        img.src = data;
+      }
+    }
+  }, [contractorSigRef]);
+
+  useEffect(() => {
+    if (!contractorSigRef) return;
+    rescaleCanvas();
+    const obs = new ResizeObserver(rescaleCanvas);
+    if (sigWrapRef.current) obs.observe(sigWrapRef.current);
+    return () => obs.disconnect();
+  }, [contractorSigRef, rescaleCanvas]);
+
   return (
     <div className="bg-white text-foreground text-sm font-serif leading-relaxed rounded-xl border border-border overflow-hidden">
       {/* Document header */}
