@@ -403,16 +403,21 @@ export default function ManagementPortal() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-border">
                 {[
-                  { label: 'Dispatched', value: dispatchBreakdown.dispatched, color: 'text-status-complete', bg: 'bg-status-complete/10' },
-                  { label: 'Not Dispatched', value: dispatchBreakdown.not_dispatched, color: 'text-muted-foreground', bg: 'bg-muted/30' },
-                  { label: 'Home', value: dispatchBreakdown.home, color: 'text-gold', bg: 'bg-gold/10' },
-                  { label: 'Truck Down', value: dispatchBreakdown.truck_down, color: dispatchBreakdown.truck_down > 0 ? 'text-destructive' : 'text-muted-foreground', bg: dispatchBreakdown.truck_down > 0 ? 'bg-destructive/10' : 'bg-muted/20' },
+                  { label: 'Dispatched', key: 'dispatched', value: dispatchBreakdown.dispatched, color: 'text-status-complete', bg: 'bg-status-complete/10' },
+                  { label: 'Not Dispatched', key: 'not_dispatched', value: dispatchBreakdown.not_dispatched, color: 'text-muted-foreground', bg: 'bg-muted/30' },
+                  { label: 'Home', key: 'home', value: dispatchBreakdown.home, color: 'text-gold', bg: 'bg-gold/10' },
+                  { label: 'Truck Down', key: 'truck_down', value: dispatchBreakdown.truck_down, color: dispatchBreakdown.truck_down > 0 ? 'text-destructive' : 'text-muted-foreground', bg: dispatchBreakdown.truck_down > 0 ? 'bg-destructive/10' : 'bg-muted/20' },
                 ].map((s) => (
                   <div key={s.label} className={`flex flex-col items-center justify-center py-5 gap-1 ${s.bg} transition-colors duration-300`}>
                     <span className={`text-3xl font-bold tabular-nums transition-all duration-300 ${s.color}`}>{s.value}</span>
                     <span className="text-xs text-muted-foreground font-medium">{s.label}</span>
                     {s.label === 'Truck Down' && s.value > 0 && (
                       <span className="mt-0.5 inline-flex h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
+                    )}
+                    {dispatchLastChanged[s.key] && (
+                      <span className="text-[10px] text-muted-foreground/60 leading-tight mt-0.5 truncate max-w-[90px] text-center" title={`Last changed by ${dispatchLastChanged[s.key]}`}>
+                        {dispatchLastChanged[s.key]}
+                      </span>
                     )}
                   </div>
                 ))}
