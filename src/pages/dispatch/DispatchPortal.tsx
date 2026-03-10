@@ -823,7 +823,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
       )}
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
         {[
           { label: 'Total Active', value: counts.total, icon: <Users className="h-4 w-4 text-gold" />, borderColor: 'border-gold/30', textColor: 'text-gold' },
           { label: 'Dispatched', value: counts.dispatched, icon: <CheckCircle2 className="h-4 w-4 text-status-complete" />, borderColor: 'border-status-complete/30', textColor: 'text-status-complete' },
@@ -831,12 +831,12 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
           { label: 'Truck Down', value: counts.truck_down, icon: <AlertTriangle className="h-4 w-4 text-destructive" />, borderColor: 'border-destructive/30', textColor: 'text-destructive' },
           { label: 'Not Dispatched', value: counts.not_dispatched, icon: <Truck className="h-4 w-4 text-muted-foreground" />, borderColor: 'border-border', textColor: 'text-muted-foreground' },
         ].map(m => (
-          <div key={m.label} className={`bg-white border ${m.borderColor} rounded-xl p-3.5 shadow-sm`}>
-            <div className="flex items-center gap-2.5">
+          <div key={m.label} className={`bg-white border ${m.borderColor} rounded-xl p-3 shadow-sm`}>
+            <div className="flex items-center gap-2">
               {m.icon}
-              <div>
-                <p className={`text-2xl font-bold ${m.textColor}`}>{m.value}</p>
-                <p className="text-[11px] text-muted-foreground leading-tight">{m.label}</p>
+              <div className="min-w-0">
+                <p className={`text-xl font-bold leading-none ${m.textColor}`}>{m.value}</p>
+                <p className="text-[10px] text-muted-foreground leading-tight mt-0.5 truncate">{m.label}</p>
               </div>
             </div>
           </div>
@@ -845,7 +845,9 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
       {/* Filter tabs + search bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <div className="flex gap-1.5 flex-wrap">
+        {/* Tabs — horizontal scroll on mobile */}
+        <div className="w-full sm:w-auto overflow-x-auto pb-1 -mb-1">
+          <div className="flex gap-1.5 min-w-max sm:flex-wrap sm:min-w-0">
           {tabs.map(tab => {
             const isActive = activeTab === tab.key;
             const cfg = tab.key !== 'all' ? STATUS_CONFIG[tab.key as DispatchStatusType] : null;
