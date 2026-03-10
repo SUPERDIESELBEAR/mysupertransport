@@ -12,36 +12,34 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Extract project ref from URL (e.g. https://qgxpkcudwjmacrdcyvhj.supabase.co)
+    const projectRef = supabaseUrl.replace('https://', '').split('.')[0];
 
-    // Use the GoTrue admin settings endpoint (internal to the project)
+    // Use the Supabase Management API with the service role key as the bearer
+    // This works for Lovable Cloud projects
     const response = await fetch(
-      `${supabaseUrl}/auth/v1/admin/users`,
+      `https://api.supabase.com/v1/projects/${projectRef}/config/auth`,
       {
-        method: 'GET',
+        method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${serviceRoleKey}`,
-          'apikey': serviceRoleKey,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          password_hibp_enabled: true,
+        }),
       }
     );
 
-    // The GoTrue config endpoint
-    const configResponse = await fetch(
-      `${supabaseUrl}/auth/v1/settings`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${serviceRoleKey}`,
-          'apikey': serviceRoleKey,
-        },
-      }
-    );
-
-    const configData = await configResponse.json();
+    const responseText = await response.text();
+    let data: unknown;
+    try { data = JSON.parse(responseText); } catch { data = responseText; }
 
     return new Response(JSON.stringify({ 
-      status: configResponse.status,
-      config: configData,
+      status: response.status,
+      ok: response.ok,
+      data,
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
