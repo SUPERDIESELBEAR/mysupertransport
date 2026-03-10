@@ -1418,7 +1418,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                         )
                       }
                       </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
+                      <td className="px-4 py-3 hidden lg:table-cell">
                         {isEditing ? (
                           <Input
                             value={editData.current_load_lane ?? ''}
