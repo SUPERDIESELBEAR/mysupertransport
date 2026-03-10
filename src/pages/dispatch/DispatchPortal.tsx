@@ -1278,6 +1278,12 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
       {/* Table view */}
       {viewMode === 'table' && (
       <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+        {/* Mobile nudge: table view is dense, suggest cards */}
+        <div className="sm:hidden flex items-center gap-2 px-4 py-2.5 bg-gold/8 border-b border-gold/20 text-xs text-foreground/70">
+          <List className="h-3.5 w-3.5 text-gold shrink-0" />
+          <span>Table view is best on wider screens.</span>
+          <button onClick={() => setViewMode('cards')} className="ml-auto text-gold font-semibold hover:underline shrink-0">Switch to Cards</button>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
