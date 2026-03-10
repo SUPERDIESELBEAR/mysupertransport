@@ -883,6 +883,54 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
         </div>
       </div>
 
+      {/* Bulk action bar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <button
+          onClick={() => { setBulkMode(v => !v); setSelectedIds(new Set()); }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+            bulkMode ? 'bg-foreground text-background border-foreground/20' : 'bg-white text-muted-foreground border-border hover:border-muted-foreground/30 hover:text-foreground'
+          }`}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          {bulkMode ? 'Cancel Bulk' : 'Bulk Edit'}
+        </button>
+        {bulkMode && (
+          <>
+            <button
+              onClick={toggleSelectAll}
+              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+            >
+              {selectedIds.size === filteredRows.length ? 'Deselect all' : `Select all (${filteredRows.length})`}
+            </button>
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-2 ml-auto flex-wrap">
+                <span className="text-xs font-medium text-foreground">{selectedIds.size} selected — set to:</span>
+                <Select value={bulkStatus} onValueChange={v => setBulkStatus(v as DispatchStatusType)}>
+                  <SelectTrigger className="h-8 text-xs w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="not_dispatched">Not Dispatched</SelectItem>
+                    <SelectItem value="dispatched">Dispatched</SelectItem>
+                    <SelectItem value="home">Home</SelectItem>
+                    <SelectItem value="truck_down">Truck Down</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  onClick={applyBulkStatus}
+                  disabled={bulkSaving}
+                  className="h-8 text-xs bg-gold text-surface-dark hover:bg-gold-light gap-1.5"
+                >
+                  {bulkSaving ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  Apply
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
       {/* Cards view */}
       {viewMode === 'cards' && (
         <div>
