@@ -156,10 +156,14 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
     setThreads(built);
     setLoadingThreads(false);
 
-    // Auto-select: prefer initialUserId (dispatcher shortcut), then first thread
+    // Auto-select: prefer initialUserId (dispatcher shortcut), then first thread.
+    // On mobile (< md breakpoint) skip auto-select so the thread list stays visible.
     if (built.length > 0 && !selectedUserId) {
+      const isMobile = window.innerWidth < 768;
       const target = initialUserId && built.find(t => t.staffUserId === initialUserId);
-      setSelectedUserId(target ? target.staffUserId : built[0].staffUserId);
+      if (!isMobile || initialUserId) {
+        setSelectedUserId(target ? target.staffUserId : built[0].staffUserId);
+      }
     }
   }, [user?.id, selectedUserId, initialUserId]);
 
