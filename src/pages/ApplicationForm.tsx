@@ -102,6 +102,7 @@ function validateStep(step: number, data: ApplicationFormData): Partial<Record<k
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function ApplicationForm() {
   const [step, setStep] = useState(1);
+  const [slideDir, setSlideDir] = useState<'forward' | 'back'>('forward');
   const [formData, setFormData] = useState<ApplicationFormData>(defaultFormData);
   const [errors, setErrors] = useState<Partial<Record<keyof ApplicationFormData, string>>>({});
   const [saving, setSaving] = useState(false);
@@ -298,6 +299,7 @@ export default function ApplicationForm() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           } else {
             setDuplicateEmailBlocked(false);
+            setSlideDir('forward');
             setStep(s => s + 1);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }
@@ -305,12 +307,14 @@ export default function ApplicationForm() {
       return; // wait for async result
     }
 
+    setSlideDir('forward');
     setStep(s => s + 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const goBack = () => {
     setErrors({});
+    setSlideDir('back');
     setStep(s => s - 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -425,17 +429,24 @@ export default function ApplicationForm() {
           onTouchStart={swipe.onTouchStart}
           onTouchMove={swipe.onTouchMove}
           onTouchEnd={swipe.onTouchEnd}
-          className="bg-white border border-border rounded-2xl p-6 shadow-sm select-none"
+          className="overflow-hidden rounded-2xl shadow-sm"
         >
-          {step === 1 && <Step1Personal data={formData} onChange={handleChange} errors={errors} />}
-          {step === 2 && <Step2CDL data={formData} onChange={handleChange} errors={errors} />}
-          {step === 3 && <Step3Employment data={formData} onChange={handleChange} errors={errors} />}
-          {step === 4 && <Step4Driving data={formData} onChange={handleChange} errors={errors} />}
-          {step === 5 && <Step5Accidents data={formData} onChange={handleChange} errors={errors} />}
-          {step === 6 && <Step6DrugAlcohol data={formData} onChange={handleChange} errors={errors} />}
-          {step === 7 && <Step7Documents data={formData} onChange={handleChange} errors={errors} />}
-          {step === 8 && <Step8Disclosures data={formData} onChange={handleChange} errors={errors} />}
-          {step === 9 && <Step9Signature data={formData} onChange={handleChange} errors={errors} />}
+          <div
+            key={step}
+            className={`bg-white border border-border rounded-2xl p-6 select-none ${
+              slideDir === 'forward' ? 'animate-slide-in-right' : 'animate-slide-in-left'
+            }`}
+          >
+            {step === 1 && <Step1Personal data={formData} onChange={handleChange} errors={errors} />}
+            {step === 2 && <Step2CDL data={formData} onChange={handleChange} errors={errors} />}
+            {step === 3 && <Step3Employment data={formData} onChange={handleChange} errors={errors} />}
+            {step === 4 && <Step4Driving data={formData} onChange={handleChange} errors={errors} />}
+            {step === 5 && <Step5Accidents data={formData} onChange={handleChange} errors={errors} />}
+            {step === 6 && <Step6DrugAlcohol data={formData} onChange={handleChange} errors={errors} />}
+            {step === 7 && <Step7Documents data={formData} onChange={handleChange} errors={errors} />}
+            {step === 8 && <Step8Disclosures data={formData} onChange={handleChange} errors={errors} />}
+            {step === 9 && <Step9Signature data={formData} onChange={handleChange} errors={errors} />}
+          </div>
         </div>
 
         {/* Swipe hint — mobile only, fades after first step */}
