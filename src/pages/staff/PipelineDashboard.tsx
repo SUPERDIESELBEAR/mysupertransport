@@ -428,13 +428,13 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
 
       {/* Metric cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-4">
-        <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-gold/10 flex items-center justify-center">
-              <Users className="h-5 w-5 text-gold" />
+        <div className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
+              <Users className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">{operators.length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-foreground">{operators.length}</p>
               <p className="text-xs text-muted-foreground">Total in Pipeline</p>
             </div>
           </div>
