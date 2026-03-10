@@ -718,11 +718,11 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
   const board = (
     <div className="space-y-5 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      {/* Header — stacks on mobile */}
+      <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+        <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold text-foreground">Dispatch Board</h1>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <p className="text-muted-foreground text-sm">Manage status for all active operators</p>
             <span className={`flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border transition-all duration-500 ${
               liveIndicator
@@ -780,7 +780,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
             className="gap-1.5"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
         </div>
       </div>
