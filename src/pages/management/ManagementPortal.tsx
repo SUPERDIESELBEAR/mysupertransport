@@ -133,6 +133,7 @@ export default function ManagementPortal() {
 
     setDispatchBreakdown(breakdown);
     setDispatchLastChanged(lastChanged);
+    setDispatchLastChangedAt(latestUpdatedAt);
     setDispatchLiveFlash(true);
     setTimeout(() => setDispatchLiveFlash(false), 800);
   }, []);
