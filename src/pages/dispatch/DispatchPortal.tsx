@@ -124,6 +124,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
   const [liveIndicator, setLiveIndicator] = useState(false);
+  const [chimeMuted, setChimeMuted] = useState(() => localStorage.getItem('dispatch_chime_muted') === 'true');
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   // Map of operator_user_id → unread count for per-card badges
