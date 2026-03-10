@@ -146,6 +146,10 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   // Ref mirror of rows so realtime callbacks can read current operator info synchronously
   const rowsRef = useRef<DispatchRow[]>([]);
 
+  // Keep rowsRef in sync so realtime callbacks can access current operator info
+  useEffect(() => { rowsRef.current = rows; }, [rows]);
+
+
   const scrollToCard = useCallback((operatorId: string) => {
     // Switch to cards view if in table mode
     setViewMode('cards');
