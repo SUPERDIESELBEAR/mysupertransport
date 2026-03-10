@@ -848,27 +848,28 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
         {/* Tabs — horizontal scroll on mobile */}
         <div className="w-full sm:w-auto overflow-x-auto pb-1 -mb-1">
           <div className="flex gap-1.5 min-w-max sm:flex-wrap sm:min-w-0">
-          {tabs.map(tab => {
-            const isActive = activeTab === tab.key;
-            const cfg = tab.key !== 'all' ? STATUS_CONFIG[tab.key as DispatchStatusType] : null;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                  isActive
-                    ? (cfg ? cfg.tabActiveClass : 'bg-foreground text-background border-foreground/20')
-                    : 'bg-white text-muted-foreground border-border hover:border-muted-foreground/30 hover:text-foreground'
-                }`}
-              >
-                {cfg && <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />}
-                {tab.label}
-                <span className={`ml-0.5 rounded-full px-1.5 py-0 text-[10px] font-semibold ${
-                  isActive ? 'bg-current/20 opacity-80' : 'bg-muted text-muted-foreground'
-                }`}>{tab.count}</span>
-              </button>
-            );
-          })}
+            {tabs.map(tab => {
+              const isActive = activeTab === tab.key;
+              const cfg = tab.key !== 'all' ? STATUS_CONFIG[tab.key as DispatchStatusType] : null;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                    isActive
+                      ? (cfg ? cfg.tabActiveClass : 'bg-foreground text-background border-foreground/20')
+                      : 'bg-white text-muted-foreground border-border hover:border-muted-foreground/30 hover:text-foreground'
+                  }`}
+                >
+                  {cfg && <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />}
+                  {tab.label}
+                  <span className={`ml-0.5 rounded-full px-1.5 py-0 text-[10px] font-semibold ${
+                    isActive ? 'bg-current/20 opacity-80' : 'bg-muted text-muted-foreground'
+                  }`}>{tab.count}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="relative sm:ml-auto w-full sm:w-56">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
