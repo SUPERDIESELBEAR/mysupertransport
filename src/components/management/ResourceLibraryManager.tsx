@@ -41,8 +41,13 @@ import {
   Upload,
   FileText,
   ExternalLink,
+  History,
+  X,
+  Clock,
+  User,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatDistanceToNow, format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 
 type ResourceCategory = Database['public']['Enums']['resource_category'];
@@ -69,6 +74,32 @@ interface ResourceRow {
   sort_order: number;
   uploaded_at: string;
 }
+
+interface HistoryEntry {
+  id: string;
+  resource_id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  file_name: string | null;
+  is_visible: boolean;
+  changed_by: string | null;
+  changed_by_name: string | null;
+  changed_at: string;
+  change_type: string;
+}
+
+const CHANGE_TYPE_LABEL: Record<string, string> = {
+  create: 'Uploaded',
+  update: 'Edited',
+  visibility: 'Visibility changed',
+};
+
+const CHANGE_TYPE_COLOR: Record<string, string> = {
+  create: 'bg-status-complete/10 text-status-complete border-status-complete/30',
+  update: 'bg-primary/10 text-primary border-primary/30',
+  visibility: 'bg-amber-100 text-amber-700 border-amber-300',
+};
 
 const EMPTY_FORM = {
   title: '',
@@ -97,6 +128,11 @@ export default function ResourceLibraryManager() {
   const [deleteTarget, setDeleteTarget] = useState<ResourceRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // History panel
+  const [historyResource, setHistoryResource] = useState<ResourceRow | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   // ── Load ──────────────────────────────────────────────────────────────────
   const load = async () => {
     setLoading(true);
@@ -120,6 +156,44 @@ export default function ResourceLibraryManager() {
   });
 
   const sorted = [...filtered].sort((a, b) => a.sort_order - b.sort_order);
+
+  // ── History helpers ───────────────────────────────────────────────────────
+  const loadHistory = async (resource: ResourceRow) => {
+    setHistoryResource(resource);
+    setHistoryLoading(true);
+    const { data } = await (supabase as any)
+      .from('resource_history')
+      .select('*')
+      .eq('resource_id', resource.id)
+      .order('changed_at', { ascending: false })
+      .limit(20);
+    setHistory((data as HistoryEntry[]) ?? []);
+    setHistoryLoading(false);
+  };
+
+  const writeHistory = async (resource: ResourceRow, changeType: string, overrides?: Partial<ResourceRow>) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    let name: string | null = null;
+    if (user?.id) {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('user_id', user.id)
+        .single();
+      if (prof) name = `${prof.first_name ?? ''} ${prof.last_name ?? ''}`.trim() || null;
+    }
+    await (supabase as any).from('resource_history').insert({
+      resource_id: resource.id,
+      title: overrides?.title ?? resource.title,
+      description: overrides?.description ?? resource.description,
+      category: overrides?.category ?? resource.category,
+      file_name: overrides?.file_name ?? resource.file_name,
+      is_visible: overrides?.is_visible ?? resource.is_visible,
+      changed_by: user?.id ?? null,
+      changed_by_name: name,
+      change_type: changeType,
+    });
+  };
 
   // ── Open dialog ───────────────────────────────────────────────────────────
   const openCreate = () => {
@@ -186,10 +260,16 @@ export default function ResourceLibraryManager() {
         })
         .eq('id', editing.id);
       if (error) { toast.error('Failed to update resource.'); setSaving(false); return; }
+      await writeHistory(editing, 'update', {
+        title: form.title.trim(),
+        description: form.description.trim() || null,
+        category: form.category,
+        file_name: fileName,
+      });
       toast.success('Resource updated.');
     } else {
       const maxOrder = resources.length ? Math.max(...resources.map(r => r.sort_order)) : -1;
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .from('resource_documents')
         .insert({
           title: form.title.trim(),
@@ -200,8 +280,17 @@ export default function ResourceLibraryManager() {
           is_visible: false,
           sort_order: maxOrder + 1,
           uploaded_by: user?.id ?? null,
-        });
-      if (error) { toast.error('Failed to create resource.'); setSaving(false); return; }
+        })
+        .select('id, title, description, category, file_url, file_name, is_visible, sort_order, uploaded_at')
+        .single();
+      if (error || !inserted) { toast.error('Failed to create resource.'); setSaving(false); return; }
+      await writeHistory(inserted as ResourceRow, 'create', {
+        title: form.title.trim(),
+        description: form.description.trim() || null,
+        category: form.category,
+        file_name: fileName,
+        is_visible: false,
+      });
       toast.success('Resource created (hidden). Toggle visibility to show operators.');
     }
 
@@ -212,13 +301,15 @@ export default function ResourceLibraryManager() {
 
   // ── Toggle visibility ─────────────────────────────────────────────────────
   const toggleVisibility = async (r: ResourceRow) => {
+    const newVal = !r.is_visible;
     const { error } = await supabase
       .from('resource_documents')
-      .update({ is_visible: !r.is_visible })
+      .update({ is_visible: newVal })
       .eq('id', r.id);
     if (error) { toast.error('Failed to update visibility.'); return; }
+    await writeHistory(r, 'visibility', { is_visible: newVal });
     toast.success(r.is_visible ? 'Resource hidden from operators.' : 'Resource now visible to operators.');
-    setResources(prev => prev.map(x => x.id === r.id ? { ...x, is_visible: !x.is_visible } : x));
+    setResources(prev => prev.map(x => x.id === r.id ? { ...x, is_visible: newVal } : x));
   };
 
   // ── Delete ────────────────────────────────────────────────────────────────
@@ -373,6 +464,13 @@ export default function ResourceLibraryManager() {
                   </a>
                 )}
                 <button
+                  onClick={() => loadHistory(r)}
+                  title="View edit history"
+                  className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                >
+                  <History className="h-4 w-4" />
+                </button>
+                <button
                   onClick={() => toggleVisibility(r)}
                   title={r.is_visible ? 'Hide from operators' : 'Show to operators'}
                   className={`p-2 rounded-lg transition-colors ${
@@ -435,58 +533,57 @@ export default function ResourceLibraryManager() {
               <Input
                 value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                placeholder="e.g. ELD Quick Start Guide"
+                placeholder="e.g. ELD Quick-Start Guide"
               />
             </div>
 
             {/* Description */}
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">
-                Description <span className="font-normal text-muted-foreground">(optional)</span>
+                Description <span className="text-muted-foreground font-normal">(optional)</span>
               </label>
               <Textarea
                 value={form.description}
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Brief description shown under the title…"
-                className="min-h-[80px]"
+                placeholder="Brief description of what this document contains…"
+                className="min-h-[72px] resize-none"
               />
             </div>
 
             {/* File upload */}
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">
-                {editing ? 'Replace File' : 'File'}{editing && <span className="font-normal text-muted-foreground"> (leave blank to keep existing)</span>}
+                File {editing && <span className="text-muted-foreground font-normal">(leave empty to keep current)</span>}
               </label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
-              />
               <div
+                className="border-2 border-dashed border-border rounded-xl p-5 text-center cursor-pointer hover:border-gold/40 hover:bg-gold/[0.02] transition-colors"
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-border rounded-lg p-5 text-center cursor-pointer hover:border-gold/40 hover:bg-gold/5 transition-colors"
               >
                 {selectedFile ? (
-                  <div className="flex items-center justify-center gap-2 text-sm text-foreground">
+                  <div className="flex items-center justify-center gap-2 text-sm">
                     <FileText className="h-4 w-4 text-gold" />
-                    <span className="font-medium truncate max-w-[280px]">{selectedFile.name}</span>
-                    <span className="text-muted-foreground text-xs">({(selectedFile.size / 1024).toFixed(0)} KB)</span>
-                  </div>
-                ) : editing?.file_name ? (
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Current: <span className="font-mono">{editing.file_name}</span></p>
-                    <p className="text-xs text-gold font-medium flex items-center justify-center gap-1">
-                      <Upload className="h-3.5 w-3.5" /> Click to replace
-                    </p>
+                    <span className="font-medium text-foreground truncate max-w-[220px]">{selectedFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setSelectedFile(null); }}
+                      className="text-muted-foreground hover:text-destructive ml-1"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 ) : (
-                  <div className="space-y-1">
-                    <Upload className="h-6 w-6 text-muted-foreground mx-auto" />
-                    <p className="text-sm text-muted-foreground">Click to choose a file</p>
-                    <p className="text-xs text-muted-foreground/60">PDF, DOCX, XLSX, images, etc.</p>
+                  <div className="flex flex-col items-center gap-1.5">
+                    <Upload className="h-6 w-6 text-muted-foreground" />
+                    <p className="text-sm font-medium text-foreground">Click to select file</p>
+                    <p className="text-xs text-muted-foreground">PDF, DOC, images accepted</p>
                   </div>
                 )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
+                />
               </div>
             </div>
           </div>
@@ -500,11 +597,106 @@ export default function ResourceLibraryManager() {
               disabled={saving || uploading}
               className="bg-gold hover:bg-gold-light text-surface-dark font-semibold"
             >
-              {uploading ? 'Uploading…' : saving ? 'Saving…' : editing ? 'Save Changes' : 'Upload Resource'}
+              {(saving || uploading) ? 'Saving…' : editing ? 'Save Changes' : 'Upload Resource'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* History Panel */}
+      {historyResource && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-end"
+          onClick={() => setHistoryResource(null)}
+        >
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
+          <div
+            className="relative h-full w-full max-w-md bg-background border-l border-border shadow-2xl flex flex-col animate-fade-in"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-3 bg-muted/20">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <History className="h-4 w-4 text-primary shrink-0" />
+                  <h3 className="font-semibold text-foreground text-sm">Edit History</h3>
+                </div>
+                <p className="text-xs text-muted-foreground line-clamp-1 font-medium">{historyResource.title}</p>
+              </div>
+              <button
+                onClick={() => setHistoryResource(null)}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted transition-colors shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* History list */}
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {historyLoading ? (
+                <div className="flex justify-center py-10">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              ) : history.length === 0 ? (
+                <div className="text-center py-10">
+                  <History className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No history recorded yet.</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">History is tracked from this point forward.</p>
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+                  <div className="space-y-5">
+                    {history.map((entry) => (
+                      <div key={entry.id} className="flex gap-4 relative">
+                        <div className={`h-3.5 w-3.5 rounded-full shrink-0 mt-0.5 border-2 border-background ring-2 ${
+                          entry.change_type === 'create' ? 'bg-status-complete ring-status-complete/40' :
+                          entry.change_type === 'visibility' ? 'bg-amber-500 ring-amber-200' :
+                          'bg-primary ring-primary/40'
+                        }`} />
+                        <div className="flex-1 min-w-0 pb-1">
+                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] px-1.5 py-0 h-4 font-semibold ${CHANGE_TYPE_COLOR[entry.change_type] ?? 'bg-muted text-muted-foreground border-border'}`}
+                            >
+                              {CHANGE_TYPE_LABEL[entry.change_type] ?? entry.change_type}
+                            </Badge>
+                            {entry.change_type === 'visibility' && (
+                              <span className={`text-[10px] font-semibold ${entry.is_visible ? 'text-green-600' : 'text-amber-600'}`}>
+                                → {entry.is_visible ? 'Visible' : 'Hidden'}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {formatDistanceToNow(new Date(entry.changed_at), { addSuffix: true })}
+                            </span>
+                          </div>
+                          {entry.changed_by_name && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1.5">
+                              <User className="h-3 w-3 shrink-0" />
+                              {entry.changed_by_name}
+                            </p>
+                          )}
+                          <div className="bg-muted/40 rounded-lg p-2.5 border border-border/60 space-y-1">
+                            <p className="text-xs font-medium text-foreground">{entry.title}</p>
+                            {entry.file_name && (
+                              <p className="text-[11px] text-muted-foreground/70 font-mono">{entry.file_name}</p>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground/50 mt-1.5">
+                            {format(new Date(entry.changed_at), 'MMM d, yyyy · h:mm a')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
@@ -512,7 +704,7 @@ export default function ResourceLibraryManager() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Resource?</AlertDialogTitle>
             <AlertDialogDescription>
-              "{deleteTarget?.title}" will be permanently removed from the operator resource library.
+              "{deleteTarget?.title}" will be permanently removed from the library.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
