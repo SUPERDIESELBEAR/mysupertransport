@@ -1,5 +1,3 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -12,35 +10,38 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const projectRef = Deno.env.get('SUPABASE_URL')!.replace('https://', '').split('.')[0];
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+    // Use the GoTrue admin settings endpoint (internal to the project)
     const response = await fetch(
-      `https://api.supabase.com/v1/projects/${projectRef}/config/auth`,
+      `${supabaseUrl}/auth/v1/admin/users`,
       {
-        method: 'PATCH',
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${serviceRoleKey}`,
-          'Content-Type': 'application/json',
+          'apikey': serviceRoleKey,
         },
-        body: JSON.stringify({
-          password_hibp_enabled: true,
-        }),
       }
     );
 
-    const data = await response.json();
+    // The GoTrue config endpoint
+    const configResponse = await fetch(
+      `${supabaseUrl}/auth/v1/settings`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${serviceRoleKey}`,
+          'apikey': serviceRoleKey,
+        },
+      }
+    );
 
-    if (!response.ok) {
-      return new Response(JSON.stringify({ error: data }), {
-        status: response.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const configData = await configResponse.json();
 
     return new Response(JSON.stringify({ 
-      success: true, 
-      password_hibp_enabled: data.password_hibp_enabled 
+      status: configResponse.status,
+      config: configData,
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
