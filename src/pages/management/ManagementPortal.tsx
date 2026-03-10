@@ -88,14 +88,47 @@ export default function ManagementPortal() {
   const fetchDispatchBreakdown = useCallback(async () => {
     const { data } = await supabase
       .from('active_dispatch')
-      .select('dispatch_status');
+      .select('dispatch_status, updated_by, updated_at')
+      .order('updated_at', { ascending: false });
     if (!data) return;
+
     const breakdown = { not_dispatched: 0, dispatched: 0, home: 0, truck_down: 0 };
+    // Track the most-recently-updated row per status
+    const latestUpdatedBy: Record<string, string | null> = { not_dispatched: null, dispatched: null, home: null, truck_down: null };
+    const seenStatus = new Set<string>();
+
     for (const row of data) {
-      if (row.dispatch_status in breakdown) breakdown[row.dispatch_status as keyof typeof breakdown]++;
+      const s = row.dispatch_status as keyof typeof breakdown;
+      if (s in breakdown) {
+        breakdown[s]++;
+        if (!seenStatus.has(s)) {
+          latestUpdatedBy[s] = row.updated_by ?? null;
+          seenStatus.add(s);
+        }
+      }
     }
+
+    // Resolve profile names for each unique updated_by uuid
+    const uniqueIds = [...new Set(Object.values(latestUpdatedBy).filter(Boolean))] as string[];
+    const nameMap: Record<string, string> = {};
+    if (uniqueIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name')
+        .in('user_id', uniqueIds);
+      for (const p of profiles ?? []) {
+        const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
+        if (name) nameMap[p.user_id] = name;
+      }
+    }
+
+    const lastChanged: Record<string, string | null> = {};
+    for (const [status, uid] of Object.entries(latestUpdatedBy)) {
+      lastChanged[status] = uid ? (nameMap[uid] ?? null) : null;
+    }
+
     setDispatchBreakdown(breakdown);
-    // flash the live indicator
+    setDispatchLastChanged(lastChanged);
     setDispatchLiveFlash(true);
     setTimeout(() => setDispatchLiveFlash(false), 800);
   }, []);
