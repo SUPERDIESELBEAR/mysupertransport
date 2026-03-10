@@ -105,7 +105,13 @@ interface DispatchPortalProps {
 export default function DispatchPortal({ embedded = false }: DispatchPortalProps) {
   const { toast } = useToast();
   const { session } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  // Desktop push notifications for high-priority events (truck_down, new_message)
+  const { fireNotification } = useDesktopNotifications({
+    onNavigate: (link) => navigate(link),
+  });
   const [prefOpen, setPrefOpen] = useState(false);
   const [activePage, setActivePage] = useState<'dispatch' | 'dispatch-messages' | 'dispatch-notifications'>('dispatch');
   const [rows, setRows] = useState<DispatchRow[]>([]);
