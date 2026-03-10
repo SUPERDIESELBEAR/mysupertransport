@@ -607,6 +607,48 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
   const cancelEdit = () => { setEditRow(null); setEditData({}); };
 
+  // ── Bulk status update ────────────────────────────────────────────────────
+  const applyBulkStatus = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkSaving(true);
+    const targets = rows.filter(r => selectedIds.has(r.operator_id));
+    await Promise.all(targets.map(row => {
+      const payload = {
+        operator_id: row.operator_id,
+        dispatch_status: bulkStatus,
+        current_load_lane: row.current_load_lane ?? null,
+        eta_redispatch: row.eta_redispatch ?? null,
+        status_notes: row.status_notes ?? null,
+        updated_at: new Date().toISOString(),
+        updated_by: session?.user?.id ?? null,
+      };
+      if (row.dispatch_id) {
+        return supabase.from('active_dispatch').update(payload).eq('id', row.dispatch_id);
+      } else {
+        return supabase.from('active_dispatch').insert(payload);
+      }
+    }));
+    setBulkSaving(false);
+    setSelectedIds(new Set());
+    setBulkMode(false);
+    toast({ title: `${targets.length} operator${targets.length !== 1 ? 's' : ''} updated`, description: `Status set to ${STATUS_CONFIG[bulkStatus].label}.` });
+    fetchDispatch(true);
+  };
+
+  const toggleSelect = (id: string) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredRows.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredRows.map(r => r.operator_id)));
+    }
+  };
+
   const saveEdit = async (row: DispatchRow) => {
     setSaving(true);
     const newStatus = editData.dispatch_status ?? 'not_dispatched';
