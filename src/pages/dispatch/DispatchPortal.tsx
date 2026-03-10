@@ -754,6 +754,8 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                     className={`bg-white border-2 rounded-2xl shadow-sm overflow-hidden transition-all duration-300 ${
                       highlightedCard === row.operator_id
                         ? 'border-destructive ring-4 ring-destructive/30 scale-[1.01]'
+                        : flashedCards.has(row.operator_id)
+                        ? 'ring-2 ring-primary/60 border-primary/50 scale-[1.005]'
                         : row.dispatch_status === 'truck_down'
                         ? 'border-destructive/40'
                         : row.dispatch_status === 'dispatched'
