@@ -739,6 +739,45 @@ export default function OperatorPortal() {
         {/* ── NOTIFICATIONS VIEW ── */}
         {view === 'notifications' && <NotificationHistory />}
       </div>
+
+      {/* ── Sticky bottom nav (mobile only) ────────────────────────────── */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-dark border-t border-surface-dark-border">
+        <div className="flex items-stretch h-16">
+          {mobileNavItems.map((item) => {
+            const isActive = view === item.view;
+            const badge = 'badge' in item ? (item.badge as number | undefined) : undefined;
+            return (
+              <button
+                key={item.view}
+                onClick={() => { setView(item.view); setMobileMenuOpen(false); }}
+                className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors min-w-0 px-1
+                  ${isActive ? 'text-gold' : 'text-surface-dark-muted hover:text-surface-dark-foreground'}`}
+              >
+                {/* Active indicator bar */}
+                {isActive && (
+                  <span className="absolute top-0 inset-x-2 h-0.5 bg-gold rounded-b-full" />
+                )}
+                {/* Icon with badge */}
+                <span className="relative">
+                  {item.icon}
+                  {badge != null && badge > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                      {badge > 99 ? '99+' : badge}
+                    </span>
+                  )}
+                  {/* ICA action-required dot */}
+                  {item.view === 'ica' && onboardingStatus.ica_status === 'sent_for_signature' && (
+                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-gold border-2 border-surface-dark" />
+                  )}
+                </span>
+                <span className="truncate w-full text-center leading-tight">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        {/* Safe-area spacer for iOS home indicator */}
+        <div className="h-safe-bottom bg-surface-dark" />
+      </nav>
     </div>
     </>
   );
