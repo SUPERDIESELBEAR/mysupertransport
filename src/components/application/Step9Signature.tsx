@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,8 +13,39 @@ interface Props {
 
 export default function Step9Signature({ data, onChange, errors }: Props) {
   const sigRef = useRef<SignatureCanvas>(null);
+  const sigWrapRef = useRef<HTMLDivElement>(null);
   const [savingSig, setSavingSig] = useState(false);
   const [sigSaved, setSigSaved] = useState(!!data.signature_image_url);
+
+  // ── DPR-aware canvas sizing ──────────────────────────────────────────────
+  useEffect(() => {
+    const wrap = sigWrapRef.current;
+    if (!wrap) return;
+
+    const resize = () => {
+      const canvas = wrap.querySelector('canvas');
+      if (!canvas) return;
+      const dpr = window.devicePixelRatio || 1;
+      const w = wrap.offsetWidth;
+      const h = 160;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      const ctx = canvas.getContext('2d');
+      if (ctx) ctx.scale(dpr, dpr);
+      sigRef.current?.clear();
+      onChange('signature_image_url', '');
+      setSigSaved(false);
+    };
+
+    const ro = new ResizeObserver(resize);
+    ro.observe(wrap);
+    // Initial sizing after mount
+    setTimeout(resize, 50);
+    return () => ro.disconnect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const clearSig = () => {
     sigRef.current?.clear();
@@ -91,25 +122,29 @@ export default function Step9Signature({ data, onChange, errors }: Props) {
       {/* Signature Pad */}
       <FormField label="Signature" required error={errors.signature_image_url}>
         <div className={`border-2 rounded-xl overflow-hidden bg-white ${errors.signature_image_url ? 'border-destructive' : 'border-border'}`}>
-          <div className="bg-secondary border-b border-border px-4 py-2 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Draw your signature below</span>
-            <div className="flex items-center gap-2">
-              {sigSaved && <span className="text-xs text-green-600 font-medium">Signature saved ✓</span>}
+          <div className="bg-secondary border-b border-border px-3 py-2 flex items-center justify-between gap-2 min-w-0">
+            <span className="text-xs text-muted-foreground truncate">Draw your signature below</span>
+            <div className="flex items-center gap-2 shrink-0">
+              {sigSaved && <span className="text-xs text-green-600 font-medium whitespace-nowrap">Saved ✓</span>}
               <button
                 type="button"
                 onClick={clearSig}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded hover:bg-border"
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded hover:bg-border whitespace-nowrap"
               >
                 <RotateCcw className="h-3 w-3" /> Clear
               </button>
             </div>
           </div>
-          <SignatureCanvas
-            ref={sigRef}
-            penColor="black"
-            canvasProps={{ className: 'w-full', height: 160, style: { width: '100%', touchAction: 'none' } }}
-            onEnd={saveSig}
-          />
+          <div ref={sigWrapRef} className="w-full touch-none">
+            <SignatureCanvas
+              ref={sigRef}
+              penColor="black"
+              canvasProps={{
+                style: { display: 'block', width: '100%', height: '160px', touchAction: 'none' },
+              }}
+              onEnd={saveSig}
+            />
+          </div>
         </div>
         {savingSig && <p className="text-xs text-muted-foreground mt-1">Saving signature…</p>}
       </FormField>
