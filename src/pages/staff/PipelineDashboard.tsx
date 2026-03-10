@@ -104,6 +104,11 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
   const [dispatchFilter, setDispatchFilter] = useState<'all' | DispatchStatus>(initialDispatchFilter ?? 'all');
   const [progressFilter, setProgressFilter] = useState<'all' | 'low' | 'mid' | 'high'>('all');
 
+  // Sync when the parent changes the initial filter (e.g. banner → View Pipeline)
+  useEffect(() => {
+    if (initialDispatchFilter) setDispatchFilter(initialDispatchFilter);
+  }, [initialDispatchFilter]);
+
   // Sort state
   type SortKey = 'name' | 'stage' | 'coordinator' | 'progress';
   type SortDir = 'asc' | 'desc';
