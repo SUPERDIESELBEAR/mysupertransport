@@ -165,7 +165,16 @@ export default function OperatorPortal() {
         table: 'active_dispatch',
         filter: `operator_id=eq.${operatorId}`,
       }, (payload: any) => {
-        setDispatchStatus(payload.new?.dispatch_status ?? null);
+        const newStatus = payload.new?.dispatch_status ?? null;
+        const newUpdatedAt = payload.new?.updated_at ?? null;
+        setDispatchStatus(newStatus);
+        setDispatchUpdatedAt(newUpdatedAt);
+        if (newStatus === 'truck_down' && newUpdatedAt && operatorId) {
+          const ackKey = `truck_down_ack_${operatorId}_${newUpdatedAt}`;
+          setTruckDownAcked(localStorage.getItem(ackKey) === 'true');
+        } else {
+          setTruckDownAcked(false);
+        }
         fetchDispatcherInfo(payload.new?.assigned_dispatcher ?? null);
       })
       .subscribe();
