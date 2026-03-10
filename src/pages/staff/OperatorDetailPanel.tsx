@@ -178,7 +178,22 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  const fetchDispatchHistory = async () => {
+  // Helper: resolve an array of user UUIDs → { [userId]: displayName }
+  const resolveStaffNames = async (userIds: string[]): Promise<Record<string, string>> => {
+    const unique = [...new Set(userIds.filter(Boolean))];
+    if (unique.length === 0) return {};
+    const { data } = await supabase
+      .from('profiles')
+      .select('user_id, first_name, last_name')
+      .in('user_id', unique);
+    const map: Record<string, string> = {};
+    (data ?? []).forEach((p: any) => {
+      map[p.user_id] = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Staff';
+    });
+    return map;
+  };
+
+  const fetchDispatchHistory = async (reset = true) => {
     const { data: dispatch } = await supabase
       .from('active_dispatch')
       .select('dispatch_status')
@@ -186,14 +201,46 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       .maybeSingle();
     setCurrentDispatchStatus((dispatch as any)?.dispatch_status ?? null);
 
+    // Get total count for "load more"
+    const { count } = await supabase
+      .from('dispatch_status_history' as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('operator_id', operatorId);
+    setDispatchHistoryTotal(count ?? 0);
+
     const { data } = await supabase
       .from('dispatch_status_history' as any)
-      .select('id, dispatch_status, current_load_lane, status_notes, changed_at')
+      .select('id, dispatch_status, current_load_lane, status_notes, changed_at, changed_by')
       .eq('operator_id', operatorId)
       .order('changed_at', { ascending: false })
-      .limit(10);
-    setDispatchHistory((data as unknown as DispatchHistoryEntry[]) ?? []);
+      .limit(HISTORY_PAGE_SIZE);
+
+    const rows = (data as unknown as DispatchHistoryEntry[]) ?? [];
+    const nameMap = await resolveStaffNames(rows.map(r => r.changed_by).filter(Boolean) as string[]);
+    const enriched = rows.map(r => ({ ...r, changed_by_name: r.changed_by ? nameMap[r.changed_by] ?? null : null }));
+    if (reset) {
+      setDispatchHistory(enriched);
+    } else {
+      setDispatchHistory(enriched);
+    }
   };
+
+  const loadMoreHistory = async () => {
+    setLoadingMoreHistory(true);
+    const { data } = await supabase
+      .from('dispatch_status_history' as any)
+      .select('id, dispatch_status, current_load_lane, status_notes, changed_at, changed_by')
+      .eq('operator_id', operatorId)
+      .order('changed_at', { ascending: false })
+      .range(dispatchHistory.length, dispatchHistory.length + HISTORY_PAGE_SIZE - 1);
+    const rows = (data as unknown as DispatchHistoryEntry[]) ?? [];
+    const nameMap = await resolveStaffNames(rows.map(r => r.changed_by).filter(Boolean) as string[]);
+    const enriched = rows.map(r => ({ ...r, changed_by_name: r.changed_by ? nameMap[r.changed_by] ?? null : null }));
+    setDispatchHistory(prev => [...prev, ...enriched]);
+    setLoadingMoreHistory(false);
+  };
+
+
 
   const fetchOperatorDetail = async () => {
     setLoading(true);
