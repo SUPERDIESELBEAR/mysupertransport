@@ -704,7 +704,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-4xl">
+    <div className="space-y-6 animate-fade-in max-w-4xl w-full">
 
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
       {(() => {
@@ -775,7 +775,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   />
                 </div>
                 <TooltipProvider delayDuration={150}>
-                  <div className="flex items-center gap-1 shrink-0">
+                <div className="flex flex-wrap items-center gap-1 shrink-0">
                     {stages.map((s, i) => (
                       <Tooltip key={s.key}>
                         <TooltipTrigger asChild>
@@ -864,23 +864,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         );
       })()}
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => guardedNavigate(onBack)} className="gap-1.5 text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> Pipeline
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <Button variant="ghost" size="sm" onClick={() => guardedNavigate(onBack)} className="gap-1.5 text-muted-foreground hover:text-foreground shrink-0">
+            <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Pipeline</span>
           </Button>
-          <div>
-            <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-              {operatorName}
-              {isAlert && <AlertTriangle className="h-4 w-4 text-destructive" />}
-              {status.fully_onboarded && <CheckCircle2 className="h-4 w-4 text-status-complete" />}
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-foreground flex items-center gap-2 flex-wrap">
+              <span className="truncate">{operatorName}</span>
+              {isAlert && <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />}
+              {status.fully_onboarded && <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />}
             </h1>
-            <p className="text-sm text-muted-foreground">{operatorEmail}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">{operatorEmail}</p>
           </div>
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button onClick={handleSave} disabled={saving} className="bg-gold text-surface-dark font-semibold hover:bg-gold-light gap-2">
+            <Button onClick={handleSave} disabled={saving} className="bg-gold text-surface-dark font-semibold hover:bg-gold-light gap-2 shrink-0">
               <Save className="h-4 w-4" />
               {saving ? 'Saving…' : 'Save Changes'}
             </Button>
@@ -931,7 +931,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 }}
               />
             </div>
-            <div className="grid grid-cols-6 gap-1">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1">
               {stages.map((s, i) => (
                 <button
                   key={s.label}

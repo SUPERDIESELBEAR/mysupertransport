@@ -419,55 +419,55 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
   });
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Onboarding Pipeline</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Onboarding Pipeline</h1>
         <p className="text-muted-foreground text-sm mt-1">Track all operators through the onboarding process</p>
       </div>
 
       {/* Metric cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-gold/10 flex items-center justify-center">
-              <Users className="h-5 w-5 text-gold" />
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-4">
+        <div className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
+              <Users className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">{operators.length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-foreground">{operators.length}</p>
               <p className="text-xs text-muted-foreground">Total in Pipeline</p>
             </div>
           </div>
         </div>
-        <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-status-complete/10 flex items-center justify-center">
-              <CheckCircle2 className="h-5 w-5 text-status-complete" />
+        <div className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-status-complete/10 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-status-complete" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">{operators.filter(o => o.fully_onboarded).length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-foreground">{operators.filter(o => o.fully_onboarded).length}</p>
               <p className="text-xs text-muted-foreground">Fully Onboarded</p>
             </div>
           </div>
         </div>
-        <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-status-progress/10 flex items-center justify-center">
-              <Clock className="h-5 w-5 text-status-progress" />
+        <div className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-status-progress/10 flex items-center justify-center shrink-0">
+              <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-status-progress" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">{operators.filter(o => !o.fully_onboarded).length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-foreground">{operators.filter(o => !o.fully_onboarded).length}</p>
               <p className="text-xs text-muted-foreground">In Progress</p>
             </div>
           </div>
         </div>
-        <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
+        <div className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">{alertCount}</p>
+              <p className="text-xl sm:text-2xl font-bold text-foreground">{alertCount}</p>
               <p className="text-xs text-muted-foreground">Alerts / Denied</p>
             </div>
           </div>
@@ -479,7 +479,7 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
           return (
             <button
               onClick={() => setDispatchFilter(isActive ? 'all' : 'truck_down')}
-              className={`rounded-xl p-4 shadow-sm border text-left transition-all ${
+              className={`rounded-xl p-3 sm:p-4 shadow-sm border text-left transition-all ${
                 isActive
                   ? 'bg-destructive border-destructive ring-2 ring-destructive/30'
                   : truckDownCount > 0
@@ -487,14 +487,14 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                     : 'bg-white border-border hover:border-foreground/20'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center shrink-0 ${
                   isActive ? 'bg-destructive-foreground/20' : 'bg-destructive/10'
                 }`}>
-                  <Truck className={`h-5 w-5 ${isActive ? 'text-destructive-foreground' : 'text-destructive'}`} />
+                  <Truck className={`h-4 w-4 sm:h-5 sm:w-5 ${isActive ? 'text-destructive-foreground' : 'text-destructive'}`} />
                 </div>
                 <div>
-                  <p className={`text-2xl font-bold ${isActive ? 'text-destructive-foreground' : truckDownCount > 0 ? 'text-destructive' : 'text-foreground'}`}>
+                  <p className={`text-xl sm:text-2xl font-bold ${isActive ? 'text-destructive-foreground' : truckDownCount > 0 ? 'text-destructive' : 'text-foreground'}`}>
                     {truckDownCount}
                   </p>
                   <p className={`text-xs ${isActive ? 'text-destructive-foreground/80' : 'text-muted-foreground'}`}>
@@ -562,8 +562,8 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
 
       {/* Search + filter toolbar */}
       <div className="space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name or phone…"
@@ -581,29 +581,31 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
             )}
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowFilters(v => !v)}
-            className={`gap-2 ${showFilters || activeFilterCount > 0 ? 'border-gold text-gold bg-gold/5' : ''}`}
-          >
-            <Filter className="h-4 w-4" />
-            Filters
-            {activeFilterCount > 0 && (
-              <span className="ml-0.5 h-4 w-4 rounded-full bg-gold text-[10px] font-bold text-white flex items-center justify-center leading-none">
-                {activeFilterCount}
-              </span>
-            )}
-          </Button>
-
-          {(activeFilterCount > 0 || search) && (
-            <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground hover:text-foreground gap-1">
-              <X className="h-3 w-3" />
-              Clear all
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(v => !v)}
+              className={`gap-2 ${showFilters || activeFilterCount > 0 ? 'border-gold text-gold bg-gold/5' : ''}`}
+            >
+              <Filter className="h-4 w-4" />
+              <span className="hidden sm:inline">Filters</span>
+              {activeFilterCount > 0 && (
+                <span className="h-4 w-4 rounded-full bg-gold text-[10px] font-bold text-white flex items-center justify-center leading-none">
+                  {activeFilterCount}
+                </span>
+              )}
             </Button>
-          )}
 
-          <p className="text-sm text-muted-foreground ml-auto">
+            {(activeFilterCount > 0 || search) && (
+              <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground hover:text-foreground gap-1">
+                <X className="h-3 w-3" />
+                <span className="hidden sm:inline">Clear all</span>
+              </Button>
+            )}
+          </div>
+
+          <p className="text-xs sm:text-sm text-muted-foreground w-full sm:w-auto sm:ml-auto">
             {filtered.length} of {operators.length} operators
           </p>
         </div>
