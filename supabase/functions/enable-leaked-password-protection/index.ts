@@ -11,19 +11,17 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    // Extract project ref from URL (e.g. https://qgxpkcudwjmacrdcyvhj.supabase.co)
+    const pat = Deno.env.get('MGMT_API_ACCESS_TOKEN')!;
+
+    // Extract project ref from URL
     const projectRef = supabaseUrl.replace('https://', '').split('.')[0];
 
-    // Use the Supabase Management API with the service role key as the bearer
-    // This works for Lovable Cloud projects
     const response = await fetch(
       `https://api.supabase.com/v1/projects/${projectRef}/config/auth`,
       {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${serviceRoleKey}`,
+          'Authorization': `Bearer ${pat}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
