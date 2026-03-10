@@ -57,6 +57,7 @@ export default function ManagementPortal() {
   const [selectedApp, setSelectedApp] = useState<FullApplication | null>(null);
   const [metrics, setMetrics] = useState({ pending: 0, onboarding: 0, active: 0, alerts: 0 });
   const [dispatchBreakdown, setDispatchBreakdown] = useState({ not_dispatched: 0, dispatched: 0, home: 0, truck_down: 0 });
+  const [dispatchLastChanged, setDispatchLastChanged] = useState<Record<string, string | null>>({ not_dispatched: null, dispatched: null, home: null, truck_down: null });
   const [truckDownCount, setTruckDownCount] = useState(0);
   const [dispatchLiveFlash, setDispatchLiveFlash] = useState(false);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
@@ -87,14 +88,47 @@ export default function ManagementPortal() {
   const fetchDispatchBreakdown = useCallback(async () => {
     const { data } = await supabase
       .from('active_dispatch')
-      .select('dispatch_status');
+      .select('dispatch_status, updated_by, updated_at')
+      .order('updated_at', { ascending: false });
     if (!data) return;
+
     const breakdown = { not_dispatched: 0, dispatched: 0, home: 0, truck_down: 0 };
+    // Track the most-recently-updated row per status
+    const latestUpdatedBy: Record<string, string | null> = { not_dispatched: null, dispatched: null, home: null, truck_down: null };
+    const seenStatus = new Set<string>();
+
     for (const row of data) {
-      if (row.dispatch_status in breakdown) breakdown[row.dispatch_status as keyof typeof breakdown]++;
+      const s = row.dispatch_status as keyof typeof breakdown;
+      if (s in breakdown) {
+        breakdown[s]++;
+        if (!seenStatus.has(s)) {
+          latestUpdatedBy[s] = row.updated_by ?? null;
+          seenStatus.add(s);
+        }
+      }
     }
+
+    // Resolve profile names for each unique updated_by uuid
+    const uniqueIds = [...new Set(Object.values(latestUpdatedBy).filter(Boolean))] as string[];
+    const nameMap: Record<string, string> = {};
+    if (uniqueIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name')
+        .in('user_id', uniqueIds);
+      for (const p of profiles ?? []) {
+        const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
+        if (name) nameMap[p.user_id] = name;
+      }
+    }
+
+    const lastChanged: Record<string, string | null> = {};
+    for (const [status, uid] of Object.entries(latestUpdatedBy)) {
+      lastChanged[status] = uid ? (nameMap[uid] ?? null) : null;
+    }
+
     setDispatchBreakdown(breakdown);
-    // flash the live indicator
+    setDispatchLastChanged(lastChanged);
     setDispatchLiveFlash(true);
     setTimeout(() => setDispatchLiveFlash(false), 800);
   }, []);
@@ -369,16 +403,21 @@ export default function ManagementPortal() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-border">
                 {[
-                  { label: 'Dispatched', value: dispatchBreakdown.dispatched, color: 'text-status-complete', bg: 'bg-status-complete/10' },
-                  { label: 'Not Dispatched', value: dispatchBreakdown.not_dispatched, color: 'text-muted-foreground', bg: 'bg-muted/30' },
-                  { label: 'Home', value: dispatchBreakdown.home, color: 'text-gold', bg: 'bg-gold/10' },
-                  { label: 'Truck Down', value: dispatchBreakdown.truck_down, color: dispatchBreakdown.truck_down > 0 ? 'text-destructive' : 'text-muted-foreground', bg: dispatchBreakdown.truck_down > 0 ? 'bg-destructive/10' : 'bg-muted/20' },
+                  { label: 'Dispatched', key: 'dispatched', value: dispatchBreakdown.dispatched, color: 'text-status-complete', bg: 'bg-status-complete/10' },
+                  { label: 'Not Dispatched', key: 'not_dispatched', value: dispatchBreakdown.not_dispatched, color: 'text-muted-foreground', bg: 'bg-muted/30' },
+                  { label: 'Home', key: 'home', value: dispatchBreakdown.home, color: 'text-gold', bg: 'bg-gold/10' },
+                  { label: 'Truck Down', key: 'truck_down', value: dispatchBreakdown.truck_down, color: dispatchBreakdown.truck_down > 0 ? 'text-destructive' : 'text-muted-foreground', bg: dispatchBreakdown.truck_down > 0 ? 'bg-destructive/10' : 'bg-muted/20' },
                 ].map((s) => (
                   <div key={s.label} className={`flex flex-col items-center justify-center py-5 gap-1 ${s.bg} transition-colors duration-300`}>
                     <span className={`text-3xl font-bold tabular-nums transition-all duration-300 ${s.color}`}>{s.value}</span>
                     <span className="text-xs text-muted-foreground font-medium">{s.label}</span>
                     {s.label === 'Truck Down' && s.value > 0 && (
                       <span className="mt-0.5 inline-flex h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
+                    )}
+                    {dispatchLastChanged[s.key] && (
+                      <span className="text-[10px] text-muted-foreground/60 leading-tight mt-0.5 truncate max-w-[90px] text-center" title={`Last changed by ${dispatchLastChanged[s.key]}`}>
+                        {dispatchLastChanged[s.key]}
+                      </span>
                     )}
                   </div>
                 ))}
