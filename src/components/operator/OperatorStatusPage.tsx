@@ -358,7 +358,7 @@ export default function OperatorStatusPage({
       )}
 
       {/* Quick-stats row */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2">
         {[
           {
             label: 'Completed',
@@ -382,10 +382,10 @@ export default function OperatorStatusPage({
             icon: <Circle className="h-4 w-4 text-muted-foreground/50" />,
           },
         ].map(stat => (
-          <div key={stat.label} className={`rounded-xl border p-3 text-center ${stat.bg}`}>
+          <div key={stat.label} className={`rounded-xl border p-2.5 text-center ${stat.bg}`}>
             <div className="flex justify-center mb-1">{stat.icon}</div>
-            <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
-            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide mt-0.5">{stat.label}</p>
+            <p className={`text-lg font-bold ${stat.color}`}>{stat.value}</p>
+            <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wide mt-0.5 leading-tight">{stat.label}</p>
           </div>
         ))}
       </div>
