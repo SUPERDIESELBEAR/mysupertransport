@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { playTruckDownChime } from '@/lib/chime';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import MessagesView from '@/components/staff/MessagesView';
@@ -351,6 +352,12 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
           // Flash the updated card so the change is visually obvious
           flashCard(operatorId);
+
+          // Play chime only when status transitions TO truck_down from something else
+          const oldStatus = (payload.old as any)?.dispatch_status;
+          if (newRow?.dispatch_status === 'truck_down' && oldStatus !== 'truck_down') {
+            playTruckDownChime();
+          }
 
           // Refresh history for this operator if it's expanded
           setExpandedHistory(prev => {
