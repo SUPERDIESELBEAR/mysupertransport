@@ -88,6 +88,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
   const HISTORY_PAGE_SIZE = 10;
   const [currentDispatchStatus, setCurrentDispatchStatus] = useState<string | null>(null);
+  const [historyFilter, setHistoryFilter] = useState<string>('all');
   type DocFileRow = { id: string; file_name: string | null; file_url: string | null; uploaded_at: string };
   const [docFiles, setDocFiles] = useState<Record<string, DocFileRow[]>>({});
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
