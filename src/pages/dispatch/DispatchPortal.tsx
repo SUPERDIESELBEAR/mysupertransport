@@ -286,6 +286,18 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
     }
   };
 
+  const flashCard = useCallback((operatorId: string) => {
+    if (flashTimers.current[operatorId]) clearTimeout(flashTimers.current[operatorId]);
+    setFlashedCards(prev => new Set(prev).add(operatorId));
+    flashTimers.current[operatorId] = setTimeout(() => {
+      setFlashedCards(prev => {
+        const next = new Set(prev);
+        next.delete(operatorId);
+        return next;
+      });
+    }, 2500);
+  }, []);
+
   useEffect(() => {
     fetchDispatch();
 
@@ -294,11 +306,57 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'active_dispatch' },
-        () => {
+        (payload: any) => {
+          // Flash the live indicator
           setLiveIndicator(true);
           if (liveTimerRef.current) clearTimeout(liveTimerRef.current);
           liveTimerRef.current = setTimeout(() => setLiveIndicator(false), 2000);
-          fetchDispatch(true);
+
+          const newRow = payload.new as Partial<DispatchRow> | null;
+          const operatorId = newRow?.operator_id ?? (payload.old as any)?.operator_id;
+
+          if (!operatorId) {
+            // Fallback: full refresh if we can't identify the operator
+            fetchDispatch(true);
+            return;
+          }
+
+          // Surgical in-place update — no full re-fetch, no flicker
+          setRows(prev => {
+            const idx = prev.findIndex(r => r.operator_id === operatorId);
+            if (idx === -1) {
+              // New operator became fully_onboarded or was added — do a silent refresh
+              fetchDispatch(true);
+              return prev;
+            }
+
+            const updated = { ...prev[idx] };
+            if (newRow?.dispatch_status) updated.dispatch_status = newRow.dispatch_status as DispatchStatusType;
+            if ('current_load_lane' in (newRow ?? {})) updated.current_load_lane = newRow!.current_load_lane ?? null;
+            if ('eta_redispatch' in (newRow ?? {})) updated.eta_redispatch = newRow!.eta_redispatch ?? null;
+            if ('status_notes' in (newRow ?? {})) updated.status_notes = newRow!.status_notes ?? null;
+            if (newRow?.updated_at) updated.updated_at = newRow.updated_at as string;
+            if (newRow?.assigned_dispatcher !== undefined) updated.assigned_dispatcher = newRow.assigned_dispatcher ?? null;
+
+            const next = [...prev];
+            next[idx] = updated;
+
+            // Re-sort by priority: truck_down → not_dispatched → home → dispatched
+            const order: Record<DispatchStatusType, number> = {
+              truck_down: 0, not_dispatched: 1, home: 2, dispatched: 3,
+            };
+            next.sort((a, b) => order[a.dispatch_status] - order[b.dispatch_status]);
+            return next;
+          });
+
+          // Flash the updated card so the change is visually obvious
+          flashCard(operatorId);
+
+          // Refresh history for this operator if it's expanded
+          setExpandedHistory(prev => {
+            if (prev.has(operatorId)) fetchHistoryForOperators([operatorId]);
+            return prev;
+          });
         }
       )
       .subscribe();
@@ -306,8 +364,9 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
     return () => {
       supabase.removeChannel(channel);
       if (liveTimerRef.current) clearTimeout(liveTimerRef.current);
+      Object.values(flashTimers.current).forEach(clearTimeout);
     };
-  }, []);
+  }, [flashCard]);
 
   const fetchDispatch = async (silent = false) => {
     if (!silent) setLoading(true);
