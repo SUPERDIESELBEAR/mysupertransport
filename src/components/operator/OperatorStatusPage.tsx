@@ -285,17 +285,17 @@ export default function OperatorStatusPage({
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
               <div>
                 <p className="text-surface-dark-muted text-xs font-medium uppercase tracking-widest mb-1">Overall Progress</p>
                 <p className="text-4xl font-bold text-gold leading-none">{progressPct}%</p>
               </div>
               <div className="text-right">
-                <div className="flex gap-2 justify-end mb-1">
+                <div className="flex gap-1.5 justify-end mb-1 flex-wrap">
                   {stages.map(s => (
                     <div
                       key={s.number}
-                      className={`h-2 w-6 rounded-full transition-all ${
+                      className={`h-2 w-5 rounded-full transition-all ${
                         s.status === 'complete'
                           ? 'bg-status-complete'
                           : s.status === 'action_required'
