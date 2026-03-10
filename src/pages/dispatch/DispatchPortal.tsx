@@ -822,16 +822,16 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
         </div>
       )}
 
-      {/* KPI cards */}
+      {/* KPI cards — 2-col on mobile (5 items → 2+2+1 centred last row), 3-col sm, 5-col lg */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
         {[
           { label: 'Total Active', value: counts.total, icon: <Users className="h-4 w-4 text-gold" />, borderColor: 'border-gold/30', textColor: 'text-gold' },
           { label: 'Dispatched', value: counts.dispatched, icon: <CheckCircle2 className="h-4 w-4 text-status-complete" />, borderColor: 'border-status-complete/30', textColor: 'text-status-complete' },
           { label: 'Home', value: counts.home, icon: <Home className="h-4 w-4 text-status-progress" />, borderColor: 'border-status-progress/30', textColor: 'text-status-progress' },
           { label: 'Truck Down', value: counts.truck_down, icon: <AlertTriangle className="h-4 w-4 text-destructive" />, borderColor: 'border-destructive/30', textColor: 'text-destructive' },
-          { label: 'Not Dispatched', value: counts.not_dispatched, icon: <Truck className="h-4 w-4 text-muted-foreground" />, borderColor: 'border-border', textColor: 'text-muted-foreground' },
+          { label: 'Not Dispatched', value: counts.not_dispatched, icon: <Truck className="h-4 w-4 text-muted-foreground" />, borderColor: 'border-border', textColor: 'text-muted-foreground', spanFull: true },
         ].map(m => (
-          <div key={m.label} className={`bg-white border ${m.borderColor} rounded-xl p-3 shadow-sm`}>
+          <div key={m.label} className={`bg-white border ${m.borderColor} rounded-xl p-3 shadow-sm ${'spanFull' in m && m.spanFull ? 'col-span-2 sm:col-span-1' : ''}`}>
             <div className="flex items-center gap-2">
               {m.icon}
               <div className="min-w-0">
