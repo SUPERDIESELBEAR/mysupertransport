@@ -1480,18 +1480,32 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
                 <div className="space-y-4">
                   {filteredHistory.map((entry, idx) => {
+                    const isAck = entry.status_notes === 'Operator acknowledged truck down alert.';
                     const cfg = DISPATCH_STATUS_CONFIG[entry.dispatch_status] ?? DISPATCH_STATUS_CONFIG['not_dispatched'];
                     const isLatestOverall = historyFilter === 'all' ? idx === 0 : entry.id === dispatchHistory[0]?.id;
                     return (
-                      <div key={entry.id} className="flex gap-4 relative">
-                        {/* dot */}
-                        <div className={`h-3.5 w-3.5 rounded-full border-2 border-white shadow-sm shrink-0 mt-0.5 z-10 ${cfg.dotClass}`} />
+                      <div key={entry.id} className={`flex gap-4 relative ${isAck ? 'rounded-lg border border-status-complete/25 bg-status-complete/5 px-3 py-2.5 -mx-3' : ''}`}>
+                        {/* dot / ack icon */}
+                        {isAck ? (
+                          <div className="h-3.5 w-3.5 shrink-0 mt-0.5 z-10 flex items-center justify-center">
+                            <CheckCheck className="h-3.5 w-3.5 text-status-complete" />
+                          </div>
+                        ) : (
+                          <div className={`h-3.5 w-3.5 rounded-full border-2 border-white shadow-sm shrink-0 mt-0.5 z-10 ${cfg.dotClass}`} />
+                        )}
                         <div className="flex-1 min-w-0 pb-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${cfg.badgeClass}`}>
-                              {cfg.emoji} {cfg.label}
-                            </span>
-                            {isLatestOverall && (
+                            {isAck ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-status-complete/10 text-status-complete border-status-complete/30">
+                                <CheckCheck className="h-3 w-3" />
+                                Operator Acknowledged
+                              </span>
+                            ) : (
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${cfg.badgeClass}`}>
+                                {cfg.emoji} {cfg.label}
+                              </span>
+                            )}
+                            {isLatestOverall && !isAck && (
                               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gold/15 text-gold border border-gold/30">Latest</span>
                             )}
                           </div>
@@ -1501,20 +1515,20 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                                 <span className="font-medium text-foreground">Lane:</span> {entry.current_load_lane}
                               </span>
                             )}
-                            {entry.status_notes && (
+                            {entry.status_notes && !isAck && (
                               <span className="text-xs text-muted-foreground">
                                 <span className="font-medium text-foreground">Note:</span> {entry.status_notes}
                               </span>
                             )}
                             {entry.changed_by_name && (
-                              <span className="text-xs text-muted-foreground">
-                                <span className="font-medium text-foreground">By:</span> {entry.changed_by_name}
+                              <span className={`text-xs ${isAck ? 'text-status-complete/80' : 'text-muted-foreground'}`}>
+                                <span className={`font-medium ${isAck ? 'text-status-complete' : 'text-foreground'}`}>By:</span> {entry.changed_by_name}
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-muted-foreground mt-1">
+                          <p className={`text-[11px] mt-1 ${isAck ? 'text-status-complete/70' : 'text-muted-foreground'}`}>
                             {formatDistanceToNow(new Date(entry.changed_at), { addSuffix: true })}
-                            <span className="ml-1.5 text-muted-foreground/60">
+                            <span className="ml-1.5 opacity-60">
                               · {new Date(entry.changed_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                             </span>
                           </p>
