@@ -355,6 +355,14 @@ export default function ApplicationForm() {
 
   const isLastStep = step === 9;
 
+  // ── Swipe gesture (mobile) ──────────────────────────────────────────────
+  // Step 9 excludes canvas so the signature pad isn't disrupted.
+  const swipe = useSwipeGesture({
+    onSwipeLeft: isLastStep ? undefined : goNext,
+    onSwipeRight: step === 1 ? undefined : goBack,
+    excludeSelector: 'canvas, input, textarea, select, button, [role="combobox"]',
+  });
+
   return (
     <div className="min-h-screen bg-secondary">
       {/* Header */}
