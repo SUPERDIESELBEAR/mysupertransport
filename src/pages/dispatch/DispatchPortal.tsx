@@ -1255,13 +1255,23 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                             </SelectContent>
                           </Select>
                         ) : (
-                          <Badge className={`${cfg.badgeClass} text-xs gap-1`}>
-                            <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
-                            {cfg.label}
-                          </Badge>
-                        )}
+                          <div className="flex flex-col gap-1">
+                            <Badge className={`${cfg.badgeClass} text-xs gap-1 w-fit`}>
+                              <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
+                              {cfg.label}
+                            </Badge>
+                            {row.dispatch_status === 'truck_down' && ackMap[row.operator_id] && (
+                              <span
+                                className="flex items-center gap-1 bg-status-complete/10 text-status-complete border border-status-complete/30 text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit"
+                                title={`Acknowledged ${new Date(ackMap[row.operator_id]).toLocaleString()}`}
+                              >
+                                <CheckCheck className="h-3 w-3 shrink-0" />
+                                Ack'd
+                              </span>
+                            )}
+                          </div>
+                        )
                       </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
                         {isEditing ? (
                           <Input
                             value={editData.current_load_lane ?? ''}
