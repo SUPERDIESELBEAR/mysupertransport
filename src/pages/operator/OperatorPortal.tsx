@@ -78,6 +78,24 @@ export default function OperatorPortal() {
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
 
+  const handleTruckDownAck = useCallback(async () => {
+    if (!operatorId || !dispatchUpdatedAt || !user) return;
+    setAckLoading(true);
+    try {
+      await supabase.from('dispatch_status_history').insert({
+        operator_id: operatorId,
+        dispatch_status: 'truck_down',
+        status_notes: 'Operator acknowledged truck down alert.',
+        changed_by: user.id,
+      });
+      const ackKey = `truck_down_ack_${operatorId}_${dispatchUpdatedAt}`;
+      localStorage.setItem(ackKey, 'true');
+      setTruckDownAcked(true);
+    } finally {
+      setAckLoading(false);
+    }
+  }, [operatorId, dispatchUpdatedAt, user]);
+
   const fetchDispatcherInfo = useCallback(async (dispatcherUserId: string | null) => {
     if (!dispatcherUserId) { setAssignedDispatcher(null); return; }
     const { data } = await supabase
