@@ -86,7 +86,7 @@ const STAGES = [
   'Stage 6 — Insurance',
 ];
 
-export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardProps) {
+export default function PipelineDashboard({ onOpenOperator, initialDispatchFilter }: PipelineDashboardProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [operators, setOperators] = useState<OperatorRow[]>([]);
