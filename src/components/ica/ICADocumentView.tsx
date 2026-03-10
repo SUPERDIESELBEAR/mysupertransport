@@ -56,14 +56,14 @@ export default function ICADocumentView({
   return (
     <div className="bg-white text-foreground text-sm font-serif leading-relaxed rounded-xl border border-border overflow-hidden">
       {/* Document header */}
-      <div className="bg-surface-dark text-white text-center py-8 px-6">
+      <div className="bg-surface-dark text-white text-center py-6 px-4">
         <p className="text-xs tracking-[0.3em] uppercase text-gold mb-1">SUPERTRANSPORT</p>
         <p className="text-[10px] tracking-widest text-surface-dark-muted mb-4">POSITIVE. THINKING. TRANSPORT.</p>
-        <h1 className="text-2xl font-bold">Independent Contractor Agreement</h1>
-        <p className="text-sm text-surface-dark-muted mt-1">SUPERTRANSPORT, LLC · PO Box 4, Pleasant Hill, Missouri 64080</p>
+        <h1 className="text-xl sm:text-2xl font-bold">Independent Contractor Agreement</h1>
+        <p className="text-xs sm:text-sm text-surface-dark-muted mt-1">SUPERTRANSPORT, LLC · PO Box 4, Pleasant Hill, Missouri 64080</p>
       </div>
 
-      <div className="p-8 space-y-8">
+      <div className="p-4 sm:p-8 space-y-8">
         {/* Parties */}
         <section>
           <p className="text-base">
