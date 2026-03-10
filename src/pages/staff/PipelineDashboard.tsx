@@ -427,7 +427,7 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
       </div>
 
       {/* Metric cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-4">
         <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-gold/10 flex items-center justify-center">
