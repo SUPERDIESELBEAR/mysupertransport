@@ -157,27 +157,46 @@ export default function StaffPortal() {
   };
 
   const [prefOpen, setPrefOpen] = useState(false);
-  const [truckDownCount, setTruckDownCount] = useState(0);
+  const [truckDownOperators, setTruckDownOperators] = useState<{ name: string; unit: string }[]>([]);
 
-  const fetchTruckDownCount = useCallback(async () => {
-    const { count } = await supabase
+  const fetchTruckDownOperators = useCallback(async () => {
+    const { data } = await supabase
       .from('active_dispatch')
-      .select('id', { count: 'exact', head: true })
+      .select(`
+        operator_id,
+        operators!inner(
+          application_id,
+          unit_number,
+          applications(first_name, last_name),
+          onboarding_status(unit_number)
+        )
+      `)
       .eq('dispatch_status', 'truck_down');
-    setTruckDownCount(count ?? 0);
+
+    if (!data) return;
+
+    const ops = data.map((row: any) => {
+      const op = row.operators;
+      const app = op?.applications;
+      const osUnit = op?.onboarding_status?.[0]?.unit_number ?? op?.onboarding_status?.unit_number;
+      const unit = osUnit ?? op?.unit_number ?? '—';
+      const name = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown';
+      return { name, unit };
+    });
+    setTruckDownOperators(ops);
   }, []);
 
   // Subscribe to realtime changes on active_dispatch to keep the banner live
   useEffect(() => {
-    fetchTruckDownCount();
+    fetchTruckDownOperators();
     const channel = supabase
       .channel('staff-truck-down-banner')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'active_dispatch' }, () => {
-        fetchTruckDownCount();
+        fetchTruckDownOperators();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchTruckDownCount]);
+  }, [fetchTruckDownOperators]);
 
   return (
     <>
