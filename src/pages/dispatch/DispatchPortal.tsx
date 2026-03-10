@@ -149,6 +149,11 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const rowsRef = useRef<DispatchRow[]>([]);
   // Map of operator_id → ISO timestamp of the most recent truck-down acknowledgement
   const [ackMap, setAckMap] = useState<Record<string, string>>({});
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<DispatchStatusType>('not_dispatched');
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkMode, setBulkMode] = useState(false);
 
   // Keep rowsRef in sync so realtime callbacks can access current operator info
   useEffect(() => { rowsRef.current = rows; }, [rows]);
@@ -602,6 +607,48 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
   const cancelEdit = () => { setEditRow(null); setEditData({}); };
 
+  // ── Bulk status update ────────────────────────────────────────────────────
+  const applyBulkStatus = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkSaving(true);
+    const targets = rows.filter(r => selectedIds.has(r.operator_id));
+    await Promise.all(targets.map(row => {
+      const payload = {
+        operator_id: row.operator_id,
+        dispatch_status: bulkStatus,
+        current_load_lane: row.current_load_lane ?? null,
+        eta_redispatch: row.eta_redispatch ?? null,
+        status_notes: row.status_notes ?? null,
+        updated_at: new Date().toISOString(),
+        updated_by: session?.user?.id ?? null,
+      };
+      if (row.dispatch_id) {
+        return supabase.from('active_dispatch').update(payload).eq('id', row.dispatch_id);
+      } else {
+        return supabase.from('active_dispatch').insert(payload);
+      }
+    }));
+    setBulkSaving(false);
+    setSelectedIds(new Set());
+    setBulkMode(false);
+    toast({ title: `${targets.length} operator${targets.length !== 1 ? 's' : ''} updated`, description: `Status set to ${STATUS_CONFIG[bulkStatus].label}.` });
+    fetchDispatch(true);
+  };
+
+  const toggleSelect = (id: string) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredRows.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredRows.map(r => r.operator_id)));
+    }
+  };
+
   const saveEdit = async (row: DispatchRow) => {
     setSaving(true);
     const newStatus = editData.dispatch_status ?? 'not_dispatched';
@@ -834,6 +881,54 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
             </button>
           )}
         </div>
+      </div>
+
+      {/* Bulk action bar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <button
+          onClick={() => { setBulkMode(v => !v); setSelectedIds(new Set()); }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+            bulkMode ? 'bg-foreground text-background border-foreground/20' : 'bg-white text-muted-foreground border-border hover:border-muted-foreground/30 hover:text-foreground'
+          }`}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          {bulkMode ? 'Cancel Bulk' : 'Bulk Edit'}
+        </button>
+        {bulkMode && (
+          <>
+            <button
+              onClick={toggleSelectAll}
+              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+            >
+              {selectedIds.size === filteredRows.length ? 'Deselect all' : `Select all (${filteredRows.length})`}
+            </button>
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-2 ml-auto flex-wrap">
+                <span className="text-xs font-medium text-foreground">{selectedIds.size} selected — set to:</span>
+                <Select value={bulkStatus} onValueChange={v => setBulkStatus(v as DispatchStatusType)}>
+                  <SelectTrigger className="h-8 text-xs w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="not_dispatched">Not Dispatched</SelectItem>
+                    <SelectItem value="dispatched">Dispatched</SelectItem>
+                    <SelectItem value="home">Home</SelectItem>
+                    <SelectItem value="truck_down">Truck Down</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  onClick={applyBulkStatus}
+                  disabled={bulkSaving}
+                  className="h-8 text-xs bg-gold text-surface-dark hover:bg-gold-light gap-1.5"
+                >
+                  {bulkSaving ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  Apply
+                </Button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Cards view */}

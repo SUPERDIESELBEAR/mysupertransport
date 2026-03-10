@@ -410,6 +410,45 @@ export type Database = {
         }
         Relationships: []
       }
+      faq_history: {
+        Row: {
+          answer: string
+          category: string
+          change_type: string
+          changed_at: string
+          changed_by: string | null
+          changed_by_name: string | null
+          faq_id: string
+          id: string
+          is_published: boolean
+          question: string
+        }
+        Insert: {
+          answer: string
+          category: string
+          change_type?: string
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          faq_id: string
+          id?: string
+          is_published?: boolean
+          question: string
+        }
+        Update: {
+          answer?: string
+          category?: string
+          change_type?: string
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          faq_id?: string
+          id?: string
+          is_published?: boolean
+          question?: string
+        }
+        Relationships: []
+      }
       ica_contracts: {
         Row: {
           carrier_signature_url: string | null
@@ -909,6 +948,48 @@ export type Database = {
           title?: string
           uploaded_at?: string
           uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      resource_history: {
+        Row: {
+          category: string
+          change_type: string
+          changed_at: string
+          changed_by: string | null
+          changed_by_name: string | null
+          description: string | null
+          file_name: string | null
+          id: string
+          is_visible: boolean
+          resource_id: string
+          title: string
+        }
+        Insert: {
+          category: string
+          change_type?: string
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          description?: string | null
+          file_name?: string | null
+          id?: string
+          is_visible?: boolean
+          resource_id: string
+          title: string
+        }
+        Update: {
+          category?: string
+          change_type?: string
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          description?: string | null
+          file_name?: string | null
+          id?: string
+          is_visible?: boolean
+          resource_id?: string
+          title?: string
         }
         Relationships: []
       }
