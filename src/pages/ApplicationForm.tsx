@@ -102,6 +102,7 @@ function validateStep(step: number, data: ApplicationFormData): Partial<Record<k
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function ApplicationForm() {
   const [step, setStep] = useState(1);
+  const [slideDir, setSlideDir] = useState<'forward' | 'back'>('forward');
   const [formData, setFormData] = useState<ApplicationFormData>(defaultFormData);
   const [errors, setErrors] = useState<Partial<Record<keyof ApplicationFormData, string>>>({});
   const [saving, setSaving] = useState(false);
