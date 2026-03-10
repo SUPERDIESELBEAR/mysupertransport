@@ -455,7 +455,7 @@ export default function ManagementPortal() {
 
             {/* Pending queue preview */}
             <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+              <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-border flex items-center justify-between gap-2 flex-wrap">
                 <div>
                   <h2 className="font-semibold text-foreground">Pending Application Reviews</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -463,7 +463,7 @@ export default function ManagementPortal() {
                   </p>
                 </div>
                 {pendingApps.length > 0 && (
-                  <Button variant="ghost" size="sm" onClick={() => { setStatusFilter('pending'); setView('applications'); }} className="text-gold text-xs gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => { setStatusFilter('pending'); setView('applications'); }} className="text-gold text-xs gap-1 shrink-0">
                     View all <ChevronRight className="h-3.5 w-3.5" />
                   </Button>
                 )}
@@ -480,10 +480,10 @@ export default function ManagementPortal() {
                   {pendingApps.slice(0, 5).map(app => {
                     const name = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email;
                     return (
-                      <div key={app.id} className="flex items-center justify-between px-5 py-4 hover:bg-secondary/30 transition-colors">
+                      <div key={app.id} className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 hover:bg-secondary/30 transition-colors gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="font-medium text-foreground text-sm">{name}</p>
-                          <p className="text-xs text-muted-foreground">{app.email} · {app.phone ?? 'No phone'}</p>
+                          <p className="font-medium text-foreground text-sm truncate">{name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{app.email} · {app.phone ?? 'No phone'}</p>
                           {app.submitted_at && (
                             <p className="text-xs text-muted-foreground mt-0.5">
                               Submitted {new Date(app.submitted_at).toLocaleDateString()}
@@ -494,7 +494,7 @@ export default function ManagementPortal() {
                           size="sm"
                           variant="outline"
                           onClick={() => { setSelectedApp(app); }}
-                          className="ml-3 text-xs gap-1.5 shrink-0"
+                          className="text-xs gap-1.5 shrink-0"
                         >
                           <Eye className="h-3.5 w-3.5" /> Review
                         </Button>
