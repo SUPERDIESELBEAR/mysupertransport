@@ -357,7 +357,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
           // Play chime only when status transitions TO truck_down from something else
           const oldStatus = (payload.old as any)?.dispatch_status;
           if (newRow?.dispatch_status === 'truck_down' && oldStatus !== 'truck_down') {
-            playTruckDownChime();
+            if (!chimeMuted) playTruckDownChime();
           }
 
           // Refresh history for this operator if it's expanded
