@@ -562,8 +562,8 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
 
       {/* Search + filter toolbar */}
       <div className="space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name or phone…"
@@ -581,29 +581,31 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
             )}
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowFilters(v => !v)}
-            className={`gap-2 ${showFilters || activeFilterCount > 0 ? 'border-gold text-gold bg-gold/5' : ''}`}
-          >
-            <Filter className="h-4 w-4" />
-            Filters
-            {activeFilterCount > 0 && (
-              <span className="ml-0.5 h-4 w-4 rounded-full bg-gold text-[10px] font-bold text-white flex items-center justify-center leading-none">
-                {activeFilterCount}
-              </span>
-            )}
-          </Button>
-
-          {(activeFilterCount > 0 || search) && (
-            <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground hover:text-foreground gap-1">
-              <X className="h-3 w-3" />
-              Clear all
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(v => !v)}
+              className={`gap-2 ${showFilters || activeFilterCount > 0 ? 'border-gold text-gold bg-gold/5' : ''}`}
+            >
+              <Filter className="h-4 w-4" />
+              <span className="hidden sm:inline">Filters</span>
+              {activeFilterCount > 0 && (
+                <span className="h-4 w-4 rounded-full bg-gold text-[10px] font-bold text-white flex items-center justify-center leading-none">
+                  {activeFilterCount}
+                </span>
+              )}
             </Button>
-          )}
 
-          <p className="text-sm text-muted-foreground ml-auto">
+            {(activeFilterCount > 0 || search) && (
+              <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground hover:text-foreground gap-1">
+                <X className="h-3 w-3" />
+                <span className="hidden sm:inline">Clear all</span>
+              </Button>
+            )}
+          </div>
+
+          <p className="text-xs sm:text-sm text-muted-foreground w-full sm:w-auto sm:ml-auto">
             {filtered.length} of {operators.length} operators
           </p>
         </div>
