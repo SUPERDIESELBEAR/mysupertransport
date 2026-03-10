@@ -979,8 +979,8 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                         : 'border-border'
                     }`}
                   >
-                    {/* Card header — status strip */}
-                    <div className={`px-4 py-2.5 flex items-center justify-between gap-3 ${
+                    {/* Card header — status strip: wraps on mobile */}
+                    <div className={`px-3 py-2 flex flex-wrap items-center gap-x-2 gap-y-1 ${
                       row.dispatch_status === 'truck_down'
                         ? 'bg-destructive/8'
                         : row.dispatch_status === 'dispatched'
@@ -994,22 +994,23 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                         <Checkbox
                           checked={selectedIds.has(row.operator_id)}
                           onCheckedChange={() => toggleSelect(row.operator_id)}
-                          className="shrink-0 mr-1"
+                          className="shrink-0"
                           aria-label={`Select ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
                         />
                       )}
-                      <Badge className={`${cfg.badgeClass} text-xs gap-1`}>
+                      <Badge className={`${cfg.badgeClass} text-xs gap-1 shrink-0`}>
                         <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
                         {cfg.label}
                       </Badge>
                       {/* Operator-acknowledged badge — only on truck_down cards */}
                       {row.dispatch_status === 'truck_down' && ackMap[row.operator_id] && (
                         <span
-                          className="flex items-center gap-1 bg-status-complete/10 text-status-complete border border-status-complete/30 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                          className="flex items-center gap-1 bg-status-complete/10 text-status-complete border border-status-complete/30 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
                           title={`Acknowledged ${new Date(ackMap[row.operator_id]).toLocaleString()}`}
                         >
                           <CheckCheck className="h-3 w-3 shrink-0" />
-                          Acknowledged
+                          <span className="hidden sm:inline">Acknowledged</span>
+                          <span className="sm:hidden">Ack'd</span>
                         </span>
                       )}
                       <div className="flex items-center gap-2 ml-auto">
@@ -1019,11 +1020,12 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                             title={new Date(row.updated_at).toLocaleString()}
                           >
                             <Clock className="h-3 w-3 shrink-0" />
-                            {formatDistanceToNow(new Date(row.updated_at), { addSuffix: true })}
+                            <span className="hidden sm:inline">{formatDistanceToNow(new Date(row.updated_at), { addSuffix: true })}</span>
+                            <span className="sm:hidden">{formatDistanceToNow(new Date(row.updated_at), { addSuffix: false })}</span>
                           </span>
                         )}
                         {row.unit_number && (
-                          <span className="font-mono text-xs bg-background/80 border border-border px-2 py-0.5 rounded text-foreground">{row.unit_number}</span>
+                          <span className="font-mono text-xs bg-background/80 border border-border px-1.5 py-0.5 rounded text-foreground shrink-0">{row.unit_number}</span>
                         )}
                       </div>
                     </div>
