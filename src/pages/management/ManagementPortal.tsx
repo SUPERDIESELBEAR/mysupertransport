@@ -56,7 +56,9 @@ export default function ManagementPortal() {
   const [loadingApps, setLoadingApps] = useState(false);
   const [selectedApp, setSelectedApp] = useState<FullApplication | null>(null);
   const [metrics, setMetrics] = useState({ pending: 0, onboarding: 0, active: 0, alerts: 0 });
+  const [dispatchBreakdown, setDispatchBreakdown] = useState({ not_dispatched: 0, dispatched: 0, home: 0, truck_down: 0 });
   const [truckDownCount, setTruckDownCount] = useState(0);
+  const [dispatchLiveFlash, setDispatchLiveFlash] = useState(false);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
 
