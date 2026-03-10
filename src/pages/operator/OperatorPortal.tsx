@@ -543,12 +543,12 @@ export default function OperatorPortal() {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                 {!truckDownAcked && (
                   <button
                     onClick={handleTruckDownAck}
                     disabled={ackLoading}
-                    className="flex items-center gap-1.5 bg-destructive/15 border border-destructive/30 text-destructive text-xs font-semibold px-3 py-2 rounded-lg hover:bg-destructive/25 transition-colors disabled:opacity-60"
+                    className="flex items-center gap-1.5 bg-destructive/15 border border-destructive/30 text-destructive text-xs font-semibold px-3 py-2 rounded-lg hover:bg-destructive/25 transition-colors disabled:opacity-60 flex-1 sm:flex-none justify-center"
                   >
                     {ackLoading
                       ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
@@ -559,7 +559,7 @@ export default function OperatorPortal() {
                 )}
                 <button
                   onClick={() => setView('messages')}
-                  className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors ${
+                  className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors flex-1 sm:flex-none justify-center ${
                     truckDownAcked
                       ? 'bg-muted text-muted-foreground hover:bg-muted/80'
                       : 'bg-destructive text-white hover:bg-destructive/90'
