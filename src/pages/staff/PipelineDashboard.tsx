@@ -142,6 +142,37 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
     return () => { supabase.removeChannel(channel); };
   }, []);
 
+  // Realtime: update dispatch statuses live when a dispatcher changes a status
+  useEffect(() => {
+    const channel = supabase
+      .channel('pipeline-dispatch-watch')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'active_dispatch' },
+        (payload: any) => {
+          const { new: newRow, old: oldRow, eventType } = payload;
+          if (eventType === 'DELETE') {
+            const operatorId = oldRow?.operator_id;
+            if (operatorId) {
+              setOperators(prev =>
+                prev.map(op => op.id === operatorId ? { ...op, dispatch_status: null } : op)
+              );
+            }
+          } else {
+            const operatorId = newRow?.operator_id;
+            const status = newRow?.dispatch_status as DispatchStatus | null;
+            if (operatorId) {
+              setOperators(prev =>
+                prev.map(op => op.id === operatorId ? { ...op, dispatch_status: status } : op)
+              );
+            }
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const refreshUnreadCounts = async () => {
     if (!user?.id) return;
     const { data } = await supabase
