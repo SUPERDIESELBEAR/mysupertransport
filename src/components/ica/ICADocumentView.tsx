@@ -213,10 +213,10 @@ export default function ICADocumentView({
               <p className="font-semibold">{operatorName}</p>
               {contractorSigRef && !previewMode ? (
                 <div className="space-y-2">
-                  <div className="border-2 border-dashed border-gold/40 rounded-lg overflow-hidden bg-white">
+                  <div ref={sigWrapRef} className="border-2 border-dashed border-gold/40 rounded-lg overflow-hidden bg-white">
                     <SignatureCanvas
                       ref={contractorSigRef}
-                      canvasProps={{ width: 500, height: 120, className: 'w-full h-auto' }}
+                      canvasProps={{ className: 'w-full touch-none' }}
                       penColor="#1a1a1a"
                     />
                   </div>
