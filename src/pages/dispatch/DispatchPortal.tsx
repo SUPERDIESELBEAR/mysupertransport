@@ -983,6 +983,15 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                         ? 'bg-status-progress/8'
                         : 'bg-muted/40'
                     }`}>
+                      {/* Bulk-mode checkbox */}
+                      {bulkMode && (
+                        <Checkbox
+                          checked={selectedIds.has(row.operator_id)}
+                          onCheckedChange={() => toggleSelect(row.operator_id)}
+                          className="shrink-0 mr-1"
+                          aria-label={`Select ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
+                        />
+                      )}
                       <Badge className={`${cfg.badgeClass} text-xs gap-1`}>
                         <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
                         {cfg.label}
