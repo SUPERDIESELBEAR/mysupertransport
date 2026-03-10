@@ -775,7 +775,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   />
                 </div>
                 <TooltipProvider delayDuration={150}>
-                  <div className="flex items-center gap-1 shrink-0">
+                <div className="flex flex-wrap items-center gap-1 shrink-0">
                     {stages.map((s, i) => (
                       <Tooltip key={s.key}>
                         <TooltipTrigger asChild>
