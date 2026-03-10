@@ -190,7 +190,7 @@ export default function OperatorDispatchStatus({ operatorId, onMessageDispatcher
         {dispatch && dispatch.assigned_dispatcher && (
           <div className="mt-5 pt-5 border-t border-border/60">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Your Dispatcher</p>
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-full bg-surface-dark flex items-center justify-center shrink-0">
                   <span className="text-sm font-bold text-gold">{dispatcherInitial}</span>
@@ -214,11 +214,11 @@ export default function OperatorDispatchStatus({ operatorId, onMessageDispatcher
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2">
                 {dispatcher?.phone && (
                   <a
                     href={`tel:${dispatcher.phone}`}
-                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-surface-dark text-surface-dark-foreground hover:bg-surface-dark/90 transition-colors"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-surface-dark text-surface-dark-foreground hover:bg-surface-dark/90 transition-colors"
                   >
                     <Phone className="h-3.5 w-3.5" />
                     Call
@@ -227,7 +227,7 @@ export default function OperatorDispatchStatus({ operatorId, onMessageDispatcher
                 {onMessageDispatcher && (
                   <button
                     onClick={() => onMessageDispatcher(dispatch.assigned_dispatcher!)}
-                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-gold/15 text-gold hover:bg-gold/25 transition-colors"
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-gold/15 text-gold hover:bg-gold/25 transition-colors"
                   >
                     <MessageSquare className="h-3.5 w-3.5" />
                     Message

@@ -636,7 +636,7 @@ export default function OperatorPortal() {
           if (requestedDocs.length === 0 || view === 'documents') return null;
           return (
             <div className="bg-info/8 border border-info/40 rounded-xl px-4 py-4 animate-fade-in">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex flex-col items-start gap-3">
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-info/15 shrink-0">
                     <Upload className="h-5 w-5 text-info animate-pulse" />
@@ -653,7 +653,7 @@ export default function OperatorPortal() {
                 </div>
                 <button
                   onClick={() => setView('documents')}
-                  className="shrink-0 flex items-center gap-1.5 bg-info text-info-foreground text-xs font-bold px-4 py-2 rounded-lg hover:bg-info/90 transition-colors shadow-sm"
+                  className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-info text-info-foreground text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-info/90 transition-colors shadow-sm"
                 >
                   <Upload className="h-3.5 w-3.5" />
                   Upload Documents
