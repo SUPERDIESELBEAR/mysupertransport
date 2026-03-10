@@ -54,6 +54,7 @@ interface StaffOption {
 
 interface PipelineDashboardProps {
   onOpenOperator: (operatorId: string) => void;
+  initialDispatchFilter?: DispatchStatus | 'all';
 }
 
 function computeProgress(os: Record<string, string | boolean | null>): number {
@@ -85,7 +86,7 @@ const STAGES = [
   'Stage 6 — Insurance',
 ];
 
-export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardProps) {
+export default function PipelineDashboard({ onOpenOperator, initialDispatchFilter }: PipelineDashboardProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [operators, setOperators] = useState<OperatorRow[]>([]);
@@ -100,7 +101,7 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
   const [stageFilter, setStageFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [coordinatorFilter, setCoordinatorFilter] = useState('all');
-  const [dispatchFilter, setDispatchFilter] = useState<'all' | DispatchStatus>('all');
+  const [dispatchFilter, setDispatchFilter] = useState<'all' | DispatchStatus>(initialDispatchFilter ?? 'all');
   const [progressFilter, setProgressFilter] = useState<'all' | 'low' | 'mid' | 'high'>('all');
 
   // Sort state
@@ -439,7 +440,39 @@ export default function PipelineDashboard({ onOpenOperator }: PipelineDashboardP
 
       {/* Stage breakdown (clickable) */}
       <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
-        <p className="text-sm font-semibold text-foreground mb-3">Pipeline by Stage</p>
+        <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+          <p className="text-sm font-semibold text-foreground">Pipeline by Stage</p>
+          {/* Dispatch quick-filter chips */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {((['truck_down', 'dispatched', 'home', 'not_dispatched'] as DispatchStatus[]).map(status => {
+              const badge = DISPATCH_BADGE[status];
+              const count = operators.filter(op =>
+                op.dispatch_status === status || (status === 'not_dispatched' && op.dispatch_status === null)
+              ).length;
+              if (count === 0 && status !== 'truck_down') return null;
+              const isActive = dispatchFilter === status;
+              return (
+                <button
+                  key={status}
+                  onClick={() => setDispatchFilter(isActive ? 'all' : status)}
+                  className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                    isActive
+                      ? status === 'truck_down'
+                        ? 'bg-destructive text-destructive-foreground border-destructive'
+                        : 'bg-foreground text-background border-foreground'
+                      : status === 'truck_down' && count > 0
+                        ? 'bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20'
+                        : 'bg-muted text-muted-foreground border-border hover:border-foreground/30 hover:text-foreground'
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${isActive && status !== 'truck_down' ? 'bg-background' : badge.dot}`} />
+                  {badge.label}
+                  <span className={`font-bold ${isActive && status !== 'truck_down' ? 'text-background' : ''}`}>{count}</span>
+                </button>
+              );
+            }))}
+          </div>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
           {STAGES.map((stage, i) => (
             <button
