@@ -399,6 +399,24 @@ export default function OperatorPortal() {
     return true;
   });
 
+  // Mobile bottom nav: 5 priority slots.
+  // Slot 5 = ICA (action required) → Dispatch (if onboarded) → FAQ (fallback)
+  const mobileNavItems = (() => {
+    const slot5 =
+      (onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete')
+        ? { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" /> }
+        : isFullyOnboarded
+        ? { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" /> }
+        : { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> };
+    return [
+      { view: 'progress' as OperatorView, label: 'Status', icon: <CheckCircle2 className="h-5 w-5" /> },
+      { view: 'documents' as OperatorView, label: 'Docs', icon: <Upload className="h-5 w-5" /> },
+      { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" />, badge: unreadCount },
+      { view: 'resources' as OperatorView, label: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
+      { ...slot5 },
+    ];
+  })();
+
   const statusConfig: Record<StageStatus, { color: string; badge: string; icon: React.ReactNode }> = {
     complete: { color: 'border-status-complete/30 bg-status-complete/5', badge: 'bg-status-complete/15 text-status-complete border-status-complete/30', icon: <CheckCircle2 className="h-5 w-5 text-status-complete" /> },
     in_progress: { color: 'border-gold/40 shadow-gold/10 shadow-md', badge: 'bg-gold/15 text-gold-muted border-gold/30', icon: <Clock className="h-5 w-5 text-gold" /> },
