@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { playTruckDownChime } from '@/lib/chime';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import MessagesView from '@/components/staff/MessagesView';
