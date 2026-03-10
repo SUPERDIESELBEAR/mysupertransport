@@ -20,6 +20,8 @@ interface NavItem {
 interface StaffLayoutProps {
   children: ReactNode;
   navItems: NavItem[];
+  /** Subset of navItems to show in the mobile bottom bar. Falls back to navItems if omitted. */
+  mobileNavItems?: NavItem[];
   currentPath: string;
   onNavigate: (path: string) => void;
   title: string;
