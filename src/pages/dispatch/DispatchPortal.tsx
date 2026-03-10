@@ -596,6 +596,22 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
               <span className={`h-1.5 w-1.5 rounded-full ${liveIndicator ? 'bg-status-complete animate-pulse' : 'bg-muted-foreground'}`} />
               {liveIndicator ? 'Updated' : 'Live'}
             </span>
+            <button
+              onClick={() => setChimeMuted(prev => {
+                const next = !prev;
+                localStorage.setItem('dispatch_chime_muted', String(next));
+                return next;
+              })}
+              title={chimeMuted ? 'Chime muted — click to unmute' : 'Mute Truck Down chime'}
+              className={`flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border transition-all duration-200 cursor-pointer select-none ${
+                chimeMuted
+                  ? 'bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20'
+                  : 'bg-muted text-muted-foreground border-border hover:bg-muted/80 hover:text-foreground'
+              }`}
+            >
+              {chimeMuted ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
+              <span className="hidden sm:inline">{chimeMuted ? 'Muted' : 'Sound'}</span>
+            </button>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
