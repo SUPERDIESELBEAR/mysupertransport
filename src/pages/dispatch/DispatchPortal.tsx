@@ -718,11 +718,11 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
   const board = (
     <div className="space-y-5 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      {/* Header — stacks on mobile */}
+      <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+        <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold text-foreground">Dispatch Board</h1>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <p className="text-muted-foreground text-sm">Manage status for all active operators</p>
             <span className={`flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border transition-all duration-500 ${
               liveIndicator
@@ -780,7 +780,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
             className="gap-1.5"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
         </div>
       </div>
@@ -823,7 +823,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
       )}
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
         {[
           { label: 'Total Active', value: counts.total, icon: <Users className="h-4 w-4 text-gold" />, borderColor: 'border-gold/30', textColor: 'text-gold' },
           { label: 'Dispatched', value: counts.dispatched, icon: <CheckCircle2 className="h-4 w-4 text-status-complete" />, borderColor: 'border-status-complete/30', textColor: 'text-status-complete' },
@@ -831,12 +831,12 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
           { label: 'Truck Down', value: counts.truck_down, icon: <AlertTriangle className="h-4 w-4 text-destructive" />, borderColor: 'border-destructive/30', textColor: 'text-destructive' },
           { label: 'Not Dispatched', value: counts.not_dispatched, icon: <Truck className="h-4 w-4 text-muted-foreground" />, borderColor: 'border-border', textColor: 'text-muted-foreground' },
         ].map(m => (
-          <div key={m.label} className={`bg-white border ${m.borderColor} rounded-xl p-3.5 shadow-sm`}>
-            <div className="flex items-center gap-2.5">
+          <div key={m.label} className={`bg-white border ${m.borderColor} rounded-xl p-3 shadow-sm`}>
+            <div className="flex items-center gap-2">
               {m.icon}
-              <div>
-                <p className={`text-2xl font-bold ${m.textColor}`}>{m.value}</p>
-                <p className="text-[11px] text-muted-foreground leading-tight">{m.label}</p>
+              <div className="min-w-0">
+                <p className={`text-xl font-bold leading-none ${m.textColor}`}>{m.value}</p>
+                <p className="text-[10px] text-muted-foreground leading-tight mt-0.5 truncate">{m.label}</p>
               </div>
             </div>
           </div>
@@ -845,28 +845,31 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
       {/* Filter tabs + search bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <div className="flex gap-1.5 flex-wrap">
-          {tabs.map(tab => {
-            const isActive = activeTab === tab.key;
-            const cfg = tab.key !== 'all' ? STATUS_CONFIG[tab.key as DispatchStatusType] : null;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                  isActive
-                    ? (cfg ? cfg.tabActiveClass : 'bg-foreground text-background border-foreground/20')
-                    : 'bg-white text-muted-foreground border-border hover:border-muted-foreground/30 hover:text-foreground'
-                }`}
-              >
-                {cfg && <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />}
-                {tab.label}
-                <span className={`ml-0.5 rounded-full px-1.5 py-0 text-[10px] font-semibold ${
-                  isActive ? 'bg-current/20 opacity-80' : 'bg-muted text-muted-foreground'
-                }`}>{tab.count}</span>
-              </button>
-            );
-          })}
+        {/* Tabs — horizontal scroll on mobile */}
+        <div className="w-full sm:w-auto overflow-x-auto pb-1 -mb-1">
+          <div className="flex gap-1.5 min-w-max sm:flex-wrap sm:min-w-0">
+            {tabs.map(tab => {
+              const isActive = activeTab === tab.key;
+              const cfg = tab.key !== 'all' ? STATUS_CONFIG[tab.key as DispatchStatusType] : null;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                    isActive
+                      ? (cfg ? cfg.tabActiveClass : 'bg-foreground text-background border-foreground/20')
+                      : 'bg-white text-muted-foreground border-border hover:border-muted-foreground/30 hover:text-foreground'
+                  }`}
+                >
+                  {cfg && <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />}
+                  {tab.label}
+                  <span className={`ml-0.5 rounded-full px-1.5 py-0 text-[10px] font-semibold ${
+                    isActive ? 'bg-current/20 opacity-80' : 'bg-muted text-muted-foreground'
+                  }`}>{tab.count}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="relative sm:ml-auto w-full sm:w-56">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -904,10 +907,10 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
               {selectedIds.size === filteredRows.length ? 'Deselect all' : `Select all (${filteredRows.length})`}
             </button>
             {selectedIds.size > 0 && (
-              <div className="flex items-center gap-2 ml-auto flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto sm:ml-auto">
                 <span className="text-xs font-medium text-foreground">{selectedIds.size} selected — set to:</span>
                 <Select value={bulkStatus} onValueChange={v => setBulkStatus(v as DispatchStatusType)}>
-                  <SelectTrigger className="h-8 text-xs w-40">
+                  <SelectTrigger className="h-8 text-xs w-36">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -976,8 +979,8 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                         : 'border-border'
                     }`}
                   >
-                    {/* Card header — status strip */}
-                    <div className={`px-4 py-2.5 flex items-center justify-between gap-3 ${
+                    {/* Card header — status strip: wraps on mobile */}
+                    <div className={`px-3 py-2 flex flex-wrap items-center gap-x-2 gap-y-1 ${
                       row.dispatch_status === 'truck_down'
                         ? 'bg-destructive/8'
                         : row.dispatch_status === 'dispatched'
@@ -991,22 +994,23 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                         <Checkbox
                           checked={selectedIds.has(row.operator_id)}
                           onCheckedChange={() => toggleSelect(row.operator_id)}
-                          className="shrink-0 mr-1"
+                          className="shrink-0"
                           aria-label={`Select ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
                         />
                       )}
-                      <Badge className={`${cfg.badgeClass} text-xs gap-1`}>
+                      <Badge className={`${cfg.badgeClass} text-xs gap-1 shrink-0`}>
                         <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
                         {cfg.label}
                       </Badge>
                       {/* Operator-acknowledged badge — only on truck_down cards */}
                       {row.dispatch_status === 'truck_down' && ackMap[row.operator_id] && (
                         <span
-                          className="flex items-center gap-1 bg-status-complete/10 text-status-complete border border-status-complete/30 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                          className="flex items-center gap-1 bg-status-complete/10 text-status-complete border border-status-complete/30 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
                           title={`Acknowledged ${new Date(ackMap[row.operator_id]).toLocaleString()}`}
                         >
                           <CheckCheck className="h-3 w-3 shrink-0" />
-                          Acknowledged
+                          <span className="hidden sm:inline">Acknowledged</span>
+                          <span className="sm:hidden">Ack'd</span>
                         </span>
                       )}
                       <div className="flex items-center gap-2 ml-auto">
@@ -1016,11 +1020,12 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
                             title={new Date(row.updated_at).toLocaleString()}
                           >
                             <Clock className="h-3 w-3 shrink-0" />
-                            {formatDistanceToNow(new Date(row.updated_at), { addSuffix: true })}
+                            <span className="hidden sm:inline">{formatDistanceToNow(new Date(row.updated_at), { addSuffix: true })}</span>
+                            <span className="sm:hidden">{formatDistanceToNow(new Date(row.updated_at), { addSuffix: false })}</span>
                           </span>
                         )}
                         {row.unit_number && (
-                          <span className="font-mono text-xs bg-background/80 border border-border px-2 py-0.5 rounded text-foreground">{row.unit_number}</span>
+                          <span className="font-mono text-xs bg-background/80 border border-border px-1.5 py-0.5 rounded text-foreground shrink-0">{row.unit_number}</span>
                         )}
                       </div>
                     </div>
@@ -1273,6 +1278,12 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
       {/* Table view */}
       {viewMode === 'table' && (
       <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+        {/* Mobile nudge: table view is dense, suggest cards */}
+        <div className="sm:hidden flex items-center gap-2 px-4 py-2.5 bg-gold/8 border-b border-gold/20 text-xs text-foreground/70">
+          <List className="h-3.5 w-3.5 text-gold shrink-0" />
+          <span>Table view is best on wider screens.</span>
+          <button onClick={() => setViewMode('cards')} className="ml-auto text-gold font-semibold hover:underline shrink-0">Switch to Cards</button>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
