@@ -1404,6 +1404,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-gold" />
               <h3 className="font-semibold text-foreground text-sm">Dispatch Status History</h3>
+              {dispatchHistoryTotal > 0 && (
+                <span className="text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full border border-border">
+                  {dispatchHistoryTotal} {dispatchHistoryTotal === 1 ? 'entry' : 'entries'}
+                </span>
+              )}
             </div>
             {currentDispatchStatus && DISPATCH_STATUS_CONFIG[currentDispatchStatus] && (
               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${DISPATCH_STATUS_CONFIG[currentDispatchStatus].badgeClass}`}>
@@ -1449,6 +1454,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                               <span className="font-medium text-foreground">Note:</span> {entry.status_notes}
                             </span>
                           )}
+                          {entry.changed_by_name && (
+                            <span className="text-xs text-muted-foreground">
+                              <span className="font-medium text-foreground">By:</span> {entry.changed_by_name}
+                            </span>
+                          )}
                         </div>
                         <p className="text-[11px] text-muted-foreground mt-1">
                           {formatDistanceToNow(new Date(entry.changed_at), { addSuffix: true })}
@@ -1461,10 +1471,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   );
                 })}
               </div>
+              {/* Load more */}
+              {dispatchHistory.length < dispatchHistoryTotal && (
+                <div className="mt-4 pl-[calc(0.875rem+1rem)]">
+                  <button
+                    onClick={loadMoreHistory}
+                    disabled={loadingMoreHistory}
+                    className="text-xs text-primary hover:underline disabled:opacity-50 flex items-center gap-1"
+                  >
+                    {loadingMoreHistory ? 'Loading…' : `Load ${Math.min(HISTORY_PAGE_SIZE, dispatchHistoryTotal - dispatchHistory.length)} more`}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
+
 
       {/* Internal Notes */}
       <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
