@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
-import { Send, MessageSquare, Search, User, Circle, CheckCheck } from 'lucide-react';
+import { Send, MessageSquare, Search, User, Circle, CheckCheck, ArrowLeft } from 'lucide-react';
 import { sanitizeText } from '@/lib/sanitize';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -156,10 +156,14 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
     setThreads(built);
     setLoadingThreads(false);
 
-    // Auto-select: prefer initialUserId (dispatcher shortcut), then first thread
+    // Auto-select: prefer initialUserId (dispatcher shortcut), then first thread.
+    // On mobile (< md breakpoint) skip auto-select so the thread list stays visible.
     if (built.length > 0 && !selectedUserId) {
+      const isMobile = window.innerWidth < 768;
       const target = initialUserId && built.find(t => t.staffUserId === initialUserId);
-      setSelectedUserId(target ? target.staffUserId : built[0].staffUserId);
+      if (!isMobile || initialUserId) {
+        setSelectedUserId(target ? target.staffUserId : built[0].staffUserId);
+      }
     }
   }, [user?.id, selectedUserId, initialUserId]);
 
@@ -323,7 +327,8 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
       ) : (
         <div className="flex flex-1 min-h-0">
           {/* ── Thread list sidebar ─────────────────────────────────────────── */}
-          <div className="w-64 shrink-0 flex flex-col border-r border-border bg-muted/20">
+          {/* Mobile: visible only when no thread selected. md+: always visible. */}
+          <div className={`${selectedUserId ? 'hidden md:flex' : 'flex'} w-full md:w-64 shrink-0 flex-col border-r border-border bg-muted/20`}>
             {/* Header */}
             <div className="px-4 py-4 border-b border-border">
               <div className="flex items-center gap-2 mb-3">
@@ -400,7 +405,8 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
           </div>
 
           {/* ── Message thread panel ────────────────────────────────────────── */}
-          <div className="flex-1 flex flex-col min-w-0">
+          {/* Mobile: visible only when a thread is selected. md+: always visible. */}
+          <div className={`${selectedUserId ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-w-0`}>
             {!selectedUserId ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8 gap-3">
                 <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center">
@@ -413,8 +419,15 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
               </div>
             ) : (
               <>
-                {/* Thread header */}
+                {/* Thread header — includes back button on mobile */}
                 <div className="px-5 py-4 border-b border-border bg-background flex items-center gap-3 shrink-0">
+                  <button
+                    onClick={() => setSelectedUserId(null)}
+                    className="md:hidden h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors shrink-0 -ml-1"
+                    aria-label="Back to conversations"
+                  >
+                    <ArrowLeft className="h-4 w-4 text-muted-foreground" />
+                  </button>
                   <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
                     <span className="text-primary text-xs font-bold">
                       {selectedThread ? initials(selectedThread.name) : '?'}
