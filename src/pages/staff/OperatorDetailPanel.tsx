@@ -155,6 +155,33 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     fetchDispatchHistory();
   }, [operatorId]);
 
+  // Realtime: prepend new dispatch history entries as they arrive
+  useEffect(() => {
+    const channel = supabase
+      .channel(`dispatch-history-${operatorId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'dispatch_status_history', filter: `operator_id=eq.${operatorId}` },
+        async (payload: any) => {
+          const entry = payload.new as DispatchHistoryEntry;
+          // Resolve the changer's name if present
+          let changed_by_name: string | null = null;
+          if (entry.changed_by) {
+            const map = await resolveStaffNames([entry.changed_by]);
+            changed_by_name = map[entry.changed_by] ?? null;
+          }
+          setDispatchHistory(prev => [{ ...entry, changed_by_name }, ...prev]);
+          setDispatchHistoryTotal(prev => prev + 1);
+          // Also refresh the current status badge
+          setCurrentDispatchStatus(entry.dispatch_status);
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [operatorId]);
+
+
+
   // Notify parent of unsaved changes state
   useEffect(() => {
     const hasChanges = savedSnapshot.current !== null && (
