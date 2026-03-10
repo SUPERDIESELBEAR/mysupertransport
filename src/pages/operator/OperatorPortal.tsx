@@ -543,12 +543,12 @@ export default function OperatorPortal() {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                 {!truckDownAcked && (
                   <button
                     onClick={handleTruckDownAck}
                     disabled={ackLoading}
-                    className="flex items-center gap-1.5 bg-destructive/15 border border-destructive/30 text-destructive text-xs font-semibold px-3 py-2 rounded-lg hover:bg-destructive/25 transition-colors disabled:opacity-60"
+                    className="flex items-center gap-1.5 bg-destructive/15 border border-destructive/30 text-destructive text-xs font-semibold px-3 py-2 rounded-lg hover:bg-destructive/25 transition-colors disabled:opacity-60 flex-1 sm:flex-none justify-center"
                   >
                     {ackLoading
                       ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
@@ -559,7 +559,7 @@ export default function OperatorPortal() {
                 )}
                 <button
                   onClick={() => setView('messages')}
-                  className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors ${
+                  className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors flex-1 sm:flex-none justify-center ${
                     truckDownAcked
                       ? 'bg-muted text-muted-foreground hover:bg-muted/80'
                       : 'bg-destructive text-white hover:bg-destructive/90'
@@ -600,7 +600,7 @@ export default function OperatorPortal() {
         {/* ── ICA ACTION-REQUIRED BANNER ── */}
         {onboardingStatus.ica_status === 'sent_for_signature' && view !== 'ica' && (
           <div className="bg-[hsl(var(--gold)/0.08)] border border-[hsl(var(--gold)/0.5)] rounded-xl px-4 py-4 animate-fade-in">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex flex-col items-start gap-3">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-[hsl(var(--gold)/0.15)] shrink-0">
                   <FileText className="h-5 w-5 text-gold animate-pulse" />
@@ -616,7 +616,7 @@ export default function OperatorPortal() {
               </div>
               <button
                 onClick={() => setView('ica')}
-                className="shrink-0 flex items-center gap-1.5 bg-gold text-surface-dark text-xs font-bold px-4 py-2 rounded-lg hover:bg-gold-light transition-colors shadow-sm"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-gold text-surface-dark text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-gold-light transition-colors shadow-sm"
               >
                 <FileText className="h-3.5 w-3.5" />
                 Review &amp; Sign Now
@@ -636,7 +636,7 @@ export default function OperatorPortal() {
           if (requestedDocs.length === 0 || view === 'documents') return null;
           return (
             <div className="bg-info/8 border border-info/40 rounded-xl px-4 py-4 animate-fade-in">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex flex-col items-start gap-3">
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-info/15 shrink-0">
                     <Upload className="h-5 w-5 text-info animate-pulse" />
@@ -653,7 +653,7 @@ export default function OperatorPortal() {
                 </div>
                 <button
                   onClick={() => setView('documents')}
-                  className="shrink-0 flex items-center gap-1.5 bg-info text-info-foreground text-xs font-bold px-4 py-2 rounded-lg hover:bg-info/90 transition-colors shadow-sm"
+                  className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-info text-info-foreground text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-info/90 transition-colors shadow-sm"
                 >
                   <Upload className="h-3.5 w-3.5" />
                   Upload Documents
