@@ -1277,6 +1277,15 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40">
+                {bulkMode && (
+                  <th className="w-10 px-3 py-3">
+                    <Checkbox
+                      checked={filteredRows.length > 0 && selectedIds.size === filteredRows.length}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Select all operators"
+                    />
+                  </th>
+                )}
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Operator</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Unit #</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
