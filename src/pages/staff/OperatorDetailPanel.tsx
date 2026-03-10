@@ -56,6 +56,8 @@ type DispatchHistoryEntry = {
   current_load_lane: string | null;
   status_notes: string | null;
   changed_at: string;
+  changed_by: string | null;
+  changed_by_name?: string | null;
 };
 
 const DISPATCH_STATUS_CONFIG: Record<string, { label: string; dotClass: string; badgeClass: string; emoji: string }> = {
@@ -82,6 +84,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [status, setStatus] = useState<Partial<OnboardingStatus>>({});
   const [statusId, setStatusId] = useState<string | null>(null);
   const [dispatchHistory, setDispatchHistory] = useState<DispatchHistoryEntry[]>([]);
+  const [dispatchHistoryTotal, setDispatchHistoryTotal] = useState(0);
+  const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
+  const HISTORY_PAGE_SIZE = 10;
   const [currentDispatchStatus, setCurrentDispatchStatus] = useState<string | null>(null);
   type DocFileRow = { id: string; file_name: string | null; file_url: string | null; uploaded_at: string };
   const [docFiles, setDocFiles] = useState<Record<string, DocFileRow[]>>({});
@@ -150,6 +155,33 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     fetchDispatchHistory();
   }, [operatorId]);
 
+  // Realtime: prepend new dispatch history entries as they arrive
+  useEffect(() => {
+    const channel = supabase
+      .channel(`dispatch-history-${operatorId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'dispatch_status_history', filter: `operator_id=eq.${operatorId}` },
+        async (payload: any) => {
+          const entry = payload.new as DispatchHistoryEntry;
+          // Resolve the changer's name if present
+          let changed_by_name: string | null = null;
+          if (entry.changed_by) {
+            const map = await resolveStaffNames([entry.changed_by]);
+            changed_by_name = map[entry.changed_by] ?? null;
+          }
+          setDispatchHistory(prev => [{ ...entry, changed_by_name }, ...prev]);
+          setDispatchHistoryTotal(prev => prev + 1);
+          // Also refresh the current status badge
+          setCurrentDispatchStatus(entry.dispatch_status);
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [operatorId]);
+
+
+
   // Notify parent of unsaved changes state
   useEffect(() => {
     const hasChanges = savedSnapshot.current !== null && (
@@ -173,7 +205,22 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  const fetchDispatchHistory = async () => {
+  // Helper: resolve an array of user UUIDs → { [userId]: displayName }
+  const resolveStaffNames = async (userIds: string[]): Promise<Record<string, string>> => {
+    const unique = [...new Set(userIds.filter(Boolean))];
+    if (unique.length === 0) return {};
+    const { data } = await supabase
+      .from('profiles')
+      .select('user_id, first_name, last_name')
+      .in('user_id', unique);
+    const map: Record<string, string> = {};
+    (data ?? []).forEach((p: any) => {
+      map[p.user_id] = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Staff';
+    });
+    return map;
+  };
+
+  const fetchDispatchHistory = async (reset = true) => {
     const { data: dispatch } = await supabase
       .from('active_dispatch')
       .select('dispatch_status')
@@ -181,14 +228,46 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       .maybeSingle();
     setCurrentDispatchStatus((dispatch as any)?.dispatch_status ?? null);
 
+    // Get total count for "load more"
+    const { count } = await supabase
+      .from('dispatch_status_history' as any)
+      .select('id', { count: 'exact', head: true })
+      .eq('operator_id', operatorId);
+    setDispatchHistoryTotal(count ?? 0);
+
     const { data } = await supabase
       .from('dispatch_status_history' as any)
-      .select('id, dispatch_status, current_load_lane, status_notes, changed_at')
+      .select('id, dispatch_status, current_load_lane, status_notes, changed_at, changed_by')
       .eq('operator_id', operatorId)
       .order('changed_at', { ascending: false })
-      .limit(10);
-    setDispatchHistory((data as unknown as DispatchHistoryEntry[]) ?? []);
+      .limit(HISTORY_PAGE_SIZE);
+
+    const rows = (data as unknown as DispatchHistoryEntry[]) ?? [];
+    const nameMap = await resolveStaffNames(rows.map(r => r.changed_by).filter(Boolean) as string[]);
+    const enriched = rows.map(r => ({ ...r, changed_by_name: r.changed_by ? nameMap[r.changed_by] ?? null : null }));
+    if (reset) {
+      setDispatchHistory(enriched);
+    } else {
+      setDispatchHistory(enriched);
+    }
   };
+
+  const loadMoreHistory = async () => {
+    setLoadingMoreHistory(true);
+    const { data } = await supabase
+      .from('dispatch_status_history' as any)
+      .select('id, dispatch_status, current_load_lane, status_notes, changed_at, changed_by')
+      .eq('operator_id', operatorId)
+      .order('changed_at', { ascending: false })
+      .range(dispatchHistory.length, dispatchHistory.length + HISTORY_PAGE_SIZE - 1);
+    const rows = (data as unknown as DispatchHistoryEntry[]) ?? [];
+    const nameMap = await resolveStaffNames(rows.map(r => r.changed_by).filter(Boolean) as string[]);
+    const enriched = rows.map(r => ({ ...r, changed_by_name: r.changed_by ? nameMap[r.changed_by] ?? null : null }));
+    setDispatchHistory(prev => [...prev, ...enriched]);
+    setLoadingMoreHistory(false);
+  };
+
+
 
   const fetchOperatorDetail = async () => {
     setLoading(true);
@@ -1325,6 +1404,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-gold" />
               <h3 className="font-semibold text-foreground text-sm">Dispatch Status History</h3>
+              {dispatchHistoryTotal > 0 && (
+                <span className="text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full border border-border">
+                  {dispatchHistoryTotal} {dispatchHistoryTotal === 1 ? 'entry' : 'entries'}
+                </span>
+              )}
             </div>
             {currentDispatchStatus && DISPATCH_STATUS_CONFIG[currentDispatchStatus] && (
               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${DISPATCH_STATUS_CONFIG[currentDispatchStatus].badgeClass}`}>
@@ -1370,6 +1454,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                               <span className="font-medium text-foreground">Note:</span> {entry.status_notes}
                             </span>
                           )}
+                          {entry.changed_by_name && (
+                            <span className="text-xs text-muted-foreground">
+                              <span className="font-medium text-foreground">By:</span> {entry.changed_by_name}
+                            </span>
+                          )}
                         </div>
                         <p className="text-[11px] text-muted-foreground mt-1">
                           {formatDistanceToNow(new Date(entry.changed_at), { addSuffix: true })}
@@ -1382,10 +1471,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   );
                 })}
               </div>
+              {/* Load more */}
+              {dispatchHistory.length < dispatchHistoryTotal && (
+                <div className="mt-4 pl-[calc(0.875rem+1rem)]">
+                  <button
+                    onClick={loadMoreHistory}
+                    disabled={loadingMoreHistory}
+                    className="text-xs text-primary hover:underline disabled:opacity-50 flex items-center gap-1"
+                  >
+                    {loadingMoreHistory ? 'Loading…' : `Load ${Math.min(HISTORY_PAGE_SIZE, dispatchHistoryTotal - dispatchHistory.length)} more`}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
+
 
       {/* Internal Notes */}
       <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
