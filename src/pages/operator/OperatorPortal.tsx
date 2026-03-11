@@ -8,6 +8,7 @@ import {
   MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound, UserRound,
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import NotificationHistory from '@/components/management/NotificationHistory';
 import logo from '@/assets/supertransport-logo.png';
 import OperatorDocumentUpload from '@/components/operator/OperatorDocumentUpload';
@@ -407,15 +408,23 @@ export default function OperatorPortal() {
   const currentStage = currentStageIndex >= 0 ? stages[currentStageIndex] : null;
 
   // Compute critical expiry for the Progress nav badge (≤30 days or already expired)
-  const hasCriticalExpiry = (() => {
+  const expiryDotInfo = (() => {
     const today = new Date(); today.setHours(0,0,0,0);
-    const check = (dateStr: string | null) => {
-      if (!dateStr) return false;
+    const expiring: string[] = [];
+    const checkDoc = (dateStr: string | null, label: string) => {
+      if (!dateStr) return;
       const diff = Math.floor((new Date(dateStr).setHours(0,0,0,0) - today.valueOf()) / 86400000);
-      return diff <= 30;
+      if (diff <= 30) expiring.push(diff < 0 ? `${label} expired` : `${label} — ${diff}d left`);
     };
-    return check(cdlExpiration) || check(medicalCertExpiration);
+    checkDoc(cdlExpiration, 'CDL');
+    checkDoc(medicalCertExpiration, 'Medical Cert');
+    if (expiring.length === 0) return null;
+    return {
+      count: expiring.length,
+      tooltip: expiring.join(' · '),
+    };
   })();
+  const hasCriticalExpiry = expiryDotInfo !== null;
 
   const navItems = [
     { view: 'progress' as OperatorView, label: 'My Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
@@ -470,6 +479,7 @@ export default function OperatorPortal() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
+            <TooltipProvider delayDuration={200}>
             {navItems.map(item => (
               <button
                 key={item.view}
@@ -492,13 +502,24 @@ export default function OperatorPortal() {
                       {(item.badge as number) > 99 ? '99+' : item.badge}
                     </span>
                   )}
-                  {'criticalDot' in item && item.criticalDot && view !== 'progress' && (
-                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark" />
+                  {'criticalDot' in item && item.criticalDot && view !== 'progress' && expiryDotInfo && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark cursor-default" />
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs text-xs">
+                        <p className="font-semibold mb-0.5">
+                          {expiryDotInfo.count === 1 ? '1 doc expiring soon' : `${expiryDotInfo.count} docs expiring soon`}
+                        </p>
+                        <p className="text-muted-foreground">{expiryDotInfo.tooltip}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </span>
                 {item.label}
               </button>
             ))}
+            </TooltipProvider>
           </nav>
 
           <div className="flex items-center gap-1">
