@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText, Truck, ArrowRight, Upload, Mail, Phone, Hash, User } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText, Truck, ArrowRight, Upload, Mail, Phone, Hash, User, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
@@ -31,6 +31,8 @@ interface OperatorStatusPageProps {
   assignedDispatcher?: { name: string; phone: string | null; userId?: string | null } | null;
   dispatchStatus?: string | null;
   onMessageDispatcher?: () => void;
+  cdlExpiration?: string | null;
+  medicalCertExpiration?: string | null;
 }
 
 const STAGE_ICONS: Record<number, React.ReactNode> = {
@@ -203,7 +205,55 @@ export default function OperatorStatusPage({
   assignedDispatcher,
   dispatchStatus,
   onMessageDispatcher,
+  cdlExpiration,
+  medicalCertExpiration,
 }: OperatorStatusPageProps) {
+
+  // ── Expiry helpers ──────────────────────────────────────────────────────────
+  const getDaysUntil = (dateStr: string | null | undefined): number | null => {
+    if (!dateStr) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const exp = new Date(dateStr + 'T00:00:00'); // treat as local date
+    return Math.floor((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  type ExpiryLevel = 'expired' | 'red' | 'yellow' | 'green';
+  const getExpiryLevel = (days: number | null): ExpiryLevel | null => {
+    if (days === null) return null;
+    if (days < 0) return 'expired';
+    if (days <= 30) return 'red';
+    if (days <= 90) return 'yellow';
+    return 'green';
+  };
+
+  const cdlDays = getDaysUntil(cdlExpiration);
+  const medDays = getDaysUntil(medicalCertExpiration);
+  const cdlLevel = getExpiryLevel(cdlDays);
+  const medLevel = getExpiryLevel(medDays);
+  // Only show the card if at least one document is within 90 days or expired
+  const showExpiryCard = cdlLevel !== null && cdlLevel !== 'green'
+    ? true
+    : medLevel !== null && medLevel !== 'green';
+
+  const expiryConfig: Record<ExpiryLevel, { bg: string; border: string; label: string; text: string; dot: string }> = {
+    expired: { bg: 'bg-destructive/8',    border: 'border-destructive/30',    label: 'Expired',       text: 'text-destructive',     dot: 'bg-destructive' },
+    red:     { bg: 'bg-destructive/8',    border: 'border-destructive/30',    label: 'Expiring Soon', text: 'text-destructive',     dot: 'bg-destructive animate-pulse' },
+    yellow:  { bg: 'bg-gold/8',           border: 'border-gold/30',           label: 'Expiring Soon', text: 'text-gold',            dot: 'bg-gold' },
+    green:   { bg: 'bg-status-complete/8',border: 'border-status-complete/30',label: 'Valid',         text: 'text-status-complete', dot: 'bg-status-complete' },
+  };
+
+  const formatExpiry = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '';
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const daysLabel = (days: number | null): string => {
+    if (days === null) return '';
+    if (days < 0) return `Expired ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''} ago`;
+    if (days === 0) return 'Expires today';
+    return `${days} day${days !== 1 ? 's' : ''} remaining`;
+  };
 
   const nextStepContent = () => {
     if (!currentStage) return null;
@@ -341,6 +391,46 @@ export default function OperatorStatusPage({
           </div>
         </div>
       )}
+
+      {/* ── DOCUMENT EXPIRY ALERTS ── */}
+      {showExpiryCard && (
+        <div className="rounded-2xl border overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-2.5 flex items-center gap-2 bg-muted/50 border-b border-border">
+            <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Document Expiration</p>
+          </div>
+          <div className="divide-y divide-border">
+            {[
+              { label: 'CDL License', days: cdlDays, level: cdlLevel, date: cdlExpiration },
+              { label: 'Medical Certificate', days: medDays, level: medLevel, date: medicalCertExpiration },
+            ]
+              .filter(d => d.level !== null && d.level !== 'green')
+              .map(doc => {
+                const cfg = expiryConfig[doc.level!];
+                return (
+                  <div key={doc.label} className={`flex items-center justify-between gap-3 px-4 py-3 ${cfg.bg}`}>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${cfg.dot}`} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground leading-tight">{doc.label}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Expires {formatExpiry(doc.date)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${cfg.bg} ${cfg.border} ${cfg.text}`}>
+                        {daysLabel(doc.days)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
       <div className="bg-surface-dark rounded-2xl p-5 shadow-xl">
         {isFullyOnboarded ? (
           <div className="flex items-center gap-4">

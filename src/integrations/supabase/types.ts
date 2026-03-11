@@ -97,6 +97,7 @@ export type Database = {
           id: string
           is_draft: boolean | null
           last_name: string | null
+          medical_cert_expiration: string | null
           medical_cert_url: string | null
           moving_violations: boolean | null
           moving_violations_description: string | null
@@ -160,6 +161,7 @@ export type Database = {
           id?: string
           is_draft?: boolean | null
           last_name?: string | null
+          medical_cert_expiration?: string | null
           medical_cert_url?: string | null
           moving_violations?: boolean | null
           moving_violations_description?: string | null
@@ -223,6 +225,7 @@ export type Database = {
           id?: string
           is_draft?: boolean | null
           last_name?: string | null
+          medical_cert_expiration?: string | null
           medical_cert_url?: string | null
           moving_violations?: boolean | null
           moving_violations_description?: string | null
