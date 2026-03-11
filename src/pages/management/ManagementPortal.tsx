@@ -67,6 +67,7 @@ export default function ManagementPortal() {
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [criticalExpiryCount, setCriticalExpiryCount] = useState(0);
+  const [drawerFocusField, setDrawerFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
 
 
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
