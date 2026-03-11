@@ -28,6 +28,9 @@ interface OperatorStatusPageProps {
   onboardingStatus: Record<string, string | null>;
   onNavigateTo: (view: string) => void;
   displayName: string;
+  assignedDispatcher?: { name: string; phone: string | null } | null;
+  dispatchStatus?: string | null;
+  onMessageDispatcher?: () => void;
 }
 
 const STAGE_ICONS: Record<number, React.ReactNode> = {
