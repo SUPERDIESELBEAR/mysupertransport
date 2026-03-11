@@ -202,7 +202,8 @@ Deno.serve(async (req) => {
           // ── Operator email at 30-day and 60-day thresholds ──
           if (isEmailThreshold && RESEND_API_KEY && opNotifInserted) {
             try {
-              const emailOk = await userEmailEnabled(op.user_id);
+              const prefEventType = threshold === 60 ? 'cert_expiry_60day' : 'cert_expiry';
+              const emailOk = await userEmailEnabled(op.user_id, prefEventType);
               if (emailOk) {
                 const { data: { user: opUser } } = await supabase.auth.admin.getUserById(op.user_id);
                 if (opUser?.email) {
