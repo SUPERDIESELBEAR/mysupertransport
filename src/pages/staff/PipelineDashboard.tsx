@@ -53,6 +53,14 @@ interface StaffOption {
   full_name: string;
 }
 
+interface ComplianceAlert {
+  operator_id: string;
+  operator_name: string;
+  doc_type: 'CDL' | 'Medical Cert';
+  expiration_date: string;
+  days_until: number; // negative = already expired
+}
+
 interface PipelineDashboardProps {
   onOpenOperator: (operatorId: string) => void;
   initialDispatchFilter?: DispatchStatus | 'all';
