@@ -753,10 +753,11 @@ export default function ManagementPortal() {
       {selectedApp && (
         <ApplicationReviewDrawer
           app={selectedApp}
-          onClose={() => setSelectedApp(null)}
+          onClose={() => { setSelectedApp(null); setDrawerFocusField(undefined); }}
           onApprove={handleApprove}
           onDeny={handleDeny}
           onExpiryUpdated={() => setComplianceRefreshKey(k => k + 1)}
+          focusField={drawerFocusField}
         />
       )}
 
