@@ -144,6 +144,10 @@
   border-color: hsl(var(--surface-dark-border));
 }
 
+/* Warning utility */
+.text-warning { color: hsl(var(--warning)); }
+.bg-warning { background-color: hsl(var(--warning)); }
+
 /* Gold accent utilities */
 .text-gold { color: hsl(var(--gold-main)); }
 .text-gold-light { color: hsl(var(--gold-light)); }
