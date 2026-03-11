@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   X, CheckCircle2, XCircle, User, Phone, Mail, MapPin, Calendar,
   Briefcase, Car, FileText, ShieldAlert, ChevronRight, AlertTriangle, Loader2, Printer,
-  Eye, EyeOff, Lock
+  Eye, EyeOff, Lock, Save
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
 
 interface ApplicationReviewDrawerProps {
   app: FullApplication | null;
