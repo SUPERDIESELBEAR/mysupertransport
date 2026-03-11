@@ -571,6 +571,103 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
         })()}
       </div>
 
+      {/* Compliance Alerts Panel */}
+      {complianceAlerts.length > 0 && (
+        <div className="border border-destructive/30 bg-destructive/5 rounded-xl shadow-sm overflow-hidden">
+          {/* Header */}
+          <button
+            onClick={() => setComplianceExpanded(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-destructive/10 transition-colors"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="h-7 w-7 rounded-lg bg-destructive/15 flex items-center justify-center shrink-0">
+                <ShieldAlert className="h-4 w-4 text-destructive" />
+              </div>
+              <span className="font-semibold text-sm text-destructive">Compliance Alerts</span>
+              <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none">
+                {complianceAlerts.length}
+              </span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">
+                {complianceAlerts.filter(a => a.days_until < 0).length > 0
+                  ? `${complianceAlerts.filter(a => a.days_until < 0).length} expired · `
+                  : ''}
+                CDL or medical cert expiring within 90 days
+              </span>
+            </div>
+            {complianceExpanded
+              ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+              : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+            }
+          </button>
+
+          {/* Alert rows */}
+          {complianceExpanded && (
+            <div className="border-t border-destructive/20 divide-y divide-destructive/10">
+              {complianceAlerts.map((alert, i) => {
+                const expired = alert.days_until < 0;
+                const critical = !expired && alert.days_until <= 30;
+                const warning = !expired && !critical;
+
+                return (
+                  <div key={`${alert.operator_id}-${alert.doc_type}`}
+                    className="flex items-center gap-3 px-4 py-2.5 bg-background/60 hover:bg-background/80 transition-colors"
+                  >
+                    {/* Urgency dot */}
+                    <span className={`h-2 w-2 rounded-full shrink-0 ${
+                      expired ? 'bg-destructive animate-pulse' :
+                      critical ? 'bg-destructive' :
+                      'bg-yellow-500'
+                    }`} />
+
+                    {/* Name + doc type */}
+                    <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span className="font-medium text-sm text-foreground truncate">{alert.operator_name}</span>
+                      <span className={`inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium border ${
+                        alert.doc_type === 'CDL'
+                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                          : 'bg-purple-50 text-purple-700 border-purple-200'
+                      }`}>
+                        {alert.doc_type}
+                      </span>
+                    </div>
+
+                    {/* Expiry date */}
+                    <span className="text-xs text-muted-foreground hidden sm:block shrink-0">
+                      {format(parseISO(alert.expiration_date), 'MMM d, yyyy')}
+                    </span>
+
+                    {/* Badge */}
+                    <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border shrink-0 ${
+                      expired
+                        ? 'bg-destructive/10 text-destructive border-destructive/30'
+                        : critical
+                        ? 'bg-destructive/10 text-destructive border-destructive/30'
+                        : 'bg-yellow-50 text-yellow-700 border-yellow-300'
+                    }`}>
+                      {expired
+                        ? `Expired ${Math.abs(alert.days_until)}d ago`
+                        : alert.days_until === 0
+                        ? 'Expires today'
+                        : `${alert.days_until}d left`}
+                    </span>
+
+                    {/* Open button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onOpenOperator(alert.operator_id)}
+                      className="text-xs text-gold hover:text-gold-light hover:bg-gold/10 shrink-0 h-7 px-2"
+                    >
+                      Open →
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Stage breakdown (clickable) */}
       <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
         <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
