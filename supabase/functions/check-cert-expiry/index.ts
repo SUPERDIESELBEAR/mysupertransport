@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
     today.setHours(0, 0, 0, 0);
 
     const ALERT_DAYS = [90, 60, 30];
-    const EMAIL_THRESHOLD = 30; // Only send email at 30-day threshold
+    const EMAIL_THRESHOLDS = new Set([30, 60]); // Send emails at both thresholds
 
     const notificationsToInsert: Array<{
       user_id: string;
