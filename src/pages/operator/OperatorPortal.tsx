@@ -18,6 +18,7 @@ import OperatorStatusPage from '@/components/operator/OperatorStatusPage';
 import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus';
 import OperatorICASign from '@/components/operator/OperatorICASign';
 import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
+import ChangePasswordModal from '@/components/ChangePasswordModal';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications';
