@@ -197,7 +197,7 @@ const STATUS_COLORS: Record<string, string> = {
   denied: 'bg-destructive/15 text-destructive',
 };
 
-export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny }: ApplicationReviewDrawerProps) {
+export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated }: ApplicationReviewDrawerProps) {
   const { roles } = useAuth();
   const isManagement = roles.includes('management');
   const [notes, setNotes] = useState('');
