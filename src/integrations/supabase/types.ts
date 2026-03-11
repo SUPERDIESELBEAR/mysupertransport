@@ -289,6 +289,41 @@ export type Database = {
         }
         Relationships: []
       }
+      cert_reminders: {
+        Row: {
+          doc_type: string
+          id: string
+          operator_id: string
+          sent_at: string
+          sent_by: string | null
+          sent_by_name: string | null
+        }
+        Insert: {
+          doc_type: string
+          id?: string
+          operator_id: string
+          sent_at?: string
+          sent_by?: string | null
+          sent_by_name?: string | null
+        }
+        Update: {
+          doc_type?: string
+          id?: string
+          operator_id?: string
+          sent_at?: string
+          sent_by?: string | null
+          sent_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cert_reminders_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dispatch_status_history: {
         Row: {
           changed_at: string
