@@ -138,8 +138,26 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [ssnValue, setSsnValue] = useState<string | null>(null);
   const [ssnLoading, setSsnLoading] = useState(false);
   const [ssnError, setSsnError] = useState<string | null>(null);
+  const [medCertExp, setMedCertExp] = useState(app?.medical_cert_expiration ?? '');
+  const [savingMedCert, setSavingMedCert] = useState(false);
 
   if (!app) return null;
+
+  const saveMedCertExpiration = async () => {
+    setSavingMedCert(true);
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update({ medical_cert_expiration: medCertExp || null })
+        .eq('id', app.id);
+      if (error) throw error;
+      toast.success('Medical certificate expiration saved.');
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to save.');
+    } finally {
+      setSavingMedCert(false);
+    }
+  };
 
   const handlePrint = () => {
     window.print();
