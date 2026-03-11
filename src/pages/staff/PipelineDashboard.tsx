@@ -431,9 +431,41 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
     setAssigningMap(prev => ({ ...prev, [operatorId]: false }));
   };
 
+  const handleSendReminder = async (alert: ComplianceAlert) => {
+    const key = `${alert.operator_id}|${alert.doc_type}`;
+    setReminderSending(prev => ({ ...prev, [key]: true }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const res = await fetch(`${supabaseUrl}/functions/v1/send-cert-reminder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token ?? ''}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          operator_id: alert.operator_id,
+          doc_type: alert.doc_type,
+          days_until: alert.days_until,
+          expiration_date: alert.expiration_date,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to send reminder');
+      setReminderSent(prev => ({ ...prev, [key]: true }));
+      toast({ title: 'Reminder sent', description: `Email sent to ${alert.operator_name}` });
+      // Reset "sent" badge after 8 seconds
+      setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
+    } catch (err: any) {
+      toast({ title: 'Failed to send reminder', description: err.message, variant: 'destructive' });
+    } finally {
+      setReminderSending(prev => ({ ...prev, [key]: false }));
+    }
+  };
 
 
-  const filtered = operators
+
     .filter(op => {
       const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.toLowerCase();
       const matchSearch = name.includes(search.toLowerCase()) || (op.phone ?? '').includes(search);
