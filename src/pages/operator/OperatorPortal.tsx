@@ -537,7 +537,13 @@ export default function OperatorPortal() {
                 </button>
               ))}
             </div>
-            <div className="mt-3 pt-3 border-t border-surface-dark-border flex justify-center gap-4">
+            <div className="mt-3 pt-3 border-t border-surface-dark-border flex flex-wrap justify-center gap-3">
+              <button
+                onClick={() => { setEditProfileOpen(true); setMobileMenuOpen(false); }}
+                className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-surface-dark-foreground"
+              >
+                <UserRound className="h-4 w-4" /> Edit Profile
+              </button>
               <button
                 onClick={() => { setChangePasswordOpen(true); setMobileMenuOpen(false); }}
                 className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-surface-dark-foreground"
