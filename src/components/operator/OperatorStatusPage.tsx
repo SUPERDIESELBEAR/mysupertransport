@@ -347,14 +347,11 @@ export default function OperatorStatusPage({
             <div className="h-14 w-14 rounded-full bg-status-complete/20 border-2 border-status-complete flex items-center justify-center shrink-0">
               <CheckCircle2 className="h-7 w-7 text-status-complete" />
             </div>
-            <div>
+          <div>
               <p className="text-lg font-bold text-white">Fully Onboarded!</p>
               <p className="text-surface-dark-muted text-sm mt-0.5">
                 You're ready to dispatch. Welcome to SUPERTRANSPORT.
               </p>
-              {onboardingStatus.unit_number && (
-                <p className="text-gold font-semibold text-sm mt-1.5">Unit #{onboardingStatus.unit_number}</p>
-              )}
             </div>
           </div>
         ) : (
