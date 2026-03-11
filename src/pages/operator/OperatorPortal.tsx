@@ -480,45 +480,52 @@ export default function OperatorPortal() {
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
             <TooltipProvider delayDuration={200}>
-            {navItems.map(item => (
-              <button
-                key={item.view}
-                onClick={() => setView(item.view)}
-                className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                  view === item.view
-                    ? 'bg-gold/15 text-gold'
-                    : 'text-surface-dark-muted hover:text-surface-dark-foreground hover:bg-surface-dark-card'
-                }`}
-              >
-                <span className="relative">
-                  {item.icon}
-                  {(item.view === 'messages' && unreadCount > 0) && (
-                    <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                  )}
-                  {'badge' in item && item.badge != null && item.badge > 0 && item.view !== 'messages' && (
-                    <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
-                      {(item.badge as number) > 99 ? '99+' : item.badge}
-                    </span>
-                  )}
-                  {'criticalDot' in item && item.criticalDot && view !== 'progress' && expiryDotInfo && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark cursor-default" />
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs text-xs">
-                        <p className="font-semibold mb-0.5">
-                          {expiryDotInfo.count === 1 ? '1 doc expiring soon' : `${expiryDotInfo.count} docs expiring soon`}
-                        </p>
-                        <p className="text-muted-foreground">{expiryDotInfo.tooltip}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                </span>
-                {item.label}
-              </button>
-            ))}
+            {navItems.map(item => {
+              const showExpiry = 'criticalDot' in item && item.criticalDot && view !== 'progress' && expiryDotInfo;
+              const btn = (
+                <button
+                  key={item.view}
+                  onClick={() => setView(item.view)}
+                  className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                    view === item.view
+                      ? 'bg-gold/15 text-gold'
+                      : 'text-surface-dark-muted hover:text-surface-dark-foreground hover:bg-surface-dark-card'
+                  }`}
+                >
+                  <span className="relative">
+                    {item.icon}
+                    {(item.view === 'messages' && unreadCount > 0) && (
+                      <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                    {'badge' in item && item.badge != null && item.badge > 0 && item.view !== 'messages' && (
+                      <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                        {(item.badge as number) > 99 ? '99+' : item.badge}
+                      </span>
+                    )}
+                    {showExpiry && (
+                      <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark" />
+                    )}
+                  </span>
+                  {item.label}
+                </button>
+              );
+              if (showExpiry) {
+                return (
+                  <Tooltip key={item.view}>
+                    <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs text-xs">
+                      <p className="font-semibold mb-0.5">
+                        {expiryDotInfo!.count === 1 ? '1 doc expiring soon' : `${expiryDotInfo!.count} docs expiring soon`}
+                      </p>
+                      <p className="text-muted-foreground">{expiryDotInfo!.tooltip}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
+              return btn;
+            })}
             </TooltipProvider>
           </nav>
 
