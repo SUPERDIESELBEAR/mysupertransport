@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+import { format, parseISO } from 'date-fns';
 import {
-  X, CheckCircle2, XCircle, User, Phone, Mail, MapPin, Calendar,
-  Briefcase, Car, FileText, ShieldAlert, ChevronRight, AlertTriangle, Loader2, Printer,
+  X, CheckCircle2, XCircle, User, MapPin, CalendarIcon,
+  Briefcase, Car, FileText, ShieldAlert, AlertTriangle, Loader2, Printer,
   Eye, EyeOff, Lock, Save
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -122,6 +125,71 @@ function EmployerBlock({ employer, label }: { employer: Record<string, string> |
   );
 }
 
+function EditableDateField({
+  label,
+  date,
+  open,
+  saving,
+  isDirty,
+  onOpenChange,
+  onSelect,
+  onSave,
+}: {
+  label: string;
+  date: Date | undefined;
+  open: boolean;
+  saving: boolean;
+  isDirty: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSelect: (d: Date | undefined) => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="grid grid-cols-5 gap-2 text-sm">
+      <span className="col-span-2 text-muted-foreground flex items-center gap-1 self-center">
+        {label}
+        <span className="text-[10px] bg-gold/15 text-gold px-1.5 py-0.5 rounded font-medium">Staff</span>
+      </span>
+      <div className="col-span-3 flex items-center gap-2">
+        <Popover open={open} onOpenChange={onOpenChange}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                'h-8 flex-1 justify-start text-left font-normal text-xs',
+                !date && 'text-muted-foreground',
+                isDirty && 'border-gold/60 bg-gold/5'
+              )}
+            >
+              <CalendarIcon className="mr-1.5 h-3 w-3 shrink-0 opacity-60" />
+              {date ? format(date, 'MMM d, yyyy') : 'Pick a date'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0 z-[60]" align="start">
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={onSelect}
+              initialFocus
+              className={cn('p-3 pointer-events-auto')}
+            />
+          </PopoverContent>
+        </Popover>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onSave}
+          disabled={saving || !isDirty}
+          className="h-8 px-2 shrink-0 border-gold/40 text-gold hover:bg-gold/10 disabled:opacity-40"
+        >
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-status-progress/15 text-status-progress',
   approved: 'bg-status-complete/15 text-status-complete',
@@ -138,17 +206,49 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [ssnValue, setSsnValue] = useState<string | null>(null);
   const [ssnLoading, setSsnLoading] = useState(false);
   const [ssnError, setSsnError] = useState<string | null>(null);
-  const [medCertExp, setMedCertExp] = useState(app?.medical_cert_expiration ?? '');
+
+  // CDL expiry
+  const [cdlExpDate, setCdlExpDate] = useState<Date | undefined>(
+    app?.cdl_expiration ? parseISO(app.cdl_expiration) : undefined
+  );
+  const [cdlExpOpen, setCdlExpOpen] = useState(false);
+  const [savingCdlExp, setSavingCdlExp] = useState(false);
+  const originalCdlExp = app?.cdl_expiration ?? null;
+
+  // Med cert expiry
+  const [medCertDate, setMedCertDate] = useState<Date | undefined>(
+    app?.medical_cert_expiration ? parseISO(app.medical_cert_expiration) : undefined
+  );
+  const [medCertOpen, setMedCertOpen] = useState(false);
   const [savingMedCert, setSavingMedCert] = useState(false);
+  const originalMedCertExp = app?.medical_cert_expiration ?? null;
 
   if (!app) return null;
+
+  const saveCdlExpiration = async () => {
+    setSavingCdlExp(true);
+    try {
+      const val = cdlExpDate ? format(cdlExpDate, 'yyyy-MM-dd') : null;
+      const { error } = await supabase
+        .from('applications')
+        .update({ cdl_expiration: val })
+        .eq('id', app.id);
+      if (error) throw error;
+      toast.success('CDL expiration saved.');
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to save.');
+    } finally {
+      setSavingCdlExp(false);
+    }
+  };
 
   const saveMedCertExpiration = async () => {
     setSavingMedCert(true);
     try {
+      const val = medCertDate ? format(medCertDate, 'yyyy-MM-dd') : null;
       const { error } = await supabase
         .from('applications')
-        .update({ medical_cert_expiration: medCertExp || null })
+        .update({ medical_cert_expiration: val })
         .eq('id', app.id);
       if (error) throw error;
       toast.success('Medical certificate expiration saved.');
@@ -270,34 +370,37 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
             <Field label="CDL Number" value={app.cdl_number} />
             <Field label="State" value={app.cdl_state} />
             <Field label="Class" value={app.cdl_class} />
-            <Field label="CDL Expiration" value={app.cdl_expiration ? new Date(app.cdl_expiration).toLocaleDateString() : null} />
+            {/* Staff-editable CDL expiration */}
+            <EditableDateField
+              label="CDL Expiry"
+              date={cdlExpDate}
+              open={cdlExpOpen}
+              saving={savingCdlExp}
+              isDirty={
+                (cdlExpDate ? format(cdlExpDate, 'yyyy-MM-dd') : null) !== originalCdlExp
+              }
+              onOpenChange={setCdlExpOpen}
+              onSelect={d => { setCdlExpDate(d); setCdlExpOpen(false); }}
+              onSave={saveCdlExpiration}
+            />
             <Field label="10-Year CDL History" value={<YesNoBadge value={app.cdl_10_years} />} />
             <Field label="Endorsements" value={app.endorsements?.join(', ')} />
             <Field label="Equipment" value={app.equipment_operated?.join(', ')} />
             <Field label="Years Experience" value={app.years_experience} />
             {/* Staff-editable medical cert expiration */}
-            <div className="grid grid-cols-5 gap-2 text-sm pt-1 border-t border-border mt-1">
-              <span className="col-span-2 text-muted-foreground flex items-center gap-1">
-                Med. Cert. Expiry
-                <span className="text-[10px] bg-gold/15 text-gold px-1.5 py-0.5 rounded font-medium">Staff</span>
-              </span>
-              <div className="col-span-3 flex items-center gap-2">
-                <Input
-                  type="date"
-                  value={medCertExp}
-                  onChange={e => setMedCertExp(e.target.value)}
-                  className="h-8 text-xs"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={saveMedCertExpiration}
-                  disabled={savingMedCert || medCertExp === (app.medical_cert_expiration ?? '')}
-                  className="h-8 px-2 shrink-0 border-gold/40 text-gold hover:bg-gold/10"
-                >
-                  {savingMedCert ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                </Button>
-              </div>
+            <div className="border-t border-border pt-2 mt-1">
+              <EditableDateField
+                label="Med. Cert. Expiry"
+                date={medCertDate}
+                open={medCertOpen}
+                saving={savingMedCert}
+                isDirty={
+                  (medCertDate ? format(medCertDate, 'yyyy-MM-dd') : null) !== originalMedCertExp
+                }
+                onOpenChange={setMedCertOpen}
+                onSelect={d => { setMedCertDate(d); setMedCertOpen(false); }}
+                onSave={saveMedCertExpiration}
+              />
             </div>
           </Section>
 
