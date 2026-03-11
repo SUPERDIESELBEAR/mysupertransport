@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
-  LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck,
+  LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound,
 } from 'lucide-react';
 import NotificationHistory from '@/components/management/NotificationHistory';
 import logo from '@/assets/supertransport-logo.png';
@@ -18,6 +18,7 @@ import OperatorStatusPage from '@/components/operator/OperatorStatusPage';
 import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus';
 import OperatorICASign from '@/components/operator/OperatorICASign';
 import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
+import ChangePasswordModal from '@/components/ChangePasswordModal';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications';
@@ -73,6 +74,7 @@ export default function OperatorPortal() {
   const [assignedDispatcher, setAssignedDispatcher] = useState<{ name: string; phone: string | null } | null>(null);
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [notifPrefOpen, setNotifPrefOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [truckDownAcked, setTruckDownAcked] = useState(false);
   const [ackLoading, setAckLoading] = useState(false);
   const viewRef = useRef(view);
@@ -427,6 +429,7 @@ export default function OperatorPortal() {
   return (
     <>
     <OperatorNotificationPreferencesModal open={notifPrefOpen} onClose={() => setNotifPrefOpen(false)} />
+    <ChangePasswordModal open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} variant="dark" />
     <div className="min-h-screen bg-secondary">
       {/* Top nav */}
       <header className="bg-surface-dark border-b border-surface-dark-border sticky top-0 z-40">
@@ -464,6 +467,13 @@ export default function OperatorPortal() {
           </nav>
 
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setChangePasswordOpen(true)}
+              title="Change password"
+              className="text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors"
+            >
+              <KeyRound className="h-5 w-5" />
+            </button>
             <button
               onClick={() => setNotifPrefOpen(true)}
               title="Notification preferences"
@@ -517,7 +527,13 @@ export default function OperatorPortal() {
                 </button>
               ))}
             </div>
-            <div className="mt-3 pt-3 border-t border-surface-dark-border flex justify-center">
+            <div className="mt-3 pt-3 border-t border-surface-dark-border flex justify-center gap-4">
+              <button
+                onClick={() => { setChangePasswordOpen(true); setMobileMenuOpen(false); }}
+                className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-surface-dark-foreground"
+              >
+                <KeyRound className="h-4 w-4" /> Change Password
+              </button>
               <button onClick={signOut} className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-destructive">
                 <LogOut className="h-4 w-4" /> Sign Out
               </button>

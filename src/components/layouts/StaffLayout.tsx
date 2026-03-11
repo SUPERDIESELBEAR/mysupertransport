@@ -2,11 +2,12 @@ import { ReactNode, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import {
-  LogOut, Menu, X, ChevronDown,
+  LogOut, Menu, X, ChevronDown, KeyRound,
 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import type { Database } from '@/integrations/supabase/types';
 import NotificationBell from '@/components/NotificationBell';
+import ChangePasswordModal from '@/components/ChangePasswordModal';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -51,6 +52,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
   const [sidebarOpen, setSidebarOpen] = useState(false); // default closed on mobile
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [roleSwitchOpen, setRoleSwitchOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const displayName = profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() : 'User';
   const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??';
@@ -166,6 +168,14 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
               </div>
               <button
                 type="button"
+                onClick={() => setChangePasswordOpen(true)}
+                title="Change password"
+                className="text-surface-dark-muted hover:text-surface-dark-foreground transition-colors p-1 rounded"
+              >
+                <KeyRound className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
                 data-sign-out="true"
                 onClick={() => { if (window.confirm('Sign out?')) signOut(); }}
                 title="Sign out"
@@ -181,6 +191,8 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
   );
 
   return (
+    <>
+    <ChangePasswordModal open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
     <div className="flex h-screen bg-secondary overflow-hidden">
       {/* ── Mobile overlay sidebar ─────────────────────────────────── */}
       {mobileSidebarOpen && (
@@ -268,5 +280,6 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
         <div className="h-safe-bottom bg-surface-dark" />
       </nav>
     </div>
+    </>
   );
 }
