@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, differenceInDays, startOfDay } from 'date-fns';
 import {
   X, CheckCircle2, XCircle, User, MapPin, CalendarIcon,
   Briefcase, Car, FileText, ShieldAlert, AlertTriangle, Loader2, Printer,
