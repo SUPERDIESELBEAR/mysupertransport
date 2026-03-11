@@ -724,6 +724,13 @@ export default function OperatorPortal() {
             onboardingStatus={onboardingStatus}
             onNavigateTo={(v) => setView(v as OperatorView)}
             displayName={displayName}
+            assignedDispatcher={assignedDispatcher}
+            dispatchStatus={dispatchStatus}
+            onMessageDispatcher={() => {
+              if (assignedDispatcher) {
+                setView('messages');
+              }
+            }}
           />
         )}
 

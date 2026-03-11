@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText, Truck, ArrowRight, Upload, Mail, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText, Truck, ArrowRight, Upload, Mail, Phone, Hash, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
