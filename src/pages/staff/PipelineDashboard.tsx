@@ -689,7 +689,7 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
       <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
         <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
           <p className="text-sm font-semibold text-foreground">Pipeline by Stage</p>
-          {/* Dispatch quick-filter chips */}
+          {/* Dispatch + Compliance quick-filter chips */}
           <div className="flex items-center gap-2 flex-wrap">
             {((['truck_down', 'dispatched', 'home', 'not_dispatched'] as DispatchStatus[]).map(status => {
               const badge = DISPATCH_BADGE[status];
@@ -718,6 +718,49 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                 </button>
               );
             }))}
+            {/* Compliance filter chips */}
+            {(() => {
+              const criticalCount = operators.filter(op => {
+                const a = complianceByOperator[op.id];
+                return a != null && a.days_until <= 30;
+              }).length;
+              const warningCount = operators.filter(op => {
+                const a = complianceByOperator[op.id];
+                return a != null && a.days_until > 30 && a.days_until <= 90;
+              }).length;
+              return (
+                <>
+                  {(criticalCount > 0 || complianceFilter === 'critical') && (
+                    <button
+                      onClick={() => setComplianceFilter(complianceFilter === 'critical' ? 'all' : 'critical')}
+                      className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                        complianceFilter === 'critical'
+                          ? 'bg-destructive text-destructive-foreground border-destructive'
+                          : 'bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20'
+                      }`}
+                    >
+                      <ShieldAlert className={`h-3 w-3 ${complianceFilter === 'critical' ? 'text-destructive-foreground' : 'text-destructive'}`} />
+                      Critical Expiry
+                      <span className="font-bold">{criticalCount}</span>
+                    </button>
+                  )}
+                  {(warningCount > 0 || complianceFilter === 'warning') && (
+                    <button
+                      onClick={() => setComplianceFilter(complianceFilter === 'warning' ? 'all' : 'warning')}
+                      className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                        complianceFilter === 'warning'
+                          ? 'bg-yellow-500 text-white border-yellow-500'
+                          : 'bg-yellow-50 text-yellow-700 border-yellow-300 hover:bg-yellow-100'
+                      }`}
+                    >
+                      <ShieldAlert className={`h-3 w-3 ${complianceFilter === 'warning' ? 'text-white' : 'text-yellow-600'}`} />
+                      Expiry Warning
+                      <span className="font-bold">{warningCount}</span>
+                    </button>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
