@@ -209,6 +209,13 @@ export default function OperatorStatusPage({
   cdlExpiration,
   medicalCertExpiration,
 }: OperatorStatusPageProps) {
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    return sessionStorage.getItem('cert_expiry_banner_dismissed') === 'true';
+  });
+  const dismissBanner = () => {
+    sessionStorage.setItem('cert_expiry_banner_dismissed', 'true');
+    setBannerDismissed(true);
+  };
 
   // ── Expiry helpers ──────────────────────────────────────────────────────────
   const getDaysUntil = (dateStr: string | null | undefined): number | null => {
