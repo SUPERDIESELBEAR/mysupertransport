@@ -199,7 +199,7 @@ const STATUS_COLORS: Record<string, string> = {
   denied: 'bg-destructive/15 text-destructive',
 };
 
-export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated }: ApplicationReviewDrawerProps) {
+export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated, focusField }: ApplicationReviewDrawerProps) {
   const { roles } = useAuth();
   const isManagement = roles.includes('management');
   const [notes, setNotes] = useState('');
@@ -209,6 +209,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [ssnValue, setSsnValue] = useState<string | null>(null);
   const [ssnLoading, setSsnLoading] = useState(false);
   const [ssnError, setSsnError] = useState<string | null>(null);
+
+  const cdlFieldRef = useRef<HTMLDivElement>(null);
+  const medCertFieldRef = useRef<HTMLDivElement>(null);
 
   // CDL expiry
   const [cdlExpDate, setCdlExpDate] = useState<Date | undefined>(
@@ -226,7 +229,20 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [savingMedCert, setSavingMedCert] = useState(false);
   const originalMedCertExp = app?.medical_cert_expiration ?? null;
 
-  if (!app) return null;
+  // Auto-scroll and open the focused field on mount
+  useEffect(() => {
+    if (!focusField) return;
+    const timer = setTimeout(() => {
+      if (focusField === 'cdl') {
+        cdlFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setCdlExpOpen(true);
+      } else {
+        medCertFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setMedCertOpen(true);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [focusField]);
 
   const buildExpiryToast = (label: string, date: Date | null) => {
     if (!date) return { message: `${label} expiration cleared.`, type: 'info' as const };
