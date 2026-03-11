@@ -22,6 +22,8 @@ interface OperatorDetailPanelProps {
   onBack: () => void;
   onMessageOperator?: (userId: string) => void;
   onUnsavedChangesChange?: (hasChanges: boolean) => void;
+  /** Called when a compliance pill is clicked to open the app review drawer */
+  onOpenAppReview?: (focusField: 'cdl' | 'medcert') => void;
 }
 
 type OnboardingStatus = {
