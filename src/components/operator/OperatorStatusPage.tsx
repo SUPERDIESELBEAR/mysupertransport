@@ -254,6 +254,8 @@ export default function OperatorStatusPage({
     if (days === 0) return 'Expires today';
     return `${days} day${days !== 1 ? 's' : ''} remaining`;
   };
+
+  const nextStepContent = () => {
     if (!currentStage) return null;
 
     if (currentStage.status === 'action_required') {
