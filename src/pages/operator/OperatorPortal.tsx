@@ -408,15 +408,23 @@ export default function OperatorPortal() {
   const currentStage = currentStageIndex >= 0 ? stages[currentStageIndex] : null;
 
   // Compute critical expiry for the Progress nav badge (≤30 days or already expired)
-  const hasCriticalExpiry = (() => {
+  const expiryDotInfo = (() => {
     const today = new Date(); today.setHours(0,0,0,0);
-    const check = (dateStr: string | null) => {
-      if (!dateStr) return false;
+    const expiring: string[] = [];
+    const checkDoc = (dateStr: string | null, label: string) => {
+      if (!dateStr) return;
       const diff = Math.floor((new Date(dateStr).setHours(0,0,0,0) - today.valueOf()) / 86400000);
-      return diff <= 30;
+      if (diff <= 30) expiring.push(diff < 0 ? `${label} expired` : `${label} — ${diff}d left`);
     };
-    return check(cdlExpiration) || check(medicalCertExpiration);
+    checkDoc(cdlExpiration, 'CDL');
+    checkDoc(medicalCertExpiration, 'Medical Cert');
+    if (expiring.length === 0) return null;
+    return {
+      count: expiring.length,
+      tooltip: expiring.join(' · '),
+    };
   })();
+  const hasCriticalExpiry = expiryDotInfo !== null;
 
   const navItems = [
     { view: 'progress' as OperatorView, label: 'My Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
