@@ -19,6 +19,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing,
 } from 'lucide-react';
+import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -65,6 +66,7 @@ export default function ManagementPortal() {
   const [dispatchLiveFlash, setDispatchLiveFlash] = useState(false);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [criticalExpiryCount, setCriticalExpiryCount] = useState(0);
 
 
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
@@ -149,6 +151,27 @@ export default function ManagementPortal() {
     setUnreadNotifCount(count ?? 0);
   }, [session?.user?.id]);
 
+  const fetchCriticalExpiries = useCallback(async () => {
+    const { data } = await supabase
+      .from('operators')
+      .select('applications(cdl_expiration, medical_cert_expiration)')
+      .not('application_id', 'is', null);
+    if (!data) return;
+    const today = startOfDay(new Date());
+    let count = 0;
+    (data as any[]).forEach((op: any) => {
+      const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
+      if (!app) return;
+      ['cdl_expiration', 'medical_cert_expiration'].forEach((field: string) => {
+        const dateStr: string | null = app[field];
+        if (!dateStr) return;
+        const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
+        if (days <= 30) count++;
+      });
+    });
+    setCriticalExpiryCount(count);
+  }, []);
+
   // Subscribe to realtime changes on active_dispatch to keep the banner + overview live
   useEffect(() => {
     fetchTruckDownCount();
@@ -176,6 +199,18 @@ export default function ManagementPortal() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchUnreadNotifCount, session?.user?.id]);
+
+  // Fetch + subscribe to critical expiry count
+  useEffect(() => {
+    fetchCriticalExpiries();
+    const channel = supabase
+      .channel('mgmt-critical-expiry-badge')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, () => {
+        fetchCriticalExpiries();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchCriticalExpiries]);
 
   // Clear badge when visiting notifications view
   useEffect(() => {
@@ -304,7 +339,7 @@ export default function ManagementPortal() {
   const navItems = [
     { label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
     { label: 'Applications', icon: <ClipboardList className="h-4 w-4" />, path: 'applications' },
-    { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline' },
+    { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
     { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
     { label: 'Staff', icon: <UserPlus className="h-4 w-4" />, path: 'staff' },
     { label: 'Activity', icon: <ScrollText className="h-4 w-4" />, path: 'activity' },
@@ -317,7 +352,7 @@ export default function ManagementPortal() {
   const mobileNavItems = [
     { label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
     { label: 'Applic.', icon: <ClipboardList className="h-4 w-4" />, path: 'applications' },
-    { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline' },
+    { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
     { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
     { label: 'Notifs', icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
   ];
