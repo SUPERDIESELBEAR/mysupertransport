@@ -382,15 +382,50 @@ export default function OperatorStatusPage({
                     onClick={onMessageDispatcher}
                     className="flex items-center gap-1 text-xs text-gold hover:text-gold-light transition-colors mt-0.5 font-medium w-fit"
                   >
-                    <Mail className="h-3 w-3" />
-                    Send Message
-                  </button>
-                )}
-              </div>
-            )}
+        </div>
+        )}
+      </div>
+      )}
+
+      {/* ── DOCUMENT EXPIRY ALERTS ── */}
+      {showExpiryCard && (
+        <div className="rounded-2xl border overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-2.5 flex items-center gap-2 bg-muted/50 border-b border-border">
+            <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Document Expiration</p>
+          </div>
+          <div className="divide-y divide-border">
+            {[
+              { label: 'CDL License', days: cdlDays, level: cdlLevel, date: cdlExpiration },
+              { label: 'Medical Certificate', days: medDays, level: medLevel, date: medicalCertExpiration },
+            ]
+              .filter(d => d.level !== null && d.level !== 'green')
+              .map(doc => {
+                const cfg = expiryConfig[doc.level!];
+                return (
+                  <div key={doc.label} className={`flex items-center justify-between gap-3 px-4 py-3 ${cfg.bg}`}>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${cfg.dot}`} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground leading-tight">{doc.label}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Expires {formatExpiry(doc.date)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${cfg.bg} ${cfg.border} ${cfg.text}`}>
+                        {daysLabel(doc.days)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}
+
       <div className="bg-surface-dark rounded-2xl p-5 shadow-xl">
         {isFullyOnboarded ? (
           <div className="flex items-center gap-4">
