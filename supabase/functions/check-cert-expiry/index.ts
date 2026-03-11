@@ -87,13 +87,15 @@ Deno.serve(async (req) => {
 
     const appUrl = 'https://id-preview--ab645bc4-83af-495c-aca5-d40c7ca0fb70.lovable.app';
 
-    // ── Helper: check if user has email enabled for cert_expiry events ──
-    const userEmailEnabled = async (userId: string): Promise<boolean> => {
+    // ── Helper: check if user has email enabled for a specific event type ──
+    // 30-day threshold → event_type: 'cert_expiry'
+    // 60-day threshold → event_type: 'cert_expiry_60day' (independently controllable)
+    const userEmailEnabled = async (userId: string, eventType: string): Promise<boolean> => {
       const { data } = await supabase
         .from('notification_preferences')
         .select('email_enabled')
         .eq('user_id', userId)
-        .eq('event_type', 'cert_expiry')
+        .eq('event_type', eventType)
         .maybeSingle();
       return data?.email_enabled ?? true; // default enabled
     };
@@ -200,7 +202,8 @@ Deno.serve(async (req) => {
           // ── Operator email at 30-day and 60-day thresholds ──
           if (isEmailThreshold && RESEND_API_KEY && opNotifInserted) {
             try {
-              const emailOk = await userEmailEnabled(op.user_id);
+              const prefEventType = threshold === 60 ? 'cert_expiry_60day' : 'cert_expiry';
+              const emailOk = await userEmailEnabled(op.user_id, prefEventType);
               if (emailOk) {
                 const { data: { user: opUser } } = await supabase.auth.admin.getUserById(op.user_id);
                 if (opUser?.email) {
@@ -271,7 +274,8 @@ Deno.serve(async (req) => {
             // ── Staff email at 30-day and 60-day thresholds ──
             if (isEmailThreshold && RESEND_API_KEY && staffNotifInserted) {
               try {
-                const emailOk = await userEmailEnabled(op.assigned_onboarding_staff);
+                const prefEventType = threshold === 60 ? 'cert_expiry_60day' : 'cert_expiry';
+                const emailOk = await userEmailEnabled(op.assigned_onboarding_staff, prefEventType);
                 if (emailOk) {
                   const { data: { user: staffUser } } = await supabase.auth.admin.getUserById(op.assigned_onboarding_staff);
                   if (staffUser?.email) {

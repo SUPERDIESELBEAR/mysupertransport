@@ -41,8 +41,16 @@ const OPERATOR_EVENT_TYPES: EventTypeDef[] = [
   },
   {
     type: 'cert_expiry',
-    label: 'Certificate Expiry Alerts',
-    description: 'Email reminders when your CDL or Medical Certificate is expiring within 30 days',
+    label: 'Certificate Expiry — 30-Day Alert',
+    description: 'Urgent reminder when your CDL or Medical Certificate is expiring within 30 days',
+    icon: ShieldAlert,
+    iconBg: 'bg-red-100',
+    iconColor: 'text-destructive',
+  },
+  {
+    type: 'cert_expiry_60day',
+    label: 'Certificate Expiry — 60-Day Reminder',
+    description: 'Early heads-up email at the 60-day mark so you have plenty of time to renew',
     icon: ShieldAlert,
     iconBg: 'bg-yellow-100',
     iconColor: 'text-yellow-600',
