@@ -976,6 +976,9 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                     Msgs
                   </span>
                 </th>
+                <th className="px-4 py-3 text-center" title="Compliance">
+                  <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground mx-auto" />
+                </th>
                 <th className="text-right px-4 py-3" />
               </tr>
             </thead>
