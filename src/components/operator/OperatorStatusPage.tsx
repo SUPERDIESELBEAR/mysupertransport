@@ -379,9 +379,6 @@ export default function OperatorStatusPage({
                   ))}
                 </div>
                 <p className="text-surface-dark-muted text-xs">{completedStages} of {stages.length} complete</p>
-                {onboardingStatus.unit_number && (
-                  <p className="text-gold font-semibold text-sm mt-1">Unit #{onboardingStatus.unit_number}</p>
-                )}
               </div>
             </div>
 
