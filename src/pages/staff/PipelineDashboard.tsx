@@ -1124,6 +1124,51 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                         <span className="text-muted-foreground/40 text-xs">—</span>
                       )}
                     </td>
+                    {/* Compliance icon cell */}
+                    <td className="px-4 py-3 text-center">
+                      {(() => {
+                        const alert = complianceByOperator[op.id];
+                        if (!alert) {
+                          return <ShieldCheck className="h-4 w-4 text-muted-foreground/25 mx-auto" />;
+                        }
+                        const expired = alert.days_until < 0;
+                        const critical = !expired && alert.days_until <= 30;
+                        const tooltipText = expired
+                          ? `${alert.doc_type} expired ${Math.abs(alert.days_until)}d ago`
+                          : alert.days_until === 0
+                          ? `${alert.doc_type} expires today`
+                          : `${alert.doc_type} expires in ${alert.days_until}d`;
+                        return (
+                          <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  onClick={() => onOpenOperator(op.id)}
+                                  className="mx-auto block focus:outline-none"
+                                  aria-label={tooltipText}
+                                >
+                                  <ShieldAlert
+                                    className={`h-4 w-4 ${
+                                      expired || critical
+                                        ? 'text-destructive animate-pulse'
+                                        : 'text-yellow-500'
+                                    }`}
+                                  />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="text-xs font-medium">
+                                {tooltipText}
+                                {alert.days_until >= 0 && (
+                                  <span className="ml-1 text-muted-foreground">
+                                    — exp. {format(parseISO(alert.expiration_date), 'MMM d, yyyy')}
+                                  </span>
+                                )}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <Button
                         variant="ghost"
