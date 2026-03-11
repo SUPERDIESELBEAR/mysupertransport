@@ -294,6 +294,17 @@ export default function StaffPortal() {
           onBack={handleBackToPipeline}
           onMessageOperator={handleMessageOperator}
           onUnsavedChangesChange={setOperatorHasUnsavedChanges}
+          onOpenAppReview={async (focusField) => {
+            const { data: op } = await supabase
+              .from('operators')
+              .select('application_id, applications(*)')
+              .eq('id', selectedOperatorId)
+              .single();
+            if (op?.applications) {
+              setReviewApp(op.applications as FullApplication);
+              setReviewFocusField(focusField);
+            }
+          }}
         />
       )}
       {currentView === 'messages' && (
@@ -311,6 +322,17 @@ export default function StaffPortal() {
         <NotificationHistory />
       )}
     </StaffLayout>
+
+    {reviewApp && (
+      <ApplicationReviewDrawer
+        app={reviewApp}
+        onClose={() => { setReviewApp(null); setReviewFocusField(undefined); }}
+        onApprove={async () => {}}
+        onDeny={async () => {}}
+        onExpiryUpdated={() => {}}
+        focusField={reviewFocusField}
+      />
+    )}
 
     <AlertDialog open={!!pendingNavPath} onOpenChange={(open) => { if (!open) setPendingNavPath(null); }}>
       <AlertDialogContent>
