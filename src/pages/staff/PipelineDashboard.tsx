@@ -107,6 +107,10 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
   // Track which operator rows are currently saving a coordinator assignment
   const [assigningMap, setAssigningMap] = useState<Record<string, boolean>>({});
   const [showFilters, setShowFilters] = useState(false);
+  // Track reminder send state per alert key (operatorId|docType)
+  const [reminderSending, setReminderSending] = useState<Record<string, boolean>>({});
+  const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
+
 
   // Filter state
   const [search, setSearch] = useState('');
