@@ -339,7 +339,7 @@ export default function ManagementPortal() {
   const navItems = [
     { label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
     { label: 'Applications', icon: <ClipboardList className="h-4 w-4" />, path: 'applications' },
-    { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline' },
+    { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
     { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
     { label: 'Staff', icon: <UserPlus className="h-4 w-4" />, path: 'staff' },
     { label: 'Activity', icon: <ScrollText className="h-4 w-4" />, path: 'activity' },
@@ -352,7 +352,7 @@ export default function ManagementPortal() {
   const mobileNavItems = [
     { label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
     { label: 'Applic.', icon: <ClipboardList className="h-4 w-4" />, path: 'applications' },
-    { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline' },
+    { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
     { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
     { label: 'Notifs', icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
   ];
