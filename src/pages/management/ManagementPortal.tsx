@@ -151,6 +151,27 @@ export default function ManagementPortal() {
     setUnreadNotifCount(count ?? 0);
   }, [session?.user?.id]);
 
+  const fetchCriticalExpiries = useCallback(async () => {
+    const { data } = await supabase
+      .from('operators')
+      .select('applications(cdl_expiration, medical_cert_expiration)')
+      .not('application_id', 'is', null);
+    if (!data) return;
+    const today = startOfDay(new Date());
+    let count = 0;
+    (data as any[]).forEach((op: any) => {
+      const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
+      if (!app) return;
+      ['cdl_expiration', 'medical_cert_expiration'].forEach((field: string) => {
+        const dateStr: string | null = app[field];
+        if (!dateStr) return;
+        const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
+        if (days <= 30) count++;
+      });
+    });
+    setCriticalExpiryCount(count);
+  }, []);
+
   // Subscribe to realtime changes on active_dispatch to keep the banner + overview live
   useEffect(() => {
     fetchTruckDownCount();
@@ -178,6 +199,18 @@ export default function ManagementPortal() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchUnreadNotifCount, session?.user?.id]);
+
+  // Fetch + subscribe to critical expiry count
+  useEffect(() => {
+    fetchCriticalExpiries();
+    const channel = supabase
+      .channel('mgmt-critical-expiry-badge')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, () => {
+        fetchCriticalExpiries();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchCriticalExpiries]);
 
   // Clear badge when visiting notifications view
   useEffect(() => {
