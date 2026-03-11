@@ -191,6 +191,8 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
   );
 
   return (
+    <>
+    <ChangePasswordModal open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
     <div className="flex h-screen bg-secondary overflow-hidden">
       {/* ── Mobile overlay sidebar ─────────────────────────────────── */}
       {mobileSidebarOpen && (
