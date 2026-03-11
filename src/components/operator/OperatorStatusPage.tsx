@@ -328,8 +328,88 @@ export default function OperatorStatusPage({
   };
   const statusInfo = dispatchStatus ? dispatchStatusLabel[dispatchStatus] : null;
 
+  // Critical docs: only ≤30 days or expired — these warrant the top banner
+  const criticalDocs = [
+    { label: 'CDL License', days: cdlDays, level: cdlLevel, date: cdlExpiration },
+    { label: 'Medical Certificate', days: medDays, level: medLevel, date: medicalCertExpiration },
+  ].filter(d => d.level === 'red' || d.level === 'expired');
+
+  const showCriticalBanner = criticalDocs.length > 0 && !bannerDismissed;
+
+  // Highest urgency level across critical docs
+  const bannerIsExpired = criticalDocs.some(d => d.level === 'expired');
+
   return (
     <div className="space-y-6">
+      {/* ── CRITICAL EXPIRY BANNER (≤30 days / expired) ── */}
+      {showCriticalBanner && (
+        <div
+          className={`relative rounded-2xl border-2 p-4 shadow-md overflow-hidden ${
+            bannerIsExpired
+              ? 'bg-destructive/10 border-destructive/50'
+              : 'bg-destructive/8 border-destructive/40'
+          }`}
+        >
+          {/* Dismiss button */}
+          <button
+            onClick={dismissBanner}
+            aria-label="Dismiss"
+            className="absolute top-3 right-3 h-6 w-6 rounded-full flex items-center justify-center text-destructive/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+
+          <div className="flex items-start gap-3 pr-6">
+            {/* Pulsing icon */}
+            <span className={`shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center rounded-full border-2 ${bannerIsExpired ? 'border-destructive bg-destructive/15' : 'border-destructive/60 bg-destructive/10 animate-pulse'}`}>
+              <ShieldAlert className="h-4.5 w-4.5 text-destructive" />
+            </span>
+
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-destructive mb-0.5">
+                {bannerIsExpired ? 'Document Expired' : '⚠ Action Required — Document Expiring Soon'}
+              </p>
+
+              <div className="space-y-2">
+                {criticalDocs.map(doc => (
+                  <div key={doc.label} className="flex items-baseline justify-between gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-foreground leading-tight">
+                      {doc.label}
+                      <span className="ml-1.5 text-xs text-muted-foreground font-normal">
+                        — expires {formatExpiry(doc.date)}
+                      </span>
+                    </p>
+                    <span className={`shrink-0 text-xs font-bold px-2 py-0.5 rounded-full border ${
+                      doc.level === 'expired'
+                        ? 'bg-destructive/15 border-destructive/40 text-destructive'
+                        : 'bg-destructive/10 border-destructive/30 text-destructive'
+                    }`}>
+                      {daysLabel(doc.days)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <p className="mt-2.5 text-xs text-muted-foreground leading-relaxed">
+                {bannerIsExpired
+                  ? 'Your document has expired. Upload a renewed copy immediately to remain compliant.'
+                  : 'Please renew and upload your document to your portal before it expires to stay compliant and continue operating.'}
+              </p>
+
+              <Button
+                size="sm"
+                onClick={() => onNavigateTo('documents')}
+                className="mt-3 bg-destructive text-white hover:bg-destructive/90 text-xs h-8 gap-1.5 font-semibold shadow-sm"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Upload Updated Document
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">
