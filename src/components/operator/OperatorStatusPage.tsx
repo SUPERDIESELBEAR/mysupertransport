@@ -200,6 +200,9 @@ export default function OperatorStatusPage({
   onboardingStatus,
   onNavigateTo,
   displayName,
+  assignedDispatcher,
+  dispatchStatus,
+  onMessageDispatcher,
 }: OperatorStatusPageProps) {
 
   const nextStepContent = () => {
