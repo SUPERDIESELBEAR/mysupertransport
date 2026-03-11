@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Bell, Truck, AlertTriangle, MessageCircle, Target,
-  Paperclip, Check, Loader2, UserCheck, Monitor,
+  Paperclip, Check, Loader2, UserCheck, Monitor, ShieldAlert,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -83,6 +83,15 @@ const EVENT_TYPES: EventTypeDef[] = [
     iconBg: 'bg-blue-100',
     iconColor: 'text-blue-500',
     roles: ['onboarding_staff', 'dispatcher', 'management'],
+  },
+  {
+    type: 'cert_expiry',
+    label: 'Certificate Expiry Alerts',
+    description: 'Email reminders when an assigned operator\'s CDL or Medical Certificate is expiring within 30 days',
+    icon: ShieldAlert,
+    iconBg: 'bg-yellow-100',
+    iconColor: 'text-yellow-600',
+    roles: ['onboarding_staff', 'management'],
   },
 ];
 

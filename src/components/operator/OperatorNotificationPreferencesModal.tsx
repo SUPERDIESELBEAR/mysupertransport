@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell, Truck, MessageCircle, Check, Loader2, Monitor } from 'lucide-react';
+import { Bell, Truck, MessageCircle, Check, Loader2, Monitor, ShieldAlert } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Switch } from '@/components/ui/switch';
@@ -38,6 +38,14 @@ const OPERATOR_EVENT_TYPES: EventTypeDef[] = [
     icon: MessageCircle,
     iconBg: 'bg-blue-100',
     iconColor: 'text-blue-500',
+  },
+  {
+    type: 'cert_expiry',
+    label: 'Certificate Expiry Alerts',
+    description: 'Email reminders when your CDL or Medical Certificate is expiring within 30 days',
+    icon: ShieldAlert,
+    iconBg: 'bg-yellow-100',
+    iconColor: 'text-yellow-600',
   },
 ];
 
