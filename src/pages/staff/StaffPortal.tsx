@@ -33,6 +33,8 @@ export default function StaffPortal() {
   const [criticalExpiryCount, setCriticalExpiryCount] = useState(0);
   const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
+  const [reviewApp, setReviewApp] = useState<FullApplication | null>(null);
+  const [reviewFocusField, setReviewFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
   const viewRef = useRef(currentView);
 
   // Deep-link: ?tab=notifications or ?operator=...
