@@ -248,10 +248,19 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
       });
     });
 
-    // Sort by urgency: most urgent (smallest days_until, including negatives) first
+  // Sort by urgency: most urgent (smallest days_until, including negatives) first
     alerts.sort((a, b) => a.days_until - b.days_until);
     setComplianceAlerts(alerts);
   };
+
+  // Build a lookup: operator_id → worst ComplianceAlert for that operator
+  const complianceByOperator: Record<string, ComplianceAlert> = {};
+  complianceAlerts.forEach(alert => {
+    const existing = complianceByOperator[alert.operator_id];
+    if (!existing || alert.days_until < existing.days_until) {
+      complianceByOperator[alert.operator_id] = alert;
+    }
+  });
 
   const fetchOperators = async () => {
     setLoading(true);
