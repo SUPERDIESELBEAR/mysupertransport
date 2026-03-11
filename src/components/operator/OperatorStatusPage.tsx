@@ -28,7 +28,7 @@ interface OperatorStatusPageProps {
   onboardingStatus: Record<string, string | null>;
   onNavigateTo: (view: string) => void;
   displayName: string;
-  assignedDispatcher?: { name: string; phone: string | null } | null;
+  assignedDispatcher?: { name: string; phone: string | null; userId?: string | null } | null;
   dispatchStatus?: string | null;
   onMessageDispatcher?: () => void;
 }
