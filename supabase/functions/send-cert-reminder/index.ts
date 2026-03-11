@@ -200,17 +200,7 @@ Deno.serve(async (req) => {
 
     await sendEmail(opUser.email, subject, html, RESEND_API_KEY);
 
-    // Insert in-app notification for the operator
-    await supabase.from('notifications').insert({
-      user_id: op.user_id,
-      title: `${doc_type} Reminder Sent`,
-      body: `Your coordinator sent you a reminder about your ${doc_type} ${expired ? 'expiration' : `expiring in ${days_until} day${days_until !== 1 ? 's' : ''}`}.`,
-      type: 'cert_expiry_reminder',
-      channel: 'in_app',
-      link: '/operator/progress',
-    });
-
-    // Get caller profile name for the audit log
+    // Get caller profile name (needed for audit log + reminder record)
     const { data: callerProfile } = await supabase
       .from('profiles')
       .select('first_name, last_name')
@@ -220,16 +210,41 @@ Deno.serve(async (req) => {
       ? [callerProfile.first_name, callerProfile.last_name].filter(Boolean).join(' ').trim() || caller.email
       : caller.email;
 
-    // Audit log entry
-    await supabase.from('audit_log').insert({
-      actor_id: caller.id,
-      actor_name: callerName,
-      entity_type: 'operator',
-      entity_id: operator_id,
-      entity_label: fullName,
-      action: 'cert_reminder_sent',
-      metadata: { doc_type, days_until, expiration_date, operator_email: opUser.email },
-    });
+    // Run all post-send writes in parallel
+    await Promise.all([
+      // In-app notification for the operator
+      supabase.from('notifications').insert({
+        user_id: op.user_id,
+        title: `${doc_type} Reminder Sent`,
+        body: `Your coordinator sent you a reminder about your ${doc_type} ${expired ? 'expiration' : `expiring in ${days_until} day${days_until !== 1 ? 's' : ''}`}.`,
+        type: 'cert_expiry_reminder',
+        channel: 'in_app',
+        link: '/operator/progress',
+      }),
+
+      // Upsert the last-reminded timestamp for this operator+doc_type pair
+      supabase.from('cert_reminders').upsert(
+        {
+          operator_id,
+          doc_type,
+          sent_at: new Date().toISOString(),
+          sent_by: caller.id,
+          sent_by_name: callerName,
+        },
+        { onConflict: 'operator_id,doc_type' }
+      ),
+
+      // Audit log entry
+      supabase.from('audit_log').insert({
+        actor_id: caller.id,
+        actor_name: callerName,
+        entity_type: 'operator',
+        entity_id: operator_id,
+        entity_label: fullName,
+        action: 'cert_reminder_sent',
+        metadata: { doc_type, days_until, expiration_date, operator_email: opUser.email },
+      }),
+    ]);
 
     return new Response(
       JSON.stringify({ success: true, sent_to: opUser.email }),

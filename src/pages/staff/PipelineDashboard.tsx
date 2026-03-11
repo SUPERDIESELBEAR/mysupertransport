@@ -110,6 +110,8 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
   // Track reminder send state per alert key (operatorId|docType)
   const [reminderSending, setReminderSending] = useState<Record<string, boolean>>({});
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
+  // Last reminded timestamps: key = "operatorId|docType" → ISO string
+  const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
 
 
   // Filter state
@@ -208,28 +210,37 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
 
   const fetchComplianceAlerts = async () => {
     const today = new Date();
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() + 90);
 
-    // Fetch operators with their linked application data
-    const { data: ops } = await supabase
-      .from('operators')
-      .select(`
-        id,
-        application_id,
-        applications (
-          first_name,
-          last_name,
-          cdl_expiration,
-          medical_cert_expiration
-        )
-      `)
-      .not('application_id', 'is', null);
+    // Fetch operators + last-reminded timestamps in parallel
+    const [{ data: ops }, { data: reminders }] = await Promise.all([
+      supabase
+        .from('operators')
+        .select(`
+          id,
+          application_id,
+          applications (
+            first_name,
+            last_name,
+            cdl_expiration,
+            medical_cert_expiration
+          )
+        `)
+        .not('application_id', 'is', null),
+      supabase
+        .from('cert_reminders')
+        .select('operator_id, doc_type, sent_at, sent_by_name'),
+    ]);
 
     if (!ops) return;
 
+    // Build last-reminded lookup: "operatorId|docType" → ISO sent_at
+    const remindedMap: Record<string, string> = {};
+    (reminders ?? []).forEach((r: any) => {
+      remindedMap[`${r.operator_id}|${r.doc_type}`] = r.sent_at;
+    });
+    setLastReminded(remindedMap);
+
     const alerts: ComplianceAlert[] = [];
-    const todayStr = today.toISOString().split('T')[0];
 
     (ops as any[]).forEach((op: any) => {
       const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
@@ -253,7 +264,7 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
       });
     });
 
-  // Sort by urgency: most urgent (smallest days_until, including negatives) first
+    // Sort by urgency: most urgent (smallest days_until, including negatives) first
     alerts.sort((a, b) => a.days_until - b.days_until);
     setComplianceAlerts(alerts);
   };
@@ -453,9 +464,12 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to send reminder');
+      // Optimistically update last-reminded timestamp
+      const now = new Date().toISOString();
+      setLastReminded(prev => ({ ...prev, [key]: now }));
       setReminderSent(prev => ({ ...prev, [key]: true }));
       toast({ title: 'Reminder sent', description: `Email sent to ${alert.operator_name}` });
-      // Reset "sent" badge after 8 seconds
+      // Reset "sent" button badge after 8 seconds
       setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
     } catch (err: any) {
       toast({ title: 'Failed to send reminder', description: err.message, variant: 'destructive' });
@@ -664,6 +678,7 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                 const rowKey = `${alert.operator_id}|${alert.doc_type}`;
                 const isSending = reminderSending[rowKey];
                 const isSent = reminderSent[rowKey];
+                const remindedAt = lastReminded[rowKey];
 
                 return (
                   <div key={`${alert.operator_id}-${alert.doc_type}`}
@@ -707,6 +722,23 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                         ? 'Expires today'
                         : `${alert.days_until}d left`}
                     </span>
+
+                    {/* Last reminded timestamp */}
+                    {remindedAt && (
+                      <TooltipProvider delayDuration={100}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="hidden md:inline-flex items-center gap-1 text-[11px] text-muted-foreground shrink-0 cursor-default">
+                              <CheckCheck className="h-3 w-3 text-status-complete shrink-0" />
+                              {format(new Date(remindedAt), 'MMM d')}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">
+                            Last reminder sent {format(new Date(remindedAt), 'MMM d, yyyy \'at\' h:mm a')}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
 
                     {/* Send Reminder button */}
                     <TooltipProvider delayDuration={100}>
