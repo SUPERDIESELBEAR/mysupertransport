@@ -79,6 +79,8 @@ export default function OperatorPortal() {
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [truckDownAcked, setTruckDownAcked] = useState(false);
   const [ackLoading, setAckLoading] = useState(false);
+  const [cdlExpiration, setCdlExpiration] = useState<string | null>(null);
+  const [medicalCertExpiration, setMedicalCertExpiration] = useState<string | null>(null);
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
 
