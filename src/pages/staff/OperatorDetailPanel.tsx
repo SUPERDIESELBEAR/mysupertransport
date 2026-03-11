@@ -69,7 +69,7 @@ const DISPATCH_STATUS_CONFIG: Record<string, { label: string; dotClass: string; 
   truck_down:     { label: 'Truck Down',     dotClass: 'bg-destructive',       badgeClass: 'bg-destructive/10 text-destructive border-destructive/30', emoji: '🔴' },
 };
 
-export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator, onUnsavedChangesChange }: OperatorDetailPanelProps) {
+export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator, onUnsavedChangesChange, onOpenAppReview }: OperatorDetailPanelProps) {
   const { toast } = useToast();
   const { session } = useAuth();
   const [loading, setLoading] = useState(true);
