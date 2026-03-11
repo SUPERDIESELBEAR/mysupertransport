@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
     today.setHours(0, 0, 0, 0);
 
     const ALERT_DAYS = [90, 60, 30];
-    const EMAIL_THRESHOLD = 30; // Only send email at 30-day threshold
+    const EMAIL_THRESHOLDS = new Set([30, 60]); // Send emails at both thresholds
 
     const notificationsToInsert: Array<{
       user_id: string;
@@ -166,7 +166,8 @@ Deno.serve(async (req) => {
 
           const notifType = `cert_expiry_${threshold}d`;
           const expiryStr = expiry.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-          const isEmailThreshold = threshold === EMAIL_THRESHOLD;
+          const isEmailThreshold = EMAIL_THRESHOLDS.has(threshold);
+          const isCritical = threshold === 30;
 
           // ── Operator in-app notification ──
           const opKey = `${op.user_id}|${notifType}|${doc.field}`;
@@ -196,22 +197,35 @@ Deno.serve(async (req) => {
             }
           }
 
-          // ── Operator email at 30-day threshold ──
+          // ── Operator email at 30-day and 60-day thresholds ──
           if (isEmailThreshold && RESEND_API_KEY && opNotifInserted) {
             try {
               const emailOk = await userEmailEnabled(op.user_id);
               if (emailOk) {
                 const { data: { user: opUser } } = await supabase.auth.admin.getUserById(op.user_id);
                 if (opUser?.email) {
-                  const subject = `⚠️ Action Required: Your ${doc.label} Expires in ${daysLeft} Days`;
+                  const subject = isCritical
+                    ? `⚠️ Action Required: Your ${doc.label} Expires in ${daysLeft} Days`
+                    : `📅 Early Reminder: Your ${doc.label} Expires in ${daysLeft} Days`;
+                  const heading = isCritical
+                    ? `⚠️ Your ${doc.label} Expires in ${daysLeft} Days`
+                    : `📅 Early Reminder — ${doc.label} Expiring in ${daysLeft} Days`;
+                  const urgencyNote = isCritical
+                    ? `<p style="background:#fff0f0;border-left:4px solid #e74c3c;padding:12px 16px;border-radius:4px;margin-top:16px;">
+                         <strong>Urgent:</strong> Only ${daysLeft} days remain. Renew immediately to stay compliant and continue operating.
+                       </p>`
+                    : `<p style="background:#f0f7ff;border-left:4px solid #3498db;padding:12px 16px;border-radius:4px;margin-top:16px;">
+                         <strong>Heads up:</strong> You have ${daysLeft} days — plenty of time to renew. We recommend starting the process now to avoid any last-minute issues.
+                       </p>`;
                   const html = buildEmail(
                     subject,
-                    `⚠️ Your ${doc.label} Expires in ${daysLeft} Days`,
+                    heading,
                     `<p>Hi ${operatorFirstName},</p>
-                     <p>This is an important reminder that your <strong>${doc.label}</strong> is set to expire on <strong>${expiryStr}</strong> — just ${daysLeft} days away.</p>
-                     <p>To remain compliant and continue operating, please renew your ${doc.label} as soon as possible and upload the updated document to your portal.</p>
+                     <p>This is ${isCritical ? 'an important reminder' : 'an early heads-up'} that your <strong>${doc.label}</strong> is set to expire on <strong>${expiryStr}</strong> — ${daysLeft} days from now.</p>
+                     <p>${isCritical ? 'To remain compliant and continue operating, please renew your ' + doc.label + ' as soon as possible and upload the updated document to your portal.' : 'Getting ahead of this now means less stress later. When your renewed ' + doc.label + ' is ready, simply upload it to your operator portal.'}</p>
+                     ${urgencyNote}
                      <p style="background:#fff8e6;border-left:4px solid #C9A84C;padding:12px 16px;border-radius:4px;margin-top:16px;">
-                       <strong>What to do:</strong> Log in to your operator portal → Progress tab → Upload your renewed ${doc.label}.
+                       <strong>How to upload:</strong> Log in to your operator portal → Progress tab → Upload your renewed ${doc.label}.
                      </p>`,
                     { label: 'View My Portal', url: `${appUrl}/operator/progress` }
                   );
@@ -254,19 +268,25 @@ Deno.serve(async (req) => {
               }
             }
 
-            // ── Staff email at 30-day threshold ──
+            // ── Staff email at 30-day and 60-day thresholds ──
             if (isEmailThreshold && RESEND_API_KEY && staffNotifInserted) {
               try {
                 const emailOk = await userEmailEnabled(op.assigned_onboarding_staff);
                 if (emailOk) {
                   const { data: { user: staffUser } } = await supabase.auth.admin.getUserById(op.assigned_onboarding_staff);
                   if (staffUser?.email) {
-                    const subject = `⚠️ Compliance Alert: ${operatorName} — ${doc.label} Expiring in ${daysLeft} Days`;
+                    const subject = isCritical
+                      ? `⚠️ Compliance Alert: ${operatorName} — ${doc.label} Expiring in ${daysLeft} Days`
+                      : `📅 Early Notice: ${operatorName} — ${doc.label} Expiring in ${daysLeft} Days`;
+                    const heading = isCritical
+                      ? `⚠️ ${operatorName}'s ${doc.label} Expires in ${daysLeft} Days`
+                      : `📅 Early Notice — ${operatorName}'s ${doc.label} Expiring in ${daysLeft} Days`;
+                    const expiresColor = isCritical ? '#c0392b' : '#2980b9';
                     const html = buildEmail(
                       subject,
-                      `⚠️ ${operatorName}'s ${doc.label} Expires in ${daysLeft} Days`,
+                      heading,
                       `<p>Hi,</p>
-                       <p>This is a compliance alert for one of your assigned operators.</p>
+                       <p>This is ${isCritical ? 'a compliance alert' : 'an early notice'} for one of your assigned operators.</p>
                        <table style="border-collapse:collapse;width:100%;margin:16px 0;">
                          <tr style="background:#f5f5f5;">
                            <td style="padding:10px 14px;font-weight:700;color:#555;border:1px solid #eee;width:40%;">Operator</td>
@@ -278,14 +298,17 @@ Deno.serve(async (req) => {
                          </tr>
                          <tr style="background:#f5f5f5;">
                            <td style="padding:10px 14px;font-weight:700;color:#555;border:1px solid #eee;">Expires On</td>
-                           <td style="padding:10px 14px;border:1px solid #eee;color:#c0392b;font-weight:700;">${expiryStr}</td>
+                           <td style="padding:10px 14px;border:1px solid #eee;color:${expiresColor};font-weight:700;">${expiryStr}</td>
                          </tr>
                          <tr>
                            <td style="padding:10px 14px;font-weight:700;color:#555;border:1px solid #eee;">Days Remaining</td>
                            <td style="padding:10px 14px;border:1px solid #eee;">${daysLeft} days</td>
                          </tr>
                        </table>
-                       <p>Please follow up with <strong>${operatorName}</strong> to ensure their ${doc.label} is renewed before the expiration date.</p>`,
+                       <p>${isCritical
+                         ? `Please follow up with <strong>${operatorName}</strong> immediately to ensure their ${doc.label} is renewed before the expiration date.`
+                         : `No immediate action needed — this is an early heads-up. Consider reaching out to <strong>${operatorName}</strong> to make sure they're aware and planning ahead.`
+                       }</p>`,
                       { label: 'View Operator Panel', url: `${appUrl}/staff?operator=${op.id}` }
                     );
                     await sendEmail(staffUser.email, subject, html, RESEND_API_KEY);
