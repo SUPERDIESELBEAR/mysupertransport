@@ -72,7 +72,7 @@ export default function OperatorPortal() {
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
   const [dispatchUpdatedAt, setDispatchUpdatedAt] = useState<string | null>(null);
-  const [assignedDispatcher, setAssignedDispatcher] = useState<{ name: string; phone: string | null } | null>(null);
+  const [assignedDispatcher, setAssignedDispatcher] = useState<{ name: string; phone: string | null; userId: string | null } | null>(null);
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [notifPrefOpen, setNotifPrefOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -111,6 +111,7 @@ export default function OperatorPortal() {
       setAssignedDispatcher({
         name: [data.first_name, data.last_name].filter(Boolean).join(' ') || 'Dispatcher',
         phone: data.phone ?? null,
+        userId: dispatcherUserId,
       });
     }
   }, []);
@@ -724,6 +725,14 @@ export default function OperatorPortal() {
             onboardingStatus={onboardingStatus}
             onNavigateTo={(v) => setView(v as OperatorView)}
             displayName={displayName}
+            assignedDispatcher={assignedDispatcher}
+            dispatchStatus={dispatchStatus}
+            onMessageDispatcher={() => {
+              if (assignedDispatcher?.userId) {
+                setMessageInitialUserId(assignedDispatcher.userId);
+              }
+              setView('messages');
+            }}
           />
         )}
 
