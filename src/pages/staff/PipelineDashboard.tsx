@@ -443,7 +443,11 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
         (progressFilter === 'low' && op.progress_pct <= 33) ||
         (progressFilter === 'mid' && op.progress_pct >= 34 && op.progress_pct <= 66) ||
         (progressFilter === 'high' && op.progress_pct >= 67);
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress;
+      const worstAlert = complianceByOperator[op.id];
+      const matchCompliance = complianceFilter === 'all' ||
+        (complianceFilter === 'critical' && worstAlert != null && worstAlert.days_until <= 30) ||
+        (complianceFilter === 'warning' && worstAlert != null && worstAlert.days_until > 30 && worstAlert.days_until <= 90);
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance;
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
