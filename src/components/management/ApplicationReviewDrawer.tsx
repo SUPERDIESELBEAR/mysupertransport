@@ -244,6 +244,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     return () => clearTimeout(timer);
   }, [focusField]);
 
+  if (!app) return null;
+
   const buildExpiryToast = (label: string, date: Date | null) => {
     if (!date) return { message: `${label} expiration cleared.`, type: 'info' as const };
     const days = differenceInDays(startOfDay(date), startOfDay(new Date()));
