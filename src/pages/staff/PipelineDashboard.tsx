@@ -466,6 +466,7 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
 
 
 
+  const filtered = operators
     .filter(op => {
       const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.toLowerCase();
       const matchSearch = name.includes(search.toLowerCase()) || (op.phone ?? '').includes(search);
