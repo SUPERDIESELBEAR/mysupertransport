@@ -58,6 +58,10 @@
     --surface-dark-foreground: 0 0% 95%;
     --surface-dark-muted: 0 0% 65%;
 
+    /* Warning — compliance yellow shield */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 5%;
+
     /* Info / Blue — document request banner */
     --info: 213 94% 45%;
     --info-foreground: 0 0% 100%;
@@ -139,6 +143,10 @@
   background-color: hsl(var(--surface-dark-card));
   border-color: hsl(var(--surface-dark-border));
 }
+
+/* Warning utility */
+.text-warning { color: hsl(var(--warning)); }
+.bg-warning { background-color: hsl(var(--warning)); }
 
 /* Gold accent utilities */
 .text-gold { color: hsl(var(--gold-main)); }
