@@ -678,6 +678,7 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                 const rowKey = `${alert.operator_id}|${alert.doc_type}`;
                 const isSending = reminderSending[rowKey];
                 const isSent = reminderSent[rowKey];
+                const remindedAt = lastReminded[rowKey];
 
                 return (
                   <div key={`${alert.operator_id}-${alert.doc_type}`}
@@ -721,6 +722,23 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                         ? 'Expires today'
                         : `${alert.days_until}d left`}
                     </span>
+
+                    {/* Last reminded timestamp */}
+                    {remindedAt && (
+                      <TooltipProvider delayDuration={100}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="hidden md:inline-flex items-center gap-1 text-[11px] text-muted-foreground shrink-0 cursor-default">
+                              <CheckCheck className="h-3 w-3 text-status-complete shrink-0" />
+                              {format(new Date(remindedAt), 'MMM d')}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">
+                            Last reminder sent {format(new Date(remindedAt), 'MMM d, yyyy \'at\' h:mm a')}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
 
                     {/* Send Reminder button */}
                     <TooltipProvider delayDuration={100}>
