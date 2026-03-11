@@ -279,7 +279,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const [{ data: op }, { data: opDocs }] = await Promise.all([
       supabase
         .from('operators')
-        .select(`id, user_id, notes, onboarding_status (*), applications (email, first_name, last_name, phone, address_street, address_city, address_state, address_zip)`)
+        .select(`id, user_id, notes, onboarding_status (*), applications (email, first_name, last_name, phone, address_street, address_city, address_state, address_zip, cdl_expiration, medical_cert_expiration)`)
         .eq('id', operatorId)
         .single(),
       supabase
