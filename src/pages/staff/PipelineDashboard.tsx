@@ -657,10 +657,13 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
           {/* Alert rows */}
           {complianceExpanded && (
             <div className="border-t border-destructive/20 divide-y divide-destructive/10">
-              {complianceAlerts.map((alert, i) => {
+                {complianceAlerts.map((alert, i) => {
                 const expired = alert.days_until < 0;
                 const critical = !expired && alert.days_until <= 30;
                 const warning = !expired && !critical;
+                const rowKey = `${alert.operator_id}|${alert.doc_type}`;
+                const isSending = reminderSending[rowKey];
+                const isSent = reminderSent[rowKey];
 
                 return (
                   <div key={`${alert.operator_id}-${alert.doc_type}`}
@@ -704,6 +707,36 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                         ? 'Expires today'
                         : `${alert.days_until}d left`}
                     </span>
+
+                    {/* Send Reminder button */}
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSendReminder(alert)}
+                            disabled={isSending || isSent}
+                            className={`shrink-0 h-7 px-2 text-xs gap-1.5 transition-all ${
+                              isSent
+                                ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10'
+                                : 'border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5'
+                            }`}
+                          >
+                            {isSending ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : isSent ? (
+                              <><CheckCheck className="h-3 w-3" /><span className="hidden sm:inline">Sent</span></>
+                            ) : (
+                              <><Send className="h-3 w-3" /><span className="hidden sm:inline">Remind</span></>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">
+                          {isSent ? 'Reminder sent!' : `Send email reminder to ${alert.operator_name}`}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
 
                     {/* Open button */}
                     <Button
