@@ -5,3 +5,7 @@ verify_jwt = false
 
 [functions.decrypt-ssn]
 verify_jwt = false
+
+[functions.check-cert-expiry]
+verify_jwt = false
+
