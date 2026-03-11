@@ -43,7 +43,7 @@ interface UploadedDoc {
 }
 
 export default function OperatorPortal() {
-  const { profile, user, signOut } = useAuth();
+  const { profile, user, signOut, refreshProfile } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [view, setView] = useState<OperatorView>(() => {
