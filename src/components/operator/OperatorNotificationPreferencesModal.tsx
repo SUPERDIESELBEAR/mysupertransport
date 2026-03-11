@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell, Truck, MessageCircle, Check, Loader2, Monitor } from 'lucide-react';
+import { Bell, Truck, MessageCircle, Check, Loader2, Monitor, ShieldAlert } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Switch } from '@/components/ui/switch';
