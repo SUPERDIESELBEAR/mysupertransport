@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
+import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { differenceInDays, parseISO, format } from 'date-fns';
@@ -107,6 +107,10 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
   // Track which operator rows are currently saving a coordinator assignment
   const [assigningMap, setAssigningMap] = useState<Record<string, boolean>>({});
   const [showFilters, setShowFilters] = useState(false);
+  // Track reminder send state per alert key (operatorId|docType)
+  const [reminderSending, setReminderSending] = useState<Record<string, boolean>>({});
+  const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
+
 
   // Filter state
   const [search, setSearch] = useState('');
@@ -427,6 +431,39 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
     setAssigningMap(prev => ({ ...prev, [operatorId]: false }));
   };
 
+  const handleSendReminder = async (alert: ComplianceAlert) => {
+    const key = `${alert.operator_id}|${alert.doc_type}`;
+    setReminderSending(prev => ({ ...prev, [key]: true }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const res = await fetch(`${supabaseUrl}/functions/v1/send-cert-reminder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token ?? ''}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          operator_id: alert.operator_id,
+          doc_type: alert.doc_type,
+          days_until: alert.days_until,
+          expiration_date: alert.expiration_date,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to send reminder');
+      setReminderSent(prev => ({ ...prev, [key]: true }));
+      toast({ title: 'Reminder sent', description: `Email sent to ${alert.operator_name}` });
+      // Reset "sent" badge after 8 seconds
+      setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
+    } catch (err: any) {
+      toast({ title: 'Failed to send reminder', description: err.message, variant: 'destructive' });
+    } finally {
+      setReminderSending(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
 
 
   const filtered = operators
@@ -620,10 +657,13 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
           {/* Alert rows */}
           {complianceExpanded && (
             <div className="border-t border-destructive/20 divide-y divide-destructive/10">
-              {complianceAlerts.map((alert, i) => {
+                {complianceAlerts.map((alert, i) => {
                 const expired = alert.days_until < 0;
                 const critical = !expired && alert.days_until <= 30;
                 const warning = !expired && !critical;
+                const rowKey = `${alert.operator_id}|${alert.doc_type}`;
+                const isSending = reminderSending[rowKey];
+                const isSent = reminderSent[rowKey];
 
                 return (
                   <div key={`${alert.operator_id}-${alert.doc_type}`}
@@ -667,6 +707,36 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                         ? 'Expires today'
                         : `${alert.days_until}d left`}
                     </span>
+
+                    {/* Send Reminder button */}
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSendReminder(alert)}
+                            disabled={isSending || isSent}
+                            className={`shrink-0 h-7 px-2 text-xs gap-1.5 transition-all ${
+                              isSent
+                                ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10'
+                                : 'border-muted-foreground/30 text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5'
+                            }`}
+                          >
+                            {isSending ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : isSent ? (
+                              <><CheckCheck className="h-3 w-3" /><span className="hidden sm:inline">Sent</span></>
+                            ) : (
+                              <><Send className="h-3 w-3" /><span className="hidden sm:inline">Remind</span></>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">
+                          {isSent ? 'Reminder sent!' : `Send email reminder to ${alert.operator_name}`}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
 
                     {/* Open button */}
                     <Button
