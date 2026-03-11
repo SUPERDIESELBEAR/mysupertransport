@@ -527,7 +527,13 @@ export default function OperatorPortal() {
                 </button>
               ))}
             </div>
-            <div className="mt-3 pt-3 border-t border-surface-dark-border flex justify-center">
+            <div className="mt-3 pt-3 border-t border-surface-dark-border flex justify-center gap-4">
+              <button
+                onClick={() => { setChangePasswordOpen(true); setMobileMenuOpen(false); }}
+                className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-surface-dark-foreground"
+              >
+                <KeyRound className="h-4 w-4" /> Change Password
+              </button>
               <button onClick={signOut} className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-destructive">
                 <LogOut className="h-4 w-4" /> Sign Out
               </button>
