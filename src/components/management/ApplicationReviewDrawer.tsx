@@ -125,6 +125,71 @@ function EmployerBlock({ employer, label }: { employer: Record<string, string> |
   );
 }
 
+function EditableDateField({
+  label,
+  date,
+  open,
+  saving,
+  isDirty,
+  onOpenChange,
+  onSelect,
+  onSave,
+}: {
+  label: string;
+  date: Date | undefined;
+  open: boolean;
+  saving: boolean;
+  isDirty: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSelect: (d: Date | undefined) => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="grid grid-cols-5 gap-2 text-sm">
+      <span className="col-span-2 text-muted-foreground flex items-center gap-1 self-center">
+        {label}
+        <span className="text-[10px] bg-gold/15 text-gold px-1.5 py-0.5 rounded font-medium">Staff</span>
+      </span>
+      <div className="col-span-3 flex items-center gap-2">
+        <Popover open={open} onOpenChange={onOpenChange}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                'h-8 flex-1 justify-start text-left font-normal text-xs',
+                !date && 'text-muted-foreground',
+                isDirty && 'border-gold/60 bg-gold/5'
+              )}
+            >
+              <CalendarIcon className="mr-1.5 h-3 w-3 shrink-0 opacity-60" />
+              {date ? format(date, 'MMM d, yyyy') : 'Pick a date'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0 z-[60]" align="start">
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={onSelect}
+              initialFocus
+              className={cn('p-3 pointer-events-auto')}
+            />
+          </PopoverContent>
+        </Popover>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onSave}
+          disabled={saving || !isDirty}
+          className="h-8 px-2 shrink-0 border-gold/40 text-gold hover:bg-gold/10 disabled:opacity-40"
+        >
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-status-progress/15 text-status-progress',
   approved: 'bg-status-complete/15 text-status-complete',
