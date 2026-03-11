@@ -110,6 +110,8 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
   // Track reminder send state per alert key (operatorId|docType)
   const [reminderSending, setReminderSending] = useState<Record<string, boolean>>({});
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
+  // Last reminded timestamps: key = "operatorId|docType" → ISO string
+  const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
 
 
   // Filter state
