@@ -910,7 +910,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Compliance expiry row */}
       {(cdlExpiration || medCertExpiration) && (() => {
-        const buildPill = (label: string, dateStr: string) => {
+        const buildPill = (label: string, dateStr: string, focusField: 'cdl' | 'medcert') => {
           const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
           const expired  = days < 0;
           const critical = !expired && days <= 30;
@@ -925,20 +925,26 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             ? `Expired ${Math.abs(days)}d ago`
             : days === 0 ? 'Expires today'
             : `${days}d left`;
+          const isClickable = !!onOpenAppReview;
+          const pill = (
+            <span
+              onClick={isClickable ? () => onOpenAppReview(focusField) : undefined}
+              className={`inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-lg border font-medium ${colorClass} ${isClickable ? 'cursor-pointer hover:opacity-80 hover:shadow-sm transition-all' : 'cursor-default'}`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotClass} ${expired ? 'animate-pulse' : ''}`} />
+              <span className="font-semibold">{label}</span>
+              <span className="opacity-70">·</span>
+              <span>{dayLabel}</span>
+              {isClickable && <span className="opacity-50 ml-0.5">✎</span>}
+            </span>
+          );
+          const tooltipMsg = label + ' expires ' + format(parseISO(dateStr), 'MMM d, yyyy') + (expired ? ' — already expired' : critical ? ' — critical, renew immediately' : warning ? ' — follow up soon' : ' — on track');
           return (
             <TooltipProvider key={label} delayDuration={100}>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className={`inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-lg border font-medium cursor-default ${colorClass}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotClass} ${expired ? 'animate-pulse' : ''}`} />
-                    <span className="font-semibold">{label}</span>
-                    <span className="opacity-70">·</span>
-                    <span>{dayLabel}</span>
-                  </span>
-                </TooltipTrigger>
+                <TooltipTrigger asChild>{pill}</TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs">
-                  {label} expires {format(parseISO(dateStr), 'MMM d, yyyy')}
-                  {expired ? ' — already expired' : critical ? ' — critical, renew immediately' : warning ? ' — follow up soon' : ' — on track'}
+                  {tooltipMsg}{isClickable ? '. Click to edit.' : ''}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -947,8 +953,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         return (
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide shrink-0">Compliance</span>
-            {cdlExpiration && buildPill('CDL', cdlExpiration)}
-            {medCertExpiration && buildPill('Med Cert', medCertExpiration)}
+            {cdlExpiration && buildPill('CDL', cdlExpiration, 'cdl')}
+            {medCertExpiration && buildPill('Med Cert', medCertExpiration, 'medcert')}
           </div>
         );
       })()}
