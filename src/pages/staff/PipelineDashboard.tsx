@@ -1259,6 +1259,50 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                 ))
               )}
             </tbody>
+            {!loading && filtered.length > 0 && (() => {
+              const filteredCritical = filtered.filter(op => {
+                const a = complianceByOperator[op.id];
+                return a != null && a.days_until <= 30;
+              }).length;
+              const filteredWarning = filtered.filter(op => {
+                const a = complianceByOperator[op.id];
+                return a != null && a.days_until > 30 && a.days_until <= 90;
+              }).length;
+              const filteredClean = filtered.length - filteredCritical - filteredWarning;
+              return (
+                <tfoot>
+                  <tr className="border-t-2 border-border bg-muted/30">
+                    <td colSpan={11} className="px-4 py-2.5">
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Compliance summary — {filtered.length} visible
+                        </span>
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {filteredCritical > 0 && (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-destructive">
+                              <ShieldAlert className="h-3.5 w-3.5" />
+                              {filteredCritical} critical
+                            </span>
+                          )}
+                          {filteredWarning > 0 && (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-yellow-600">
+                              <ShieldAlert className="h-3.5 w-3.5" />
+                              {filteredWarning} warning
+                            </span>
+                          )}
+                          {filteredClean > 0 && (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                              <ShieldCheck className="h-3.5 w-3.5" />
+                              {filteredClean} compliant
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </tfoot>
+              );
+            })()}
           </table>
         </div>
       </div>
