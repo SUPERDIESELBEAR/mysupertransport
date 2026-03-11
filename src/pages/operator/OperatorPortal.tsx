@@ -846,6 +846,10 @@ export default function OperatorPortal() {
                   {item.view === 'ica' && onboardingStatus.ica_status === 'sent_for_signature' && (
                     <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-gold border-2 border-surface-dark" />
                   )}
+                  {/* Critical expiry dot on Progress */}
+                  {'criticalDot' in item && item.criticalDot && !isActive && (
+                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark" />
+                  )}
                 </span>
                 <span className="truncate w-full text-center leading-tight">{item.label}</span>
               </button>
