@@ -205,9 +205,55 @@ export default function OperatorStatusPage({
   assignedDispatcher,
   dispatchStatus,
   onMessageDispatcher,
+  cdlExpiration,
+  medicalCertExpiration,
 }: OperatorStatusPageProps) {
 
-  const nextStepContent = () => {
+  // ── Expiry helpers ──────────────────────────────────────────────────────────
+  const getDaysUntil = (dateStr: string | null | undefined): number | null => {
+    if (!dateStr) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const exp = new Date(dateStr + 'T00:00:00'); // treat as local date
+    return Math.floor((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  type ExpiryLevel = 'expired' | 'red' | 'yellow' | 'green';
+  const getExpiryLevel = (days: number | null): ExpiryLevel | null => {
+    if (days === null) return null;
+    if (days < 0) return 'expired';
+    if (days <= 30) return 'red';
+    if (days <= 90) return 'yellow';
+    return 'green';
+  };
+
+  const cdlDays = getDaysUntil(cdlExpiration);
+  const medDays = getDaysUntil(medicalCertExpiration);
+  const cdlLevel = getExpiryLevel(cdlDays);
+  const medLevel = getExpiryLevel(medDays);
+  // Only show the card if at least one document is within 90 days or expired
+  const showExpiryCard = cdlLevel !== null && cdlLevel !== 'green'
+    ? true
+    : medLevel !== null && medLevel !== 'green';
+
+  const expiryConfig: Record<ExpiryLevel, { bg: string; border: string; label: string; text: string; dot: string }> = {
+    expired: { bg: 'bg-destructive/8',    border: 'border-destructive/30',    label: 'Expired',       text: 'text-destructive',     dot: 'bg-destructive' },
+    red:     { bg: 'bg-destructive/8',    border: 'border-destructive/30',    label: 'Expiring Soon', text: 'text-destructive',     dot: 'bg-destructive animate-pulse' },
+    yellow:  { bg: 'bg-gold/8',           border: 'border-gold/30',           label: 'Expiring Soon', text: 'text-gold',            dot: 'bg-gold' },
+    green:   { bg: 'bg-status-complete/8',border: 'border-status-complete/30',label: 'Valid',         text: 'text-status-complete', dot: 'bg-status-complete' },
+  };
+
+  const formatExpiry = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '';
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const daysLabel = (days: number | null): string => {
+    if (days === null) return '';
+    if (days < 0) return `Expired ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''} ago`;
+    if (days === 0) return 'Expires today';
+    return `${days} day${days !== 1 ? 's' : ''} remaining`;
+  };
     if (!currentStage) return null;
 
     if (currentStage.status === 'action_required') {
