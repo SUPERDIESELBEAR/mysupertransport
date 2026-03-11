@@ -1151,7 +1151,7 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                                     className={`h-4 w-4 ${
                                       expired || critical
                                         ? 'text-destructive animate-pulse'
-                                        : 'text-yellow-500'
+                                        : 'text-warning'
                                     }`}
                                   />
                                 </button>
