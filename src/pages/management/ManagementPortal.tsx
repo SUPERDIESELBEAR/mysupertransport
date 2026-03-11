@@ -656,7 +656,10 @@ export default function ManagementPortal() {
 
         {/* ── PIPELINE ── */}
         {view === 'pipeline' && (
-          <PipelineDashboard onOpenOperator={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }} />
+          <PipelineDashboard
+            onOpenOperator={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
+            complianceRefreshKey={complianceRefreshKey}
+          />
         )}
 
         {view === 'operator-detail' && selectedOperatorId && (
