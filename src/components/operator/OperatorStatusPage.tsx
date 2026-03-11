@@ -258,6 +258,18 @@ export default function OperatorStatusPage({
 
   const nextStep = nextStepContent();
 
+  const unitNumber = onboardingStatus.unit_number;
+  const hasDispatcher = !!assignedDispatcher;
+  const isOnboarded = isFullyOnboarded;
+
+  const dispatchStatusLabel: Record<string, { label: string; color: string; dot: string }> = {
+    dispatched:     { label: 'Dispatched',     color: 'text-status-complete', dot: 'bg-status-complete' },
+    home:           { label: 'Home',            color: 'text-gold',            dot: 'bg-gold' },
+    truck_down:     { label: 'Truck Down',      color: 'text-destructive',     dot: 'bg-destructive' },
+    not_dispatched: { label: 'Not Dispatched',  color: 'text-muted-foreground',dot: 'bg-muted-foreground/40' },
+  };
+  const statusInfo = dispatchStatus ? dispatchStatusLabel[dispatchStatus] : null;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -272,7 +284,63 @@ export default function OperatorStatusPage({
         </p>
       </div>
 
-      {/* Progress summary */}
+      {/* ── OPERATOR IDENTITY CARD ── */}
+      {(unitNumber || hasDispatcher) && (
+        <div className="bg-surface-dark rounded-2xl overflow-hidden shadow-lg border border-surface-dark-border">
+          {/* Card header stripe */}
+          <div className="px-4 pt-3 pb-2 flex items-center gap-2 border-b border-surface-dark-border">
+            <User className="h-3.5 w-3.5 text-gold" />
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gold">My Account</p>
+          </div>
+
+          <div className={`grid ${unitNumber && hasDispatcher ? 'grid-cols-2 divide-x divide-surface-dark-border' : 'grid-cols-1'}`}>
+            {/* Unit number cell */}
+            {unitNumber && (
+              <div className="px-4 py-3.5 flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Hash className="h-3 w-3 text-surface-dark-muted" />
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-surface-dark-muted">Unit Number</span>
+                </div>
+                <p className="text-2xl font-black text-gold leading-none tracking-tight">{unitNumber}</p>
+                {isOnboarded && statusInfo && (
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <span className={`h-2 w-2 rounded-full ${statusInfo.dot}`} />
+                    <span className={`text-xs font-semibold ${statusInfo.color}`}>{statusInfo.label}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Dispatcher cell */}
+            {hasDispatcher && assignedDispatcher && (
+              <div className="px-4 py-3.5 flex flex-col gap-0.5">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Truck className="h-3 w-3 text-surface-dark-muted" />
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-surface-dark-muted">Dispatcher</span>
+                </div>
+                <p className="text-sm font-bold text-white leading-tight">{assignedDispatcher.name}</p>
+                {assignedDispatcher.phone ? (
+                  <a
+                    href={`tel:${assignedDispatcher.phone}`}
+                    className="flex items-center gap-1 text-xs text-gold hover:text-gold-light transition-colors mt-0.5 font-medium w-fit"
+                  >
+                    <Phone className="h-3 w-3" />
+                    {assignedDispatcher.phone}
+                  </a>
+                ) : (
+                  <button
+                    onClick={onMessageDispatcher}
+                    className="flex items-center gap-1 text-xs text-gold hover:text-gold-light transition-colors mt-0.5 font-medium w-fit"
+                  >
+                    <Mail className="h-3 w-3" />
+                    Send Message
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <div className="bg-surface-dark rounded-2xl p-5 shadow-xl">
         {isFullyOnboarded ? (
           <div className="flex items-center gap-4">
