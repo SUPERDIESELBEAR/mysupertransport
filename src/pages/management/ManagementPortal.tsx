@@ -703,6 +703,17 @@ export default function ManagementPortal() {
             operatorId={selectedOperatorId}
             onBack={() => { setOperatorHasUnsavedChanges(false); setView('pipeline'); }}
             onUnsavedChangesChange={setOperatorHasUnsavedChanges}
+            onOpenAppReview={async (focusField) => {
+              const { data: op } = await supabase
+                .from('operators')
+                .select('application_id, applications(*)')
+                .eq('id', selectedOperatorId)
+                .single();
+              if (op?.applications) {
+                setSelectedApp(op.applications as FullApplication);
+                setDrawerFocusField(focusField);
+              }
+            }}
           />
         )}
 
