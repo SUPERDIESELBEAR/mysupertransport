@@ -98,6 +98,8 @@ const STAGES = [
 export default function PipelineDashboard({ onOpenOperator, initialDispatchFilter }: PipelineDashboardProps) {
   const { toast } = useToast();
   const { user } = useAuth();
+  const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
+  const [complianceExpanded, setComplianceExpanded] = useState(true);
   const [operators, setOperators] = useState<OperatorRow[]>([]);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
   const [loading, setLoading] = useState(true);
