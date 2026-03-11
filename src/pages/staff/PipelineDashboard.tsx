@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { differenceInDays, parseISO, format } from 'date-fns';
 
@@ -247,10 +248,19 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
       });
     });
 
-    // Sort by urgency: most urgent (smallest days_until, including negatives) first
+  // Sort by urgency: most urgent (smallest days_until, including negatives) first
     alerts.sort((a, b) => a.days_until - b.days_until);
     setComplianceAlerts(alerts);
   };
+
+  // Build a lookup: operator_id → worst ComplianceAlert for that operator
+  const complianceByOperator: Record<string, ComplianceAlert> = {};
+  complianceAlerts.forEach(alert => {
+    const existing = complianceByOperator[alert.operator_id];
+    if (!existing || alert.days_until < existing.days_until) {
+      complianceByOperator[alert.operator_id] = alert;
+    }
+  });
 
   const fetchOperators = async () => {
     setLoading(true);
@@ -966,13 +976,16 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                     Msgs
                   </span>
                 </th>
+                <th className="px-4 py-3 text-center" title="Compliance">
+                  <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground mx-auto" />
+                </th>
                 <th className="text-right px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                   <td colSpan={10} className="text-center py-12 text-muted-foreground">
+                   <td colSpan={11} className="text-center py-12 text-muted-foreground">
                     <div className="flex justify-center">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                     </div>
@@ -980,7 +993,7 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={11} className="text-center py-12 text-muted-foreground">
                     {operators.length === 0 ? 'No operators in the pipeline yet.' : 'No operators match your filters.'}
                   </td>
                 </tr>
@@ -1110,6 +1123,51 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                       ) : (
                         <span className="text-muted-foreground/40 text-xs">—</span>
                       )}
+                    </td>
+                    {/* Compliance icon cell */}
+                    <td className="px-4 py-3 text-center">
+                      {(() => {
+                        const alert = complianceByOperator[op.id];
+                        if (!alert) {
+                          return <ShieldCheck className="h-4 w-4 text-muted-foreground/25 mx-auto" />;
+                        }
+                        const expired = alert.days_until < 0;
+                        const critical = !expired && alert.days_until <= 30;
+                        const tooltipText = expired
+                          ? `${alert.doc_type} expired ${Math.abs(alert.days_until)}d ago`
+                          : alert.days_until === 0
+                          ? `${alert.doc_type} expires today`
+                          : `${alert.doc_type} expires in ${alert.days_until}d`;
+                        return (
+                          <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  onClick={() => onOpenOperator(op.id)}
+                                  className="mx-auto block focus:outline-none"
+                                  aria-label={tooltipText}
+                                >
+                                  <ShieldAlert
+                                    className={`h-4 w-4 ${
+                                      expired || critical
+                                        ? 'text-destructive animate-pulse'
+                                        : 'text-yellow-500'
+                                    }`}
+                                  />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="text-xs font-medium">
+                                {tooltipText}
+                                {alert.days_until >= 0 && (
+                                  <span className="ml-1 text-muted-foreground">
+                                    — exp. {format(parseISO(alert.expiration_date), 'MMM d, yyyy')}
+                                  </span>
+                                )}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Button
