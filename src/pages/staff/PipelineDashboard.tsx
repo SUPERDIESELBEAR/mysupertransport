@@ -155,6 +155,27 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
     fetchComplianceAlerts();
   }, [complianceRefreshKey]);
 
+  // Realtime: re-fetch compliance alerts whenever an application's expiry dates change
+  useEffect(() => {
+    const channel = supabase
+      .channel('pipeline-applications-expiry-watch')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'applications' },
+        (payload: any) => {
+          const { new: n, old: o } = payload;
+          if (
+            n?.cdl_expiration !== o?.cdl_expiration ||
+            n?.medical_cert_expiration !== o?.medical_cert_expiration
+          ) {
+            fetchComplianceAlerts();
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   // Realtime: refresh unread counts when a new message arrives
   useEffect(() => {
     const channel = supabase
