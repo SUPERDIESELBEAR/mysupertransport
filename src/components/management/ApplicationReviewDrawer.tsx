@@ -69,6 +69,7 @@ export interface FullApplication {
   dl_front_url: string | null;
   dl_rear_url: string | null;
   medical_cert_url: string | null;
+  medical_cert_expiration: string | null;
   signature_image_url: string | null;
 }
 
