@@ -954,6 +954,17 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
               <button onClick={() => setProgressFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
             </span>
           )}
+          {complianceFilter !== 'all' && (
+            <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium border ${
+              complianceFilter === 'critical'
+                ? 'bg-destructive/10 text-destructive border-destructive/30'
+                : 'bg-yellow-50 text-yellow-700 border-yellow-300'
+            }`}>
+              <ShieldAlert className="h-3 w-3" />
+              {complianceFilter === 'critical' ? 'Critical Expiry' : 'Expiry Warning'}
+              <button onClick={() => setComplianceFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+            </span>
+          )}
         </div>
       )}
 
