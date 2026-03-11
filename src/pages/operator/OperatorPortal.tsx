@@ -111,6 +111,7 @@ export default function OperatorPortal() {
       setAssignedDispatcher({
         name: [data.first_name, data.last_name].filter(Boolean).join(' ') || 'Dispatcher',
         phone: data.phone ?? null,
+        userId: dispatcherUserId,
       });
     }
   }, []);
