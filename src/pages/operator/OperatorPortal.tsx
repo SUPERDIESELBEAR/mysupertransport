@@ -432,6 +432,7 @@ export default function OperatorPortal() {
     <>
     <OperatorNotificationPreferencesModal open={notifPrefOpen} onClose={() => setNotifPrefOpen(false)} />
     <ChangePasswordModal open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} variant="dark" />
+    <EditProfileModal open={editProfileOpen} onClose={() => setEditProfileOpen(false)} onSaved={refreshProfile} variant="dark" />
     <div className="min-h-screen bg-secondary">
       {/* Top nav */}
       <header className="bg-surface-dark border-b border-surface-dark-border sticky top-0 z-40">
