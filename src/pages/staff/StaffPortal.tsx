@@ -160,6 +160,40 @@ export default function StaffPortal() {
   const [prefOpen, setPrefOpen] = useState(false);
   const [truckDownOperators, setTruckDownOperators] = useState<{ name: string; unit: string }[]>([]);
   const [pipelineDispatchFilter, setPipelineDispatchFilter] = useState<'all' | 'truck_down'>('all');
+  const [criticalExpiryCount, setCriticalExpiryCount] = useState(0);
+
+  const fetchCriticalExpiries = useCallback(async () => {
+    const { data } = await supabase
+      .from('operators')
+      .select('applications(cdl_expiration, medical_cert_expiration)')
+      .not('application_id', 'is', null);
+    if (!data) return;
+    const today = startOfDay(new Date());
+    let count = 0;
+    (data as any[]).forEach((op: any) => {
+      const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
+      if (!app) return;
+      ['cdl_expiration', 'medical_cert_expiration'].forEach((field: string) => {
+        const dateStr: string | null = app[field];
+        if (!dateStr) return;
+        const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
+        if (days <= 30) count++;
+      });
+    });
+    setCriticalExpiryCount(count);
+  }, []);
+
+  useEffect(() => {
+    fetchCriticalExpiries();
+    const channel = supabase
+      .channel('staff-compliance-badge')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'applications' }, () => {
+        fetchCriticalExpiries();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchCriticalExpiries]);
+  const [pipelineDispatchFilter, setPipelineDispatchFilter] = useState<'all' | 'truck_down'>('all');
 
   const fetchTruckDownOperators = useCallback(async () => {
     const { data } = await supabase
