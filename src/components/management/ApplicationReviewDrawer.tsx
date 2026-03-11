@@ -141,17 +141,49 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [ssnValue, setSsnValue] = useState<string | null>(null);
   const [ssnLoading, setSsnLoading] = useState(false);
   const [ssnError, setSsnError] = useState<string | null>(null);
-  const [medCertExp, setMedCertExp] = useState(app?.medical_cert_expiration ?? '');
+
+  // CDL expiry
+  const [cdlExpDate, setCdlExpDate] = useState<Date | undefined>(
+    app?.cdl_expiration ? parseISO(app.cdl_expiration) : undefined
+  );
+  const [cdlExpOpen, setCdlExpOpen] = useState(false);
+  const [savingCdlExp, setSavingCdlExp] = useState(false);
+  const originalCdlExp = app?.cdl_expiration ?? null;
+
+  // Med cert expiry
+  const [medCertDate, setMedCertDate] = useState<Date | undefined>(
+    app?.medical_cert_expiration ? parseISO(app.medical_cert_expiration) : undefined
+  );
+  const [medCertOpen, setMedCertOpen] = useState(false);
   const [savingMedCert, setSavingMedCert] = useState(false);
+  const originalMedCertExp = app?.medical_cert_expiration ?? null;
 
   if (!app) return null;
+
+  const saveCdlExpiration = async () => {
+    setSavingCdlExp(true);
+    try {
+      const val = cdlExpDate ? format(cdlExpDate, 'yyyy-MM-dd') : null;
+      const { error } = await supabase
+        .from('applications')
+        .update({ cdl_expiration: val })
+        .eq('id', app.id);
+      if (error) throw error;
+      toast.success('CDL expiration saved.');
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to save.');
+    } finally {
+      setSavingCdlExp(false);
+    }
+  };
 
   const saveMedCertExpiration = async () => {
     setSavingMedCert(true);
     try {
+      const val = medCertDate ? format(medCertDate, 'yyyy-MM-dd') : null;
       const { error } = await supabase
         .from('applications')
-        .update({ medical_cert_expiration: medCertExp || null })
+        .update({ medical_cert_expiration: val })
         .eq('id', app.id);
       if (error) throw error;
       toast.success('Medical certificate expiration saved.');
