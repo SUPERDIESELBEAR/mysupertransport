@@ -471,6 +471,13 @@ export default function OperatorPortal() {
 
           <div className="flex items-center gap-1">
             <button
+              onClick={() => setEditProfileOpen(true)}
+              title="Edit profile"
+              className="text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors"
+            >
+              <UserRound className="h-5 w-5" />
+            </button>
+            <button
               onClick={() => setChangePasswordOpen(true)}
               title="Change password"
               className="text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors"
