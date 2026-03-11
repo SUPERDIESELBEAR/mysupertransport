@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
 import ICAViewModal from '@/components/ica/ICAViewModal';
-import { formatDistanceToNow, format } from 'date-fns';
+import { formatDistanceToNow, format, differenceInDays, parseISO, startOfDay } from 'date-fns';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -80,6 +80,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [showICABuilder, setShowICABuilder] = useState(false);
   const [showICAView, setShowICAView] = useState(false);
   const [applicationData, setApplicationData] = useState<any>(null);
+  const [cdlExpiration, setCdlExpiration] = useState<string | null>(null);
+  const [medCertExpiration, setMedCertExpiration] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<Partial<OnboardingStatus>>({});
   const [statusId, setStatusId] = useState<string | null>(null);
@@ -277,7 +279,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const [{ data: op }, { data: opDocs }] = await Promise.all([
       supabase
         .from('operators')
-        .select(`id, user_id, notes, onboarding_status (*), applications (email, first_name, last_name, phone, address_street, address_city, address_state, address_zip)`)
+        .select(`id, user_id, notes, onboarding_status (*), applications (email, first_name, last_name, phone, address_street, address_city, address_state, address_zip, cdl_expiration, medical_cert_expiration)`)
         .eq('id', operatorId)
         .single(),
       supabase
@@ -310,6 +312,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       const app = (op as any).applications;
       setOperatorEmail(app?.email ?? '');
       setApplicationData(app ?? null);
+      setCdlExpiration(app?.cdl_expiration ?? null);
+      setMedCertExpiration(app?.medical_cert_expiration ?? null);
       setNotes((op as any).notes ?? '');
       const os = (op as any).onboarding_status ?? null;
       if (os) {
@@ -902,7 +906,52 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         {status.pe_screening_result === 'clear' && <Badge className="status-complete border text-xs">PE Clear</Badge>}
       </div>
 
-      {/* Stage Completion Progress Bar */}
+      {/* Compliance expiry row */}
+      {(cdlExpiration || medCertExpiration) && (() => {
+        const buildPill = (label: string, dateStr: string) => {
+          const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
+          const expired  = days < 0;
+          const critical = !expired && days <= 30;
+          const warning  = !expired && days <= 90;
+          const colorClass = expired || critical
+            ? 'bg-destructive/10 text-destructive border-destructive/30'
+            : warning
+            ? 'bg-yellow-50 text-yellow-700 border-yellow-300'
+            : 'bg-status-complete/10 text-status-complete border-status-complete/30';
+          const dotClass = expired || critical ? 'bg-destructive' : warning ? 'bg-yellow-500' : 'bg-status-complete';
+          const dayLabel = expired
+            ? `Expired ${Math.abs(days)}d ago`
+            : days === 0 ? 'Expires today'
+            : `${days}d left`;
+          return (
+            <TooltipProvider key={label} delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className={`inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-lg border font-medium cursor-default ${colorClass}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotClass} ${expired ? 'animate-pulse' : ''}`} />
+                    <span className="font-semibold">{label}</span>
+                    <span className="opacity-70">·</span>
+                    <span>{dayLabel}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {label} expires {format(parseISO(dateStr), 'MMM d, yyyy')}
+                  {expired ? ' — already expired' : critical ? ' — critical, renew immediately' : warning ? ' — follow up soon' : ' — on track'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
+        };
+        return (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide shrink-0">Compliance</span>
+            {cdlExpiration && buildPill('CDL', cdlExpiration)}
+            {medCertExpiration && buildPill('Med Cert', medCertExpiration)}
+          </div>
+        );
+      })()}
+
+
       {(() => {
         const stages = [
           { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' },
