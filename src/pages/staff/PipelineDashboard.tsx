@@ -65,6 +65,7 @@ interface ComplianceAlert {
 interface PipelineDashboardProps {
   onOpenOperator: (operatorId: string) => void;
   initialDispatchFilter?: DispatchStatus | 'all';
+  onExpiryUpdated?: () => void;
 }
 
 function computeProgress(os: Record<string, string | boolean | null>): number {

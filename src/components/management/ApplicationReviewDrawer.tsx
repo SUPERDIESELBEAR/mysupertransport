@@ -19,6 +19,7 @@ interface ApplicationReviewDrawerProps {
   onClose: () => void;
   onApprove: (appId: string, notes: string) => Promise<void>;
   onDeny: (appId: string, notes: string) => Promise<void>;
+  onExpiryUpdated?: () => void;
 }
 
 export interface FullApplication {
