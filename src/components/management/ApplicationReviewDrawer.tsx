@@ -270,11 +270,35 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
             <Field label="CDL Number" value={app.cdl_number} />
             <Field label="State" value={app.cdl_state} />
             <Field label="Class" value={app.cdl_class} />
-            <Field label="Expiration" value={app.cdl_expiration ? new Date(app.cdl_expiration).toLocaleDateString() : null} />
+            <Field label="CDL Expiration" value={app.cdl_expiration ? new Date(app.cdl_expiration).toLocaleDateString() : null} />
             <Field label="10-Year CDL History" value={<YesNoBadge value={app.cdl_10_years} />} />
             <Field label="Endorsements" value={app.endorsements?.join(', ')} />
             <Field label="Equipment" value={app.equipment_operated?.join(', ')} />
             <Field label="Years Experience" value={app.years_experience} />
+            {/* Staff-editable medical cert expiration */}
+            <div className="grid grid-cols-5 gap-2 text-sm pt-1 border-t border-border mt-1">
+              <span className="col-span-2 text-muted-foreground flex items-center gap-1">
+                Med. Cert. Expiry
+                <span className="text-[10px] bg-gold/15 text-gold px-1.5 py-0.5 rounded font-medium">Staff</span>
+              </span>
+              <div className="col-span-3 flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={medCertExp}
+                  onChange={e => setMedCertExp(e.target.value)}
+                  className="h-8 text-xs"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={saveMedCertExpiration}
+                  disabled={savingMedCert || medCertExp === (app.medical_cert_expiration ?? '')}
+                  className="h-8 px-2 shrink-0 border-gold/40 text-gold hover:bg-gold/10"
+                >
+                  {savingMedCert ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+            </div>
           </Section>
 
           {/* Employment */}
