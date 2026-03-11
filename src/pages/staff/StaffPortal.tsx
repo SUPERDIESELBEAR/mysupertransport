@@ -12,6 +12,7 @@ import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import { Button } from '@/components/ui/button';
 import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert } from 'lucide-react';
+import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
@@ -28,6 +29,7 @@ export default function StaffPortal() {
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [criticalExpiryCount, setCriticalExpiryCount] = useState(0);
   const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const viewRef = useRef(currentView);
@@ -114,7 +116,7 @@ export default function StaffPortal() {
   }, [user]);
 
   const navItems = [
-    { label: 'Pipeline', icon: <LayoutDashboard className="h-4 w-4" />, path: 'pipeline' },
+    { label: 'Pipeline', icon: <LayoutDashboard className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
     { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'messages', badge: unreadCount },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
     { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
@@ -159,6 +161,39 @@ export default function StaffPortal() {
   const [prefOpen, setPrefOpen] = useState(false);
   const [truckDownOperators, setTruckDownOperators] = useState<{ name: string; unit: string }[]>([]);
   const [pipelineDispatchFilter, setPipelineDispatchFilter] = useState<'all' | 'truck_down'>('all');
+
+  const fetchCriticalExpiries = useCallback(async () => {
+    const { data } = await supabase
+      .from('operators')
+      .select('applications(cdl_expiration, medical_cert_expiration)')
+      .not('application_id', 'is', null);
+    if (!data) return;
+    const today = startOfDay(new Date());
+    let count = 0;
+    (data as any[]).forEach((op: any) => {
+      const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
+      if (!app) return;
+      ['cdl_expiration', 'medical_cert_expiration'].forEach((field: string) => {
+        const dateStr: string | null = app[field];
+        if (!dateStr) return;
+        const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
+        if (days <= 30) count++;
+      });
+    });
+    setCriticalExpiryCount(count);
+  }, []);
+
+  useEffect(() => {
+    fetchCriticalExpiries();
+    const channel = supabase
+      .channel('staff-compliance-badge')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'applications' }, () => {
+        fetchCriticalExpiries();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchCriticalExpiries]);
+
 
   const fetchTruckDownOperators = useCallback(async () => {
     const { data } = await supabase
