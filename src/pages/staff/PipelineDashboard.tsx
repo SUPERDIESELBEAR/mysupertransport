@@ -751,22 +751,30 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                         : `${alert.days_until}d left`}
                     </span>
 
-                    {/* Last reminded timestamp */}
-                    {remindedAt && (
-                      <TooltipProvider delayDuration={100}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="hidden md:inline-flex items-center gap-1 text-[11px] text-muted-foreground shrink-0 cursor-default">
-                              <CheckCheck className="h-3 w-3 text-status-complete shrink-0" />
-                              {format(new Date(remindedAt), 'MMM d')}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">
-                            Last reminder sent {format(new Date(remindedAt), 'MMM d, yyyy \'at\' h:mm a')}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
+                    {/* Last reminded column — always rendered for consistent alignment */}
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className={`hidden sm:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[72px] justify-end ${
+                            remindedAt ? 'text-muted-foreground' : 'text-muted-foreground/40'
+                          }`}>
+                            {remindedAt ? (
+                              <>
+                                <CheckCheck className="h-3 w-3 text-status-complete shrink-0" />
+                                {format(new Date(remindedAt), 'MMM d')}
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground/40">—</span>
+                            )}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">
+                          {remindedAt
+                            ? `Last reminder sent ${format(new Date(remindedAt), 'MMM d, yyyy \'at\' h:mm a')}`
+                            : 'No reminder sent yet'}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
 
                     {/* Send Reminder button */}
                     <TooltipProvider delayDuration={100}>
