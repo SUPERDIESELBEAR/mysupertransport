@@ -479,6 +479,7 @@ export default function OperatorPortal() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
+            <TooltipProvider delayDuration={200}>
             {navItems.map(item => (
               <button
                 key={item.view}
@@ -501,13 +502,24 @@ export default function OperatorPortal() {
                       {(item.badge as number) > 99 ? '99+' : item.badge}
                     </span>
                   )}
-                  {'criticalDot' in item && item.criticalDot && view !== 'progress' && (
-                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark" />
+                  {'criticalDot' in item && item.criticalDot && view !== 'progress' && expiryDotInfo && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark cursor-default" />
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs text-xs">
+                        <p className="font-semibold mb-0.5">
+                          {expiryDotInfo.count === 1 ? '1 doc expiring soon' : `${expiryDotInfo.count} docs expiring soon`}
+                        </p>
+                        <p className="text-muted-foreground">{expiryDotInfo.tooltip}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </span>
                 {item.label}
               </button>
             ))}
+            </TooltipProvider>
           </nav>
 
           <div className="flex items-center gap-1">
