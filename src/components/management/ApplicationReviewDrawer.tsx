@@ -19,6 +19,7 @@ interface ApplicationReviewDrawerProps {
   onClose: () => void;
   onApprove: (appId: string, notes: string) => Promise<void>;
   onDeny: (appId: string, notes: string) => Promise<void>;
+  onExpiryUpdated?: () => void;
 }
 
 export interface FullApplication {
@@ -196,7 +197,7 @@ const STATUS_COLORS: Record<string, string> = {
   denied: 'bg-destructive/15 text-destructive',
 };
 
-export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny }: ApplicationReviewDrawerProps) {
+export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated }: ApplicationReviewDrawerProps) {
   const { roles } = useAuth();
   const isManagement = roles.includes('management');
   const [notes, setNotes] = useState('');
@@ -235,6 +236,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
         .eq('id', app.id);
       if (error) throw error;
       toast.success('CDL expiration saved.');
+      onExpiryUpdated?.();
     } catch (err: any) {
       toast.error(err.message ?? 'Failed to save.');
     } finally {
@@ -252,6 +254,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
         .eq('id', app.id);
       if (error) throw error;
       toast.success('Medical certificate expiration saved.');
+      onExpiryUpdated?.();
     } catch (err: any) {
       toast.error(err.message ?? 'Failed to save.');
     } finally {

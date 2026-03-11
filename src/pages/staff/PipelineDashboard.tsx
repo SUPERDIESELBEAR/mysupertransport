@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
@@ -65,6 +65,7 @@ interface ComplianceAlert {
 interface PipelineDashboardProps {
   onOpenOperator: (operatorId: string) => void;
   initialDispatchFilter?: DispatchStatus | 'all';
+  complianceRefreshKey?: number;
 }
 
 function computeProgress(os: Record<string, string | boolean | null>): number {
@@ -96,7 +97,7 @@ const STAGES = [
   'Stage 6 — Insurance',
 ];
 
-export default function PipelineDashboard({ onOpenOperator, initialDispatchFilter }: PipelineDashboardProps) {
+export default function PipelineDashboard({ onOpenOperator, initialDispatchFilter, complianceRefreshKey }: PipelineDashboardProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
@@ -147,6 +148,12 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
     fetchOperators();
     fetchComplianceAlerts();
   }, []);
+
+  // Re-fetch compliance alerts when parent signals an expiry date was updated
+  useEffect(() => {
+    if (complianceRefreshKey === undefined || complianceRefreshKey === 0) return;
+    fetchComplianceAlerts();
+  }, [complianceRefreshKey]);
 
   // Realtime: refresh unread counts when a new message arrives
   useEffect(() => {
