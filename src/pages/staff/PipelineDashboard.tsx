@@ -985,7 +985,7 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
             <tbody>
               {loading ? (
                 <tr>
-                   <td colSpan={10} className="text-center py-12 text-muted-foreground">
+                   <td colSpan={11} className="text-center py-12 text-muted-foreground">
                     <div className="flex justify-center">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                     </div>
@@ -993,7 +993,7 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={11} className="text-center py-12 text-muted-foreground">
                     {operators.length === 0 ? 'No operators in the pipeline yet.' : 'No operators match your filters.'}
                   </td>
                 </tr>
