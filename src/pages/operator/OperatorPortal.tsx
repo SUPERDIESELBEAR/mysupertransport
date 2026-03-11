@@ -122,7 +122,7 @@ export default function OperatorPortal() {
     if (!user) return;
     const { data: op } = await supabase
       .from('operators')
-      .select('id, onboarding_status(*), operator_documents(*)')
+      .select('id, application_id, onboarding_status(*), operator_documents(*)')
       .eq('user_id', user.id)
       .single();
 
@@ -134,12 +134,27 @@ export default function OperatorPortal() {
       setOnboardingStatus(os);
       setUploadedDocs((op as any).operator_documents ?? []);
 
+      // Fetch application for CDL + medical cert expiry dates
+      const appId = (op as any).application_id;
+      if (appId) {
+        const { data: app } = await supabase
+          .from('applications')
+          .select('cdl_expiration, medical_cert_expiration')
+          .eq('id', appId)
+          .maybeSingle();
+        setCdlExpiration((app as any)?.cdl_expiration ?? null);
+        setMedicalCertExpiration((app as any)?.medical_cert_expiration ?? null);
+      }
+
       // Fetch current dispatch status + assigned dispatcher
-      const { data: dispatch } = await supabase
-        .from('active_dispatch')
-        .select('dispatch_status, assigned_dispatcher, updated_at')
-        .eq('operator_id', opId)
-        .maybeSingle();
+      const [dispatchResult] = await Promise.all([
+        supabase
+          .from('active_dispatch')
+          .select('dispatch_status, assigned_dispatcher, updated_at')
+          .eq('operator_id', opId)
+          .maybeSingle(),
+      ]);
+      const dispatch = dispatchResult.data;
       const newStatus = (dispatch as any)?.dispatch_status ?? null;
       const newUpdatedAt = (dispatch as any)?.updated_at ?? null;
       setDispatchStatus(newStatus);
