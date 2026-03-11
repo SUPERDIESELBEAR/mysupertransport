@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText, Truck, ArrowRight, Upload, Mail, Phone, Hash, User } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText, Truck, ArrowRight, Upload, Mail, Phone, Hash, User, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
@@ -31,6 +31,8 @@ interface OperatorStatusPageProps {
   assignedDispatcher?: { name: string; phone: string | null; userId?: string | null } | null;
   dispatchStatus?: string | null;
   onMessageDispatcher?: () => void;
+  cdlExpiration?: string | null;
+  medicalCertExpiration?: string | null;
 }
 
 const STAGE_ICONS: Record<number, React.ReactNode> = {
