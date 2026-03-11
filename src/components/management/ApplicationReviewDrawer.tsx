@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   X, CheckCircle2, XCircle, User, Phone, Mail, MapPin, Calendar,
   Briefcase, Car, FileText, ShieldAlert, ChevronRight, AlertTriangle, Loader2, Printer,
-  Eye, EyeOff, Lock
+  Eye, EyeOff, Lock, Save
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
 
 interface ApplicationReviewDrawerProps {
   app: FullApplication | null;
@@ -67,6 +69,7 @@ export interface FullApplication {
   dl_front_url: string | null;
   dl_rear_url: string | null;
   medical_cert_url: string | null;
+  medical_cert_expiration: string | null;
   signature_image_url: string | null;
 }
 
@@ -135,8 +138,26 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [ssnValue, setSsnValue] = useState<string | null>(null);
   const [ssnLoading, setSsnLoading] = useState(false);
   const [ssnError, setSsnError] = useState<string | null>(null);
+  const [medCertExp, setMedCertExp] = useState(app?.medical_cert_expiration ?? '');
+  const [savingMedCert, setSavingMedCert] = useState(false);
 
   if (!app) return null;
+
+  const saveMedCertExpiration = async () => {
+    setSavingMedCert(true);
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update({ medical_cert_expiration: medCertExp || null })
+        .eq('id', app.id);
+      if (error) throw error;
+      toast.success('Medical certificate expiration saved.');
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to save.');
+    } finally {
+      setSavingMedCert(false);
+    }
+  };
 
   const handlePrint = () => {
     window.print();
@@ -249,11 +270,35 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
             <Field label="CDL Number" value={app.cdl_number} />
             <Field label="State" value={app.cdl_state} />
             <Field label="Class" value={app.cdl_class} />
-            <Field label="Expiration" value={app.cdl_expiration ? new Date(app.cdl_expiration).toLocaleDateString() : null} />
+            <Field label="CDL Expiration" value={app.cdl_expiration ? new Date(app.cdl_expiration).toLocaleDateString() : null} />
             <Field label="10-Year CDL History" value={<YesNoBadge value={app.cdl_10_years} />} />
             <Field label="Endorsements" value={app.endorsements?.join(', ')} />
             <Field label="Equipment" value={app.equipment_operated?.join(', ')} />
             <Field label="Years Experience" value={app.years_experience} />
+            {/* Staff-editable medical cert expiration */}
+            <div className="grid grid-cols-5 gap-2 text-sm pt-1 border-t border-border mt-1">
+              <span className="col-span-2 text-muted-foreground flex items-center gap-1">
+                Med. Cert. Expiry
+                <span className="text-[10px] bg-gold/15 text-gold px-1.5 py-0.5 rounded font-medium">Staff</span>
+              </span>
+              <div className="col-span-3 flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={medCertExp}
+                  onChange={e => setMedCertExp(e.target.value)}
+                  className="h-8 text-xs"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={saveMedCertExpiration}
+                  disabled={savingMedCert || medCertExp === (app.medical_cert_expiration ?? '')}
+                  className="h-8 px-2 shrink-0 border-gold/40 text-gold hover:bg-gold/10"
+                >
+                  {savingMedCert ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+            </div>
           </Section>
 
           {/* Employment */}
