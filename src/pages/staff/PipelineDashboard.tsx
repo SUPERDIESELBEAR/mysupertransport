@@ -473,6 +473,7 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
     coordinatorFilter !== 'all',
     dispatchFilter !== 'all',
     progressFilter !== 'all',
+    complianceFilter !== 'all',
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
@@ -481,6 +482,7 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
     setCoordinatorFilter('all');
     setDispatchFilter('all');
     setProgressFilter('all');
+    setComplianceFilter('all');
     setSearch('');
   };
 
