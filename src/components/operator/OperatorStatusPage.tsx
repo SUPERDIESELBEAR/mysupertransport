@@ -382,9 +382,14 @@ export default function OperatorStatusPage({
                     onClick={onMessageDispatcher}
                     className="flex items-center gap-1 text-xs text-gold hover:text-gold-light transition-colors mt-0.5 font-medium w-fit"
                   >
+                    <Mail className="h-3 w-3" />
+                    Send Message
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-        )}
-      </div>
       )}
 
       {/* ── DOCUMENT EXPIRY ALERTS ── */}
