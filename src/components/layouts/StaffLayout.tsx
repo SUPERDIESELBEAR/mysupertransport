@@ -168,6 +168,14 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
               </div>
               <button
                 type="button"
+                onClick={() => setChangePasswordOpen(true)}
+                title="Change password"
+                className="text-surface-dark-muted hover:text-surface-dark-foreground transition-colors p-1 rounded"
+              >
+                <KeyRound className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
                 data-sign-out="true"
                 onClick={() => { if (window.confirm('Sign out?')) signOut(); }}
                 title="Sign out"
