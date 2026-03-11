@@ -274,7 +274,8 @@ Deno.serve(async (req) => {
             // ── Staff email at 30-day and 60-day thresholds ──
             if (isEmailThreshold && RESEND_API_KEY && staffNotifInserted) {
               try {
-                const emailOk = await userEmailEnabled(op.assigned_onboarding_staff);
+                const prefEventType = threshold === 60 ? 'cert_expiry_60day' : 'cert_expiry';
+                const emailOk = await userEmailEnabled(op.assigned_onboarding_staff, prefEventType);
                 if (emailOk) {
                   const { data: { user: staffUser } } = await supabase.auth.admin.getUserById(op.assigned_onboarding_staff);
                   if (staffUser?.email) {
