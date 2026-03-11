@@ -66,6 +66,7 @@ export default function ManagementPortal() {
   const [dispatchLiveFlash, setDispatchLiveFlash] = useState(false);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [criticalExpiryCount, setCriticalExpiryCount] = useState(0);
 
 
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
