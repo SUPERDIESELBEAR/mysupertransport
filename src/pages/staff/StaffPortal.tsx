@@ -193,7 +193,7 @@ export default function StaffPortal() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchCriticalExpiries]);
-  const [pipelineDispatchFilter, setPipelineDispatchFilter] = useState<'all' | 'truck_down'>('all');
+
 
   const fetchTruckDownOperators = useCallback(async () => {
     const { data } = await supabase
