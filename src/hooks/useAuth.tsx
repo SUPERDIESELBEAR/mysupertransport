@@ -13,6 +13,7 @@ interface AuthContextType {
   setActiveRole: (role: AppRole) => void;
   profile: ProfileData | null;
   loading: boolean;
+  refreshProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   isManagement: boolean;
@@ -122,6 +123,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshProfile = async () => {
+    if (user) await fetchProfile(user.id);
+  };
+
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error };
@@ -141,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, session, roles, activeRole, setActiveRole,
-      profile, loading,
+      profile, loading, refreshProfile,
       signIn, signOut,
       isManagement, isOnboardingStaff, isDispatcher,
       isOperator, isApplicant, isStaff,
