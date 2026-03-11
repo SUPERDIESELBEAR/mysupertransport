@@ -728,9 +728,10 @@ export default function OperatorPortal() {
             assignedDispatcher={assignedDispatcher}
             dispatchStatus={dispatchStatus}
             onMessageDispatcher={() => {
-              if (assignedDispatcher) {
-                setView('messages');
+              if (assignedDispatcher?.userId) {
+                setMessageInitialUserId(assignedDispatcher.userId);
               }
+              setView('messages');
             }}
           />
         )}
