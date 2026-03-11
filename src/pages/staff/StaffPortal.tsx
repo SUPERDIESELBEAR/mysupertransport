@@ -10,6 +10,7 @@ import ResourceLibraryManager from '@/components/management/ResourceLibraryManag
 import MessagesView from '@/components/staff/MessagesView';
 import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
+import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
 import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
