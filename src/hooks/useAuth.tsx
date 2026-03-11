@@ -13,6 +13,7 @@ interface AuthContextType {
   setActiveRole: (role: AppRole) => void;
   profile: ProfileData | null;
   loading: boolean;
+  refreshProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   isManagement: boolean;
