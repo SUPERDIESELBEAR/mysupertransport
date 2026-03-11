@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+import { format, parseISO } from 'date-fns';
 import {
-  X, CheckCircle2, XCircle, User, Phone, Mail, MapPin, Calendar,
-  Briefcase, Car, FileText, ShieldAlert, ChevronRight, AlertTriangle, Loader2, Printer,
+  X, CheckCircle2, XCircle, User, MapPin, CalendarIcon,
+  Briefcase, Car, FileText, ShieldAlert, AlertTriangle, Loader2, Printer,
   Eye, EyeOff, Lock, Save
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
