@@ -709,6 +709,7 @@ export default function ManagementPortal() {
           onClose={() => setSelectedApp(null)}
           onApprove={handleApprove}
           onDeny={handleDeny}
+          onExpiryUpdated={() => setComplianceRefreshKey(k => k + 1)}
         />
       )}
 
