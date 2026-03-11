@@ -67,6 +67,7 @@ export default function ManagementPortal() {
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [criticalExpiryCount, setCriticalExpiryCount] = useState(0);
+  const [drawerFocusField, setDrawerFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
 
 
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
@@ -702,6 +703,17 @@ export default function ManagementPortal() {
             operatorId={selectedOperatorId}
             onBack={() => { setOperatorHasUnsavedChanges(false); setView('pipeline'); }}
             onUnsavedChangesChange={setOperatorHasUnsavedChanges}
+            onOpenAppReview={async (focusField) => {
+              const { data: op } = await supabase
+                .from('operators')
+                .select('application_id, applications(*)')
+                .eq('id', selectedOperatorId)
+                .single();
+              if (op?.applications) {
+                setSelectedApp(op.applications as FullApplication);
+                setDrawerFocusField(focusField);
+              }
+            }}
           />
         )}
 
@@ -741,10 +753,11 @@ export default function ManagementPortal() {
       {selectedApp && (
         <ApplicationReviewDrawer
           app={selectedApp}
-          onClose={() => setSelectedApp(null)}
+          onClose={() => { setSelectedApp(null); setDrawerFocusField(undefined); }}
           onApprove={handleApprove}
           onDeny={handleDeny}
           onExpiryUpdated={() => setComplianceRefreshKey(k => k + 1)}
+          focusField={drawerFocusField}
         />
       )}
 

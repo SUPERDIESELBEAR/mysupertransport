@@ -10,6 +10,7 @@ import ResourceLibraryManager from '@/components/management/ResourceLibraryManag
 import MessagesView from '@/components/staff/MessagesView';
 import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
+import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
 import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
@@ -32,6 +33,8 @@ export default function StaffPortal() {
   const [criticalExpiryCount, setCriticalExpiryCount] = useState(0);
   const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
+  const [reviewApp, setReviewApp] = useState<FullApplication | null>(null);
+  const [reviewFocusField, setReviewFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
   const viewRef = useRef(currentView);
 
   // Deep-link: ?tab=notifications or ?operator=...
@@ -291,6 +294,17 @@ export default function StaffPortal() {
           onBack={handleBackToPipeline}
           onMessageOperator={handleMessageOperator}
           onUnsavedChangesChange={setOperatorHasUnsavedChanges}
+          onOpenAppReview={async (focusField) => {
+            const { data: op } = await supabase
+              .from('operators')
+              .select('application_id, applications(*)')
+              .eq('id', selectedOperatorId)
+              .single();
+            if (op?.applications) {
+              setReviewApp(op.applications as FullApplication);
+              setReviewFocusField(focusField);
+            }
+          }}
         />
       )}
       {currentView === 'messages' && (
@@ -308,6 +322,17 @@ export default function StaffPortal() {
         <NotificationHistory />
       )}
     </StaffLayout>
+
+    {reviewApp && (
+      <ApplicationReviewDrawer
+        app={reviewApp}
+        onClose={() => { setReviewApp(null); setReviewFocusField(undefined); }}
+        onApprove={async () => {}}
+        onDeny={async () => {}}
+        onExpiryUpdated={() => {}}
+        focusField={reviewFocusField}
+      />
+    )}
 
     <AlertDialog open={!!pendingNavPath} onOpenChange={(open) => { if (!open) setPendingNavPath(null); }}>
       <AlertDialogContent>

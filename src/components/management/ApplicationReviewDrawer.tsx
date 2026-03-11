@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
@@ -20,6 +20,8 @@ interface ApplicationReviewDrawerProps {
   onApprove: (appId: string, notes: string) => Promise<void>;
   onDeny: (appId: string, notes: string) => Promise<void>;
   onExpiryUpdated?: () => void;
+  /** Auto-open and scroll to this expiry field when the drawer mounts */
+  focusField?: 'cdl' | 'medcert';
 }
 
 export interface FullApplication {
@@ -197,7 +199,7 @@ const STATUS_COLORS: Record<string, string> = {
   denied: 'bg-destructive/15 text-destructive',
 };
 
-export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated }: ApplicationReviewDrawerProps) {
+export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated, focusField }: ApplicationReviewDrawerProps) {
   const { roles } = useAuth();
   const isManagement = roles.includes('management');
   const [notes, setNotes] = useState('');
@@ -207,6 +209,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [ssnValue, setSsnValue] = useState<string | null>(null);
   const [ssnLoading, setSsnLoading] = useState(false);
   const [ssnError, setSsnError] = useState<string | null>(null);
+
+  const cdlFieldRef = useRef<HTMLDivElement>(null);
+  const medCertFieldRef = useRef<HTMLDivElement>(null);
 
   // CDL expiry
   const [cdlExpDate, setCdlExpDate] = useState<Date | undefined>(
@@ -223,6 +228,21 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [medCertOpen, setMedCertOpen] = useState(false);
   const [savingMedCert, setSavingMedCert] = useState(false);
   const originalMedCertExp = app?.medical_cert_expiration ?? null;
+
+  // Auto-scroll and open the focused field on mount
+  useEffect(() => {
+    if (!focusField) return;
+    const timer = setTimeout(() => {
+      if (focusField === 'cdl') {
+        cdlFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setCdlExpOpen(true);
+      } else {
+        medCertFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setMedCertOpen(true);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [focusField]);
 
   if (!app) return null;
 
@@ -395,24 +415,26 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
             <Field label="State" value={app.cdl_state} />
             <Field label="Class" value={app.cdl_class} />
             {/* Staff-editable CDL expiration */}
-            <EditableDateField
-              label="CDL Expiry"
-              date={cdlExpDate}
-              open={cdlExpOpen}
-              saving={savingCdlExp}
-              isDirty={
-                (cdlExpDate ? format(cdlExpDate, 'yyyy-MM-dd') : null) !== originalCdlExp
-              }
-              onOpenChange={setCdlExpOpen}
-              onSelect={d => { setCdlExpDate(d); setCdlExpOpen(false); }}
-              onSave={saveCdlExpiration}
-            />
+            <div ref={cdlFieldRef} className={focusField === 'cdl' ? 'ring-2 ring-gold/40 rounded-lg p-1 -mx-1 transition-all' : ''}>
+              <EditableDateField
+                label="CDL Expiry"
+                date={cdlExpDate}
+                open={cdlExpOpen}
+                saving={savingCdlExp}
+                isDirty={
+                  (cdlExpDate ? format(cdlExpDate, 'yyyy-MM-dd') : null) !== originalCdlExp
+                }
+                onOpenChange={setCdlExpOpen}
+                onSelect={d => { setCdlExpDate(d); setCdlExpOpen(false); }}
+                onSave={saveCdlExpiration}
+              />
+            </div>
             <Field label="10-Year CDL History" value={<YesNoBadge value={app.cdl_10_years} />} />
             <Field label="Endorsements" value={app.endorsements?.join(', ')} />
             <Field label="Equipment" value={app.equipment_operated?.join(', ')} />
             <Field label="Years Experience" value={app.years_experience} />
             {/* Staff-editable medical cert expiration */}
-            <div className="border-t border-border pt-2 mt-1">
+            <div className={`border-t border-border pt-2 mt-1 ${focusField === 'medcert' ? 'ring-2 ring-gold/40 rounded-lg p-1 -mx-1 transition-all' : ''}`} ref={medCertFieldRef}>
               <EditableDateField
                 label="Med. Cert. Expiry"
                 date={medCertDate}
