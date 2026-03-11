@@ -442,7 +442,7 @@ export default function OperatorPortal() {
         ? { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" /> }
         : { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> };
     return [
-      { view: 'progress' as OperatorView, label: 'Status', icon: <CheckCircle2 className="h-5 w-5" /> },
+      { view: 'progress' as OperatorView, label: 'Status', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
       { view: 'documents' as OperatorView, label: 'Docs', icon: <Upload className="h-5 w-5" /> },
       { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" />, badge: unreadCount },
       { view: 'resources' as OperatorView, label: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
