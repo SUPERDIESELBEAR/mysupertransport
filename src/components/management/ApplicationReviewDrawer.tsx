@@ -226,6 +226,21 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
   if (!app) return null;
 
+  const buildExpiryToast = (label: string, date: Date | null) => {
+    if (!date) return { message: `${label} expiration cleared.`, type: 'info' as const };
+    const days = differenceInDays(startOfDay(date), startOfDay(new Date()));
+    if (days < 0) {
+      return { message: `⚠️ ${label} expired ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''} ago — action required.`, type: 'error' as const };
+    }
+    if (days <= 30) {
+      return { message: `🔴 ${label} expires in ${days} day${days !== 1 ? 's' : ''} — critical.`, type: 'error' as const };
+    }
+    if (days <= 90) {
+      return { message: `🟡 ${label} expires in ${days} days — follow up soon.`, type: 'warning' as const };
+    }
+    return { message: `✅ ${label} expires in ${days} days — on track.`, type: 'success' as const };
+  };
+
   const saveCdlExpiration = async () => {
     setSavingCdlExp(true);
     try {
@@ -235,7 +250,10 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
         .update({ cdl_expiration: val })
         .eq('id', app.id);
       if (error) throw error;
-      toast.success('CDL expiration saved.');
+      const { message, type } = buildExpiryToast('CDL', cdlExpDate ?? null);
+      if (type === 'error') toast.error(message);
+      else if (type === 'warning') toast.warning(message);
+      else toast.success(message);
       onExpiryUpdated?.();
     } catch (err: any) {
       toast.error(err.message ?? 'Failed to save.');
@@ -253,7 +271,10 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
         .update({ medical_cert_expiration: val })
         .eq('id', app.id);
       if (error) throw error;
-      toast.success('Medical certificate expiration saved.');
+      const { message, type } = buildExpiryToast('Medical cert', medCertDate ?? null);
+      if (type === 'error') toast.error(message);
+      else if (type === 'warning') toast.warning(message);
+      else toast.success(message);
       onExpiryUpdated?.();
     } catch (err: any) {
       toast.error(err.message ?? 'Failed to save.');
