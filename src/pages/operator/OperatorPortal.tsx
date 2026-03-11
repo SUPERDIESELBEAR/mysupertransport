@@ -744,6 +744,8 @@ export default function OperatorPortal() {
             displayName={displayName}
             assignedDispatcher={assignedDispatcher}
             dispatchStatus={dispatchStatus}
+            cdlExpiration={cdlExpiration}
+            medicalCertExpiration={medicalCertExpiration}
             onMessageDispatcher={() => {
               if (assignedDispatcher?.userId) {
                 setMessageInitialUserId(assignedDispatcher.userId);
