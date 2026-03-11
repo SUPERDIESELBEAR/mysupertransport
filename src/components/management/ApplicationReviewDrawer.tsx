@@ -236,6 +236,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
         .eq('id', app.id);
       if (error) throw error;
       toast.success('CDL expiration saved.');
+      onExpiryUpdated?.();
     } catch (err: any) {
       toast.error(err.message ?? 'Failed to save.');
     } finally {
@@ -253,6 +254,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
         .eq('id', app.id);
       if (error) throw error;
       toast.success('Medical certificate expiration saved.');
+      onExpiryUpdated?.();
     } catch (err: any) {
       toast.error(err.message ?? 'Failed to save.');
     } finally {
