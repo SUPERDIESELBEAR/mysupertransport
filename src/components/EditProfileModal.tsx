@@ -219,6 +219,7 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
               </Button>
               <Button
                 type="submit"
+                onClick={handleSubmit}
                 disabled={loading || !firstName.trim() || !lastName.trim()}
                 className={`flex-1 ${isDark ? 'bg-gold text-surface-dark hover:bg-gold-light font-semibold' : ''}`}
               >
