@@ -137,6 +137,7 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
 
   useEffect(() => {
     fetchOperators();
+    fetchComplianceAlerts();
   }, []);
 
   // Realtime: refresh unread counts when a new message arrives
