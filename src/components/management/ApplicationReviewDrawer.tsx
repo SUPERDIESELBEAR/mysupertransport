@@ -415,24 +415,26 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
             <Field label="State" value={app.cdl_state} />
             <Field label="Class" value={app.cdl_class} />
             {/* Staff-editable CDL expiration */}
-            <EditableDateField
-              label="CDL Expiry"
-              date={cdlExpDate}
-              open={cdlExpOpen}
-              saving={savingCdlExp}
-              isDirty={
-                (cdlExpDate ? format(cdlExpDate, 'yyyy-MM-dd') : null) !== originalCdlExp
-              }
-              onOpenChange={setCdlExpOpen}
-              onSelect={d => { setCdlExpDate(d); setCdlExpOpen(false); }}
-              onSave={saveCdlExpiration}
-            />
+            <div ref={cdlFieldRef} className={focusField === 'cdl' ? 'ring-2 ring-gold/40 rounded-lg p-1 -mx-1 transition-all' : ''}>
+              <EditableDateField
+                label="CDL Expiry"
+                date={cdlExpDate}
+                open={cdlExpOpen}
+                saving={savingCdlExp}
+                isDirty={
+                  (cdlExpDate ? format(cdlExpDate, 'yyyy-MM-dd') : null) !== originalCdlExp
+                }
+                onOpenChange={setCdlExpOpen}
+                onSelect={d => { setCdlExpDate(d); setCdlExpOpen(false); }}
+                onSave={saveCdlExpiration}
+              />
+            </div>
             <Field label="10-Year CDL History" value={<YesNoBadge value={app.cdl_10_years} />} />
             <Field label="Endorsements" value={app.endorsements?.join(', ')} />
             <Field label="Equipment" value={app.equipment_operated?.join(', ')} />
             <Field label="Years Experience" value={app.years_experience} />
             {/* Staff-editable medical cert expiration */}
-            <div className="border-t border-border pt-2 mt-1">
+            <div className={`border-t border-border pt-2 mt-1 ${focusField === 'medcert' ? 'ring-2 ring-gold/40 rounded-lg p-1 -mx-1 transition-all' : ''}`} ref={medCertFieldRef}>
               <EditableDateField
                 label="Med. Cert. Expiry"
                 date={medCertDate}
