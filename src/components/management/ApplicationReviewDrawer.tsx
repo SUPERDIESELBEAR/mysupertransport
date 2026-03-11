@@ -20,6 +20,8 @@ interface ApplicationReviewDrawerProps {
   onApprove: (appId: string, notes: string) => Promise<void>;
   onDeny: (appId: string, notes: string) => Promise<void>;
   onExpiryUpdated?: () => void;
+  /** Auto-open and scroll to this expiry field when the drawer mounts */
+  focusField?: 'cdl' | 'medcert';
 }
 
 export interface FullApplication {
