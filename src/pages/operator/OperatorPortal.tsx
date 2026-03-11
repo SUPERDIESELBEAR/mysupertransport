@@ -406,8 +406,19 @@ export default function OperatorPortal() {
   const currentStageIndex = stages.findIndex(s => s.status === 'action_required' || s.status === 'in_progress' || s.status === 'not_started');
   const currentStage = currentStageIndex >= 0 ? stages[currentStageIndex] : null;
 
+  // Compute critical expiry for the Progress nav badge (≤30 days or already expired)
+  const hasCriticalExpiry = (() => {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const check = (dateStr: string | null) => {
+      if (!dateStr) return false;
+      const diff = Math.floor((new Date(dateStr).setHours(0,0,0,0) - today.valueOf()) / 86400000);
+      return diff <= 30;
+    };
+    return check(cdlExpiration) || check(medicalCertExpiration);
+  })();
+
   const navItems = [
-    { view: 'progress' as OperatorView, label: 'My Progress', icon: <CheckCircle2 className="h-5 w-5" /> },
+    { view: 'progress' as OperatorView, label: 'My Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
     { view: 'documents' as OperatorView, label: 'Documents', icon: <Upload className="h-5 w-5" /> },
     { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete' },
     { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
