@@ -312,6 +312,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       const app = (op as any).applications;
       setOperatorEmail(app?.email ?? '');
       setApplicationData(app ?? null);
+      setCdlExpiration(app?.cdl_expiration ?? null);
+      setMedCertExpiration(app?.medical_cert_expiration ?? null);
       setNotes((op as any).notes ?? '');
       const os = (op as any).onboarding_status ?? null;
       if (os) {
