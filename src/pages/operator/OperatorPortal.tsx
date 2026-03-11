@@ -76,6 +76,7 @@ export default function OperatorPortal() {
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [notifPrefOpen, setNotifPrefOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [truckDownAcked, setTruckDownAcked] = useState(false);
   const [ackLoading, setAckLoading] = useState(false);
   const viewRef = useRef(view);
