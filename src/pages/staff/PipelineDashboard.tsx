@@ -117,6 +117,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
   // Last reminded coordinator names: key = "operatorId|docType" → staff name
   const [lastRemindedBy, setLastRemindedBy] = useState<Record<string, string>>({});
+  // Last renewed timestamps: key = "operatorId|docType" → ISO string
+  const [lastRenewed, setLastRenewed] = useState<Record<string, string>>({});
+  // Last renewed coordinator names: key = "operatorId|docType" → staff name
+  const [lastRenewedBy, setLastRenewedBy] = useState<Record<string, string>>({});
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkSentCount, setBulkSentCount] = useState<number | null>(null);
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
@@ -160,7 +164,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const fetchComplianceAlerts = useCallback(async () => {
     const today = new Date();
 
-    const [{ data: ops }, { data: reminders }] = await Promise.all([
+    const [{ data: ops }, { data: reminders }, { data: renewals }] = await Promise.all([
       supabase
         .from('operators')
         .select(`
@@ -178,6 +182,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         .from('cert_reminders')
         .select('operator_id, doc_type, sent_at, sent_by_name')
         .order('sent_at', { ascending: false }),
+      supabase
+        .from('audit_log' as any)
+        .select('entity_id, actor_name, created_at, metadata')
+        .eq('action', 'cert_renewed')
+        .order('created_at', { ascending: false })
+        .limit(500),
     ]);
 
     if (!ops) return;
@@ -194,6 +204,22 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     });
     setLastReminded(remindedMap);
     setLastRemindedBy(remindedByMap);
+
+    // Keep only the most recent renewal per operator+doc_type pair
+    const renewedMap: Record<string, string> = {};
+    const renewedByMap: Record<string, string> = {};
+    (renewals ?? []).forEach((r: any) => {
+      const docType = r.metadata?.document_type as string | undefined;
+      if (!r.entity_id || !docType) return;
+      // Map "CDL" → "CDL", "Medical Cert" → "Medical Cert" (matches alert.doc_type)
+      const key = `${r.entity_id}|${docType}`;
+      if (!renewedMap[key]) {
+        renewedMap[key] = r.created_at;
+        if (r.actor_name) renewedByMap[key] = r.actor_name;
+      }
+    });
+    setLastRenewed(renewedMap);
+    setLastRenewedBy(renewedByMap);
 
     const alerts: ComplianceAlert[] = [];
 
@@ -736,8 +762,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         },
       });
 
+      const renewedNow = new Date().toISOString();
       setRowRenewing(prev => ({ ...prev, [key]: false }));
       setRowRenewed(prev => ({ ...prev, [key]: true }));
+      setLastRenewed(prev => ({ ...prev, [key]: renewedNow }));
+      if (actorName) setLastRenewedBy(prev => ({ ...prev, [key]: actorName }));
       toast({
         title: `${alert.doc_type} marked as renewed`,
         description: `${alert.operator_name}'s expiry extended to ${new Date(newDateStr + 'T00:00:00').toLocaleDateString()}.`,
@@ -1029,6 +1058,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[80px]">Expires</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[60px] text-right">Status</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[72px] text-right">Last Reminded</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[72px] text-right">Last Renewed</span>
                 <span className="shrink-0 w-[74px]" />
                 <span className="shrink-0 w-[68px]" />
                 <span className="shrink-0 w-[58px]" />
@@ -1044,6 +1074,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 const remindedBy = lastRemindedBy[rowKey];
                 const isRowRenewing = rowRenewing[rowKey];
                 const isRowRenewed = rowRenewed[rowKey];
+                const renewedAt = lastRenewed[rowKey];
+                const renewedByName = lastRenewedBy[rowKey];
 
                 return (
                   <div key={`${alert.operator_id}-${alert.doc_type}`}
@@ -1131,6 +1163,41 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                                   {freshnessLabel && <span className="font-medium">{freshnessLabel}</span>}
                                 </span>
                               ) : 'No reminder sent yet'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                       );
+                    })()}
+
+                    {/* Last Renewed column — matches Last Reminded pattern */}
+                    {(() => {
+                      const pillClass = renewedAt
+                        ? 'bg-status-complete/10 text-status-complete border border-status-complete/25'
+                        : '';
+                      return (
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className={`hidden sm:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[72px] justify-end rounded px-1 py-0.5 transition-colors ${
+                                renewedAt ? pillClass : 'text-muted-foreground/40'
+                              }`}>
+                                {renewedAt ? (
+                                  <>
+                                    <RotateCcw className="h-3 w-3 shrink-0 text-status-complete" />
+                                    {format(new Date(renewedAt), 'MMM d')}
+                                  </>
+                                ) : (
+                                  <span className="text-muted-foreground/40">—</span>
+                                )}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs max-w-[220px]">
+                              {renewedAt ? (
+                                <span className="flex flex-col gap-0.5">
+                                  <span>Last renewed {format(new Date(renewedAt), "MMM d, yyyy 'at' h:mm a")}</span>
+                                  {renewedByName && <span className="text-muted-foreground">by {renewedByName}</span>}
+                                </span>
+                              ) : 'Not yet renewed'}
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
