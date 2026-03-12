@@ -1460,12 +1460,18 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         const daysSince = differenceInDays(new Date(), new Date(remindedAt));
                         freshness = daysSince <= 7 ? 'recent' : daysSince >= 30 ? 'stale' : 'none';
                       }
-                      const pillClass = freshness === 'recent'
+                      // If email failed, override pill to destructive
+                      const emailFailed = remindedAt && reminderOutcome && !reminderOutcome.sent;
+                      const pillClass = emailFailed
+                        ? 'bg-destructive/10 text-destructive border border-destructive/30'
+                        : freshness === 'recent'
                         ? 'bg-status-complete/10 text-status-complete border border-status-complete/25'
                         : freshness === 'stale'
                         ? 'bg-warning/10 text-warning border border-warning/25'
                         : '';
-                      const iconClass = freshness === 'recent'
+                      const iconClass = emailFailed
+                        ? 'text-destructive'
+                        : freshness === 'recent'
                         ? 'text-status-complete'
                         : freshness === 'stale'
                         ? 'text-warning'
@@ -1488,12 +1494,24 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                                 )}
                               </span>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs max-w-[220px]">
+                            <TooltipContent side="top" className="text-xs max-w-[240px]">
                               {remindedAt ? (
                                 <span className="flex flex-col gap-0.5">
-                                  <span>Last reminder sent {format(new Date(remindedAt), "MMM d, yyyy 'at' h:mm a")}</span>
+                                  <span>Last reminder {format(new Date(remindedAt), "MMM d, yyyy 'at' h:mm a")}</span>
                                   {remindedBy && <span className="text-muted-foreground">by {remindedBy}</span>}
-                                  {freshnessLabel && <span className="font-medium">{freshnessLabel}</span>}
+                                  {emailFailed ? (
+                                    <span className="text-destructive font-medium">
+                                      ✗ Email failed
+                                      {reminderOutcome?.error
+                                        ? ` — ${reminderOutcome.error.replace(/^Error:\s*/i, '').slice(0, 80)}`
+                                        : ''}
+                                    </span>
+                                  ) : (
+                                    <>
+                                      <span className="text-status-complete font-medium">✓ Email delivered</span>
+                                      {freshnessLabel && <span className="font-medium">{freshnessLabel}</span>}
+                                    </>
+                                  )}
                                 </span>
                               ) : 'No reminder sent yet'}
                             </TooltipContent>
