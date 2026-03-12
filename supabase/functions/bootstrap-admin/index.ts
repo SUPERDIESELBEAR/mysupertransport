@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     // Create or find user
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: { first_name: first_name ?? '', last_name: last_name ?? '', invited_as: 'management' },
-      redirectTo: 'https://ab645bc4-83af-495c-aca5-d40c7ca0fb70.lovableproject.com/reset-password',
+      redirectTo: `${Deno.env.get('APP_URL') ?? 'https://mysupertransport.com'}/reset-password`,
     });
 
     let userId: string | null = inviteData?.user?.id ?? null;
