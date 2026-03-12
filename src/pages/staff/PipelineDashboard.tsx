@@ -983,6 +983,30 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   </TooltipProvider>
                 );
               })()}
+              {(() => {
+                const now = Date.now();
+                const recentlySent = complianceAlerts.filter(a => {
+                  const ts = lastReminded[`${a.operator_id}|${a.doc_type}`];
+                  if (!ts) return false;
+                  return now - new Date(ts).getTime() <= 30 * 24 * 60 * 60 * 1000;
+                }).length;
+                if (recentlySent === 0) return null;
+                return (
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full bg-warning/10 border border-warning/30 text-warning-foreground text-[10px] font-semibold shrink-0 cursor-default" style={{color: 'hsl(var(--warning))'}}>
+                          <span className="h-1.5 w-1.5 rounded-full bg-warning shrink-0" />
+                          {recentlySent} Reminder Sent
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-56 text-center text-xs">
+                        {recentlySent} operator{recentlySent !== 1 ? 's' : ''} received a manual reminder in the last 30 days
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                );
+              })()}
               <span className="text-xs text-muted-foreground hidden sm:inline truncate">
                 {complianceAlerts.filter(a => a.days_until < 0).length > 0
                   ? `${complianceAlerts.filter(a => a.days_until < 0).length} expired · `
