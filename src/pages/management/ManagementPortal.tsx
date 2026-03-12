@@ -29,6 +29,13 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+type StaffWorkload = {
+  user_id: string;
+  full_name: string;
+  email: string;
+  assigned_operator_count: number;
+};
+
 type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications';
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all';
 
@@ -72,6 +79,8 @@ export default function ManagementPortal() {
   const [drawerFocusField, setDrawerFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
   type ComplianceRow = { operatorId: string; name: string; daysUntil: number; docType: 'CDL' | 'Med Cert'; expiryDate: string };
   const [complianceSummary, setComplianceSummary] = useState<ComplianceRow[]>([]);
+  const [staffWorkload, setStaffWorkload] = useState<StaffWorkload[]>([]);
+  const [unassignedCount, setUnassignedCount] = useState(0);
 
 
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
@@ -232,6 +241,37 @@ export default function ManagementPortal() {
   useEffect(() => {
     if (view === 'notifications') setUnreadNotifCount(0);
   }, [view]);
+
+  const fetchStaffWorkload = useCallback(async () => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const { data: { session: s } } = await supabase.auth.getSession();
+    const authToken = s?.access_token ?? anonKey;
+    const res = await fetch(`${supabaseUrl}/functions/v1/get-staff-list`, {
+      headers: { Authorization: `Bearer ${authToken}`, apikey: anonKey },
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    const onboarders: StaffWorkload[] = (json.staff ?? [])
+      .filter((m: any) => (m.roles ?? []).includes('onboarding_staff'))
+      .map((m: any) => ({
+        user_id: m.user_id,
+        full_name: [m.first_name, m.last_name].filter(Boolean).join(' ') || m.email,
+        email: m.email,
+        assigned_operator_count: m.assigned_operator_count ?? 0,
+      }));
+    setStaffWorkload(onboarders);
+    // Count unassigned operators
+    const { count } = await supabase
+      .from('operators')
+      .select('id', { count: 'exact', head: true })
+      .is('assigned_onboarding_staff', null);
+    setUnassignedCount(count ?? 0);
+  }, []);
+
+  useEffect(() => {
+    if (view === 'overview') fetchStaffWorkload();
+  }, [view, fetchStaffWorkload]);
 
   const fetchMetrics = useCallback(async () => {
     const [appsRes, opsRes, dispRes, alertsRes] = await Promise.all([
@@ -583,6 +623,63 @@ export default function ManagementPortal() {
                 </div>
               </div>
             )}
+
+            {/* Staff Workload */}
+            <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+              <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-border flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2.5">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <h2 className="font-semibold text-foreground">Onboarding Staff Workload</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Operator assignments per coordinator</p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setView('staff')} className="text-xs gap-1 text-muted-foreground h-7 px-2 shrink-0">
+                  Manage Staff <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              {staffWorkload.length === 0 ? (
+                <div className="p-6 text-center">
+                  <p className="text-sm text-muted-foreground">No onboarding staff found.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {staffWorkload.map(member => {
+                    const count = member.assigned_operator_count;
+                    const loadLabel = count >= 7 ? 'Heavy' : count >= 4 ? 'Moderate' : 'Low';
+                    const loadColor = count >= 7
+                      ? 'text-destructive bg-destructive/10 border-destructive/20'
+                      : count >= 4
+                      ? 'text-gold bg-gold/10 border-gold/20'
+                      : 'text-status-complete bg-status-complete/10 border-status-complete/20';
+                    const barWidth = Math.min(100, Math.round((count / 10) * 100));
+                    const barColor = count >= 7 ? 'bg-destructive' : count >= 4 ? 'bg-gold' : 'bg-status-complete';
+                    return (
+                      <div key={member.user_id} className="flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-secondary/30 transition-colors">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <p className="font-medium text-foreground text-sm truncate">{member.full_name}</p>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-sm font-semibold text-foreground tabular-nums">{count}</span>
+                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${loadColor}`}>{loadLabel}</span>
+                            </div>
+                          </div>
+                          <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${barWidth}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {unassignedCount > 0 && (
+                    <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-muted/20">
+                      <p className="text-sm text-muted-foreground">Unassigned operators</p>
+                      <span className="text-sm font-semibold text-muted-foreground tabular-nums">{unassignedCount}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Pending queue preview */}
             <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">

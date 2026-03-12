@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { supabase } from '@/integrations/supabase/client';
-import { Truck, Save, ChevronLeft, ChevronRight, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
+import { Truck, Save, ChevronLeft, ChevronRight, CheckCircle2, Loader2, AlertTriangle, FileText, X } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import FormProgress from '@/components/application/FormProgress';
 import Step1Personal from '@/components/application/Step1Personal';
@@ -109,6 +109,7 @@ export default function ApplicationForm() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [showDraftBanner, setShowDraftBanner] = useState(false);
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [duplicateEmailBlocked, setDuplicateEmailBlocked] = useState(false);
 
@@ -180,11 +181,13 @@ export default function ApplicationForm() {
             signed_date: data.signed_date ?? defaultFormData.signed_date,
           };
           setFormData(restored);
+          setShowDraftBanner(true);
         }
         setDraftLoaded(true);
       });
   }, []);
 
+  // ── Field change handler ────────────────────────────────────────────────
   // ── Field change handler ────────────────────────────────────────────────
   const handleChange = useCallback((field: keyof ApplicationFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -192,6 +195,16 @@ export default function ApplicationForm() {
     // Clear duplicate email block if user edits their email
     if (field === 'email') setDuplicateEmailBlocked(false);
   }, []);
+
+  // ── Start fresh — clear draft, reset form ───────────────────────────────
+  const handleStartFresh = () => {
+    localStorage.removeItem(DRAFT_TOKEN_KEY);
+    setFormData(defaultFormData);
+    setApplicationId(null);
+    setErrors({});
+    setShowDraftBanner(false);
+    setStep(1);
+  };
 
   // ── Save draft ──────────────────────────────────────────────────────────
   const saveDraft = async () => {
@@ -388,6 +401,34 @@ export default function ApplicationForm() {
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-6 pb-28 md:pb-8">
+        {/* Draft recovery banner */}
+        {showDraftBanner && (
+          <div className="mb-5 flex items-start gap-3 p-4 bg-gold/10 border border-gold/40 rounded-xl animate-fade-in">
+            <FileText className="h-5 w-5 text-gold shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Your previous progress has been restored</p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                We found a saved draft and picked up where you left off. You can continue or start over.
+              </p>
+              <button
+                type="button"
+                onClick={handleStartFresh}
+                className="mt-2 text-xs font-medium text-gold hover:text-gold/80 underline underline-offset-2 transition-colors"
+              >
+                Start fresh instead →
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDraftBanner(false)}
+              className="text-muted-foreground hover:text-foreground transition-colors shrink-0 mt-0.5"
+              aria-label="Dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         {/* FMCSA Notice */}
         {step === 1 && (
           <div className="mb-6 p-4 border border-border rounded-xl bg-white">
@@ -402,13 +443,13 @@ export default function ApplicationForm() {
 
         {/* Duplicate email warning */}
         {duplicateEmailBlocked && (
-          <div className="mb-5 flex items-start gap-3 p-4 bg-amber-50 border border-amber-300 rounded-xl">
-            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="mb-5 flex items-start gap-3 p-4 bg-destructive/10 border border-destructive/30 rounded-xl">
+            <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-amber-800">Application already submitted</p>
-              <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+              <p className="text-sm font-semibold text-destructive">Application already submitted</p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
                 An application has already been submitted for <strong>{formData.email}</strong>. If you believe this is an error or need to reapply, please contact us at{' '}
-                <a href="mailto:recruiting@mysupertransport.com" className="underline font-medium">
+                <a href="mailto:recruiting@mysupertransport.com" className="underline font-medium text-gold">
                     recruiting@mysupertransport.com
                   </a>.
               </p>
