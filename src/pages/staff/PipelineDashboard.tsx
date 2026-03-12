@@ -772,7 +772,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={(e) => { e.stopPropagation(); handleSendAllCritical(); }}
+                        onClick={(e) => { e.stopPropagation(); setShowBulkConfirm(true); }}
                         disabled={bulkSending}
                         className={`shrink-0 h-7 px-3 text-xs gap-1.5 font-semibold transition-all ${
                           allSent
