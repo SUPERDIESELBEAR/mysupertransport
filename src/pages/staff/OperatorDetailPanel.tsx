@@ -121,6 +121,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [reminderSending, setReminderSending] = useState<Record<string, boolean>>({});
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
   const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
+  // Last renewal per doc type: key = 'CDL' | 'Medical Cert' → ISO timestamp
+  const [lastRenewed, setLastRenewed] = useState<Record<string, string>>({});
+  // Last renewed by name per doc type
+  const [lastRenewedBy, setLastRenewedBy] = useState<Record<string, string>>({});
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
