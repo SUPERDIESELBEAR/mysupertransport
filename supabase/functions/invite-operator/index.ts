@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
           last_name: app.last_name ?? '',
           invited_as: 'operator',
         },
-        redirectTo: 'https://id-preview--ab645bc4-83af-495c-aca5-d40c7ca0fb70.lovable.app/welcome',
+        redirectTo: `${Deno.env.get('APP_URL') ?? 'https://mysupertransport.com'}/welcome`,
       }
     );
 
