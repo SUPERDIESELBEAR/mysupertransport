@@ -388,6 +388,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setReminderSent(prev => ({ ...prev, [key]: true }));
       toast({ title: 'Reminder sent', description: `Email sent to ${operatorName}` });
       setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
+      // Refresh history timeline so the new reminder appears immediately
+      fetchCertHistory();
     } catch (err: any) {
       toast({ title: 'Failed to send reminder', description: err.message, variant: 'destructive' });
     } finally {
