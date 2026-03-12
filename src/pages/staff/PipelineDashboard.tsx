@@ -1349,6 +1349,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 const isSent = reminderSent[rowKey];
                 const remindedAt = lastReminded[rowKey];
                 const remindedBy = lastRemindedBy[rowKey];
+                const reminderOutcome = lastReminderOutcome[rowKey];
                 const isRowRenewing = rowRenewing[rowKey];
                 const isRowRenewed = rowRenewed[rowKey];
                 const renewedAt = lastRenewed[rowKey];
