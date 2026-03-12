@@ -130,6 +130,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [bulkRenewing, setBulkRenewing] = useState(false);
   const [bulkRenewedCount, setBulkRenewedCount] = useState<number | null>(null);
   const [showBulkRenewConfirm, setShowBulkRenewConfirm] = useState(false);
+  const [noActionBulkSending, setNoActionBulkSending] = useState(false);
+  const [noActionBulkSentCount, setNoActionBulkSentCount] = useState<number | null>(null);
+  const [showNoActionBulkConfirm, setShowNoActionBulkConfirm] = useState(false);
   // Per-row renew state: key = "operatorId|docType"
   const [rowRenewing, setRowRenewing] = useState<Record<string, boolean>>({});
   const [rowRenewed, setRowRenewed] = useState<Record<string, boolean>>({});
@@ -631,6 +634,76 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     }
     // Reset bulk sent indicator after 10 seconds
     setTimeout(() => setBulkSentCount(null), 10000);
+  };
+
+  // Bulk Send All — No Action rows only (no prior reminder AND no renewal)
+  const handleSendAllNoAction = async () => {
+    const noActionAlerts = complianceAlerts.filter(a => {
+      const key = `${a.operator_id}|${a.doc_type}`;
+      return !lastReminded[key] && !lastRenewed[key];
+    });
+    if (noActionAlerts.length === 0) return;
+    setNoActionBulkSending(true);
+    setNoActionBulkSentCount(null);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const senderName = profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || null : null;
+
+    let successCount = 0;
+    let failCount = 0;
+
+    await Promise.all(
+      noActionAlerts.map(async (alert) => {
+        const key = `${alert.operator_id}|${alert.doc_type}`;
+        if (reminderSending[key] || reminderSent[key]) { successCount++; return; }
+        setReminderSending(prev => ({ ...prev, [key]: true }));
+        try {
+          const res = await fetch(`${supabaseUrl}/functions/v1/send-cert-reminder`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session?.access_token ?? ''}`,
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+            body: JSON.stringify({
+              operator_id: alert.operator_id,
+              doc_type: alert.doc_type,
+              days_until: alert.days_until,
+              expiration_date: alert.expiration_date,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error ?? 'Failed');
+          const now = new Date().toISOString();
+          setLastReminded(prev => ({ ...prev, [key]: now }));
+          if (senderName) setLastRemindedBy(prev => ({ ...prev, [key]: senderName }));
+          setReminderSent(prev => ({ ...prev, [key]: true }));
+          setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
+          successCount++;
+        } catch {
+          failCount++;
+        } finally {
+          setReminderSending(prev => ({ ...prev, [key]: false }));
+        }
+      })
+    );
+
+    setNoActionBulkSending(false);
+    setNoActionBulkSentCount(successCount);
+    if (failCount === 0) {
+      toast({
+        title: `${successCount} reminder${successCount !== 1 ? 's' : ''} sent`,
+        description: 'All uncontacted operators have been notified.',
+      });
+    } else {
+      toast({
+        title: `${successCount} sent, ${failCount} failed`,
+        description: 'Some reminders could not be sent.',
+        variant: 'destructive',
+      });
+    }
+    setTimeout(() => setNoActionBulkSentCount(null), 10000);
   };
 
   // Bulk Mark as Renewed — extends all alerted docs by +1 year and writes audit log entries
@@ -1148,6 +1221,47 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               );
             })()}
 
+            {/* Bulk Send — No Action rows only */}
+            {(() => {
+              const noActionAlerts = complianceAlerts.filter(a => {
+                const key = `${a.operator_id}|${a.doc_type}`;
+                return !lastReminded[key] && !lastRenewed[key];
+              });
+              if (noActionAlerts.length === 0) return null;
+              const allSent = noActionBulkSentCount !== null;
+              return (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => { e.stopPropagation(); setShowNoActionBulkConfirm(true); }}
+                        disabled={noActionBulkSending}
+                        className={`shrink-0 h-7 px-3 text-xs gap-1.5 font-semibold transition-all ${
+                          allSent
+                            ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10'
+                            : 'border-muted-foreground/40 text-muted-foreground bg-muted/30 hover:border-foreground/40 hover:text-foreground hover:bg-muted/60'
+                        }`}
+                      >
+                        {noActionBulkSending ? (
+                          <><Loader2 className="h-3 w-3 animate-spin" />Sending…</>
+                        ) : allSent ? (
+                          <><CheckCheck className="h-3 w-3" />{noActionBulkSentCount} Sent</>
+                        ) : (
+                          <><Send className="h-3 w-3" />Remind Uncontacted ({noActionAlerts.length})</>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-[240px] text-center">
+                      {allSent
+                        ? `${noActionBulkSentCount} reminder${noActionBulkSentCount !== 1 ? 's' : ''} sent to uncontacted operators`
+                        : `Send reminders to ${noActionAlerts.length} operator${noActionAlerts.length !== 1 ? 's' : ''} with no prior reminder or renewal on record`}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })()}
 
             <button onClick={() => setComplianceExpanded(v => !v)} className="shrink-0 hover:opacity-80 transition-opacity">
               {complianceExpanded
@@ -2242,6 +2356,62 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 >
                   <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
                   Renew {complianceAlerts.length} Document{complianceAlerts.length !== 1 ? 's' : ''}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        );
+      })()}
+
+      {/* Bulk Send — No Action rows confirmation dialog */}
+      {(() => {
+        const noActionAlerts = complianceAlerts.filter(a => {
+          const key = `${a.operator_id}|${a.doc_type}`;
+          return !lastReminded[key] && !lastRenewed[key];
+        });
+        return (
+          <AlertDialog open={showNoActionBulkConfirm} onOpenChange={setShowNoActionBulkConfirm}>
+            <AlertDialogContent className="max-w-md">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <Send className="h-4 w-4 text-muted-foreground" />
+                  Remind Uncontacted Operators
+                </AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      The following {noActionAlerts.length} operator{noActionAlerts.length !== 1 ? 's' : ''} have no reminder or renewal on record and will receive an expiry reminder email:
+                    </p>
+                    <ul className="divide-y divide-border rounded-md border border-border overflow-hidden text-sm max-h-64 overflow-y-auto">
+                      {noActionAlerts.map(alert => (
+                        <li key={`${alert.operator_id}|${alert.doc_type}`} className="flex items-center justify-between px-3 py-2 bg-background">
+                          <span className="font-medium text-foreground">{alert.operator_name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">{alert.doc_type}</span>
+                            <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                              alert.days_until < 0
+                                ? 'bg-destructive/15 text-destructive'
+                                : alert.days_until <= 30
+                                ? 'bg-destructive/10 text-destructive'
+                                : 'bg-gold/10 text-gold'
+                            }`}>
+                              {alert.days_until < 0 ? `${Math.abs(alert.days_until)}d expired` : `${alert.days_until}d left`}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => { setShowNoActionBulkConfirm(false); handleSendAllNoAction(); }}
+                  className="bg-foreground text-background hover:bg-foreground/90"
+                >
+                  <Send className="h-3.5 w-3.5 mr-1.5" />
+                  Send {noActionAlerts.length} Reminder{noActionAlerts.length !== 1 ? 's' : ''}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
