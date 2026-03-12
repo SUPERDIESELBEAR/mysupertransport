@@ -403,7 +403,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     try {
       // Fetch audit log entries for this operator (cert_renewed + cert_reminder_sent)
       const { data: auditRows } = await supabase
-        .from('audit_log' as any)
+        .from('audit_log')
         .select('id, action, actor_name, created_at, metadata')
         .eq('entity_id', operatorId)
         .in('action', ['cert_renewed', 'cert_reminder_sent'])
@@ -418,7 +418,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           entries.push({
             id: row.id,
             event_type: 'renewed',
-            doc_type: meta.document_type ?? '—',
+            doc_type: meta.doc_type ?? 'CDL',
             actor_name: row.actor_name,
             occurred_at: row.created_at,
             old_expiry: meta.old_expiry ?? null,
@@ -428,7 +428,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           entries.push({
             id: row.id,
             event_type: 'reminder_sent',
-            doc_type: meta.doc_type ?? '—',
+            doc_type: meta.doc_type ?? 'CDL',
             actor_name: row.actor_name,
             occurred_at: row.created_at,
             days_until: meta.days_until ?? null,
@@ -439,6 +439,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       // Sort combined list newest-first
       entries.sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
       setCertHistory(entries);
+
+      // Auto-expand if any event occurred within the last 7 days
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const hasRecentActivity = entries.some(e => new Date(e.occurred_at) >= sevenDaysAgo);
+      if (hasRecentActivity) setCertHistoryExpanded(true);
     } finally {
       setCertHistoryLoading(false);
     }
