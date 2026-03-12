@@ -295,67 +295,6 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setOperators(prev => prev.map(op => ({ ...op, unread_count: map[op.user_id] ?? 0 })));
   };
 
-  const fetchComplianceAlerts = useCallback(async () => {
-    const today = new Date();
-
-    // Fetch operators + last-reminded timestamps in parallel
-    const [{ data: ops }, { data: reminders }] = await Promise.all([
-      supabase
-        .from('operators')
-        .select(`
-          id,
-          application_id,
-          applications (
-            first_name,
-            last_name,
-            cdl_expiration,
-            medical_cert_expiration
-          )
-        `)
-        .not('application_id', 'is', null),
-      supabase
-        .from('cert_reminders')
-        .select('operator_id, doc_type, sent_at, sent_by_name'),
-    ]);
-
-    if (!ops) return;
-
-    // Build last-reminded lookup: "operatorId|docType" → ISO sent_at
-    const remindedMap: Record<string, string> = {};
-    (reminders ?? []).forEach((r: any) => {
-      remindedMap[`${r.operator_id}|${r.doc_type}`] = r.sent_at;
-    });
-    setLastReminded(remindedMap);
-
-    const alerts: ComplianceAlert[] = [];
-
-    (ops as any[]).forEach((op: any) => {
-      const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
-      if (!app) return;
-      const name = `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || 'Unknown Operator';
-
-      (['cdl_expiration', 'medical_cert_expiration'] as const).forEach(field => {
-        const dateStr: string | null = app[field];
-        if (!dateStr) return;
-        const expDate = parseISO(dateStr);
-        const days = differenceInDays(expDate, today);
-        if (days <= 90) {
-          alerts.push({
-            operator_id: op.id,
-            operator_name: name,
-            doc_type: field === 'cdl_expiration' ? 'CDL' : 'Medical Cert',
-            expiration_date: dateStr,
-            days_until: days,
-          });
-        }
-      });
-    });
-
-    // Sort by urgency: most urgent (smallest days_until, including negatives) first
-    alerts.sort((a, b) => a.days_until - b.days_until);
-    setComplianceAlerts(alerts);
-  }, []);
-
   // Build a lookup: operator_id → worst ComplianceAlert for that operator
   const complianceByOperator: Record<string, ComplianceAlert> = {};
   complianceAlerts.forEach(alert => {
