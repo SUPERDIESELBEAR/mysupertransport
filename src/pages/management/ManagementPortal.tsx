@@ -16,7 +16,7 @@ import NotificationHistory from '@/components/management/NotificationHistory';
 import DispatchPortal from '../dispatch/DispatchPortal';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
-  CheckCircle2, Clock, AlertTriangle, ChevronRight,
+  CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing,
 } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
@@ -416,19 +416,34 @@ export default function ManagementPortal() {
             </div>
 
             {/* Metric cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-4">
               {[
                 { label: 'Pending Applications', value: metrics.pending, icon: <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-status-progress" />, color: 'bg-status-progress/10', action: () => { setStatusFilter('pending'); setView('applications'); } },
                 { label: 'In Onboarding', value: metrics.onboarding, icon: <Users className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />, color: 'bg-gold/10', action: () => setView('pipeline') },
                 { label: 'Active Dispatch', value: metrics.active, icon: <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-status-complete" />, color: 'bg-status-complete/10', action: () => setView('dispatch') },
                 { label: 'Alerts', value: metrics.alerts, icon: <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />, color: 'bg-destructive/10', action: () => setView('pipeline') },
+                {
+                  label: 'Critical Expiries',
+                  value: criticalExpiryCount,
+                  icon: <ShieldAlert className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />,
+                  color: criticalExpiryCount > 0 ? 'bg-destructive/10' : 'bg-muted/30',
+                  action: () => setView('pipeline'),
+                  highlight: criticalExpiryCount > 0,
+                },
               ].map(m => (
-                <button key={m.label} onClick={m.action} className="bg-white border border-border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group">
+                <button
+                  key={m.label}
+                  onClick={m.action}
+                  className={`border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group ${'highlight' in m && m.highlight ? 'bg-destructive/5 border-destructive/20' : 'bg-white border-border'}`}
+                >
                   <div className={`h-8 w-8 sm:h-11 sm:w-11 rounded-lg ${m.color} flex items-center justify-center mb-2 sm:mb-3`}>
                     {m.icon}
                   </div>
-                  <p className="text-2xl sm:text-3xl font-bold text-foreground">{m.value}</p>
+                  <p className={`text-2xl sm:text-3xl font-bold ${'highlight' in m && m.highlight ? 'text-destructive' : 'text-foreground'}`}>{m.value}</p>
                   <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-tight">{m.label}</p>
+                  {'highlight' in m && m.highlight && (
+                    <p className="text-[10px] text-destructive/70 mt-1 leading-tight">≤ 30 days</p>
+                  )}
                 </button>
               ))}
             </div>
