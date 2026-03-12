@@ -402,7 +402,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       // Refresh history timeline so the new reminder appears immediately
       fetchCertHistory();
     } catch (err: any) {
-      toast({ title: 'Failed to send reminder', description: err.message, variant: 'destructive' });
+      const { title, description } = reminderErrorToast(err);
+      toast({ title, description, variant: 'destructive' });
     } finally {
       setReminderSending(prev => ({ ...prev, [key]: false }));
     }
