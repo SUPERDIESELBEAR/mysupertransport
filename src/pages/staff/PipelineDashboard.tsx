@@ -68,6 +68,7 @@ interface PipelineDashboardProps {
   onOpenOperator: (operatorId: string) => void;
   onOpenOperatorWithFocus?: (operatorId: string, focusField: 'cdl' | 'medcert') => void;
   initialDispatchFilter?: DispatchStatus | 'all';
+  initialCoordinatorFilter?: string;
   complianceRefreshKey?: number;
 }
 
@@ -100,7 +101,7 @@ const STAGES = [
   'Stage 6 — Insurance',
 ];
 
-export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, initialDispatchFilter, complianceRefreshKey }: PipelineDashboardProps) {
+export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, initialDispatchFilter, initialCoordinatorFilter, complianceRefreshKey }: PipelineDashboardProps) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
@@ -143,7 +144,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [coordinatorFilter, setCoordinatorFilter] = useState('all');
+  const [coordinatorFilter, setCoordinatorFilter] = useState(initialCoordinatorFilter ?? 'all');
   const [dispatchFilter, setDispatchFilter] = useState<'all' | DispatchStatus>(initialDispatchFilter ?? 'all');
   const [progressFilter, setProgressFilter] = useState<'all' | 'low' | 'mid' | 'high'>('all');
   const [complianceFilter, setComplianceFilter] = useState<'all' | 'critical' | 'warning'>('all');
@@ -152,6 +153,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   useEffect(() => {
     if (initialDispatchFilter) setDispatchFilter(initialDispatchFilter);
   }, [initialDispatchFilter]);
+
+  useEffect(() => {
+    if (initialCoordinatorFilter) setCoordinatorFilter(initialCoordinatorFilter);
+  }, [initialCoordinatorFilter]);
 
   // Sort state
   type SortKey = 'name' | 'stage' | 'coordinator' | 'progress';

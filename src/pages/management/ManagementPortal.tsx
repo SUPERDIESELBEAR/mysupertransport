@@ -81,6 +81,7 @@ export default function ManagementPortal() {
   const [complianceSummary, setComplianceSummary] = useState<ComplianceRow[]>([]);
   const [staffWorkload, setStaffWorkload] = useState<StaffWorkload[]>([]);
   const [unassignedCount, setUnassignedCount] = useState(0);
+  const [pipelineCoordinatorFilter, setPipelineCoordinatorFilter] = useState<string>('all');
 
 
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
@@ -380,6 +381,7 @@ export default function ManagementPortal() {
     } else {
       setView(path as ManagementView);
       if (path !== 'operator-detail') setSelectedOperatorId(null);
+      if (path === 'pipeline') setPipelineCoordinatorFilter('all');
     }
   };
 
@@ -388,6 +390,7 @@ export default function ManagementPortal() {
       setOperatorHasUnsavedChanges(false);
       setView(pendingNavPath as ManagementView);
       if (pendingNavPath !== 'operator-detail') setSelectedOperatorId(null);
+      if (pendingNavPath === 'pipeline') setPipelineCoordinatorFilter('all');
       setPendingNavPath(null);
     }
   };
@@ -472,15 +475,15 @@ export default function ManagementPortal() {
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-4">
               {[
                 { label: 'Pending Applications', value: metrics.pending, icon: <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-status-progress" />, color: 'bg-status-progress/10', action: () => { setStatusFilter('pending'); setView('applications'); } },
-                { label: 'In Onboarding', value: metrics.onboarding, icon: <Users className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />, color: 'bg-gold/10', action: () => setView('pipeline') },
+                { label: 'In Onboarding', value: metrics.onboarding, icon: <Users className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />, color: 'bg-gold/10', action: () => { setPipelineCoordinatorFilter('all'); setView('pipeline'); } },
                 { label: 'Active Dispatch', value: metrics.active, icon: <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-status-complete" />, color: 'bg-status-complete/10', action: () => setView('dispatch') },
-                { label: 'Alerts', value: metrics.alerts, icon: <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />, color: 'bg-destructive/10', action: () => setView('pipeline') },
+                { label: 'Alerts', value: metrics.alerts, icon: <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />, color: 'bg-destructive/10', action: () => { setPipelineCoordinatorFilter('all'); setView('pipeline'); } },
                 {
                   label: 'Critical Expiries',
                   value: criticalExpiryCount,
                   icon: <ShieldAlert className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />,
                   color: criticalExpiryCount > 0 ? 'bg-destructive/10' : 'bg-muted/30',
-                  action: () => setView('pipeline'),
+                  action: () => { setPipelineCoordinatorFilter('all'); setView('pipeline'); },
                   highlight: criticalExpiryCount > 0,
                 },
               ].map(m => (
@@ -582,7 +585,7 @@ export default function ManagementPortal() {
                       <p className="text-xs text-muted-foreground mt-0.5">Operators with nearest document expiries</p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => setView('pipeline')} className="text-xs gap-1 text-muted-foreground h-7 px-2 shrink-0">
+                  <Button variant="ghost" size="sm" onClick={() => { setPipelineCoordinatorFilter('all'); setView('pipeline'); }} className="text-xs gap-1 text-muted-foreground h-7 px-2 shrink-0">
                     View all <ChevronRight className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -655,7 +658,14 @@ export default function ManagementPortal() {
                     const barWidth = Math.min(100, Math.round((count / 10) * 100));
                     const barColor = count >= 7 ? 'bg-destructive' : count >= 4 ? 'bg-gold' : 'bg-status-complete';
                     return (
-                      <div key={member.user_id} className="flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-secondary/30 transition-colors">
+                      <div
+                        key={member.user_id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); } }}
+                        className="flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-secondary/50 transition-colors cursor-pointer group"
+                      >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2 mb-1.5">
                             <p className="font-medium text-foreground text-sm truncate">{member.full_name}</p>
@@ -668,6 +678,7 @@ export default function ManagementPortal() {
                             <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${barWidth}%` }} />
                           </div>
                         </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-gold transition-colors shrink-0" />
                       </div>
                     );
                   })}
@@ -889,6 +900,7 @@ export default function ManagementPortal() {
               }
             }}
             complianceRefreshKey={complianceRefreshKey}
+            initialCoordinatorFilter={pipelineCoordinatorFilter}
           />
         )}
 
