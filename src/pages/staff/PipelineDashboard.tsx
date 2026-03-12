@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck } from 'lucide-react';
+import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { differenceInDays, parseISO, format } from 'date-fns';
@@ -120,6 +120,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkSentCount, setBulkSentCount] = useState<number | null>(null);
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
+  const [bulkRenewing, setBulkRenewing] = useState(false);
+  const [bulkRenewedCount, setBulkRenewedCount] = useState<number | null>(null);
+  const [showBulkRenewConfirm, setShowBulkRenewConfirm] = useState(false);
 
 
   // Filter state
@@ -586,6 +589,97 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setTimeout(() => setBulkSentCount(null), 10000);
   };
 
+  // Bulk Mark as Renewed — extends all alerted docs by +1 year and writes audit log entries
+  const handleBulkMarkRenewed = async () => {
+    if (complianceAlerts.length === 0) return;
+    setBulkRenewing(true);
+    setBulkRenewedCount(null);
+
+    const actorId = user?.id ?? null;
+    const actorName = profile
+      ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || null
+      : null;
+
+    const newDate = new Date();
+    newDate.setFullYear(newDate.getFullYear() + 1);
+    const newDateStr = newDate.toISOString().split('T')[0];
+
+    let successCount = 0;
+    let failCount = 0;
+
+    const byOperator: Record<string, { operatorId: string; appId?: string; alerts: typeof complianceAlerts }> = {};
+    complianceAlerts.forEach(alert => {
+      if (!byOperator[alert.operator_id]) {
+        byOperator[alert.operator_id] = { operatorId: alert.operator_id, alerts: [] };
+      }
+      byOperator[alert.operator_id].alerts.push(alert);
+    });
+
+    const operatorIds = Object.keys(byOperator);
+    const { data: opRows } = await supabase
+      .from('operators')
+      .select('id, application_id')
+      .in('id', operatorIds);
+    (opRows ?? []).forEach((o: any) => {
+      if (byOperator[o.id]) byOperator[o.id].appId = o.application_id;
+    });
+
+    await Promise.all(
+      Object.values(byOperator).map(async ({ operatorId, appId, alerts }) => {
+        if (!appId) { failCount += alerts.length; return; }
+        for (const alert of alerts) {
+          const col = alert.doc_type === 'CDL' ? 'cdl_expiration' : 'medical_cert_expiration';
+          try {
+            const { data: appData } = await supabase
+              .from('applications')
+              .select(col)
+              .eq('id', appId)
+              .single();
+            const oldDateStr = (appData as any)?.[col] ?? null;
+            const { error } = await supabase
+              .from('applications')
+              .update({ [col]: newDateStr })
+              .eq('id', appId);
+            if (error) throw error;
+            await supabase.from('audit_log' as any).insert({
+              actor_id: actorId,
+              actor_name: actorName,
+              action: 'cert_renewed',
+              entity_type: 'operator',
+              entity_id: operatorId,
+              entity_label: alert.operator_name,
+              metadata: {
+                document_type: alert.doc_type,
+                old_expiry: oldDateStr,
+                new_expiry: newDateStr,
+                operator_name: alert.operator_name,
+                bulk: true,
+              },
+            });
+            successCount++;
+          } catch {
+            failCount++;
+          }
+        }
+      })
+    );
+
+    setBulkRenewing(false);
+    setBulkRenewedCount(successCount);
+    if (failCount === 0) {
+      toast({
+        title: `${successCount} document${successCount !== 1 ? 's' : ''} marked as renewed`,
+        description: `Expiry dates extended to ${new Date(newDateStr + 'T00:00:00').toLocaleDateString()}.`,
+      });
+    } else {
+      toast({
+        title: `${successCount} renewed, ${failCount} failed`,
+        description: 'Some documents could not be updated.',
+        variant: 'destructive',
+      });
+    }
+    setTimeout(() => setBulkRenewedCount(null), 10000);
+  };
 
 
   const filtered = operators
@@ -810,6 +904,44 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </TooltipProvider>
               );
             })()}
+
+            {/* Bulk Mark as Renewed button */}
+            {(() => {
+              const allRenewed = bulkRenewedCount !== null;
+              return (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => { e.stopPropagation(); setShowBulkRenewConfirm(true); }}
+                        disabled={bulkRenewing}
+                        className={`shrink-0 h-7 px-3 text-xs gap-1.5 font-semibold transition-all ${
+                          allRenewed
+                            ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10'
+                            : 'border-status-progress/40 text-status-progress bg-status-progress/5 hover:bg-status-progress/15'
+                        }`}
+                      >
+                        {bulkRenewing ? (
+                          <><Loader2 className="h-3 w-3 animate-spin" />Renewing…</>
+                        ) : allRenewed ? (
+                          <><CheckCheck className="h-3 w-3" />{bulkRenewedCount} Renewed</>
+                        ) : (
+                          <><RotateCcw className="h-3 w-3" />Mark All Renewed</>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-[240px] text-center">
+                      {allRenewed
+                        ? `${bulkRenewedCount} document${bulkRenewedCount !== 1 ? 's' : ''} renewed successfully`
+                        : `Extend all ${complianceAlerts.length} alerted document${complianceAlerts.length !== 1 ? 's' : ''} by +1 year from today`}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })()}
+
 
             <button onClick={() => setComplianceExpanded(v => !v)} className="shrink-0 hover:opacity-80 transition-opacity">
               {complianceExpanded
@@ -1588,7 +1720,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                             </span>
                           )}
                           {filteredWarning > 0 && (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-yellow-600">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-warning">
                               <ShieldAlert className="h-3.5 w-3.5" />
                               {filteredWarning} warning
                             </span>
@@ -1656,6 +1788,62 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 >
                   <Send className="h-3.5 w-3.5 mr-1.5" />
                   Send {criticalAlerts.length} Reminder{criticalAlerts.length !== 1 ? 's' : ''}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        );
+      })()}
+
+      {/* Bulk Mark as Renewed — confirmation dialog */}
+      {(() => {
+        const newDate = new Date();
+        newDate.setFullYear(newDate.getFullYear() + 1);
+        const newDateStr = newDate.toLocaleDateString();
+        return (
+          <AlertDialog open={showBulkRenewConfirm} onOpenChange={setShowBulkRenewConfirm}>
+            <AlertDialogContent className="max-w-md">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <RotateCcw className="h-4 w-4 text-status-progress" />
+                  Mark All as Renewed
+                </AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      The following {complianceAlerts.length} document{complianceAlerts.length !== 1 ? 's' : ''} will have their expiry date extended to <span className="font-semibold text-foreground">{newDateStr}</span>:
+                    </p>
+                    <ul className="divide-y divide-border rounded-md border border-border overflow-hidden text-sm max-h-64 overflow-y-auto">
+                      {complianceAlerts.map(alert => (
+                        <li key={`${alert.operator_id}|${alert.doc_type}`} className="flex items-center justify-between px-3 py-2 bg-background">
+                          <span className="font-medium text-foreground">{alert.operator_name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">{alert.doc_type}</span>
+                            <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                              alert.days_until < 0
+                                ? 'bg-destructive/15 text-destructive'
+                                : alert.days_until <= 30
+                                ? 'bg-destructive/10 text-destructive'
+                                : 'bg-gold/10 text-gold'
+                            }`}>
+                              {alert.days_until < 0 ? `${Math.abs(alert.days_until)}d expired` : `${alert.days_until}d left`}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-xs text-muted-foreground">Each renewal is logged in the Activity Log with the old and new dates.</p>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => { setShowBulkRenewConfirm(false); handleBulkMarkRenewed(); }}
+                  className="bg-status-progress text-white hover:bg-status-progress/90"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                  Renew {complianceAlerts.length} Document{complianceAlerts.length !== 1 ? 's' : ''}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
