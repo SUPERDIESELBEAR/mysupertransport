@@ -309,6 +309,7 @@ export default function StaffPortal() {
           onBack={handleBackToPipeline}
           onMessageOperator={handleMessageOperator}
           onUnsavedChangesChange={setOperatorHasUnsavedChanges}
+          expiryOverride={panelExpiryOverride}
           onOpenAppReview={async (focusField) => {
             const { data: op } = await supabase
               .from('operators')
