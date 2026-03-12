@@ -398,12 +398,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to send reminder');
-      if (data.email_error) throw new Error(data.email_error);
       setLastReminded(prev => ({ ...prev, [key]: new Date().toISOString() }));
       setReminderSent(prev => ({ ...prev, [key]: true }));
-      toast({ title: 'Reminder sent', description: `Email sent to ${operatorName}` });
+      if (data.email_error) {
+        // Email failed but record was saved — show error toast and refresh history
+        const { title, description } = reminderErrorToast(new Error(data.email_error));
+        toast({ title, description, variant: 'destructive' });
+      } else {
+        toast({ title: 'Reminder sent', description: `Email sent to ${operatorName}` });
+      }
       setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
-      // Refresh history timeline so the new reminder appears immediately
+      // Refresh history timeline so the new reminder (with correct delivery status) appears
       fetchCertHistory();
     } catch (err: any) {
       const { title, description } = reminderErrorToast(err);
