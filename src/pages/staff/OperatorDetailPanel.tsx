@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
@@ -102,6 +102,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [copiedEmail, setCopiedEmail] = useState(false);
   const savedSnapshot = useRef<{ status: Partial<OnboardingStatus>; notes: string } | null>(null);
   const [navGuard, setNavGuard] = useState<null | { action: () => void }>(null);
+  const [renewingField, setRenewingField] = useState<'cdl' | 'medcert' | null>(null);
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
@@ -283,8 +284,35 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
 
 
+  const handleMarkRenewed = async (field: 'cdl' | 'medcert') => {
+    if (!applicationData?.id && !operatorId) return;
+    setRenewingField(field);
+    const col = field === 'cdl' ? 'cdl_expiration' : 'medical_cert_expiration';
+    const newDate = new Date();
+    newDate.setFullYear(newDate.getFullYear() + 1);
+    const newDateStr = newDate.toISOString().split('T')[0];
+
+    // We need the application id — fetch it from the operator if not already in applicationData
+    let appId: string | null = applicationData?.id ?? null;
+    if (!appId) {
+      const { data: op } = await supabase.from('operators').select('application_id').eq('id', operatorId).single();
+      appId = (op as any)?.application_id ?? null;
+    }
+    if (!appId) { setRenewingField(null); return; }
+
+    const { error } = await supabase.from('applications').update({ [col]: newDateStr }).eq('id', appId);
+    if (error) {
+      toast({ title: 'Update failed', description: error.message, variant: 'destructive' });
+    } else {
+      if (field === 'cdl') setCdlExpiration(newDateStr);
+      else setMedCertExpiration(newDateStr);
+      const label = field === 'cdl' ? 'CDL' : 'Med Cert';
+      toast({ title: `${label} marked as renewed`, description: `New expiry set to ${new Date(newDateStr + 'T00:00:00').toLocaleDateString()}.` });
+    }
+    setRenewingField(null);
+  };
+
   const fetchOperatorDetail = async () => {
-    setLoading(true);
 
     // Fetch operator core data and doc files in parallel
     const [{ data: op }, { data: opDocs }] = await Promise.all([
@@ -924,17 +952,22 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const expired  = days < 0;
           const critical = !expired && days <= 30;
           const warning  = !expired && days <= 90;
+          const needsRenew = expired || critical || warning;
           const colorClass = expired || critical
             ? 'bg-destructive/10 text-destructive border-destructive/30'
             : warning
             ? 'bg-yellow-50 text-yellow-700 border-yellow-300'
             : 'bg-status-complete/10 text-status-complete border-status-complete/30';
           const dotClass = expired || critical ? 'bg-destructive' : warning ? 'bg-yellow-500' : 'bg-status-complete';
+          const renewBtnClass = expired || critical
+            ? 'text-destructive hover:bg-destructive/10 border-destructive/30'
+            : 'text-yellow-700 hover:bg-yellow-100 border-yellow-300';
           const dayLabel = expired
             ? `Expired ${Math.abs(days)}d ago`
             : days === 0 ? 'Expires today'
             : `${days}d left`;
           const isClickable = !!onOpenAppReview;
+          const isRenewing = renewingField === focusField;
           const pill = (
             <span
               onClick={isClickable ? () => onOpenAppReview(focusField) : undefined}
@@ -949,14 +982,35 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           );
           const tooltipMsg = label + ' expires ' + format(parseISO(dateStr), 'MMM d, yyyy') + (expired ? ' — already expired' : critical ? ' — critical, renew immediately' : warning ? ' — follow up soon' : ' — on track');
           return (
-            <TooltipProvider key={label} delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger asChild>{pill}</TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {tooltipMsg}{isClickable ? '. Click to edit.' : ''}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <span key={label} className="inline-flex items-center gap-1">
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>{pill}</TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {tooltipMsg}{isClickable ? '. Click to edit.' : ''}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {needsRenew && (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => handleMarkRenewed(focusField)}
+                        disabled={isRenewing || renewingField !== null}
+                        className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${renewBtnClass}`}
+                      >
+                        <RotateCcw className={`h-2.5 w-2.5 ${isRenewing ? 'animate-spin' : ''}`} />
+                        {isRenewing ? '…' : 'Renew'}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      Mark as renewed — sets expiry to {new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString()}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </span>
           );
         };
         return (
