@@ -504,9 +504,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to send reminder');
-      // Optimistically update last-reminded timestamp
+      // Optimistically update last-reminded timestamp and sender
       const now = new Date().toISOString();
+      const senderName = profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || null : null;
       setLastReminded(prev => ({ ...prev, [key]: now }));
+      if (senderName) setLastRemindedBy(prev => ({ ...prev, [key]: senderName }));
       setReminderSent(prev => ({ ...prev, [key]: true }));
       toast({ title: 'Reminder sent', description: `Email sent to ${alert.operator_name}` });
       // Reset "sent" button badge after 8 seconds
