@@ -1167,6 +1167,36 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       </Tooltip>
                     </TooltipProvider>
 
+                    {/* Per-row Mark as Renewed button */}
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleMarkRenewed(alert)}
+                            disabled={isRowRenewing || isRowRenewed}
+                            className={`shrink-0 h-7 px-2 text-xs gap-1.5 transition-all ${
+                              isRowRenewed
+                                ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10'
+                                : 'border-muted-foreground/30 text-muted-foreground hover:border-status-complete/50 hover:text-status-complete hover:bg-status-complete/5'
+                            }`}
+                          >
+                            {isRowRenewing ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : isRowRenewed ? (
+                              <><CheckCircle2 className="h-3 w-3" /><span className="hidden sm:inline">Renewed</span></>
+                            ) : (
+                              <><RotateCcw className="h-3 w-3" /><span className="hidden sm:inline">Renew</span></>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">
+                          {isRowRenewed ? 'Document renewed!' : `Mark ${alert.doc_type} as renewed (+1 year)`}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+
                     {/* Open button */}
                     <Button
                       variant="ghost"
