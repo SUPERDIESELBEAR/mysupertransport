@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { reminderErrorToast } from '@/lib/reminderError';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
@@ -565,7 +566,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       // Reset "sent" button badge after 8 seconds
       setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
     } catch (err: any) {
-      toast({ title: 'Failed to send reminder', description: err.message, variant: 'destructive' });
+      const { title, description } = reminderErrorToast(err);
+      toast({ title, description, variant: 'destructive' });
     } finally {
       setReminderSending(prev => ({ ...prev, [key]: false }));
     }
@@ -629,7 +631,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     } else {
       toast({
         title: `${successCount} sent, ${failCount} failed`,
-        description: 'Some reminders could not be sent. Check individual rows for details.',
+        description: 'Some reminders could not be sent — check that the mysupertransport.com domain is verified at resend.com/domains.',
         variant: 'destructive',
       });
     }
@@ -700,7 +702,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     } else {
       toast({
         title: `${successCount} sent, ${failCount} failed`,
-        description: 'Some reminders could not be sent.',
+        description: 'Some reminders could not be sent — check that the mysupertransport.com domain is verified at resend.com/domains.',
         variant: 'destructive',
       });
     }

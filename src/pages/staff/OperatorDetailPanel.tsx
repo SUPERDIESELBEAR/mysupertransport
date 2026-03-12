@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { sanitizeText } from '@/lib/sanitize';
+import { reminderErrorToast } from '@/lib/reminderError';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -401,7 +402,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       // Refresh history timeline so the new reminder appears immediately
       fetchCertHistory();
     } catch (err: any) {
-      toast({ title: 'Failed to send reminder', description: err.message, variant: 'destructive' });
+      const { title, description } = reminderErrorToast(err);
+      toast({ title, description, variant: 'destructive' });
     } finally {
       setReminderSending(prev => ({ ...prev, [key]: false }));
     }
