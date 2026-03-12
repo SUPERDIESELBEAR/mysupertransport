@@ -81,6 +81,7 @@ export default function ManagementPortal() {
   const [complianceSummary, setComplianceSummary] = useState<ComplianceRow[]>([]);
   const [staffWorkload, setStaffWorkload] = useState<StaffWorkload[]>([]);
   const [unassignedCount, setUnassignedCount] = useState(0);
+  const [pipelineCoordinatorFilter, setPipelineCoordinatorFilter] = useState<string>('all');
 
 
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
