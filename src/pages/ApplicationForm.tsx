@@ -109,6 +109,7 @@ export default function ApplicationForm() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [showDraftBanner, setShowDraftBanner] = useState(false);
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [duplicateEmailBlocked, setDuplicateEmailBlocked] = useState(false);
 
