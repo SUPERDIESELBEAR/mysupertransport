@@ -288,6 +288,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     if (!applicationData?.id && !operatorId) return;
     setRenewingField(field);
     const col = field === 'cdl' ? 'cdl_expiration' : 'medical_cert_expiration';
+    const label = field === 'cdl' ? 'CDL' : 'Med Cert';
+    const oldDateStr = field === 'cdl' ? cdlExpiration : medCertExpiration;
     const newDate = new Date();
     newDate.setFullYear(newDate.getFullYear() + 1);
     const newDateStr = newDate.toISOString().split('T')[0];
@@ -300,14 +302,43 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
     if (!appId) { setRenewingField(null); return; }
 
-    const { error } = await supabase.from('applications').update({ [col]: newDateStr }).eq('id', appId);
+    // Resolve actor display name in parallel with the update
+    const actorId = session?.user?.id ?? null;
+    const [{ error }, actorProfile] = await Promise.all([
+      supabase.from('applications').update({ [col]: newDateStr }).eq('id', appId),
+      actorId
+        ? supabase.from('profiles').select('first_name, last_name').eq('user_id', actorId).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
     if (error) {
       toast({ title: 'Update failed', description: error.message, variant: 'destructive' });
     } else {
       if (field === 'cdl') setCdlExpiration(newDateStr);
       else setMedCertExpiration(newDateStr);
-      const label = field === 'cdl' ? 'CDL' : 'Med Cert';
       toast({ title: `${label} marked as renewed`, description: `New expiry set to ${new Date(newDateStr + 'T00:00:00').toLocaleDateString()}.` });
+
+      // ── Write audit log entry ────────────────────────────────────────
+      const profileData = (actorProfile as any)?.data;
+      const actorName = profileData
+        ? `${profileData.first_name ?? ''} ${profileData.last_name ?? ''}`.trim() || null
+        : null;
+      void supabase.from('audit_log' as any).insert({
+        actor_id: actorId,
+        actor_name: actorName,
+        action: 'cert_renewed',
+        entity_type: 'operator',
+        entity_id: operatorId,
+        entity_label: operatorName,
+        metadata: {
+          document_type: label,
+          old_expiry: oldDateStr ?? null,
+          new_expiry: newDateStr,
+          operator_name: operatorName,
+        },
+      }).then(({ error: auditErr }: { error: any }) => {
+        if (auditErr) console.error('[audit] cert_renewed:', auditErr);
+      });
     }
     setRenewingField(null);
   };
