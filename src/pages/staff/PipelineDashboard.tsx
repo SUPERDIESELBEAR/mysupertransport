@@ -636,6 +636,76 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setTimeout(() => setBulkSentCount(null), 10000);
   };
 
+  // Bulk Send All — No Action rows only (no prior reminder AND no renewal)
+  const handleSendAllNoAction = async () => {
+    const noActionAlerts = complianceAlerts.filter(a => {
+      const key = `${a.operator_id}|${a.doc_type}`;
+      return !lastReminded[key] && !lastRenewed[key];
+    });
+    if (noActionAlerts.length === 0) return;
+    setNoActionBulkSending(true);
+    setNoActionBulkSentCount(null);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const senderName = profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || null : null;
+
+    let successCount = 0;
+    let failCount = 0;
+
+    await Promise.all(
+      noActionAlerts.map(async (alert) => {
+        const key = `${alert.operator_id}|${alert.doc_type}`;
+        if (reminderSending[key] || reminderSent[key]) { successCount++; return; }
+        setReminderSending(prev => ({ ...prev, [key]: true }));
+        try {
+          const res = await fetch(`${supabaseUrl}/functions/v1/send-cert-reminder`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session?.access_token ?? ''}`,
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+            body: JSON.stringify({
+              operator_id: alert.operator_id,
+              doc_type: alert.doc_type,
+              days_until: alert.days_until,
+              expiration_date: alert.expiration_date,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error ?? 'Failed');
+          const now = new Date().toISOString();
+          setLastReminded(prev => ({ ...prev, [key]: now }));
+          if (senderName) setLastRemindedBy(prev => ({ ...prev, [key]: senderName }));
+          setReminderSent(prev => ({ ...prev, [key]: true }));
+          setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
+          successCount++;
+        } catch {
+          failCount++;
+        } finally {
+          setReminderSending(prev => ({ ...prev, [key]: false }));
+        }
+      })
+    );
+
+    setNoActionBulkSending(false);
+    setNoActionBulkSentCount(successCount);
+    if (failCount === 0) {
+      toast({
+        title: `${successCount} reminder${successCount !== 1 ? 's' : ''} sent`,
+        description: 'All uncontacted operators have been notified.',
+      });
+    } else {
+      toast({
+        title: `${successCount} sent, ${failCount} failed`,
+        description: 'Some reminders could not be sent.',
+        variant: 'destructive',
+      });
+    }
+    setTimeout(() => setNoActionBulkSentCount(null), 10000);
+  };
+
   // Bulk Mark as Renewed — extends all alerted docs by +1 year and writes audit log entries
   const handleBulkMarkRenewed = async () => {
     if (complianceAlerts.length === 0) return;
