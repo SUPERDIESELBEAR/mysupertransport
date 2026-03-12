@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
@@ -100,6 +100,21 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
+
+  // Cert history timeline
+  type CertHistoryEntry = {
+    id: string;
+    event_type: 'renewed' | 'reminder_sent' | 'expiry_changed';
+    doc_type: string;
+    actor_name: string | null;
+    occurred_at: string;
+    old_expiry?: string | null;
+    new_expiry?: string | null;
+    days_until?: number | null;
+  };
+  const [certHistory, setCertHistory] = useState<CertHistoryEntry[]>([]);
+  const [certHistoryLoading, setCertHistoryLoading] = useState(false);
+  const [certHistoryExpanded, setCertHistoryExpanded] = useState(false);
   const savedSnapshot = useRef<{ status: Partial<OnboardingStatus>; notes: string } | null>(null);
   const [navGuard, setNavGuard] = useState<null | { action: () => void }>(null);
   const [renewingField, setRenewingField] = useState<'cdl' | 'medcert' | null>(null);
@@ -164,6 +179,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   useEffect(() => {
     fetchOperatorDetail();
     fetchDispatchHistory();
+    fetchCertHistory();
   }, [operatorId]);
 
   // When parent pushes refreshed expiry values (e.g. after drawer save), update local state instantly
@@ -320,6 +336,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       if (field === 'cdl') setCdlExpiration(newDateStr);
       else setMedCertExpiration(newDateStr);
       toast({ title: `${label} marked as renewed`, description: `New expiry set to ${new Date(newDateStr + 'T00:00:00').toLocaleDateString()}.` });
+      // Refresh history timeline so the renewal appears immediately
+      fetchCertHistory();
 
       // ── Write audit log entry ────────────────────────────────────────
       const profileData = (actorProfile as any)?.data;
@@ -372,10 +390,58 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setReminderSent(prev => ({ ...prev, [key]: true }));
       toast({ title: 'Reminder sent', description: `Email sent to ${operatorName}` });
       setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
+      // Refresh history timeline so the new reminder appears immediately
+      fetchCertHistory();
     } catch (err: any) {
       toast({ title: 'Failed to send reminder', description: err.message, variant: 'destructive' });
     } finally {
       setReminderSending(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const fetchCertHistory = async () => {
+    setCertHistoryLoading(true);
+    try {
+      // Fetch audit log entries for this operator (cert_renewed + cert_reminder_sent)
+      const { data: auditRows } = await supabase
+        .from('audit_log' as any)
+        .select('id, action, actor_name, created_at, metadata')
+        .eq('entity_id', operatorId)
+        .in('action', ['cert_renewed', 'cert_reminder_sent'])
+        .order('created_at', { ascending: false })
+        .limit(100) as { data: any[] | null };
+
+      const entries: CertHistoryEntry[] = [];
+
+      (auditRows ?? []).forEach((row: any) => {
+        const meta = row.metadata ?? {};
+        if (row.action === 'cert_renewed') {
+          entries.push({
+            id: row.id,
+            event_type: 'renewed',
+            doc_type: meta.document_type ?? '—',
+            actor_name: row.actor_name,
+            occurred_at: row.created_at,
+            old_expiry: meta.old_expiry ?? null,
+            new_expiry: meta.new_expiry ?? null,
+          });
+        } else if (row.action === 'cert_reminder_sent') {
+          entries.push({
+            id: row.id,
+            event_type: 'reminder_sent',
+            doc_type: meta.doc_type ?? '—',
+            actor_name: row.actor_name,
+            occurred_at: row.created_at,
+            days_until: meta.days_until ?? null,
+          });
+        }
+      });
+
+      // Sort combined list newest-first
+      entries.sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
+      setCertHistory(entries);
+    } finally {
+      setCertHistoryLoading(false);
     }
   };
 
@@ -1125,6 +1191,128 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           </div>
         );
       })()}
+
+      {/* ── Cert Expiry History Timeline ─────────────────────── */}
+      {(cdlExpiration || medCertExpiration) && (
+        <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => {
+              if (!certHistoryExpanded && certHistory.length === 0) fetchCertHistory();
+              setCertHistoryExpanded(v => !v);
+            }}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2">
+              <History className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Cert Expiry History</span>
+              {certHistory.length > 0 && (
+                <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-muted text-muted-foreground text-[10px] font-bold leading-none">
+                  {certHistory.length}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {certHistoryExpanded && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); fetchCertHistory(); }}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  title="Refresh history"
+                >
+                  <RefreshCw className={`h-3 w-3 ${certHistoryLoading ? 'animate-spin' : ''}`} />
+                </button>
+              )}
+              {certHistoryExpanded
+                ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              }
+            </div>
+          </button>
+
+          {certHistoryExpanded && (
+            <div className="border-t border-border px-4 py-3">
+              {certHistoryLoading ? (
+                <div className="flex items-center gap-2 py-4 justify-center">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-gold border-t-transparent" />
+                  <span className="text-xs text-muted-foreground">Loading history…</span>
+                </div>
+              ) : certHistory.length === 0 ? (
+                <div className="flex flex-col items-center gap-1.5 py-5 text-center">
+                  <History className="h-6 w-6 text-muted-foreground/40" />
+                  <p className="text-xs text-muted-foreground">No renewals or reminders recorded yet.</p>
+                </div>
+              ) : (
+                <div className="relative">
+                  {/* Vertical timeline line */}
+                  <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+                  <div className="space-y-4 ml-5">
+                    {certHistory.map((entry) => {
+                      const isRenewal = entry.event_type === 'renewed';
+                      const isReminder = entry.event_type === 'reminder_sent';
+                      const dotClass = isRenewal
+                        ? 'bg-status-complete border-status-complete/40'
+                        : isReminder
+                        ? 'bg-info border-info/40'
+                        : 'bg-gold border-gold/40';
+                      const IconComp = isRenewal ? RotateCcw : isReminder ? Mail : CalendarClock;
+                      const iconColorClass = isRenewal ? 'text-status-complete' : isReminder ? 'text-info' : 'text-gold';
+                      return (
+                        <div key={entry.id} className="relative flex gap-3 items-start">
+                          {/* Dot on the timeline */}
+                          <div className={`absolute -left-5 mt-0.5 h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center ${dotClass}`}>
+                            <IconComp className={`h-2 w-2 ${iconColorClass}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                              {/* Event label */}
+                              <span className={`text-[11px] font-bold uppercase tracking-wide ${iconColorClass}`}>
+                                {isRenewal ? 'Renewed' : isReminder ? 'Reminder Sent' : 'Expiry Updated'}
+                              </span>
+                              {/* Doc type badge */}
+                              <span className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-medium border ${
+                                entry.doc_type === 'CDL'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : 'bg-purple-50 text-purple-700 border-purple-200'
+                              }`}>
+                                {entry.doc_type}
+                              </span>
+                              {/* Timestamp */}
+                              <span className="text-[11px] text-muted-foreground ml-auto shrink-0">
+                                {format(new Date(entry.occurred_at), 'MMM d, yyyy · h:mm a')}
+                              </span>
+                            </div>
+                            {/* Detail line */}
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              {isRenewal && entry.old_expiry && entry.new_expiry && (
+                                <>
+                                  <span className="line-through opacity-60">{format(parseISO(entry.old_expiry), 'MMM d, yyyy')}</span>
+                                  {' → '}
+                                  <span className="font-medium text-status-complete">{format(parseISO(entry.new_expiry), 'MMM d, yyyy')}</span>
+                                </>
+                              )}
+                              {isRenewal && (!entry.old_expiry || !entry.new_expiry) && 'Expiry extended by 1 year'}
+                              {isReminder && entry.days_until !== null && entry.days_until !== undefined && (
+                                entry.days_until < 0
+                                  ? <span className="text-destructive font-medium">{Math.abs(entry.days_until)}d past expiry at time of send</span>
+                                  : entry.days_until === 0
+                                  ? <span className="text-destructive font-medium">Expires today</span>
+                                  : <span>{entry.days_until}d remaining at time of send</span>
+                              )}
+                              {' '}
+                              {entry.actor_name && (
+                                <span className="text-muted-foreground/70">by {entry.actor_name}</span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
 
       {(() => {
