@@ -1132,6 +1132,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[80px]">Expires</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[60px] text-right">Status</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden md:block shrink-0 w-[90px] text-right">Last Action</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[72px] text-right">Last Reminded</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[72px] text-right">Last Renewed</span>
                 <span className="shrink-0 w-[74px]" />
