@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
@@ -103,6 +103,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const savedSnapshot = useRef<{ status: Partial<OnboardingStatus>; notes: string } | null>(null);
   const [navGuard, setNavGuard] = useState<null | { action: () => void }>(null);
   const [renewingField, setRenewingField] = useState<'cdl' | 'medcert' | null>(null);
+  const [reminderSending, setReminderSending] = useState<Record<string, boolean>>({});
+  const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
+  const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
@@ -341,6 +344,39 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       });
     }
     setRenewingField(null);
+  };
+
+  const handleSendReminder = async (docType: 'CDL' | 'Medical Cert', dateStr: string) => {
+    const key = docType;
+    setReminderSending(prev => ({ ...prev, [key]: true }));
+    try {
+      const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const res = await fetch(`${supabaseUrl}/functions/v1/send-cert-reminder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token ?? ''}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          operator_id: operatorId,
+          doc_type: docType,
+          days_until: days,
+          expiration_date: dateStr,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to send reminder');
+      setLastReminded(prev => ({ ...prev, [key]: new Date().toISOString() }));
+      setReminderSent(prev => ({ ...prev, [key]: true }));
+      toast({ title: 'Reminder sent', description: `Email sent to ${operatorName}` });
+      setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
+    } catch (err: any) {
+      toast({ title: 'Failed to send reminder', description: err.message, variant: 'destructive' });
+    } finally {
+      setReminderSending(prev => ({ ...prev, [key]: false }));
+    }
   };
 
   const fetchOperatorDetail = async () => {
@@ -999,6 +1035,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             : `${days}d left`;
           const isClickable = !!onOpenAppReview;
           const isRenewing = renewingField === focusField;
+          const docType = focusField === 'cdl' ? 'CDL' : 'Medical Cert' as 'CDL' | 'Medical Cert';
+          const isSending = !!reminderSending[docType];
+          const isSent = !!reminderSent[docType];
+          const lastReminderAt = lastReminded[docType];
           const pill = (
             <span
               onClick={isClickable ? () => onOpenAppReview(focusField) : undefined}
@@ -1037,6 +1077,39 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-xs">
                       Mark as renewed — sets expiry to {new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString()}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {needsRenew && (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => handleSendReminder(docType, dateStr)}
+                        disabled={isSending || isSent}
+                        className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                          isSent
+                            ? 'text-status-complete border-status-complete/40 bg-status-complete/10'
+                            : 'text-info border-info/40 hover:bg-info/10'
+                        }`}
+                      >
+                        {isSending ? (
+                          <span className="h-2.5 w-2.5 animate-spin rounded-full border border-current border-t-transparent" />
+                        ) : isSent ? (
+                          <CheckCheck className="h-2.5 w-2.5" />
+                        ) : (
+                          <Send className="h-2.5 w-2.5" />
+                        )}
+                        {isSending ? '…' : isSent ? 'Sent' : 'Remind'}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      {isSent
+                        ? '✓ Reminder email sent'
+                        : lastReminderAt
+                        ? `Send renewal reminder email · Last sent ${format(new Date(lastReminderAt), 'MMM d')}`
+                        : 'Send renewal reminder email to operator'}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
