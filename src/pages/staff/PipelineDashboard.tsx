@@ -164,7 +164,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const fetchComplianceAlerts = useCallback(async () => {
     const today = new Date();
 
-    const [{ data: ops }, { data: reminders }] = await Promise.all([
+    const [{ data: ops }, { data: reminders }, { data: renewals }] = await Promise.all([
       supabase
         .from('operators')
         .select(`
@@ -182,6 +182,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         .from('cert_reminders')
         .select('operator_id, doc_type, sent_at, sent_by_name')
         .order('sent_at', { ascending: false }),
+      supabase
+        .from('audit_log' as any)
+        .select('entity_id, actor_name, created_at, metadata')
+        .eq('action', 'cert_renewed')
+        .order('created_at', { ascending: false })
+        .limit(500),
     ]);
 
     if (!ops) return;
@@ -198,6 +204,22 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     });
     setLastReminded(remindedMap);
     setLastRemindedBy(remindedByMap);
+
+    // Keep only the most recent renewal per operator+doc_type pair
+    const renewedMap: Record<string, string> = {};
+    const renewedByMap: Record<string, string> = {};
+    (renewals ?? []).forEach((r: any) => {
+      const docType = r.metadata?.document_type as string | undefined;
+      if (!r.entity_id || !docType) return;
+      // Map "CDL" → "CDL", "Medical Cert" → "Medical Cert" (matches alert.doc_type)
+      const key = `${r.entity_id}|${docType}`;
+      if (!renewedMap[key]) {
+        renewedMap[key] = r.created_at;
+        if (r.actor_name) renewedByMap[key] = r.actor_name;
+      }
+    });
+    setLastRenewed(renewedMap);
+    setLastRenewedBy(renewedByMap);
 
     const alerts: ComplianceAlert[] = [];
 
