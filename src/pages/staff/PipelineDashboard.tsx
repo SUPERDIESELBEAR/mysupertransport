@@ -115,6 +115,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
   // Last reminded timestamps: key = "operatorId|docType" → ISO string
   const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
+  // Last reminded coordinator names: key = "operatorId|docType" → staff name
+  const [lastRemindedBy, setLastRemindedBy] = useState<Record<string, string>>({});
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkSentCount, setBulkSentCount] = useState<number | null>(null);
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
