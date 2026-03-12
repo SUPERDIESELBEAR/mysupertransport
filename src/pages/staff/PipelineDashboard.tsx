@@ -1109,7 +1109,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
                 return (
                   <div key={`${alert.operator_id}-${alert.doc_type}`}
-                    className="flex items-center gap-3 px-4 py-2.5 bg-background/60 hover:bg-background/80 transition-colors"
+                    className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${
+                      !renewedAt
+                        ? 'bg-destructive/[0.04] hover:bg-destructive/[0.07] border-l-2 border-l-destructive/40'
+                        : 'bg-background/60 hover:bg-background/80 border-l-2 border-l-transparent'
+                    }`}
                   >
                     {/* Urgency dot */}
                     <span className={`h-2 w-2 rounded-full shrink-0 ${
@@ -1118,7 +1122,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       'bg-yellow-500'
                     }`} />
 
-                    {/* Name + doc type */}
+                    {/* Name + doc type + never-renewed badge */}
                     <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                       <span className="font-medium text-sm text-foreground truncate">{alert.operator_name}</span>
                       <span className={`inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium border ${
@@ -1128,6 +1132,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       }`}>
                         {alert.doc_type}
                       </span>
+                      {!renewedAt && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-destructive/10 text-destructive border border-destructive/25 shrink-0">
+                          <span className="h-1.5 w-1.5 rounded-full bg-destructive inline-block" />
+                          Never Renewed
+                        </span>
+                      )}
                     </div>
 
                     {/* Expiry date */}
