@@ -246,7 +246,15 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       });
     });
 
-    alerts.sort((a, b) => a.days_until - b.days_until);
+    // Never-renewed rows float to the top; within each group sort by urgency (days_until ascending)
+    alerts.sort((a, b) => {
+      const aKey = `${a.operator_id}|${a.doc_type}`;
+      const bKey = `${b.operator_id}|${b.doc_type}`;
+      const aRenewed = !!renewedMap[aKey];
+      const bRenewed = !!renewedMap[bKey];
+      if (aRenewed !== bRenewed) return aRenewed ? 1 : -1;
+      return a.days_until - b.days_until;
+    });
     setComplianceAlerts(alerts);
   }, []);
 
