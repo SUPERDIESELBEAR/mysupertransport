@@ -112,6 +112,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     old_expiry?: string | null;
     new_expiry?: string | null;
     days_until?: number | null;
+    // Email delivery fields (reminder_sent only)
+    email_sent?: boolean | null;
+    email_error?: string | null;
   };
   const [certHistory, setCertHistory] = useState<CertHistoryEntry[]>([]);
   const [certHistoryLoading, setCertHistoryLoading] = useState(false);
