@@ -384,6 +384,8 @@ function buildDetailText(entry: AuditEntry): string {
       return `${entry.action === 'role_added' ? 'Granted' : 'Revoked'} ${formatRole(meta.role as string)} role`;
     case 'operator_status_updated':
       return (meta.milestones as string[])?.join(', ') ?? 'Status updated';
+    case 'cert_renewed':
+      return `${meta.document_type as string} renewed · was ${meta.old_expiry ? new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString() : 'unknown'} → ${new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString()}`;
     default:
       return '';
   }
@@ -398,6 +400,10 @@ const META_EXPORT_KEYS = [
   'target_user',
   'milestones',
   'changed_fields',
+  'document_type',
+  'old_expiry',
+  'new_expiry',
+  'operator_name',
 ] as const;
 
 function metaColValue(entry: AuditEntry, key: string): string {
