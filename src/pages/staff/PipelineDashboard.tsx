@@ -561,6 +561,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to send reminder');
+      if (data.email_error) throw new Error(data.email_error);
       // Optimistically update last-reminded timestamp and sender
       const now = new Date().toISOString();
       const senderName = profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || null : null;
@@ -613,6 +614,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error ?? 'Failed');
+          if (data.email_error) throw new Error(data.email_error);
           const now = new Date().toISOString();
           setLastReminded(prev => ({ ...prev, [key]: now }));
           setReminderSent(prev => ({ ...prev, [key]: true }));
@@ -683,6 +685,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error ?? 'Failed');
+          if (data.email_error) throw new Error(data.email_error);
           const now = new Date().toISOString();
           setLastReminded(prev => ({ ...prev, [key]: now }));
           if (senderName) setLastRemindedBy(prev => ({ ...prev, [key]: senderName }));
