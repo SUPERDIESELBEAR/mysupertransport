@@ -444,6 +444,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       entries.sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
       setCertHistory(entries);
 
+      // Extract most-recent renewal per doc type for the 'Renewed by' indicator
+      const renewedMap: Record<string, string> = {};
+      const renewedByMap: Record<string, string> = {};
+      entries.forEach(e => {
+        if (e.event_type === 'renewed' && !renewedMap[e.doc_type]) {
+          renewedMap[e.doc_type] = e.occurred_at;
+          if (e.actor_name) renewedByMap[e.doc_type] = e.actor_name;
+        }
+      });
+      setLastRenewed(renewedMap);
+      setLastRenewedBy(renewedByMap);
+
       // Auto-expand if any event occurred within the last 7 days
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       const hasRecentActivity = entries.some(e => new Date(e.occurred_at) >= sevenDaysAgo);
