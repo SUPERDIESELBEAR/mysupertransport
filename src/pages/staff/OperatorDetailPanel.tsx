@@ -284,8 +284,35 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
 
 
+  const handleMarkRenewed = async (field: 'cdl' | 'medcert') => {
+    if (!applicationData?.id && !operatorId) return;
+    setRenewingField(field);
+    const col = field === 'cdl' ? 'cdl_expiration' : 'medical_cert_expiration';
+    const newDate = new Date();
+    newDate.setFullYear(newDate.getFullYear() + 1);
+    const newDateStr = newDate.toISOString().split('T')[0];
+
+    // We need the application id — fetch it from the operator if not already in applicationData
+    let appId: string | null = applicationData?.id ?? null;
+    if (!appId) {
+      const { data: op } = await supabase.from('operators').select('application_id').eq('id', operatorId).single();
+      appId = (op as any)?.application_id ?? null;
+    }
+    if (!appId) { setRenewingField(null); return; }
+
+    const { error } = await supabase.from('applications').update({ [col]: newDateStr }).eq('id', appId);
+    if (error) {
+      toast({ title: 'Update failed', description: error.message, variant: 'destructive' });
+    } else {
+      if (field === 'cdl') setCdlExpiration(newDateStr);
+      else setMedCertExpiration(newDateStr);
+      const label = field === 'cdl' ? 'CDL' : 'Med Cert';
+      toast({ title: `${label} marked as renewed`, description: `New expiry set to ${new Date(newDateStr + 'T00:00:00').toLocaleDateString()}.` });
+    }
+    setRenewingField(null);
+  };
+
   const fetchOperatorDetail = async () => {
-    setLoading(true);
 
     // Fetch operator core data and doc files in parallel
     const [{ data: op }, { data: opDocs }] = await Promise.all([
