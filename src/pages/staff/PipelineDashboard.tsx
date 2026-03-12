@@ -246,12 +246,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       });
     });
 
-    // Never-renewed rows float to the top; within each group sort by urgency (days_until ascending)
+    // Sort: urgency tier first (expired → critical ≤30d → warning 31-90d),
+    // then never-renewed floats to top within each tier, then by days_until ascending
+    const urgencyTier = (days: number) => days < 0 ? 0 : days <= 30 ? 1 : 2;
     alerts.sort((a, b) => {
-      const aKey = `${a.operator_id}|${a.doc_type}`;
-      const bKey = `${b.operator_id}|${b.doc_type}`;
-      const aRenewed = !!renewedMap[aKey];
-      const bRenewed = !!renewedMap[bKey];
+      const tierDiff = urgencyTier(a.days_until) - urgencyTier(b.days_until);
+      if (tierDiff !== 0) return tierDiff;
+      const aRenewed = !!renewedMap[`${a.operator_id}|${a.doc_type}`];
+      const bRenewed = !!renewedMap[`${b.operator_id}|${b.doc_type}`];
       if (aRenewed !== bRenewed) return aRenewed ? 1 : -1;
       return a.days_until - b.days_until;
     });
