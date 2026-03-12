@@ -656,7 +656,14 @@ export default function ManagementPortal() {
                     const barWidth = Math.min(100, Math.round((count / 10) * 100));
                     const barColor = count >= 7 ? 'bg-destructive' : count >= 4 ? 'bg-gold' : 'bg-status-complete';
                     return (
-                      <div key={member.user_id} className="flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-secondary/30 transition-colors">
+                      <div
+                        key={member.user_id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); } }}
+                        className="flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-secondary/50 transition-colors cursor-pointer group"
+                      >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2 mb-1.5">
                             <p className="font-medium text-foreground text-sm truncate">{member.full_name}</p>
