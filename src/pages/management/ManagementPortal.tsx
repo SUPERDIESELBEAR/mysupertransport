@@ -682,7 +682,7 @@ export default function ManagementPortal() {
                       </div>
                     );
                   })}
-                  {unassignedCount > 0 && (
+                  {unassignedCount > 0 ? (
                     <div
                       className="flex items-center justify-between px-4 sm:px-5 py-3 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors group"
                       role="button"
@@ -695,6 +695,11 @@ export default function ManagementPortal() {
                         <span className="text-sm font-semibold text-muted-foreground tabular-nums">{unassignedCount}</span>
                         <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
                       </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-green-500/10 border-t border-green-500/20">
+                      <p className="text-sm text-green-600 dark:text-green-400 font-medium">All operators assigned ✓</p>
+                      <span className="text-xs text-green-500/70 dark:text-green-400/60">0 unassigned</span>
                     </div>
                   )}
                 </div>
