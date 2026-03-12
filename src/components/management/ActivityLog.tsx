@@ -129,6 +129,7 @@ const FILTER_OPTIONS = [
   { value: 'ica_issued', label: 'ICA Issued' },
   { value: 'ica_signed', label: 'ICA Signed' },
   { value: 'onboarding_completed', label: 'Onboarding Completed' },
+  { value: 'cert_renewed', label: 'Cert Renewals' },
 ];
 
 const DATE_PRESETS = [
