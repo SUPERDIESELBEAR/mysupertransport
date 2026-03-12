@@ -64,6 +64,7 @@ interface ComplianceAlert {
 
 interface PipelineDashboardProps {
   onOpenOperator: (operatorId: string) => void;
+  onOpenOperatorWithFocus?: (operatorId: string, focusField: 'cdl' | 'medcert') => void;
   initialDispatchFilter?: DispatchStatus | 'all';
   complianceRefreshKey?: number;
 }
@@ -97,7 +98,7 @@ const STAGES = [
   'Stage 6 — Insurance',
 ];
 
-export default function PipelineDashboard({ onOpenOperator, initialDispatchFilter, complianceRefreshKey }: PipelineDashboardProps) {
+export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, initialDispatchFilter, complianceRefreshKey }: PipelineDashboardProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
@@ -810,7 +811,14 @@ export default function PipelineDashboard({ onOpenOperator, initialDispatchFilte
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onOpenOperator(alert.operator_id)}
+                      onClick={() => {
+                        const focusField = alert.doc_type === 'CDL' ? 'cdl' : 'medcert';
+                        if (onOpenOperatorWithFocus) {
+                          onOpenOperatorWithFocus(alert.operator_id, focusField);
+                        } else {
+                          onOpenOperator(alert.operator_id);
+                        }
+                      }}
                       className="text-xs text-gold hover:text-gold-light hover:bg-gold/10 shrink-0 h-7 px-2"
                     >
                       Open →

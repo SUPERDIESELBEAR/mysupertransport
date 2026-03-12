@@ -285,6 +285,20 @@ export default function StaffPortal() {
       {currentView === 'pipeline' && (
         <PipelineDashboard
           onOpenOperator={op => { setPipelineDispatchFilter('all'); handleOpenOperator(op); }}
+          onOpenOperatorWithFocus={async (operatorId, focusField) => {
+            setPipelineDispatchFilter('all');
+            handleOpenOperator(operatorId);
+            // Fetch the application and open the review drawer focused on the expiry field
+            const { data: op } = await supabase
+              .from('operators')
+              .select('application_id, applications(*)')
+              .eq('id', operatorId)
+              .single();
+            if (op?.applications) {
+              setReviewApp(op.applications as FullApplication);
+              setReviewFocusField(focusField);
+            }
+          }}
           initialDispatchFilter={pipelineDispatchFilter}
         />
       )}
