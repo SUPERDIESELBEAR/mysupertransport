@@ -209,15 +209,18 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     // Keep only the most recent reminder per operator+doc_type pair
     const remindedMap: Record<string, string> = {};
     const remindedByMap: Record<string, string> = {};
+    const reminderOutcomeMap: Record<string, { sent: boolean; error?: string }> = {};
     (reminders ?? []).forEach((r: any) => {
       const key = `${r.operator_id}|${r.doc_type}`;
       if (!remindedMap[key]) {
         remindedMap[key] = r.sent_at; // first = most recent due to DESC order
         if (r.sent_by_name) remindedByMap[key] = r.sent_by_name;
+        reminderOutcomeMap[key] = { sent: r.email_sent ?? true, error: r.email_error ?? undefined };
       }
     });
     setLastReminded(remindedMap);
     setLastRemindedBy(remindedByMap);
+    setLastReminderOutcome(reminderOutcomeMap);
 
     // Keep only the most recent renewal per operator+doc_type pair
     const renewedMap: Record<string, string> = {};
