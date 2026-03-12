@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const appUrl = 'https://id-preview--ab645bc4-83af-495c-aca5-d40c7ca0fb70.lovable.app';
+    const appUrl = (Deno.env.get('APP_URL') ?? 'https://mysupertransport.com').replace(/\/$/, '');
     const expired = days_until < 0;
     const isCritical = !expired && days_until <= 30;
 
