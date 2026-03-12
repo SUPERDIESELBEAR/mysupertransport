@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
   Milestone, RefreshCcw, Activity, ChevronDown, ChevronRight, Download, CalendarIcon, X,
-  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus, UserCheck, FilePen
+  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus, UserCheck, FilePen, RotateCcw
 } from 'lucide-react';
 
 interface AuditEntry {
@@ -107,6 +107,12 @@ const ACTION_CONFIG: Record<string, {
     color: 'text-emerald-700',
     bg: 'bg-emerald-100 border-emerald-300',
   },
+  cert_renewed: {
+    label: 'Certificate Renewed',
+    icon: <RotateCcw className="h-4 w-4" />,
+    color: 'text-status-complete',
+    bg: 'bg-status-complete/10 border-status-complete/20',
+  },
 };
 
 const FILTER_OPTIONS = [
@@ -123,6 +129,7 @@ const FILTER_OPTIONS = [
   { value: 'ica_issued', label: 'ICA Issued' },
   { value: 'ica_signed', label: 'ICA Signed' },
   { value: 'onboarding_completed', label: 'Onboarding Completed' },
+  { value: 'cert_renewed', label: 'Cert Renewals' },
 ];
 
 const DATE_PRESETS = [
@@ -184,6 +191,15 @@ function EntryDetail({ entry }: { entry: AuditEntry }) {
       return (
         <span className="text-xs text-muted-foreground">
           {(meta.milestones as string[])?.join(', ') ?? 'Status updated'}
+        </span>
+      );
+    case 'cert_renewed':
+      return (
+        <span className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">{meta.document_type as string}</span>
+          {' '}renewed for{' '}
+          <span className="font-medium text-foreground">{meta.operator_name as string}</span>
+          {meta.old_expiry ? ` · was ${new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString()}` : ''}
         </span>
       );
     default:
@@ -293,10 +309,16 @@ function EntryExpandedPanel({
       }
       break;
     }
+    case 'cert_renewed':
+      if (meta.operator_name) structuredRows.push({ icon: <User className="h-3.5 w-3.5" />, label: 'Operator', value: meta.operator_name as string });
+      if (meta.document_type) structuredRows.push({ icon: <RotateCcw className="h-3.5 w-3.5" />, label: 'Document', value: meta.document_type as string });
+      if (meta.old_expiry) structuredRows.push({ icon: <Clock className="h-3.5 w-3.5" />, label: 'Previous Expiry', value: new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString() });
+      if (meta.new_expiry) structuredRows.push({ icon: <CheckCircle2 className="h-3.5 w-3.5" />, label: 'New Expiry', value: new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString() });
+      break;
   }
 
   // Remaining raw metadata keys not already shown
-  const shownKeys = new Set(['applicant_name', 'applicant_email', 'reviewer_notes', 'role', 'target_user', 'milestones', 'changed_fields']);
+  const shownKeys = new Set(['applicant_name', 'applicant_email', 'reviewer_notes', 'role', 'target_user', 'milestones', 'changed_fields', 'operator_name', 'document_type', 'old_expiry', 'new_expiry']);
   const rawExtras = Object.entries(meta).filter(([k]) => !shownKeys.has(k));
 
   return (
@@ -362,6 +384,8 @@ function buildDetailText(entry: AuditEntry): string {
       return `${entry.action === 'role_added' ? 'Granted' : 'Revoked'} ${formatRole(meta.role as string)} role`;
     case 'operator_status_updated':
       return (meta.milestones as string[])?.join(', ') ?? 'Status updated';
+    case 'cert_renewed':
+      return `${meta.document_type as string} renewed · was ${meta.old_expiry ? new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString() : 'unknown'} → ${new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString()}`;
     default:
       return '';
   }
@@ -376,6 +400,10 @@ const META_EXPORT_KEYS = [
   'target_user',
   'milestones',
   'changed_fields',
+  'document_type',
+  'old_expiry',
+  'new_expiry',
+  'operator_name',
 ] as const;
 
 function metaColValue(entry: AuditEntry, key: string): string {
