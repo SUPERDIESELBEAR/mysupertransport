@@ -685,6 +685,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error ?? 'Failed');
+          if (data.email_error) throw new Error(data.email_error);
           const now = new Date().toISOString();
           setLastReminded(prev => ({ ...prev, [key]: now }));
           if (senderName) setLastRemindedBy(prev => ({ ...prev, [key]: senderName }));
