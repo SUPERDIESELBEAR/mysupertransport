@@ -35,6 +35,7 @@ export default function StaffPortal() {
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const [reviewApp, setReviewApp] = useState<FullApplication | null>(null);
   const [reviewFocusField, setReviewFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
+  const [panelExpiryOverride, setPanelExpiryOverride] = useState<{ cdl: string | null; medcert: string | null } | undefined>(undefined);
   const viewRef = useRef(currentView);
 
   // Deep-link: ?tab=notifications or ?operator=...
