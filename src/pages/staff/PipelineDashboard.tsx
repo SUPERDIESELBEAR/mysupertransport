@@ -1030,6 +1030,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[60px] text-right">Status</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[72px] text-right">Last Reminded</span>
                 <span className="shrink-0 w-[74px]" />
+                <span className="shrink-0 w-[68px]" />
                 <span className="shrink-0 w-[58px]" />
               </div>
                 {complianceAlerts.map((alert, i) => {
