@@ -159,22 +159,33 @@ export default function ManagementPortal() {
   const fetchCriticalExpiries = useCallback(async () => {
     const { data } = await supabase
       .from('operators')
-      .select('applications(cdl_expiration, medical_cert_expiration)')
+      .select('id, applications(first_name, last_name, cdl_expiration, medical_cert_expiration)')
       .not('application_id', 'is', null);
     if (!data) return;
     const today = startOfDay(new Date());
     let count = 0;
+    const rows: ComplianceRow[] = [];
     (data as any[]).forEach((op: any) => {
       const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
       if (!app) return;
-      ['cdl_expiration', 'medical_cert_expiration'].forEach((field: string) => {
+      const name = [app.first_name, app.last_name].filter(Boolean).join(' ') || 'Unknown';
+      const docs: { field: string; label: 'CDL' | 'Med Cert' }[] = [
+        { field: 'cdl_expiration', label: 'CDL' },
+        { field: 'medical_cert_expiration', label: 'Med Cert' },
+      ];
+      docs.forEach(({ field, label }) => {
         const dateStr: string | null = app[field];
         if (!dateStr) return;
         const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
         if (days <= 30) count++;
+        if (days <= 90) {
+          rows.push({ operatorId: op.id, name, daysUntil: days, docType: label, expiryDate: dateStr });
+        }
       });
     });
+    rows.sort((a, b) => a.daysUntil - b.daysUntil);
     setCriticalExpiryCount(count);
+    setComplianceSummary(rows.slice(0, 5));
   }, []);
 
   // Subscribe to realtime changes on active_dispatch to keep the banner + overview live
