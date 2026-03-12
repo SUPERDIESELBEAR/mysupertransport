@@ -623,6 +623,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           if (data.email_error) throw new Error(data.email_error);
           const now = new Date().toISOString();
           setLastReminded(prev => ({ ...prev, [key]: now }));
+          setLastReminderOutcome(prev => ({ ...prev, [key]: { sent: true } }));
           setReminderSent(prev => ({ ...prev, [key]: true }));
           setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
           successCount++;
