@@ -103,6 +103,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
+  const [complianceSort, setComplianceSort] = useState<'urgency' | 'last_action_asc' | 'last_action_desc'>('urgency');
   const [complianceExpanded, setComplianceExpanded] = useState(true);
   const [complianceDocFilter, setComplianceDocFilter] = useState<'all' | 'CDL' | 'Medical Cert'>('all');
   const [operators, setOperators] = useState<OperatorRow[]>([]);
@@ -1132,14 +1133,41 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[80px]">Expires</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[60px] text-right">Status</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden md:block shrink-0 w-[90px] text-right">Last Action</span>
+                <button
+                  onClick={() => setComplianceSort(s =>
+                    s === 'urgency' ? 'last_action_desc' : s === 'last_action_desc' ? 'last_action_asc' : 'urgency'
+                  )}
+                  className="hidden md:inline-flex items-center gap-1 w-[90px] justify-end text-[10px] font-semibold uppercase tracking-wide transition-colors hover:text-foreground group shrink-0"
+                  style={{ color: complianceSort !== 'urgency' ? 'hsl(var(--foreground))' : undefined }}
+                >
+                  <span className={complianceSort !== 'urgency' ? 'text-foreground' : 'text-muted-foreground/60'}>Last Action</span>
+                  {complianceSort === 'urgency'
+                    ? <ArrowUpDown className="h-3 w-3 text-muted-foreground/40 group-hover:text-muted-foreground/70" />
+                    : complianceSort === 'last_action_desc'
+                    ? <ArrowDown className="h-3 w-3 text-gold" />
+                    : <ArrowUp className="h-3 w-3 text-gold" />}
+                </button>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden xl:block shrink-0 w-[72px] text-right">Last Reminded</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden xl:block shrink-0 w-[72px] text-right">Last Renewed</span>
                 <span className="shrink-0 w-[74px]" />
                 <span className="shrink-0 w-[68px]" />
                 <span className="shrink-0 w-[58px]" />
               </div>
-                {complianceAlerts.filter(a => complianceDocFilter === 'all' || a.doc_type === complianceDocFilter).map((alert, i) => {
+                {(() => {
+                  const base = complianceAlerts.filter(a => complianceDocFilter === 'all' || a.doc_type === complianceDocFilter);
+                  if (complianceSort === 'urgency') return base;
+                  return [...base].sort((a, b) => {
+                    const aTs = Math.max(
+                      lastReminded[`${a.operator_id}|${a.doc_type}`] ? new Date(lastReminded[`${a.operator_id}|${a.doc_type}`]).getTime() : 0,
+                      lastRenewed[`${a.operator_id}|${a.doc_type}`] ? new Date(lastRenewed[`${a.operator_id}|${a.doc_type}`]).getTime() : 0,
+                    );
+                    const bTs = Math.max(
+                      lastReminded[`${b.operator_id}|${b.doc_type}`] ? new Date(lastReminded[`${b.operator_id}|${b.doc_type}`]).getTime() : 0,
+                      lastRenewed[`${b.operator_id}|${b.doc_type}`] ? new Date(lastRenewed[`${b.operator_id}|${b.doc_type}`]).getTime() : 0,
+                    );
+                    return complianceSort === 'last_action_desc' ? bTs - aTs : aTs - bTs;
+                  });
+                })().map((alert, i) => {
                 const expired = alert.days_until < 0;
                 const critical = !expired && alert.days_until <= 30;
                 const warning = !expired && !critical;
