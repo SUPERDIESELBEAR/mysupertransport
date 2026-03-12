@@ -121,6 +121,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [reminderSending, setReminderSending] = useState<Record<string, boolean>>({});
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
   const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
+  // Last renewal per doc type: key = 'CDL' | 'Medical Cert' → ISO timestamp
+  const [lastRenewed, setLastRenewed] = useState<Record<string, string>>({});
+  // Last renewed by name per doc type
+  const [lastRenewedBy, setLastRenewedBy] = useState<Record<string, string>>({});
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
@@ -357,6 +361,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         },
       });
       if (auditErr) console.error('[audit] cert_renewed:', auditErr);
+      // Optimistically update 'Renewed by' indicator
+      const docTypeKey = label === 'CDL' ? 'CDL' : 'Medical Cert';
+      const renewedNow = new Date().toISOString();
+      setLastRenewed(prev => ({ ...prev, [docTypeKey]: renewedNow }));
+      if (actorName) setLastRenewedBy(prev => ({ ...prev, [docTypeKey]: actorName }));
       // Refresh history timeline AFTER audit log write completes
       fetchCertHistory();
     }
@@ -439,6 +448,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       // Sort combined list newest-first
       entries.sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
       setCertHistory(entries);
+
+      // Extract most-recent renewal per doc type for the 'Renewed by' indicator
+      const renewedMap: Record<string, string> = {};
+      const renewedByMap: Record<string, string> = {};
+      entries.forEach(e => {
+        if (e.event_type === 'renewed' && !renewedMap[e.doc_type]) {
+          renewedMap[e.doc_type] = e.occurred_at;
+          if (e.actor_name) renewedByMap[e.doc_type] = e.actor_name;
+        }
+      });
+      setLastRenewed(renewedMap);
+      setLastRenewedBy(renewedByMap);
 
       // Auto-expand if any event occurred within the last 7 days
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -1109,6 +1130,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const isSending = !!reminderSending[docType];
           const isSent = !!reminderSent[docType];
           const lastReminderAt = lastReminded[docType];
+          const renewedAt = lastRenewed[docType];
+          const renewedByName = lastRenewedBy[docType];
           const pill = (
             <span
               onClick={isClickable ? () => onOpenAppReview(focusField) : undefined}
@@ -1180,6 +1203,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         : lastReminderAt
                         ? `Send renewal reminder email · Last sent ${format(new Date(lastReminderAt), 'MMM d')}`
                         : 'Send renewal reminder email to operator'}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {/* Renewed by indicator */}
+              {renewedAt && (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border bg-status-complete/10 text-status-complete border-status-complete/25 cursor-default shrink-0">
+                        <RotateCcw className="h-2.5 w-2.5" />
+                        {format(new Date(renewedAt), 'MMM d')}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs space-y-0.5">
+                      <p className="font-semibold">Last renewed</p>
+                      <p>{format(new Date(renewedAt), 'MMM d, yyyy · h:mm a')}</p>
+                      {renewedByName && <p className="text-muted-foreground">by {renewedByName}</p>}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
