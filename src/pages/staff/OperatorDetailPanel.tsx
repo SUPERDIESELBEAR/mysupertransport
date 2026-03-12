@@ -1130,6 +1130,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const isSending = !!reminderSending[docType];
           const isSent = !!reminderSent[docType];
           const lastReminderAt = lastReminded[docType];
+          const renewedAt = lastRenewed[docType];
+          const renewedByName = lastRenewedBy[docType];
           const pill = (
             <span
               onClick={isClickable ? () => onOpenAppReview(focusField) : undefined}
@@ -1201,6 +1203,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         : lastReminderAt
                         ? `Send renewal reminder email · Last sent ${format(new Date(lastReminderAt), 'MMM d')}`
                         : 'Send renewal reminder email to operator'}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {/* Renewed by indicator */}
+              {renewedAt && (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border bg-status-complete/10 text-status-complete border-status-complete/25 cursor-default shrink-0">
+                        <RotateCcw className="h-2.5 w-2.5" />
+                        {format(new Date(renewedAt), 'MMM d')}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs space-y-0.5">
+                      <p className="font-semibold">Last renewed</p>
+                      <p>{format(new Date(renewedAt), 'MMM d, yyyy · h:mm a')}</p>
+                      {renewedByName && <p className="text-muted-foreground">by {renewedByName}</p>}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
