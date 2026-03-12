@@ -194,7 +194,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         .not('application_id', 'is', null),
       supabase
         .from('cert_reminders')
-        .select('operator_id, doc_type, sent_at, sent_by_name')
+        .select('operator_id, doc_type, sent_at, sent_by_name, email_sent, email_error')
         .order('sent_at', { ascending: false }),
       supabase
         .from('audit_log' as any)
