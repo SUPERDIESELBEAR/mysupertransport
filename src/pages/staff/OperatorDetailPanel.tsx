@@ -401,15 +401,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setLastReminded(prev => ({ ...prev, [key]: new Date().toISOString() }));
       setReminderSent(prev => ({ ...prev, [key]: true }));
       if (data.email_error) {
-        // Email failed but record was saved — show error toast and refresh history
         const { title, description } = reminderErrorToast(new Error(data.email_error));
         toast({ title, description, variant: 'destructive' });
       } else {
         toast({ title: 'Reminder sent', description: `Email sent to ${operatorName}` });
       }
       setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
-      // Refresh history timeline so the new reminder (with correct delivery status) appears
-      fetchCertHistory();
+      // Brief delay so DB insert is visible before fetching history
+      setTimeout(() => fetchCertHistory(), 600);
     } catch (err: any) {
       const { title, description } = reminderErrorToast(err);
       toast({ title, description, variant: 'destructive' });
@@ -421,84 +420,70 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const fetchCertHistory = async () => {
     setCertHistoryLoading(true);
     try {
-      // Fetch audit log entries AND cert_reminders in parallel
-      const [auditRes, remindersRes] = await Promise.all([
-        supabase
-          .from('audit_log')
-          .select('id, action, actor_name, created_at, metadata')
-          .eq('entity_id', operatorId)
-          .in('action', ['cert_renewed', 'cert_reminder_sent'])
-          .order('created_at', { ascending: false })
-          .limit(100) as unknown as Promise<{ data: any[] | null }>,
+      // Fetch cert_reminders (authoritative send log) and audit_log (renewals + days_until context) in parallel
+      const [remindersRes, auditRes] = await Promise.all([
         supabase
           .from('cert_reminders')
           .select('id, doc_type, sent_at, sent_by_name, email_sent, email_error')
           .eq('operator_id', operatorId)
           .order('sent_at', { ascending: false })
           .limit(200),
+        supabase
+          .from('audit_log')
+          .select('id, action, actor_name, created_at, metadata')
+          .eq('entity_id', operatorId)
+          .in('action', ['cert_renewed', 'cert_reminder_sent'])
+          .order('created_at', { ascending: false })
+          .limit(200) as unknown as Promise<{ data: any[] | null }>,
       ]);
 
-      // Build a lookup: reminder record keyed by ISO sent_at (rounded to minute) + doc_type
-      // so we can match audit log entries to their delivery outcome
-      const remindersByKey: Record<string, { email_sent: boolean; email_error: string | null }> = {};
-      ((remindersRes as any).data ?? []).forEach((r: any) => {
-        // Key by doc_type + minute-truncated timestamp for fuzzy matching
-        const minuteKey = `${r.doc_type}|${r.sent_at?.slice(0, 16)}`;
-        if (!remindersByKey[minuteKey]) {
-          remindersByKey[minuteKey] = { email_sent: r.email_sent ?? true, email_error: r.email_error ?? null };
-        }
+      // Build audit-log lookup for days_until context: keyed by doc_type + ISO-minute
+      // The audit log cert_reminder_sent row is written ~0-2 seconds after the cert_reminders row
+      const auditDaysLookup: Record<string, number | null> = {};
+      (auditRes.data ?? []).forEach((row: any) => {
+        if (row.action !== 'cert_reminder_sent') return;
+        const meta = row.metadata ?? {};
+        const docType = meta.document_type ?? meta.doc_type ?? 'CDL';
+        // Use a 2-minute window: store minute key AND minute+1 key so nearby timestamps match
+        const ts = new Date(row.created_at);
+        [0, -1, 1].forEach(offsetMin => {
+          const shifted = new Date(ts.getTime() + offsetMin * 60_000);
+          const key = `${docType}|${shifted.toISOString().slice(0, 16)}`;
+          if (!(key in auditDaysLookup)) auditDaysLookup[key] = meta.days_until ?? null;
+        });
       });
 
       const entries: CertHistoryEntry[] = [];
 
-      (auditRes.data ?? []).forEach((row: any) => {
-        const meta = row.metadata ?? {};
-        if (row.action === 'cert_renewed') {
-          entries.push({
-            id: row.id,
-            event_type: 'renewed',
-            doc_type: meta.document_type ?? meta.doc_type ?? 'CDL',
-            actor_name: row.actor_name,
-            occurred_at: row.created_at,
-            old_expiry: meta.old_expiry ?? null,
-            new_expiry: meta.new_expiry ?? null,
-          });
-        } else if (row.action === 'cert_reminder_sent') {
-          const docType = meta.document_type ?? meta.doc_type ?? 'CDL';
-          const minuteKey = `${docType}|${row.created_at?.slice(0, 16)}`;
-          const outcome = remindersByKey[minuteKey];
-          entries.push({
-            id: row.id,
-            event_type: 'reminder_sent',
-            doc_type: docType,
-            actor_name: row.actor_name,
-            occurred_at: row.created_at,
-            days_until: meta.days_until ?? null,
-            email_sent: outcome?.email_sent ?? null,
-            email_error: outcome?.email_error ?? null,
-          });
-        }
-      });
-
-      // Also surface cert_reminders that have NO matching audit log entry
-      // (records written by the edge function before audit log was added, or failed attempts)
+      // 1. All reminder send attempts — from cert_reminders (authoritative)
       ((remindersRes as any).data ?? []).forEach((r: any) => {
         const minuteKey = `${r.doc_type}|${r.sent_at?.slice(0, 16)}`;
-        const alreadyRepresented = entries.some(
-          e => e.event_type === 'reminder_sent' && `${e.doc_type}|${e.occurred_at?.slice(0, 16)}` === minuteKey
-        );
-        if (!alreadyRepresented) {
-          entries.push({
-            id: `cr-${r.id}`,
-            event_type: 'reminder_sent',
-            doc_type: r.doc_type,
-            actor_name: r.sent_by_name ?? null,
-            occurred_at: r.sent_at,
-            days_until: null,
-            email_sent: r.email_sent ?? true,
-            email_error: r.email_error ?? null,
-          });
-        }
+        const daysUntil = auditDaysLookup[minuteKey] ?? null;
+        entries.push({
+          id: `cr-${r.id}`,
+          event_type: 'reminder_sent',
+          doc_type: r.doc_type,
+          actor_name: r.sent_by_name ?? null,
+          occurred_at: r.sent_at,
+          days_until: daysUntil,
+          email_sent: r.email_sent ?? true,
+          email_error: r.email_error ?? null,
+        });
+      });
+
+      // 2. Renewal events — from audit_log only
+      (auditRes.data ?? []).forEach((row: any) => {
+        if (row.action !== 'cert_renewed') return;
+        const meta = row.metadata ?? {};
+        entries.push({
+          id: row.id,
+          event_type: 'renewed',
+          doc_type: meta.document_type ?? meta.doc_type ?? 'CDL',
+          actor_name: row.actor_name,
+          occurred_at: row.created_at,
+          old_expiry: meta.old_expiry ?? null,
+          new_expiry: meta.new_expiry ?? null,
+        });
       });
 
       // Sort combined list newest-first
