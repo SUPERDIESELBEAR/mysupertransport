@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
@@ -116,6 +117,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkSentCount, setBulkSentCount] = useState<number | null>(null);
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false);
 
 
   // Filter state
@@ -770,7 +772,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={(e) => { e.stopPropagation(); handleSendAllCritical(); }}
+                        onClick={(e) => { e.stopPropagation(); setShowBulkConfirm(true); }}
                         disabled={bulkSending}
                         className={`shrink-0 h-7 px-3 text-xs gap-1.5 font-semibold transition-all ${
                           allSent
@@ -1560,6 +1562,59 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           </table>
         </div>
       </div>
+
+      {/* Bulk Send All Reminders — confirmation dialog */}
+      {(() => {
+        const criticalAlerts = complianceAlerts.filter(a => a.days_until <= 30);
+        return (
+          <AlertDialog open={showBulkConfirm} onOpenChange={setShowBulkConfirm}>
+            <AlertDialogContent className="max-w-md">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <Send className="h-4 w-4 text-destructive" />
+                  Send All Reminders
+                </AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      The following {criticalAlerts.length} operator{criticalAlerts.length !== 1 ? 's' : ''} will receive a CDL/Med Cert expiry reminder email:
+                    </p>
+                    <ul className="divide-y divide-border rounded-md border border-border overflow-hidden text-sm">
+                      {criticalAlerts.map(alert => (
+                        <li key={`${alert.operator_id}|${alert.doc_type}`} className="flex items-center justify-between px-3 py-2 bg-background">
+                          <span className="font-medium text-foreground">{alert.operator_name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">{alert.doc_type}</span>
+                            <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                              alert.days_until < 0
+                                ? 'bg-destructive/15 text-destructive'
+                                : alert.days_until <= 30
+                                ? 'bg-destructive/10 text-destructive'
+                                : 'bg-gold/10 text-gold'
+                            }`}>
+                              {alert.days_until < 0 ? `${Math.abs(alert.days_until)}d expired` : `${alert.days_until}d left`}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => { setShowBulkConfirm(false); handleSendAllCritical(); }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  <Send className="h-3.5 w-3.5 mr-1.5" />
+                  Send {criticalAlerts.length} Reminder{criticalAlerts.length !== 1 ? 's' : ''}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        );
+      })()}
     </div>
   );
 }
