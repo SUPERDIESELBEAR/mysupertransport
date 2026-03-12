@@ -1133,8 +1133,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[80px]">Expires</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[60px] text-right">Status</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden md:block shrink-0 w-[90px] text-right">Last Action</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[72px] text-right">Last Reminded</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[72px] text-right">Last Renewed</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden xl:block shrink-0 w-[72px] text-right">Last Reminded</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden xl:block shrink-0 w-[72px] text-right">Last Renewed</span>
                 <span className="shrink-0 w-[74px]" />
                 <span className="shrink-0 w-[68px]" />
                 <span className="shrink-0 w-[58px]" />
@@ -1273,7 +1273,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         <TooltipProvider delayDuration={100}>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className={`hidden sm:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[72px] justify-end rounded px-1 py-0.5 transition-colors ${
+                              <span className={`hidden xl:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[72px] justify-end rounded px-1 py-0.5 transition-colors ${
                                 remindedAt ? `${pillClass}` : 'text-muted-foreground/40'
                               }`}>
                                 {remindedAt ? (
@@ -1309,7 +1309,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         <TooltipProvider delayDuration={100}>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span className={`hidden sm:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[72px] justify-end rounded px-1 py-0.5 transition-colors ${
+                              <span className={`hidden xl:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[72px] justify-end rounded px-1 py-0.5 transition-colors ${
                                 renewedAt ? pillClass : 'text-muted-foreground/40'
                               }`}>
                                 {renewedAt ? (
