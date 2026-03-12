@@ -346,6 +346,39 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     setRenewingField(null);
   };
 
+  const handleSendReminder = async (docType: 'CDL' | 'Medical Cert', dateStr: string) => {
+    const key = docType;
+    setReminderSending(prev => ({ ...prev, [key]: true }));
+    try {
+      const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const res = await fetch(`${supabaseUrl}/functions/v1/send-cert-reminder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token ?? ''}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          operator_id: operatorId,
+          doc_type: docType,
+          days_until: days,
+          expiration_date: dateStr,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to send reminder');
+      setLastReminded(prev => ({ ...prev, [key]: new Date().toISOString() }));
+      setReminderSent(prev => ({ ...prev, [key]: true }));
+      toast({ title: 'Reminder sent', description: `Email sent to ${operatorName}` });
+      setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
+    } catch (err: any) {
+      toast({ title: 'Failed to send reminder', description: err.message, variant: 'destructive' });
+    } finally {
+      setReminderSending(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
   const fetchOperatorDetail = async () => {
 
     // Fetch operator core data and doc files in parallel
