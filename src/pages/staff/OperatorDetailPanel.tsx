@@ -162,6 +162,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     fetchDispatchHistory();
   }, [operatorId]);
 
+  // When parent pushes refreshed expiry values (e.g. after drawer save), update local state instantly
+  useEffect(() => {
+    if (!expiryOverride) return;
+    setCdlExpiration(expiryOverride.cdl);
+    setMedCertExpiration(expiryOverride.medcert);
+  }, [expiryOverride]);
+
   // Realtime: prepend new dispatch history entries as they arrive
   useEffect(() => {
     const channel = supabase
