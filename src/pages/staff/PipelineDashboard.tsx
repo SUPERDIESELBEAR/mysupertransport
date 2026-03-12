@@ -265,6 +265,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setComplianceAlerts(alerts);
     setComplianceNoActionOnly(false);
     setComplianceSort('urgency');
+    setNoActionBulkSentCount(null);
   }, []);
 
   useEffect(() => {
