@@ -875,30 +875,50 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         : `${alert.days_until}d left`}
                     </span>
 
-                    {/* Last reminded column — always rendered for consistent alignment */}
-                    <TooltipProvider delayDuration={100}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className={`hidden sm:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[72px] justify-end ${
-                            remindedAt ? 'text-muted-foreground' : 'text-muted-foreground/40'
-                          }`}>
-                            {remindedAt ? (
-                              <>
-                                <CheckCheck className="h-3 w-3 text-status-complete shrink-0" />
-                                {format(new Date(remindedAt), 'MMM d')}
-                              </>
-                            ) : (
-                              <span className="text-muted-foreground/40">—</span>
-                            )}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">
-                          {remindedAt
-                            ? `Last reminder sent ${format(new Date(remindedAt), 'MMM d, yyyy \'at\' h:mm a')}`
-                            : 'No reminder sent yet'}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    {/* Last reminded column — freshness-aware colour */}
+                    {(() => {
+                      let freshness: 'recent' | 'stale' | 'none' = 'none';
+                      if (remindedAt) {
+                        const daysSince = differenceInDays(new Date(), new Date(remindedAt));
+                        freshness = daysSince <= 7 ? 'recent' : daysSince >= 30 ? 'stale' : 'none';
+                      }
+                      const pillClass = freshness === 'recent'
+                        ? 'bg-status-complete/10 text-status-complete border border-status-complete/25'
+                        : freshness === 'stale'
+                        ? 'bg-warning/10 text-warning border border-warning/25'
+                        : '';
+                      const iconClass = freshness === 'recent'
+                        ? 'text-status-complete'
+                        : freshness === 'stale'
+                        ? 'text-warning'
+                        : 'text-muted-foreground';
+                      const freshnessLabel = freshness === 'recent' ? 'Fresh' : freshness === 'stale' ? 'Stale' : '';
+                      return (
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className={`hidden sm:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[72px] justify-end rounded px-1 py-0.5 transition-colors ${
+                                remindedAt ? `${pillClass}` : 'text-muted-foreground/40'
+                              }`}>
+                                {remindedAt ? (
+                                  <>
+                                    <CheckCheck className={`h-3 w-3 shrink-0 ${iconClass}`} />
+                                    {format(new Date(remindedAt), 'MMM d')}
+                                  </>
+                                ) : (
+                                  <span className="text-muted-foreground/40">—</span>
+                                )}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">
+                              {remindedAt
+                                ? `Last reminder sent ${format(new Date(remindedAt), "MMM d, yyyy 'at' h:mm a")}${freshnessLabel ? ` · ${freshnessLabel}` : ''}`
+                                : 'No reminder sent yet'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    })()}
 
                     {/* Send Reminder button */}
                     <TooltipProvider delayDuration={100}>
