@@ -918,10 +918,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                                 )}
                               </span>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs">
-                              {remindedAt
-                                ? `Last reminder sent ${format(new Date(remindedAt), "MMM d, yyyy 'at' h:mm a")}${freshnessLabel ? ` · ${freshnessLabel}` : ''}`
-                                : 'No reminder sent yet'}
+                            <TooltipContent side="top" className="text-xs max-w-[220px]">
+                              {remindedAt ? (
+                                <span className="flex flex-col gap-0.5">
+                                  <span>Last reminder sent {format(new Date(remindedAt), "MMM d, yyyy 'at' h:mm a")}</span>
+                                  {remindedBy && <span className="text-muted-foreground">by {remindedBy}</span>}
+                                  {freshnessLabel && <span className="font-medium">{freshnessLabel}</span>}
+                                </span>
+                              ) : 'No reminder sent yet'}
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
