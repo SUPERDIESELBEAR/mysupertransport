@@ -101,7 +101,7 @@ const STAGES = [
 
 export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, initialDispatchFilter, complianceRefreshKey }: PipelineDashboardProps) {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
   const [complianceExpanded, setComplianceExpanded] = useState(true);
   const [operators, setOperators] = useState<OperatorRow[]>([]);
@@ -115,6 +115,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
   // Last reminded timestamps: key = "operatorId|docType" → ISO string
   const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
+  // Last reminded coordinator names: key = "operatorId|docType" → staff name
+  const [lastRemindedBy, setLastRemindedBy] = useState<Record<string, string>>({});
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkSentCount, setBulkSentCount] = useState<number | null>(null);
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
@@ -168,7 +170,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         .not('application_id', 'is', null),
       supabase
         .from('cert_reminders')
-        .select('operator_id, doc_type, sent_at')
+        .select('operator_id, doc_type, sent_at, sent_by_name')
         .order('sent_at', { ascending: false }),
     ]);
 
@@ -176,11 +178,16 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
     // Keep only the most recent reminder per operator+doc_type pair
     const remindedMap: Record<string, string> = {};
+    const remindedByMap: Record<string, string> = {};
     (reminders ?? []).forEach((r: any) => {
       const key = `${r.operator_id}|${r.doc_type}`;
-      if (!remindedMap[key]) remindedMap[key] = r.sent_at; // first = most recent due to DESC order
+      if (!remindedMap[key]) {
+        remindedMap[key] = r.sent_at; // first = most recent due to DESC order
+        if (r.sent_by_name) remindedByMap[key] = r.sent_by_name;
+      }
     });
     setLastReminded(remindedMap);
+    setLastRemindedBy(remindedByMap);
 
     const alerts: ComplianceAlert[] = [];
 
@@ -497,9 +504,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to send reminder');
-      // Optimistically update last-reminded timestamp
+      // Optimistically update last-reminded timestamp and sender
       const now = new Date().toISOString();
+      const senderName = profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || null : null;
       setLastReminded(prev => ({ ...prev, [key]: now }));
+      if (senderName) setLastRemindedBy(prev => ({ ...prev, [key]: senderName }));
       setReminderSent(prev => ({ ...prev, [key]: true }));
       toast({ title: 'Reminder sent', description: `Email sent to ${alert.operator_name}` });
       // Reset "sent" button badge after 8 seconds
@@ -831,6 +840,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 const isSending = reminderSending[rowKey];
                 const isSent = reminderSent[rowKey];
                 const remindedAt = lastReminded[rowKey];
+                const remindedBy = lastRemindedBy[rowKey];
 
                 return (
                   <div key={`${alert.operator_id}-${alert.doc_type}`}
@@ -910,10 +920,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                                 )}
                               </span>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs">
-                              {remindedAt
-                                ? `Last reminder sent ${format(new Date(remindedAt), "MMM d, yyyy 'at' h:mm a")}${freshnessLabel ? ` · ${freshnessLabel}` : ''}`
-                                : 'No reminder sent yet'}
+                            <TooltipContent side="top" className="text-xs max-w-[220px]">
+                              {remindedAt ? (
+                                <span className="flex flex-col gap-0.5">
+                                  <span>Last reminder sent {format(new Date(remindedAt), "MMM d, yyyy 'at' h:mm a")}</span>
+                                  {remindedBy && <span className="text-muted-foreground">by {remindedBy}</span>}
+                                  {freshnessLabel && <span className="font-medium">{freshnessLabel}</span>}
+                                </span>
+                              ) : 'No reminder sent yet'}
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
