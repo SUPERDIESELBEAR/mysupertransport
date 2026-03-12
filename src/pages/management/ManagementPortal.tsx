@@ -719,6 +719,7 @@ export default function ManagementPortal() {
             operatorId={selectedOperatorId}
             onBack={() => { setOperatorHasUnsavedChanges(false); setView('pipeline'); }}
             onUnsavedChangesChange={setOperatorHasUnsavedChanges}
+            expiryOverride={panelExpiryOverride}
             onOpenAppReview={async (focusField) => {
               const { data: op } = await supabase
                 .from('operators')
