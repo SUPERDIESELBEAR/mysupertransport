@@ -566,7 +566,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       // Reset "sent" button badge after 8 seconds
       setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
     } catch (err: any) {
-      toast({ title: 'Failed to send reminder', description: err.message, variant: 'destructive' });
+      const { title, description } = reminderErrorToast(err);
+      toast({ title, description, variant: 'destructive' });
     } finally {
       setReminderSending(prev => ({ ...prev, [key]: false }));
     }
