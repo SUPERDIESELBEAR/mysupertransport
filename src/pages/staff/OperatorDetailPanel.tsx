@@ -401,15 +401,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setLastReminded(prev => ({ ...prev, [key]: new Date().toISOString() }));
       setReminderSent(prev => ({ ...prev, [key]: true }));
       if (data.email_error) {
-        // Email failed but record was saved — show error toast and refresh history
         const { title, description } = reminderErrorToast(new Error(data.email_error));
         toast({ title, description, variant: 'destructive' });
       } else {
         toast({ title: 'Reminder sent', description: `Email sent to ${operatorName}` });
       }
       setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
-      // Refresh history timeline so the new reminder (with correct delivery status) appears
-      fetchCertHistory();
+      // Brief delay so DB insert is visible before fetching history
+      setTimeout(() => fetchCertHistory(), 600);
     } catch (err: any) {
       const { title, description } = reminderErrorToast(err);
       toast({ title, description, variant: 'destructive' });
