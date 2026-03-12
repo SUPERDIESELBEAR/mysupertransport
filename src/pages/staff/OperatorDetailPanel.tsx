@@ -395,6 +395,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to send reminder');
+      if (data.email_error) throw new Error(data.email_error);
       setLastReminded(prev => ({ ...prev, [key]: new Date().toISOString() }));
       setReminderSent(prev => ({ ...prev, [key]: true }));
       toast({ title: 'Reminder sent', description: `Email sent to ${operatorName}` });
