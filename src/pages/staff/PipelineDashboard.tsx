@@ -1185,7 +1185,13 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <span className="shrink-0 w-[58px]" />
               </div>
                 {(() => {
-                  const base = complianceAlerts.filter(a => complianceDocFilter === 'all' || a.doc_type === complianceDocFilter);
+                  const base = complianceAlerts.filter(a => {
+                    if (complianceNoActionOnly) {
+                      const key = `${a.operator_id}|${a.doc_type}`;
+                      if (lastReminded[key] || lastRenewed[key]) return false;
+                    }
+                    return complianceDocFilter === 'all' || a.doc_type === complianceDocFilter;
+                  });
                   if (complianceSort === 'urgency') return base;
                   return [...base].sort((a, b) => {
                     const aTs = Math.max(
