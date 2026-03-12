@@ -898,6 +898,7 @@ export default function ManagementPortal() {
               }
             }}
             complianceRefreshKey={complianceRefreshKey}
+            initialCoordinatorFilter={pipelineCoordinatorFilter}
           />
         )}
 
