@@ -217,19 +217,17 @@ Deno.serve(async (req) => {
       console.warn('send-cert-reminder email error (reminder still recorded):', emailError);
     }
 
-    // Always write the cert_reminders record — regardless of email outcome
-    await supabase.from('cert_reminders').upsert(
-      {
-        operator_id,
-        doc_type,
-        sent_at: new Date().toISOString(),
-        sent_by: caller.id,
-        sent_by_name: callerName,
-        email_sent: emailError === null,
-        email_error: emailError,
-      },
-      { onConflict: 'operator_id,doc_type' }
-    );
+    // Always insert a new cert_reminders record — regardless of email outcome
+    // (unique constraint removed so every attempt creates a history row)
+    await supabase.from('cert_reminders').insert({
+      operator_id,
+      doc_type,
+      sent_at: new Date().toISOString(),
+      sent_by: caller.id,
+      sent_by_name: callerName,
+      email_sent: emailError === null,
+      email_error: emailError,
+    });
 
     // Post-send writes (in-app notification + audit log) in parallel
     await Promise.all([
