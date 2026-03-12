@@ -361,6 +361,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         },
       });
       if (auditErr) console.error('[audit] cert_renewed:', auditErr);
+      // Optimistically update 'Renewed by' indicator
+      const docTypeKey = label === 'CDL' ? 'CDL' : 'Medical Cert';
+      const renewedNow = new Date().toISOString();
+      setLastRenewed(prev => ({ ...prev, [docTypeKey]: renewedNow }));
+      if (actorName) setLastRenewedBy(prev => ({ ...prev, [docTypeKey]: actorName }));
       // Refresh history timeline AFTER audit log write completes
       fetchCertHistory();
     }
