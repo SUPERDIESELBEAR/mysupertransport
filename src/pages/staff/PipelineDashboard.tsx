@@ -1590,7 +1590,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                                 ? 'bg-destructive/15 text-destructive'
                                 : alert.days_until <= 30
                                 ? 'bg-destructive/10 text-destructive'
-                                : 'bg-yellow-100 text-yellow-700'
+                                : 'bg-gold/10 text-gold'
                             }`}>
                               {alert.days_until < 0 ? `${Math.abs(alert.days_until)}d expired` : `${alert.days_until}d left`}
                             </span>
