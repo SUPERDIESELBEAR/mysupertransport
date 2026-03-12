@@ -684,6 +684,71 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setTimeout(() => setBulkRenewedCount(null), 10000);
   };
 
+  // Per-row Mark as Renewed — extends a single document's expiry by +1 year
+  const handleMarkRenewed = async (alert: ComplianceAlert) => {
+    const key = `${alert.operator_id}|${alert.doc_type}`;
+    setRowRenewing(prev => ({ ...prev, [key]: true }));
+
+    const actorId = user?.id ?? null;
+    const actorName = profile
+      ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || null
+      : null;
+
+    const newDate = new Date();
+    newDate.setFullYear(newDate.getFullYear() + 1);
+    const newDateStr = newDate.toISOString().split('T')[0];
+    const col = alert.doc_type === 'CDL' ? 'cdl_expiration' : 'medical_cert_expiration';
+
+    try {
+      const { data: opRow } = await supabase
+        .from('operators')
+        .select('application_id')
+        .eq('id', alert.operator_id)
+        .single();
+      const appId = (opRow as any)?.application_id;
+      if (!appId) throw new Error('No application found');
+
+      const { data: appData } = await supabase
+        .from('applications')
+        .select(col)
+        .eq('id', appId)
+        .single();
+      const oldDateStr = (appData as any)?.[col] ?? null;
+
+      const { error } = await supabase
+        .from('applications')
+        .update({ [col]: newDateStr })
+        .eq('id', appId);
+      if (error) throw error;
+
+      await supabase.from('audit_log' as any).insert({
+        actor_id: actorId,
+        actor_name: actorName,
+        action: 'cert_renewed',
+        entity_type: 'operator',
+        entity_id: alert.operator_id,
+        entity_label: alert.operator_name,
+        metadata: {
+          document_type: alert.doc_type,
+          old_expiry: oldDateStr,
+          new_expiry: newDateStr,
+          operator_name: alert.operator_name,
+        },
+      });
+
+      setRowRenewing(prev => ({ ...prev, [key]: false }));
+      setRowRenewed(prev => ({ ...prev, [key]: true }));
+      toast({
+        title: `${alert.doc_type} marked as renewed`,
+        description: `${alert.operator_name}'s expiry extended to ${new Date(newDateStr + 'T00:00:00').toLocaleDateString()}.`,
+      });
+      setTimeout(() => setRowRenewed(prev => { const n = { ...prev }; delete n[key]; return n; }), 8000);
+    } catch {
+      setRowRenewing(prev => ({ ...prev, [key]: false }));
+      toast({ title: 'Failed to renew document', variant: 'destructive' });
+    }
+  };
+
 
   const filtered = operators
     .filter(op => {
