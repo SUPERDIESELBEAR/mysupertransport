@@ -112,6 +112,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     old_expiry?: string | null;
     new_expiry?: string | null;
     days_until?: number | null;
+    // Email delivery fields (reminder_sent only)
+    email_sent?: boolean | null;
+    email_error?: string | null;
   };
   const [certHistory, setCertHistory] = useState<CertHistoryEntry[]>([]);
   const [certHistoryLoading, setCertHistoryLoading] = useState(false);
@@ -395,12 +398,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to send reminder');
-      if (data.email_error) throw new Error(data.email_error);
       setLastReminded(prev => ({ ...prev, [key]: new Date().toISOString() }));
       setReminderSent(prev => ({ ...prev, [key]: true }));
-      toast({ title: 'Reminder sent', description: `Email sent to ${operatorName}` });
+      if (data.email_error) {
+        // Email failed but record was saved — show error toast and refresh history
+        const { title, description } = reminderErrorToast(new Error(data.email_error));
+        toast({ title, description, variant: 'destructive' });
+      } else {
+        toast({ title: 'Reminder sent', description: `Email sent to ${operatorName}` });
+      }
       setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
-      // Refresh history timeline so the new reminder appears immediately
+      // Refresh history timeline so the new reminder (with correct delivery status) appears
       fetchCertHistory();
     } catch (err: any) {
       const { title, description } = reminderErrorToast(err);
@@ -413,18 +421,37 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const fetchCertHistory = async () => {
     setCertHistoryLoading(true);
     try {
-      // Fetch audit log entries for this operator (cert_renewed + cert_reminder_sent)
-      const { data: auditRows } = await supabase
-        .from('audit_log')
-        .select('id, action, actor_name, created_at, metadata')
-        .eq('entity_id', operatorId)
-        .in('action', ['cert_renewed', 'cert_reminder_sent'])
-        .order('created_at', { ascending: false })
-        .limit(100) as { data: any[] | null };
+      // Fetch audit log entries AND cert_reminders in parallel
+      const [auditRes, remindersRes] = await Promise.all([
+        supabase
+          .from('audit_log')
+          .select('id, action, actor_name, created_at, metadata')
+          .eq('entity_id', operatorId)
+          .in('action', ['cert_renewed', 'cert_reminder_sent'])
+          .order('created_at', { ascending: false })
+          .limit(100) as unknown as Promise<{ data: any[] | null }>,
+        supabase
+          .from('cert_reminders')
+          .select('id, doc_type, sent_at, sent_by_name, email_sent, email_error')
+          .eq('operator_id', operatorId)
+          .order('sent_at', { ascending: false })
+          .limit(200),
+      ]);
+
+      // Build a lookup: reminder record keyed by ISO sent_at (rounded to minute) + doc_type
+      // so we can match audit log entries to their delivery outcome
+      const remindersByKey: Record<string, { email_sent: boolean; email_error: string | null }> = {};
+      ((remindersRes as any).data ?? []).forEach((r: any) => {
+        // Key by doc_type + minute-truncated timestamp for fuzzy matching
+        const minuteKey = `${r.doc_type}|${r.sent_at?.slice(0, 16)}`;
+        if (!remindersByKey[minuteKey]) {
+          remindersByKey[minuteKey] = { email_sent: r.email_sent ?? true, email_error: r.email_error ?? null };
+        }
+      });
 
       const entries: CertHistoryEntry[] = [];
 
-      (auditRows ?? []).forEach((row: any) => {
+      (auditRes.data ?? []).forEach((row: any) => {
         const meta = row.metadata ?? {};
         if (row.action === 'cert_renewed') {
           entries.push({
@@ -437,13 +464,39 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             new_expiry: meta.new_expiry ?? null,
           });
         } else if (row.action === 'cert_reminder_sent') {
+          const docType = meta.document_type ?? meta.doc_type ?? 'CDL';
+          const minuteKey = `${docType}|${row.created_at?.slice(0, 16)}`;
+          const outcome = remindersByKey[minuteKey];
           entries.push({
             id: row.id,
             event_type: 'reminder_sent',
-            doc_type: meta.document_type ?? meta.doc_type ?? 'CDL',
+            doc_type: docType,
             actor_name: row.actor_name,
             occurred_at: row.created_at,
             days_until: meta.days_until ?? null,
+            email_sent: outcome?.email_sent ?? null,
+            email_error: outcome?.email_error ?? null,
+          });
+        }
+      });
+
+      // Also surface cert_reminders that have NO matching audit log entry
+      // (records written by the edge function before audit log was added, or failed attempts)
+      ((remindersRes as any).data ?? []).forEach((r: any) => {
+        const minuteKey = `${r.doc_type}|${r.sent_at?.slice(0, 16)}`;
+        const alreadyRepresented = entries.some(
+          e => e.event_type === 'reminder_sent' && `${e.doc_type}|${e.occurred_at?.slice(0, 16)}` === minuteKey
+        );
+        if (!alreadyRepresented) {
+          entries.push({
+            id: `cr-${r.id}`,
+            event_type: 'reminder_sent',
+            doc_type: r.doc_type,
+            actor_name: r.sent_by_name ?? null,
+            occurred_at: r.sent_at,
+            days_until: null,
+            email_sent: r.email_sent ?? true,
+            email_error: r.email_error ?? null,
           });
         }
       });
@@ -1296,13 +1349,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     {certHistory.map((entry) => {
                       const isRenewal = entry.event_type === 'renewed';
                       const isReminder = entry.event_type === 'reminder_sent';
+                      // For reminders: red dot if email failed, blue if delivered, grey if unknown
+                      const emailFailed = isReminder && entry.email_sent === false;
+                      const emailDelivered = isReminder && entry.email_sent === true;
                       const dotClass = isRenewal
                         ? 'bg-status-complete border-status-complete/40'
                         : isReminder
-                        ? 'bg-info border-info/40'
-                        : 'bg-gold border-gold/40';
+                          ? emailFailed
+                            ? 'bg-destructive border-destructive/40'
+                            : emailDelivered
+                            ? 'bg-info border-info/40'
+                            : 'bg-muted-foreground border-muted-foreground/40'
+                          : 'bg-gold border-gold/40';
                       const IconComp = isRenewal ? RotateCcw : isReminder ? Mail : CalendarClock;
-                      const iconColorClass = isRenewal ? 'text-status-complete' : isReminder ? 'text-info' : 'text-gold';
+                      const iconColorClass = isRenewal
+                        ? 'text-status-complete'
+                        : isReminder
+                          ? emailFailed ? 'text-destructive' : emailDelivered ? 'text-info' : 'text-muted-foreground'
+                          : 'text-gold';
                       return (
                         <div key={entry.id} className="relative flex gap-3 items-start">
                           {/* Dot on the timeline */}
@@ -1323,6 +1387,16 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                               }`}>
                                 {entry.doc_type}
                               </span>
+                              {/* Email delivery badge — only for reminders with known outcome */}
+                              {isReminder && entry.email_sent !== null && entry.email_sent !== undefined && (
+                                <span className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-semibold border ${
+                                  emailFailed
+                                    ? 'bg-destructive/10 text-destructive border-destructive/30'
+                                    : 'bg-status-complete/10 text-status-complete border-status-complete/30'
+                                }`}>
+                                  {emailFailed ? '✗ Failed' : '✓ Delivered'}
+                                </span>
+                              )}
                               {/* Timestamp */}
                               <span className="text-[11px] text-muted-foreground ml-auto shrink-0">
                                 {format(new Date(entry.occurred_at), 'MMM d, yyyy · h:mm a')}
@@ -1350,6 +1424,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                                 <span className="text-muted-foreground/70">by {entry.actor_name}</span>
                               )}
                             </p>
+                            {/* Error detail line — shown only when email failed */}
+                            {emailFailed && entry.email_error && (
+                              <p className="text-[10px] text-destructive/80 mt-0.5 font-mono break-all leading-tight">
+                                {entry.email_error.replace(/^Error:\s*/i, '').slice(0, 120)}
+                                {entry.email_error.length > 120 && '…'}
+                              </p>
+                            )}
                           </div>
                         </div>
                       );
