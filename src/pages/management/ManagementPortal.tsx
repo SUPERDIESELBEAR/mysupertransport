@@ -694,6 +694,20 @@ export default function ManagementPortal() {
         {view === 'pipeline' && (
           <PipelineDashboard
             onOpenOperator={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
+            onOpenOperatorWithFocus={async (operatorId, focusField) => {
+              setSelectedOperatorId(operatorId);
+              setView('operator-detail');
+              // Fetch the application and open the review drawer focused on the expiry field
+              const { data: op } = await supabase
+                .from('operators')
+                .select('application_id, applications(*)')
+                .eq('id', operatorId)
+                .single();
+              if (op?.applications) {
+                setSelectedApp(op.applications as FullApplication);
+                setDrawerFocusField(focusField);
+              }
+            }}
             complianceRefreshKey={complianceRefreshKey}
           />
         )}
