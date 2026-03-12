@@ -336,15 +336,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       if (field === 'cdl') setCdlExpiration(newDateStr);
       else setMedCertExpiration(newDateStr);
       toast({ title: `${label} marked as renewed`, description: `New expiry set to ${new Date(newDateStr + 'T00:00:00').toLocaleDateString()}.` });
-      // Refresh history timeline so the renewal appears immediately
-      fetchCertHistory();
 
-      // ── Write audit log entry ────────────────────────────────────────
+      // ── Write audit log entry, then refresh timeline ─────────────────
       const profileData = (actorProfile as any)?.data;
       const actorName = profileData
         ? `${profileData.first_name ?? ''} ${profileData.last_name ?? ''}`.trim() || null
         : null;
-      void supabase.from('audit_log' as any).insert({
+      const { error: auditErr } = await supabase.from('audit_log' as any).insert({
         actor_id: actorId,
         actor_name: actorName,
         action: 'cert_renewed',
@@ -357,9 +355,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           new_expiry: newDateStr,
           operator_name: operatorName,
         },
-      }).then(({ error: auditErr }: { error: any }) => {
-        if (auditErr) console.error('[audit] cert_renewed:', auditErr);
       });
+      if (auditErr) console.error('[audit] cert_renewed:', auditErr);
+      // Refresh history timeline AFTER audit log write completes
+      fetchCertHistory();
     }
     setRenewingField(null);
   };
