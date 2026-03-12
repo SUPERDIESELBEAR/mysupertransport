@@ -148,13 +148,13 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   useEffect(() => {
     fetchOperators();
     fetchComplianceAlerts();
-  }, []);
+  }, [fetchComplianceAlerts]);
 
   // Re-fetch compliance alerts when parent signals an expiry date was updated
   useEffect(() => {
     if (complianceRefreshKey === undefined || complianceRefreshKey === 0) return;
     fetchComplianceAlerts();
-  }, [complianceRefreshKey]);
+  }, [complianceRefreshKey, fetchComplianceAlerts]);
 
   // Realtime: re-fetch compliance alerts whenever an application's expiry dates change
   useEffect(() => {
@@ -175,7 +175,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [fetchComplianceAlerts]);
 
   // Realtime: refresh unread counts when a new message arrives
   useEffect(() => {
