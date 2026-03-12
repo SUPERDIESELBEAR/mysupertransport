@@ -336,6 +336,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       if (field === 'cdl') setCdlExpiration(newDateStr);
       else setMedCertExpiration(newDateStr);
       toast({ title: `${label} marked as renewed`, description: `New expiry set to ${new Date(newDateStr + 'T00:00:00').toLocaleDateString()}.` });
+      // Refresh history timeline so the renewal appears immediately
+      fetchCertHistory();
 
       // ── Write audit log entry ────────────────────────────────────────
       const profileData = (actorProfile as any)?.data;
