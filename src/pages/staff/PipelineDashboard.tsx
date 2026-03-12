@@ -117,6 +117,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkSentCount, setBulkSentCount] = useState<number | null>(null);
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false);
 
 
   // Filter state
