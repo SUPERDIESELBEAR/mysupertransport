@@ -196,6 +196,16 @@ export default function ApplicationForm() {
     if (field === 'email') setDuplicateEmailBlocked(false);
   }, []);
 
+  // ── Start fresh — clear draft, reset form ───────────────────────────────
+  const handleStartFresh = () => {
+    localStorage.removeItem(DRAFT_TOKEN_KEY);
+    setFormData(defaultFormData);
+    setApplicationId(null);
+    setErrors({});
+    setShowDraftBanner(false);
+    setStep(1);
+  };
+
   // ── Save draft ──────────────────────────────────────────────────────────
   const saveDraft = async () => {
     setSaving(true);
