@@ -427,7 +427,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           entries.push({
             id: row.id,
             event_type: 'renewed',
-            doc_type: meta.doc_type ?? 'CDL',
+            doc_type: meta.document_type ?? meta.doc_type ?? 'CDL',
             actor_name: row.actor_name,
             occurred_at: row.created_at,
             old_expiry: meta.old_expiry ?? null,
@@ -437,7 +437,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           entries.push({
             id: row.id,
             event_type: 'reminder_sent',
-            doc_type: meta.doc_type ?? 'CDL',
+            doc_type: meta.document_type ?? meta.doc_type ?? 'CDL',
             actor_name: row.actor_name,
             occurred_at: row.created_at,
             days_until: meta.days_until ?? null,
