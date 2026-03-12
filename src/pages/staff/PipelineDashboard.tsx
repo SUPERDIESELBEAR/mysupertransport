@@ -237,7 +237,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setOperators(prev => prev.map(op => ({ ...op, unread_count: map[op.user_id] ?? 0 })));
   };
 
-  const fetchComplianceAlerts = async () => {
+  const fetchComplianceAlerts = useCallback(async () => {
     const today = new Date();
 
     // Fetch operators + last-reminded timestamps in parallel
@@ -296,7 +296,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     // Sort by urgency: most urgent (smallest days_until, including negatives) first
     alerts.sort((a, b) => a.days_until - b.days_until);
     setComplianceAlerts(alerts);
-  };
+  }, []);
 
   // Build a lookup: operator_id → worst ComplianceAlert for that operator
   const complianceByOperator: Record<string, ComplianceAlert> = {};
