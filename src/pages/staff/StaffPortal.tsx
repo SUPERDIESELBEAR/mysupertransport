@@ -345,7 +345,22 @@ export default function StaffPortal() {
         onClose={() => { setReviewApp(null); setReviewFocusField(undefined); }}
         onApprove={async () => {}}
         onDeny={async () => {}}
-        onExpiryUpdated={() => {}}
+        onExpiryUpdated={async () => {
+          // Re-fetch the application so the drawer shows the fresh value
+          const { data: fresh } = await supabase
+            .from('applications')
+            .select('*')
+            .eq('id', reviewApp.id)
+            .single();
+          if (fresh) {
+            setReviewApp(fresh as FullApplication);
+            // Push updated expiry dates into the OperatorDetailPanel's local state
+            setPanelExpiryOverride({
+              cdl: (fresh as any).cdl_expiration ?? null,
+              medcert: (fresh as any).medical_cert_expiration ?? null,
+            });
+          }
+        }}
         focusField={reviewFocusField}
       />
     )}
