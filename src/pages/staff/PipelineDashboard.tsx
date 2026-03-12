@@ -964,6 +964,16 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none">
                 {complianceAlerts.length}
               </span>
+              {(() => {
+                const neverRenewed = complianceAlerts.filter(a => !lastRenewed[`${a.operator_id}|${a.doc_type}`]).length;
+                if (neverRenewed === 0) return null;
+                return (
+                  <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full bg-destructive/10 border border-destructive/30 text-destructive text-[10px] font-semibold shrink-0">
+                    <span className="h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                    {neverRenewed} Never Renewed
+                  </span>
+                );
+              })()}
               <span className="text-xs text-muted-foreground hidden sm:inline truncate">
                 {complianceAlerts.filter(a => a.days_until < 0).length > 0
                   ? `${complianceAlerts.filter(a => a.days_until < 0).length} expired · `
