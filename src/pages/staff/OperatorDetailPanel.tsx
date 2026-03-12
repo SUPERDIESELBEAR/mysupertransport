@@ -100,6 +100,21 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
+
+  // Cert history timeline
+  type CertHistoryEntry = {
+    id: string;
+    event_type: 'renewed' | 'reminder_sent' | 'expiry_changed';
+    doc_type: string;
+    actor_name: string | null;
+    occurred_at: string;
+    old_expiry?: string | null;
+    new_expiry?: string | null;
+    days_until?: number | null;
+  };
+  const [certHistory, setCertHistory] = useState<CertHistoryEntry[]>([]);
+  const [certHistoryLoading, setCertHistoryLoading] = useState(false);
+  const [certHistoryExpanded, setCertHistoryExpanded] = useState(false);
   const savedSnapshot = useRef<{ status: Partial<OnboardingStatus>; notes: string } | null>(null);
   const [navGuard, setNavGuard] = useState<null | { action: () => void }>(null);
   const [renewingField, setRenewingField] = useState<'cdl' | 'medcert' | null>(null);
