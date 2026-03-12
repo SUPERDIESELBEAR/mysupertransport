@@ -1493,11 +1493,19 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   </div>
                 );
               })}
-              {complianceAlerts.filter(a => complianceDocFilter === 'all' || a.doc_type === complianceDocFilter).length === 0 && (
+              {complianceAlerts.filter(a => {
+                if (complianceNoActionOnly) {
+                  const key = `${a.operator_id}|${a.doc_type}`;
+                  if (lastReminded[key] || lastRenewed[key]) return false;
+                }
+                return complianceDocFilter === 'all' || a.doc_type === complianceDocFilter;
+              }).length === 0 && (
                 <div className="flex items-center justify-center gap-2 py-5 text-muted-foreground">
                   <ShieldCheck className="h-4 w-4 shrink-0 opacity-50" />
                   <span className="text-xs">
-                    {complianceDocFilter === 'all'
+                    {complianceNoActionOnly
+                      ? 'All operators have at least one reminder or renewal recorded'
+                      : complianceDocFilter === 'all'
                       ? 'No compliance alerts within 90 days'
                       : `No ${complianceDocFilter} alerts found`}
                   </span>
