@@ -242,6 +242,37 @@ export default function ManagementPortal() {
     if (view === 'notifications') setUnreadNotifCount(0);
   }, [view]);
 
+  const fetchStaffWorkload = useCallback(async () => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const { data: { session: s } } = await supabase.auth.getSession();
+    const authToken = s?.access_token ?? anonKey;
+    const res = await fetch(`${supabaseUrl}/functions/v1/get-staff-list`, {
+      headers: { Authorization: `Bearer ${authToken}`, apikey: anonKey },
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    const onboarders: StaffWorkload[] = (json.staff ?? [])
+      .filter((m: any) => (m.roles ?? []).includes('onboarding_staff'))
+      .map((m: any) => ({
+        user_id: m.user_id,
+        full_name: [m.first_name, m.last_name].filter(Boolean).join(' ') || m.email,
+        email: m.email,
+        assigned_operator_count: m.assigned_operator_count ?? 0,
+      }));
+    setStaffWorkload(onboarders);
+    // Count unassigned operators
+    const { count } = await supabase
+      .from('operators')
+      .select('id', { count: 'exact', head: true })
+      .is('assigned_onboarding_staff', null);
+    setUnassignedCount(count ?? 0);
+  }, []);
+
+  useEffect(() => {
+    if (view === 'overview') fetchStaffWorkload();
+  }, [view, fetchStaffWorkload]);
+
   const fetchMetrics = useCallback(async () => {
     const [appsRes, opsRes, dispRes, alertsRes] = await Promise.all([
       supabase.from('applications').select('id', { count: 'exact' }).eq('review_status', 'pending').eq('is_draft', false),
