@@ -506,6 +506,72 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     }
   };
 
+  const handleSendAllCritical = async () => {
+    const criticalAlerts = complianceAlerts.filter(a => a.days_until <= 30);
+    if (criticalAlerts.length === 0) return;
+    setBulkSending(true);
+    setBulkSentCount(null);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+    let successCount = 0;
+    let failCount = 0;
+
+    await Promise.all(
+      criticalAlerts.map(async (alert) => {
+        const key = `${alert.operator_id}|${alert.doc_type}`;
+        // Skip already-sending or already-sent items
+        if (reminderSending[key] || reminderSent[key]) { successCount++; return; }
+        setReminderSending(prev => ({ ...prev, [key]: true }));
+        try {
+          const res = await fetch(`${supabaseUrl}/functions/v1/send-cert-reminder`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session?.access_token ?? ''}`,
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+            body: JSON.stringify({
+              operator_id: alert.operator_id,
+              doc_type: alert.doc_type,
+              days_until: alert.days_until,
+              expiration_date: alert.expiration_date,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error ?? 'Failed');
+          const now = new Date().toISOString();
+          setLastReminded(prev => ({ ...prev, [key]: now }));
+          setReminderSent(prev => ({ ...prev, [key]: true }));
+          setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
+          successCount++;
+        } catch {
+          failCount++;
+        } finally {
+          setReminderSending(prev => ({ ...prev, [key]: false }));
+        }
+      })
+    );
+
+    setBulkSending(false);
+    setBulkSentCount(successCount);
+    if (failCount === 0) {
+      toast({
+        title: `${successCount} reminder${successCount !== 1 ? 's' : ''} sent`,
+        description: `All critical operators have been notified.`,
+      });
+    } else {
+      toast({
+        title: `${successCount} sent, ${failCount} failed`,
+        description: 'Some reminders could not be sent. Check individual rows for details.',
+        variant: 'destructive',
+      });
+    }
+    // Reset bulk sent indicator after 10 seconds
+    setTimeout(() => setBulkSentCount(null), 10000);
+  };
+
 
 
   const filtered = operators
