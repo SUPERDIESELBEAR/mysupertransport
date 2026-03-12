@@ -473,15 +473,15 @@ export default function ManagementPortal() {
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-4">
               {[
                 { label: 'Pending Applications', value: metrics.pending, icon: <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-status-progress" />, color: 'bg-status-progress/10', action: () => { setStatusFilter('pending'); setView('applications'); } },
-                { label: 'In Onboarding', value: metrics.onboarding, icon: <Users className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />, color: 'bg-gold/10', action: () => setView('pipeline') },
+                { label: 'In Onboarding', value: metrics.onboarding, icon: <Users className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />, color: 'bg-gold/10', action: () => { setPipelineCoordinatorFilter('all'); setView('pipeline'); } },
                 { label: 'Active Dispatch', value: metrics.active, icon: <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-status-complete" />, color: 'bg-status-complete/10', action: () => setView('dispatch') },
-                { label: 'Alerts', value: metrics.alerts, icon: <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />, color: 'bg-destructive/10', action: () => setView('pipeline') },
+                { label: 'Alerts', value: metrics.alerts, icon: <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />, color: 'bg-destructive/10', action: () => { setPipelineCoordinatorFilter('all'); setView('pipeline'); } },
                 {
                   label: 'Critical Expiries',
                   value: criticalExpiryCount,
                   icon: <ShieldAlert className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />,
                   color: criticalExpiryCount > 0 ? 'bg-destructive/10' : 'bg-muted/30',
-                  action: () => setView('pipeline'),
+                  action: () => { setPipelineCoordinatorFilter('all'); setView('pipeline'); },
                   highlight: criticalExpiryCount > 0,
                 },
               ].map(m => (
