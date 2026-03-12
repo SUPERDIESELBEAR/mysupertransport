@@ -1562,6 +1562,59 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           </table>
         </div>
       </div>
+
+      {/* Bulk Send All Reminders — confirmation dialog */}
+      {(() => {
+        const criticalAlerts = complianceAlerts.filter(a => a.days_until <= 30);
+        return (
+          <AlertDialog open={showBulkConfirm} onOpenChange={setShowBulkConfirm}>
+            <AlertDialogContent className="max-w-md">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <Send className="h-4 w-4 text-destructive" />
+                  Send All Reminders
+                </AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      The following {criticalAlerts.length} operator{criticalAlerts.length !== 1 ? 's' : ''} will receive a CDL/Med Cert expiry reminder email:
+                    </p>
+                    <ul className="divide-y divide-border rounded-md border border-border overflow-hidden text-sm">
+                      {criticalAlerts.map(alert => (
+                        <li key={`${alert.operator_id}|${alert.doc_type}`} className="flex items-center justify-between px-3 py-2 bg-background">
+                          <span className="font-medium text-foreground">{alert.operator_name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">{alert.doc_type}</span>
+                            <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                              alert.days_until < 0
+                                ? 'bg-destructive/15 text-destructive'
+                                : alert.days_until <= 30
+                                ? 'bg-destructive/10 text-destructive'
+                                : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {alert.days_until < 0 ? `${Math.abs(alert.days_until)}d expired` : `${alert.days_until}d left`}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => { setShowBulkConfirm(false); handleSendAllCritical(); }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  <Send className="h-3.5 w-3.5 mr-1.5" />
+                  Send {criticalAlerts.length} Reminder{criticalAlerts.length !== 1 ? 's' : ''}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        );
+      })()}
     </div>
   );
 }
