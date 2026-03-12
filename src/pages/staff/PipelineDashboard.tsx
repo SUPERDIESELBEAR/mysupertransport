@@ -838,6 +838,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 const isSending = reminderSending[rowKey];
                 const isSent = reminderSent[rowKey];
                 const remindedAt = lastReminded[rowKey];
+                const remindedBy = lastRemindedBy[rowKey];
 
                 return (
                   <div key={`${alert.operator_id}-${alert.doc_type}`}
