@@ -811,7 +811,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onOpenOperator(alert.operator_id)}
+                      onClick={() => {
+                        const focusField = alert.doc_type === 'CDL' ? 'cdl' : 'medcert';
+                        if (onOpenOperatorWithFocus) {
+                          onOpenOperatorWithFocus(alert.operator_id, focusField);
+                        } else {
+                          onOpenOperator(alert.operator_id);
+                        }
+                      }}
                       className="text-xs text-gold hover:text-gold-light hover:bg-gold/10 shrink-0 h-7 px-2"
                     >
                       Open →
