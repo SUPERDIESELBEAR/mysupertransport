@@ -1349,13 +1349,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     {certHistory.map((entry) => {
                       const isRenewal = entry.event_type === 'renewed';
                       const isReminder = entry.event_type === 'reminder_sent';
+                      // For reminders: red dot if email failed, blue if delivered, grey if unknown
+                      const emailFailed = isReminder && entry.email_sent === false;
+                      const emailDelivered = isReminder && entry.email_sent === true;
                       const dotClass = isRenewal
                         ? 'bg-status-complete border-status-complete/40'
                         : isReminder
-                        ? 'bg-info border-info/40'
-                        : 'bg-gold border-gold/40';
+                          ? emailFailed
+                            ? 'bg-destructive border-destructive/40'
+                            : emailDelivered
+                            ? 'bg-info border-info/40'
+                            : 'bg-muted-foreground border-muted-foreground/40'
+                          : 'bg-gold border-gold/40';
                       const IconComp = isRenewal ? RotateCcw : isReminder ? Mail : CalendarClock;
-                      const iconColorClass = isRenewal ? 'text-status-complete' : isReminder ? 'text-info' : 'text-gold';
+                      const iconColorClass = isRenewal
+                        ? 'text-status-complete'
+                        : isReminder
+                          ? emailFailed ? 'text-destructive' : emailDelivered ? 'text-info' : 'text-muted-foreground'
+                          : 'text-gold';
                       return (
                         <div key={entry.id} className="relative flex gap-3 items-start">
                           {/* Dot on the timeline */}
@@ -1376,6 +1387,16 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                               }`}>
                                 {entry.doc_type}
                               </span>
+                              {/* Email delivery badge — only for reminders with known outcome */}
+                              {isReminder && entry.email_sent !== null && entry.email_sent !== undefined && (
+                                <span className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-semibold border ${
+                                  emailFailed
+                                    ? 'bg-destructive/10 text-destructive border-destructive/30'
+                                    : 'bg-status-complete/10 text-status-complete border-status-complete/30'
+                                }`}>
+                                  {emailFailed ? '✗ Failed' : '✓ Delivered'}
+                                </span>
+                              )}
                               {/* Timestamp */}
                               <span className="text-[11px] text-muted-foreground ml-auto shrink-0">
                                 {format(new Date(entry.occurred_at), 'MMM d, yyyy · h:mm a')}
@@ -1403,6 +1424,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                                 <span className="text-muted-foreground/70">by {entry.actor_name}</span>
                               )}
                             </p>
+                            {/* Error detail line — shown only when email failed */}
+                            {emailFailed && entry.email_error && (
+                              <p className="text-[10px] text-destructive/80 mt-0.5 font-mono break-all leading-tight">
+                                {entry.email_error.replace(/^Error:\s*/i, '').slice(0, 120)}
+                                {entry.email_error.length > 120 && '…'}
+                              </p>
+                            )}
                           </div>
                         </div>
                       );
