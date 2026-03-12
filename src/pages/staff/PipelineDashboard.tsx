@@ -1132,6 +1132,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[80px]">Expires</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[60px] text-right">Status</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden md:block shrink-0 w-[90px] text-right">Last Action</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[72px] text-right">Last Reminded</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[72px] text-right">Last Renewed</span>
                 <span className="shrink-0 w-[74px]" />
@@ -1204,6 +1205,51 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         ? 'Expires today'
                         : `${alert.days_until}d left`}
                     </span>
+
+                    {/* Last Action column — most recent of reminder or renewal */}
+                    {(() => {
+                      const remindedTs = remindedAt ? new Date(remindedAt).getTime() : 0;
+                      const renewedTs = renewedAt ? new Date(renewedAt).getTime() : 0;
+                      const hasAction = remindedTs > 0 || renewedTs > 0;
+                      const lastActionTs = Math.max(remindedTs, renewedTs);
+                      const lastActionDate = hasAction ? new Date(lastActionTs) : null;
+                      const isRenewal = renewedTs >= remindedTs && renewedTs > 0;
+                      const actionBy = isRenewal ? renewedByName : remindedBy;
+                      const actionLabel = isRenewal ? 'Renewed' : 'Reminded';
+                      const pillClass = isRenewal
+                        ? 'bg-status-complete/10 text-status-complete border border-status-complete/25'
+                        : 'bg-primary/10 text-primary border border-primary/25';
+                      const Icon = isRenewal ? RotateCcw : CheckCheck;
+                      return (
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className={`hidden md:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[90px] justify-end rounded px-1.5 py-0.5 transition-colors ${
+                                hasAction ? pillClass : 'text-muted-foreground/40'
+                              }`}>
+                                {hasAction && lastActionDate ? (
+                                  <>
+                                    <Icon className="h-3 w-3 shrink-0" />
+                                    {format(lastActionDate, 'MMM d')}
+                                  </>
+                                ) : (
+                                  <span className="text-muted-foreground/40">No action</span>
+                                )}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs max-w-[220px]">
+                              {hasAction && lastActionDate ? (
+                                <span className="flex flex-col gap-0.5">
+                                  <span className="font-medium">{actionLabel}</span>
+                                  <span>{format(lastActionDate, "MMM d, yyyy 'at' h:mm a")}</span>
+                                  {actionBy && <span className="text-muted-foreground">by {actionBy}</span>}
+                                </span>
+                              ) : 'No reminder or renewal recorded yet'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    })()}
 
                     {/* Last reminded column — freshness-aware colour */}
                     {(() => {
