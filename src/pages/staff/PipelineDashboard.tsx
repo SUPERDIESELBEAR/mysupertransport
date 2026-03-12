@@ -1327,6 +1327,16 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   </div>
                 );
               })}
+              {complianceAlerts.filter(a => complianceDocFilter === 'all' || a.doc_type === complianceDocFilter).length === 0 && (
+                <div className="flex items-center justify-center gap-2 py-5 text-muted-foreground">
+                  <ShieldCheck className="h-4 w-4 shrink-0 opacity-50" />
+                  <span className="text-xs">
+                    {complianceDocFilter === 'all'
+                      ? 'No compliance alerts within 90 days'
+                      : `No ${complianceDocFilter} alerts found`}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
