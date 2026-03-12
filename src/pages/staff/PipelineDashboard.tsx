@@ -105,6 +105,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
   const [complianceSort, setComplianceSort] = useState<'urgency' | 'last_action_asc' | 'last_action_desc'>('urgency');
   const [complianceExpanded, setComplianceExpanded] = useState(true);
+  const [complianceNoActionOnly, setComplianceNoActionOnly] = useState(false);
   const [complianceDocFilter, setComplianceDocFilter] = useState<'all' | 'CDL' | 'Medical Cert'>('all');
   const [operators, setOperators] = useState<OperatorRow[]>([]);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
@@ -1020,11 +1021,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               <div className="hidden sm:flex items-center gap-1 ml-1 shrink-0" onClick={e => e.stopPropagation()}>
                 {(['all', 'CDL', 'Medical Cert'] as const).map(f => {
                   const count = f === 'all' ? complianceAlerts.length : complianceAlerts.filter(a => a.doc_type === f).length;
-                  const active = complianceDocFilter === f;
+                  const active = complianceDocFilter === f && !complianceNoActionOnly;
                   return (
                     <button
                       key={f}
-                      onClick={() => setComplianceDocFilter(f)}
+                      onClick={() => { setComplianceDocFilter(f); setComplianceNoActionOnly(false); }}
                       className={`inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-semibold border transition-all ${
                         active
                           ? 'bg-destructive/15 border-destructive/40 text-destructive'
@@ -1036,6 +1037,36 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     </button>
                   );
                 })}
+                {/* No Action chip */}
+                {(() => {
+                  const noActionCount = complianceAlerts.filter(a => {
+                    const key = `${a.operator_id}|${a.doc_type}`;
+                    return !lastReminded[key] && !lastRenewed[key];
+                  }).length;
+                  if (noActionCount === 0) return null;
+                  return (
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => setComplianceNoActionOnly(v => !v)}
+                            className={`inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-semibold border transition-all ${
+                              complianceNoActionOnly
+                                ? 'bg-muted-foreground/15 border-muted-foreground/40 text-foreground'
+                                : 'bg-background border-border text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
+                            }`}
+                          >
+                            No Action
+                            <span className={`text-[9px] font-bold ${complianceNoActionOnly ? 'text-foreground' : 'text-muted-foreground'}`}>{noActionCount}</span>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs max-w-[200px] text-center">
+                          Show only operators with no reminder or renewal recorded
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                })()}
               </div>
             </button>
 
@@ -1154,7 +1185,13 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <span className="shrink-0 w-[58px]" />
               </div>
                 {(() => {
-                  const base = complianceAlerts.filter(a => complianceDocFilter === 'all' || a.doc_type === complianceDocFilter);
+                  const base = complianceAlerts.filter(a => {
+                    if (complianceNoActionOnly) {
+                      const key = `${a.operator_id}|${a.doc_type}`;
+                      if (lastReminded[key] || lastRenewed[key]) return false;
+                    }
+                    return complianceDocFilter === 'all' || a.doc_type === complianceDocFilter;
+                  });
                   if (complianceSort === 'urgency') return base;
                   return [...base].sort((a, b) => {
                     const aTs = Math.max(
@@ -1456,11 +1493,19 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   </div>
                 );
               })}
-              {complianceAlerts.filter(a => complianceDocFilter === 'all' || a.doc_type === complianceDocFilter).length === 0 && (
+              {complianceAlerts.filter(a => {
+                if (complianceNoActionOnly) {
+                  const key = `${a.operator_id}|${a.doc_type}`;
+                  if (lastReminded[key] || lastRenewed[key]) return false;
+                }
+                return complianceDocFilter === 'all' || a.doc_type === complianceDocFilter;
+              }).length === 0 && (
                 <div className="flex items-center justify-center gap-2 py-5 text-muted-foreground">
                   <ShieldCheck className="h-4 w-4 shrink-0 opacity-50" />
                   <span className="text-xs">
-                    {complianceDocFilter === 'all'
+                    {complianceNoActionOnly
+                      ? 'All operators have at least one reminder or renewal recorded'
+                      : complianceDocFilter === 'all'
                       ? 'No compliance alerts within 90 days'
                       : `No ${complianceDocFilter} alerts found`}
                   </span>
