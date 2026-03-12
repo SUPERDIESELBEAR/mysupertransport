@@ -1234,7 +1234,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       </Tooltip>
                     </TooltipProvider>
 
-                    {/* Per-row Mark as Renewed button */}
+                    {/* Per-row Mark as Renewed button — muted/amber tint for warning range */}
                     <TooltipProvider delayDuration={100}>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -1243,9 +1243,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                             size="sm"
                             onClick={() => handleMarkRenewed(alert)}
                             disabled={isRowRenewing || isRowRenewed}
-                            className={`shrink-0 h-7 px-2 text-xs gap-1.5 transition-all ${
+                            className={`relative shrink-0 h-7 px-2 text-xs gap-1.5 transition-all ${
                               isRowRenewed
                                 ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10'
+                                : warning
+                                ? 'border-warning/40 text-warning/80 bg-warning/5 hover:border-warning/60 hover:text-warning hover:bg-warning/10'
                                 : 'border-muted-foreground/30 text-muted-foreground hover:border-status-complete/50 hover:text-status-complete hover:bg-status-complete/5'
                             }`}
                           >
@@ -1256,10 +1258,22 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                             ) : (
                               <><RotateCcw className="h-3 w-3" /><span className="hidden sm:inline">Renew</span></>
                             )}
+                            {/* Warning dot badge — only shown for non-urgent (warning) rows */}
+                            {warning && !isRowRenewed && !isRowRenewing && (
+                              <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-warning border border-background" />
+                            )}
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">
-                          {isRowRenewed ? 'Document renewed!' : `Mark ${alert.doc_type} as renewed (+1 year)`}
+                        <TooltipContent side="top" className="text-xs max-w-[200px] text-center">
+                          {isRowRenewed
+                            ? 'Document renewed!'
+                            : warning
+                            ? <>
+                                <span className="font-semibold text-warning block">Not urgent yet</span>
+                                <span>{alert.doc_type} expires in {alert.days_until}d — renewal not required until ≤ 30 days</span>
+                              </>
+                            : `Mark ${alert.doc_type} as renewed (+1 year)`
+                          }
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
