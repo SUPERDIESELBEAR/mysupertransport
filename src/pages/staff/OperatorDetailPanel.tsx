@@ -1035,6 +1035,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             : `${days}d left`;
           const isClickable = !!onOpenAppReview;
           const isRenewing = renewingField === focusField;
+          const docType = focusField === 'cdl' ? 'CDL' : 'Medical Cert' as 'CDL' | 'Medical Cert';
+          const isSending = !!reminderSending[docType];
+          const isSent = !!reminderSent[docType];
+          const lastReminderAt = lastReminded[docType];
           const pill = (
             <span
               onClick={isClickable ? () => onOpenAppReview(focusField) : undefined}
@@ -1073,6 +1077,39 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-xs">
                       Mark as renewed — sets expiry to {new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString()}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {needsRenew && (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => handleSendReminder(docType, dateStr)}
+                        disabled={isSending || isSent}
+                        className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                          isSent
+                            ? 'text-status-complete border-status-complete/40 bg-status-complete/10'
+                            : 'text-info border-info/40 hover:bg-info/10'
+                        }`}
+                      >
+                        {isSending ? (
+                          <span className="h-2.5 w-2.5 animate-spin rounded-full border border-current border-t-transparent" />
+                        ) : isSent ? (
+                          <CheckCheck className="h-2.5 w-2.5" />
+                        ) : (
+                          <Send className="h-2.5 w-2.5" />
+                        )}
+                        {isSending ? '…' : isSent ? 'Sent' : 'Remind'}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      {isSent
+                        ? '✓ Reminder email sent'
+                        : lastReminderAt
+                        ? `Send renewal reminder email · Last sent ${format(new Date(lastReminderAt), 'MMM d')}`
+                        : 'Send renewal reminder email to operator'}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
