@@ -193,6 +193,15 @@ function EntryDetail({ entry }: { entry: AuditEntry }) {
           {(meta.milestones as string[])?.join(', ') ?? 'Status updated'}
         </span>
       );
+    case 'cert_renewed':
+      return (
+        <span className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">{meta.document_type as string}</span>
+          {' '}renewed for{' '}
+          <span className="font-medium text-foreground">{meta.operator_name as string}</span>
+          {meta.old_expiry ? ` · was ${new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString()}` : ''}
+        </span>
+      );
     default:
       return null;
   }
