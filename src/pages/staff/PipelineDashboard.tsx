@@ -962,6 +962,27 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   : ''}
                 CDL or medical cert expiring within 90 days
               </span>
+              {/* Doc-type filter chips */}
+              <div className="hidden sm:flex items-center gap-1 ml-1 shrink-0" onClick={e => e.stopPropagation()}>
+                {(['all', 'CDL', 'Medical Cert'] as const).map(f => {
+                  const count = f === 'all' ? complianceAlerts.length : complianceAlerts.filter(a => a.doc_type === f).length;
+                  const active = complianceDocFilter === f;
+                  return (
+                    <button
+                      key={f}
+                      onClick={() => setComplianceDocFilter(f)}
+                      className={`inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-semibold border transition-all ${
+                        active
+                          ? 'bg-destructive/15 border-destructive/40 text-destructive'
+                          : 'bg-background border-border text-muted-foreground hover:border-destructive/30 hover:text-destructive/70'
+                      }`}
+                    >
+                      {f === 'all' ? 'All' : f}
+                      <span className={`text-[9px] font-bold ${active ? 'text-destructive' : 'text-muted-foreground'}`}>{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </button>
 
             {/* Bulk send button — only when there are critical (≤30d) alerts */}
