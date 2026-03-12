@@ -1221,6 +1221,47 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               );
             })()}
 
+            {/* Bulk Send — No Action rows only */}
+            {(() => {
+              const noActionAlerts = complianceAlerts.filter(a => {
+                const key = `${a.operator_id}|${a.doc_type}`;
+                return !lastReminded[key] && !lastRenewed[key];
+              });
+              if (noActionAlerts.length === 0) return null;
+              const allSent = noActionBulkSentCount !== null;
+              return (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => { e.stopPropagation(); setShowNoActionBulkConfirm(true); }}
+                        disabled={noActionBulkSending}
+                        className={`shrink-0 h-7 px-3 text-xs gap-1.5 font-semibold transition-all ${
+                          allSent
+                            ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10'
+                            : 'border-muted-foreground/40 text-muted-foreground bg-muted/30 hover:border-foreground/40 hover:text-foreground hover:bg-muted/60'
+                        }`}
+                      >
+                        {noActionBulkSending ? (
+                          <><Loader2 className="h-3 w-3 animate-spin" />Sending…</>
+                        ) : allSent ? (
+                          <><CheckCheck className="h-3 w-3" />{noActionBulkSentCount} Sent</>
+                        ) : (
+                          <><Send className="h-3 w-3" />Remind Uncontacted ({noActionAlerts.length})</>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-[240px] text-center">
+                      {allSent
+                        ? `${noActionBulkSentCount} reminder${noActionBulkSentCount !== 1 ? 's' : ''} sent to uncontacted operators`
+                        : `Send reminders to ${noActionAlerts.length} operator${noActionAlerts.length !== 1 ? 's' : ''} with no prior reminder or renewal on record`}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })()}
 
             <button onClick={() => setComplianceExpanded(v => !v)} className="shrink-0 hover:opacity-80 transition-opacity">
               {complianceExpanded
