@@ -120,6 +120,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkSentCount, setBulkSentCount] = useState<number | null>(null);
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
+  const [bulkRenewing, setBulkRenewing] = useState(false);
+  const [bulkRenewedCount, setBulkRenewedCount] = useState<number | null>(null);
+  const [showBulkRenewConfirm, setShowBulkRenewConfirm] = useState(false);
 
 
   // Filter state
