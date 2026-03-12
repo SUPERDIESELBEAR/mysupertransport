@@ -123,6 +123,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [bulkRenewing, setBulkRenewing] = useState(false);
   const [bulkRenewedCount, setBulkRenewedCount] = useState<number | null>(null);
   const [showBulkRenewConfirm, setShowBulkRenewConfirm] = useState(false);
+  // Per-row renew state: key = "operatorId|docType"
+  const [rowRenewing, setRowRenewing] = useState<Record<string, boolean>>({});
+  const [rowRenewed, setRowRenewed] = useState<Record<string, boolean>>({});
 
 
   // Filter state
