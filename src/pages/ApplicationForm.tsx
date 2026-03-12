@@ -188,6 +188,7 @@ export default function ApplicationForm() {
   }, []);
 
   // ── Field change handler ────────────────────────────────────────────────
+  // ── Field change handler ────────────────────────────────────────────────
   const handleChange = useCallback((field: keyof ApplicationFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setErrors(prev => ({ ...prev, [field]: undefined }));
