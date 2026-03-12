@@ -105,6 +105,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
   const [complianceSort, setComplianceSort] = useState<'urgency' | 'last_action_asc' | 'last_action_desc'>('urgency');
   const [complianceExpanded, setComplianceExpanded] = useState(true);
+  const [complianceNoActionOnly, setComplianceNoActionOnly] = useState(false);
   const [complianceDocFilter, setComplianceDocFilter] = useState<'all' | 'CDL' | 'Medical Cert'>('all');
   const [operators, setOperators] = useState<OperatorRow[]>([]);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
