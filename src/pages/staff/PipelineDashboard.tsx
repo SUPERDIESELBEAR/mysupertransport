@@ -114,6 +114,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
   // Last reminded timestamps: key = "operatorId|docType" → ISO string
   const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
+  const [bulkSending, setBulkSending] = useState(false);
+  const [bulkSentCount, setBulkSentCount] = useState<number | null>(null);
 
 
   // Filter state
@@ -504,6 +506,72 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     }
   };
 
+  const handleSendAllCritical = async () => {
+    const criticalAlerts = complianceAlerts.filter(a => a.days_until <= 30);
+    if (criticalAlerts.length === 0) return;
+    setBulkSending(true);
+    setBulkSentCount(null);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+    let successCount = 0;
+    let failCount = 0;
+
+    await Promise.all(
+      criticalAlerts.map(async (alert) => {
+        const key = `${alert.operator_id}|${alert.doc_type}`;
+        // Skip already-sending or already-sent items
+        if (reminderSending[key] || reminderSent[key]) { successCount++; return; }
+        setReminderSending(prev => ({ ...prev, [key]: true }));
+        try {
+          const res = await fetch(`${supabaseUrl}/functions/v1/send-cert-reminder`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session?.access_token ?? ''}`,
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+            body: JSON.stringify({
+              operator_id: alert.operator_id,
+              doc_type: alert.doc_type,
+              days_until: alert.days_until,
+              expiration_date: alert.expiration_date,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error ?? 'Failed');
+          const now = new Date().toISOString();
+          setLastReminded(prev => ({ ...prev, [key]: now }));
+          setReminderSent(prev => ({ ...prev, [key]: true }));
+          setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
+          successCount++;
+        } catch {
+          failCount++;
+        } finally {
+          setReminderSending(prev => ({ ...prev, [key]: false }));
+        }
+      })
+    );
+
+    setBulkSending(false);
+    setBulkSentCount(successCount);
+    if (failCount === 0) {
+      toast({
+        title: `${successCount} reminder${successCount !== 1 ? 's' : ''} sent`,
+        description: `All critical operators have been notified.`,
+      });
+    } else {
+      toast({
+        title: `${successCount} sent, ${failCount} failed`,
+        description: 'Some reminders could not be sent. Check individual rows for details.',
+        variant: 'destructive',
+      });
+    }
+    // Reset bulk sent indicator after 10 seconds
+    setTimeout(() => setBulkSentCount(null), 10000);
+  };
+
 
 
   const filtered = operators
@@ -669,11 +737,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       {complianceAlerts.length > 0 && (
         <div className="border border-destructive/30 bg-destructive/5 rounded-xl shadow-sm overflow-hidden">
           {/* Header */}
-          <button
-            onClick={() => setComplianceExpanded(v => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 hover:bg-destructive/10 transition-colors"
-          >
-            <div className="flex items-center gap-2.5">
+          <div className="flex items-center px-4 py-3 gap-2">
+            {/* Expand/collapse toggle — takes remaining space */}
+            <button
+              onClick={() => setComplianceExpanded(v => !v)}
+              className="flex-1 flex items-center gap-2.5 text-left hover:opacity-80 transition-opacity min-w-0"
+            >
               <div className="h-7 w-7 rounded-lg bg-destructive/15 flex items-center justify-center shrink-0">
                 <ShieldAlert className="h-4 w-4 text-destructive" />
               </div>
@@ -681,18 +750,60 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none">
                 {complianceAlerts.length}
               </span>
-              <span className="text-xs text-muted-foreground hidden sm:inline">
+              <span className="text-xs text-muted-foreground hidden sm:inline truncate">
                 {complianceAlerts.filter(a => a.days_until < 0).length > 0
                   ? `${complianceAlerts.filter(a => a.days_until < 0).length} expired · `
                   : ''}
                 CDL or medical cert expiring within 90 days
               </span>
-            </div>
-            {complianceExpanded
-              ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
-              : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-            }
-          </button>
+            </button>
+
+            {/* Bulk send button — only when there are critical (≤30d) alerts */}
+            {(() => {
+              const criticalCount = complianceAlerts.filter(a => a.days_until <= 30).length;
+              if (criticalCount === 0) return null;
+              const allSent = bulkSentCount !== null;
+              return (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => { e.stopPropagation(); handleSendAllCritical(); }}
+                        disabled={bulkSending}
+                        className={`shrink-0 h-7 px-3 text-xs gap-1.5 font-semibold transition-all ${
+                          allSent
+                            ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10'
+                            : 'border-destructive/40 text-destructive bg-destructive/5 hover:bg-destructive/15'
+                        }`}
+                      >
+                        {bulkSending ? (
+                          <><Loader2 className="h-3 w-3 animate-spin" />Sending…</>
+                        ) : allSent ? (
+                          <><CheckCheck className="h-3 w-3" />{bulkSentCount} Sent</>
+                        ) : (
+                          <><Send className="h-3 w-3" />Send All ({criticalCount})</>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-[220px] text-center">
+                      {allSent
+                        ? `${bulkSentCount} reminder${bulkSentCount !== 1 ? 's' : ''} sent to critical operators`
+                        : `Send renewal reminder emails to all ${criticalCount} operator${criticalCount !== 1 ? 's' : ''} with critical expiries (≤ 30 days)`}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })()}
+
+            <button onClick={() => setComplianceExpanded(v => !v)} className="shrink-0 hover:opacity-80 transition-opacity">
+              {complianceExpanded
+                ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              }
+            </button>
+          </div>
 
           {/* Alert rows */}
           {complianceExpanded && (
