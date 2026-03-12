@@ -995,8 +995,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   <TooltipProvider delayDuration={100}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10px] font-semibold shrink-0 cursor-default">
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                        <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full bg-warning/10 border border-warning/30 text-warning-foreground text-[10px] font-semibold shrink-0 cursor-default" style={{color: 'hsl(var(--warning))'}}>
+                          <span className="h-1.5 w-1.5 rounded-full bg-warning shrink-0" />
                           {recentlySent} Reminder Sent
                         </span>
                       </TooltipTrigger>
