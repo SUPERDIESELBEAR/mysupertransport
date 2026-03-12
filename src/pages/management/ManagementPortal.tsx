@@ -683,9 +683,18 @@ export default function ManagementPortal() {
                     );
                   })}
                   {unassignedCount > 0 && (
-                    <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-muted/20">
-                      <p className="text-sm text-muted-foreground">Unassigned operators</p>
-                      <span className="text-sm font-semibold text-muted-foreground tabular-nums">{unassignedCount}</span>
+                    <div
+                      className="flex items-center justify-between px-4 sm:px-5 py-3 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors group"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => { setPipelineCoordinatorFilter('unassigned'); setView('pipeline'); }}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter('unassigned'); setView('pipeline'); } }}
+                    >
+                      <p className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Unassigned operators</p>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-semibold text-muted-foreground tabular-nums">{unassignedCount}</span>
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
+                      </div>
                     </div>
                   )}
                 </div>
