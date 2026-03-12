@@ -1720,7 +1720,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                             </span>
                           )}
                           {filteredWarning > 0 && (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-yellow-600">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-warning">
                               <ShieldAlert className="h-3.5 w-3.5" />
                               {filteredWarning} warning
                             </span>
