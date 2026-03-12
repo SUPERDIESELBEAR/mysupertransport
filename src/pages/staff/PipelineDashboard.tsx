@@ -566,17 +566,25 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to send reminder');
-      if (data.email_error) throw new Error(data.email_error);
-      // Optimistically update last-reminded timestamp and sender
+      // Always update the timestamp — record was saved regardless of email outcome
       const now = new Date().toISOString();
       const senderName = profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || null : null;
       setLastReminded(prev => ({ ...prev, [key]: now }));
       if (senderName) setLastRemindedBy(prev => ({ ...prev, [key]: senderName }));
-      setLastReminderOutcome(prev => ({ ...prev, [key]: { sent: true } }));
-      setReminderSent(prev => ({ ...prev, [key]: true }));
-      toast({ title: 'Reminder sent', description: `Email sent to ${alert.operator_name}` });
-      // Reset "sent" button badge after 8 seconds
-      setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
+      if (data.email_error) {
+        // Email failed — record was still saved; show error state in tooltip
+        setLastReminderOutcome(prev => ({ ...prev, [key]: { sent: false, error: data.email_error } }));
+        setReminderSent(prev => ({ ...prev, [key]: true }));
+        setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
+        const { title, description } = reminderErrorToast(new Error(data.email_error));
+        toast({ title, description, variant: 'destructive' });
+      } else {
+        setLastReminderOutcome(prev => ({ ...prev, [key]: { sent: true } }));
+        setReminderSent(prev => ({ ...prev, [key]: true }));
+        toast({ title: 'Reminder sent', description: `Email sent to ${alert.operator_name}` });
+        // Reset "sent" button badge after 8 seconds
+        setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
+      }
     } catch (err: any) {
       const { title, description } = reminderErrorToast(err);
       toast({ title, description, variant: 'destructive' });
