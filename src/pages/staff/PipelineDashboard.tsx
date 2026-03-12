@@ -168,14 +168,17 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         .not('application_id', 'is', null),
       supabase
         .from('cert_reminders')
-        .select('operator_id, doc_type, sent_at, sent_by_name'),
+        .select('operator_id, doc_type, sent_at')
+        .order('sent_at', { ascending: false }),
     ]);
 
     if (!ops) return;
 
+    // Keep only the most recent reminder per operator+doc_type pair
     const remindedMap: Record<string, string> = {};
     (reminders ?? []).forEach((r: any) => {
-      remindedMap[`${r.operator_id}|${r.doc_type}`] = r.sent_at;
+      const key = `${r.operator_id}|${r.doc_type}`;
+      if (!remindedMap[key]) remindedMap[key] = r.sent_at; // first = most recent due to DESC order
     });
     setLastReminded(remindedMap);
 
