@@ -905,6 +905,44 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               );
             })()}
 
+            {/* Bulk Mark as Renewed button */}
+            {(() => {
+              const allRenewed = bulkRenewedCount !== null;
+              return (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => { e.stopPropagation(); setShowBulkRenewConfirm(true); }}
+                        disabled={bulkRenewing}
+                        className={`shrink-0 h-7 px-3 text-xs gap-1.5 font-semibold transition-all ${
+                          allRenewed
+                            ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10'
+                            : 'border-status-progress/40 text-status-progress bg-status-progress/5 hover:bg-status-progress/15'
+                        }`}
+                      >
+                        {bulkRenewing ? (
+                          <><Loader2 className="h-3 w-3 animate-spin" />Renewing…</>
+                        ) : allRenewed ? (
+                          <><CheckCheck className="h-3 w-3" />{bulkRenewedCount} Renewed</>
+                        ) : (
+                          <><RotateCcw className="h-3 w-3" />Mark All Renewed</>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-[240px] text-center">
+                      {allRenewed
+                        ? `${bulkRenewedCount} document${bulkRenewedCount !== 1 ? 's' : ''} renewed successfully`
+                        : `Extend all ${complianceAlerts.length} alerted document${complianceAlerts.length !== 1 ? 's' : ''} by +1 year from today`}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })()}
+
+
             <button onClick={() => setComplianceExpanded(v => !v)} className="shrink-0 hover:opacity-80 transition-opacity">
               {complianceExpanded
                 ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
