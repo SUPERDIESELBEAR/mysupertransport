@@ -198,8 +198,6 @@ Deno.serve(async (req) => {
       { label: 'View My Portal', url: `${appUrl}/operator/progress` }
     );
 
-    await sendEmail(opUser.email, subject, html, RESEND_API_KEY);
-
     // Get caller profile name (needed for audit log + reminder record)
     const { data: callerProfile } = await supabase
       .from('profiles')
@@ -210,7 +208,28 @@ Deno.serve(async (req) => {
       ? [callerProfile.first_name, callerProfile.last_name].filter(Boolean).join(' ').trim() || caller.email
       : caller.email;
 
-    // Run all post-send writes in parallel
+    // Always write the cert_reminders record first — regardless of email outcome
+    await supabase.from('cert_reminders').upsert(
+      {
+        operator_id,
+        doc_type,
+        sent_at: new Date().toISOString(),
+        sent_by: caller.id,
+        sent_by_name: callerName,
+      },
+      { onConflict: 'operator_id,doc_type' }
+    );
+
+    // Attempt email — log a warning on failure but don't abort
+    let emailError: string | null = null;
+    try {
+      await sendEmail(opUser.email, subject, html, RESEND_API_KEY);
+    } catch (err) {
+      emailError = String(err);
+      console.warn('send-cert-reminder email error (reminder still recorded):', emailError);
+    }
+
+    // Post-send writes (in-app notification + audit log) in parallel
     await Promise.all([
       // In-app notification for the operator
       supabase.from('notifications').insert({
@@ -222,18 +241,6 @@ Deno.serve(async (req) => {
         link: '/operator/progress',
       }),
 
-      // Upsert the last-reminded timestamp for this operator+doc_type pair
-      supabase.from('cert_reminders').upsert(
-        {
-          operator_id,
-          doc_type,
-          sent_at: new Date().toISOString(),
-          sent_by: caller.id,
-          sent_by_name: callerName,
-        },
-        { onConflict: 'operator_id,doc_type' }
-      ),
-
       // Audit log entry
       supabase.from('audit_log').insert({
         actor_id: caller.id,
@@ -242,7 +249,7 @@ Deno.serve(async (req) => {
         entity_id: operator_id,
         entity_label: fullName,
         action: 'cert_reminder_sent',
-        metadata: { doc_type, days_until, expiration_date, operator_email: opUser.email },
+        metadata: { doc_type, days_until, expiration_date, operator_email: opUser.email, email_error: emailError },
       }),
     ]);
 
