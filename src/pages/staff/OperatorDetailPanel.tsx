@@ -103,6 +103,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const savedSnapshot = useRef<{ status: Partial<OnboardingStatus>; notes: string } | null>(null);
   const [navGuard, setNavGuard] = useState<null | { action: () => void }>(null);
   const [renewingField, setRenewingField] = useState<'cdl' | 'medcert' | null>(null);
+  const [reminderSending, setReminderSending] = useState<Record<string, boolean>>({});
+  const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
+  const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
