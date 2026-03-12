@@ -260,6 +260,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       return a.days_until - b.days_until;
     });
     setComplianceAlerts(alerts);
+    setComplianceNoActionOnly(false);
+    setComplianceSort('urgency');
   }, []);
 
   useEffect(() => {
