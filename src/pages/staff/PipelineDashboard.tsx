@@ -631,7 +631,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     } else {
       toast({
         title: `${successCount} sent, ${failCount} failed`,
-        description: 'Some reminders could not be sent. Check individual rows for details.',
+        description: 'Some reminders could not be sent — check that the mysupertransport.com domain is verified at resend.com/domains.',
         variant: 'destructive',
       });
     }
