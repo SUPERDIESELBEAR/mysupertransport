@@ -952,17 +952,22 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           const expired  = days < 0;
           const critical = !expired && days <= 30;
           const warning  = !expired && days <= 90;
+          const needsRenew = expired || critical || warning;
           const colorClass = expired || critical
             ? 'bg-destructive/10 text-destructive border-destructive/30'
             : warning
             ? 'bg-yellow-50 text-yellow-700 border-yellow-300'
             : 'bg-status-complete/10 text-status-complete border-status-complete/30';
           const dotClass = expired || critical ? 'bg-destructive' : warning ? 'bg-yellow-500' : 'bg-status-complete';
+          const renewBtnClass = expired || critical
+            ? 'text-destructive hover:bg-destructive/10 border-destructive/30'
+            : 'text-yellow-700 hover:bg-yellow-100 border-yellow-300';
           const dayLabel = expired
             ? `Expired ${Math.abs(days)}d ago`
             : days === 0 ? 'Expires today'
             : `${days}d left`;
           const isClickable = !!onOpenAppReview;
+          const isRenewing = renewingField === focusField;
           const pill = (
             <span
               onClick={isClickable ? () => onOpenAppReview(focusField) : undefined}
@@ -977,14 +982,35 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           );
           const tooltipMsg = label + ' expires ' + format(parseISO(dateStr), 'MMM d, yyyy') + (expired ? ' — already expired' : critical ? ' — critical, renew immediately' : warning ? ' — follow up soon' : ' — on track');
           return (
-            <TooltipProvider key={label} delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger asChild>{pill}</TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {tooltipMsg}{isClickable ? '. Click to edit.' : ''}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <span key={label} className="inline-flex items-center gap-1">
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>{pill}</TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {tooltipMsg}{isClickable ? '. Click to edit.' : ''}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {needsRenew && (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => handleMarkRenewed(focusField)}
+                        disabled={isRenewing || renewingField !== null}
+                        className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${renewBtnClass}`}
+                      >
+                        <RotateCcw className={`h-2.5 w-2.5 ${isRenewing ? 'animate-spin' : ''}`} />
+                        {isRenewing ? '…' : 'Renew'}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      Mark as renewed — sets expiry to {new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString()}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </span>
           );
         };
         return (
