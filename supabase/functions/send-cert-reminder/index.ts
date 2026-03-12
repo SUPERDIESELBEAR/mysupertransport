@@ -208,19 +208,7 @@ Deno.serve(async (req) => {
       ? [callerProfile.first_name, callerProfile.last_name].filter(Boolean).join(' ').trim() || caller.email
       : caller.email;
 
-    // Always write the cert_reminders record first — regardless of email outcome
-    await supabase.from('cert_reminders').upsert(
-      {
-        operator_id,
-        doc_type,
-        sent_at: new Date().toISOString(),
-        sent_by: caller.id,
-        sent_by_name: callerName,
-      },
-      { onConflict: 'operator_id,doc_type' }
-    );
-
-    // Attempt email — log a warning on failure but don't abort
+    // Attempt email first — capture outcome
     let emailError: string | null = null;
     try {
       await sendEmail(opUser.email, subject, html, RESEND_API_KEY);
@@ -228,6 +216,20 @@ Deno.serve(async (req) => {
       emailError = String(err);
       console.warn('send-cert-reminder email error (reminder still recorded):', emailError);
     }
+
+    // Always write the cert_reminders record — regardless of email outcome
+    await supabase.from('cert_reminders').upsert(
+      {
+        operator_id,
+        doc_type,
+        sent_at: new Date().toISOString(),
+        sent_by: caller.id,
+        sent_by_name: callerName,
+        email_sent: emailError === null,
+        email_error: emailError,
+      },
+      { onConflict: 'operator_id,doc_type' }
+    );
 
     // Post-send writes (in-app notification + audit log) in parallel
     await Promise.all([
