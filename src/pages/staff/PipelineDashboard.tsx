@@ -762,8 +762,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         },
       });
 
+      const renewedNow = new Date().toISOString();
       setRowRenewing(prev => ({ ...prev, [key]: false }));
       setRowRenewed(prev => ({ ...prev, [key]: true }));
+      setLastRenewed(prev => ({ ...prev, [key]: renewedNow }));
+      if (actorName) setLastRenewedBy(prev => ({ ...prev, [key]: actorName }));
       toast({
         title: `${alert.doc_type} marked as renewed`,
         description: `${alert.operator_name}'s expiry extended to ${new Date(newDateStr + 'T00:00:00').toLocaleDateString()}.`,
