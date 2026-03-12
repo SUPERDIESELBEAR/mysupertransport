@@ -292,6 +292,8 @@ export type Database = {
       cert_reminders: {
         Row: {
           doc_type: string
+          email_error: string | null
+          email_sent: boolean
           id: string
           operator_id: string
           sent_at: string
@@ -300,6 +302,8 @@ export type Database = {
         }
         Insert: {
           doc_type: string
+          email_error?: string | null
+          email_sent?: boolean
           id?: string
           operator_id: string
           sent_at?: string
@@ -308,6 +312,8 @@ export type Database = {
         }
         Update: {
           doc_type?: string
+          email_error?: string | null
+          email_sent?: boolean
           id?: string
           operator_id?: string
           sent_at?: string
