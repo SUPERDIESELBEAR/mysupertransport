@@ -29,6 +29,13 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+type StaffWorkload = {
+  user_id: string;
+  full_name: string;
+  email: string;
+  assigned_operator_count: number;
+};
+
 type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications';
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all';
 
