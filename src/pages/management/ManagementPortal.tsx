@@ -583,7 +583,7 @@ export default function ManagementPortal() {
                       <p className="text-xs text-muted-foreground mt-0.5">Operators with nearest document expiries</p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => setView('pipeline')} className="text-xs gap-1 text-muted-foreground h-7 px-2 shrink-0">
+                  <Button variant="ghost" size="sm" onClick={() => { setPipelineCoordinatorFilter('all'); setView('pipeline'); }} className="text-xs gap-1 text-muted-foreground h-7 px-2 shrink-0">
                     View all <ChevronRight className="h-3.5 w-3.5" />
                   </Button>
                 </div>
