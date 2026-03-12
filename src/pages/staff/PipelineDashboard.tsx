@@ -123,6 +123,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [bulkRenewing, setBulkRenewing] = useState(false);
   const [bulkRenewedCount, setBulkRenewedCount] = useState<number | null>(null);
   const [showBulkRenewConfirm, setShowBulkRenewConfirm] = useState(false);
+  // Per-row renew state: key = "operatorId|docType"
+  const [rowRenewing, setRowRenewing] = useState<Record<string, boolean>>({});
+  const [rowRenewed, setRowRenewed] = useState<Record<string, boolean>>({});
 
 
   // Filter state
@@ -681,6 +684,71 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setTimeout(() => setBulkRenewedCount(null), 10000);
   };
 
+  // Per-row Mark as Renewed — extends a single document's expiry by +1 year
+  const handleMarkRenewed = async (alert: ComplianceAlert) => {
+    const key = `${alert.operator_id}|${alert.doc_type}`;
+    setRowRenewing(prev => ({ ...prev, [key]: true }));
+
+    const actorId = user?.id ?? null;
+    const actorName = profile
+      ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || null
+      : null;
+
+    const newDate = new Date();
+    newDate.setFullYear(newDate.getFullYear() + 1);
+    const newDateStr = newDate.toISOString().split('T')[0];
+    const col = alert.doc_type === 'CDL' ? 'cdl_expiration' : 'medical_cert_expiration';
+
+    try {
+      const { data: opRow } = await supabase
+        .from('operators')
+        .select('application_id')
+        .eq('id', alert.operator_id)
+        .single();
+      const appId = (opRow as any)?.application_id;
+      if (!appId) throw new Error('No application found');
+
+      const { data: appData } = await supabase
+        .from('applications')
+        .select(col)
+        .eq('id', appId)
+        .single();
+      const oldDateStr = (appData as any)?.[col] ?? null;
+
+      const { error } = await supabase
+        .from('applications')
+        .update({ [col]: newDateStr })
+        .eq('id', appId);
+      if (error) throw error;
+
+      await supabase.from('audit_log' as any).insert({
+        actor_id: actorId,
+        actor_name: actorName,
+        action: 'cert_renewed',
+        entity_type: 'operator',
+        entity_id: alert.operator_id,
+        entity_label: alert.operator_name,
+        metadata: {
+          document_type: alert.doc_type,
+          old_expiry: oldDateStr,
+          new_expiry: newDateStr,
+          operator_name: alert.operator_name,
+        },
+      });
+
+      setRowRenewing(prev => ({ ...prev, [key]: false }));
+      setRowRenewed(prev => ({ ...prev, [key]: true }));
+      toast({
+        title: `${alert.doc_type} marked as renewed`,
+        description: `${alert.operator_name}'s expiry extended to ${new Date(newDateStr + 'T00:00:00').toLocaleDateString()}.`,
+      });
+      setTimeout(() => setRowRenewed(prev => { const n = { ...prev }; delete n[key]; return n; }), 8000);
+    } catch {
+      setRowRenewing(prev => ({ ...prev, [key]: false }));
+      toast({ title: 'Failed to renew document', variant: 'destructive' });
+    }
+  };
+
 
   const filtered = operators
     .filter(op => {
@@ -962,6 +1030,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[60px] text-right">Status</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[72px] text-right">Last Reminded</span>
                 <span className="shrink-0 w-[74px]" />
+                <span className="shrink-0 w-[68px]" />
                 <span className="shrink-0 w-[58px]" />
               </div>
                 {complianceAlerts.map((alert, i) => {
@@ -973,6 +1042,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 const isSent = reminderSent[rowKey];
                 const remindedAt = lastReminded[rowKey];
                 const remindedBy = lastRemindedBy[rowKey];
+                const isRowRenewing = rowRenewing[rowKey];
+                const isRowRenewed = rowRenewed[rowKey];
 
                 return (
                   <div key={`${alert.operator_id}-${alert.doc_type}`}
@@ -1092,6 +1163,36 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         </TooltipTrigger>
                         <TooltipContent side="top" className="text-xs">
                           {isSent ? 'Reminder sent!' : `Send email reminder to ${alert.operator_name}`}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+
+                    {/* Per-row Mark as Renewed button */}
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleMarkRenewed(alert)}
+                            disabled={isRowRenewing || isRowRenewed}
+                            className={`shrink-0 h-7 px-2 text-xs gap-1.5 transition-all ${
+                              isRowRenewed
+                                ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10'
+                                : 'border-muted-foreground/30 text-muted-foreground hover:border-status-complete/50 hover:text-status-complete hover:bg-status-complete/5'
+                            }`}
+                          >
+                            {isRowRenewing ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : isRowRenewed ? (
+                              <><CheckCircle2 className="h-3 w-3" /><span className="hidden sm:inline">Renewed</span></>
+                            ) : (
+                              <><RotateCcw className="h-3 w-3" /><span className="hidden sm:inline">Renew</span></>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">
+                          {isRowRenewed ? 'Document renewed!' : `Mark ${alert.doc_type} as renewed (+1 year)`}
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
