@@ -103,6 +103,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
+  const [complianceSort, setComplianceSort] = useState<'urgency' | 'last_action_asc' | 'last_action_desc'>('urgency');
   const [complianceExpanded, setComplianceExpanded] = useState(true);
   const [complianceDocFilter, setComplianceDocFilter] = useState<'all' | 'CDL' | 'Medical Cert'>('all');
   const [operators, setOperators] = useState<OperatorRow[]>([]);
