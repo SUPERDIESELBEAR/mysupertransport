@@ -1021,11 +1021,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               <div className="hidden sm:flex items-center gap-1 ml-1 shrink-0" onClick={e => e.stopPropagation()}>
                 {(['all', 'CDL', 'Medical Cert'] as const).map(f => {
                   const count = f === 'all' ? complianceAlerts.length : complianceAlerts.filter(a => a.doc_type === f).length;
-                  const active = complianceDocFilter === f;
+                  const active = complianceDocFilter === f && !complianceNoActionOnly;
                   return (
                     <button
                       key={f}
-                      onClick={() => setComplianceDocFilter(f)}
+                      onClick={() => { setComplianceDocFilter(f); setComplianceNoActionOnly(false); }}
                       className={`inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-semibold border transition-all ${
                         active
                           ? 'bg-destructive/15 border-destructive/40 text-destructive'
@@ -1037,6 +1037,36 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     </button>
                   );
                 })}
+                {/* No Action chip */}
+                {(() => {
+                  const noActionCount = complianceAlerts.filter(a => {
+                    const key = `${a.operator_id}|${a.doc_type}`;
+                    return !lastReminded[key] && !lastRenewed[key];
+                  }).length;
+                  if (noActionCount === 0) return null;
+                  return (
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => setComplianceNoActionOnly(v => !v)}
+                            className={`inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-semibold border transition-all ${
+                              complianceNoActionOnly
+                                ? 'bg-muted-foreground/15 border-muted-foreground/40 text-foreground'
+                                : 'bg-background border-border text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground'
+                            }`}
+                          >
+                            No Action
+                            <span className={`text-[9px] font-bold ${complianceNoActionOnly ? 'text-foreground' : 'text-muted-foreground'}`}>{noActionCount}</span>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs max-w-[200px] text-center">
+                          Show only operators with no reminder or renewal recorded
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                })()}
               </div>
             </button>
 
