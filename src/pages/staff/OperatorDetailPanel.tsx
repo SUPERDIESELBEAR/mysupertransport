@@ -24,6 +24,8 @@ interface OperatorDetailPanelProps {
   onUnsavedChangesChange?: (hasChanges: boolean) => void;
   /** Called when a compliance pill is clicked to open the app review drawer */
   onOpenAppReview?: (focusField: 'cdl' | 'medcert') => void;
+  /** Called by parent to push refreshed expiry dates into this panel */
+  expiryOverride?: { cdl: string | null; medcert: string | null };
 }
 
 type OnboardingStatus = {
