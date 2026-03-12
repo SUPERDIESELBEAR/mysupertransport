@@ -381,6 +381,7 @@ export default function ManagementPortal() {
     } else {
       setView(path as ManagementView);
       if (path !== 'operator-detail') setSelectedOperatorId(null);
+      if (path === 'pipeline') setPipelineCoordinatorFilter('all');
     }
   };
 
@@ -389,6 +390,7 @@ export default function ManagementPortal() {
       setOperatorHasUnsavedChanges(false);
       setView(pendingNavPath as ManagementView);
       if (pendingNavPath !== 'operator-detail') setSelectedOperatorId(null);
+      if (pendingNavPath === 'pipeline') setPipelineCoordinatorFilter('all');
       setPendingNavPath(null);
     }
   };
