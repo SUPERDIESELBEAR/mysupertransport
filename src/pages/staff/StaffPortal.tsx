@@ -35,6 +35,7 @@ export default function StaffPortal() {
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const [reviewApp, setReviewApp] = useState<FullApplication | null>(null);
   const [reviewFocusField, setReviewFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
+  const [panelExpiryOverride, setPanelExpiryOverride] = useState<{ cdl: string | null; medcert: string | null } | undefined>(undefined);
   const viewRef = useRef(currentView);
 
   // Deep-link: ?tab=notifications or ?operator=...
@@ -308,6 +309,7 @@ export default function StaffPortal() {
           onBack={handleBackToPipeline}
           onMessageOperator={handleMessageOperator}
           onUnsavedChangesChange={setOperatorHasUnsavedChanges}
+          expiryOverride={panelExpiryOverride}
           onOpenAppReview={async (focusField) => {
             const { data: op } = await supabase
               .from('operators')
@@ -343,7 +345,22 @@ export default function StaffPortal() {
         onClose={() => { setReviewApp(null); setReviewFocusField(undefined); }}
         onApprove={async () => {}}
         onDeny={async () => {}}
-        onExpiryUpdated={() => {}}
+        onExpiryUpdated={async () => {
+          // Re-fetch the application so the drawer shows the fresh value
+          const { data: fresh } = await supabase
+            .from('applications')
+            .select('*')
+            .eq('id', reviewApp.id)
+            .single();
+          if (fresh) {
+            setReviewApp(fresh as FullApplication);
+            // Push updated expiry dates into the OperatorDetailPanel's local state
+            setPanelExpiryOverride({
+              cdl: (fresh as any).cdl_expiration ?? null,
+              medcert: (fresh as any).medical_cert_expiration ?? null,
+            });
+          }
+        }}
         focusField={reviewFocusField}
       />
     )}

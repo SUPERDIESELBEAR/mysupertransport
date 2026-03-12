@@ -64,6 +64,8 @@ export default function ManagementPortal() {
   const [complianceRefreshKey, setComplianceRefreshKey] = useState(0);
   const [truckDownCount, setTruckDownCount] = useState(0);
   const [dispatchLiveFlash, setDispatchLiveFlash] = useState(false);
+  const [panelExpiryOverride, setPanelExpiryOverride] = useState<{ cdl: string | null; medcert: string | null } | undefined>(undefined);
+
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [criticalExpiryCount, setCriticalExpiryCount] = useState(0);
@@ -717,6 +719,7 @@ export default function ManagementPortal() {
             operatorId={selectedOperatorId}
             onBack={() => { setOperatorHasUnsavedChanges(false); setView('pipeline'); }}
             onUnsavedChangesChange={setOperatorHasUnsavedChanges}
+            expiryOverride={panelExpiryOverride}
             onOpenAppReview={async (focusField) => {
               const { data: op } = await supabase
                 .from('operators')
@@ -770,7 +773,22 @@ export default function ManagementPortal() {
           onClose={() => { setSelectedApp(null); setDrawerFocusField(undefined); }}
           onApprove={handleApprove}
           onDeny={handleDeny}
-          onExpiryUpdated={() => setComplianceRefreshKey(k => k + 1)}
+          onExpiryUpdated={async () => {
+            setComplianceRefreshKey(k => k + 1);
+            // Re-fetch fresh app data and push updated expiry dates into the panel
+            const { data: fresh } = await supabase
+              .from('applications')
+              .select('*')
+              .eq('id', selectedApp.id)
+              .single();
+            if (fresh) {
+              setSelectedApp(fresh as FullApplication);
+              setPanelExpiryOverride({
+                cdl: (fresh as any).cdl_expiration ?? null,
+                medcert: (fresh as any).medical_cert_expiration ?? null,
+              });
+            }
+          }}
           focusField={drawerFocusField}
         />
       )}

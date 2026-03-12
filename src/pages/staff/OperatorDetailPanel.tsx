@@ -24,6 +24,8 @@ interface OperatorDetailPanelProps {
   onUnsavedChangesChange?: (hasChanges: boolean) => void;
   /** Called when a compliance pill is clicked to open the app review drawer */
   onOpenAppReview?: (focusField: 'cdl' | 'medcert') => void;
+  /** Called by parent to push refreshed expiry dates into this panel */
+  expiryOverride?: { cdl: string | null; medcert: string | null };
 }
 
 type OnboardingStatus = {
@@ -69,7 +71,7 @@ const DISPATCH_STATUS_CONFIG: Record<string, { label: string; dotClass: string; 
   truck_down:     { label: 'Truck Down',     dotClass: 'bg-destructive',       badgeClass: 'bg-destructive/10 text-destructive border-destructive/30', emoji: '🔴' },
 };
 
-export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator, onUnsavedChangesChange, onOpenAppReview }: OperatorDetailPanelProps) {
+export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator, onUnsavedChangesChange, onOpenAppReview, expiryOverride }: OperatorDetailPanelProps) {
   const { toast } = useToast();
   const { session } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -159,6 +161,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     fetchOperatorDetail();
     fetchDispatchHistory();
   }, [operatorId]);
+
+  // When parent pushes refreshed expiry values (e.g. after drawer save), update local state instantly
+  useEffect(() => {
+    if (!expiryOverride) return;
+    setCdlExpiration(expiryOverride.cdl);
+    setMedCertExpiration(expiryOverride.medcert);
+  }, [expiryOverride]);
 
   // Realtime: prepend new dispatch history entries as they arrive
   useEffect(() => {
