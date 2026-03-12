@@ -676,6 +676,7 @@ export default function ManagementPortal() {
                             <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${barWidth}%` }} />
                           </div>
                         </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-gold transition-colors shrink-0" />
                       </div>
                     );
                   })}
