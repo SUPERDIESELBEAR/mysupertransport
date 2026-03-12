@@ -181,6 +181,7 @@ export default function ApplicationForm() {
             signed_date: data.signed_date ?? defaultFormData.signed_date,
           };
           setFormData(restored);
+          setShowDraftBanner(true);
         }
         setDraftLoaded(true);
       });

@@ -624,6 +624,63 @@ export default function ManagementPortal() {
               </div>
             )}
 
+            {/* Staff Workload */}
+            <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+              <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-border flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2.5">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <h2 className="font-semibold text-foreground">Onboarding Staff Workload</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Operator assignments per coordinator</p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setView('staff')} className="text-xs gap-1 text-muted-foreground h-7 px-2 shrink-0">
+                  Manage Staff <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              {staffWorkload.length === 0 ? (
+                <div className="p-6 text-center">
+                  <p className="text-sm text-muted-foreground">No onboarding staff found.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {staffWorkload.map(member => {
+                    const count = member.assigned_operator_count;
+                    const loadLabel = count >= 7 ? 'Heavy' : count >= 4 ? 'Moderate' : 'Low';
+                    const loadColor = count >= 7
+                      ? 'text-destructive bg-destructive/10 border-destructive/20'
+                      : count >= 4
+                      ? 'text-gold bg-gold/10 border-gold/20'
+                      : 'text-status-complete bg-status-complete/10 border-status-complete/20';
+                    const barWidth = Math.min(100, Math.round((count / 10) * 100));
+                    const barColor = count >= 7 ? 'bg-destructive' : count >= 4 ? 'bg-gold' : 'bg-status-complete';
+                    return (
+                      <div key={member.user_id} className="flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-secondary/30 transition-colors">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <p className="font-medium text-foreground text-sm truncate">{member.full_name}</p>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-sm font-semibold text-foreground tabular-nums">{count}</span>
+                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${loadColor}`}>{loadLabel}</span>
+                            </div>
+                          </div>
+                          <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${barWidth}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {unassignedCount > 0 && (
+                    <div className="flex items-center justify-between px-4 sm:px-5 py-3 bg-muted/20">
+                      <p className="text-sm text-muted-foreground">Unassigned operators</p>
+                      <span className="text-sm font-semibold text-muted-foreground tabular-nums">{unassignedCount}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Pending queue preview */}
             <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
               <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-border flex items-center justify-between gap-2 flex-wrap">
