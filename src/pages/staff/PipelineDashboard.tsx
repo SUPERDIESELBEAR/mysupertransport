@@ -1166,6 +1166,41 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
+                       );
+                    })()}
+
+                    {/* Last Renewed column — matches Last Reminded pattern */}
+                    {(() => {
+                      const pillClass = renewedAt
+                        ? 'bg-status-complete/10 text-status-complete border border-status-complete/25'
+                        : '';
+                      return (
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className={`hidden sm:inline-flex items-center gap-1 text-[11px] shrink-0 cursor-default w-[72px] justify-end rounded px-1 py-0.5 transition-colors ${
+                                renewedAt ? pillClass : 'text-muted-foreground/40'
+                              }`}>
+                                {renewedAt ? (
+                                  <>
+                                    <RotateCcw className="h-3 w-3 shrink-0 text-status-complete" />
+                                    {format(new Date(renewedAt), 'MMM d')}
+                                  </>
+                                ) : (
+                                  <span className="text-muted-foreground/40">—</span>
+                                )}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs max-w-[220px]">
+                              {renewedAt ? (
+                                <span className="flex flex-col gap-0.5">
+                                  <span>Last renewed {format(new Date(renewedAt), "MMM d, yyyy 'at' h:mm a")}</span>
+                                  {renewedByName && <span className="text-muted-foreground">by {renewedByName}</span>}
+                                </span>
+                              ) : 'Not yet renewed'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       );
                     })()}
 
