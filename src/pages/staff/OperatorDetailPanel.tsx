@@ -179,6 +179,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   useEffect(() => {
     fetchOperatorDetail();
     fetchDispatchHistory();
+    fetchCertHistory();
   }, [operatorId]);
 
   // When parent pushes refreshed expiry values (e.g. after drawer save), update local state instantly
