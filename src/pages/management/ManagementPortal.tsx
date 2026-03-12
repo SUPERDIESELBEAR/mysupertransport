@@ -79,6 +79,8 @@ export default function ManagementPortal() {
   const [drawerFocusField, setDrawerFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
   type ComplianceRow = { operatorId: string; name: string; daysUntil: number; docType: 'CDL' | 'Med Cert'; expiryDate: string };
   const [complianceSummary, setComplianceSummary] = useState<ComplianceRow[]>([]);
+  const [staffWorkload, setStaffWorkload] = useState<StaffWorkload[]>([]);
+  const [unassignedCount, setUnassignedCount] = useState(0);
 
 
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
