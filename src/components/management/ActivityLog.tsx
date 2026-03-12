@@ -107,6 +107,12 @@ const ACTION_CONFIG: Record<string, {
     color: 'text-emerald-700',
     bg: 'bg-emerald-100 border-emerald-300',
   },
+  cert_renewed: {
+    label: 'Certificate Renewed',
+    icon: <RotateCcw className="h-4 w-4" />,
+    color: 'text-status-complete',
+    bg: 'bg-status-complete/10 border-status-complete/20',
+  },
 };
 
 const FILTER_OPTIONS = [
