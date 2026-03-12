@@ -968,10 +968,19 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 const neverRenewed = complianceAlerts.filter(a => !lastRenewed[`${a.operator_id}|${a.doc_type}`]).length;
                 if (neverRenewed === 0) return null;
                 return (
-                  <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full bg-destructive/10 border border-destructive/30 text-destructive text-[10px] font-semibold shrink-0">
-                    <span className="h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
-                    {neverRenewed} Never Renewed
-                  </span>
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full bg-destructive/10 border border-destructive/30 text-destructive text-[10px] font-semibold shrink-0 cursor-default">
+                          <span className="h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                          {neverRenewed} Never Renewed
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-56 text-center text-xs">
+                        These documents have never been marked as renewed by staff
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 );
               })()}
               <span className="text-xs text-muted-foreground hidden sm:inline truncate">
