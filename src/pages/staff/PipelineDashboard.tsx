@@ -265,6 +265,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setComplianceAlerts(alerts);
     setComplianceNoActionOnly(false);
     setComplianceSort('urgency');
+    setNoActionBulkSentCount(null);
   }, []);
 
   useEffect(() => {
@@ -1227,8 +1228,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 const key = `${a.operator_id}|${a.doc_type}`;
                 return !lastReminded[key] && !lastRenewed[key];
               });
-              if (noActionAlerts.length === 0) return null;
               const allSent = noActionBulkSentCount !== null;
+              // Show "N Sent" flash even after list empties, then hide once the timer expires
+              if (noActionAlerts.length === 0 && !allSent && !noActionBulkSending) return null;
               return (
                 <TooltipProvider delayDuration={100}>
                   <Tooltip>
@@ -1237,7 +1239,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         size="sm"
                         variant="outline"
                         onClick={(e) => { e.stopPropagation(); setShowNoActionBulkConfirm(true); }}
-                        disabled={noActionBulkSending}
+                        disabled={noActionBulkSending || allSent || noActionAlerts.length === 0}
                         className={`shrink-0 h-7 px-3 text-xs gap-1.5 font-semibold transition-all ${
                           allSent
                             ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10'
