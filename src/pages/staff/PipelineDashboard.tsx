@@ -1058,6 +1058,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[80px]">Expires</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[60px] text-right">Status</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[72px] text-right">Last Reminded</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[72px] text-right">Last Renewed</span>
                 <span className="shrink-0 w-[74px]" />
                 <span className="shrink-0 w-[68px]" />
                 <span className="shrink-0 w-[58px]" />
@@ -1073,6 +1074,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 const remindedBy = lastRemindedBy[rowKey];
                 const isRowRenewing = rowRenewing[rowKey];
                 const isRowRenewed = rowRenewed[rowKey];
+                const renewedAt = lastRenewed[rowKey];
+                const renewedByName = lastRenewedBy[rowKey];
 
                 return (
                   <div key={`${alert.operator_id}-${alert.doc_type}`}
