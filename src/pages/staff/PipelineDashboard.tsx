@@ -1085,7 +1085,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <span className="shrink-0 w-[68px]" />
                 <span className="shrink-0 w-[58px]" />
               </div>
-                {complianceAlerts.map((alert, i) => {
+                {complianceAlerts.filter(a => complianceDocFilter === 'all' || a.doc_type === complianceDocFilter).map((alert, i) => {
                 const expired = alert.days_until < 0;
                 const critical = !expired && alert.days_until <= 30;
                 const warning = !expired && !critical;
