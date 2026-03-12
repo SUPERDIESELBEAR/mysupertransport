@@ -168,14 +168,17 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         .not('application_id', 'is', null),
       supabase
         .from('cert_reminders')
-        .select('operator_id, doc_type, sent_at, sent_by_name'),
+        .select('operator_id, doc_type, sent_at')
+        .order('sent_at', { ascending: false }),
     ]);
 
     if (!ops) return;
 
+    // Keep only the most recent reminder per operator+doc_type pair
     const remindedMap: Record<string, string> = {};
     (reminders ?? []).forEach((r: any) => {
-      remindedMap[`${r.operator_id}|${r.doc_type}`] = r.sent_at;
+      const key = `${r.operator_id}|${r.doc_type}`;
+      if (!remindedMap[key]) remindedMap[key] = r.sent_at; // first = most recent due to DESC order
     });
     setLastReminded(remindedMap);
 
@@ -810,6 +813,16 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           {/* Alert rows */}
           {complianceExpanded && (
             <div className="border-t border-destructive/20 divide-y divide-destructive/10">
+              {/* Column headers */}
+              <div className="flex items-center gap-3 px-4 py-1.5 bg-destructive/5">
+                <span className="h-2 w-2 shrink-0" />
+                <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[80px]">Expires</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[60px] text-right">Status</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[72px] text-right">Last Reminded</span>
+                <span className="shrink-0 w-[74px]" />
+                <span className="shrink-0 w-[58px]" />
+              </div>
                 {complianceAlerts.map((alert, i) => {
                 const expired = alert.days_until < 0;
                 const critical = !expired && alert.days_until <= 30;
