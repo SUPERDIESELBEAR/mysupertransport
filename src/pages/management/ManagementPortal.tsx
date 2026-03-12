@@ -531,6 +531,59 @@ export default function ManagementPortal() {
               </TooltipProvider>
             </div>
 
+            {/* Compliance Summary */}
+            {complianceSummary.length > 0 && (
+              <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+                <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-border flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2.5">
+                    <ShieldAlert className="h-4 w-4 text-destructive" />
+                    <div>
+                      <h2 className="font-semibold text-foreground">Compliance Summary</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">Operators with nearest document expiries</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setView('pipeline')} className="text-xs gap-1 text-muted-foreground h-7 px-2 shrink-0">
+                    View all <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="divide-y divide-border">
+                  {complianceSummary.map((row, i) => {
+                    const isCritical = row.daysUntil <= 30;
+                    const isExpired = row.daysUntil < 0;
+                    const urgencyColor = isExpired
+                      ? 'text-destructive bg-destructive/10 border-destructive/20'
+                      : isCritical
+                      ? 'text-destructive bg-destructive/10 border-destructive/20'
+                      : 'text-gold bg-gold/10 border-gold/20';
+                    const label = isExpired
+                      ? `Expired ${Math.abs(row.daysUntil)}d ago`
+                      : row.daysUntil === 0
+                      ? 'Expires today'
+                      : `${row.daysUntil}d`;
+                    return (
+                      <div key={`${row.operatorId}-${row.docType}-${i}`} className="flex items-center justify-between px-4 sm:px-5 py-3 hover:bg-secondary/30 transition-colors gap-3">
+                        <div className="min-w-0 flex-1 flex items-center gap-3">
+                          <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${urgencyColor}`}>
+                            {label}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground text-sm truncate">{row.name}</p>
+                            <p className="text-xs text-muted-foreground">{row.docType} · Expires {new Date(row.expiryDate + 'T00:00:00').toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => { setSelectedOperatorId(row.operatorId); setView('operator-detail'); }}
+                          className="shrink-0 text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-0.5 transition-colors"
+                        >
+                          Open <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Pending queue preview */}
             <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
               <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-border flex items-center justify-between gap-2 flex-wrap">
