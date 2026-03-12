@@ -421,18 +421,37 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const fetchCertHistory = async () => {
     setCertHistoryLoading(true);
     try {
-      // Fetch audit log entries for this operator (cert_renewed + cert_reminder_sent)
-      const { data: auditRows } = await supabase
-        .from('audit_log')
-        .select('id, action, actor_name, created_at, metadata')
-        .eq('entity_id', operatorId)
-        .in('action', ['cert_renewed', 'cert_reminder_sent'])
-        .order('created_at', { ascending: false })
-        .limit(100) as { data: any[] | null };
+      // Fetch audit log entries AND cert_reminders in parallel
+      const [auditRes, remindersRes] = await Promise.all([
+        supabase
+          .from('audit_log')
+          .select('id, action, actor_name, created_at, metadata')
+          .eq('entity_id', operatorId)
+          .in('action', ['cert_renewed', 'cert_reminder_sent'])
+          .order('created_at', { ascending: false })
+          .limit(100) as unknown as Promise<{ data: any[] | null }>,
+        supabase
+          .from('cert_reminders')
+          .select('id, doc_type, sent_at, sent_by_name, email_sent, email_error')
+          .eq('operator_id', operatorId)
+          .order('sent_at', { ascending: false })
+          .limit(200),
+      ]);
+
+      // Build a lookup: reminder record keyed by ISO sent_at (rounded to minute) + doc_type
+      // so we can match audit log entries to their delivery outcome
+      const remindersByKey: Record<string, { email_sent: boolean; email_error: string | null }> = {};
+      ((remindersRes as any).data ?? []).forEach((r: any) => {
+        // Key by doc_type + minute-truncated timestamp for fuzzy matching
+        const minuteKey = `${r.doc_type}|${r.sent_at?.slice(0, 16)}`;
+        if (!remindersByKey[minuteKey]) {
+          remindersByKey[minuteKey] = { email_sent: r.email_sent ?? true, email_error: r.email_error ?? null };
+        }
+      });
 
       const entries: CertHistoryEntry[] = [];
 
-      (auditRows ?? []).forEach((row: any) => {
+      (auditRes.data ?? []).forEach((row: any) => {
         const meta = row.metadata ?? {};
         if (row.action === 'cert_renewed') {
           entries.push({
@@ -445,13 +464,39 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             new_expiry: meta.new_expiry ?? null,
           });
         } else if (row.action === 'cert_reminder_sent') {
+          const docType = meta.document_type ?? meta.doc_type ?? 'CDL';
+          const minuteKey = `${docType}|${row.created_at?.slice(0, 16)}`;
+          const outcome = remindersByKey[minuteKey];
           entries.push({
             id: row.id,
             event_type: 'reminder_sent',
-            doc_type: meta.document_type ?? meta.doc_type ?? 'CDL',
+            doc_type: docType,
             actor_name: row.actor_name,
             occurred_at: row.created_at,
             days_until: meta.days_until ?? null,
+            email_sent: outcome?.email_sent ?? null,
+            email_error: outcome?.email_error ?? null,
+          });
+        }
+      });
+
+      // Also surface cert_reminders that have NO matching audit log entry
+      // (records written by the edge function before audit log was added, or failed attempts)
+      ((remindersRes as any).data ?? []).forEach((r: any) => {
+        const minuteKey = `${r.doc_type}|${r.sent_at?.slice(0, 16)}`;
+        const alreadyRepresented = entries.some(
+          e => e.event_type === 'reminder_sent' && `${e.doc_type}|${e.occurred_at?.slice(0, 16)}` === minuteKey
+        );
+        if (!alreadyRepresented) {
+          entries.push({
+            id: `cr-${r.id}`,
+            event_type: 'reminder_sent',
+            doc_type: r.doc_type,
+            actor_name: r.sent_by_name ?? null,
+            occurred_at: r.sent_at,
+            days_until: null,
+            email_sent: r.email_sent ?? true,
+            email_error: r.email_error ?? null,
           });
         }
       });
