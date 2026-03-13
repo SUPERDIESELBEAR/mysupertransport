@@ -956,6 +956,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         const cmp = a.progress_pct - b.progress_pct;
         return sortDir === 'asc' ? cmp : -cmp;
       }
+      if (sortKey === 'last_activity') {
+        const at = a.onboarding_updated_at ?? '';
+        const bt = b.onboarding_updated_at ?? '';
+        const cmp = at < bt ? -1 : at > bt ? 1 : 0;
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
       let av = '';
       let bv = '';
       if (sortKey === 'name') {
