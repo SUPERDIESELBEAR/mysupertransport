@@ -1037,6 +1037,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     progressFilter !== 'all',
     complianceFilter !== 'all',
     idleFilter,
+    unreadFilter,
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
@@ -1047,6 +1048,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setProgressFilter('all');
     setComplianceFilter('all');
     setIdleFilter(false);
+    setUnreadFilter(false);
     setSearch('');
   };
 
