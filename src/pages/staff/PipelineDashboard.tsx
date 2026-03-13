@@ -1810,6 +1810,31 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </>
               );
             })()}
+            {/* Idle 14d+ chip */}
+            {idleCount > 0 && (
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setIdleFilter(v => !v)}
+                      className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                        idleFilter
+                          ? 'bg-warning text-warning-foreground border-warning'
+                          : 'bg-warning/10 text-warning-foreground border-warning/30 hover:bg-warning/20'
+                      }`}
+                      style={idleFilter ? {} : { color: 'hsl(var(--warning))' }}
+                    >
+                      <Clock className={`h-3 w-3 ${idleFilter ? 'text-warning-foreground' : ''}`} style={idleFilter ? {} : { color: 'hsl(var(--warning))' }} />
+                      Idle 14d+
+                      <span className="font-bold">{idleCount}</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[220px] text-center">
+                    Show only operators whose onboarding status hasn't changed in 14+ days
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
