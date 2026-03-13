@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Bell, Truck, AlertTriangle, MessageCircle, Target,
-  Paperclip, Check, Loader2, UserCheck, Monitor, ShieldAlert,
+  Paperclip, Check, Loader2, UserCheck, Monitor, ShieldAlert, Clock,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
