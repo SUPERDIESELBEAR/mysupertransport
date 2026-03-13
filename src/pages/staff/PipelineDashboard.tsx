@@ -950,7 +950,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       const matchCompliance = complianceFilter === 'all' ||
         (complianceFilter === 'critical' && worstAlert != null && worstAlert.days_until <= 30) ||
         (complianceFilter === 'warning' && worstAlert != null && worstAlert.days_until > 30 && worstAlert.days_until <= 90);
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance;
+      const matchIdle = !idleFilter || (
+        op.onboarding_updated_at != null &&
+        differenceInDays(new Date(), parseISO(op.onboarding_updated_at)) >= 14
+      );
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle;
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
