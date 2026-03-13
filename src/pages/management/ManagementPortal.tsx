@@ -94,7 +94,7 @@ export default function ManagementPortal() {
   const [unassignedCount, setUnassignedCount] = useState(0);
   const [unassignedStages, setUnassignedStages] = useState<StageBreakdown>({ stage1_background: 0, stage2_documents: 0, stage3_ica: 0, stage4_mo_reg: 0, stage5_equipment: 0, stage6_insurance: 0, fully_onboarded: 0 });
   const [pipelineCoordinatorFilter, setPipelineCoordinatorFilter] = useState<string>('all');
-
+  const [pipelineStageFilter, setPipelineStageFilter] = useState<string>('all');
 
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
   useEffect(() => {
@@ -441,7 +441,7 @@ export default function ManagementPortal() {
     } else {
       setView(path as ManagementView);
       if (path !== 'operator-detail') setSelectedOperatorId(null);
-      if (path === 'pipeline') setPipelineCoordinatorFilter('all');
+      if (path === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineStageFilter('all'); }
     }
   };
 
@@ -450,7 +450,7 @@ export default function ManagementPortal() {
       setOperatorHasUnsavedChanges(false);
       setView(pendingNavPath as ManagementView);
       if (pendingNavPath !== 'operator-detail') setSelectedOperatorId(null);
-      if (pendingNavPath === 'pipeline') setPipelineCoordinatorFilter('all');
+      if (pendingNavPath === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineStageFilter('all'); }
       setPendingNavPath(null);
     }
   };
@@ -871,22 +871,40 @@ export default function ManagementPortal() {
                   )}
                 </div>
               )}
-              {/* Stage color legend */}
-              <div className="px-4 sm:px-5 py-2.5 border-t border-border bg-secondary/20 flex flex-wrap gap-x-4 gap-y-1.5">
+              {/* Stage color legend — click any chip to filter pipeline to that stage */}
+              <div className="px-4 sm:px-5 py-2.5 border-t border-border bg-secondary/20 flex flex-wrap gap-x-3 gap-y-1.5 items-center">
+                <span className="text-[10px] text-muted-foreground/60 font-medium uppercase tracking-wide mr-1">Filter:</span>
                 {[
-                  { label: 'Background',    dot: 'bg-muted-foreground' },
-                  { label: 'Documents',     dot: 'bg-status-progress' },
-                  { label: 'ICA',           dot: 'bg-gold' },
-                  { label: 'MO Reg',        dot: 'bg-info' },
-                  { label: 'Equipment',     dot: 'bg-purple-400' },
-                  { label: 'Insurance',     dot: 'bg-orange-400' },
-                  { label: 'Onboarded',     dot: 'bg-status-complete' },
-                ].map(item => (
-                  <span key={item.label} className="flex items-center gap-1.5">
-                    <span className={`h-2 w-2 rounded-full shrink-0 ${item.dot}`} />
-                    <span className="text-[10px] text-muted-foreground">{item.label}</span>
-                  </span>
-                ))}
+                  { label: 'Background', dot: 'bg-muted-foreground',  stage: 'Stage 1 — Background',     activeDot: 'bg-muted-foreground',  activeText: 'text-foreground',       activeBg: 'bg-muted/50 border-border' },
+                  { label: 'Documents',  dot: 'bg-status-progress',   stage: 'Stage 2 — Documents',      activeDot: 'bg-status-progress',   activeText: 'text-status-progress',  activeBg: 'bg-status-progress/10 border-status-progress/30' },
+                  { label: 'ICA',        dot: 'bg-gold',              stage: 'Stage 3 — ICA',            activeDot: 'bg-gold',              activeText: 'text-gold',             activeBg: 'bg-gold/10 border-gold/30' },
+                  { label: 'MO Reg',     dot: 'bg-info',              stage: 'Stage 4 — MO Registration',activeDot: 'bg-info',              activeText: 'text-info',             activeBg: 'bg-info/10 border-info/30' },
+                  { label: 'Equipment',  dot: 'bg-purple-400',        stage: 'Stage 5 — Equipment',      activeDot: 'bg-purple-400',        activeText: 'text-purple-400',       activeBg: 'bg-purple-400/10 border-purple-400/30' },
+                  { label: 'Insurance',  dot: 'bg-orange-400',        stage: 'Stage 6 — Insurance',      activeDot: 'bg-orange-400',        activeText: 'text-orange-400',       activeBg: 'bg-orange-400/10 border-orange-400/30' },
+                  { label: 'Onboarded',  dot: 'bg-status-complete',   stage: null,                       activeDot: 'bg-status-complete',   activeText: 'text-status-complete',  activeBg: 'bg-status-complete/10 border-status-complete/30' },
+                ].map(item => {
+                  const isActive = item.stage !== null && pipelineStageFilter === item.stage;
+                  return (
+                    <button
+                      key={item.label}
+                      disabled={item.stage === null}
+                      onClick={() => {
+                        if (item.stage === null) return;
+                        const next = isActive ? 'all' : item.stage;
+                        setPipelineStageFilter(next);
+                        setPipelineCoordinatorFilter('all');
+                        setView('pipeline');
+                      }}
+                      title={item.stage ? `Filter pipeline: ${item.label}` : 'Onboarded operators'}
+                      className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-all text-[10px] font-medium
+                        ${item.stage === null ? 'opacity-50 cursor-default border-transparent' : 'cursor-pointer hover:opacity-80'}
+                        ${isActive ? `${item.activeBg} ${item.activeText}` : 'border-transparent text-muted-foreground hover:bg-secondary/60'}`}
+                    >
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${item.dot}`} />
+                      {item.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -1099,6 +1117,7 @@ export default function ManagementPortal() {
             }}
             complianceRefreshKey={complianceRefreshKey}
             initialCoordinatorFilter={pipelineCoordinatorFilter}
+            initialStageFilter={pipelineStageFilter}
           />
         )}
 

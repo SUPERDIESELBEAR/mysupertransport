@@ -69,6 +69,7 @@ interface PipelineDashboardProps {
   onOpenOperatorWithFocus?: (operatorId: string, focusField: 'cdl' | 'medcert') => void;
   initialDispatchFilter?: DispatchStatus | 'all';
   initialCoordinatorFilter?: string;
+  initialStageFilter?: string;
   complianceRefreshKey?: number;
 }
 
@@ -101,7 +102,7 @@ const STAGES = [
   'Stage 6 — Insurance',
 ];
 
-export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, initialDispatchFilter, initialCoordinatorFilter, complianceRefreshKey }: PipelineDashboardProps) {
+export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, initialDispatchFilter, initialCoordinatorFilter, initialStageFilter, complianceRefreshKey }: PipelineDashboardProps) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
@@ -144,7 +145,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
   // Filter state
   const [search, setSearch] = useState('');
-  const [stageFilter, setStageFilter] = useState('all');
+  const [stageFilter, setStageFilter] = useState(initialStageFilter ?? 'all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [coordinatorFilter, setCoordinatorFilter] = useState(initialCoordinatorFilter ?? 'all');
   const [dispatchFilter, setDispatchFilter] = useState<'all' | DispatchStatus>(initialDispatchFilter ?? 'all');
@@ -159,6 +160,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   useEffect(() => {
     if (initialCoordinatorFilter) setCoordinatorFilter(initialCoordinatorFilter);
   }, [initialCoordinatorFilter]);
+
+  useEffect(() => {
+    setStageFilter(initialStageFilter ?? 'all');
+  }, [initialStageFilter]);
 
   // Sort state
   type SortKey = 'name' | 'stage' | 'coordinator' | 'progress';
