@@ -2323,13 +2323,19 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="inline-flex items-center gap-1 cursor-default">
+                        <span className="inline-flex items-center gap-1 cursor-default border-b border-dashed border-muted-foreground/50">
                           <Truck className="h-3.5 w-3.5 text-muted-foreground" />
                           Dispatch
                         </span>
                       </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-[230px] text-center">
-                        Current dispatch status for fully onboarded operators. Not Dispatched, Dispatched, Home, or Truck Down.
+                      <TooltipContent side="top" className="max-w-[260px] text-left space-y-1.5">
+                        <p className="font-semibold text-xs">Current dispatch status for fully onboarded operators:</p>
+                        <ul className="text-xs space-y-1 text-muted-foreground">
+                          <li><span className="text-muted-foreground font-medium">⚫ Not Dispatched</span> — Operator is available but not yet on a load</li>
+                          <li><span className="text-status-complete font-medium">🟢 Dispatched</span> — Currently running a load</li>
+                          <li><span className="text-status-progress font-medium">🟠 Home</span> — Back home, between loads</li>
+                          <li><span className="text-destructive font-medium">🔴 Truck Down</span> — Vehicle issue requiring immediate attention</li>
+                        </ul>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
