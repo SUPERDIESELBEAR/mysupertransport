@@ -556,13 +556,13 @@ export default function ManagementPortal() {
               {(() => {
                 const sb = onboardingStageBreakdown;
                 const stageBadges = [
-                  { label: 'BG',  count: sb.stage1_background, dotClass: 'bg-muted-foreground',   stageKey: '1', title: 'Background' },
-                  { label: 'Doc', count: sb.stage2_documents,  dotClass: 'bg-status-progress',    stageKey: '2', title: 'Documents' },
-                  { label: 'ICA', count: sb.stage3_ica,        dotClass: 'bg-gold',               stageKey: '3', title: 'ICA Contract' },
-                  { label: 'MO',  count: sb.stage4_mo_reg,     dotClass: 'bg-info',               stageKey: '4', title: 'MO Reg' },
-                  { label: 'EQ',  count: sb.stage5_equipment,  dotClass: 'bg-purple-400',         stageKey: '5', title: 'Equipment' },
-                  { label: 'Ins', count: sb.stage6_insurance,  dotClass: 'bg-orange-400',         stageKey: '6', title: 'Insurance' },
-                  { label: '✓',   count: sb.fully_onboarded,   dotClass: 'bg-status-complete',    stageKey: 'all', title: 'Fully Onboarded' },
+                  { label: 'BG',  count: sb.stage1_background, dotClass: 'bg-muted-foreground',   stageKey: 'Stage 1 — Background',   title: 'Background' },
+                  { label: 'Doc', count: sb.stage2_documents,  dotClass: 'bg-status-progress',    stageKey: 'Stage 2 — Documents',    title: 'Documents' },
+                  { label: 'ICA', count: sb.stage3_ica,        dotClass: 'bg-gold',               stageKey: 'Stage 3 — ICA',          title: 'ICA Contract' },
+                  { label: 'MO',  count: sb.stage4_mo_reg,     dotClass: 'bg-info',               stageKey: 'Stage 4 — MO Reg',       title: 'MO Reg' },
+                  { label: 'EQ',  count: sb.stage5_equipment,  dotClass: 'bg-purple-400',         stageKey: 'Stage 5 — Equipment',    title: 'Equipment' },
+                  { label: 'Ins', count: sb.stage6_insurance,  dotClass: 'bg-orange-400',         stageKey: 'Stage 6 — Insurance',    title: 'Insurance' },
+                  { label: '✓',   count: sb.fully_onboarded,   dotClass: 'bg-status-complete',    stageKey: 'all',                    title: 'Fully Onboarded' },
                 ].filter(b => b.count > 0);
                 return (
                   <TooltipProvider delayDuration={150}>
