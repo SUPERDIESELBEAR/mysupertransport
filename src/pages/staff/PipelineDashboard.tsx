@@ -2428,12 +2428,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                            <p className="font-semibold text-xs">Time since the last onboarding status change:</p>
                            <ul className="text-xs space-y-1 text-muted-foreground">
                              <li><span className="text-foreground font-medium">Source</span> — Any update to the operator's onboarding checklist</li>
-                             <li><span className="font-medium" style={{ color: 'hsl(var(--warning))' }}>🟡 Amber highlight</span> — No activity in 14 or more days</li>
-                             <li><span className="text-foreground font-medium">Idle filter</span> — Use "Idle 14d+" to isolate stalled operators, sorted oldest first</li>
-                           </ul>
-                         </TooltipContent>
-                       </Tooltip>
-                     </TooltipProvider>
+                              <li><span className="text-warning font-medium">🟡 Amber highlight</span> — No activity in 14 or more days</li>
+                              <li><span className="text-foreground font-medium">Idle filter</span> — Use "Idle 14d+" to isolate stalled operators, sorted oldest first</li>
+                            </ul>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                    </div>
                  </th>
                  <th className="text-right px-4 py-3" />
