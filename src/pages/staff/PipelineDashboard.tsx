@@ -976,7 +976,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         op.onboarding_updated_at != null &&
         differenceInDays(new Date(), parseISO(op.onboarding_updated_at)) >= 14
       );
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle;
+      const matchUnread = !unreadFilter || op.unread_count > 0;
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread;
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
