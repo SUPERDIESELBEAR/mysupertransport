@@ -831,7 +831,14 @@ export default function ManagementPortal() {
                             >
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center justify-between gap-2 mb-1.5">
-                                  <p className="font-medium text-foreground text-sm truncate">{member.full_name}</p>
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-foreground text-sm truncate">{member.full_name}</p>
+                                    {member.lastUpdatedAt && (
+                                      <p className="text-[10px] text-muted-foreground/70 mt-0.5 truncate">
+                                        Updated {formatDistanceToNowStrict(parseISO(member.lastUpdatedAt), { addSuffix: true })}
+                                      </p>
+                                    )}
+                                  </div>
                                   <div className="flex items-center gap-2 shrink-0">
                                     <span className="text-sm font-semibold text-foreground tabular-nums">{count}</span>
                                     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${loadColor}`}>{loadLabel}</span>
