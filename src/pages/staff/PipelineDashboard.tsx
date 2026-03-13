@@ -2515,11 +2515,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                           {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
                         </p>
                         {op.unread_count > 0 && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-bold leading-none shrink-0 md:hidden">
-                            <MessageSquare className="h-2.5 w-2.5" />
-                            {op.unread_count}
-                          </span>
-                        )}
+                           <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none shrink-0 md:hidden ${op.unread_count >= 3 ? 'bg-destructive text-destructive-foreground' : 'bg-primary/15 text-primary'}`}>
+                             <MessageSquare className="h-2.5 w-2.5" />
+                             {op.unread_count}
+                           </span>
+                         )}
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{op.phone ?? '—'}</td>
