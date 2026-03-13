@@ -556,19 +556,23 @@ export default function ManagementPortal() {
               {(() => {
                 const sb = onboardingStageBreakdown;
                 const stageBadges = [
-                  { label: 'BG',  count: sb.stage1_background, dotClass: 'bg-muted-foreground',   stageKey: '1', title: 'Background' },
-                  { label: 'Doc', count: sb.stage2_documents,  dotClass: 'bg-status-progress',    stageKey: '2', title: 'Documents' },
-                  { label: 'ICA', count: sb.stage3_ica,        dotClass: 'bg-gold',               stageKey: '3', title: 'ICA Contract' },
-                  { label: 'MO',  count: sb.stage4_mo_reg,     dotClass: 'bg-info',               stageKey: '4', title: 'MO Reg' },
-                  { label: 'EQ',  count: sb.stage5_equipment,  dotClass: 'bg-purple-400',         stageKey: '5', title: 'Equipment' },
-                  { label: 'Ins', count: sb.stage6_insurance,  dotClass: 'bg-orange-400',         stageKey: '6', title: 'Insurance' },
-                  { label: '✓',   count: sb.fully_onboarded,   dotClass: 'bg-status-complete',    stageKey: 'all', title: 'Fully Onboarded' },
+                  { label: 'BG',  count: sb.stage1_background, dotClass: 'bg-muted-foreground',   stageKey: 'Stage 1 — Background',   title: 'Background' },
+                  { label: 'Doc', count: sb.stage2_documents,  dotClass: 'bg-status-progress',    stageKey: 'Stage 2 — Documents',    title: 'Documents' },
+                  { label: 'ICA', count: sb.stage3_ica,        dotClass: 'bg-gold',               stageKey: 'Stage 3 — ICA',          title: 'ICA Contract' },
+                  { label: 'MO',  count: sb.stage4_mo_reg,     dotClass: 'bg-info',               stageKey: 'Stage 4 — MO Reg',       title: 'MO Reg' },
+                  { label: 'EQ',  count: sb.stage5_equipment,  dotClass: 'bg-purple-400',         stageKey: 'Stage 5 — Equipment',    title: 'Equipment' },
+                  { label: 'Ins', count: sb.stage6_insurance,  dotClass: 'bg-orange-400',         stageKey: 'Stage 6 — Insurance',    title: 'Insurance' },
+                  { label: '✓',   count: sb.fully_onboarded,   dotClass: 'bg-status-complete',    stageKey: 'all',                    title: 'Fully Onboarded' },
                 ].filter(b => b.count > 0);
                 return (
                   <TooltipProvider delayDuration={150}>
-                    <button
+                    {/* Use div instead of button so inner badge buttons work correctly */}
+                    <div
+                      role="button"
+                      tabIndex={0}
                       onClick={() => { setPipelineCoordinatorFilter('all'); setView('pipeline'); }}
-                      className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group bg-white border-border"
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter('all'); setView('pipeline'); } }}
+                      className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left cursor-pointer group bg-white border-border"
                     >
                       <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg bg-gold/10 flex items-center justify-center mb-2 sm:mb-3">
                         <Users className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />
@@ -580,29 +584,26 @@ export default function ManagementPortal() {
                           {stageBadges.map(b => (
                             <Tooltip key={b.stageKey}>
                               <TooltipTrigger asChild>
-                                <span
-                                  className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1 py-0.5 rounded bg-secondary border border-border text-foreground leading-none cursor-default"
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1 py-0.5 rounded bg-secondary border border-border text-foreground leading-none hover:bg-secondary/70 transition-colors"
                                   onClick={e => {
                                     e.stopPropagation();
-                                    if (b.stageKey !== 'all') {
-                                      setPipelineStageFilter(b.stageKey);
-                                    } else {
-                                      setPipelineStageFilter('all');
-                                    }
+                                    setPipelineStageFilter(b.stageKey !== 'all' ? b.stageKey : 'all');
                                     setPipelineCoordinatorFilter('all');
                                     setView('pipeline');
                                   }}
                                 >
                                   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${b.dotClass}`} />
                                   {b.label} {b.count}
-                                </span>
+                                </button>
                               </TooltipTrigger>
                               <TooltipContent side="bottom" className="text-xs">{b.title}: {b.count}</TooltipContent>
                             </Tooltip>
                           ))}
                         </div>
                       )}
-                    </button>
+                    </div>
                   </TooltipProvider>
                 );
               })()}
