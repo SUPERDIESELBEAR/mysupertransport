@@ -2384,12 +2384,17 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                    <TooltipProvider>
                      <Tooltip>
                        <TooltipTrigger asChild>
-                         <span className="inline-flex cursor-default">
+                         <span className="inline-flex cursor-default border-b border-dashed border-muted-foreground/40 pb-0.5">
                            <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground" />
                          </span>
                        </TooltipTrigger>
-                       <TooltipContent side="top" className="max-w-[230px] text-center">
-                         CDL or Medical Certificate expiring within 90 days. 🔴 Red = expired or ≤ 30 days. 🟡 Amber = 31–90 days.
+                       <TooltipContent side="top" className="max-w-[260px] text-left space-y-1.5">
+                         <p className="font-semibold text-xs">CDL or Medical Certificate expiry within 90 days:</p>
+                         <ul className="text-xs space-y-1 text-muted-foreground">
+                           <li><span className="text-destructive font-medium">🔴 Critical (≤ 30 days)</span> — Expired or expiring imminently; immediate action required</li>
+                           <li><span className="text-warning font-medium">🟡 Warning (31–90 days)</span> — Expiring soon; send a reminder to the operator</li>
+                           <li><span className="text-foreground font-medium">Documents tracked</span> — CDL &amp; Medical Certificate</li>
+                         </ul>
                        </TooltipContent>
                      </Tooltip>
                    </TooltipProvider>
