@@ -179,7 +179,7 @@ export default function WelcomeOperator() {
 
           {/* ── Left: Branding panel ── */}
           <div className="flex flex-col justify-center lg:py-8">
-            <img src={logo} alt="SUPERTRANSPORT" className="h-20 w-auto mb-8" />
+            <img src={logo} alt="SUPERTRANSPORT" className="h-16 w-auto max-w-[240px] object-contain mb-8" />
 
             <div className="mb-6">
               <div className="inline-flex items-center gap-2 bg-gold/15 border border-gold/30 rounded-full px-3 py-1 mb-4">
