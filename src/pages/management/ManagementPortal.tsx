@@ -715,8 +715,6 @@ export default function ManagementPortal() {
                       : count >= 4
                       ? 'text-gold bg-gold/10 border-gold/20'
                       : 'text-status-complete bg-status-complete/10 border-status-complete/20';
-                    const barWidth = Math.min(100, Math.round((count / 10) * 100));
-                    const barColor = count >= 7 ? 'bg-destructive' : count >= 4 ? 'bg-gold' : 'bg-status-complete';
                     const s = member.stages;
                     const stageRows: { label: string; count: number; dotClass: string }[] = [
                       { label: 'Background (MVR/CH)', count: s.stage1_background, dotClass: 'bg-muted-foreground' },
@@ -727,6 +725,7 @@ export default function ManagementPortal() {
                       { label: 'Insurance',           count: s.stage6_insurance,  dotClass: 'bg-orange-400' },
                       { label: 'Fully Onboarded',     count: s.fully_onboarded,   dotClass: 'bg-status-complete' },
                     ].filter(r => r.count > 0);
+                    const totalForBar = stageRows.reduce((a, r) => a + r.count, 0);
                     return (
                       <TooltipProvider key={member.user_id} delayDuration={200}>
                         <Tooltip>
@@ -746,8 +745,14 @@ export default function ManagementPortal() {
                                     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${loadColor}`}>{loadLabel}</span>
                                   </div>
                                 </div>
-                                <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
-                                  <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${barWidth}%` }} />
+                                <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden flex">
+                                  {stageRows.length > 0 ? stageRows.map(r => (
+                                    <div
+                                      key={r.label}
+                                      className={`h-full transition-all duration-500 ${r.dotClass}`}
+                                      style={{ width: `${(r.count / totalForBar) * 100}%` }}
+                                    />
+                                  )) : null}
                                 </div>
                               </div>
                               <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-gold transition-colors shrink-0" />
