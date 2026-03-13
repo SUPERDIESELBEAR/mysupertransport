@@ -94,7 +94,7 @@ export default function ManagementPortal() {
   const [unassignedCount, setUnassignedCount] = useState(0);
   const [unassignedStages, setUnassignedStages] = useState<StageBreakdown>({ stage1_background: 0, stage2_documents: 0, stage3_ica: 0, stage4_mo_reg: 0, stage5_equipment: 0, stage6_insurance: 0, fully_onboarded: 0 });
   const [pipelineCoordinatorFilter, setPipelineCoordinatorFilter] = useState<string>('all');
-
+  const [pipelineStageFilter, setPipelineStageFilter] = useState<string>('all');
 
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
   useEffect(() => {
