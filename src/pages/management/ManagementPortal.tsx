@@ -710,29 +710,67 @@ export default function ManagementPortal() {
                       : 'text-status-complete bg-status-complete/10 border-status-complete/20';
                     const barWidth = Math.min(100, Math.round((count / 10) * 100));
                     const barColor = count >= 7 ? 'bg-destructive' : count >= 4 ? 'bg-gold' : 'bg-status-complete';
+                    const s = member.stages;
+                    const stageRows: { label: string; count: number; dotClass: string }[] = [
+                      { label: 'Background (MVR/CH)', count: s.stage1_background, dotClass: 'bg-muted-foreground' },
+                      { label: 'Documents',           count: s.stage2_documents,  dotClass: 'bg-status-progress' },
+                      { label: 'ICA Contract',        count: s.stage3_ica,        dotClass: 'bg-gold' },
+                      { label: 'MO Registration',     count: s.stage4_mo_reg,     dotClass: 'bg-info' },
+                      { label: 'Equipment',           count: s.stage5_equipment,  dotClass: 'bg-purple-400' },
+                      { label: 'Insurance',           count: s.stage6_insurance,  dotClass: 'bg-orange-400' },
+                      { label: 'Fully Onboarded',     count: s.fully_onboarded,   dotClass: 'bg-status-complete' },
+                    ].filter(r => r.count > 0);
                     return (
-                      <div
-                        key={member.user_id}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); }}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); } }}
-                        className="flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-secondary/50 transition-colors cursor-pointer group"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-2 mb-1.5">
-                            <p className="font-medium text-foreground text-sm truncate">{member.full_name}</p>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-sm font-semibold text-foreground tabular-nums">{count}</span>
-                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${loadColor}`}>{loadLabel}</span>
+                      <TooltipProvider key={member.user_id} delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); }}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); } }}
+                              className="flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-secondary/50 transition-colors cursor-pointer group"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                  <p className="font-medium text-foreground text-sm truncate">{member.full_name}</p>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <span className="text-sm font-semibold text-foreground tabular-nums">{count}</span>
+                                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${loadColor}`}>{loadLabel}</span>
+                                  </div>
+                                </div>
+                                <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${barWidth}%` }} />
+                                </div>
+                              </div>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-gold transition-colors shrink-0" />
                             </div>
-                          </div>
-                          <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${barWidth}%` }} />
-                          </div>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-gold transition-colors shrink-0" />
-                      </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="p-0 w-52" sideOffset={8}>
+                            <div className="px-3 py-2 border-b border-border">
+                              <p className="text-xs font-semibold text-foreground">{member.full_name}</p>
+                              <p className="text-[11px] text-muted-foreground">Stage breakdown · {count} operator{count !== 1 ? 's' : ''}</p>
+                            </div>
+                            {stageRows.length === 0 ? (
+                              <div className="px-3 py-2">
+                                <p className="text-[11px] text-muted-foreground italic">No operators assigned</p>
+                              </div>
+                            ) : (
+                              <div className="px-3 py-2 space-y-1.5">
+                                {stageRows.map(r => (
+                                  <div key={r.label} className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${r.dotClass}`} />
+                                      <span className="text-[11px] text-muted-foreground truncate">{r.label}</span>
+                                    </div>
+                                    <span className="text-[11px] font-semibold text-foreground tabular-nums shrink-0">{r.count}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     );
                   })}
                   {unassignedCount > 0 ? (
