@@ -2304,8 +2304,17 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       <TooltipTrigger asChild>
                         <span className="inline-flex cursor-default border-b border-dashed border-muted-foreground/50">Docs</span>
                       </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-[240px] text-center">
-                        Count of uploaded operator documents (registration, insurance, inspection report, Form 2290, truck title, photos, and others).
+                      <TooltipContent side="top" className="max-w-[240px] text-left space-y-1.5">
+                        <p className="font-semibold text-xs">Count of uploaded documents, including:</p>
+                        <ul className="text-xs space-y-0.5 text-muted-foreground list-disc list-inside">
+                          <li>Registration</li>
+                          <li>Insurance certificate</li>
+                          <li>Inspection report</li>
+                          <li>Form 2290</li>
+                          <li>Truck title</li>
+                          <li>Truck photos</li>
+                          <li>Other uploads</li>
+                        </ul>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
