@@ -1416,6 +1416,28 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                                 {entry.email_error.length > 120 && '…'}
                               </p>
                             )}
+                            {/* Re-send quick action — only on failed entries */}
+                            {emailFailed && (() => {
+                              const dateStr = entry.doc_type === 'CDL' ? cdlExpiration : medCertExpiration;
+                              if (!dateStr) return null;
+                              const docType = entry.doc_type as 'CDL' | 'Medical Cert';
+                              const isSending = reminderSending[docType];
+                              const wasSent = reminderSent[docType];
+                              return (
+                                <button
+                                  onClick={() => handleSendReminder(docType, dateStr)}
+                                  disabled={isSending || wasSent}
+                                  className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border border-destructive/40 text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {isSending
+                                    ? <><div className="h-2.5 w-2.5 rounded-full border border-destructive border-t-transparent animate-spin" />Sending…</>
+                                    : wasSent
+                                    ? <><Check className="h-2.5 w-2.5" />Sent</>
+                                    : <><Send className="h-2.5 w-2.5" />Re-send</>
+                                  }
+                                </button>
+                              );
+                            })()}
                           </div>
                         </div>
                       );
