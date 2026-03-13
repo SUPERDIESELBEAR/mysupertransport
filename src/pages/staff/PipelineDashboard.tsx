@@ -988,6 +988,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         const cmp = aDays - bDays;
         return sortDir === 'asc' ? cmp : -cmp;
       }
+      if (sortKey === 'msgs') {
+        const cmp = a.unread_count - b.unread_count;
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
       if (sortKey === 'docs') {
         const cmp = a.doc_count - b.doc_count;
         return sortDir === 'asc' ? cmp : -cmp;
