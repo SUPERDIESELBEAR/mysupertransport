@@ -746,7 +746,7 @@ export default function ManagementPortal() {
                               <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-gold transition-colors shrink-0" />
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent side="right" className="p-0 w-52" sideOffset={8}>
+                          <TooltipContent side="top" align="end" className="p-0 w-52" sideOffset={6}>
                             <div className="px-3 py-2 border-b border-border">
                               <p className="text-xs font-semibold text-foreground">{member.full_name}</p>
                               <p className="text-[11px] text-muted-foreground">Stage breakdown · {count} operator{count !== 1 ? 's' : ''}</p>
