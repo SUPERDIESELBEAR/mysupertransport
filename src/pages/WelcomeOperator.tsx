@@ -108,13 +108,29 @@ export default function WelcomeOperator() {
     }
     setResendLoading(true);
     try {
-      const { error: fnError } = await supabase.functions.invoke('resend-invite', {
+      const { data, error: fnError } = await supabase.functions.invoke('resend-invite', {
         body: { email: resendEmail.trim() },
       });
+
       if (fnError) {
-        const msg = (fnError as any)?.context?.error ?? fnError.message ?? 'Something went wrong.';
-        // Handle rate-limit (429 comes back as a FunctionsFetchError with context)
+        // Try to extract the JSON error message from the response body
+        let msg = 'Something went wrong. Please try again.';
+        try {
+          const ctx = (fnError as any)?.context;
+          if (ctx instanceof Response) {
+            const json = await ctx.clone().json();
+            msg = json?.error ?? msg;
+          } else if (typeof ctx?.error === 'string') {
+            msg = ctx.error;
+          } else {
+            msg = fnError.message ?? msg;
+          }
+        } catch {
+          msg = fnError.message ?? msg;
+        }
         setResendError(msg);
+      } else if (data?.error) {
+        setResendError(data.error);
       } else {
         setResendSent(true);
       }
