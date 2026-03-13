@@ -796,12 +796,13 @@ export default function ManagementPortal() {
                       { label: 'Fully Onboarded',     count: unassignedStages.fully_onboarded,   dotClass: 'bg-status-complete',   barClass: 'bg-status-complete' },
                     ].filter(r => r.count > 0);
                     const totalForBar = unassignedStageRows.reduce((a, r) => a + r.count, 0);
+                    const lateStageCount = unassignedStages.stage3_ica + unassignedStages.stage5_equipment + unassignedStages.stage6_insurance;
                     return (
                       <TooltipProvider delayDuration={200}>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div
-                              className="flex items-center gap-3 px-4 sm:px-5 py-3 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors group"
+                              className={`flex items-center gap-3 px-4 sm:px-5 py-3 cursor-pointer transition-colors group ${lateStageCount > 0 ? 'bg-destructive/5 hover:bg-destructive/10 border-t border-destructive/15' : 'bg-muted/20 hover:bg-muted/40'}`}
                               role="button"
                               tabIndex={0}
                               onClick={() => { setPipelineCoordinatorFilter('unassigned'); setView('pipeline'); }}
@@ -809,7 +810,15 @@ export default function ManagementPortal() {
                             >
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center justify-between gap-2 mb-1.5">
-                                  <p className="text-sm text-muted-foreground group-hover:text-foreground transition-colors font-medium">Unassigned operators</p>
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <p className="text-sm text-muted-foreground group-hover:text-foreground transition-colors font-medium">Unassigned operators</p>
+                                    {lateStageCount > 0 && (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-destructive/10 text-destructive border-destructive/25 shrink-0">
+                                        <TriangleAlert className="h-2.5 w-2.5" />
+                                        {lateStageCount} urgent
+                                      </span>
+                                    )}
+                                  </div>
                                   <span className="text-sm font-semibold text-muted-foreground tabular-nums shrink-0">{unassignedCount}</span>
                                 </div>
                                 <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden flex">
@@ -829,6 +838,9 @@ export default function ManagementPortal() {
                             <div className="px-3 py-2 border-b border-border">
                               <p className="text-xs font-semibold text-foreground">Unassigned operators</p>
                               <p className="text-[11px] text-muted-foreground">Stage breakdown · {unassignedCount} operator{unassignedCount !== 1 ? 's' : ''}</p>
+                              {lateStageCount > 0 && (
+                                <p className="text-[11px] text-destructive mt-0.5 font-medium">{lateStageCount} at ICA / Equipment / Insurance — needs coordinator</p>
+                              )}
                             </div>
                             {unassignedStageRows.length === 0 ? (
                               <div className="px-3 py-2">
