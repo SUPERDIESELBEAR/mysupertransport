@@ -2623,16 +2623,33 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         </Select>
                       </div>
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      {op.unread_count > 0 ? (
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${op.unread_count >= 3 ? 'bg-destructive text-destructive-foreground border-destructive/60 animate-pulse' : 'bg-primary/10 text-primary border-primary/30'}`}>
-                          <MessageSquare className="h-3 w-3" />
-                          {op.unread_count}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground/40 text-xs">—</span>
-                      )}
-                    </td>
+                     <td className="px-4 py-3 hidden md:table-cell">
+                       {op.unread_count > 0 ? (
+                         op.unread_count >= 3 ? (
+                           <TooltipProvider>
+                             <Tooltip>
+                               <TooltipTrigger asChild>
+                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-destructive text-destructive-foreground border-destructive/60 animate-pulse cursor-default">
+                                   <MessageSquare className="h-3 w-3" />
+                                   {op.unread_count}
+                                 </span>
+                               </TooltipTrigger>
+                               <TooltipContent side="top" className="max-w-[220px] text-left space-y-1">
+                                 <p className="font-semibold text-xs text-destructive">High-priority — {op.unread_count} unread</p>
+                                 <p className="text-xs text-muted-foreground">This operator has 3 or more unread messages waiting for a staff reply. Open the conversation to respond.</p>
+                               </TooltipContent>
+                             </Tooltip>
+                           </TooltipProvider>
+                         ) : (
+                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-primary/10 text-primary border-primary/30">
+                             <MessageSquare className="h-3 w-3" />
+                             {op.unread_count}
+                           </span>
+                         )
+                       ) : (
+                         <span className="text-muted-foreground/40 text-xs">—</span>
+                       )}
+                     </td>
                     {/* Compliance icon cell */}
                     <td className="px-4 py-3 text-center">
                       {(() => {
