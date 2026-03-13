@@ -153,6 +153,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [dispatchFilter, setDispatchFilter] = useState<'all' | DispatchStatus>(initialDispatchFilter ?? 'all');
   const [progressFilter, setProgressFilter] = useState<'all' | 'low' | 'mid' | 'high'>('all');
   const [complianceFilter, setComplianceFilter] = useState<'all' | 'critical' | 'warning'>('all');
+  const [idleFilter, setIdleFilter] = useState(false);
 
   // Sync when the parent changes the initial filter (e.g. banner → View Pipeline)
   useEffect(() => {
@@ -949,7 +950,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       const matchCompliance = complianceFilter === 'all' ||
         (complianceFilter === 'critical' && worstAlert != null && worstAlert.days_until <= 30) ||
         (complianceFilter === 'warning' && worstAlert != null && worstAlert.days_until > 30 && worstAlert.days_until <= 90);
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance;
+      const matchIdle = !idleFilter || (
+        op.onboarding_updated_at != null &&
+        differenceInDays(new Date(), parseISO(op.onboarding_updated_at)) >= 14
+      );
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle;
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
@@ -979,6 +984,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       return sortDir === 'asc' ? cmp : -cmp;
     });
 
+  const idleCount = operators.filter(op =>
+    op.onboarding_updated_at != null &&
+    differenceInDays(new Date(), parseISO(op.onboarding_updated_at)) >= 14
+  ).length;
+
   const activeFilterCount = [
     stageFilter !== 'all',
     statusFilter !== 'all',
@@ -986,6 +996,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     dispatchFilter !== 'all',
     progressFilter !== 'all',
     complianceFilter !== 'all',
+    idleFilter,
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
@@ -995,6 +1006,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setDispatchFilter('all');
     setProgressFilter('all');
     setComplianceFilter('all');
+    setIdleFilter(false);
     setSearch('');
   };
 
@@ -1798,6 +1810,31 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </>
               );
             })()}
+            {/* Idle 14d+ chip */}
+            {idleCount > 0 && (
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setIdleFilter(v => !v)}
+                      className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                        idleFilter
+                          ? 'bg-warning text-warning-foreground border-warning'
+                          : 'bg-warning/10 text-warning-foreground border-warning/30 hover:bg-warning/20'
+                      }`}
+                      style={idleFilter ? {} : { color: 'hsl(var(--warning))' }}
+                    >
+                      <Clock className={`h-3 w-3 ${idleFilter ? 'text-warning-foreground' : ''}`} style={idleFilter ? {} : { color: 'hsl(var(--warning))' }} />
+                      Idle 14d+
+                      <span className="font-bold">{idleCount}</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[220px] text-center">
+                    Show only operators whose onboarding status hasn't changed in 14+ days
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
@@ -2015,6 +2052,13 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               <ShieldAlert className="h-3 w-3" />
               {complianceFilter === 'critical' ? 'Critical Expiry' : 'Expiry Warning'}
               <button onClick={() => setComplianceFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+            </span>
+          )}
+          {idleFilter && (
+            <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium border bg-warning/10 border-warning/30" style={{ color: 'hsl(var(--warning))' }}>
+              <Clock className="h-3 w-3" />
+              Idle 14d+
+              <button onClick={() => setIdleFilter(false)} className="hover:opacity-70"><X className="h-3 w-3" /></button>
             </span>
           )}
         </div>
