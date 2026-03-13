@@ -2227,17 +2227,37 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Status</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
-                  <button
-                    onClick={() => handleSort('progress')}
-                    className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
-                  >
-                    Progress
-                    {sortKey === 'progress'
-                      ? sortDir === 'asc'
-                        ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
-                        : <ArrowDown className="h-3.5 w-3.5 text-gold" />
-                      : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
-                  </button>
+                  <div className="inline-flex items-center gap-1">
+                    <button
+                      onClick={() => handleSort('progress')}
+                      className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
+                    >
+                      Progress
+                      {sortKey === 'progress'
+                        ? sortDir === 'asc'
+                          ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                          : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                        : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                    </button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[260px] text-left space-y-1">
+                          <p className="font-semibold text-xs">6 onboarding stages, each worth ~17%:</p>
+                          <ol className="text-xs space-y-0.5 list-decimal list-inside text-muted-foreground">
+                            <li>Background — MVR &amp; CH approved</li>
+                            <li>Documents — Form 2290, title, photos &amp; inspection received</li>
+                            <li>ICA — Contract fully signed</li>
+                            <li>MO Registration — Received</li>
+                            <li>Equipment — Decal, ELD &amp; fuel card issued</li>
+                            <li>Insurance — Added to policy</li>
+                          </ol>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
                   <TooltipProvider>
