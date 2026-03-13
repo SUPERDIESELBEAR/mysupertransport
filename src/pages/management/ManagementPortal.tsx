@@ -95,6 +95,8 @@ export default function ManagementPortal() {
   const [unassignedCount, setUnassignedCount] = useState(0);
   const [unassignedStages, setUnassignedStages] = useState<StageBreakdown>({ stage1_background: 0, stage2_documents: 0, stage3_ica: 0, stage4_mo_reg: 0, stage5_equipment: 0, stage6_insurance: 0, fully_onboarded: 0 });
   const [onboardingStageBreakdown, setOnboardingStageBreakdown] = useState<StageBreakdown>({ stage1_background: 0, stage2_documents: 0, stage3_ica: 0, stage4_mo_reg: 0, stage5_equipment: 0, stage6_insurance: 0, fully_onboarded: 0 });
+  const [idleOnboardingCount, setIdleOnboardingCount] = useState(0);
+  const [pipelineIdleFilter, setPipelineIdleFilter] = useState(false);
   const [pipelineCoordinatorFilter, setPipelineCoordinatorFilter] = useState<string>('all');
   const [pipelineCoordinatorName, setPipelineCoordinatorName] = useState<string | null>(null);
   const [pipelineStageFilter, setPipelineStageFilter] = useState<string>('all');
@@ -337,14 +339,18 @@ export default function ManagementPortal() {
     // Count unassigned operators
     const unassignedTotal = Object.values(unassignedBreakdown).reduce((a, b) => a + b, 0);
     setUnassignedCount(unassignedTotal);
-    // Compute global stage breakdown across all operators
+    // Compute global stage breakdown across all operators + idle count (14+ days)
     const globalBreakdown = emptyBreakdown();
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    let idleCount = 0;
     for (const op of (opsData ?? [])) {
       const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
       const stage = getStage(os);
       globalBreakdown[stage]++;
+      if (os?.updated_at && os.updated_at < fourteenDaysAgo && !os.fully_onboarded) idleCount++;
     }
     setOnboardingStageBreakdown(globalBreakdown);
+    setIdleOnboardingCount(idleCount);
   }, []);
 
   useEffect(() => {
@@ -458,7 +464,7 @@ export default function ManagementPortal() {
     } else {
       setView(path as ManagementView);
       if (path !== 'operator-detail') setSelectedOperatorId(null);
-      if (path === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineCoordinatorName(null); setPipelineStageFilter('all'); }
+      if (path === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineCoordinatorName(null); setPipelineStageFilter('all'); setPipelineIdleFilter(false); }
     }
   };
 
@@ -467,7 +473,7 @@ export default function ManagementPortal() {
       setOperatorHasUnsavedChanges(false);
       setView(pendingNavPath as ManagementView);
       if (pendingNavPath !== 'operator-detail') setSelectedOperatorId(null);
-      if (pendingNavPath === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineCoordinatorName(null); setPipelineStageFilter('all'); }
+      if (pendingNavPath === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineCoordinatorName(null); setPipelineStageFilter('all'); setPipelineIdleFilter(false); }
       setPendingNavPath(null);
     }
   };
@@ -612,6 +618,30 @@ export default function ManagementPortal() {
                             </Tooltip>
                           ))}
                         </div>
+                      )}
+                      {idleOnboardingCount > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 mt-1.5 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded border leading-none transition-colors"
+                              style={{ background: 'hsl(var(--warning) / 0.12)', borderColor: 'hsl(var(--warning) / 0.4)', color: 'hsl(var(--warning))' }}
+                              onClick={e => {
+                                e.stopPropagation();
+                                setPipelineIdleFilter(true);
+                                setPipelineStageFilter('all');
+                                setPipelineCoordinatorFilter('all');
+                                setView('pipeline');
+                              }}
+                            >
+                              <Clock className="h-2.5 w-2.5 shrink-0" />
+                              Idle 14d+ {idleOnboardingCount}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">
+                            {idleOnboardingCount} operator{idleOnboardingCount !== 1 ? 's' : ''} with no activity in 14+ days
+                          </TooltipContent>
+                        </Tooltip>
                       )}
                     </div>
                   </TooltipProvider>
@@ -1218,6 +1248,7 @@ export default function ManagementPortal() {
             initialCoordinatorFilter={pipelineCoordinatorFilter}
             initialCoordinatorName={pipelineCoordinatorName ?? undefined}
             initialStageFilter={pipelineStageFilter}
+            initialIdleFilter={pipelineIdleFilter}
           />
         )}
 

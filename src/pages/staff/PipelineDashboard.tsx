@@ -72,6 +72,7 @@ interface PipelineDashboardProps {
   initialCoordinatorFilter?: string;
   initialCoordinatorName?: string;
   initialStageFilter?: string;
+  initialIdleFilter?: boolean;
   complianceRefreshKey?: number;
 }
 
@@ -104,7 +105,7 @@ const STAGES = [
   'Stage 6 — Insurance',
 ];
 
-export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, initialDispatchFilter, initialCoordinatorFilter, initialCoordinatorName, initialStageFilter, complianceRefreshKey }: PipelineDashboardProps) {
+export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, initialDispatchFilter, initialCoordinatorFilter, initialCoordinatorName, initialStageFilter, initialIdleFilter, complianceRefreshKey }: PipelineDashboardProps) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
@@ -153,7 +154,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [dispatchFilter, setDispatchFilter] = useState<'all' | DispatchStatus>(initialDispatchFilter ?? 'all');
   const [progressFilter, setProgressFilter] = useState<'all' | 'low' | 'mid' | 'high'>('all');
   const [complianceFilter, setComplianceFilter] = useState<'all' | 'critical' | 'warning'>('all');
-  const [idleFilter, setIdleFilter] = useState(false);
+  const [idleFilter, setIdleFilter] = useState(initialIdleFilter ?? false);
 
   // Sync when the parent changes the initial filter (e.g. banner → View Pipeline)
   useEffect(() => {
@@ -176,6 +177,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setStageFilter(next);
     setLegendStageFilter(next !== 'all' ? next : null);
   }, [initialStageFilter]);
+
+  useEffect(() => {
+    setIdleFilter(initialIdleFilter ?? false);
+  }, [initialIdleFilter]);
 
   useEffect(() => {
     const next = initialCoordinatorFilter ?? 'all';
