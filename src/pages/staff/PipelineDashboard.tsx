@@ -161,8 +161,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     if (initialCoordinatorFilter) setCoordinatorFilter(initialCoordinatorFilter);
   }, [initialCoordinatorFilter]);
 
+  const [legendStageFilter, setLegendStageFilter] = useState<string | null>(initialStageFilter && initialStageFilter !== 'all' ? initialStageFilter : null);
+
   useEffect(() => {
-    setStageFilter(initialStageFilter ?? 'all');
+    const next = initialStageFilter ?? 'all';
+    setStageFilter(next);
+    setLegendStageFilter(next !== 'all' ? next : null);
   }, [initialStageFilter]);
 
   // Sort state
@@ -1989,6 +1993,35 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           )}
         </div>
       )}
+
+      {/* Legend-stage banner — shown when arriving from Management workload card */}
+      {legendStageFilter && stageFilter === legendStageFilter && (() => {
+        const STAGE_BANNER: Record<string, { bg: string; border: string; text: string; dot: string; icon: string }> = {
+          'Stage 1 — Background':      { bg: 'bg-muted/40',             border: 'border-border',              text: 'text-foreground',       dot: 'bg-muted-foreground', icon: '🔍' },
+          'Stage 2 — Documents':       { bg: 'bg-status-progress/8',    border: 'border-status-progress/25',  text: 'text-status-progress',  dot: 'bg-status-progress',  icon: '📄' },
+          'Stage 3 — ICA':             { bg: 'bg-gold/8',               border: 'border-gold/25',             text: 'text-gold',             dot: 'bg-gold',             icon: '📝' },
+          'Stage 4 — MO Registration': { bg: 'bg-info/8',               border: 'border-info/25',             text: 'text-info',             dot: 'bg-info',             icon: '🗺️' },
+          'Stage 5 — Equipment':       { bg: 'bg-purple-400/8',         border: 'border-purple-400/25',       text: 'text-purple-500',       dot: 'bg-purple-400',       icon: '🚛' },
+          'Stage 6 — Insurance':       { bg: 'bg-orange-400/8',         border: 'border-orange-400/25',       text: 'text-orange-500',       dot: 'bg-orange-400',       icon: '🛡️' },
+        };
+        const s = STAGE_BANNER[legendStageFilter] ?? STAGE_BANNER['Stage 1 — Background'];
+        return (
+          <div className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border ${s.bg} ${s.border}`}>
+            <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${s.dot}`} />
+            <p className={`text-sm font-medium flex-1 ${s.text}`}>
+              Showing operators at <span className="font-semibold">{legendStageFilter}</span>
+            </p>
+            <button
+              onClick={() => { setStageFilter('all'); setLegendStageFilter(null); }}
+              className={`flex items-center gap-1 text-xs font-medium opacity-70 hover:opacity-100 transition-opacity ${s.text}`}
+              title="Clear stage filter"
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Operator table */}
       <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
