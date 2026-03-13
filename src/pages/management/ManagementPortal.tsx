@@ -339,14 +339,18 @@ export default function ManagementPortal() {
     // Count unassigned operators
     const unassignedTotal = Object.values(unassignedBreakdown).reduce((a, b) => a + b, 0);
     setUnassignedCount(unassignedTotal);
-    // Compute global stage breakdown across all operators
+    // Compute global stage breakdown across all operators + idle count (14+ days)
     const globalBreakdown = emptyBreakdown();
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    let idleCount = 0;
     for (const op of (opsData ?? [])) {
       const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
       const stage = getStage(os);
       globalBreakdown[stage]++;
+      if (os?.updated_at && os.updated_at < fourteenDaysAgo && !os.fully_onboarded) idleCount++;
     }
     setOnboardingStageBreakdown(globalBreakdown);
+    setIdleOnboardingCount(idleCount);
   }, []);
 
   useEffect(() => {
