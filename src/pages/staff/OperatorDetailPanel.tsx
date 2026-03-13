@@ -1468,19 +1468,38 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                                   const docType = entry.doc_type as 'CDL' | 'Medical Cert';
                                   const isSending = reminderSending[docType];
                                   const wasSent = reminderSent[docType];
+                                  // Urgency badge calculation
+                                  const daysLeft = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
+                                  const urgencyClass = daysLeft < 0
+                                    ? 'bg-destructive/15 text-destructive border-destructive/30'
+                                    : daysLeft <= 30
+                                    ? 'bg-destructive/10 text-destructive border-destructive/25'
+                                    : daysLeft <= 90
+                                    ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                    : 'bg-status-complete/10 text-status-complete border-status-complete/30';
+                                  const urgencyLabel = daysLeft < 0
+                                    ? `${Math.abs(daysLeft)}d expired`
+                                    : daysLeft === 0
+                                    ? 'Expires today'
+                                    : `${daysLeft}d left`;
                                   return (
-                                    <button
-                                      onClick={() => handleSendReminder(docType, dateStr)}
-                                      disabled={isSending || wasSent}
-                                      className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border border-destructive/40 text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      {isSending
-                                        ? <><div className="h-2.5 w-2.5 rounded-full border border-destructive border-t-transparent animate-spin" />Sending…</>
-                                        : wasSent
-                                        ? <><Check className="h-2.5 w-2.5" />Sent</>
-                                        : <><Send className="h-2.5 w-2.5" />Re-send</>
-                                      }
-                                    </button>
+                                    <div className="mt-1.5 flex items-center gap-1.5">
+                                      <button
+                                        onClick={() => handleSendReminder(docType, dateStr)}
+                                        disabled={isSending || wasSent}
+                                        className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border border-destructive/40 text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        {isSending
+                                          ? <><div className="h-2.5 w-2.5 rounded-full border border-destructive border-t-transparent animate-spin" />Sending…</>
+                                          : wasSent
+                                          ? <><Check className="h-2.5 w-2.5" />Sent</>
+                                          : <><Send className="h-2.5 w-2.5" />Re-send</>
+                                        }
+                                      </button>
+                                      <span className={`inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded border ${urgencyClass}`}>
+                                        {urgencyLabel}
+                                      </span>
+                                    </div>
                                   );
                                 })()}
                               </div>
