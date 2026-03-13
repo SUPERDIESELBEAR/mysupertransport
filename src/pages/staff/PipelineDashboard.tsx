@@ -2358,9 +2358,13 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         <TooltipTrigger asChild>
                           <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
                         </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[240px] text-left">
-                          <p className="text-xs">The onboarding staff member assigned to guide this operator through the onboarding process. Can be reassigned at any time.</p>
-                        </TooltipContent>
+                         <TooltipContent side="top" className="max-w-[240px] text-left space-y-1.5">
+                           <p className="font-semibold text-xs">Assigned onboarding coordinator:</p>
+                           <ul className="text-xs space-y-1 text-muted-foreground">
+                             <li><span className="text-foreground font-medium">Role</span> — Guides the operator through all 6 onboarding stages</li>
+                             <li><span className="text-foreground font-medium">Reassignable</span> — Can be changed at any time from this column</li>
+                           </ul>
+                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </div>
