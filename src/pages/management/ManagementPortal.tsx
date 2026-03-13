@@ -540,35 +540,109 @@ export default function ManagementPortal() {
 
             {/* Metric cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-4">
-              {[
-                { label: 'Pending Applications', value: metrics.pending, icon: <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-status-progress" />, color: 'bg-status-progress/10', action: () => { setStatusFilter('pending'); setView('applications'); } },
-                { label: 'In Onboarding', value: metrics.onboarding, icon: <Users className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />, color: 'bg-gold/10', action: () => { setPipelineCoordinatorFilter('all'); setView('pipeline'); } },
-                { label: 'Active Dispatch', value: metrics.active, icon: <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-status-complete" />, color: 'bg-status-complete/10', action: () => setView('dispatch') },
-                { label: 'Alerts', value: metrics.alerts, icon: <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />, color: 'bg-destructive/10', action: () => { setPipelineCoordinatorFilter('all'); setView('pipeline'); } },
-                {
-                  label: 'Critical Expiries',
-                  value: criticalExpiryCount,
-                  icon: <ShieldAlert className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />,
-                  color: criticalExpiryCount > 0 ? 'bg-destructive/10' : 'bg-muted/30',
-                  action: () => { setPipelineCoordinatorFilter('all'); setView('pipeline'); },
-                  highlight: criticalExpiryCount > 0,
-                },
-              ].map(m => (
-                <button
-                  key={m.label}
-                  onClick={m.action}
-                  className={`border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group ${'highlight' in m && m.highlight ? 'bg-destructive/5 border-destructive/20' : 'bg-white border-border'}`}
-                >
-                  <div className={`h-8 w-8 sm:h-11 sm:w-11 rounded-lg ${m.color} flex items-center justify-center mb-2 sm:mb-3`}>
-                    {m.icon}
-                  </div>
-                  <p className={`text-2xl sm:text-3xl font-bold ${'highlight' in m && m.highlight ? 'text-destructive' : 'text-foreground'}`}>{m.value}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-tight">{m.label}</p>
-                  {'highlight' in m && m.highlight && (
-                    <p className="text-[10px] text-destructive/70 mt-1 leading-tight">≤ 30 days</p>
-                  )}
-                </button>
-              ))}
+              {/* Pending Applications */}
+              <button
+                onClick={() => { setStatusFilter('pending'); setView('applications'); }}
+                className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group bg-white border-border"
+              >
+                <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg bg-status-progress/10 flex items-center justify-center mb-2 sm:mb-3">
+                  <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-status-progress" />
+                </div>
+                <p className="text-2xl sm:text-3xl font-bold text-foreground">{metrics.pending}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-tight">Pending Applications</p>
+              </button>
+
+              {/* In Onboarding — with stage breakdown badges */}
+              {(() => {
+                const sb = onboardingStageBreakdown;
+                const stageBadges = [
+                  { label: 'BG',  count: sb.stage1_background, dotClass: 'bg-muted-foreground',   stageKey: '1', title: 'Background' },
+                  { label: 'Doc', count: sb.stage2_documents,  dotClass: 'bg-status-progress',    stageKey: '2', title: 'Documents' },
+                  { label: 'ICA', count: sb.stage3_ica,        dotClass: 'bg-gold',               stageKey: '3', title: 'ICA Contract' },
+                  { label: 'MO',  count: sb.stage4_mo_reg,     dotClass: 'bg-info',               stageKey: '4', title: 'MO Reg' },
+                  { label: 'EQ',  count: sb.stage5_equipment,  dotClass: 'bg-purple-400',         stageKey: '5', title: 'Equipment' },
+                  { label: 'Ins', count: sb.stage6_insurance,  dotClass: 'bg-orange-400',         stageKey: '6', title: 'Insurance' },
+                  { label: '✓',   count: sb.fully_onboarded,   dotClass: 'bg-status-complete',    stageKey: 'all', title: 'Fully Onboarded' },
+                ].filter(b => b.count > 0);
+                return (
+                  <TooltipProvider delayDuration={150}>
+                    <button
+                      onClick={() => { setPipelineCoordinatorFilter('all'); setView('pipeline'); }}
+                      className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group bg-white border-border"
+                    >
+                      <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg bg-gold/10 flex items-center justify-center mb-2 sm:mb-3">
+                        <Users className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />
+                      </div>
+                      <p className="text-2xl sm:text-3xl font-bold text-foreground">{metrics.onboarding}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-tight">In Onboarding</p>
+                      {stageBadges.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {stageBadges.map(b => (
+                            <Tooltip key={b.stageKey}>
+                              <TooltipTrigger asChild>
+                                <span
+                                  className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1 py-0.5 rounded bg-secondary border border-border text-foreground leading-none cursor-default"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    if (b.stageKey !== 'all') {
+                                      setPipelineStageFilter(b.stageKey);
+                                    } else {
+                                      setPipelineStageFilter('all');
+                                    }
+                                    setPipelineCoordinatorFilter('all');
+                                    setView('pipeline');
+                                  }}
+                                >
+                                  <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${b.dotClass}`} />
+                                  {b.label} {b.count}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" className="text-xs">{b.title}: {b.count}</TooltipContent>
+                            </Tooltip>
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  </TooltipProvider>
+                );
+              })()}
+
+              {/* Active Dispatch */}
+              <button
+                onClick={() => setView('dispatch')}
+                className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group bg-white border-border"
+              >
+                <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg bg-status-complete/10 flex items-center justify-center mb-2 sm:mb-3">
+                  <Truck className="h-4 w-4 sm:h-5 sm:w-5 text-status-complete" />
+                </div>
+                <p className="text-2xl sm:text-3xl font-bold text-foreground">{metrics.active}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-tight">Active Dispatch</p>
+              </button>
+
+              {/* Alerts */}
+              <button
+                onClick={() => { setPipelineCoordinatorFilter('all'); setView('pipeline'); }}
+                className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group bg-white border-border"
+              >
+                <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg bg-destructive/10 flex items-center justify-center mb-2 sm:mb-3">
+                  <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
+                </div>
+                <p className="text-2xl sm:text-3xl font-bold text-foreground">{metrics.alerts}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-tight">Alerts</p>
+              </button>
+
+              {/* Critical Expiries */}
+              <button
+                onClick={() => { setPipelineCoordinatorFilter('all'); setView('pipeline'); }}
+                className={`border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group ${criticalExpiryCount > 0 ? 'bg-destructive/5 border-destructive/20' : 'bg-white border-border'}`}
+              >
+                <div className={`h-8 w-8 sm:h-11 sm:w-11 rounded-lg ${criticalExpiryCount > 0 ? 'bg-destructive/10' : 'bg-muted/30'} flex items-center justify-center mb-2 sm:mb-3`}>
+                  <ShieldAlert className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
+                </div>
+                <p className={`text-2xl sm:text-3xl font-bold ${criticalExpiryCount > 0 ? 'text-destructive' : 'text-foreground'}`}>{criticalExpiryCount}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-tight">Critical Expiries</p>
+                {criticalExpiryCount > 0 && <p className="text-[10px] text-destructive/70 mt-1 leading-tight">≤ 30 days</p>}
+              </button>
             </div>
 
             {/* Live Dispatch Breakdown */}
