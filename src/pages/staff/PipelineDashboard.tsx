@@ -2054,6 +2054,13 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               <button onClick={() => setComplianceFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
             </span>
           )}
+          {idleFilter && (
+            <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium border bg-warning/10 border-warning/30" style={{ color: 'hsl(var(--warning))' }}>
+              <Clock className="h-3 w-3" />
+              Idle 14d+
+              <button onClick={() => setIdleFilter(false)} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+            </span>
+          )}
         </div>
       )}
 
