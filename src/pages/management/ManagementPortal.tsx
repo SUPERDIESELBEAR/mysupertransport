@@ -272,7 +272,7 @@ export default function ManagementPortal() {
     // Fetch all operators with their onboarding_status to compute per-coordinator stage breakdown
     const { data: opsData } = await supabase
       .from('operators')
-      .select('id, assigned_onboarding_staff, onboarding_status(mvr_ch_approval, form_2290, truck_title, truck_photos, truck_inspection, ica_status, mo_reg_received, decal_applied, eld_installed, fuel_card_issued, insurance_added_date, fully_onboarded)');
+      .select('id, assigned_onboarding_staff, onboarding_status(mvr_ch_approval, form_2290, truck_title, truck_photos, truck_inspection, ica_status, mo_reg_received, decal_applied, eld_installed, fuel_card_issued, insurance_added_date, fully_onboarded, updated_at)');
 
     // Helper: compute which stage an operator is currently on (first incomplete)
     const getStage = (os: any): keyof StageBreakdown => {
