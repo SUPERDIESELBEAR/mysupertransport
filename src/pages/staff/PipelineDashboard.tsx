@@ -155,6 +155,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [progressFilter, setProgressFilter] = useState<'all' | 'low' | 'mid' | 'high'>('all');
   const [complianceFilter, setComplianceFilter] = useState<'all' | 'critical' | 'warning'>('all');
   const [idleFilter, setIdleFilter] = useState(initialIdleFilter ?? false);
+  const [unreadFilter, setUnreadFilter] = useState(false);
 
   // Sync when the parent changes the initial filter (e.g. banner → View Pipeline)
   useEffect(() => {
