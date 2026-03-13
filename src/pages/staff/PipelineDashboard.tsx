@@ -1106,6 +1106,38 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             </button>
           );
         })()}
+        {/* Idle 14d+ card — clickable to toggle idle filter */}
+        {(() => {
+          const isActive = idleFilter;
+          return (
+            <button
+              onClick={() => setIdleFilter(v => !v)}
+              className={`rounded-xl p-3 sm:p-4 shadow-sm border text-left transition-all ${
+                isActive
+                  ? 'bg-warning border-warning ring-2 ring-warning/30'
+                  : idleCount > 0
+                    ? 'bg-warning/5 border-warning/40 hover:bg-warning/10 hover:border-warning/60'
+                    : 'bg-white border-border hover:border-foreground/20'
+              }`}
+            >
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center shrink-0 ${
+                  isActive ? 'bg-warning-foreground/20' : 'bg-warning/10'
+                }`}>
+                  <Clock className={`h-4 w-4 sm:h-5 sm:w-5 ${isActive ? 'text-warning-foreground' : ''}`} style={isActive ? {} : { color: 'hsl(var(--warning))' }} />
+                </div>
+                <div>
+                  <p className={`text-xl sm:text-2xl font-bold ${isActive ? 'text-warning-foreground' : idleCount > 0 ? '' : 'text-foreground'}`} style={(!isActive && idleCount > 0) ? { color: 'hsl(var(--warning))' } : {}}>
+                    {idleCount}
+                  </p>
+                  <p className={`text-xs ${isActive ? 'text-warning-foreground/80' : 'text-muted-foreground'}`}>
+                    Idle 14d+
+                  </p>
+                </div>
+              </div>
+            </button>
+          );
+        })()}
       </div>
 
       {/* Compliance Alerts Panel */}
