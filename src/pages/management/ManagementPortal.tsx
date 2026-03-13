@@ -29,11 +29,22 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+type StageBreakdown = {
+  stage1_background: number;
+  stage2_documents: number;
+  stage3_ica: number;
+  stage4_mo_reg: number;
+  stage5_equipment: number;
+  stage6_insurance: number;
+  fully_onboarded: number;
+};
+
 type StaffWorkload = {
   user_id: string;
   full_name: string;
   email: string;
   assigned_operator_count: number;
+  stages: StageBreakdown;
 };
 
 type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications';
@@ -253,6 +264,47 @@ export default function ManagementPortal() {
     });
     if (!res.ok) return;
     const json = await res.json();
+
+    // Fetch all operators with their onboarding_status to compute per-coordinator stage breakdown
+    const { data: opsData } = await supabase
+      .from('operators')
+      .select('id, assigned_onboarding_staff, onboarding_status(mvr_ch_approval, form_2290, truck_title, truck_photos, truck_inspection, ica_status, mo_reg_received, decal_applied, eld_installed, fuel_card_issued, insurance_added_date, fully_onboarded)');
+
+    // Helper: compute which stage an operator is currently on (first incomplete)
+    const getStage = (os: any): keyof StageBreakdown => {
+      if (!os) return 'stage1_background';
+      if (os.fully_onboarded) return 'fully_onboarded';
+      if (!os.insurance_added_date) {
+        const docsComplete = os.form_2290 === 'received' && os.truck_title === 'received' && os.truck_photos === 'received' && os.truck_inspection === 'received';
+        const icaComplete = os.ica_status === 'complete';
+        const moComplete = os.mo_reg_received === 'yes';
+        const equipComplete = os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes';
+        if (!os.mvr_ch_approval || os.mvr_ch_approval !== 'approved') return 'stage1_background';
+        if (!docsComplete) return 'stage2_documents';
+        if (!icaComplete) return 'stage3_ica';
+        if (!moComplete) return 'stage4_mo_reg';
+        if (!equipComplete) return 'stage5_equipment';
+        return 'stage6_insurance';
+      }
+      return 'fully_onboarded';
+    };
+
+    const emptyBreakdown = (): StageBreakdown => ({
+      stage1_background: 0, stage2_documents: 0, stage3_ica: 0,
+      stage4_mo_reg: 0, stage5_equipment: 0, stage6_insurance: 0, fully_onboarded: 0,
+    });
+
+    // Build a map of user_id → stage counts
+    const breakdownMap: Record<string, StageBreakdown> = {};
+    for (const op of (opsData ?? [])) {
+      const uid = op.assigned_onboarding_staff;
+      if (!uid) continue;
+      if (!breakdownMap[uid]) breakdownMap[uid] = emptyBreakdown();
+      const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
+      const stage = getStage(os);
+      breakdownMap[uid][stage]++;
+    }
+
     const onboarders: StaffWorkload[] = (json.staff ?? [])
       .filter((m: any) => (m.roles ?? []).includes('onboarding_staff'))
       .map((m: any) => ({
@@ -260,6 +312,7 @@ export default function ManagementPortal() {
         full_name: [m.first_name, m.last_name].filter(Boolean).join(' ') || m.email,
         email: m.email,
         assigned_operator_count: m.assigned_operator_count ?? 0,
+        stages: breakdownMap[m.user_id] ?? emptyBreakdown(),
       }));
     setStaffWorkload(onboarders);
     // Count unassigned operators
@@ -657,29 +710,67 @@ export default function ManagementPortal() {
                       : 'text-status-complete bg-status-complete/10 border-status-complete/20';
                     const barWidth = Math.min(100, Math.round((count / 10) * 100));
                     const barColor = count >= 7 ? 'bg-destructive' : count >= 4 ? 'bg-gold' : 'bg-status-complete';
+                    const s = member.stages;
+                    const stageRows: { label: string; count: number; dotClass: string }[] = [
+                      { label: 'Background (MVR/CH)', count: s.stage1_background, dotClass: 'bg-muted-foreground' },
+                      { label: 'Documents',           count: s.stage2_documents,  dotClass: 'bg-status-progress' },
+                      { label: 'ICA Contract',        count: s.stage3_ica,        dotClass: 'bg-gold' },
+                      { label: 'MO Registration',     count: s.stage4_mo_reg,     dotClass: 'bg-info' },
+                      { label: 'Equipment',           count: s.stage5_equipment,  dotClass: 'bg-purple-400' },
+                      { label: 'Insurance',           count: s.stage6_insurance,  dotClass: 'bg-orange-400' },
+                      { label: 'Fully Onboarded',     count: s.fully_onboarded,   dotClass: 'bg-status-complete' },
+                    ].filter(r => r.count > 0);
                     return (
-                      <div
-                        key={member.user_id}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); }}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); } }}
-                        className="flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-secondary/50 transition-colors cursor-pointer group"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-2 mb-1.5">
-                            <p className="font-medium text-foreground text-sm truncate">{member.full_name}</p>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-sm font-semibold text-foreground tabular-nums">{count}</span>
-                              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${loadColor}`}>{loadLabel}</span>
+                      <TooltipProvider key={member.user_id} delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); }}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); } }}
+                              className="flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-secondary/50 transition-colors cursor-pointer group"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                  <p className="font-medium text-foreground text-sm truncate">{member.full_name}</p>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <span className="text-sm font-semibold text-foreground tabular-nums">{count}</span>
+                                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${loadColor}`}>{loadLabel}</span>
+                                  </div>
+                                </div>
+                                <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${barWidth}%` }} />
+                                </div>
+                              </div>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-gold transition-colors shrink-0" />
                             </div>
-                          </div>
-                          <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${barWidth}%` }} />
-                          </div>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-gold transition-colors shrink-0" />
-                      </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="p-0 w-52" sideOffset={8}>
+                            <div className="px-3 py-2 border-b border-border">
+                              <p className="text-xs font-semibold text-foreground">{member.full_name}</p>
+                              <p className="text-[11px] text-muted-foreground">Stage breakdown · {count} operator{count !== 1 ? 's' : ''}</p>
+                            </div>
+                            {stageRows.length === 0 ? (
+                              <div className="px-3 py-2">
+                                <p className="text-[11px] text-muted-foreground italic">No operators assigned</p>
+                              </div>
+                            ) : (
+                              <div className="px-3 py-2 space-y-1.5">
+                                {stageRows.map(r => (
+                                  <div key={r.label} className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${r.dotClass}`} />
+                                      <span className="text-[11px] text-muted-foreground truncate">{r.label}</span>
+                                    </div>
+                                    <span className="text-[11px] font-semibold text-foreground tabular-nums shrink-0">{r.count}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     );
                   })}
                   {unassignedCount > 0 ? (
