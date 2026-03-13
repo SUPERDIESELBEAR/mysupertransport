@@ -102,6 +102,15 @@ const EVENT_TYPES: EventTypeDef[] = [
     iconColor: 'text-orange-500',
     roles: ['onboarding_staff', 'management'],
   },
+  {
+    type: 'operator_idle',
+    label: 'Operator Idle Alert',
+    description: 'When an assigned operator has had no onboarding status update for 14+ days',
+    icon: Clock,
+    iconBg: 'bg-amber-100',
+    iconColor: 'text-amber-600',
+    roles: ['onboarding_staff', 'management'],
+  },
 ];
 
 interface Props {
