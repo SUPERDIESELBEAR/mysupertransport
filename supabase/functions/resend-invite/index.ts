@@ -17,7 +17,8 @@ Deno.serve(async (req) => {
     });
 
   try {
-    const { email } = await req.json();
+    const body = await req.json();
+    const { email, staff_override } = body;
     if (!email || typeof email !== 'string') {
       return json({ error: 'email is required' }, 400);
     }
@@ -30,7 +31,42 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // 1. Confirm the application exists, is approved, and email matches
+    // If staff_override is set, verify the caller is an authenticated staff member
+    let callerIsStaff = false;
+    let callerName: string | null = null;
+    if (staff_override) {
+      const authHeader = req.headers.get('Authorization');
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.replace('Bearer ', '');
+        const supabaseUser = createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_ANON_KEY')!,
+          { global: { headers: { Authorization: authHeader } } }
+        );
+        const { data: claimsData } = await supabaseUser.auth.getClaims(token);
+        if (claimsData?.claims?.sub) {
+          const { data: isStaff } = await supabaseAdmin.rpc('is_staff', { _user_id: claimsData.claims.sub });
+          if (isStaff) {
+            callerIsStaff = true;
+            // Resolve name for audit log
+            const { data: profile } = await supabaseAdmin
+              .from('profiles')
+              .select('first_name, last_name')
+              .eq('user_id', claimsData.claims.sub)
+              .maybeSingle();
+            if (profile) {
+              callerName = `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || null;
+            }
+          }
+        }
+      }
+      if (!callerIsStaff) {
+        return json({ error: 'Unauthorized' }, 403);
+      }
+    }
+
+    // 1. Find the application — staff can resend to any approved operator,
+    //    public flow only works for approved applicants who haven't signed in yet.
     const { data: app, error: appError } = await supabaseAdmin
       .from('applications')
       .select('id, email, first_name, last_name, review_status, user_id')
@@ -39,33 +75,35 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (appError || !app) {
-      // Return a generic message to avoid email enumeration
+      if (callerIsStaff) {
+        return json({ error: 'No approved application found for this email.' }, 404);
+      }
+      // Public flow: generic message to avoid enumeration
       return json({ success: true });
     }
 
-    // 2. Check if the operator has already activated their account (has a confirmed session).
-    //    If last_sign_in_at is set they have logged in — no need to resend.
-    if (app.user_id) {
+    // 2. For the public (operator self-service) flow: block if already signed in
+    if (!callerIsStaff && app.user_id) {
       const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-      const existing = users?.find(u => u.id === app.user_id);
+      const existing = users?.find((u: any) => u.id === app.user_id);
       if (existing?.last_sign_in_at) {
-        // Account already active — return generic success to avoid enumeration
         return json({ success: true });
       }
     }
 
-    // 3. Rate-limit: only 1 resend per 5 minutes per email (checked via audit_log)
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    const { data: recentResend } = await supabaseAdmin
-      .from('audit_log')
-      .select('id')
-      .eq('action', 'invite_resent')
-      .eq('entity_label', normalizedEmail)
-      .gte('created_at', fiveMinutesAgo)
-      .maybeSingle();
-
-    if (recentResend) {
-      return json({ error: 'Please wait a few minutes before requesting another invitation.' }, 429);
+    // 3. Rate-limit: 1 resend per 5 minutes per email (staff bypasses this)
+    if (!callerIsStaff) {
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data: recentResend } = await supabaseAdmin
+        .from('audit_log')
+        .select('id')
+        .eq('action', 'invite_resent')
+        .eq('entity_label', normalizedEmail)
+        .gte('created_at', fiveMinutesAgo)
+        .maybeSingle();
+      if (recentResend) {
+        return json({ error: 'Please wait a few minutes before requesting another invitation.' }, 429);
+      }
     }
 
     // 4. Re-send the invite
@@ -87,12 +125,16 @@ Deno.serve(async (req) => {
       return json({ error: 'Failed to send invitation. Please try again.' }, 500);
     }
 
-    // 5. Audit log the resend (used for rate-limiting above)
+    // 5. Audit log the resend
     await supabaseAdmin.from('audit_log').insert({
       action: 'invite_resent',
+      actor_name: callerName,
       entity_type: 'operator',
       entity_label: normalizedEmail,
-      metadata: { application_id: app.id },
+      metadata: {
+        application_id: app.id,
+        triggered_by: callerIsStaff ? 'staff' : 'operator_self_service',
+      },
     });
 
     return json({ success: true });
