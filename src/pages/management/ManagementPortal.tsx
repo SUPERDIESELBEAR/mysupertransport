@@ -322,6 +322,7 @@ export default function ManagementPortal() {
         email: m.email,
         assigned_operator_count: m.assigned_operator_count ?? 0,
         stages: breakdownMap[m.user_id] ?? emptyBreakdown(),
+        lastUpdatedAt: lastUpdatedAtMap[m.user_id] ?? null,
       }));
     setStaffWorkload(onboarders);
     // Compute stage breakdown for unassigned operators
