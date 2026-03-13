@@ -726,15 +726,33 @@ export default function ManagementPortal() {
                       { label: 'Fully Onboarded',     count: s.fully_onboarded,   dotClass: 'bg-status-complete' },
                     ].filter(r => r.count > 0);
                     const totalForBar = stageRows.reduce((a, r) => a + r.count, 0);
-...
+                    return (
+                      <TooltipProvider key={member.user_id} delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); }}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); } }}
+                              className="flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-secondary/50 transition-colors cursor-pointer group"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                  <p className="font-medium text-foreground text-sm truncate">{member.full_name}</p>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <span className="text-sm font-semibold text-foreground tabular-nums">{count}</span>
+                                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${loadColor}`}>{loadLabel}</span>
+                                  </div>
+                                </div>
                                 <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden flex">
-                                  {stageRows.map(r => (
+                                  {stageRows.length > 0 ? stageRows.map(r => (
                                     <div
                                       key={r.label}
                                       className={`h-full transition-all duration-500 ${r.dotClass}`}
-                                      style={{ width: totalForBar > 0 ? `${(r.count / totalForBar) * 100}%` : '0%' }}
+                                      style={{ width: `${(r.count / totalForBar) * 100}%` }}
                                     />
-                                  ))}
+                                  )) : null}
                                 </div>
                               </div>
                               <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-gold transition-colors shrink-0" />
