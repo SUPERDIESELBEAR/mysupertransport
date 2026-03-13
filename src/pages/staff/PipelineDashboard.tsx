@@ -193,7 +193,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   }, [initialCoordinatorFilter, initialCoordinatorName]);
 
   // Sort state
-  type SortKey = 'name' | 'stage' | 'coordinator' | 'progress' | 'last_activity' | 'docs' | 'compliance';
+  type SortKey = 'name' | 'stage' | 'coordinator' | 'progress' | 'last_activity' | 'docs' | 'compliance' | 'msgs';
   type SortDir = 'asc' | 'desc';
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
@@ -986,6 +986,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         const aDays = aAlert != null ? aAlert.days_until : Infinity;
         const bDays = bAlert != null ? bAlert.days_until : Infinity;
         const cmp = aDays - bDays;
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
+      if (sortKey === 'msgs') {
+        const cmp = a.unread_count - b.unread_count;
         return sortDir === 'asc' ? cmp : -cmp;
       }
       if (sortKey === 'docs') {
@@ -2396,24 +2400,35 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   </div>
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">
-                  <TooltipProvider>
-                    <Tooltip>
-                       <TooltipTrigger asChild>
-                         <span className="inline-flex items-center gap-1 text-muted-foreground cursor-default border-b border-dashed border-muted-foreground/40">
-                           <MessageSquare className="h-3.5 w-3.5" />
-                           Msgs
-                         </span>
-                       </TooltipTrigger>
-                       <TooltipContent side="top" className="max-w-[240px] text-left space-y-1.5">
-                         <p className="font-semibold text-xs">Unread messages from the operator:</p>
-                         <ul className="text-xs space-y-1 text-muted-foreground">
-                           <li><span className="text-foreground font-medium">Count</span> — Messages sent by the operator that staff haven't read yet</li>
-                           <li><span className="text-foreground font-medium">Open</span> — Click the row to open the full conversation</li>
-                         </ul>
-                       </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </th>
+                   <div className="inline-flex items-center gap-1">
+                     <TooltipProvider>
+                       <Tooltip>
+                         <TooltipTrigger asChild>
+                           <button
+                             onClick={() => handleSort('msgs')}
+                             className="inline-flex items-center gap-0.5 hover:text-gold transition-colors group border-b border-dashed border-muted-foreground/40 pb-0.5"
+                           >
+                             <MessageSquare className={`h-3.5 w-3.5 ${sortKey === 'msgs' ? 'text-gold' : 'text-muted-foreground group-hover:text-gold/60'}`} />
+                             <span className={`text-xs font-semibold ${sortKey === 'msgs' ? 'text-gold' : 'text-muted-foreground group-hover:text-gold/60'}`}>Msgs</span>
+                             {sortKey === 'msgs'
+                               ? sortDir === 'asc'
+                                 ? <ArrowUp className="h-3 w-3 text-gold" />
+                                 : <ArrowDown className="h-3 w-3 text-gold" />
+                               : <ArrowUpDown className="h-3 w-3 text-muted-foreground group-hover:text-gold/60" />}
+                           </button>
+                         </TooltipTrigger>
+                         <TooltipContent side="top" className="max-w-[240px] text-left space-y-1.5">
+                           <p className="font-semibold text-xs">Unread messages from the operator:</p>
+                           <ul className="text-xs space-y-1 text-muted-foreground">
+                             <li><span className="text-foreground font-medium">Count</span> — Messages sent by the operator that staff haven't read yet</li>
+                             <li><span className="text-foreground font-medium">Sort</span> — Descending puts operators with the most unread messages first</li>
+                             <li><span className="text-foreground font-medium">Open</span> — Click the row to open the full conversation</li>
+                           </ul>
+                         </TooltipContent>
+                       </Tooltip>
+                     </TooltipProvider>
+                   </div>
+                 </th>
                  <th className="px-4 py-3 text-center">
                    <div className="inline-flex items-center justify-center gap-1">
                      <TooltipProvider>
