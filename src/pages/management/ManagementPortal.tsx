@@ -19,7 +19,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing,
 } from 'lucide-react';
-import { differenceInDays, parseISO, startOfDay } from 'date-fns';
+import { differenceInDays, formatDistanceToNowStrict, parseISO, startOfDay } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -45,6 +45,7 @@ type StaffWorkload = {
   email: string;
   assigned_operator_count: number;
   stages: StageBreakdown;
+  lastUpdatedAt: string | null;
 };
 
 type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications';
@@ -271,7 +272,7 @@ export default function ManagementPortal() {
     // Fetch all operators with their onboarding_status to compute per-coordinator stage breakdown
     const { data: opsData } = await supabase
       .from('operators')
-      .select('id, assigned_onboarding_staff, onboarding_status(mvr_ch_approval, form_2290, truck_title, truck_photos, truck_inspection, ica_status, mo_reg_received, decal_applied, eld_installed, fuel_card_issued, insurance_added_date, fully_onboarded)');
+      .select('id, assigned_onboarding_staff, onboarding_status(mvr_ch_approval, form_2290, truck_title, truck_photos, truck_inspection, ica_status, mo_reg_received, decal_applied, eld_installed, fuel_card_issued, insurance_added_date, fully_onboarded, updated_at)');
 
     // Helper: compute which stage an operator is currently on (first incomplete)
     const getStage = (os: any): keyof StageBreakdown => {
@@ -294,8 +295,9 @@ export default function ManagementPortal() {
       stage4_mo_reg: 0, stage5_equipment: 0, stage6_insurance: 0, fully_onboarded: 0,
     });
 
-    // Build a map of user_id → stage counts
+    // Build a map of user_id → stage counts + latest onboarding_status updated_at
     const breakdownMap: Record<string, StageBreakdown> = {};
+    const lastUpdatedAtMap: Record<string, string | null> = {};
     for (const op of (opsData ?? [])) {
       const uid = op.assigned_onboarding_staff;
       if (!uid) continue;
@@ -303,6 +305,13 @@ export default function ManagementPortal() {
       const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
       const stage = getStage(os);
       breakdownMap[uid][stage]++;
+      // Track the most recent updated_at for this coordinator
+      const updatedAt: string | null = os?.updated_at ?? null;
+      if (updatedAt) {
+        if (!lastUpdatedAtMap[uid] || updatedAt > lastUpdatedAtMap[uid]!) {
+          lastUpdatedAtMap[uid] = updatedAt;
+        }
+      }
     }
 
     const onboarders: StaffWorkload[] = (json.staff ?? [])
@@ -313,6 +322,7 @@ export default function ManagementPortal() {
         email: m.email,
         assigned_operator_count: m.assigned_operator_count ?? 0,
         stages: breakdownMap[m.user_id] ?? emptyBreakdown(),
+        lastUpdatedAt: lastUpdatedAtMap[m.user_id] ?? null,
       }));
     setStaffWorkload(onboarders);
     // Compute stage breakdown for unassigned operators
@@ -821,7 +831,14 @@ export default function ManagementPortal() {
                             >
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center justify-between gap-2 mb-1.5">
-                                  <p className="font-medium text-foreground text-sm truncate">{member.full_name}</p>
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-foreground text-sm truncate">{member.full_name}</p>
+                                    {member.lastUpdatedAt && (
+                                      <p className="text-[10px] text-muted-foreground/70 mt-0.5 truncate">
+                                        Updated {formatDistanceToNowStrict(parseISO(member.lastUpdatedAt), { addSuffix: true })}
+                                      </p>
+                                    )}
+                                  </div>
                                   <div className="flex items-center gap-2 shrink-0">
                                     <span className="text-sm font-semibold text-foreground tabular-nums">{count}</span>
                                     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${loadColor}`}>{loadLabel}</span>
