@@ -2283,17 +2283,17 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         <TooltipTrigger asChild>
                           <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
                         </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[260px] text-left space-y-1">
-                          <p className="font-semibold text-xs">6 onboarding stages, each worth ~17%:</p>
-                          <ol className="text-xs space-y-0.5 list-decimal list-inside text-muted-foreground">
-                            <li>Background — MVR &amp; CH approved</li>
-                            <li>Documents — Form 2290, title, photos &amp; inspection received</li>
-                            <li>ICA — Contract fully signed</li>
-                            <li>MO Registration — Received</li>
-                            <li>Equipment — Decal, ELD &amp; fuel card issued</li>
-                            <li>Insurance — Added to policy</li>
-                          </ol>
-                        </TooltipContent>
+                         <TooltipContent side="top" className="max-w-[260px] text-left space-y-1">
+                           <p className="font-semibold text-xs">6 onboarding stages, each worth ~17%:</p>
+                           <ol className="text-xs space-y-0.5 list-decimal list-inside text-muted-foreground">
+                             <li><span className="text-foreground font-medium">Background</span> — MVR &amp; CH approved</li>
+                             <li><span className="text-foreground font-medium">Documents</span> — Form 2290, title, photos &amp; inspection received</li>
+                             <li><span className="text-foreground font-medium">ICA</span> — Contract fully signed</li>
+                             <li><span className="text-foreground font-medium">MO Registration</span> — Received</li>
+                             <li><span className="text-foreground font-medium">Equipment</span> — Decal, ELD &amp; fuel card issued</li>
+                             <li><span className="text-foreground font-medium">Insurance</span> — Added to policy</li>
+                           </ol>
+                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </div>
@@ -2304,18 +2304,18 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       <TooltipTrigger asChild>
                         <span className="inline-flex cursor-default border-b border-dashed border-muted-foreground/50">Docs</span>
                       </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-[240px] text-left space-y-1.5">
-                        <p className="font-semibold text-xs">Count of uploaded documents, including:</p>
-                        <ul className="text-xs space-y-0.5 text-muted-foreground list-disc list-inside">
-                          <li>Registration</li>
-                          <li>Insurance certificate</li>
-                          <li>Inspection report</li>
-                          <li>Form 2290</li>
-                          <li>Truck title</li>
-                          <li>Truck photos</li>
-                          <li>Other uploads</li>
-                        </ul>
-                      </TooltipContent>
+                       <TooltipContent side="top" className="max-w-[240px] text-left space-y-1.5">
+                         <p className="font-semibold text-xs">Count of uploaded documents, including:</p>
+                         <ul className="text-xs space-y-0.5 text-muted-foreground">
+                           <li><span className="text-foreground font-medium">Registration</span></li>
+                           <li><span className="text-foreground font-medium">Insurance certificate</span></li>
+                           <li><span className="text-foreground font-medium">Inspection report</span></li>
+                           <li><span className="text-foreground font-medium">Form 2290</span></li>
+                           <li><span className="text-foreground font-medium">Truck title</span></li>
+                           <li><span className="text-foreground font-medium">Truck photos</span></li>
+                           <li><span className="text-foreground font-medium">Other uploads</span></li>
+                         </ul>
+                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </th>
@@ -2358,9 +2358,13 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         <TooltipTrigger asChild>
                           <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
                         </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[240px] text-left">
-                          <p className="text-xs">The onboarding staff member assigned to guide this operator through the onboarding process. Can be reassigned at any time.</p>
-                        </TooltipContent>
+                         <TooltipContent side="top" className="max-w-[240px] text-left space-y-1.5">
+                           <p className="font-semibold text-xs">Assigned onboarding coordinator:</p>
+                           <ul className="text-xs space-y-1 text-muted-foreground">
+                             <li><span className="text-foreground font-medium">Role</span> — Guides the operator through all 6 onboarding stages</li>
+                             <li><span className="text-foreground font-medium">Reassignable</span> — Can be changed at any time from this column</li>
+                           </ul>
+                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </div>
@@ -2368,15 +2372,19 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">
                   <TooltipProvider>
                     <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex items-center gap-1 text-muted-foreground cursor-default">
-                          <MessageSquare className="h-3.5 w-3.5" />
-                          Msgs
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-[220px] text-center">
-                        Unread messages from this operator. Click the row to open the conversation.
-                      </TooltipContent>
+                       <TooltipTrigger asChild>
+                         <span className="inline-flex items-center gap-1 text-muted-foreground cursor-default border-b border-dashed border-muted-foreground/40">
+                           <MessageSquare className="h-3.5 w-3.5" />
+                           Msgs
+                         </span>
+                       </TooltipTrigger>
+                       <TooltipContent side="top" className="max-w-[240px] text-left space-y-1.5">
+                         <p className="font-semibold text-xs">Unread messages from the operator:</p>
+                         <ul className="text-xs space-y-1 text-muted-foreground">
+                           <li><span className="text-foreground font-medium">Count</span> — Messages sent by the operator that staff haven't read yet</li>
+                           <li><span className="text-foreground font-medium">Open</span> — Click the row to open the full conversation</li>
+                         </ul>
+                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </th>
@@ -2420,12 +2428,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                            <p className="font-semibold text-xs">Time since the last onboarding status change:</p>
                            <ul className="text-xs space-y-1 text-muted-foreground">
                              <li><span className="text-foreground font-medium">Source</span> — Any update to the operator's onboarding checklist</li>
-                             <li><span className="font-medium" style={{ color: 'hsl(var(--warning))' }}>🟡 Amber highlight</span> — No activity in 14 or more days</li>
-                             <li><span className="text-foreground font-medium">Idle filter</span> — Use "Idle 14d+" to isolate stalled operators, sorted oldest first</li>
-                           </ul>
-                         </TooltipContent>
-                       </Tooltip>
-                     </TooltipProvider>
+                              <li><span className="text-warning font-medium">🟡 Amber highlight</span> — No activity in 14 or more days</li>
+                              <li><span className="text-foreground font-medium">Idle filter</span> — Use "Idle 14d+" to isolate stalled operators, sorted oldest first</li>
+                            </ul>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                    </div>
                  </th>
                  <th className="text-right px-4 py-3" />
