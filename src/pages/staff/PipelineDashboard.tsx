@@ -1939,7 +1939,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
         {/* Expandable filter panel */}
         {showFilters && (
-          <div className="bg-muted/40 border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 animate-fade-in">
+          <div className="bg-muted/40 border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4 animate-fade-in">
             {/* Stage filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stage</label>
@@ -2035,6 +2035,33 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   <SelectItem value="warning">🟡 Warning — 31–90 days</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Idle Activity toggle */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Activity</label>
+              <button
+                onClick={() => setIdleFilter(v => !v)}
+                className={`h-9 w-full rounded-md border px-3 flex items-center gap-2 text-sm font-medium transition-all ${
+                  idleFilter
+                    ? 'border-warning bg-warning/10 text-foreground'
+                    : 'border-input bg-white text-muted-foreground hover:border-warning/50 hover:text-foreground'
+                }`}
+                style={idleFilter ? { borderColor: 'hsl(var(--warning))', color: 'hsl(var(--warning))' } : {}}
+              >
+                <Clock className="h-3.5 w-3.5 shrink-0" style={idleFilter ? { color: 'hsl(var(--warning))' } : {}} />
+                <span className="truncate">Idle 14d+</span>
+                {idleCount > 0 && (
+                  <span
+                    className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                      idleFilter ? 'bg-warning/20' : 'bg-muted'
+                    }`}
+                    style={idleFilter ? { color: 'hsl(var(--warning))' } : {}}
+                  >
+                    {idleCount}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
         )}
