@@ -2303,25 +2303,38 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   </div>
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex cursor-default border-b border-dashed border-muted-foreground/50">Docs</span>
-                      </TooltipTrigger>
-                       <TooltipContent side="top" className="max-w-[240px] text-left space-y-1.5">
-                         <p className="font-semibold text-xs">Count of uploaded documents, including:</p>
-                         <ul className="text-xs space-y-0.5 text-muted-foreground">
-                           <li><span className="text-foreground font-medium">Registration</span></li>
-                           <li><span className="text-foreground font-medium">Insurance certificate</span></li>
-                           <li><span className="text-foreground font-medium">Inspection report</span></li>
-                           <li><span className="text-foreground font-medium">Form 2290</span></li>
-                           <li><span className="text-foreground font-medium">Truck title</span></li>
-                           <li><span className="text-foreground font-medium">Truck photos</span></li>
-                           <li><span className="text-foreground font-medium">Other uploads</span></li>
-                         </ul>
-                       </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <div className="inline-flex items-center gap-1">
+                    <button
+                      onClick={() => handleSort('docs')}
+                      className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
+                    >
+                      Docs
+                      {sortKey === 'docs'
+                        ? sortDir === 'asc'
+                          ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                          : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                        : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                    </button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[240px] text-left space-y-1.5">
+                          <p className="font-semibold text-xs">Count of uploaded documents, including:</p>
+                          <ul className="text-xs space-y-0.5 text-muted-foreground">
+                            <li><span className="text-foreground font-medium">Registration</span></li>
+                            <li><span className="text-foreground font-medium">Insurance certificate</span></li>
+                            <li><span className="text-foreground font-medium">Inspection report</span></li>
+                            <li><span className="text-foreground font-medium">Form 2290</span></li>
+                            <li><span className="text-foreground font-medium">Truck title</span></li>
+                            <li><span className="text-foreground font-medium">Truck photos</span></li>
+                            <li><span className="text-foreground font-medium">Other uploads</span></li>
+                          </ul>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
                   <TooltipProvider>
