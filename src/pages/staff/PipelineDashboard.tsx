@@ -529,7 +529,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         eld_installed: os.eld_installed ?? 'no',
         fuel_card_issued: os.fuel_card_issued ?? 'no',
         progress_pct: computeProgress(os),
-        onboarding_updated_at: os.onboarding_updated_at ?? null,
+        onboarding_updated_at: os.updated_at ?? null,
       };
     });
     setOperators(rows);
