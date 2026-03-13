@@ -420,6 +420,32 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
   };
 
+  const handleResendInvite = async () => {
+    if (!operatorEmail || resendingInvite) return;
+    setResendingInvite(true);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const res = await fetch(`${supabaseUrl}/functions/v1/resend-invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token ?? ''}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ email: operatorEmail, staff_override: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to send invitation');
+      setInviteResent(true);
+      toast({ title: 'Invitation sent', description: `A new invite email was sent to ${operatorEmail}.` });
+      setTimeout(() => setInviteResent(false), 8000);
+    } catch (err: any) {
+      toast({ title: 'Failed to resend invite', description: err.message, variant: 'destructive' });
+    } finally {
+      setResendingInvite(false);
+    }
+  };
+
   const fetchCertHistory = async () => {
     setCertHistoryLoading(true);
     try {
