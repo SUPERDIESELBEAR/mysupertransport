@@ -316,12 +316,18 @@ export default function ManagementPortal() {
         stages: breakdownMap[m.user_id] ?? emptyBreakdown(),
       }));
     setStaffWorkload(onboarders);
+    // Compute stage breakdown for unassigned operators
+    const unassignedBreakdown = emptyBreakdown();
+    for (const op of (opsData ?? [])) {
+      if (op.assigned_onboarding_staff) continue;
+      const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
+      const stage = getStage(os);
+      unassignedBreakdown[stage]++;
+    }
+    setUnassignedStages(unassignedBreakdown);
     // Count unassigned operators
-    const { count } = await supabase
-      .from('operators')
-      .select('id', { count: 'exact', head: true })
-      .is('assigned_onboarding_staff', null);
-    setUnassignedCount(count ?? 0);
+    const unassignedTotal = Object.values(unassignedBreakdown).reduce((a, b) => a + b, 0);
+    setUnassignedCount(unassignedTotal);
   }, []);
 
   useEffect(() => {
