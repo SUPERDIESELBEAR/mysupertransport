@@ -1224,6 +1224,7 @@ export default function ManagementPortal() {
             initialCoordinatorFilter={pipelineCoordinatorFilter}
             initialCoordinatorName={pipelineCoordinatorName ?? undefined}
             initialStageFilter={pipelineStageFilter}
+            initialIdleFilter={pipelineIdleFilter}
           />
         )}
 
