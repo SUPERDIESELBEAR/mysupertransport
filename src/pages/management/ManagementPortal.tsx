@@ -619,6 +619,30 @@ export default function ManagementPortal() {
                           ))}
                         </div>
                       )}
+                      {idleOnboardingCount > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 mt-1.5 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded border leading-none transition-colors"
+                              style={{ background: 'hsl(var(--warning) / 0.12)', borderColor: 'hsl(var(--warning) / 0.4)', color: 'hsl(var(--warning))' }}
+                              onClick={e => {
+                                e.stopPropagation();
+                                setPipelineIdleFilter(true);
+                                setPipelineStageFilter('all');
+                                setPipelineCoordinatorFilter('all');
+                                setView('pipeline');
+                              }}
+                            >
+                              <Clock className="h-2.5 w-2.5 shrink-0" />
+                              Idle 14d+ {idleOnboardingCount}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">
+                            {idleOnboardingCount} operator{idleOnboardingCount !== 1 ? 's' : ''} with no activity in 14+ days
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
                   </TooltipProvider>
                 );
