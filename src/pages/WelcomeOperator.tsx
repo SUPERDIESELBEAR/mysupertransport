@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, Eye, EyeOff, CheckCircle2, Truck, FileText, MessageSquare, Star } from 'lucide-react';
+import { AlertCircle, Eye, EyeOff, CheckCircle2, Truck, FileText, MessageSquare, Star, Mail, Loader2 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 
 const FEATURES = [
@@ -26,6 +26,12 @@ export default function WelcomeOperator() {
   const [firstName, setFirstName] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [tokenError, setTokenError] = useState(false);
+
+  // Resend invite state
+  const [resendEmail, setResendEmail] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendError, setResendError] = useState('');
+  const [resendSent, setResendSent] = useState(false);
 
   useEffect(() => {
     // Listen for the SIGNED_IN event that Supabase fires when the invite link is clicked
@@ -93,6 +99,32 @@ export default function WelcomeOperator() {
     }
   };
 
+  const handleResend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResendError('');
+    if (!resendEmail.trim()) {
+      setResendError('Please enter your email address.');
+      return;
+    }
+    setResendLoading(true);
+    try {
+      const { error: fnError } = await supabase.functions.invoke('resend-invite', {
+        body: { email: resendEmail.trim() },
+      });
+      if (fnError) {
+        const msg = (fnError as any)?.context?.error ?? fnError.message ?? 'Something went wrong.';
+        // Handle rate-limit (429 comes back as a FunctionsFetchError with context)
+        setResendError(msg);
+      } else {
+        setResendSent(true);
+      }
+    } catch {
+      setResendError('Something went wrong. Please try again.');
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   const background = (
     <div className="fixed inset-0 overflow-hidden pointer-events-none">
       {/* Subtle radial gold glows */}
@@ -118,19 +150,67 @@ export default function WelcomeOperator() {
         {background}
         <div className="w-full max-w-md relative text-center">
           <img src={logo} alt="SUPERTRANSPORT" className="h-16 w-auto max-w-[240px] object-contain mx-auto mb-8" />
-          <div className="bg-surface-dark-card border border-surface-dark-border rounded-xl p-8 shadow-2xl">
-            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <h2 className="text-lg font-semibold text-surface-dark-foreground mb-2">Link Expired or Invalid</h2>
-            <p className="text-surface-dark-muted text-sm mb-6">
-              This invite link has expired or already been used. Please contact your SUPERTRANSPORT coordinator for a new invitation.
-            </p>
-            <Button
-              onClick={() => navigate('/login')}
-              variant="outline"
-              className="border-surface-dark-border text-surface-dark-foreground hover:bg-surface-dark-border/30"
-            >
-              Back to Sign In
-            </Button>
+          <div className="bg-surface-dark-card border border-surface-dark-border rounded-xl p-8 shadow-2xl text-left">
+            <div className="flex flex-col items-center text-center mb-6">
+              <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+              <h2 className="text-lg font-semibold text-surface-dark-foreground mb-2">Link Expired or Invalid</h2>
+              <p className="text-surface-dark-muted text-sm">
+                This invite link has expired or already been used. Enter your email below to request a new one.
+              </p>
+            </div>
+
+            {resendSent ? (
+              <div className="flex flex-col items-center gap-3 py-2">
+                <div className="h-12 w-12 rounded-full bg-status-complete/15 border border-status-complete/30 flex items-center justify-center">
+                  <CheckCircle2 className="h-6 w-6 text-status-complete" />
+                </div>
+                <p className="text-surface-dark-foreground font-medium text-sm">Check your inbox</p>
+                <p className="text-surface-dark-muted text-xs text-center leading-relaxed">
+                  If your email is registered as an approved operator, a new invitation link has been sent.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleResend} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="resend-email" className="text-surface-dark-foreground text-sm">
+                    Email address
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-surface-dark-muted" />
+                    <Input
+                      id="resend-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="you@example.com"
+                      value={resendEmail}
+                      onChange={e => { setResendEmail(e.target.value); setResendError(''); }}
+                      className="pl-9 bg-surface-dark border-surface-dark-border text-surface-dark-foreground placeholder:text-surface-dark-muted focus-visible:ring-gold/40"
+                    />
+                  </div>
+                  {resendError && (
+                    <p className="text-destructive text-xs pt-0.5">{resendError}</p>
+                  )}
+                </div>
+                <Button
+                  type="submit"
+                  disabled={resendLoading}
+                  className="w-full bg-gold text-surface-dark font-semibold hover:bg-gold-light h-11"
+                >
+                  {resendLoading ? (
+                    <><Loader2 className="h-4 w-4 animate-spin mr-2" />Sending…</>
+                  ) : 'Resend Invitation'}
+                </Button>
+              </form>
+            )}
+
+            <div className="mt-5 pt-4 border-t border-surface-dark-border text-center">
+              <button
+                onClick={() => navigate('/login')}
+                className="text-surface-dark-muted text-xs hover:text-surface-dark-foreground transition-colors"
+              >
+                Already have an account? Sign in
+              </button>
+            </div>
           </div>
         </div>
       </div>
