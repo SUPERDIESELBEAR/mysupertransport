@@ -193,7 +193,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   }, [initialCoordinatorFilter, initialCoordinatorName]);
 
   // Sort state
-  type SortKey = 'name' | 'stage' | 'coordinator' | 'progress' | 'last_activity' | 'docs';
+  type SortKey = 'name' | 'stage' | 'coordinator' | 'progress' | 'last_activity' | 'docs' | 'compliance';
   type SortDir = 'asc' | 'desc';
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
@@ -979,6 +979,15 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
+      if (sortKey === 'compliance') {
+        // Sort by nearest expiry (days_until). No alert = Infinity (compliant, sorts last asc)
+        const aAlert = complianceByOperator[a.id];
+        const bAlert = complianceByOperator[b.id];
+        const aDays = aAlert != null ? aAlert.days_until : Infinity;
+        const bDays = bAlert != null ? bAlert.days_until : Infinity;
+        const cmp = aDays - bDays;
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
       if (sortKey === 'docs') {
         const cmp = a.doc_count - b.doc_count;
         return sortDir === 'asc' ? cmp : -cmp;
@@ -2406,23 +2415,34 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   </TooltipProvider>
                 </th>
                  <th className="px-4 py-3 text-center">
-                   <TooltipProvider>
-                     <Tooltip>
-                       <TooltipTrigger asChild>
-                         <span className="inline-flex cursor-default border-b border-dashed border-muted-foreground/40 pb-0.5">
-                           <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground" />
-                         </span>
-                       </TooltipTrigger>
-                       <TooltipContent side="top" className="max-w-[260px] text-left space-y-1.5">
-                         <p className="font-semibold text-xs">CDL or Medical Certificate expiry within 90 days:</p>
-                         <ul className="text-xs space-y-1 text-muted-foreground">
-                           <li><span className="text-destructive font-medium">🔴 Critical (≤ 30 days)</span> — Expired or expiring imminently; immediate action required</li>
-                           <li><span className="text-warning font-medium">🟡 Warning (31–90 days)</span> — Expiring soon; send a reminder to the operator</li>
-                           <li><span className="text-foreground font-medium">Documents tracked</span> — CDL &amp; Medical Certificate</li>
-                         </ul>
-                       </TooltipContent>
-                     </Tooltip>
-                   </TooltipProvider>
+                   <div className="inline-flex items-center justify-center gap-1">
+                     <TooltipProvider>
+                       <Tooltip>
+                         <TooltipTrigger asChild>
+                           <button
+                             onClick={() => handleSort('compliance')}
+                             className="inline-flex items-center gap-0.5 hover:text-gold transition-colors group border-b border-dashed border-muted-foreground/40 pb-0.5"
+                           >
+                             <ShieldAlert className={`h-3.5 w-3.5 ${sortKey === 'compliance' ? 'text-gold' : 'text-muted-foreground group-hover:text-gold/60'}`} />
+                             {sortKey === 'compliance'
+                               ? sortDir === 'asc'
+                                 ? <ArrowUp className="h-3 w-3 text-gold" />
+                                 : <ArrowDown className="h-3 w-3 text-gold" />
+                               : <ArrowUpDown className="h-3 w-3 text-muted-foreground group-hover:text-gold/60" />}
+                           </button>
+                         </TooltipTrigger>
+                         <TooltipContent side="top" className="max-w-[260px] text-left space-y-1.5">
+                           <p className="font-semibold text-xs">CDL or Medical Certificate expiry within 90 days:</p>
+                           <ul className="text-xs space-y-1 text-muted-foreground">
+                             <li><span className="text-destructive font-medium">🔴 Critical (≤ 30 days)</span> — Expired or expiring imminently; immediate action required</li>
+                             <li><span className="text-warning font-medium">🟡 Warning (31–90 days)</span> — Expiring soon; send a reminder to the operator</li>
+                             <li><span className="text-foreground font-medium">Documents tracked</span> — CDL &amp; Medical Certificate</li>
+                             <li><span className="text-foreground font-medium">Sort</span> — Ascending puts most urgent first; compliant operators last</li>
+                           </ul>
+                         </TooltipContent>
+                       </Tooltip>
+                     </TooltipProvider>
+                   </div>
                  </th>
                  <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
                    <div className="inline-flex items-center gap-1">
