@@ -155,6 +155,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [progressFilter, setProgressFilter] = useState<'all' | 'low' | 'mid' | 'high'>('all');
   const [complianceFilter, setComplianceFilter] = useState<'all' | 'critical' | 'warning'>('all');
   const [idleFilter, setIdleFilter] = useState(initialIdleFilter ?? false);
+  const [unreadFilter, setUnreadFilter] = useState(false);
 
   // Sync when the parent changes the initial filter (e.g. banner → View Pipeline)
   useEffect(() => {
@@ -975,7 +976,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         op.onboarding_updated_at != null &&
         differenceInDays(new Date(), parseISO(op.onboarding_updated_at)) >= 14
       );
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle;
+      const matchUnread = !unreadFilter || op.unread_count > 0;
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread;
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
@@ -1035,6 +1037,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     progressFilter !== 'all',
     complianceFilter !== 'all',
     idleFilter,
+    unreadFilter,
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
@@ -1045,6 +1048,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setProgressFilter('all');
     setComplianceFilter('all');
     setIdleFilter(false);
+    setUnreadFilter(false);
     setSearch('');
   };
 
@@ -1947,6 +1951,18 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setUnreadFilter(v => !v)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                unreadFilter
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-primary'
+              }`}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Has Unread</span>
+              {unreadFilter && <X className="h-3 w-3" />}
+            </button>
             <Button
               variant="outline"
               size="sm"
