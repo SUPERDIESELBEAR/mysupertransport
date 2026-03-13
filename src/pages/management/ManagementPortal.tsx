@@ -29,11 +29,22 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+type StageBreakdown = {
+  stage1_background: number;
+  stage2_documents: number;
+  stage3_ica: number;
+  stage4_mo_reg: number;
+  stage5_equipment: number;
+  stage6_insurance: number;
+  fully_onboarded: number;
+};
+
 type StaffWorkload = {
   user_id: string;
   full_name: string;
   email: string;
   assigned_operator_count: number;
+  stages: StageBreakdown;
 };
 
 type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications';
