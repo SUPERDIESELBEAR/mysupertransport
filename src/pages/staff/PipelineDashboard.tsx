@@ -2372,15 +2372,19 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">
                   <TooltipProvider>
                     <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex items-center gap-1 text-muted-foreground cursor-default">
-                          <MessageSquare className="h-3.5 w-3.5" />
-                          Msgs
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-[220px] text-center">
-                        Unread messages from this operator. Click the row to open the conversation.
-                      </TooltipContent>
+                       <TooltipTrigger asChild>
+                         <span className="inline-flex items-center gap-1 text-muted-foreground cursor-default border-b border-dashed border-muted-foreground/40">
+                           <MessageSquare className="h-3.5 w-3.5" />
+                           Msgs
+                         </span>
+                       </TooltipTrigger>
+                       <TooltipContent side="top" className="max-w-[240px] text-left space-y-1.5">
+                         <p className="font-semibold text-xs">Unread messages from the operator:</p>
+                         <ul className="text-xs space-y-1 text-muted-foreground">
+                           <li><span className="text-foreground font-medium">Count</span> — Messages sent by the operator that staff haven't read yet</li>
+                           <li><span className="text-foreground font-medium">Open</span> — Click the row to open the full conversation</li>
+                         </ul>
+                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </th>
