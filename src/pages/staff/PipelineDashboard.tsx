@@ -10,7 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
-import { differenceInDays, parseISO, format } from 'date-fns';
+import { differenceInDays, parseISO, format, formatDistanceToNowStrict } from 'date-fns';
 
 type DispatchStatus = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
 
@@ -49,6 +49,7 @@ interface OperatorRow {
   eld_installed: string;
   fuel_card_issued: string;
   progress_pct: number;
+  onboarding_updated_at: string | null;
 }
 
 interface StaffOption {
@@ -186,7 +187,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   }, [initialCoordinatorFilter, initialCoordinatorName]);
 
   // Sort state
-  type SortKey = 'name' | 'stage' | 'coordinator' | 'progress';
+  type SortKey = 'name' | 'stage' | 'coordinator' | 'progress' | 'last_activity';
   type SortDir = 'asc' | 'desc';
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
@@ -426,7 +427,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           truck_title,
           truck_photos,
           truck_inspection,
-          mo_reg_received
+          mo_reg_received,
+          updated_at
         )
       `),
       supabase.from('user_roles').select('user_id').in('role', ['onboarding_staff', 'management']),
@@ -527,6 +529,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         eld_installed: os.eld_installed ?? 'no',
         fuel_card_issued: os.fuel_card_issued ?? 'no',
         progress_pct: computeProgress(os),
+        onboarding_updated_at: os.updated_at ?? null,
       };
     });
     setOperators(rows);
@@ -951,6 +954,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       if (!sortKey) return 0;
       if (sortKey === 'progress') {
         const cmp = a.progress_pct - b.progress_pct;
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
+      if (sortKey === 'last_activity') {
+        const at = a.onboarding_updated_at ?? '';
+        const bt = b.onboarding_updated_at ?? '';
+        const cmp = at < bt ? -1 : at > bt ? 1 : 0;
         return sortDir === 'asc' ? cmp : -cmp;
       }
       let av = '';
@@ -2126,16 +2135,29 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     Msgs
                   </span>
                 </th>
-                <th className="px-4 py-3 text-center" title="Compliance">
-                  <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground mx-auto" />
-                </th>
-                <th className="text-right px-4 py-3" />
+                 <th className="px-4 py-3 text-center" title="Compliance">
+                   <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground mx-auto" />
+                 </th>
+                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
+                   <button
+                     onClick={() => handleSort('last_activity')}
+                     className="inline-flex items-center gap-1 hover:text-gold transition-colors group whitespace-nowrap"
+                   >
+                     Last Activity
+                     {sortKey === 'last_activity'
+                       ? sortDir === 'asc'
+                         ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                         : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                       : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                   </button>
+                 </th>
+                 <th className="text-right px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                   <td colSpan={11} className="text-center py-12 text-muted-foreground">
+                   <td colSpan={12} className="text-center py-12 text-muted-foreground">
                     <div className="flex justify-center">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                     </div>
@@ -2143,7 +2165,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={12} className="text-center py-12 text-muted-foreground">
                     {operators.length === 0 ? 'No operators in the pipeline yet.' : 'No operators match your filters.'}
                   </td>
                 </tr>
@@ -2318,8 +2340,33 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                           </TooltipProvider>
                         );
                       })()}
-                    </td>
-                    <td className="px-4 py-3 text-right">
+                     </td>
+                     {/* Last Activity cell */}
+                     <td className="px-4 py-3 hidden xl:table-cell whitespace-nowrap">
+                       {op.onboarding_updated_at ? (
+                         <TooltipProvider delayDuration={100}>
+                           <Tooltip>
+                             <TooltipTrigger asChild>
+                               <span className={`inline-flex items-center gap-1 text-xs ${
+                                 (() => {
+                                   const diff = Math.floor((Date.now() - new Date(op.onboarding_updated_at).getTime()) / 86400000);
+                                   return diff >= 14 ? 'text-warning font-medium' : 'text-muted-foreground';
+                                 })()
+                               }`}>
+                                 <Clock className="h-3 w-3 shrink-0" />
+                                 {formatDistanceToNowStrict(parseISO(op.onboarding_updated_at), { addSuffix: true })}
+                               </span>
+                             </TooltipTrigger>
+                             <TooltipContent side="left" className="text-xs">
+                               {format(parseISO(op.onboarding_updated_at), 'MMM d, yyyy h:mm a')}
+                             </TooltipContent>
+                           </Tooltip>
+                         </TooltipProvider>
+                       ) : (
+                         <span className="text-muted-foreground/40 text-xs">—</span>
+                       )}
+                     </td>
+                     <td className="px-4 py-3 text-right">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -2346,7 +2393,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               return (
                 <tfoot>
                   <tr className="border-t-2 border-border bg-muted/30">
-                    <td colSpan={11} className="px-4 py-2.5">
+                    <td colSpan={12} className="px-4 py-2.5">
                       <div className="flex items-center gap-4 flex-wrap">
                         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                           Compliance summary — {filtered.length} visible
