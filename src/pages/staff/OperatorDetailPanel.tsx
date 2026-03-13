@@ -126,6 +126,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [reminderSending, setReminderSending] = useState<Record<string, boolean>>({});
   const [reminderSent, setReminderSent] = useState<Record<string, boolean>>({});
   const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
+  const [resendingInvite, setResendingInvite] = useState(false);
+  const [inviteResent, setInviteResent] = useState(false);
   // Last renewal per doc type: key = 'CDL' | 'Medical Cert' → ISO timestamp
   const [lastRenewed, setLastRenewed] = useState<Record<string, string>>({});
   // Last renewed by name per doc type
@@ -415,6 +417,32 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       toast({ title, description, variant: 'destructive' });
     } finally {
       setReminderSending(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const handleResendInvite = async () => {
+    if (!operatorEmail || resendingInvite) return;
+    setResendingInvite(true);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const res = await fetch(`${supabaseUrl}/functions/v1/resend-invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token ?? ''}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ email: operatorEmail, staff_override: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to send invitation');
+      setInviteResent(true);
+      toast({ title: 'Invitation sent', description: `A new invite email was sent to ${operatorEmail}.` });
+      setTimeout(() => setInviteResent(false), 8000);
+    } catch (err: any) {
+      toast({ title: 'Failed to resend invite', description: err.message, variant: 'destructive' });
+    } finally {
+      setResendingInvite(false);
     }
   };
 
@@ -1078,7 +1106,28 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       </TooltipContent>
                     </Tooltip>
                   )}
-                  {/* Save Changes quick-action */}
+                  {/* Resend invite quick-action */}
+                  {operatorEmail && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={handleResendInvite}
+                          disabled={resendingInvite}
+                          className="ml-1 h-6 w-6 rounded flex items-center justify-center border border-border text-muted-foreground hover:text-foreground hover:border-gold transition-all disabled:opacity-50"
+                        >
+                          {resendingInvite
+                            ? <span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
+                            : inviteResent
+                            ? <Check className="h-3 w-3 text-status-complete" />
+                            : <Send className="h-3 w-3" />
+                          }
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">
+                        {inviteResent ? '✓ Invite sent!' : 'Resend invite email'}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -1121,20 +1170,48 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             <p className="text-xs sm:text-sm text-muted-foreground truncate">{operatorEmail}</p>
           </div>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button onClick={handleSave} disabled={saving} className="bg-gold text-surface-dark font-semibold hover:bg-gold-light gap-2 shrink-0">
-              <Save className="h-4 w-4" />
-              {saving ? 'Saving…' : 'Save Changes'}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs flex items-center gap-1.5">
-            <span className="text-muted-foreground">Keyboard shortcut:</span>
-            <kbd className="px-1 py-0.5 rounded border border-border bg-muted text-foreground font-mono text-[10px] leading-none">
-              {navigator.platform.startsWith('Mac') ? '⌘S' : 'Ctrl+S'}
-            </kbd>
-          </TooltipContent>
-        </Tooltip>
+        <TooltipProvider delayDuration={150}>
+          <div className="flex items-center gap-2 shrink-0">
+            {operatorEmail && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResendInvite}
+                    disabled={resendingInvite}
+                    className="gap-2 text-muted-foreground hover:text-foreground"
+                  >
+                    {resendingInvite
+                      ? <span className="h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent" />
+                      : inviteResent
+                      ? <Check className="h-3.5 w-3.5 text-status-complete" />
+                      : <Send className="h-3.5 w-3.5" />
+                    }
+                    <span className="hidden sm:inline">{inviteResent ? 'Invite Sent' : 'Resend Invite'}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {inviteResent ? '✓ Invitation sent to ' + operatorEmail : 'Resend invitation email to ' + operatorEmail}
+                </TooltipContent>
+              </Tooltip>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={handleSave} disabled={saving} className="bg-gold text-surface-dark font-semibold hover:bg-gold-light gap-2 shrink-0">
+                  <Save className="h-4 w-4" />
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs flex items-center gap-1.5">
+                <span className="text-muted-foreground">Keyboard shortcut:</span>
+                <kbd className="px-1 py-0.5 rounded border border-border bg-muted text-foreground font-mono text-[10px] leading-none">
+                  {navigator.platform.startsWith('Mac') ? '⌘S' : 'Ctrl+S'}
+                </kbd>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
       </div>
 
       {/* Status overview */}
