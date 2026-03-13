@@ -92,6 +92,7 @@ export default function ManagementPortal() {
   const [complianceSummary, setComplianceSummary] = useState<ComplianceRow[]>([]);
   const [staffWorkload, setStaffWorkload] = useState<StaffWorkload[]>([]);
   const [unassignedCount, setUnassignedCount] = useState(0);
+  const [unassignedStages, setUnassignedStages] = useState<StageBreakdown>({ stage1_background: 0, stage2_documents: 0, stage3_ica: 0, stage4_mo_reg: 0, stage5_equipment: 0, stage6_insurance: 0, fully_onboarded: 0 });
   const [pipelineCoordinatorFilter, setPipelineCoordinatorFilter] = useState<string>('all');
 
 
@@ -315,12 +316,18 @@ export default function ManagementPortal() {
         stages: breakdownMap[m.user_id] ?? emptyBreakdown(),
       }));
     setStaffWorkload(onboarders);
+    // Compute stage breakdown for unassigned operators
+    const unassignedBreakdown = emptyBreakdown();
+    for (const op of (opsData ?? [])) {
+      if (op.assigned_onboarding_staff) continue;
+      const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
+      const stage = getStage(os);
+      unassignedBreakdown[stage]++;
+    }
+    setUnassignedStages(unassignedBreakdown);
     // Count unassigned operators
-    const { count } = await supabase
-      .from('operators')
-      .select('id', { count: 'exact', head: true })
-      .is('assigned_onboarding_staff', null);
-    setUnassignedCount(count ?? 0);
+    const unassignedTotal = Object.values(unassignedBreakdown).reduce((a, b) => a + b, 0);
+    setUnassignedCount(unassignedTotal);
   }, []);
 
   useEffect(() => {
@@ -773,24 +780,64 @@ export default function ManagementPortal() {
                       </TooltipProvider>
                     );
                   })}
-                  {unassignedCount > 0 ? (
-                    <div
-                      className="flex items-center justify-between px-4 sm:px-5 py-3 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors group"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => { setPipelineCoordinatorFilter('unassigned'); setView('pipeline'); }}
-                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter('unassigned'); setView('pipeline'); } }}
-                    >
-                      <p className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Unassigned operators</p>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-semibold text-muted-foreground tabular-nums">{unassignedCount}</span>
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-green-500/10 border-t border-green-500/20">
-                      <p className="text-sm text-green-600 dark:text-green-400 font-medium">All operators assigned ✓</p>
-                      <span className="text-xs text-green-500/70 dark:text-green-400/60">0 unassigned</span>
+                  {unassignedCount > 0 ? (() => {
+                    const unassignedStageRows: { label: string; count: number; dotClass: string }[] = [
+                      { label: 'Background (MVR/CH)', count: unassignedStages.stage1_background, dotClass: 'bg-muted-foreground' },
+                      { label: 'Documents',           count: unassignedStages.stage2_documents,  dotClass: 'bg-status-progress' },
+                      { label: 'ICA Contract',        count: unassignedStages.stage3_ica,        dotClass: 'bg-gold' },
+                      { label: 'MO Registration',     count: unassignedStages.stage4_mo_reg,     dotClass: 'bg-info' },
+                      { label: 'Equipment',           count: unassignedStages.stage5_equipment,  dotClass: 'bg-purple-400' },
+                      { label: 'Insurance',           count: unassignedStages.stage6_insurance,  dotClass: 'bg-orange-400' },
+                      { label: 'Fully Onboarded',     count: unassignedStages.fully_onboarded,   dotClass: 'bg-status-complete' },
+                    ].filter(r => r.count > 0);
+                    return (
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div
+                              className="flex items-center justify-between px-4 sm:px-5 py-3 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors group"
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => { setPipelineCoordinatorFilter('unassigned'); setView('pipeline'); }}
+                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter('unassigned'); setView('pipeline'); } }}
+                            >
+                              <p className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Unassigned operators</p>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm font-semibold text-muted-foreground tabular-nums">{unassignedCount}</span>
+                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
+                              </div>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" align="end" className="p-0 w-52" sideOffset={6}>
+                            <div className="px-3 py-2 border-b border-border">
+                              <p className="text-xs font-semibold text-foreground">Unassigned operators</p>
+                              <p className="text-[11px] text-muted-foreground">Stage breakdown · {unassignedCount} operator{unassignedCount !== 1 ? 's' : ''}</p>
+                            </div>
+                            {unassignedStageRows.length === 0 ? (
+                              <div className="px-3 py-2">
+                                <p className="text-[11px] text-muted-foreground italic">No stage data available</p>
+                              </div>
+                            ) : (
+                              <div className="px-3 py-2 space-y-1.5">
+                                {unassignedStageRows.map(r => (
+                                  <div key={r.label} className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${r.dotClass}`} />
+                                      <span className="text-[11px] text-muted-foreground truncate">{r.label}</span>
+                                    </div>
+                                    <span className="text-[11px] font-semibold text-foreground tabular-nums shrink-0">{r.count}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    );
+                  })() : (
+                    <div className="flex items-center justify-between px-4 sm:px-5 py-2.5 bg-status-complete/10 border-t border-status-complete/20">
+                      <p className="text-sm text-status-complete font-medium">All operators assigned ✓</p>
+                      <span className="text-xs text-status-complete/70">0 unassigned</span>
                     </div>
                   )}
                 </div>
