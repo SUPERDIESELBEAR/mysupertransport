@@ -2240,7 +2240,21 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   </button>
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">Docs</th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">Dispatch</th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-1 cursor-default">
+                          <Truck className="h-3.5 w-3.5 text-muted-foreground" />
+                          Dispatch
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[230px] text-center">
+                        Current dispatch status for fully onboarded operators. Not Dispatched, Dispatched, Home, or Truck Down.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
                   <button
                     onClick={() => handleSort('coordinator')}
