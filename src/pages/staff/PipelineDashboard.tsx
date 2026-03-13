@@ -69,6 +69,7 @@ interface PipelineDashboardProps {
   onOpenOperatorWithFocus?: (operatorId: string, focusField: 'cdl' | 'medcert') => void;
   initialDispatchFilter?: DispatchStatus | 'all';
   initialCoordinatorFilter?: string;
+  initialCoordinatorName?: string;
   initialStageFilter?: string;
   complianceRefreshKey?: number;
 }
@@ -102,7 +103,7 @@ const STAGES = [
   'Stage 6 — Insurance',
 ];
 
-export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, initialDispatchFilter, initialCoordinatorFilter, initialStageFilter, complianceRefreshKey }: PipelineDashboardProps) {
+export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, initialDispatchFilter, initialCoordinatorFilter, initialCoordinatorName, initialStageFilter, complianceRefreshKey }: PipelineDashboardProps) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
@@ -162,12 +163,27 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   }, [initialCoordinatorFilter]);
 
   const [legendStageFilter, setLegendStageFilter] = useState<string | null>(initialStageFilter && initialStageFilter !== 'all' ? initialStageFilter : null);
+  const [legendCoordinatorFilter, setLegendCoordinatorFilter] = useState<{ id: string; name: string } | null>(
+    initialCoordinatorFilter && initialCoordinatorFilter !== 'all' && initialCoordinatorName
+      ? { id: initialCoordinatorFilter, name: initialCoordinatorName }
+      : null
+  );
 
   useEffect(() => {
     const next = initialStageFilter ?? 'all';
     setStageFilter(next);
     setLegendStageFilter(next !== 'all' ? next : null);
   }, [initialStageFilter]);
+
+  useEffect(() => {
+    const next = initialCoordinatorFilter ?? 'all';
+    setCoordinatorFilter(next);
+    setLegendCoordinatorFilter(
+      next !== 'all' && initialCoordinatorName
+        ? { id: next, name: initialCoordinatorName }
+        : null
+    );
+  }, [initialCoordinatorFilter, initialCoordinatorName]);
 
   // Sort state
   type SortKey = 'name' | 'stage' | 'coordinator' | 'progress';
@@ -2022,6 +2038,24 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           </div>
         );
       })()}
+
+      {/* Coordinator deep-link banner — shown when arriving from Management workload card coordinator row */}
+      {legendCoordinatorFilter && coordinatorFilter === legendCoordinatorFilter.id && (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border bg-gold/8 border-gold/25">
+          <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-gold" />
+          <p className="text-sm font-medium flex-1 text-gold">
+            Showing operators assigned to <span className="font-semibold">{legendCoordinatorFilter.name}</span>
+          </p>
+          <button
+            onClick={() => { setCoordinatorFilter('all'); setLegendCoordinatorFilter(null); }}
+            className="flex items-center gap-1 text-xs font-medium opacity-70 hover:opacity-100 transition-opacity text-gold"
+            title="Clear coordinator filter"
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* Operator table */}
       <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">

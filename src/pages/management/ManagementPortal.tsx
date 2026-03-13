@@ -94,6 +94,7 @@ export default function ManagementPortal() {
   const [unassignedCount, setUnassignedCount] = useState(0);
   const [unassignedStages, setUnassignedStages] = useState<StageBreakdown>({ stage1_background: 0, stage2_documents: 0, stage3_ica: 0, stage4_mo_reg: 0, stage5_equipment: 0, stage6_insurance: 0, fully_onboarded: 0 });
   const [pipelineCoordinatorFilter, setPipelineCoordinatorFilter] = useState<string>('all');
+  const [pipelineCoordinatorName, setPipelineCoordinatorName] = useState<string | null>(null);
   const [pipelineStageFilter, setPipelineStageFilter] = useState<string>('all');
 
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
@@ -438,7 +439,7 @@ export default function ManagementPortal() {
     } else {
       setView(path as ManagementView);
       if (path !== 'operator-detail') setSelectedOperatorId(null);
-      if (path === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineStageFilter('all'); }
+      if (path === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineCoordinatorName(null); setPipelineStageFilter('all'); }
     }
   };
 
@@ -447,7 +448,7 @@ export default function ManagementPortal() {
       setOperatorHasUnsavedChanges(false);
       setView(pendingNavPath as ManagementView);
       if (pendingNavPath !== 'operator-detail') setSelectedOperatorId(null);
-      if (pendingNavPath === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineStageFilter('all'); }
+      if (pendingNavPath === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineCoordinatorName(null); setPipelineStageFilter('all'); }
       setPendingNavPath(null);
     }
   };
@@ -730,8 +731,8 @@ export default function ManagementPortal() {
                             <div
                               role="button"
                               tabIndex={0}
-                              onClick={() => { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); }}
-                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); } }}
+                              onClick={() => { setPipelineCoordinatorFilter(member.user_id); setPipelineCoordinatorName(member.full_name); setView('pipeline'); }}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter(member.user_id); setPipelineCoordinatorName(member.full_name); setView('pipeline'); } }}
                               className="flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-secondary/50 transition-colors cursor-pointer group"
                             >
                               <div className="min-w-0 flex-1">
@@ -802,8 +803,8 @@ export default function ManagementPortal() {
                               className={`flex items-center gap-3 px-4 sm:px-5 py-3 cursor-pointer transition-colors group ${lateStageCount > 0 ? 'bg-destructive/5 hover:bg-destructive/10 border-t border-destructive/15' : 'bg-muted/20 hover:bg-muted/40'}`}
                               role="button"
                               tabIndex={0}
-                              onClick={() => { setPipelineCoordinatorFilter('unassigned'); setView('pipeline'); }}
-                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter('unassigned'); setView('pipeline'); } }}
+                              onClick={() => { setPipelineCoordinatorFilter('unassigned'); setPipelineCoordinatorName('Unassigned operators'); setView('pipeline'); }}
+                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter('unassigned'); setPipelineCoordinatorName('Unassigned operators'); setView('pipeline'); } }}
                             >
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -1114,6 +1115,7 @@ export default function ManagementPortal() {
             }}
             complianceRefreshKey={complianceRefreshKey}
             initialCoordinatorFilter={pipelineCoordinatorFilter}
+            initialCoordinatorName={pipelineCoordinatorName ?? undefined}
             initialStageFilter={pipelineStageFilter}
           />
         )}
