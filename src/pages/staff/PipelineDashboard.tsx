@@ -2395,26 +2395,33 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                    </TooltipProvider>
                  </th>
                  <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
-                   <TooltipProvider>
-                     <Tooltip>
-                       <TooltipTrigger asChild>
-                         <button
-                           onClick={() => handleSort('last_activity')}
-                           className="inline-flex items-center gap-1 hover:text-gold transition-colors group whitespace-nowrap"
-                         >
-                           Last Activity
-                           {sortKey === 'last_activity'
-                             ? sortDir === 'asc'
-                               ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
-                               : <ArrowDown className="h-3.5 w-3.5 text-gold" />
-                             : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
-                         </button>
-                       </TooltipTrigger>
-                       <TooltipContent side="top" className="max-w-[220px] text-center">
-                         Time since the last onboarding status update for this operator. Operators with no change in 14+ days are highlighted in amber.
-                       </TooltipContent>
-                     </Tooltip>
-                   </TooltipProvider>
+                   <div className="inline-flex items-center gap-1">
+                     <TooltipProvider>
+                       <Tooltip>
+                         <TooltipTrigger asChild>
+                           <button
+                             onClick={() => handleSort('last_activity')}
+                             className="inline-flex items-center gap-1 hover:text-gold transition-colors group whitespace-nowrap"
+                           >
+                             Last Activity
+                             {sortKey === 'last_activity'
+                               ? sortDir === 'asc'
+                                 ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                                 : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                               : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                           </button>
+                         </TooltipTrigger>
+                         <TooltipContent side="top" className="max-w-[260px] text-left space-y-1.5">
+                           <p className="font-semibold text-xs">Time since the last onboarding status change:</p>
+                           <ul className="text-xs space-y-1 text-muted-foreground">
+                             <li><span className="text-foreground font-medium">Source</span> — Any update to the operator's onboarding checklist</li>
+                             <li><span className="font-medium" style={{ color: 'hsl(var(--warning))' }}>🟡 Amber highlight</span> — No activity in 14 or more days</li>
+                             <li><span className="text-foreground font-medium">Idle filter</span> — Use "Idle 14d+" to isolate stalled operators, sorted oldest first</li>
+                           </ul>
+                         </TooltipContent>
+                       </Tooltip>
+                     </TooltipProvider>
+                   </div>
                  </th>
                  <th className="text-right px-4 py-3" />
               </tr>
