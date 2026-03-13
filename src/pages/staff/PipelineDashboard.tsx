@@ -496,7 +496,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setStaffOptions(Object.values(staffMap));
 
     const rows: OperatorRow[] = opData.map((op: any) => {
-      const os = op.onboarding_status?.[0] ?? {};
+      const osRaw = op.onboarding_status;
+      const os = Array.isArray(osRaw) ? (osRaw[0] ?? {}) : (osRaw ?? {});
       const profile = profileMap[op.user_id] ?? {};
       const staffProfile = op.assigned_onboarding_staff ? profileMap[op.assigned_onboarding_staff] : null;
       const staffName = staffProfile
