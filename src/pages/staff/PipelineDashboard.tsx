@@ -2304,18 +2304,18 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       <TooltipTrigger asChild>
                         <span className="inline-flex cursor-default border-b border-dashed border-muted-foreground/50">Docs</span>
                       </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-[240px] text-left space-y-1.5">
-                        <p className="font-semibold text-xs">Count of uploaded documents, including:</p>
-                        <ul className="text-xs space-y-0.5 text-muted-foreground list-disc list-inside">
-                          <li>Registration</li>
-                          <li>Insurance certificate</li>
-                          <li>Inspection report</li>
-                          <li>Form 2290</li>
-                          <li>Truck title</li>
-                          <li>Truck photos</li>
-                          <li>Other uploads</li>
-                        </ul>
-                      </TooltipContent>
+                       <TooltipContent side="top" className="max-w-[240px] text-left space-y-1.5">
+                         <p className="font-semibold text-xs">Count of uploaded documents, including:</p>
+                         <ul className="text-xs space-y-0.5 text-muted-foreground">
+                           <li><span className="text-foreground font-medium">Registration</span></li>
+                           <li><span className="text-foreground font-medium">Insurance certificate</span></li>
+                           <li><span className="text-foreground font-medium">Inspection report</span></li>
+                           <li><span className="text-foreground font-medium">Form 2290</span></li>
+                           <li><span className="text-foreground font-medium">Truck title</span></li>
+                           <li><span className="text-foreground font-medium">Truck photos</span></li>
+                           <li><span className="text-foreground font-medium">Other uploads</span></li>
+                         </ul>
+                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </th>
