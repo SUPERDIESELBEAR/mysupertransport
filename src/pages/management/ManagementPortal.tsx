@@ -731,8 +731,8 @@ export default function ManagementPortal() {
                             <div
                               role="button"
                               tabIndex={0}
-                              onClick={() => { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); }}
-                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); } }}
+                              onClick={() => { setPipelineCoordinatorFilter(member.user_id); setPipelineCoordinatorName(member.full_name); setView('pipeline'); }}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter(member.user_id); setPipelineCoordinatorName(member.full_name); setView('pipeline'); } }}
                               className="flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-secondary/50 transition-colors cursor-pointer group"
                             >
                               <div className="min-w-0 flex-1">
