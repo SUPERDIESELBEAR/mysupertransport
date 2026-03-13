@@ -2135,10 +2135,23 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     Msgs
                   </span>
                 </th>
-                <th className="px-4 py-3 text-center" title="Compliance">
-                  <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground mx-auto" />
-                </th>
-                <th className="text-right px-4 py-3" />
+                 <th className="px-4 py-3 text-center" title="Compliance">
+                   <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground mx-auto" />
+                 </th>
+                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
+                   <button
+                     onClick={() => handleSort('last_activity')}
+                     className="inline-flex items-center gap-1 hover:text-gold transition-colors group whitespace-nowrap"
+                   >
+                     Last Activity
+                     {sortKey === 'last_activity'
+                       ? sortDir === 'asc'
+                         ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                         : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                       : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                   </button>
+                 </th>
+                 <th className="text-right px-4 py-3" />
               </tr>
             </thead>
             <tbody>
