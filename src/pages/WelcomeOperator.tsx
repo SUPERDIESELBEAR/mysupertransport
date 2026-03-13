@@ -117,7 +117,7 @@ export default function WelcomeOperator() {
       <div className="min-h-screen bg-surface-dark flex items-center justify-center p-4">
         {background}
         <div className="w-full max-w-md relative text-center">
-          <img src={logo} alt="SUPERTRANSPORT" className="h-20 w-auto mx-auto mb-8" />
+          <img src={logo} alt="SUPERTRANSPORT" className="h-16 w-auto max-w-[240px] object-contain mx-auto mb-8" />
           <div className="bg-surface-dark-card border border-surface-dark-border rounded-xl p-8 shadow-2xl">
             <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
             <h2 className="text-lg font-semibold text-surface-dark-foreground mb-2">Link Expired or Invalid</h2>
