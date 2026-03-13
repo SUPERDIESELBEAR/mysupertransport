@@ -2283,17 +2283,17 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         <TooltipTrigger asChild>
                           <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
                         </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[260px] text-left space-y-1">
-                          <p className="font-semibold text-xs">6 onboarding stages, each worth ~17%:</p>
-                          <ol className="text-xs space-y-0.5 list-decimal list-inside text-muted-foreground">
-                            <li>Background — MVR &amp; CH approved</li>
-                            <li>Documents — Form 2290, title, photos &amp; inspection received</li>
-                            <li>ICA — Contract fully signed</li>
-                            <li>MO Registration — Received</li>
-                            <li>Equipment — Decal, ELD &amp; fuel card issued</li>
-                            <li>Insurance — Added to policy</li>
-                          </ol>
-                        </TooltipContent>
+                         <TooltipContent side="top" className="max-w-[260px] text-left space-y-1">
+                           <p className="font-semibold text-xs">6 onboarding stages, each worth ~17%:</p>
+                           <ol className="text-xs space-y-0.5 list-decimal list-inside text-muted-foreground">
+                             <li><span className="text-foreground font-medium">Background</span> — MVR &amp; CH approved</li>
+                             <li><span className="text-foreground font-medium">Documents</span> — Form 2290, title, photos &amp; inspection received</li>
+                             <li><span className="text-foreground font-medium">ICA</span> — Contract fully signed</li>
+                             <li><span className="text-foreground font-medium">MO Registration</span> — Received</li>
+                             <li><span className="text-foreground font-medium">Equipment</span> — Decal, ELD &amp; fuel card issued</li>
+                             <li><span className="text-foreground font-medium">Insurance</span> — Added to policy</li>
+                           </ol>
+                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </div>
