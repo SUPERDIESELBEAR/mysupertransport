@@ -69,6 +69,7 @@ interface PipelineDashboardProps {
   onOpenOperatorWithFocus?: (operatorId: string, focusField: 'cdl' | 'medcert') => void;
   initialDispatchFilter?: DispatchStatus | 'all';
   initialCoordinatorFilter?: string;
+  initialStageFilter?: string;
   complianceRefreshKey?: number;
 }
 
