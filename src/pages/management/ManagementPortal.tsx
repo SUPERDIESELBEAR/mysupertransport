@@ -264,6 +264,47 @@ export default function ManagementPortal() {
     });
     if (!res.ok) return;
     const json = await res.json();
+
+    // Fetch all operators with their onboarding_status to compute per-coordinator stage breakdown
+    const { data: opsData } = await supabase
+      .from('operators')
+      .select('id, assigned_onboarding_staff, onboarding_status(mvr_ch_approval, form_2290, truck_title, truck_photos, truck_inspection, ica_status, mo_reg_received, decal_applied, eld_installed, fuel_card_issued, insurance_added_date, fully_onboarded)');
+
+    // Helper: compute which stage an operator is currently on (first incomplete)
+    const getStage = (os: any): keyof StageBreakdown => {
+      if (!os) return 'stage1_background';
+      if (os.fully_onboarded) return 'fully_onboarded';
+      if (!os.insurance_added_date) {
+        const docsComplete = os.form_2290 === 'received' && os.truck_title === 'received' && os.truck_photos === 'received' && os.truck_inspection === 'received';
+        const icaComplete = os.ica_status === 'complete';
+        const moComplete = os.mo_reg_received === 'yes';
+        const equipComplete = os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes';
+        if (!os.mvr_ch_approval || os.mvr_ch_approval !== 'approved') return 'stage1_background';
+        if (!docsComplete) return 'stage2_documents';
+        if (!icaComplete) return 'stage3_ica';
+        if (!moComplete) return 'stage4_mo_reg';
+        if (!equipComplete) return 'stage5_equipment';
+        return 'stage6_insurance';
+      }
+      return 'fully_onboarded';
+    };
+
+    const emptyBreakdown = (): StageBreakdown => ({
+      stage1_background: 0, stage2_documents: 0, stage3_ica: 0,
+      stage4_mo_reg: 0, stage5_equipment: 0, stage6_insurance: 0, fully_onboarded: 0,
+    });
+
+    // Build a map of user_id → stage counts
+    const breakdownMap: Record<string, StageBreakdown> = {};
+    for (const op of (opsData ?? [])) {
+      const uid = op.assigned_onboarding_staff;
+      if (!uid) continue;
+      if (!breakdownMap[uid]) breakdownMap[uid] = emptyBreakdown();
+      const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
+      const stage = getStage(os);
+      breakdownMap[uid][stage]++;
+    }
+
     const onboarders: StaffWorkload[] = (json.staff ?? [])
       .filter((m: any) => (m.roles ?? []).includes('onboarding_staff'))
       .map((m: any) => ({
@@ -271,6 +312,7 @@ export default function ManagementPortal() {
         full_name: [m.first_name, m.last_name].filter(Boolean).join(' ') || m.email,
         email: m.email,
         assigned_operator_count: m.assigned_operator_count ?? 0,
+        stages: breakdownMap[m.user_id] ?? emptyBreakdown(),
       }));
     setStaffWorkload(onboarders);
     // Count unassigned operators
