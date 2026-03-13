@@ -145,7 +145,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
   // Filter state
   const [search, setSearch] = useState('');
-  const [stageFilter, setStageFilter] = useState('all');
+  const [stageFilter, setStageFilter] = useState(initialStageFilter ?? 'all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [coordinatorFilter, setCoordinatorFilter] = useState(initialCoordinatorFilter ?? 'all');
   const [dispatchFilter, setDispatchFilter] = useState<'all' | DispatchStatus>(initialDispatchFilter ?? 'all');
@@ -160,6 +160,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   useEffect(() => {
     if (initialCoordinatorFilter) setCoordinatorFilter(initialCoordinatorFilter);
   }, [initialCoordinatorFilter]);
+
+  useEffect(() => {
+    setStageFilter(initialStageFilter ?? 'all');
+  }, [initialStageFilter]);
 
   // Sort state
   type SortKey = 'name' | 'stage' | 'coordinator' | 'progress';
