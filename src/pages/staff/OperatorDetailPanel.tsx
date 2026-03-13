@@ -1170,20 +1170,46 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             <p className="text-xs sm:text-sm text-muted-foreground truncate">{operatorEmail}</p>
           </div>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button onClick={handleSave} disabled={saving} className="bg-gold text-surface-dark font-semibold hover:bg-gold-light gap-2 shrink-0">
-              <Save className="h-4 w-4" />
-              {saving ? 'Saving…' : 'Save Changes'}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="text-xs flex items-center gap-1.5">
-            <span className="text-muted-foreground">Keyboard shortcut:</span>
-            <kbd className="px-1 py-0.5 rounded border border-border bg-muted text-foreground font-mono text-[10px] leading-none">
-              {navigator.platform.startsWith('Mac') ? '⌘S' : 'Ctrl+S'}
-            </kbd>
-          </TooltipContent>
-        </Tooltip>
+        <div className="flex items-center gap-2 shrink-0">
+          {operatorEmail && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResendInvite}
+                  disabled={resendingInvite}
+                  className="gap-2 text-muted-foreground hover:text-foreground"
+                >
+                  {resendingInvite
+                    ? <span className="h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent" />
+                    : inviteResent
+                    ? <Check className="h-3.5 w-3.5 text-status-complete" />
+                    : <Send className="h-3.5 w-3.5" />
+                  }
+                  <span className="hidden sm:inline">{inviteResent ? 'Invite Sent' : 'Resend Invite'}</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {inviteResent ? '✓ Invitation sent to ' + operatorEmail : 'Resend invitation email to ' + operatorEmail}
+              </TooltipContent>
+            </Tooltip>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={handleSave} disabled={saving} className="bg-gold text-surface-dark font-semibold hover:bg-gold-light gap-2 shrink-0">
+                <Save className="h-4 w-4" />
+                {saving ? 'Saving…' : 'Save Changes'}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs flex items-center gap-1.5">
+              <span className="text-muted-foreground">Keyboard shortcut:</span>
+              <kbd className="px-1 py-0.5 rounded border border-border bg-muted text-foreground font-mono text-[10px] leading-none">
+                {navigator.platform.startsWith('Mac') ? '⌘S' : 'Ctrl+S'}
+              </kbd>
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
       {/* Status overview */}
