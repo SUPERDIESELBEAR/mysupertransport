@@ -2165,7 +2165,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={12} className="text-center py-12 text-muted-foreground">
                     {operators.length === 0 ? 'No operators in the pipeline yet.' : 'No operators match your filters.'}
                   </td>
                 </tr>
