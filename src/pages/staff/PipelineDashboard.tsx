@@ -427,7 +427,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           truck_title,
           truck_photos,
           truck_inspection,
-          mo_reg_received
+          mo_reg_received,
+          updated_at
         )
       `),
       supabase.from('user_roles').select('user_id').in('role', ['onboarding_staff', 'management']),
