@@ -859,6 +859,23 @@ export default function ManagementPortal() {
                   )}
                 </div>
               )}
+              {/* Stage color legend */}
+              <div className="px-4 sm:px-5 py-2.5 border-t border-border bg-secondary/20 flex flex-wrap gap-x-4 gap-y-1.5">
+                {[
+                  { label: 'Background',    dot: 'bg-muted-foreground' },
+                  { label: 'Documents',     dot: 'bg-status-progress' },
+                  { label: 'ICA',           dot: 'bg-gold' },
+                  { label: 'MO Reg',        dot: 'bg-info' },
+                  { label: 'Equipment',     dot: 'bg-purple-400' },
+                  { label: 'Insurance',     dot: 'bg-orange-400' },
+                  { label: 'Onboarded',     dot: 'bg-status-complete' },
+                ].map(item => (
+                  <span key={item.label} className="flex items-center gap-1.5">
+                    <span className={`h-2 w-2 rounded-full shrink-0 ${item.dot}`} />
+                    <span className="text-[10px] text-muted-foreground">{item.label}</span>
+                  </span>
+                ))}
+              </div>
             </div>
 
             {/* Pending queue preview */}
