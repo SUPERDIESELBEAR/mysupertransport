@@ -473,7 +473,7 @@ export default function ManagementPortal() {
       setOperatorHasUnsavedChanges(false);
       setView(pendingNavPath as ManagementView);
       if (pendingNavPath !== 'operator-detail') setSelectedOperatorId(null);
-      if (pendingNavPath === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineCoordinatorName(null); setPipelineStageFilter('all'); }
+      if (pendingNavPath === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineCoordinatorName(null); setPipelineStageFilter('all'); setPipelineIdleFilter(false); }
       setPendingNavPath(null);
     }
   };
