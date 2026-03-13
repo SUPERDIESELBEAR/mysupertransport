@@ -781,31 +781,43 @@ export default function ManagementPortal() {
                     );
                   })}
                   {unassignedCount > 0 ? (() => {
-                    const unassignedStageRows: { label: string; count: number; dotClass: string }[] = [
-                      { label: 'Background (MVR/CH)', count: unassignedStages.stage1_background, dotClass: 'bg-muted-foreground' },
-                      { label: 'Documents',           count: unassignedStages.stage2_documents,  dotClass: 'bg-status-progress' },
-                      { label: 'ICA Contract',        count: unassignedStages.stage3_ica,        dotClass: 'bg-gold' },
-                      { label: 'MO Registration',     count: unassignedStages.stage4_mo_reg,     dotClass: 'bg-info' },
-                      { label: 'Equipment',           count: unassignedStages.stage5_equipment,  dotClass: 'bg-purple-400' },
-                      { label: 'Insurance',           count: unassignedStages.stage6_insurance,  dotClass: 'bg-orange-400' },
-                      { label: 'Fully Onboarded',     count: unassignedStages.fully_onboarded,   dotClass: 'bg-status-complete' },
+                    const unassignedStageRows: { label: string; count: number; dotClass: string; barClass: string }[] = [
+                      { label: 'Background (MVR/CH)', count: unassignedStages.stage1_background, dotClass: 'bg-muted-foreground',  barClass: 'bg-muted-foreground' },
+                      { label: 'Documents',           count: unassignedStages.stage2_documents,  dotClass: 'bg-status-progress',   barClass: 'bg-status-progress' },
+                      { label: 'ICA Contract',        count: unassignedStages.stage3_ica,        dotClass: 'bg-gold',              barClass: 'bg-gold' },
+                      { label: 'MO Registration',     count: unassignedStages.stage4_mo_reg,     dotClass: 'bg-info',              barClass: 'bg-info' },
+                      { label: 'Equipment',           count: unassignedStages.stage5_equipment,  dotClass: 'bg-purple-400',        barClass: 'bg-purple-400' },
+                      { label: 'Insurance',           count: unassignedStages.stage6_insurance,  dotClass: 'bg-orange-400',        barClass: 'bg-orange-400' },
+                      { label: 'Fully Onboarded',     count: unassignedStages.fully_onboarded,   dotClass: 'bg-status-complete',   barClass: 'bg-status-complete' },
                     ].filter(r => r.count > 0);
+                    const totalForBar = unassignedStageRows.reduce((a, r) => a + r.count, 0);
                     return (
                       <TooltipProvider delayDuration={200}>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div
-                              className="flex items-center justify-between px-4 sm:px-5 py-3 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors group"
+                              className="flex items-center gap-3 px-4 sm:px-5 py-3 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors group"
                               role="button"
                               tabIndex={0}
                               onClick={() => { setPipelineCoordinatorFilter('unassigned'); setView('pipeline'); }}
                               onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter('unassigned'); setView('pipeline'); } }}
                             >
-                              <p className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Unassigned operators</p>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-sm font-semibold text-muted-foreground tabular-nums">{unassignedCount}</span>
-                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                  <p className="text-sm text-muted-foreground group-hover:text-foreground transition-colors font-medium">Unassigned operators</p>
+                                  <span className="text-sm font-semibold text-muted-foreground tabular-nums shrink-0">{unassignedCount}</span>
+                                </div>
+                                <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden flex">
+                                  {unassignedStageRows.map(r => (
+                                    <div
+                                      key={r.label}
+                                      className={`h-full transition-all duration-500 ${r.barClass}`}
+                                      style={{ width: `${(r.count / totalForBar) * 100}%` }}
+                                    />
+                                  ))}
+                                </div>
                               </div>
+                              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors shrink-0" />
                             </div>
                           </TooltipTrigger>
                           <TooltipContent side="top" align="end" className="p-0 w-52" sideOffset={6}>
