@@ -179,6 +179,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   }, [initialStageFilter]);
 
   useEffect(() => {
+    setIdleFilter(initialIdleFilter ?? false);
+  }, [initialIdleFilter]);
+
+  useEffect(() => {
     const next = initialCoordinatorFilter ?? 'all';
     setCoordinatorFilter(next);
     setLegendCoordinatorFilter(
