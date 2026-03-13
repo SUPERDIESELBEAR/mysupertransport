@@ -84,6 +84,16 @@ Deno.serve(async (req) => {
       const staffId = op.assigned_onboarding_staff;
       const operatorId = row.operator_id;
 
+      // Respect coordinator's in-app preference for operator_idle
+      const { data: pref } = await supabase
+        .from('notification_preferences')
+        .select('in_app_enabled')
+        .eq('user_id', staffId)
+        .eq('event_type', 'operator_idle')
+        .maybeSingle();
+      // Default is enabled; only skip if explicitly disabled
+      if (pref?.in_app_enabled === false) continue;
+
       // Calculate days idle (rounded)
       const lastActivity = new Date(row.updated_at);
       const daysIdle = Math.floor((Date.now() - lastActivity.getTime()) / (1000 * 60 * 60 * 24));
