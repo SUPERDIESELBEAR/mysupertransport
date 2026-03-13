@@ -2335,17 +2335,29 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   </TooltipProvider>
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
-                  <button
-                    onClick={() => handleSort('coordinator')}
-                    className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
-                  >
-                    Coordinator
-                    {sortKey === 'coordinator'
-                      ? sortDir === 'asc'
-                        ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
-                        : <ArrowDown className="h-3.5 w-3.5 text-gold" />
-                      : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
-                  </button>
+                  <div className="inline-flex items-center gap-1">
+                    <button
+                      onClick={() => handleSort('coordinator')}
+                      className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
+                    >
+                      Coordinator
+                      {sortKey === 'coordinator'
+                        ? sortDir === 'asc'
+                          ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                          : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                        : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                    </button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[240px] text-left">
+                          <p className="text-xs">The onboarding staff member assigned to guide this operator through the onboarding process. Can be reassigned at any time.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">
                   <TooltipProvider>
