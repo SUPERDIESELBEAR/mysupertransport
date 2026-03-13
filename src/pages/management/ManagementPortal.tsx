@@ -275,19 +275,16 @@ export default function ManagementPortal() {
     const getStage = (os: any): keyof StageBreakdown => {
       if (!os) return 'stage1_background';
       if (os.fully_onboarded) return 'fully_onboarded';
-      if (!os.insurance_added_date) {
-        const docsComplete = os.form_2290 === 'received' && os.truck_title === 'received' && os.truck_photos === 'received' && os.truck_inspection === 'received';
-        const icaComplete = os.ica_status === 'complete';
-        const moComplete = os.mo_reg_received === 'yes';
-        const equipComplete = os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes';
-        if (!os.mvr_ch_approval || os.mvr_ch_approval !== 'approved') return 'stage1_background';
-        if (!docsComplete) return 'stage2_documents';
-        if (!icaComplete) return 'stage3_ica';
-        if (!moComplete) return 'stage4_mo_reg';
-        if (!equipComplete) return 'stage5_equipment';
-        return 'stage6_insurance';
-      }
-      return 'fully_onboarded';
+      const docsComplete = os.form_2290 === 'received' && os.truck_title === 'received' && os.truck_photos === 'received' && os.truck_inspection === 'received';
+      const icaComplete = os.ica_status === 'complete';
+      const moComplete = os.mo_reg_received === 'yes';
+      const equipComplete = os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes';
+      if (!os.mvr_ch_approval || os.mvr_ch_approval !== 'approved') return 'stage1_background';
+      if (!docsComplete) return 'stage2_documents';
+      if (!icaComplete) return 'stage3_ica';
+      if (!moComplete) return 'stage4_mo_reg';
+      if (!equipComplete) return 'stage5_equipment';
+      return 'stage6_insurance';
     };
 
     const emptyBreakdown = (): StageBreakdown => ({
