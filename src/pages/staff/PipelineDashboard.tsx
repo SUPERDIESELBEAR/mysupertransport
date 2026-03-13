@@ -2340,8 +2340,33 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                           </TooltipProvider>
                         );
                       })()}
-                    </td>
-                    <td className="px-4 py-3 text-right">
+                     </td>
+                     {/* Last Activity cell */}
+                     <td className="px-4 py-3 hidden xl:table-cell whitespace-nowrap">
+                       {op.onboarding_updated_at ? (
+                         <TooltipProvider delayDuration={100}>
+                           <Tooltip>
+                             <TooltipTrigger asChild>
+                               <span className={`inline-flex items-center gap-1 text-xs ${
+                                 (() => {
+                                   const diff = Math.floor((Date.now() - new Date(op.onboarding_updated_at).getTime()) / 86400000);
+                                   return diff >= 14 ? 'text-warning font-medium' : 'text-muted-foreground';
+                                 })()
+                               }`}>
+                                 <Clock className="h-3 w-3 shrink-0" />
+                                 {formatDistanceToNowStrict(parseISO(op.onboarding_updated_at), { addSuffix: true })}
+                               </span>
+                             </TooltipTrigger>
+                             <TooltipContent side="left" className="text-xs">
+                               {format(parseISO(op.onboarding_updated_at), 'MMM d, yyyy h:mm a')}
+                             </TooltipContent>
+                           </Tooltip>
+                         </TooltipProvider>
+                       ) : (
+                         <span className="text-muted-foreground/40 text-xs">—</span>
+                       )}
+                     </td>
+                     <td className="px-4 py-3 text-right">
                       <Button
                         variant="ghost"
                         size="sm"
