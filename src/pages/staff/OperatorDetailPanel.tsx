@@ -119,6 +119,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [certHistory, setCertHistory] = useState<CertHistoryEntry[]>([]);
   const [certHistoryLoading, setCertHistoryLoading] = useState(false);
   const [certHistoryExpanded, setCertHistoryExpanded] = useState(false);
+  const [certHistoryFilter, setCertHistoryFilter] = useState<'all' | 'reminders' | 'renewals' | 'failed'>('all');
   const savedSnapshot = useRef<{ status: Partial<OnboardingStatus>; notes: string } | null>(null);
   const [navGuard, setNavGuard] = useState<null | { action: () => void }>(null);
   const [renewingField, setRenewingField] = useState<'cdl' | 'medcert' | null>(null);
