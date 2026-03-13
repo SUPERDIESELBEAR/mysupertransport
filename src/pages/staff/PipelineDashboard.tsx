@@ -979,6 +979,15 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
+      if (sortKey === 'compliance') {
+        // Sort by nearest expiry (days_until). No alert = Infinity (compliant, sorts last asc)
+        const aAlert = complianceByOperator[a.id];
+        const bAlert = complianceByOperator[b.id];
+        const aDays = aAlert != null ? aAlert.days_until : Infinity;
+        const bDays = bAlert != null ? bAlert.days_until : Infinity;
+        const cmp = aDays - bDays;
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
       if (sortKey === 'docs') {
         const cmp = a.doc_count - b.doc_count;
         return sortDir === 'asc' ? cmp : -cmp;
