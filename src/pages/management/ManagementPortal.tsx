@@ -45,6 +45,7 @@ type StaffWorkload = {
   email: string;
   assigned_operator_count: number;
   stages: StageBreakdown;
+  lastUpdatedAt: string | null;
 };
 
 type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications';
