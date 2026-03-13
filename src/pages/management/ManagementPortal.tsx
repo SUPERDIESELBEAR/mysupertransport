@@ -715,8 +715,6 @@ export default function ManagementPortal() {
                       : count >= 4
                       ? 'text-gold bg-gold/10 border-gold/20'
                       : 'text-status-complete bg-status-complete/10 border-status-complete/20';
-                    const barWidth = Math.min(100, Math.round((count / 10) * 100));
-                    const barColor = count >= 7 ? 'bg-destructive' : count >= 4 ? 'bg-gold' : 'bg-status-complete';
                     const s = member.stages;
                     const stageRows: { label: string; count: number; dotClass: string }[] = [
                       { label: 'Background (MVR/CH)', count: s.stage1_background, dotClass: 'bg-muted-foreground' },
@@ -727,27 +725,16 @@ export default function ManagementPortal() {
                       { label: 'Insurance',           count: s.stage6_insurance,  dotClass: 'bg-orange-400' },
                       { label: 'Fully Onboarded',     count: s.fully_onboarded,   dotClass: 'bg-status-complete' },
                     ].filter(r => r.count > 0);
-                    return (
-                      <TooltipProvider key={member.user_id} delayDuration={200}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div
-                              role="button"
-                              tabIndex={0}
-                              onClick={() => { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); }}
-                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter(member.user_id); setView('pipeline'); } }}
-                              className="flex items-center gap-3 px-4 sm:px-5 py-3 hover:bg-secondary/50 transition-colors cursor-pointer group"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center justify-between gap-2 mb-1.5">
-                                  <p className="font-medium text-foreground text-sm truncate">{member.full_name}</p>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    <span className="text-sm font-semibold text-foreground tabular-nums">{count}</span>
-                                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${loadColor}`}>{loadLabel}</span>
-                                  </div>
-                                </div>
-                                <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
-                                  <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${barWidth}%` }} />
+                    const totalForBar = stageRows.reduce((a, r) => a + r.count, 0);
+...
+                                <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden flex">
+                                  {stageRows.map(r => (
+                                    <div
+                                      key={r.label}
+                                      className={`h-full transition-all duration-500 ${r.dotClass}`}
+                                      style={{ width: totalForBar > 0 ? `${(r.count / totalForBar) * 100}%` : '0%' }}
+                                    />
+                                  ))}
                                 </div>
                               </div>
                               <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-gold transition-colors shrink-0" />
