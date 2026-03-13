@@ -161,8 +161,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     if (initialCoordinatorFilter) setCoordinatorFilter(initialCoordinatorFilter);
   }, [initialCoordinatorFilter]);
 
+  const [legendStageFilter, setLegendStageFilter] = useState<string | null>(initialStageFilter && initialStageFilter !== 'all' ? initialStageFilter : null);
+
   useEffect(() => {
-    setStageFilter(initialStageFilter ?? 'all');
+    const next = initialStageFilter ?? 'all';
+    setStageFilter(next);
+    setLegendStageFilter(next !== 'all' ? next : null);
   }, [initialStageFilter]);
 
   // Sort state
