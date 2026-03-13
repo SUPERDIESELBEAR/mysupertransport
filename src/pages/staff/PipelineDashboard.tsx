@@ -2213,17 +2213,37 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Phone</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">State</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground">
-                  <button
-                    onClick={() => handleSort('stage')}
-                    className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
-                  >
-                    Current Stage
-                    {sortKey === 'stage'
-                      ? sortDir === 'asc'
-                        ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
-                        : <ArrowDown className="h-3.5 w-3.5 text-gold" />
-                      : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
-                  </button>
+                  <div className="inline-flex items-center gap-1">
+                    <button
+                      onClick={() => handleSort('stage')}
+                      className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
+                    >
+                      Current Stage
+                      {sortKey === 'stage'
+                        ? sortDir === 'asc'
+                          ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                          : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                        : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                    </button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[280px] text-left space-y-1">
+                          <p className="font-semibold text-xs">6 onboarding stages — operator moves forward as each is completed:</p>
+                          <ol className="text-xs space-y-0.5 list-decimal list-inside text-muted-foreground">
+                            <li><span className="text-foreground font-medium">Background</span> — MVR &amp; CH approved</li>
+                            <li><span className="text-foreground font-medium">Documents</span> — Form 2290, title, photos &amp; inspection received</li>
+                            <li><span className="text-foreground font-medium">ICA</span> — Contract fully signed by both parties</li>
+                            <li><span className="text-foreground font-medium">MO Registration</span> — Missouri registration received</li>
+                            <li><span className="text-foreground font-medium">Equipment</span> — Decal, ELD &amp; fuel card issued</li>
+                            <li><span className="text-foreground font-medium">Insurance</span> — Added to policy</li>
+                          </ol>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Status</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
