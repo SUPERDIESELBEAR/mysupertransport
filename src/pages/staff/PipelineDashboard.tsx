@@ -2157,7 +2157,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             <tbody>
               {loading ? (
                 <tr>
-                   <td colSpan={11} className="text-center py-12 text-muted-foreground">
+                   <td colSpan={12} className="text-center py-12 text-muted-foreground">
                     <div className="flex justify-center">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                     </div>
