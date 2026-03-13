@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Bell, Truck, AlertTriangle, MessageCircle, Target,
-  Paperclip, Check, Loader2, UserCheck, Monitor, ShieldAlert,
+  Paperclip, Check, Loader2, UserCheck, Monitor, ShieldAlert, Clock,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -100,6 +100,15 @@ const EVENT_TYPES: EventTypeDef[] = [
     icon: ShieldAlert,
     iconBg: 'bg-orange-100',
     iconColor: 'text-orange-500',
+    roles: ['onboarding_staff', 'management'],
+  },
+  {
+    type: 'operator_idle',
+    label: 'Operator Idle Alert',
+    description: 'When an assigned operator has had no onboarding status update for 14+ days',
+    icon: Clock,
+    iconBg: 'bg-amber-100',
+    iconColor: 'text-amber-600',
     roles: ['onboarding_staff', 'management'],
   },
 ];
