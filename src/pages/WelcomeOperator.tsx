@@ -99,6 +99,32 @@ export default function WelcomeOperator() {
     }
   };
 
+  const handleResend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResendError('');
+    if (!resendEmail.trim()) {
+      setResendError('Please enter your email address.');
+      return;
+    }
+    setResendLoading(true);
+    try {
+      const { error: fnError } = await supabase.functions.invoke('resend-invite', {
+        body: { email: resendEmail.trim() },
+      });
+      if (fnError) {
+        const msg = (fnError as any)?.context?.error ?? fnError.message ?? 'Something went wrong.';
+        // Handle rate-limit (429 comes back as a FunctionsFetchError with context)
+        setResendError(msg);
+      } else {
+        setResendSent(true);
+      }
+    } catch {
+      setResendError('Something went wrong. Please try again.');
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   const background = (
     <div className="fixed inset-0 overflow-hidden pointer-events-none">
       {/* Subtle radial gold glows */}
