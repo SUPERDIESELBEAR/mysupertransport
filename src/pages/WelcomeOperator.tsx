@@ -27,6 +27,12 @@ export default function WelcomeOperator() {
   const [sessionReady, setSessionReady] = useState(false);
   const [tokenError, setTokenError] = useState(false);
 
+  // Resend invite state
+  const [resendEmail, setResendEmail] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendError, setResendError] = useState('');
+  const [resendSent, setResendSent] = useState(false);
+
   useEffect(() => {
     // Listen for the SIGNED_IN event that Supabase fires when the invite link is clicked
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
