@@ -1953,18 +1953,40 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setUnreadFilter(v => !v)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                unreadFilter
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-primary'
-              }`}
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Has Unread</span>
-              {unreadFilter && <X className="h-3 w-3" />}
-            </button>
+            <div className="inline-flex items-center rounded-full border transition-colors overflow-hidden">
+              <button
+                onClick={() => {
+                  if (unreadFilter) {
+                    setUnreadFilter(false);
+                    setUnreadHighPriority(false);
+                  } else {
+                    setUnreadFilter(true);
+                  }
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  unreadFilter
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background text-muted-foreground hover:border-primary/50 hover:text-primary'
+                }`}
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Has Unread</span>
+                {unreadFilter && !unreadHighPriority && <X className="h-3 w-3" />}
+              </button>
+              {unreadFilter && (
+                <button
+                  onClick={() => setUnreadHighPriority(v => !v)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold border-l transition-colors ${
+                    unreadHighPriority
+                      ? 'bg-destructive text-destructive-foreground border-destructive/40'
+                      : 'bg-primary/80 text-primary-foreground border-primary-foreground/20 hover:bg-destructive/80 hover:text-destructive-foreground'
+                  }`}
+                  title="Show only operators with 3+ unread messages"
+                >
+                  {unreadHighPriority ? '3+ ✕' : '3+'}
+                </button>
+              )}
+            </div>
             <Button
               variant="outline"
               size="sm"
