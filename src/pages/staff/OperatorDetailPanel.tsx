@@ -119,6 +119,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [certHistory, setCertHistory] = useState<CertHistoryEntry[]>([]);
   const [certHistoryLoading, setCertHistoryLoading] = useState(false);
   const [certHistoryExpanded, setCertHistoryExpanded] = useState(false);
+  const [certHistoryFilter, setCertHistoryFilter] = useState<'all' | 'reminders' | 'renewals' | 'failed'>('all');
   const savedSnapshot = useRef<{ status: Partial<OnboardingStatus>; notes: string } | null>(null);
   const [navGuard, setNavGuard] = useState<null | { action: () => void }>(null);
   const [renewingField, setRenewingField] = useState<'cdl' | 'medcert' | null>(null);
@@ -1281,6 +1282,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       {/* ── Cert Expiry History Timeline ─────────────────────── */}
       {(cdlExpiration || medCertExpiration) && (
         <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+          {/* Header row: title + filter chips */}
           <button
             onClick={() => {
               if (!certHistoryExpanded && certHistory.length === 0) fetchCertHistory();
@@ -1315,136 +1317,181 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           </button>
 
           {certHistoryExpanded && (
-            <div className="border-t border-border px-4 py-3">
-              {certHistoryLoading ? (
-                <div className="flex items-center gap-2 py-4 justify-center">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-gold border-t-transparent" />
-                  <span className="text-xs text-muted-foreground">Loading history…</span>
-                </div>
-              ) : certHistory.length === 0 ? (
-                <div className="flex flex-col items-center gap-1.5 py-5 text-center">
-                  <History className="h-6 w-6 text-muted-foreground/40" />
-                  <p className="text-xs text-muted-foreground">No renewals or reminders recorded yet.</p>
-                </div>
-              ) : (
-                <div className="relative">
-                  {/* Vertical timeline line */}
-                  <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
-                  <div className="space-y-4 ml-5">
-                    {certHistory.map((entry) => {
-                      const isRenewal = entry.event_type === 'renewed';
-                      const isReminder = entry.event_type === 'reminder_sent';
-                      // For reminders: red dot if email failed, blue if delivered, grey if unknown
-                      const emailFailed = isReminder && entry.email_sent === false;
-                      const emailDelivered = isReminder && entry.email_sent === true;
-                      const dotClass = isRenewal
-                        ? 'bg-status-complete border-status-complete/40'
-                        : isReminder
-                          ? emailFailed
-                            ? 'bg-destructive border-destructive/40'
-                            : emailDelivered
-                            ? 'bg-info border-info/40'
-                            : 'bg-muted-foreground border-muted-foreground/40'
-                          : 'bg-gold border-gold/40';
-                      const IconComp = isRenewal ? RotateCcw : isReminder ? Mail : CalendarClock;
-                      const iconColorClass = isRenewal
-                        ? 'text-status-complete'
-                        : isReminder
-                          ? emailFailed ? 'text-destructive' : emailDelivered ? 'text-info' : 'text-muted-foreground'
-                          : 'text-gold';
-                      return (
-                        <div key={entry.id} className="relative flex gap-3 items-start">
-                          {/* Dot on the timeline */}
-                          <div className={`absolute -left-5 mt-0.5 h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center ${dotClass}`}>
-                            <IconComp className={`h-2 w-2 ${iconColorClass}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                              {/* Event label */}
-                              <span className={`text-[11px] font-bold uppercase tracking-wide ${iconColorClass}`}>
-                                {isRenewal ? 'Renewed' : isReminder ? 'Reminder Sent' : 'Expiry Updated'}
-                              </span>
-                              {/* Doc type badge */}
-                              <span className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-medium border ${
-                                entry.doc_type === 'CDL'
-                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                  : 'bg-purple-50 text-purple-700 border-purple-200'
-                              }`}>
-                                {entry.doc_type}
-                              </span>
-                              {/* Email delivery badge — only for reminders with known outcome */}
-                              {isReminder && entry.email_sent !== null && entry.email_sent !== undefined && (
-                                <span className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-semibold border ${
-                                  emailFailed
-                                    ? 'bg-destructive/10 text-destructive border-destructive/30'
-                                    : 'bg-status-complete/10 text-status-complete border-status-complete/30'
-                                }`}>
-                                  {emailFailed ? '✗ Failed' : '✓ Delivered'}
-                                </span>
-                              )}
-                              {/* Timestamp */}
-                              <span className="text-[11px] text-muted-foreground ml-auto shrink-0">
-                                {format(new Date(entry.occurred_at), 'MMM d, yyyy · h:mm a')}
-                              </span>
-                            </div>
-                            {/* Detail line */}
-                            <p className="text-[11px] text-muted-foreground mt-0.5">
-                              {isRenewal && entry.old_expiry && entry.new_expiry && (
-                                <>
-                                  <span className="line-through opacity-60">{format(parseISO(entry.old_expiry), 'MMM d, yyyy')}</span>
-                                  {' → '}
-                                  <span className="font-medium text-status-complete">{format(parseISO(entry.new_expiry), 'MMM d, yyyy')}</span>
-                                </>
-                              )}
-                              {isRenewal && (!entry.old_expiry || !entry.new_expiry) && 'Expiry extended by 1 year'}
-                              {isReminder && entry.days_until !== null && entry.days_until !== undefined && (
-                                entry.days_until < 0
-                                  ? <span className="text-destructive font-medium">{Math.abs(entry.days_until)}d past expiry at time of send</span>
-                                  : entry.days_until === 0
-                                  ? <span className="text-destructive font-medium">Expires today</span>
-                                  : <span>{entry.days_until}d remaining at time of send</span>
-                              )}
-                              {' '}
-                              {entry.actor_name && (
-                                <span className="text-muted-foreground/70">by {entry.actor_name}</span>
-                              )}
-                            </p>
-                            {/* Error detail line — shown only when email failed */}
-                            {emailFailed && entry.email_error && (
-                              <p className="text-[10px] text-destructive/80 mt-0.5 font-mono break-all leading-tight">
-                                {entry.email_error.replace(/^Error:\s*/i, '').slice(0, 120)}
-                                {entry.email_error.length > 120 && '…'}
-                              </p>
-                            )}
-                            {/* Re-send quick action — only on failed entries */}
-                            {emailFailed && (() => {
-                              const dateStr = entry.doc_type === 'CDL' ? cdlExpiration : medCertExpiration;
-                              if (!dateStr) return null;
-                              const docType = entry.doc_type as 'CDL' | 'Medical Cert';
-                              const isSending = reminderSending[docType];
-                              const wasSent = reminderSent[docType];
-                              return (
-                                <button
-                                  onClick={() => handleSendReminder(docType, dateStr)}
-                                  disabled={isSending || wasSent}
-                                  className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border border-destructive/40 text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  {isSending
-                                    ? <><div className="h-2.5 w-2.5 rounded-full border border-destructive border-t-transparent animate-spin" />Sending…</>
-                                    : wasSent
-                                    ? <><Check className="h-2.5 w-2.5" />Sent</>
-                                    : <><Send className="h-2.5 w-2.5" />Re-send</>
-                                  }
-                                </button>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                      );
-                    })}
+            <div className="border-t border-border">
+              {/* Filter chips */}
+              {certHistory.length > 0 && (() => {
+                const countReminders = certHistory.filter(e => e.event_type === 'reminder_sent').length;
+                const countRenewals  = certHistory.filter(e => e.event_type === 'renewed').length;
+                const countFailed    = certHistory.filter(e => e.event_type === 'reminder_sent' && e.email_sent === false).length;
+                type FilterKey = 'all' | 'reminders' | 'renewals' | 'failed';
+                const chips: { key: FilterKey; label: string; count: number; activeClass: string }[] = [
+                  { key: 'all',      label: 'All',      count: certHistory.length, activeClass: 'bg-muted text-foreground border-border'          },
+                  { key: 'reminders',label: 'Reminders',count: countReminders,     activeClass: 'bg-info/10 text-info border-info/30'              },
+                  { key: 'renewals', label: 'Renewals', count: countRenewals,      activeClass: 'bg-status-complete/10 text-status-complete border-status-complete/30' },
+                  { key: 'failed',   label: 'Failed',   count: countFailed,        activeClass: 'bg-destructive/10 text-destructive border-destructive/30' },
+                ];
+                return (
+                  <div className="flex items-center gap-1.5 px-4 py-2 flex-wrap">
+                    {chips.map(({ key, label, count, activeClass }) => (
+                      <button
+                        key={key}
+                        onClick={() => setCertHistoryFilter(key)}
+                        className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors ${
+                          certHistoryFilter === key
+                            ? activeClass
+                            : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
+                        }`}
+                      >
+                        {label}
+                        <span className={`inline-flex items-center justify-center h-3.5 min-w-3.5 px-0.5 rounded-full text-[9px] font-bold leading-none ${
+                          certHistoryFilter === key ? 'bg-current/20' : 'bg-muted'
+                        }`}>{count}</span>
+                      </button>
+                    ))}
                   </div>
-                </div>
-              )}
+                );
+              })()}
+
+              <div className="px-4 pb-3">
+                {certHistoryLoading ? (
+                  <div className="flex items-center gap-2 py-4 justify-center">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-gold border-t-transparent" />
+                    <span className="text-xs text-muted-foreground">Loading history…</span>
+                  </div>
+                ) : certHistory.length === 0 ? (
+                  <div className="flex flex-col items-center gap-1.5 py-5 text-center">
+                    <History className="h-6 w-6 text-muted-foreground/40" />
+                    <p className="text-xs text-muted-foreground">No renewals or reminders recorded yet.</p>
+                  </div>
+                ) : (() => {
+                  const filtered = certHistory.filter(entry => {
+                    if (certHistoryFilter === 'all')      return true;
+                    if (certHistoryFilter === 'reminders') return entry.event_type === 'reminder_sent';
+                    if (certHistoryFilter === 'renewals')  return entry.event_type === 'renewed';
+                    if (certHistoryFilter === 'failed')    return entry.event_type === 'reminder_sent' && entry.email_sent === false;
+                    return true;
+                  });
+                  if (filtered.length === 0) {
+                    const labelMap: Record<string, string> = { reminders: 'reminders', renewals: 'renewals', failed: 'failed reminders' };
+                    return (
+                      <div className="flex flex-col items-center gap-1.5 py-5 text-center">
+                        <History className="h-6 w-6 text-muted-foreground/40" />
+                        <p className="text-xs text-muted-foreground">No {labelMap[certHistoryFilter]} recorded yet.</p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="relative">
+                      {/* Vertical timeline line */}
+                      <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+                      <div className="space-y-4 ml-5">
+                        {filtered.map((entry) => {
+                          const isRenewal = entry.event_type === 'renewed';
+                          const isReminder = entry.event_type === 'reminder_sent';
+                          const emailFailed = isReminder && entry.email_sent === false;
+                          const emailDelivered = isReminder && entry.email_sent === true;
+                          const dotClass = isRenewal
+                            ? 'bg-status-complete border-status-complete/40'
+                            : isReminder
+                              ? emailFailed
+                                ? 'bg-destructive border-destructive/40'
+                                : emailDelivered
+                                ? 'bg-info border-info/40'
+                                : 'bg-muted-foreground border-muted-foreground/40'
+                              : 'bg-gold border-gold/40';
+                          const IconComp = isRenewal ? RotateCcw : isReminder ? Mail : CalendarClock;
+                          const iconColorClass = isRenewal
+                            ? 'text-status-complete'
+                            : isReminder
+                              ? emailFailed ? 'text-destructive' : emailDelivered ? 'text-info' : 'text-muted-foreground'
+                              : 'text-gold';
+                          return (
+                            <div key={entry.id} className="relative flex gap-3 items-start">
+                              <div className={`absolute -left-5 mt-0.5 h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center ${dotClass}`}>
+                                <IconComp className={`h-2 w-2 ${iconColorClass}`} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                  <span className={`text-[11px] font-bold uppercase tracking-wide ${iconColorClass}`}>
+                                    {isRenewal ? 'Renewed' : isReminder ? 'Reminder Sent' : 'Expiry Updated'}
+                                  </span>
+                                  <span className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-medium border ${
+                                    entry.doc_type === 'CDL'
+                                      ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                      : 'bg-purple-50 text-purple-700 border-purple-200'
+                                  }`}>
+                                    {entry.doc_type}
+                                  </span>
+                                  {isReminder && entry.email_sent !== null && entry.email_sent !== undefined && (
+                                    <span className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-semibold border ${
+                                      emailFailed
+                                        ? 'bg-destructive/10 text-destructive border-destructive/30'
+                                        : 'bg-status-complete/10 text-status-complete border-status-complete/30'
+                                    }`}>
+                                      {emailFailed ? '✗ Failed' : '✓ Delivered'}
+                                    </span>
+                                  )}
+                                  <span className="text-[11px] text-muted-foreground ml-auto shrink-0">
+                                    {format(new Date(entry.occurred_at), 'MMM d, yyyy · h:mm a')}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">
+                                  {isRenewal && entry.old_expiry && entry.new_expiry && (
+                                    <>
+                                      <span className="line-through opacity-60">{format(parseISO(entry.old_expiry), 'MMM d, yyyy')}</span>
+                                      {' → '}
+                                      <span className="font-medium text-status-complete">{format(parseISO(entry.new_expiry), 'MMM d, yyyy')}</span>
+                                    </>
+                                  )}
+                                  {isRenewal && (!entry.old_expiry || !entry.new_expiry) && 'Expiry extended by 1 year'}
+                                  {isReminder && entry.days_until !== null && entry.days_until !== undefined && (
+                                    entry.days_until < 0
+                                      ? <span className="text-destructive font-medium">{Math.abs(entry.days_until)}d past expiry at time of send</span>
+                                      : entry.days_until === 0
+                                      ? <span className="text-destructive font-medium">Expires today</span>
+                                      : <span>{entry.days_until}d remaining at time of send</span>
+                                  )}
+                                  {' '}
+                                  {entry.actor_name && (
+                                    <span className="text-muted-foreground/70">by {entry.actor_name}</span>
+                                  )}
+                                </p>
+                                {emailFailed && entry.email_error && (
+                                  <p className="text-[10px] text-destructive/80 mt-0.5 font-mono break-all leading-tight">
+                                    {entry.email_error.replace(/^Error:\s*/i, '').slice(0, 120)}
+                                    {entry.email_error.length > 120 && '…'}
+                                  </p>
+                                )}
+                                {emailFailed && (() => {
+                                  const dateStr = entry.doc_type === 'CDL' ? cdlExpiration : medCertExpiration;
+                                  if (!dateStr) return null;
+                                  const docType = entry.doc_type as 'CDL' | 'Medical Cert';
+                                  const isSending = reminderSending[docType];
+                                  const wasSent = reminderSent[docType];
+                                  return (
+                                    <button
+                                      onClick={() => handleSendReminder(docType, dateStr)}
+                                      disabled={isSending || wasSent}
+                                      className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border border-destructive/40 text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      {isSending
+                                        ? <><div className="h-2.5 w-2.5 rounded-full border border-destructive border-t-transparent animate-spin" />Sending…</>
+                                        : wasSent
+                                        ? <><Check className="h-2.5 w-2.5" />Sent</>
+                                        : <><Send className="h-2.5 w-2.5" />Re-send</>
+                                      }
+                                    </button>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           )}
         </div>
