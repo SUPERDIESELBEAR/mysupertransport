@@ -295,8 +295,9 @@ export default function ManagementPortal() {
       stage4_mo_reg: 0, stage5_equipment: 0, stage6_insurance: 0, fully_onboarded: 0,
     });
 
-    // Build a map of user_id → stage counts
+    // Build a map of user_id → stage counts + latest onboarding_status updated_at
     const breakdownMap: Record<string, StageBreakdown> = {};
+    const lastUpdatedAtMap: Record<string, string | null> = {};
     for (const op of (opsData ?? [])) {
       const uid = op.assigned_onboarding_staff;
       if (!uid) continue;
@@ -304,6 +305,13 @@ export default function ManagementPortal() {
       const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
       const stage = getStage(os);
       breakdownMap[uid][stage]++;
+      // Track the most recent updated_at for this coordinator
+      const updatedAt: string | null = os?.updated_at ?? null;
+      if (updatedAt) {
+        if (!lastUpdatedAtMap[uid] || updatedAt > lastUpdatedAtMap[uid]!) {
+          lastUpdatedAtMap[uid] = updatedAt;
+        }
+      }
     }
 
     const onboarders: StaffWorkload[] = (json.staff ?? [])
