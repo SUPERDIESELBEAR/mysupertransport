@@ -2260,8 +2260,19 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     Msgs
                   </span>
                 </th>
-                 <th className="px-4 py-3 text-center" title="Compliance">
-                   <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground mx-auto" />
+                 <th className="px-4 py-3 text-center">
+                   <TooltipProvider>
+                     <Tooltip>
+                       <TooltipTrigger asChild>
+                         <span className="inline-flex cursor-default">
+                           <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground" />
+                         </span>
+                       </TooltipTrigger>
+                       <TooltipContent side="top" className="max-w-[230px] text-center">
+                         CDL or Medical Certificate expiring within 90 days. 🔴 Red = expired or ≤ 30 days. 🟡 Amber = 31–90 days.
+                       </TooltipContent>
+                     </Tooltip>
+                   </TooltipProvider>
                  </th>
                  <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
                    <TooltipProvider>
