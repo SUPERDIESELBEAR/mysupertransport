@@ -1050,6 +1050,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setComplianceFilter('all');
     setIdleFilter(false);
     setUnreadFilter(false);
+    setUnreadHighPriority(false);
     setSearch('');
   };
 
