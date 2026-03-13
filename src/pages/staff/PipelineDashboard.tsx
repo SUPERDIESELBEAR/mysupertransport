@@ -49,6 +49,7 @@ interface OperatorRow {
   eld_installed: string;
   fuel_card_issued: string;
   progress_pct: number;
+  onboarding_updated_at: string | null;
 }
 
 interface StaffOption {
