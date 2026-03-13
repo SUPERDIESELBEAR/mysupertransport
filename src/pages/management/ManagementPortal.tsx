@@ -1115,6 +1115,7 @@ export default function ManagementPortal() {
             }}
             complianceRefreshKey={complianceRefreshKey}
             initialCoordinatorFilter={pipelineCoordinatorFilter}
+            initialCoordinatorName={pipelineCoordinatorName ?? undefined}
             initialStageFilter={pipelineStageFilter}
           />
         )}
