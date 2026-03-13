@@ -156,6 +156,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [complianceFilter, setComplianceFilter] = useState<'all' | 'critical' | 'warning'>('all');
   const [idleFilter, setIdleFilter] = useState(initialIdleFilter ?? false);
   const [unreadFilter, setUnreadFilter] = useState(false);
+  const [unreadHighPriority, setUnreadHighPriority] = useState(false);
 
   // Sync when the parent changes the initial filter (e.g. banner → View Pipeline)
   useEffect(() => {
@@ -976,7 +977,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         op.onboarding_updated_at != null &&
         differenceInDays(new Date(), parseISO(op.onboarding_updated_at)) >= 14
       );
-      const matchUnread = !unreadFilter || op.unread_count > 0;
+      const matchUnread = !unreadFilter || (unreadHighPriority ? op.unread_count >= 3 : op.unread_count > 0);
       return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread;
     })
     .sort((a, b) => {
@@ -1049,6 +1050,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setComplianceFilter('all');
     setIdleFilter(false);
     setUnreadFilter(false);
+    setUnreadHighPriority(false);
     setSearch('');
   };
 
@@ -1951,18 +1953,40 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setUnreadFilter(v => !v)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                unreadFilter
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-primary'
-              }`}
-            >
-              <MessageSquare className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Has Unread</span>
-              {unreadFilter && <X className="h-3 w-3" />}
-            </button>
+            <div className="inline-flex items-center rounded-full border transition-colors overflow-hidden">
+              <button
+                onClick={() => {
+                  if (unreadFilter) {
+                    setUnreadFilter(false);
+                    setUnreadHighPriority(false);
+                  } else {
+                    setUnreadFilter(true);
+                  }
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  unreadFilter
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background text-muted-foreground hover:border-primary/50 hover:text-primary'
+                }`}
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Has Unread</span>
+                {unreadFilter && !unreadHighPriority && <X className="h-3 w-3" />}
+              </button>
+              {unreadFilter && (
+                <button
+                  onClick={() => setUnreadHighPriority(v => !v)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold border-l transition-colors ${
+                    unreadHighPriority
+                      ? 'bg-destructive text-destructive-foreground border-destructive/40'
+                      : 'bg-primary/80 text-primary-foreground border-primary-foreground/20 hover:bg-destructive/80 hover:text-destructive-foreground'
+                  }`}
+                  title="Show only operators with 3+ unread messages"
+                >
+                  {unreadHighPriority ? '3+ ✕' : '3+'}
+                </button>
+              )}
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -2226,14 +2250,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
       {/* Has Unread filter banner — shown when the quick-filter chip is active */}
       {unreadFilter && (
-        <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border bg-primary/8 border-primary/25">
-          <MessageSquare className="h-4 w-4 shrink-0 text-primary" />
-          <p className="text-sm font-medium flex-1 text-primary">
-            Showing operators with <span className="font-semibold">unread messages</span>
+        <div className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border ${unreadHighPriority ? 'bg-destructive/8 border-destructive/25' : 'bg-primary/8 border-primary/25'}`}>
+          <MessageSquare className={`h-4 w-4 shrink-0 ${unreadHighPriority ? 'text-destructive' : 'text-primary'}`} />
+          <p className={`text-sm font-medium flex-1 ${unreadHighPriority ? 'text-destructive' : 'text-primary'}`}>
+            Showing operators with <span className="font-semibold">{unreadHighPriority ? '3+ unread messages (high priority)' : 'unread messages'}</span>
           </p>
           <button
-            onClick={() => setUnreadFilter(false)}
-            className="flex items-center gap-1 text-xs font-medium opacity-70 hover:opacity-100 transition-opacity text-primary"
+            onClick={() => { setUnreadFilter(false); setUnreadHighPriority(false); }}
+            className={`flex items-center gap-1 text-xs font-medium opacity-70 hover:opacity-100 transition-opacity ${unreadHighPriority ? 'text-destructive' : 'text-primary'}`}
             title="Clear unread filter"
           >
             <X className="h-3.5 w-3.5" />
