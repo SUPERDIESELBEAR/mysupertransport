@@ -2393,7 +2393,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               return (
                 <tfoot>
                   <tr className="border-t-2 border-border bg-muted/30">
-                    <td colSpan={11} className="px-4 py-2.5">
+                    <td colSpan={12} className="px-4 py-2.5">
                       <div className="flex items-center gap-4 flex-wrap">
                         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                           Compliance summary — {filtered.length} visible
