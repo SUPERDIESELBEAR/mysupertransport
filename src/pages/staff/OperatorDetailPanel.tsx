@@ -1106,7 +1106,28 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       </TooltipContent>
                     </Tooltip>
                   )}
-                  {/* Save Changes quick-action */}
+                  {/* Resend invite quick-action */}
+                  {operatorEmail && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={handleResendInvite}
+                          disabled={resendingInvite}
+                          className="ml-1 h-6 w-6 rounded flex items-center justify-center border border-border text-muted-foreground hover:text-foreground hover:border-gold transition-all disabled:opacity-50"
+                        >
+                          {resendingInvite
+                            ? <span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
+                            : inviteResent
+                            ? <Check className="h-3 w-3 text-status-complete" />
+                            : <Send className="h-3 w-3" />
+                          }
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">
+                        {inviteResent ? '✓ Invite sent!' : 'Resend invite email'}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
