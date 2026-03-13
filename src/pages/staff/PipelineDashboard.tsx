@@ -2039,6 +2039,24 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         );
       })()}
 
+      {/* Coordinator deep-link banner — shown when arriving from Management workload card coordinator row */}
+      {legendCoordinatorFilter && coordinatorFilter === legendCoordinatorFilter.id && (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border bg-gold/8 border-gold/25">
+          <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-gold" />
+          <p className="text-sm font-medium flex-1 text-gold">
+            Showing operators assigned to <span className="font-semibold">{legendCoordinatorFilter.name}</span>
+          </p>
+          <button
+            onClick={() => { setCoordinatorFilter('all'); setLegendCoordinatorFilter(null); }}
+            className="flex items-center gap-1 text-xs font-medium opacity-70 hover:opacity-100 transition-opacity text-gold"
+            title="Clear coordinator filter"
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear
+          </button>
+        </div>
+      )}
+
       {/* Operator table */}
       <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
