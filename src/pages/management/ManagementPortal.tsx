@@ -327,6 +327,14 @@ export default function ManagementPortal() {
     // Count unassigned operators
     const unassignedTotal = Object.values(unassignedBreakdown).reduce((a, b) => a + b, 0);
     setUnassignedCount(unassignedTotal);
+    // Compute global stage breakdown across all operators
+    const globalBreakdown = emptyBreakdown();
+    for (const op of (opsData ?? [])) {
+      const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
+      const stage = getStage(os);
+      globalBreakdown[stage]++;
+    }
+    setOnboardingStageBreakdown(globalBreakdown);
   }, []);
 
   useEffect(() => {
