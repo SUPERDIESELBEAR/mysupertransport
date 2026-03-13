@@ -984,6 +984,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       return sortDir === 'asc' ? cmp : -cmp;
     });
 
+  const idleCount = operators.filter(op =>
+    op.onboarding_updated_at != null &&
+    differenceInDays(new Date(), parseISO(op.onboarding_updated_at)) >= 14
+  ).length;
+
   const activeFilterCount = [
     stageFilter !== 'all',
     statusFilter !== 'all',
@@ -991,6 +996,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     dispatchFilter !== 'all',
     progressFilter !== 'all',
     complianceFilter !== 'all',
+    idleFilter,
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
@@ -1000,6 +1006,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setDispatchFilter('all');
     setProgressFilter('all');
     setComplianceFilter('all');
+    setIdleFilter(false);
     setSearch('');
   };
 
