@@ -803,8 +803,8 @@ export default function ManagementPortal() {
                               className={`flex items-center gap-3 px-4 sm:px-5 py-3 cursor-pointer transition-colors group ${lateStageCount > 0 ? 'bg-destructive/5 hover:bg-destructive/10 border-t border-destructive/15' : 'bg-muted/20 hover:bg-muted/40'}`}
                               role="button"
                               tabIndex={0}
-                              onClick={() => { setPipelineCoordinatorFilter('unassigned'); setView('pipeline'); }}
-                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter('unassigned'); setView('pipeline'); } }}
+                              onClick={() => { setPipelineCoordinatorFilter('unassigned'); setPipelineCoordinatorName('Unassigned operators'); setView('pipeline'); }}
+                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter('unassigned'); setPipelineCoordinatorName('Unassigned operators'); setView('pipeline'); } }}
                             >
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center justify-between gap-2 mb-1.5">
