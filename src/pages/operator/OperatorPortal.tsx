@@ -475,7 +475,7 @@ export default function OperatorPortal() {
       {/* Top nav */}
       <header className="bg-surface-dark border-b border-surface-dark-border sticky top-0 z-40">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-          <img src={logo} alt="SUPERTRANSPORT" className="h-10 w-auto" />
+          <img src={logo} alt="SUPERTRANSPORT" className="h-10 w-auto max-w-[180px] object-contain shrink-0" />
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
