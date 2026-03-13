@@ -2245,7 +2245,26 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     </TooltipProvider>
                   </div>
                 </th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Status</th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">
+                  <div className="inline-flex items-center gap-1">
+                    <span>Status</span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[260px] text-left space-y-1.5">
+                          <p className="font-semibold text-xs">Onboarding status for each operator:</p>
+                          <ul className="text-xs space-y-1 text-muted-foreground">
+                            <li><span className="text-foreground font-medium">In Progress</span> — Actively moving through onboarding stages</li>
+                            <li><span className="text-foreground font-medium">Fully Onboarded</span> — All 6 stages complete and marked as fully onboarded</li>
+                            <li><span className="text-foreground font-medium">Alert / Denied</span> — Application denied or account flagged as inactive</li>
+                          </ul>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
                   <div className="inline-flex items-center gap-1">
                     <button
