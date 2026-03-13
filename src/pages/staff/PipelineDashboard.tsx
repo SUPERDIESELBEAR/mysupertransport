@@ -2224,6 +2224,24 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         </div>
       )}
 
+      {/* Has Unread filter banner — shown when the quick-filter chip is active */}
+      {unreadFilter && (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border bg-primary/8 border-primary/25">
+          <MessageSquare className="h-4 w-4 shrink-0 text-primary" />
+          <p className="text-sm font-medium flex-1 text-primary">
+            Showing operators with <span className="font-semibold">unread messages</span>
+          </p>
+          <button
+            onClick={() => setUnreadFilter(false)}
+            className="flex items-center gap-1 text-xs font-medium opacity-70 hover:opacity-100 transition-opacity text-primary"
+            title="Clear unread filter"
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear
+          </button>
+        </div>
+      )}
+
       {/* Operator table */}
       <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
