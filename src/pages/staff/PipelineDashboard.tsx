@@ -72,6 +72,7 @@ interface PipelineDashboardProps {
   initialCoordinatorFilter?: string;
   initialCoordinatorName?: string;
   initialStageFilter?: string;
+  initialIdleFilter?: boolean;
   complianceRefreshKey?: number;
 }
 
