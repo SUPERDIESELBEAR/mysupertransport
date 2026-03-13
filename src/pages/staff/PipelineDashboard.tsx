@@ -1951,6 +1951,18 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setUnreadFilter(v => !v)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                unreadFilter
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-primary'
+              }`}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Has Unread</span>
+              {unreadFilter && <X className="h-3 w-3" />}
+            </button>
             <Button
               variant="outline"
               size="sm"
