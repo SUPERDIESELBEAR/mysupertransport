@@ -566,9 +566,13 @@ export default function ManagementPortal() {
                 ].filter(b => b.count > 0);
                 return (
                   <TooltipProvider delayDuration={150}>
-                    <button
+                    {/* Use div instead of button so inner badge buttons work correctly */}
+                    <div
+                      role="button"
+                      tabIndex={0}
                       onClick={() => { setPipelineCoordinatorFilter('all'); setView('pipeline'); }}
-                      className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group bg-white border-border"
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setPipelineCoordinatorFilter('all'); setView('pipeline'); } }}
+                      className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left cursor-pointer group bg-white border-border"
                     >
                       <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg bg-gold/10 flex items-center justify-center mb-2 sm:mb-3">
                         <Users className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />
@@ -580,29 +584,26 @@ export default function ManagementPortal() {
                           {stageBadges.map(b => (
                             <Tooltip key={b.stageKey}>
                               <TooltipTrigger asChild>
-                                <span
-                                  className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1 py-0.5 rounded bg-secondary border border-border text-foreground leading-none cursor-default"
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1 py-0.5 rounded bg-secondary border border-border text-foreground leading-none hover:bg-secondary/70 transition-colors"
                                   onClick={e => {
                                     e.stopPropagation();
-                                    if (b.stageKey !== 'all') {
-                                      setPipelineStageFilter(b.stageKey);
-                                    } else {
-                                      setPipelineStageFilter('all');
-                                    }
+                                    setPipelineStageFilter(b.stageKey !== 'all' ? b.stageKey : 'all');
                                     setPipelineCoordinatorFilter('all');
                                     setView('pipeline');
                                   }}
                                 >
                                   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${b.dotClass}`} />
                                   {b.label} {b.count}
-                                </span>
+                                </button>
                               </TooltipTrigger>
                               <TooltipContent side="bottom" className="text-xs">{b.title}: {b.count}</TooltipContent>
                             </Tooltip>
                           ))}
                         </div>
                       )}
-                    </button>
+                    </div>
                   </TooltipProvider>
                 );
               })()}
