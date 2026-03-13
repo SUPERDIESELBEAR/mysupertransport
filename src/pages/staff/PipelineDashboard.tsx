@@ -10,7 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
-import { differenceInDays, parseISO, format } from 'date-fns';
+import { differenceInDays, parseISO, format, formatDistanceToNowStrict } from 'date-fns';
 
 type DispatchStatus = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
 
