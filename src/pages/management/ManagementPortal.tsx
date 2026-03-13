@@ -439,7 +439,7 @@ export default function ManagementPortal() {
     } else {
       setView(path as ManagementView);
       if (path !== 'operator-detail') setSelectedOperatorId(null);
-      if (path === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineStageFilter('all'); }
+      if (path === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineCoordinatorName(null); setPipelineStageFilter('all'); }
     }
   };
 
