@@ -192,8 +192,24 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   type SortDir = 'asc' | 'desc';
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  // Track whether the current sort was auto-applied by the idle filter
+  const idleAutoSorted = useRef(false);
+
+  // Auto-sort by last activity (oldest first) when idle filter activates
+  useEffect(() => {
+    if (idleFilter) {
+      setSortKey('last_activity');
+      setSortDir('asc');
+      idleAutoSorted.current = true;
+    } else if (idleAutoSorted.current) {
+      setSortKey(null);
+      setSortDir('asc');
+      idleAutoSorted.current = false;
+    }
+  }, [idleFilter]);
 
   const handleSort = (key: SortKey) => {
+    idleAutoSorted.current = false; // manual sort overrides auto
     if (sortKey === key) {
       setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
     } else {
