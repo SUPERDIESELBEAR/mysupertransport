@@ -2239,7 +2239,18 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
                   </button>
                 </th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">Docs</th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex cursor-default border-b border-dashed border-muted-foreground/50">Docs</span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[240px] text-center">
+                        Count of uploaded operator documents (registration, insurance, inspection report, Form 2290, truck title, photos, and others).
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
                   <TooltipProvider>
                     <Tooltip>
