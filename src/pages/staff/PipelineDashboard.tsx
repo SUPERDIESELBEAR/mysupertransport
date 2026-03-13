@@ -2269,10 +2269,19 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   </button>
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">
-                  <span className="inline-flex items-center gap-1 text-muted-foreground">
-                    <MessageSquare className="h-3.5 w-3.5" />
-                    Msgs
-                  </span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-1 text-muted-foreground cursor-default">
+                          <MessageSquare className="h-3.5 w-3.5" />
+                          Msgs
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[220px] text-center">
+                        Unread messages from this operator. Click the row to open the conversation.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </th>
                  <th className="px-4 py-3 text-center">
                    <TooltipProvider>
