@@ -158,6 +158,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [idleFilter, setIdleFilter] = useState(initialIdleFilter ?? false);
   const [unreadFilter, setUnreadFilter] = useState(false);
   const [unreadHighPriority, setUnreadHighPriority] = useState(false);
+  const [invitePendingFilter, setInvitePendingFilter] = useState(false);
 
   // Sync when the parent changes the initial filter (e.g. banner → View Pipeline)
   useEffect(() => {
