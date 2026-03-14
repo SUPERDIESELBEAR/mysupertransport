@@ -1959,6 +1959,38 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {/* Invite Pending quick-filter chip */}
+            {(() => {
+              const pendingCount = operators.filter(o => o.never_logged_in).length;
+              if (pendingCount === 0) return null;
+              return (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => setInvitePendingFilter(v => !v)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
+                          invitePendingFilter
+                            ? 'bg-warning text-warning-foreground border-warning'
+                            : 'bg-background text-muted-foreground border-border hover:border-warning/60 hover:text-warning-foreground'
+                        }`}
+                        style={invitePendingFilter ? {} : { color: 'hsl(var(--warning))' }}
+                      >
+                        <Clock className="h-3.5 w-3.5" style={{ color: invitePendingFilter ? undefined : 'hsl(var(--warning))' }} />
+                        <span className="hidden sm:inline">Invite Pending</span>
+                        <span className={`text-[10px] font-bold ${invitePendingFilter ? 'text-warning-foreground' : ''}`} style={!invitePendingFilter ? { color: 'hsl(var(--warning))' } : {}}>
+                          {pendingCount}
+                        </span>
+                        {invitePendingFilter && <X className="h-3 w-3" />}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-[200px] text-center">
+                      Show only operators who haven't logged in yet
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })()}
             <div className="inline-flex items-center rounded-full border transition-colors overflow-hidden">
               <button
                 onClick={() => {
