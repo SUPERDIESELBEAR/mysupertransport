@@ -2641,35 +2641,62 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </tr>
               ) : (
                 filtered.map(op => (
-                  <tr key={op.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3">
-                       <div className="flex items-center gap-2 flex-wrap">
-                         <p className="font-medium text-foreground">
-                           {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
-                         </p>
+                   <tr key={op.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                     <td className="px-4 py-3">
+                       <div className="flex flex-col gap-1">
+                         <div className="flex items-center gap-2 flex-wrap">
+                           <p className="font-medium text-foreground">
+                             {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
+                           </p>
+                           {op.unread_count > 0 && (
+                              <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none shrink-0 md:hidden ${op.unread_count >= 3 ? 'bg-destructive text-destructive-foreground' : 'bg-primary/15 text-primary'}`}>
+                                <MessageSquare className="h-2.5 w-2.5" />
+                                {op.unread_count}
+                              </span>
+                            )}
+                         </div>
                          {op.never_logged_in && (
-                           <TooltipProvider delayDuration={100}>
-                             <Tooltip>
-                               <TooltipTrigger asChild>
-                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none bg-warning/15 text-warning border border-warning/30 shrink-0 cursor-default">
-                                   <Clock className="h-2.5 w-2.5 shrink-0" />
-                                   Invite Pending
-                                 </span>
-                               </TooltipTrigger>
-                               <TooltipContent side="top" className="text-xs">
-                                 This operator has never logged in
-                               </TooltipContent>
-                             </Tooltip>
-                           </TooltipProvider>
+                           <div className="flex items-center gap-1.5 flex-wrap">
+                             <TooltipProvider delayDuration={100}>
+                               <Tooltip>
+                                 <TooltipTrigger asChild>
+                                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none bg-warning/15 text-warning border border-warning/30 shrink-0 cursor-default">
+                                     <Clock className="h-2.5 w-2.5 shrink-0" />
+                                     Invite Pending
+                                   </span>
+                                 </TooltipTrigger>
+                                 <TooltipContent side="top" className="text-xs">
+                                   This operator has never logged in
+                                 </TooltipContent>
+                               </Tooltip>
+                             </TooltipProvider>
+                             <TooltipProvider delayDuration={100}>
+                               <Tooltip>
+                                 <TooltipTrigger asChild>
+                                   <button
+                                     onClick={e => { e.stopPropagation(); handleResendInvite(op); }}
+                                     disabled={resendingSending[op.id] || resendSent[op.id]}
+                                     className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none border shrink-0 transition-colors disabled:opacity-60 disabled:cursor-not-allowed bg-muted/50 text-muted-foreground border-border hover:bg-warning/10 hover:text-warning hover:border-warning/40"
+                                   >
+                                     {resendingSending[op.id] ? (
+                                       <Loader2 className="h-2.5 w-2.5 animate-spin shrink-0" />
+                                     ) : resendSent[op.id] ? (
+                                       <CheckCheck className="h-2.5 w-2.5 shrink-0 text-status-complete" />
+                                     ) : (
+                                       <Send className="h-2.5 w-2.5 shrink-0" />
+                                     )}
+                                     {resendSent[op.id] ? 'Sent' : 'Resend Invite'}
+                                   </button>
+                                 </TooltipTrigger>
+                                 <TooltipContent side="top" className="text-xs">
+                                   {resendSent[op.id] ? 'Invitation email sent!' : `Resend invitation to ${op.email ?? 'this operator'}`}
+                                 </TooltipContent>
+                               </Tooltip>
+                             </TooltipProvider>
+                           </div>
                          )}
-                         {op.unread_count > 0 && (
-                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none shrink-0 md:hidden ${op.unread_count >= 3 ? 'bg-destructive text-destructive-foreground' : 'bg-primary/15 text-primary'}`}>
-                              <MessageSquare className="h-2.5 w-2.5" />
-                              {op.unread_count}
-                            </span>
-                          )}
                        </div>
-                    </td>
+                     </td>
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{op.phone ?? '—'}</td>
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
                     <td className="px-4 py-3">
