@@ -30,6 +30,7 @@ interface OperatorRow {
   home_state: string | null;
   assigned_staff_id: string | null;
   assigned_staff_name: string | null;
+  never_logged_in: boolean;
   current_stage: string;
   fully_onboarded: boolean;
   mvr_ch_approval: string;
