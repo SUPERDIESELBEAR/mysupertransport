@@ -30,6 +30,7 @@ interface OperatorRow {
   home_state: string | null;
   assigned_staff_id: string | null;
   assigned_staff_name: string | null;
+  never_logged_in: boolean;
   current_stage: string;
   fully_onboarded: boolean;
   mvr_ch_approval: string;
@@ -470,7 +471,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
     const [profileResult, dispatchResult, docResult, unreadResult] = await Promise.all([
       allUserIds.length > 0
-        ? supabase.from('profiles').select('user_id, first_name, last_name, phone, home_state').in('user_id', allUserIds)
+        ? supabase.from('profiles').select('user_id, first_name, last_name, phone, home_state, account_status').in('user_id', allUserIds)
         : Promise.resolve({ data: [] }),
       operatorIds.length > 0
         ? supabase.from('active_dispatch').select('operator_id, dispatch_status').in('operator_id', operatorIds)
@@ -536,6 +537,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         home_state: profile.home_state ?? null,
         assigned_staff_id: op.assigned_onboarding_staff ?? null,
         assigned_staff_name: staffName,
+        never_logged_in: (profile.account_status ?? 'pending') === 'pending',
         current_stage: computeStage(os),
         fully_onboarded: os.fully_onboarded ?? false,
         mvr_ch_approval: os.mvr_ch_approval ?? 'pending',
@@ -2568,17 +2570,32 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 filtered.map(op => (
                   <tr key={op.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-foreground">
-                          {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
-                        </p>
-                        {op.unread_count > 0 && (
-                           <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none shrink-0 md:hidden ${op.unread_count >= 3 ? 'bg-destructive text-destructive-foreground' : 'bg-primary/15 text-primary'}`}>
-                             <MessageSquare className="h-2.5 w-2.5" />
-                             {op.unread_count}
-                           </span>
+                       <div className="flex items-center gap-2 flex-wrap">
+                         <p className="font-medium text-foreground">
+                           {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
+                         </p>
+                         {op.never_logged_in && (
+                           <TooltipProvider delayDuration={100}>
+                             <Tooltip>
+                               <TooltipTrigger asChild>
+                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none bg-warning/15 text-warning border border-warning/30 shrink-0 cursor-default">
+                                   <Clock className="h-2.5 w-2.5 shrink-0" />
+                                   Invite Pending
+                                 </span>
+                               </TooltipTrigger>
+                               <TooltipContent side="top" className="text-xs">
+                                 This operator has never logged in
+                               </TooltipContent>
+                             </Tooltip>
+                           </TooltipProvider>
                          )}
-                      </div>
+                         {op.unread_count > 0 && (
+                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none shrink-0 md:hidden ${op.unread_count >= 3 ? 'bg-destructive text-destructive-foreground' : 'bg-primary/15 text-primary'}`}>
+                              <MessageSquare className="h-2.5 w-2.5" />
+                              {op.unread_count}
+                            </span>
+                          )}
+                       </div>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{op.phone ?? '—'}</td>
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
