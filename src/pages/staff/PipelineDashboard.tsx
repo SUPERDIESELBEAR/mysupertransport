@@ -143,6 +143,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [noActionBulkSending, setNoActionBulkSending] = useState(false);
   const [noActionBulkSentCount, setNoActionBulkSentCount] = useState<number | null>(null);
   const [showNoActionBulkConfirm, setShowNoActionBulkConfirm] = useState(false);
+  // Resend invite state: key = operator id
+  const [resendingSending, setResendingSending] = useState<Record<string, boolean>>({});
+  const [resendSent, setResendSent] = useState<Record<string, boolean>>({});
   // Per-row renew state: key = "operatorId|docType"
   const [rowRenewing, setRowRenewing] = useState<Record<string, boolean>>({});
   const [rowRenewed, setRowRenewed] = useState<Record<string, boolean>>({});
