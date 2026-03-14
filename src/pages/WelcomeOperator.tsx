@@ -165,7 +165,7 @@ export default function WelcomeOperator() {
       <div className="min-h-screen bg-surface-dark flex items-center justify-center p-4">
         {background}
         <div className="w-full max-w-md relative text-center">
-          <img src={logo} alt="SUPERTRANSPORT" className="h-16 w-auto max-w-[240px] object-contain mx-auto mb-8" />
+          <img src={logo} alt="SUPERTRANSPORT" className="h-20 w-auto max-w-[320px] object-contain mx-auto mb-8" />
           <div className="bg-surface-dark-card border border-surface-dark-border rounded-xl p-8 shadow-2xl text-left">
             <div className="flex flex-col items-center text-center mb-6">
               <AlertCircle className="h-12 w-12 text-destructive mb-4" />
