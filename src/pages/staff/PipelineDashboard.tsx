@@ -444,6 +444,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       supabase.from('operators').select(`
         id,
         user_id,
+        created_at,
         assigned_onboarding_staff,
         applications ( email ),
         onboarding_status (
