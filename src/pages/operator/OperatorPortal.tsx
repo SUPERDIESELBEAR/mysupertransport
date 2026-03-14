@@ -778,26 +778,64 @@ export default function OperatorPortal() {
 
         {/* ── PROGRESS VIEW ── */}
         {view === 'progress' && (
-          <OperatorStatusPage
-            stages={stages}
-            isFullyOnboarded={isFullyOnboarded}
-            progressPct={progressPct}
-            completedStages={completedStages}
-            currentStage={currentStage}
-            onboardingStatus={onboardingStatus}
-            onNavigateTo={(v) => setView(v as OperatorView)}
-            displayName={displayName}
-            assignedDispatcher={assignedDispatcher}
-            dispatchStatus={dispatchStatus}
-            cdlExpiration={cdlExpiration}
-            medicalCertExpiration={medicalCertExpiration}
-            onMessageDispatcher={() => {
-              if (assignedDispatcher?.userId) {
-                setMessageInitialUserId(assignedDispatcher.userId);
-              }
-              setView('messages');
-            }}
-          />
+          <>
+            <OperatorStatusPage
+              stages={stages}
+              isFullyOnboarded={isFullyOnboarded}
+              progressPct={progressPct}
+              completedStages={completedStages}
+              currentStage={currentStage}
+              onboardingStatus={onboardingStatus}
+              onNavigateTo={(v) => setView(v as OperatorView)}
+              displayName={displayName}
+              assignedDispatcher={assignedDispatcher}
+              dispatchStatus={dispatchStatus}
+              cdlExpiration={cdlExpiration}
+              medicalCertExpiration={medicalCertExpiration}
+              onMessageDispatcher={() => {
+                if (assignedDispatcher?.userId) {
+                  setMessageInitialUserId(assignedDispatcher.userId);
+                }
+                setView('messages');
+              }}
+            />
+
+            {/* ── CONTACT SECTION ── */}
+            <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                  <Phone className="h-4 w-4 text-primary" />
+                </span>
+                <h3 className="text-sm font-semibold text-foreground">Need Help?</h3>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-1">
+                  <p className="text-xs font-semibold text-foreground uppercase tracking-wide">Onboarding Questions</p>
+                  <a
+                    href="mailto:onboarding@mysupertransport.com"
+                    className="text-sm font-medium text-primary hover:underline break-all"
+                  >
+                    onboarding@mysupertransport.com
+                  </a>
+                  <p className="text-xs text-muted-foreground leading-snug mt-1">
+                    Documents, background checks, ICA, registration, equipment setup — anything related to getting fully onboarded.
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-1">
+                  <p className="text-xs font-semibold text-foreground uppercase tracking-wide">General Support</p>
+                  <a
+                    href="mailto:support@mysupertransport.com"
+                    className="text-sm font-medium text-primary hover:underline break-all"
+                  >
+                    support@mysupertransport.com
+                  </a>
+                  <p className="text-xs text-muted-foreground leading-snug mt-1">
+                    Account access, portal questions, or anything not related to active dispatch or onboarding.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>
         )}
 
         {/* ── DOCUMENTS VIEW ── */}
