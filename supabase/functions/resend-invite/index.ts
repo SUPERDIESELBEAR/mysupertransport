@@ -106,23 +106,64 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 4. Re-send the invite
+    // 4. Re-send the invite.
+    // Use generateLink(invite) which works for already-registered users, then
+    // send the email manually via Resend so the operator receives a fresh link.
     const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
-    const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      normalizedEmail,
-      {
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'invite',
+      email: normalizedEmail,
+      options: {
         data: {
           first_name: app.first_name ?? '',
           last_name: app.last_name ?? '',
           invited_as: 'operator',
         },
         redirectTo: `${appUrl}/welcome`,
-      }
-    );
+      },
+    });
 
-    if (inviteError) {
-      console.error('Resend invite error:', inviteError.message);
+    if (linkError || !linkData?.properties?.action_link) {
+      console.error('Resend invite error:', linkError?.message ?? 'No link generated');
       return json({ error: 'Failed to send invitation. Please try again.' }, 500);
+    }
+
+    const inviteLink = linkData.properties.action_link;
+    const firstName = app.first_name ?? 'there';
+
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    if (!resendApiKey) {
+      console.error('RESEND_API_KEY not configured');
+      return json({ error: 'Email service not configured.' }, 500);
+    }
+
+    const emailRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'SuperTransport <no-reply@mysupertransport.com>',
+        to: normalizedEmail,
+        subject: 'Your invitation to SuperTransport — Action Required',
+        html: `
+          <p>Hi ${firstName},</p>
+          <p>You've been invited to join the SuperTransport operator portal. Click the button below to set your password and get started:</p>
+          <p style="margin:24px 0;">
+            <a href="${inviteLink}" style="background:#1d4ed8;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;">
+              Accept Invitation
+            </a>
+          </p>
+          <p style="color:#6b7280;font-size:13px;">This link expires in 24 hours. If you did not expect this email, you can safely ignore it.</p>
+        `,
+      }),
+    });
+
+    if (!emailRes.ok) {
+      const errText = await emailRes.text();
+      console.error('Resend email error:', errText);
+      return json({ error: 'Failed to send invitation email. Please try again.' }, 500);
     }
 
     // 5. Audit log the resend
