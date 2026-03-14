@@ -26,6 +26,7 @@ interface OperatorRow {
   user_id: string;
   first_name: string | null;
   last_name: string | null;
+  email: string | null;
   phone: string | null;
   home_state: string | null;
   assigned_staff_id: string | null;
