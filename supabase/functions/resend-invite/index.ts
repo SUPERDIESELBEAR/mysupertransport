@@ -107,18 +107,14 @@ Deno.serve(async (req) => {
     }
 
     // 4. Re-send the invite.
-    // Use generateLink(invite) which works for already-registered users, then
-    // send the email manually via Resend so the operator receives a fresh link.
+    // For already-registered users (who haven't set a password yet),
+    // generateLink(recovery) produces a "set password" link — functionally
+    // identical to the original invite for the operator.
     const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'invite',
+      type: 'recovery',
       email: normalizedEmail,
       options: {
-        data: {
-          first_name: app.first_name ?? '',
-          last_name: app.last_name ?? '',
-          invited_as: 'operator',
-        },
         redirectTo: `${appUrl}/welcome`,
       },
     });
