@@ -471,7 +471,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
     const [profileResult, dispatchResult, docResult, unreadResult] = await Promise.all([
       allUserIds.length > 0
-        ? supabase.from('profiles').select('user_id, first_name, last_name, phone, home_state').in('user_id', allUserIds)
+        ? supabase.from('profiles').select('user_id, first_name, last_name, phone, home_state, account_status').in('user_id', allUserIds)
         : Promise.resolve({ data: [] }),
       operatorIds.length > 0
         ? supabase.from('active_dispatch').select('operator_id, dispatch_status').in('operator_id', operatorIds)
