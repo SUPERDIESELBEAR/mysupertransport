@@ -534,11 +534,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       const staffName = staffProfile
         ? `${staffProfile.first_name ?? ''} ${staffProfile.last_name ?? ''}`.trim() || null
         : null;
+      const appRaw = op.applications;
+      const appEmail = Array.isArray(appRaw) ? (appRaw[0]?.email ?? null) : (appRaw?.email ?? null);
       return {
         id: op.id,
         user_id: op.user_id,
         first_name: profile.first_name ?? null,
         last_name: profile.last_name ?? null,
+        email: appEmail,
         phone: profile.phone ?? null,
         home_state: profile.home_state ?? null,
         assigned_staff_id: op.assigned_onboarding_staff ?? null,
