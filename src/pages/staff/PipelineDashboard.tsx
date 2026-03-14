@@ -26,6 +26,7 @@ interface OperatorRow {
   user_id: string;
   first_name: string | null;
   last_name: string | null;
+  email: string | null;
   phone: string | null;
   home_state: string | null;
   assigned_staff_id: string | null;
@@ -142,6 +143,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [noActionBulkSending, setNoActionBulkSending] = useState(false);
   const [noActionBulkSentCount, setNoActionBulkSentCount] = useState<number | null>(null);
   const [showNoActionBulkConfirm, setShowNoActionBulkConfirm] = useState(false);
+  // Resend invite state: key = operator id
+  const [resendingSending, setResendingSending] = useState<Record<string, boolean>>({});
+  const [resendSent, setResendSent] = useState<Record<string, boolean>>({});
   // Per-row renew state: key = "operatorId|docType"
   const [rowRenewing, setRowRenewing] = useState<Record<string, boolean>>({});
   const [rowRenewed, setRowRenewed] = useState<Record<string, boolean>>({});
@@ -440,6 +444,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         id,
         user_id,
         assigned_onboarding_staff,
+        applications ( email ),
         onboarding_status (
           mvr_ch_approval,
           pe_screening_result,
@@ -529,11 +534,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       const staffName = staffProfile
         ? `${staffProfile.first_name ?? ''} ${staffProfile.last_name ?? ''}`.trim() || null
         : null;
+      const appRaw = op.applications;
+      const appEmail = Array.isArray(appRaw) ? (appRaw[0]?.email ?? null) : (appRaw?.email ?? null);
       return {
         id: op.id,
         user_id: op.user_id,
         first_name: profile.first_name ?? null,
         last_name: profile.last_name ?? null,
+        email: appEmail,
         phone: profile.phone ?? null,
         home_state: profile.home_state ?? null,
         assigned_staff_id: op.assigned_onboarding_staff ?? null,
@@ -569,6 +577,35 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     if (op.fully_onboarded) return 'onboarded';
     if (op.mvr_ch_approval === 'denied' || op.pe_screening_result === 'non_clear') return 'alert';
     return 'in_progress';
+  };
+
+  const handleResendInvite = async (op: OperatorRow) => {
+    if (!op.email) {
+      toast({ title: 'No email found for this operator', variant: 'destructive' });
+      return;
+    }
+    setResendingSending(prev => ({ ...prev, [op.id]: true }));
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await supabase.functions.invoke('resend-invite', {
+        body: { email: op.email, staff_override: true },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (res.error || (res.data as any)?.error) {
+        const msg = (res.data as any)?.error ?? res.error?.message ?? 'Failed to resend invite';
+        toast({ title: 'Resend failed', description: msg, variant: 'destructive' });
+      } else {
+        setResendSent(prev => ({ ...prev, [op.id]: true }));
+        toast({
+          title: 'Invite resent',
+          description: `A new invitation was sent to ${op.email}`,
+        });
+        setTimeout(() => setResendSent(prev => ({ ...prev, [op.id]: false })), 8000);
+      }
+    } finally {
+      setResendingSending(prev => ({ ...prev, [op.id]: false }));
+    }
   };
 
   const handleAssignCoordinator = async (operatorId: string, staffUserId: string | null) => {
@@ -2604,35 +2641,62 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </tr>
               ) : (
                 filtered.map(op => (
-                  <tr key={op.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3">
-                       <div className="flex items-center gap-2 flex-wrap">
-                         <p className="font-medium text-foreground">
-                           {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
-                         </p>
+                   <tr key={op.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                     <td className="px-4 py-3">
+                       <div className="flex flex-col gap-1">
+                         <div className="flex items-center gap-2 flex-wrap">
+                           <p className="font-medium text-foreground">
+                             {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
+                           </p>
+                           {op.unread_count > 0 && (
+                              <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none shrink-0 md:hidden ${op.unread_count >= 3 ? 'bg-destructive text-destructive-foreground' : 'bg-primary/15 text-primary'}`}>
+                                <MessageSquare className="h-2.5 w-2.5" />
+                                {op.unread_count}
+                              </span>
+                            )}
+                         </div>
                          {op.never_logged_in && (
-                           <TooltipProvider delayDuration={100}>
-                             <Tooltip>
-                               <TooltipTrigger asChild>
-                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none bg-warning/15 text-warning border border-warning/30 shrink-0 cursor-default">
-                                   <Clock className="h-2.5 w-2.5 shrink-0" />
-                                   Invite Pending
-                                 </span>
-                               </TooltipTrigger>
-                               <TooltipContent side="top" className="text-xs">
-                                 This operator has never logged in
-                               </TooltipContent>
-                             </Tooltip>
-                           </TooltipProvider>
+                           <div className="flex items-center gap-1.5 flex-wrap">
+                             <TooltipProvider delayDuration={100}>
+                               <Tooltip>
+                                 <TooltipTrigger asChild>
+                                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none bg-warning/15 text-warning border border-warning/30 shrink-0 cursor-default">
+                                     <Clock className="h-2.5 w-2.5 shrink-0" />
+                                     Invite Pending
+                                   </span>
+                                 </TooltipTrigger>
+                                 <TooltipContent side="top" className="text-xs">
+                                   This operator has never logged in
+                                 </TooltipContent>
+                               </Tooltip>
+                             </TooltipProvider>
+                             <TooltipProvider delayDuration={100}>
+                               <Tooltip>
+                                 <TooltipTrigger asChild>
+                                   <button
+                                     onClick={e => { e.stopPropagation(); handleResendInvite(op); }}
+                                     disabled={resendingSending[op.id] || resendSent[op.id]}
+                                     className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none border shrink-0 transition-colors disabled:opacity-60 disabled:cursor-not-allowed bg-muted/50 text-muted-foreground border-border hover:bg-warning/10 hover:text-warning hover:border-warning/40"
+                                   >
+                                     {resendingSending[op.id] ? (
+                                       <Loader2 className="h-2.5 w-2.5 animate-spin shrink-0" />
+                                     ) : resendSent[op.id] ? (
+                                       <CheckCheck className="h-2.5 w-2.5 shrink-0 text-status-complete" />
+                                     ) : (
+                                       <Send className="h-2.5 w-2.5 shrink-0" />
+                                     )}
+                                     {resendSent[op.id] ? 'Sent' : 'Resend Invite'}
+                                   </button>
+                                 </TooltipTrigger>
+                                 <TooltipContent side="top" className="text-xs">
+                                   {resendSent[op.id] ? 'Invitation email sent!' : `Resend invitation to ${op.email ?? 'this operator'}`}
+                                 </TooltipContent>
+                               </Tooltip>
+                             </TooltipProvider>
+                           </div>
                          )}
-                         {op.unread_count > 0 && (
-                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none shrink-0 md:hidden ${op.unread_count >= 3 ? 'bg-destructive text-destructive-foreground' : 'bg-primary/15 text-primary'}`}>
-                              <MessageSquare className="h-2.5 w-2.5" />
-                              {op.unread_count}
-                            </span>
-                          )}
                        </div>
-                    </td>
+                     </td>
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{op.phone ?? '—'}</td>
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
                     <td className="px-4 py-3">
