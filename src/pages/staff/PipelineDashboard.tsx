@@ -579,6 +579,35 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     return 'in_progress';
   };
 
+  const handleResendInvite = async (op: OperatorRow) => {
+    if (!op.email) {
+      toast({ title: 'No email found for this operator', variant: 'destructive' });
+      return;
+    }
+    setResendingSending(prev => ({ ...prev, [op.id]: true }));
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await supabase.functions.invoke('resend-invite', {
+        body: { email: op.email, staff_override: true },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (res.error || (res.data as any)?.error) {
+        const msg = (res.data as any)?.error ?? res.error?.message ?? 'Failed to resend invite';
+        toast({ title: 'Resend failed', description: msg, variant: 'destructive' });
+      } else {
+        setResendSent(prev => ({ ...prev, [op.id]: true }));
+        toast({
+          title: 'Invite resent',
+          description: `A new invitation was sent to ${op.email}`,
+        });
+        setTimeout(() => setResendSent(prev => ({ ...prev, [op.id]: false })), 8000);
+      }
+    } finally {
+      setResendingSending(prev => ({ ...prev, [op.id]: false }));
+    }
+  };
+
   const handleAssignCoordinator = async (operatorId: string, staffUserId: string | null) => {
     setAssigningMap(prev => ({ ...prev, [operatorId]: true }));
 
