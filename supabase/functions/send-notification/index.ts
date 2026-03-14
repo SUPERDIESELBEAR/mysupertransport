@@ -438,7 +438,7 @@ Deno.serve(async (req) => {
           const operatorHtml = buildEmail(
             operatorSubject,
             copy.heading,
-            copy.body(name) + `<p style="margin-top:24px;">If you have any questions, contact us at <a href="mailto:recruiting@mysupertransport.com" style="color:#C9A84C;">recruiting@mysupertransport.com</a>.</p>`,
+            copy.body(name) + `<p style="margin-top:24px;">If you have any questions, contact us at <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a>.</p>`,
             { label: ctaLabel, url: ctaUrl }
           );
           await sendEmail(operatorEmail, operatorSubject, operatorHtml, RESEND_API_KEY);

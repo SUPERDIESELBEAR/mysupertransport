@@ -231,8 +231,8 @@ export function OperatorFAQ() {
         <p className="text-sm font-medium text-foreground mb-1">Still have questions?</p>
         <p className="text-xs text-muted-foreground">
           Contact your onboarding coordinator or email{' '}
-          <a href="mailto:recruiting@mysupertransport.com" className="text-gold hover:underline">
-            recruiting@mysupertransport.com
+          <a href="mailto:support@mysupertransport.com" className="text-gold hover:underline">
+            support@mysupertransport.com
           </a>
         </p>
       </div>
