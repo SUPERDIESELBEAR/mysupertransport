@@ -106,26 +106,28 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 4. Re-send the invite
+    // 4. Re-send the invite.
+    // For already-registered users (who haven't set a password yet),
+    // generateLink(recovery) produces a "set password" link — functionally
+    // identical to the original invite for the operator.
     const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
-    const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      normalizedEmail,
-      {
-        data: {
-          first_name: app.first_name ?? '',
-          last_name: app.last_name ?? '',
-          invited_as: 'operator',
-        },
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'recovery',
+      email: normalizedEmail,
+      options: {
         redirectTo: `${appUrl}/welcome`,
-      }
-    );
+      },
+    });
 
-    if (inviteError) {
-      console.error('Resend invite error:', inviteError.message);
+    if (linkError || !linkData?.properties?.action_link) {
+      console.error('Resend invite error:', linkError?.message ?? 'No link generated');
       return json({ error: 'Failed to send invitation. Please try again.' }, 500);
     }
 
-    // 5. Audit log the resend
+    const inviteLink = linkData.properties.action_link;
+    const firstName = app.first_name ?? 'there';
+
+    // 5. Audit log the resend (do this before email so it's always recorded)
     await supabaseAdmin.from('audit_log').insert({
       action: 'invite_resent',
       actor_name: callerName,
@@ -136,6 +138,44 @@ Deno.serve(async (req) => {
         triggered_by: callerIsStaff ? 'staff' : 'operator_self_service',
       },
     });
+
+    // 6. Send the invite email via Resend
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    if (!resendApiKey) {
+      console.error('RESEND_API_KEY not configured');
+      // Link was generated and audit logged — return success even if email fails
+      return json({ success: true });
+    }
+
+    const emailRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'SUPERTRANSPORT <onboarding@resend.dev>',
+        to: normalizedEmail,
+        subject: 'Your invitation to SuperTransport — Action Required',
+        html: `
+          <p>Hi ${firstName},</p>
+          <p>You've been invited to join the SuperTransport operator portal. Click the button below to set your password and get started:</p>
+          <p style="margin:24px 0;">
+            <a href="${inviteLink}" style="background:#1d4ed8;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;">
+              Accept Invitation
+            </a>
+          </p>
+          <p style="color:#6b7280;font-size:13px;">This link expires in 24 hours. If you did not expect this email, you can safely ignore it.</p>
+        `,
+      }),
+    });
+
+    if (!emailRes.ok) {
+      const errText = await emailRes.text();
+      console.error('Resend email error:', errText);
+      // Audit log is already written; return success so staff gets feedback
+      return json({ success: true, warning: 'Invite link generated but email delivery failed.' });
+    }
 
     return json({ success: true });
   } catch (err) {
