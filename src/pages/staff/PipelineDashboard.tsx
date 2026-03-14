@@ -981,7 +981,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         differenceInDays(new Date(), parseISO(op.onboarding_updated_at)) >= 14
       );
       const matchUnread = !unreadFilter || (unreadHighPriority ? op.unread_count >= 3 : op.unread_count > 0);
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread;
+      const matchInvitePending = !invitePendingFilter || op.never_logged_in;
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending;
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
