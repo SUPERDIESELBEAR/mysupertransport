@@ -1043,6 +1043,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     complianceFilter !== 'all',
     idleFilter,
     unreadFilter,
+    invitePendingFilter,
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
