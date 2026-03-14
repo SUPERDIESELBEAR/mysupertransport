@@ -63,7 +63,7 @@ export default function ApplicationStatus() {
               <h2 className="text-xl font-semibold text-surface-dark-foreground mb-3">Application Not Approved</h2>
               <p className="text-surface-dark-muted text-sm leading-relaxed">
                 Thank you for your interest in SuperTransport LLC. After careful review, we are unable to move forward with your application at this time.
-                If you have questions, please contact our team at <span className="text-gold">info@mysupertransport.com</span>.
+                If you have questions, please contact our team at <span className="text-gold">recruiting@mysupertransport.com</span>.
               </p>
             </>
           )}
