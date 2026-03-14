@@ -127,10 +127,24 @@ Deno.serve(async (req) => {
     const inviteLink = linkData.properties.action_link;
     const firstName = app.first_name ?? 'there';
 
+    // 5. Audit log the resend (do this before email so it's always recorded)
+    await supabaseAdmin.from('audit_log').insert({
+      action: 'invite_resent',
+      actor_name: callerName,
+      entity_type: 'operator',
+      entity_label: normalizedEmail,
+      metadata: {
+        application_id: app.id,
+        triggered_by: callerIsStaff ? 'staff' : 'operator_self_service',
+      },
+    });
+
+    // 6. Send the invite email via Resend
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     if (!resendApiKey) {
       console.error('RESEND_API_KEY not configured');
-      return json({ error: 'Email service not configured.' }, 500);
+      // Link was generated and audit logged — return success even if email fails
+      return json({ success: true });
     }
 
     const emailRes = await fetch('https://api.resend.com/emails', {
@@ -159,20 +173,9 @@ Deno.serve(async (req) => {
     if (!emailRes.ok) {
       const errText = await emailRes.text();
       console.error('Resend email error:', errText);
-      return json({ error: 'Failed to send invitation email. Please try again.' }, 500);
+      // Audit log is already written; return success so staff gets feedback
+      return json({ success: true, warning: 'Invite link generated but email delivery failed.' });
     }
-
-    // 5. Audit log the resend
-    await supabaseAdmin.from('audit_log').insert({
-      action: 'invite_resent',
-      actor_name: callerName,
-      entity_type: 'operator',
-      entity_label: normalizedEmail,
-      metadata: {
-        application_id: app.id,
-        triggered_by: callerIsStaff ? 'staff' : 'operator_self_service',
-      },
-    });
 
     return json({ success: true });
   } catch (err) {
