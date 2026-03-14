@@ -239,7 +239,7 @@ export default function WelcomeOperator() {
       <div className="min-h-screen bg-surface-dark flex items-center justify-center p-4">
         {background}
         <div className="w-full max-w-md relative text-center">
-          <img src={logo} alt="SUPERTRANSPORT" className="h-16 w-auto max-w-[240px] object-contain mx-auto mb-8" />
+          <img src={logo} alt="SUPERTRANSPORT" className="h-20 w-auto max-w-[320px] object-contain mx-auto mb-8" />
           <div className="bg-surface-dark-card border border-surface-dark-border rounded-xl p-10 shadow-2xl">
             <div className="relative mb-6">
               <div className="h-20 w-20 rounded-full bg-status-complete/15 border-2 border-status-complete/40 flex items-center justify-center mx-auto">
