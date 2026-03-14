@@ -32,6 +32,7 @@ interface OperatorRow {
   assigned_staff_id: string | null;
   assigned_staff_name: string | null;
   never_logged_in: boolean;
+  invited_at: string | null;
   current_stage: string;
   fully_onboarded: boolean;
   mvr_ch_approval: string;
