@@ -2668,9 +2668,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                                      Invite Pending
                                    </span>
                                  </TooltipTrigger>
-                                 <TooltipContent side="top" className="text-xs">
-                                   This operator has never logged in
-                                 </TooltipContent>
+                                  <TooltipContent side="top" className="text-xs text-left space-y-0.5">
+                                    <p className="font-semibold">Invite Pending</p>
+                                    <p className="text-muted-foreground">
+                                      {op.invited_at
+                                        ? `Invited ${format(parseISO(op.invited_at), 'MMM d, yyyy')} · ${formatDistanceToNowStrict(parseISO(op.invited_at), { addSuffix: false })} ago`
+                                        : 'This operator has never logged in'}
+                                    </p>
+                                  </TooltipContent>
                                </Tooltip>
                              </TooltipProvider>
                              <TooltipProvider delayDuration={100}>
