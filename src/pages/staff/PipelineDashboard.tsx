@@ -549,6 +549,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         assigned_staff_id: op.assigned_onboarding_staff ?? null,
         assigned_staff_name: staffName,
         never_logged_in: (profile.account_status ?? 'pending') === 'pending',
+        invited_at: op.created_at ?? null,
         current_stage: computeStage(os),
         fully_onboarded: os.fully_onboarded ?? false,
         mvr_ch_approval: os.mvr_ch_approval ?? 'pending',
