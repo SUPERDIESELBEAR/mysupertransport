@@ -97,7 +97,7 @@ export default function ResetPassword() {
           }} />
         </div>
         <div className="w-full max-w-md relative text-center">
-          <img src={logo} alt="SUPERTRANSPORT" className="h-16 w-auto max-w-[240px] object-contain mx-auto mb-8" />
+          <img src={logo} alt="SUPERTRANSPORT" className="h-20 w-auto max-w-[320px] object-contain mx-auto mb-8" />
           <div className="bg-surface-dark-card border border-surface-dark-border rounded-xl p-8 shadow-2xl">
             <div className="h-14 w-14 rounded-full bg-destructive/10 border border-destructive/30 flex items-center justify-center mx-auto mb-4">
               <LinkIcon className="h-7 w-7 text-destructive" />
@@ -128,7 +128,7 @@ export default function ResetPassword() {
 
       <div className="w-full max-w-md relative">
         <div className="text-center mb-8">
-          <img src={logo} alt="SUPERTRANSPORT" className="h-16 w-auto max-w-[240px] object-contain mx-auto" />
+          <img src={logo} alt="SUPERTRANSPORT" className="h-20 w-auto max-w-[320px] object-contain mx-auto" />
           <p className="text-surface-dark-muted text-sm mt-1">Operator Portal</p>
         </div>
 

@@ -70,7 +70,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
         <img
           src={logo}
           alt="SUPERTRANSPORT"
-          className={`${(sidebarOpen || isMobileDrawer) ? 'h-10' : 'h-8'} w-auto shrink-0 transition-all duration-200`}
+          className={`object-contain shrink-0 transition-all duration-200 ${(sidebarOpen || isMobileDrawer) ? 'h-10 w-auto max-w-[140px]' : 'h-8 w-8'}`}
         />
         {(sidebarOpen || isMobileDrawer) && (
           <p className="text-gold text-xs font-medium truncate">{title}</p>

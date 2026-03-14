@@ -67,7 +67,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <img src={logo} alt="SUPERTRANSPORT" className="h-16 w-auto max-w-[240px] object-contain" />
+            <img src={logo} alt="SUPERTRANSPORT" className="h-20 w-auto max-w-[320px] object-contain" />
           </div>
           <p className="text-surface-dark-muted text-sm mt-1">Operator Portal</p>
         </div>
