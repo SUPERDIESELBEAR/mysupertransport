@@ -1056,6 +1056,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setIdleFilter(false);
     setUnreadFilter(false);
     setUnreadHighPriority(false);
+    setInvitePendingFilter(false);
     setSearch('');
   };
 
