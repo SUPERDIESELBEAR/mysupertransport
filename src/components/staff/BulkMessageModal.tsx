@@ -707,6 +707,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                         onInsert={handleInsertTemplate}
                         onDelete={handleDeleteTemplate}
                         currentUserId={user?.id}
+                        isManagement={isManagement}
                         loading={templatesLoading}
                       />
                     </div>
