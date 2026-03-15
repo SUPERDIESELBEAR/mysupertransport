@@ -8,11 +8,12 @@ import OperatorDetailPanel from './OperatorDetailPanel';
 import FaqManager from '@/components/management/FaqManager';
 import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
 import MessagesView from '@/components/staff/MessagesView';
+import BulkMessageModal from '@/components/staff/BulkMessageModal';
 import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -36,6 +37,8 @@ export default function StaffPortal() {
   const [reviewApp, setReviewApp] = useState<FullApplication | null>(null);
   const [reviewFocusField, setReviewFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
   const [panelExpiryOverride, setPanelExpiryOverride] = useState<{ cdl: string | null; medcert: string | null } | undefined>(undefined);
+  const [bulkMessageOpen, setBulkMessageOpen] = useState(false);
+  const [bulkMessagePreselected, setBulkMessagePreselected] = useState<string[]>([]);
   const viewRef = useRef(currentView);
 
   // Deep-link: ?tab=notifications or ?operator=...
@@ -241,6 +244,11 @@ export default function StaffPortal() {
   return (
     <>
     <StaffNotificationPreferencesModal open={prefOpen} onClose={() => setPrefOpen(false)} />
+    <BulkMessageModal
+      open={bulkMessageOpen}
+      onClose={() => { setBulkMessageOpen(false); setBulkMessagePreselected([]); }}
+      preselectedIds={bulkMessagePreselected}
+    />
     <StaffLayout
       navItems={navItems}
       currentPath={currentView}
@@ -301,6 +309,7 @@ export default function StaffPortal() {
             }
           }}
           initialDispatchFilter={pipelineDispatchFilter}
+          onBulkMessage={(ids) => { setBulkMessagePreselected(ids); setBulkMessageOpen(true); }}
         />
       )}
       {currentView === 'operator-detail' && selectedOperatorId && (
@@ -324,8 +333,25 @@ export default function StaffPortal() {
         />
       )}
       {currentView === 'messages' && (
-        <div className="h-full" style={{ height: 'calc(100vh - 160px - 64px)' }}>
-          <MessagesView initialUserId={messageInitialUserId} />
+        <div className="flex flex-col gap-0" style={{ height: 'calc(100vh - 160px - 64px)' }}>
+          {/* Bulk Message toolbar */}
+          <div className="flex items-center justify-between mb-3 shrink-0">
+            <p className="text-xs text-muted-foreground">
+              Send individual 1-on-1 messages, or use Bulk Message to contact multiple operators at once.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setBulkMessageOpen(true)}
+              className="text-xs gap-2 shrink-0 ml-3"
+            >
+              <Users className="h-3.5 w-3.5" />
+              Bulk Message
+            </Button>
+          </div>
+          <div className="flex-1 min-h-0">
+            <MessagesView initialUserId={messageInitialUserId} />
+          </div>
         </div>
       )}
       {currentView === 'faq' && (

@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw } from 'lucide-react';
@@ -77,6 +78,7 @@ interface PipelineDashboardProps {
   initialStageFilter?: string;
   initialIdleFilter?: boolean;
   complianceRefreshKey?: number;
+  onBulkMessage?: (operatorIds: string[]) => void;
 }
 
 function computeProgress(os: Record<string, string | boolean | null>): number {
@@ -108,7 +110,7 @@ const STAGES = [
   'Stage 6 — Insurance',
 ];
 
-export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, initialDispatchFilter, initialCoordinatorFilter, initialCoordinatorName, initialStageFilter, initialIdleFilter, complianceRefreshKey }: PipelineDashboardProps) {
+export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, initialDispatchFilter, initialCoordinatorFilter, initialCoordinatorName, initialStageFilter, initialIdleFilter, complianceRefreshKey, onBulkMessage }: PipelineDashboardProps) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
@@ -116,6 +118,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [complianceExpanded, setComplianceExpanded] = useState(true);
   const [complianceNoActionOnly, setComplianceNoActionOnly] = useState(false);
   const [complianceDocFilter, setComplianceDocFilter] = useState<'all' | 'CDL' | 'Medical Cert'>('all');
+  // Bulk messaging selection
+  const [selectedOperatorIds, setSelectedOperatorIds] = useState<Set<string>>(new Set());
   const [operators, setOperators] = useState<OperatorRow[]>([]);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2086,6 +2090,29 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <span className="hidden sm:inline">Clear all</span>
               </Button>
             )}
+            {/* Bulk Message button */}
+            {onBulkMessage && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (selectedOperatorIds.size > 0) {
+                    onBulkMessage(Array.from(selectedOperatorIds));
+                  } else {
+                    onBulkMessage([]);
+                  }
+                }}
+                className={`gap-2 ${selectedOperatorIds.size > 0 ? 'border-primary text-primary bg-primary/5' : ''}`}
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span className="hidden sm:inline">Bulk Message</span>
+                {selectedOperatorIds.size > 0 && (
+                  <span className="h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center leading-none">
+                    {selectedOperatorIds.size}
+                  </span>
+                )}
+              </Button>
+            )}
           </div>
 
           <p className="text-xs sm:text-sm text-muted-foreground w-full sm:w-auto sm:ml-auto">
@@ -2350,6 +2377,29 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/50">
+                {/* Bulk select checkbox column */}
+                {onBulkMessage && (
+                  <th className="px-3 py-3 w-10 shrink-0">
+                    <Checkbox
+                      checked={filtered.length > 0 && filtered.every(op => selectedOperatorIds.has(op.id))}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedOperatorIds(prev => {
+                            const next = new Set(prev);
+                            filtered.forEach(op => next.add(op.id));
+                            return next;
+                          });
+                        } else {
+                          setSelectedOperatorIds(prev => {
+                            const next = new Set(prev);
+                            filtered.forEach(op => next.delete(op.id));
+                            return next;
+                          });
+                        }
+                      }}
+                    />
+                  </th>
+                )}
                 <th className="text-left px-4 py-3 font-semibold text-foreground">
                   <button
                     onClick={() => handleSort('name')}
@@ -2644,7 +2694,22 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </tr>
               ) : (
                 filtered.map(op => (
-                   <tr key={op.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                   <tr key={op.id} className={`border-b border-border last:border-0 hover:bg-muted/30 transition-colors ${selectedOperatorIds.has(op.id) ? 'bg-primary/5' : ''}`}>
+                     {/* Bulk select checkbox */}
+                     {onBulkMessage && (
+                       <td className="px-3 py-3 w-10" onClick={e => { e.stopPropagation(); }}>
+                         <Checkbox
+                           checked={selectedOperatorIds.has(op.id)}
+                           onCheckedChange={() => {
+                             setSelectedOperatorIds(prev => {
+                               const next = new Set(prev);
+                               next.has(op.id) ? next.delete(op.id) : next.add(op.id);
+                               return next;
+                             });
+                           }}
+                         />
+                       </td>
+                     )}
                      <td className="px-4 py-3">
                        <div className="flex flex-col gap-1">
                          <div className="flex items-center gap-2 flex-wrap">

@@ -1,0 +1,626 @@
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { sanitizeText } from '@/lib/sanitize';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Search, Users, MessageSquare, Send, CheckSquare, Square, Loader2,
+  CheckCircle2, X, Filter, ChevronDown, ChevronUp,
+} from 'lucide-react';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type DispatchStatus = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
+
+interface OperatorOption {
+  id: string;             // operators.id
+  user_id: string;        // operators.user_id (message recipient)
+  first_name: string | null;
+  last_name: string | null;
+  current_stage: string;
+  dispatch_status: DispatchStatus | null;
+  fully_onboarded: boolean;
+}
+
+interface BulkMessageModalProps {
+  open: boolean;
+  onClose: () => void;
+  /** Pre-select operators when opened from pipeline checkboxes */
+  preselectedIds?: string[];
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const STAGES = [
+  'Stage 1 — Background',
+  'Stage 2 — Documents',
+  'Stage 3 — ICA',
+  'Stage 4 — MO Registration',
+  'Stage 5 — Equipment',
+  'Stage 6 — Insurance',
+];
+
+const DISPATCH_LABELS: Record<DispatchStatus, string> = {
+  not_dispatched: 'Not Dispatched',
+  dispatched: 'Dispatched',
+  home: 'Home',
+  truck_down: 'Truck Down',
+};
+
+const DISPATCH_DOT: Record<DispatchStatus, string> = {
+  not_dispatched: 'bg-muted-foreground',
+  dispatched:     'bg-status-complete',
+  home:           'bg-status-progress',
+  truck_down:     'bg-destructive',
+};
+
+function computeStage(os: Record<string, string | boolean | null>): string {
+  if (os.insurance_added_date)                                                      return 'Stage 6 — Insurance';
+  if (os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes') return 'Stage 5 — Equipment';
+  if (os.ica_status === 'complete')                                                  return 'Stage 4 — MO Registration';
+  if (os.pe_screening_result === 'clear')                                            return 'Stage 3 — ICA';
+  if (os.mvr_ch_approval === 'approved')                                             return 'Stage 2 — Documents';
+  return 'Stage 1 — Background';
+}
+
+function initials(name: string) {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export default function BulkMessageModal({ open, onClose, preselectedIds = [] }: BulkMessageModalProps) {
+  const { user, profile } = useAuth();
+  const { toast } = useToast();
+
+  const [operators, setOperators] = useState<OperatorOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Filters
+  const [search, setSearch] = useState('');
+  const [stageFilter, setStageFilter] = useState('all');
+  const [dispatchFilter, setDispatchFilter] = useState('all');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Compose
+  const [message, setMessage] = useState('');
+  const [step, setStep] = useState<'select' | 'compose'>('select');
+  const [sending, setSending] = useState(false);
+  const [sentCount, setSentCount] = useState<number | null>(null);
+
+  // ── Load operators ─────────────────────────────────────────────────────────
+  const loadOperators = useCallback(async () => {
+    setLoading(true);
+    const { data: ops } = await supabase
+      .from('operators')
+      .select(`
+        id,
+        user_id,
+        onboarding_status (
+          mvr_ch_approval,
+          pe_screening_result,
+          ica_status,
+          decal_applied,
+          eld_installed,
+          fuel_card_issued,
+          insurance_added_date,
+          fully_onboarded
+        )
+      `);
+
+    if (!ops || ops.length === 0) { setLoading(false); return; }
+
+    const userIds = (ops as any[]).map((o: any) => o.user_id).filter(Boolean);
+    const operatorIds = (ops as any[]).map((o: any) => o.id).filter(Boolean);
+
+    const [{ data: profiles }, { data: dispatch }] = await Promise.all([
+      supabase.from('profiles').select('user_id, first_name, last_name').in('user_id', userIds),
+      supabase.from('active_dispatch').select('operator_id, dispatch_status').in('operator_id', operatorIds),
+    ]);
+
+    const profileMap: Record<string, any> = {};
+    (profiles ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
+
+    const dispatchMap: Record<string, DispatchStatus> = {};
+    (dispatch ?? []).forEach((d: any) => { dispatchMap[d.operator_id] = d.dispatch_status; });
+
+    const rows: OperatorOption[] = (ops as any[]).map((op: any) => {
+      const osRaw = op.onboarding_status;
+      const os = Array.isArray(osRaw) ? (osRaw[0] ?? {}) : (osRaw ?? {});
+      const p = profileMap[op.user_id] ?? {};
+      return {
+        id: op.id,
+        user_id: op.user_id,
+        first_name: p.first_name ?? null,
+        last_name: p.last_name ?? null,
+        current_stage: computeStage(os),
+        dispatch_status: dispatchMap[op.id] ?? null,
+        fully_onboarded: os.fully_onboarded ?? false,
+      };
+    });
+
+    // Sort alphabetically
+    rows.sort((a, b) => {
+      const na = `${a.first_name ?? ''} ${a.last_name ?? ''}`.trim().toLowerCase();
+      const nb = `${b.first_name ?? ''} ${b.last_name ?? ''}`.trim().toLowerCase();
+      return na.localeCompare(nb);
+    });
+
+    setOperators(rows);
+    setLoading(false);
+  }, []);
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (open) {
+      loadOperators();
+      setStep('select');
+      setMessage('');
+      setSentCount(null);
+      setSearch('');
+      setStageFilter('all');
+      setDispatchFilter('all');
+    }
+  }, [open, loadOperators]);
+
+  // Apply preselectedIds once operators load
+  useEffect(() => {
+    if (operators.length > 0 && preselectedIds.length > 0) {
+      setSelectedIds(new Set(preselectedIds));
+    }
+  }, [operators, preselectedIds]);
+
+  // ── Filtered list ─────────────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    return operators.filter(op => {
+      const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim();
+      if (search && !name.toLowerCase().includes(search.toLowerCase())) return false;
+      if (stageFilter !== 'all' && op.current_stage !== stageFilter) return false;
+      if (dispatchFilter !== 'all') {
+        if (dispatchFilter === 'none' && op.dispatch_status !== null) return false;
+        if (dispatchFilter !== 'none' && op.dispatch_status !== dispatchFilter) return false;
+      }
+      return true;
+    });
+  }, [operators, search, stageFilter, dispatchFilter]);
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every(op => selectedIds.has(op.id));
+
+  const toggleAll = () => {
+    if (allFilteredSelected) {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        filtered.forEach(op => next.delete(op.id));
+        return next;
+      });
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        filtered.forEach(op => next.add(op.id));
+        return next;
+      });
+    }
+  };
+
+  const toggleOne = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  // ── Selected operator objects ─────────────────────────────────────────────
+  const selectedOperators = useMemo(
+    () => operators.filter(op => selectedIds.has(op.id)),
+    [operators, selectedIds]
+  );
+
+  // ── Send ──────────────────────────────────────────────────────────────────
+  const handleSend = async () => {
+    if (!user?.id || !message.trim() || selectedOperators.length === 0) return;
+    setSending(true);
+
+    const body = sanitizeText(message.trim());
+    if (!body) { setSending(false); return; }
+
+    // Get sender name for notifications
+    const senderName = profile
+      ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || 'Your coordinator'
+      : 'Your coordinator';
+
+    // Send all messages in parallel (one per recipient)
+    const sends = selectedOperators.map(async (op) => {
+      const { error } = await supabase.from('messages').insert({
+        sender_id: user.id,
+        recipient_id: op.user_id,
+        body,
+      });
+      if (error) return false;
+
+      // Fire notification (non-blocking)
+      supabase.functions.invoke('send-notification', {
+        body: {
+          type: 'new_message',
+          recipient_user_id: op.user_id,
+          sender_name: senderName,
+          message_preview: body,
+        },
+      }).catch(() => {});
+
+      return true;
+    });
+
+    const results = await Promise.all(sends);
+    const successCount = results.filter(Boolean).length;
+    const failCount = results.length - successCount;
+
+    setSending(false);
+    setSentCount(successCount);
+
+    if (failCount > 0) {
+      toast({
+        title: `${successCount} messages sent`,
+        description: `${failCount} failed to send.`,
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: `Message sent to ${successCount} operator${successCount !== 1 ? 's' : ''}`,
+        description: 'All recipients will receive an in-app notification.',
+      });
+    }
+  };
+
+  const handleClose = () => {
+    setSelectedIds(new Set());
+    setMessage('');
+    setStep('select');
+    setSentCount(null);
+    onClose();
+  };
+
+  // ── Active filter count ───────────────────────────────────────────────────
+  const activeFilterCount = [stageFilter !== 'all', dispatchFilter !== 'all'].filter(Boolean).length;
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
+      <DialogContent
+        className="max-w-2xl w-full p-0 overflow-hidden flex flex-col"
+        style={{ maxHeight: 'min(90vh, 700px)' }}
+      >
+        {/* ── Header ──────────────────────────────────────────────────────── */}
+        <DialogHeader className="px-5 pt-5 pb-4 border-b border-border shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <MessageSquare className="h-4.5 w-4.5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <DialogTitle className="text-base font-semibold leading-tight">Bulk Message</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                Select operators, then compose and send a message to all at once
+              </DialogDescription>
+            </div>
+            {/* Step pills */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className={`h-6 px-2.5 rounded-full text-[11px] font-semibold flex items-center gap-1 ${
+                step === 'select' ? 'bg-primary text-primary-foreground' : 'bg-status-complete/15 text-status-complete'
+              }`}>
+                {step !== 'select' && <CheckCircle2 className="h-3 w-3" />}
+                1 · Select
+              </span>
+              <span className={`h-6 px-2.5 rounded-full text-[11px] font-semibold flex items-center gap-1 ${
+                step === 'compose' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+              }`}>
+                2 · Compose
+              </span>
+            </div>
+          </div>
+        </DialogHeader>
+
+        {/* ── Step 1: Operator Selection ───────────────────────────────────── */}
+        {step === 'select' && (
+          <>
+            {/* Toolbar */}
+            <div className="px-5 py-3 border-b border-border shrink-0 space-y-2">
+              {/* Search + filter toggle */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name…"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="pl-8 h-8 text-xs"
+                  />
+                  {search && (
+                    <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`h-8 gap-1.5 text-xs shrink-0 ${activeFilterCount > 0 ? 'border-primary/40 text-primary bg-primary/5' : ''}`}
+                  onClick={() => setFiltersOpen(v => !v)}
+                >
+                  <Filter className="h-3.5 w-3.5" />
+                  Filters
+                  {activeFilterCount > 0 && (
+                    <span className="h-4 w-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                  {filtersOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </Button>
+              </div>
+
+              {/* Filter dropdowns */}
+              {filtersOpen && (
+                <div className="flex flex-wrap gap-2 pt-1 animate-fade-in">
+                  <Select value={stageFilter} onValueChange={setStageFilter}>
+                    <SelectTrigger className="h-8 text-xs w-auto min-w-[160px]">
+                      <SelectValue placeholder="Onboarding Stage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Stages</SelectItem>
+                      {STAGES.map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={dispatchFilter} onValueChange={setDispatchFilter}>
+                    <SelectTrigger className="h-8 text-xs w-auto min-w-[160px]">
+                      <SelectValue placeholder="Dispatch Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Dispatch Statuses</SelectItem>
+                      <SelectItem value="none">Not Active (No Status)</SelectItem>
+                      {(Object.keys(DISPATCH_LABELS) as DispatchStatus[]).map(s => (
+                        <SelectItem key={s} value={s}>{DISPATCH_LABELS[s]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {activeFilterCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs text-muted-foreground"
+                      onClick={() => { setStageFilter('all'); setDispatchFilter('all'); }}
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Clear filters
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* Select-all row */}
+              <div className="flex items-center justify-between pt-0.5">
+                <button
+                  onClick={toggleAll}
+                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {allFilteredSelected
+                    ? <CheckSquare className="h-4 w-4 text-primary" />
+                    : <Square className="h-4 w-4" />
+                  }
+                  {allFilteredSelected ? 'Deselect all' : `Select all (${filtered.length})`}
+                </button>
+                <span className="text-xs text-muted-foreground">
+                  {filtered.length} operator{filtered.length !== 1 ? 's' : ''}
+                  {search || activeFilterCount > 0 ? ' matched' : ' total'}
+                  {selectedIds.size > 0 && (
+                    <span className="ml-2 font-semibold text-primary">· {selectedIds.size} selected</span>
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {/* Operator list */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {loading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="py-12 text-center">
+                  <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No operators match your filters</p>
+                </div>
+              ) : (
+                filtered.map(op => {
+                  const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Unknown';
+                  const checked = selectedIds.has(op.id);
+                  return (
+                    <label
+                      key={op.id}
+                      className={`flex items-center gap-3 px-5 py-3 cursor-pointer border-b border-border/50 transition-colors hover:bg-muted/30 ${
+                        checked ? 'bg-primary/5' : ''
+                      }`}
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() => toggleOne(op.id)}
+                        className="shrink-0"
+                      />
+                      {/* Avatar */}
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold border ${
+                        checked
+                          ? 'bg-primary/15 border-primary/30 text-primary'
+                          : 'bg-muted border-border text-muted-foreground'
+                      }`}>
+                        {initials(name)}
+                      </div>
+                      {/* Name + stage */}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm truncate leading-tight ${checked ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
+                          {name}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground truncate">{op.current_stage}</p>
+                      </div>
+                      {/* Dispatch badge */}
+                      {op.dispatch_status && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className={`h-1.5 w-1.5 rounded-full ${DISPATCH_DOT[op.dispatch_status]}`} />
+                          <span className="text-[11px] text-muted-foreground">{DISPATCH_LABELS[op.dispatch_status]}</span>
+                        </div>
+                      )}
+                    </label>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-4 border-t border-border bg-muted/20 shrink-0 flex items-center justify-between gap-3">
+              <Button variant="outline" size="sm" onClick={handleClose} className="text-xs">
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={selectedIds.size === 0}
+                onClick={() => setStep('compose')}
+                className="text-xs gap-2"
+              >
+                Next: Compose
+                <span className="h-5 min-w-5 px-1.5 rounded-full bg-primary-foreground/20 text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                  {selectedIds.size}
+                </span>
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* ── Step 2: Compose ──────────────────────────────────────────────── */}
+        {step === 'compose' && (
+          <>
+            {/* Recipient summary */}
+            <div className="px-5 py-3 border-b border-border bg-muted/20 shrink-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground font-medium shrink-0">To:</span>
+                <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
+                  {selectedOperators.slice(0, 8).map(op => {
+                    const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Unknown';
+                    return (
+                      <Badge
+                        key={op.id}
+                        variant="secondary"
+                        className="text-[11px] px-2 py-0.5 h-auto gap-1 font-normal"
+                      >
+                        {name}
+                        <button
+                          onClick={() => toggleOne(op.id)}
+                          className="ml-0.5 hover:text-destructive transition-colors"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </Badge>
+                    );
+                  })}
+                  {selectedOperators.length > 8 && (
+                    <Badge variant="secondary" className="text-[11px] px-2 py-0.5 h-auto font-semibold text-primary">
+                      +{selectedOperators.length - 8} more
+                    </Badge>
+                  )}
+                </div>
+                <button
+                  onClick={() => setStep('select')}
+                  className="text-[11px] text-muted-foreground hover:text-foreground transition-colors underline shrink-0"
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+
+            {/* Message compose area */}
+            {sentCount === null ? (
+              <div className="flex-1 flex flex-col p-5 gap-4 min-h-0">
+                <div className="flex-1 flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-foreground/70">Message</label>
+                  <Textarea
+                    placeholder="Type your message to all selected operators…"
+                    value={message}
+                    onChange={e => setMessage(e.target.value)}
+                    className="flex-1 resize-none min-h-[180px] text-sm leading-relaxed"
+                    maxLength={2000}
+                    autoFocus
+                  />
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] text-muted-foreground">
+                      Each operator receives this as an individual message in their inbox.
+                    </p>
+                    <span className="text-[11px] text-muted-foreground tabular-nums">
+                      {message.length}/2000
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Success state */
+              <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
+                <div className="h-14 w-14 rounded-full bg-status-complete/15 flex items-center justify-center">
+                  <CheckCircle2 className="h-7 w-7 text-status-complete" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">Messages sent!</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Your message was delivered to <strong>{sentCount}</strong> operator{sentCount !== 1 ? 's' : ''}.
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleClose} className="text-xs mt-2">
+                  Close
+                </Button>
+              </div>
+            )}
+
+            {/* Footer */}
+            {sentCount === null && (
+              <div className="px-5 py-4 border-t border-border bg-muted/20 shrink-0 flex items-center justify-between gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setStep('select')}
+                  className="text-xs"
+                  disabled={sending}
+                >
+                  ← Back
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={!message.trim() || sending}
+                  onClick={handleSend}
+                  className="text-xs gap-2"
+                >
+                  {sending ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Sending…
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-3.5 w-3.5" />
+                      Send to {selectedIds.size} operator{selectedIds.size !== 1 ? 's' : ''}
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
