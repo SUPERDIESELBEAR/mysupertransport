@@ -646,36 +646,14 @@ export default function OperatorStatusPage({
         )}
       </div>
 
-      {/* What's Next banner */}
-      {!isFullyOnboarded && nextStep && (
-        <div
-          className={`rounded-2xl border p-4 ${
-            nextStep.urgent
-              ? 'bg-destructive/8 border-destructive/30'
-              : 'bg-gold/8 border-gold/25'
-          }`}
-        >
-          <p
-            className={`text-[11px] font-bold uppercase tracking-widest mb-1 ${
-              nextStep.urgent ? 'text-destructive' : 'text-gold'
-            }`}
-          >
-            {nextStep.label}
-          </p>
-          <p className="font-semibold text-foreground text-sm leading-snug">{nextStep.title}</p>
-          <p className="text-muted-foreground text-xs mt-1 leading-relaxed">{nextStep.body}</p>
-          {nextStep.cta && (
-            <Button
-              size="sm"
-              onClick={nextStep.cta.action}
-              className="mt-3 bg-gold text-surface-dark hover:bg-gold-light text-xs h-8 gap-1.5 font-semibold"
-            >
-              {nextStep.cta.icon}
-              {nextStep.cta.label}
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
+      {/* ── SMART PROGRESS WIDGET ── */}
+      {!isFullyOnboarded && (
+        <SmartProgressWidget
+          stages={stages}
+          onboardingStatus={onboardingStatus}
+          isFullyOnboarded={isFullyOnboarded}
+          onNavigateTo={onNavigateTo}
+        />
       )}
 
       {/* Quick-stats row */}
