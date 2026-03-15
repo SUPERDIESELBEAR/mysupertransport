@@ -2,6 +2,7 @@ import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import OnboardingChecklist from '@/components/operator/OnboardingChecklist';
+import SmartProgressWidget from '@/components/operator/SmartProgressWidget';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 
@@ -263,59 +264,6 @@ export default function OperatorStatusPage({
     if (days === 0) return 'Expires today';
     return `${days} day${days !== 1 ? 's' : ''} remaining`;
   };
-
-  const nextStepContent = () => {
-    if (!currentStage) return null;
-
-    if (currentStage.status === 'action_required') {
-      if (currentStage.number === 3 && onboardingStatus.ica_status === 'sent_for_signature') {
-        return {
-          label: '⚠ Action Required',
-          title: 'Sign Your ICA Agreement',
-          body: 'Your Independent Contractor Agreement is ready. Check your email for the PandaDoc link to sign electronically.',
-          cta: null,
-          urgent: true,
-        };
-      }
-      return {
-        label: '⚠ Action Required',
-        title: `${currentStage.title} Needs Attention`,
-        body: 'There may be an issue with this stage. Please contact your onboarding coordinator for guidance.',
-        cta: null,
-        urgent: true,
-      };
-    }
-
-    if (currentStage.number === 2 && currentStage.status === 'not_started') {
-      return {
-        label: "What's Next",
-        title: 'Upload Your Documents',
-        body: 'Head to the Documents tab to upload your Form 2290, truck title, truck photos, and inspection report to keep your onboarding moving.',
-        cta: { label: 'Go to Documents', action: () => onNavigateTo('documents'), icon: <Upload className="h-3.5 w-3.5" /> },
-        urgent: false,
-      };
-    }
-
-    if (currentStage.number === 3 && onboardingStatus.ica_status === 'sent_for_signature') {
-      return {
-        label: "What's Next",
-        title: 'Sign Your ICA Agreement',
-        body: 'Your ICA has been sent for signature. Check your email for the PandaDoc link.',
-        cta: null,
-        urgent: false,
-      };
-    }
-
-    return {
-      label: "What's Next",
-      title: `Stage ${currentStage.number}: ${currentStage.title}`,
-      body: currentStage.hint ?? currentStage.description,
-      cta: null,
-      urgent: false,
-    };
-  };
-
-  const nextStep = nextStepContent();
 
   const unitNumber = onboardingStatus.unit_number;
   const hasDispatcher = !!assignedDispatcher;
@@ -645,36 +593,14 @@ export default function OperatorStatusPage({
         )}
       </div>
 
-      {/* What's Next banner */}
-      {!isFullyOnboarded && nextStep && (
-        <div
-          className={`rounded-2xl border p-4 ${
-            nextStep.urgent
-              ? 'bg-destructive/8 border-destructive/30'
-              : 'bg-gold/8 border-gold/25'
-          }`}
-        >
-          <p
-            className={`text-[11px] font-bold uppercase tracking-widest mb-1 ${
-              nextStep.urgent ? 'text-destructive' : 'text-gold'
-            }`}
-          >
-            {nextStep.label}
-          </p>
-          <p className="font-semibold text-foreground text-sm leading-snug">{nextStep.title}</p>
-          <p className="text-muted-foreground text-xs mt-1 leading-relaxed">{nextStep.body}</p>
-          {nextStep.cta && (
-            <Button
-              size="sm"
-              onClick={nextStep.cta.action}
-              className="mt-3 bg-gold text-surface-dark hover:bg-gold-light text-xs h-8 gap-1.5 font-semibold"
-            >
-              {nextStep.cta.icon}
-              {nextStep.cta.label}
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
+      {/* ── SMART PROGRESS WIDGET ── */}
+      {!isFullyOnboarded && (
+        <SmartProgressWidget
+          stages={stages}
+          onboardingStatus={onboardingStatus}
+          isFullyOnboarded={isFullyOnboarded}
+          onNavigateTo={onNavigateTo}
+        />
       )}
 
       {/* Quick-stats row */}

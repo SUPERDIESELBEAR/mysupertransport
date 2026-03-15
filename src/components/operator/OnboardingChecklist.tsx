@@ -5,6 +5,7 @@ import {
   Upload, ArrowRight, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import SmartProgressWidget from '@/components/operator/SmartProgressWidget';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 
@@ -312,6 +313,18 @@ export default function OnboardingChecklist({
             <p className="text-xs font-bold text-status-complete uppercase tracking-wide">Fully Onboarded</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">You're activated and ready to dispatch.</p>
           </div>
+        </div>
+      )}
+
+      {/* ── SMART PROGRESS WIDGET ── */}
+      {!isFullyOnboarded && (
+        <div className="mx-4 mt-3">
+          <SmartProgressWidget
+            stages={stages}
+            onboardingStatus={onboardingStatus}
+            isFullyOnboarded={isFullyOnboarded}
+            onNavigateTo={onNavigateTo}
+          />
         </div>
       )}
 
