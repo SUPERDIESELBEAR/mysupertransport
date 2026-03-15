@@ -1,4 +1,4 @@
-import { ArrowRight, Upload, FileText, Shield, Clock, AlertTriangle, CheckCircle2, User, Users, Zap } from 'lucide-react';
+import { ArrowRight, Upload, FileText, Shield, AlertTriangle, CheckCircle2, User, Users, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
@@ -23,7 +23,6 @@ interface StageInfo {
   blockerText: (os: Record<string, string | null>, stage: Stage) => string;
   responsibleParty: 'operator' | 'coordinator' | 'both';
   responsibleLabel: string;
-  eta: string;
   steps: Array<{
     label: string;
     who: 'operator' | 'coordinator';
@@ -46,7 +45,6 @@ const STAGE_INFO: Record<number, StageInfo> = {
     },
     responsibleParty: 'both',
     responsibleLabel: 'Coordinator initiates · You complete screening',
-    eta: '3–7 business days',
     steps: [
       { label: 'MVR submitted', who: 'coordinator', done: (os) => os.mvr_status === 'requested' || os.mvr_status === 'received' },
       { label: 'Clearinghouse submitted', who: 'coordinator', done: (os) => os.ch_status === 'requested' || os.ch_status === 'received' },
@@ -71,7 +69,6 @@ const STAGE_INFO: Record<number, StageInfo> = {
     },
     responsibleParty: 'operator',
     responsibleLabel: 'You upload · Coordinator reviews',
-    eta: '1–3 business days',
     steps: [
       { label: 'Form 2290 uploaded', who: 'operator', done: (os, st) => st.substeps.find(s => s.label === 'Form 2290')?.status !== 'not_started' },
       { label: 'Truck Title uploaded', who: 'operator', done: (os, st) => st.substeps.find(s => s.label === 'Truck Title')?.status !== 'not_started' },
@@ -95,7 +92,6 @@ const STAGE_INFO: Record<number, StageInfo> = {
     },
     responsibleParty: 'both',
     responsibleLabel: 'Coordinator sends · You sign',
-    eta: '1–2 business days',
     steps: [
       { label: 'ICA prepared by coordinator', who: 'coordinator', done: (os) => os.ica_status === 'sent_for_signature' || os.ica_status === 'complete' },
       { label: 'ICA signed by you', who: 'operator', done: (os) => os.ica_status === 'complete' },
@@ -115,7 +111,6 @@ const STAGE_INFO: Record<number, StageInfo> = {
     },
     responsibleParty: 'coordinator',
     responsibleLabel: 'Handled by your coordinator',
-    eta: '2–4 weeks',
     steps: [
       { label: 'MO docs submitted to state', who: 'coordinator', done: (os) => os.mo_docs_submitted === 'submitted' },
       { label: 'State approval received', who: 'coordinator', done: (os) => os.mo_reg_received === 'yes' },
@@ -130,7 +125,6 @@ const STAGE_INFO: Record<number, StageInfo> = {
     },
     responsibleParty: 'coordinator',
     responsibleLabel: 'Coordinator arranges installation',
-    eta: '1–5 business days',
     steps: [
       { label: 'Decal applied to truck', who: 'coordinator', done: (os) => os.decal_applied === 'yes' },
       { label: 'ELD device installed', who: 'coordinator', done: (os) => os.eld_installed === 'yes' },
@@ -145,7 +139,6 @@ const STAGE_INFO: Record<number, StageInfo> = {
     },
     responsibleParty: 'coordinator',
     responsibleLabel: 'Handled by your coordinator',
-    eta: '1–3 business days',
     steps: [
       { label: 'Added to insurance policy', who: 'coordinator', done: (os) => !!os.insurance_added_date },
       { label: 'Unit number assigned', who: 'coordinator', done: (os) => !!os.unit_number },
@@ -243,11 +236,6 @@ export default function SmartProgressWidget({
             Stage {activeStage.number}: {activeStage.title}
           </p>
         </div>
-        {/* ETA chip */}
-        <span className="shrink-0 flex items-center gap-1 text-[10px] text-muted-foreground bg-muted border border-border rounded-full px-2 py-0.5">
-          <Clock className="h-2.5 w-2.5" />
-          {info.eta}
-        </span>
       </div>
 
       {/* ── Blocker description ── */}
