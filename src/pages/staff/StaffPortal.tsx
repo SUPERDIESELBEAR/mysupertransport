@@ -326,8 +326,25 @@ export default function StaffPortal() {
         />
       )}
       {currentView === 'messages' && (
-        <div className="h-full" style={{ height: 'calc(100vh - 160px - 64px)' }}>
-          <MessagesView initialUserId={messageInitialUserId} />
+        <div className="flex flex-col gap-0" style={{ height: 'calc(100vh - 160px - 64px)' }}>
+          {/* Bulk Message toolbar */}
+          <div className="flex items-center justify-between mb-3 shrink-0">
+            <p className="text-xs text-muted-foreground">
+              Send individual 1-on-1 messages, or use Bulk Message to contact multiple operators at once.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setBulkMessageOpen(true)}
+              className="text-xs gap-2 shrink-0 ml-3"
+            >
+              <Users className="h-3.5 w-3.5" />
+              Bulk Message
+            </Button>
+          </div>
+          <div className="flex-1 min-h-0">
+            <MessagesView initialUserId={messageInitialUserId} />
+          </div>
         </div>
       )}
       {currentView === 'faq' && (
