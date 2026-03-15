@@ -2377,6 +2377,29 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/50">
+                {/* Bulk select checkbox column */}
+                {onBulkMessage && (
+                  <th className="px-3 py-3 w-10 shrink-0">
+                    <Checkbox
+                      checked={filtered.length > 0 && filtered.every(op => selectedOperatorIds.has(op.id))}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedOperatorIds(prev => {
+                            const next = new Set(prev);
+                            filtered.forEach(op => next.add(op.id));
+                            return next;
+                          });
+                        } else {
+                          setSelectedOperatorIds(prev => {
+                            const next = new Set(prev);
+                            filtered.forEach(op => next.delete(op.id));
+                            return next;
+                          });
+                        }
+                      }}
+                    />
+                  </th>
+                )}
                 <th className="text-left px-4 py-3 font-semibold text-foreground">
                   <button
                     onClick={() => handleSort('name')}
