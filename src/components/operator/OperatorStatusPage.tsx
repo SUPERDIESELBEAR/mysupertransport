@@ -2,6 +2,7 @@ import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import OnboardingChecklist from '@/components/operator/OnboardingChecklist';
+import SmartProgressWidget from '@/components/operator/SmartProgressWidget';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 

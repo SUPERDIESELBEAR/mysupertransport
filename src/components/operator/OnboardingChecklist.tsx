@@ -5,6 +5,7 @@ import {
   Upload, ArrowRight, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import SmartProgressWidget from '@/components/operator/SmartProgressWidget';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 
