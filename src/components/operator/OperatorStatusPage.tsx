@@ -738,5 +738,7 @@ export default function OperatorStatusPage({
         </div>
       </div>
     </div>
+    </div> {/* end desktop md:block */}
+    </> 
   );
 }
