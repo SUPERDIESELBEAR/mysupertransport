@@ -199,9 +199,28 @@ export function OperatorFAQ() {
       {loading ? (
         <div className="py-12 text-center text-muted-foreground text-sm">Loading FAQs…</div>
       ) : filtered.length === 0 ? (
-        <div className="py-12 text-center">
-          <HelpCircle className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-muted-foreground text-sm">{search ? 'No matching questions found.' : 'No FAQs published yet.'}</p>
+        <div className="py-12 text-center space-y-4">
+          <HelpCircle className="h-10 w-10 text-muted-foreground/30 mx-auto" />
+          {search ? (
+            <>
+              <div>
+                <p className="text-sm font-medium text-foreground">No results for "{search}"</p>
+                <p className="text-xs text-muted-foreground mt-1">Try different keywords or browse by category.</p>
+              </div>
+              <div className="inline-flex flex-col items-center gap-2 bg-gold/10 border border-gold/30 rounded-xl px-6 py-4">
+                <p className="text-xs font-medium text-foreground">Can't find what you're looking for?</p>
+                <a
+                  href="mailto:support@mysupertransport.com?subject=FAQ Question"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-gold hover:text-gold-light bg-gold/10 hover:bg-gold/20 px-4 py-2 rounded-lg transition-colors"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Email Support
+                </a>
+              </div>
+            </>
+          ) : (
+            <p className="text-muted-foreground text-sm">No FAQs published yet.</p>
+          )}
         </div>
       ) : (
         <div className="space-y-2">
