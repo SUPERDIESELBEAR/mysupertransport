@@ -2694,7 +2694,22 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </tr>
               ) : (
                 filtered.map(op => (
-                   <tr key={op.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                   <tr key={op.id} className={`border-b border-border last:border-0 hover:bg-muted/30 transition-colors ${selectedOperatorIds.has(op.id) ? 'bg-primary/5' : ''}`}>
+                     {/* Bulk select checkbox */}
+                     {onBulkMessage && (
+                       <td className="px-3 py-3 w-10" onClick={e => { e.stopPropagation(); }}>
+                         <Checkbox
+                           checked={selectedOperatorIds.has(op.id)}
+                           onCheckedChange={() => {
+                             setSelectedOperatorIds(prev => {
+                               const next = new Set(prev);
+                               next.has(op.id) ? next.delete(op.id) : next.add(op.id);
+                               return next;
+                             });
+                           }}
+                         />
+                       </td>
+                     )}
                      <td className="px-4 py-3">
                        <div className="flex flex-col gap-1">
                          <div className="flex items-center gap-2 flex-wrap">
