@@ -2090,6 +2090,29 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <span className="hidden sm:inline">Clear all</span>
               </Button>
             )}
+            {/* Bulk Message button */}
+            {onBulkMessage && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (selectedOperatorIds.size > 0) {
+                    onBulkMessage(Array.from(selectedOperatorIds));
+                  } else {
+                    onBulkMessage([]);
+                  }
+                }}
+                className={`gap-2 ${selectedOperatorIds.size > 0 ? 'border-primary text-primary bg-primary/5' : ''}`}
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span className="hidden sm:inline">Bulk Message</span>
+                {selectedOperatorIds.size > 0 && (
+                  <span className="h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center leading-none">
+                    {selectedOperatorIds.size}
+                  </span>
+                )}
+              </Button>
+            )}
           </div>
 
           <p className="text-xs sm:text-sm text-muted-foreground w-full sm:w-auto sm:ml-auto">
