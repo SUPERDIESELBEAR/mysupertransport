@@ -1,6 +1,7 @@
 import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText, Truck, ArrowRight, Upload, Mail, Phone, Hash, User, CalendarClock, ShieldAlert, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import OnboardingChecklist from '@/components/operator/OnboardingChecklist';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 
