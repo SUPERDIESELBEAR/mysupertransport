@@ -7,6 +7,7 @@ import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound, UserRound,
+  ArrowRight,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import NotificationHistory from '@/components/management/NotificationHistory';
@@ -407,7 +408,7 @@ export default function OperatorPortal() {
   const currentStageIndex = stages.findIndex(s => s.status === 'action_required' || s.status === 'in_progress' || s.status === 'not_started');
   const currentStage = currentStageIndex >= 0 ? stages[currentStageIndex] : null;
 
-  // Compute critical expiry for the Progress nav badge (≤30 days or already expired)
+  // Compute critical expiry for nav badge + next-step CTA (≤30 days or expired)
   const expiryDotInfo = (() => {
     const today = new Date(); today.setHours(0,0,0,0);
     const expiring: string[] = [];
@@ -419,12 +420,75 @@ export default function OperatorPortal() {
     checkDoc(cdlExpiration, 'CDL');
     checkDoc(medicalCertExpiration, 'Medical Cert');
     if (expiring.length === 0) return null;
-    return {
-      count: expiring.length,
-      tooltip: expiring.join(' · '),
-    };
+    return { count: expiring.length, tooltip: expiring.join(' · ') };
   })();
   const hasCriticalExpiry = expiryDotInfo !== null;
+
+  // ── Next-step CTA: single most urgent operator action ─────────────────
+  const nextStep: {
+    label: string;
+    sublabel?: string;
+    action: () => void;
+    variant: 'urgent' | 'action' | 'info';
+    icon: React.ReactNode;
+  } | null = (() => {
+    if (isFullyOnboarded) return null;
+    const s = onboardingStatus;
+
+    // 1. ICA awaiting signature — highest urgency
+    if (s.ica_status === 'sent_for_signature') return {
+      label: 'Sign Your ICA Agreement',
+      sublabel: 'Action required',
+      action: () => setView('ica'),
+      variant: 'urgent' as const,
+      icon: <FileText className="h-4 w-4" />,
+    };
+
+    // 2. Documents explicitly requested by staff
+    const requestedDocs = [
+      s.form_2290 === 'requested' && 'Form 2290',
+      s.truck_title === 'requested' && 'Truck Title',
+      s.truck_photos === 'requested' && 'Truck Photos',
+      s.truck_inspection === 'requested' && 'Truck Inspection',
+    ].filter(Boolean) as string[];
+    if (requestedDocs.length > 0) return {
+      label: requestedDocs.length === 1 ? `Upload ${requestedDocs[0]}` : `Upload ${requestedDocs.length} Documents`,
+      sublabel: 'Your coordinator is waiting',
+      action: () => setView('documents'),
+      variant: 'action' as const,
+      icon: <Upload className="h-4 w-4" />,
+    };
+
+    // 3. Compliance expiry nudge
+    if (hasCriticalExpiry && expiryDotInfo) return {
+      label: expiryDotInfo.count === 1 ? '1 Document Expiring Soon' : `${expiryDotInfo.count} Documents Expiring`,
+      sublabel: expiryDotInfo.tooltip,
+      action: () => setView('progress'),
+      variant: 'urgent' as const,
+      icon: <AlertTriangle className="h-4 w-4" />,
+    };
+
+    // 4. Documents in progress
+    if (getStageStatus(2) === 'in_progress') return {
+      label: 'Continue Document Upload',
+      sublabel: 'Stage 2 in progress',
+      action: () => setView('documents'),
+      variant: 'info' as const,
+      icon: <Upload className="h-4 w-4" />,
+    };
+
+    // 5. General active stage nudge
+    const active = stages.find(st => st.status === 'in_progress');
+    if (active) return {
+      label: `Stage ${active.number}: ${active.title}`,
+      sublabel: 'In progress — keep going',
+      action: () => setView('progress'),
+      variant: 'info' as const,
+      icon: <ArrowRight className="h-4 w-4" />,
+    };
+
+    return null;
+  })();
 
   const navItems = [
     { view: 'progress' as OperatorView, label: 'My Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
@@ -621,7 +685,7 @@ export default function OperatorPortal() {
         )}
       </header>
 
-      <div className="max-w-4xl mx-auto px-4 py-6 pb-24 md:pb-6 space-y-6">
+      <div className="max-w-4xl mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6">
 
         {/* ── TRUCK DOWN ALERT BANNER ── */}
         {dispatchStatus === 'truck_down' && (
@@ -882,6 +946,58 @@ export default function OperatorPortal() {
         {/* ── NOTIFICATIONS VIEW ── */}
         {view === 'notifications' && <NotificationHistory />}
       </div>
+
+      {/* ── Floating Next-Step CTA (mobile only, above bottom nav) ────── */}
+      {nextStep && (
+        <div className="md:hidden fixed bottom-16 inset-x-0 z-30 px-3 pb-2 pointer-events-none">
+          <button
+            onClick={nextStep.action}
+            className={`
+              pointer-events-auto w-full flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl
+              border transition-all active:scale-[0.98]
+              ${nextStep.variant === 'urgent'
+                ? 'bg-destructive border-destructive/60 text-white'
+                : nextStep.variant === 'action'
+                ? 'bg-gold border-gold/60 text-surface-dark'
+                : 'bg-surface-dark border-surface-dark-border text-surface-dark-foreground'
+              }
+            `}
+            style={{ backdropFilter: 'blur(12px)' }}
+          >
+            {/* Icon */}
+            <span className={`
+              h-9 w-9 rounded-xl flex items-center justify-center shrink-0
+              ${nextStep.variant === 'urgent'
+                ? 'bg-white/15'
+                : nextStep.variant === 'action'
+                ? 'bg-surface-dark/20'
+                : 'bg-gold/15'
+              }
+            `}>
+              <span className={nextStep.variant === 'action' ? 'text-surface-dark' : nextStep.variant === 'info' ? 'text-gold' : 'text-white'}>
+                {nextStep.icon}
+              </span>
+            </span>
+
+            {/* Text */}
+            <div className="flex-1 min-w-0 text-left">
+              {nextStep.sublabel && (
+                <p className={`text-[10px] font-bold uppercase tracking-widest leading-none mb-0.5 ${
+                  nextStep.variant === 'urgent' ? 'text-white/70' : nextStep.variant === 'action' ? 'text-surface-dark/60' : 'text-gold/70'
+                }`}>
+                  {nextStep.sublabel}
+                </p>
+              )}
+              <p className="text-sm font-bold leading-tight truncate">{nextStep.label}</p>
+            </div>
+
+            {/* Arrow */}
+            <ArrowRight className={`h-4 w-4 shrink-0 ${
+              nextStep.variant === 'urgent' ? 'text-white/70' : nextStep.variant === 'action' ? 'text-surface-dark/60' : 'text-surface-dark-muted'
+            }`} />
+          </button>
+        </div>
+      )}
 
       {/* ── Sticky bottom nav (mobile only) ────────────────────────────── */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-dark border-t border-surface-dark-border">
