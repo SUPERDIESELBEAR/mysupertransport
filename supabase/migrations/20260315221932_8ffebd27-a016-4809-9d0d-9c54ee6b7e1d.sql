@@ -1,0 +1,1 @@
+UPDATE public.onboarding_status SET mvr_status = 'not_started', ch_status = 'not_started', mvr_ch_approval = 'pending', pe_screening = 'not_started', form_2290 = 'not_started', truck_title = 'not_started', truck_photos = 'not_started', truck_inspection = 'not_started' WHERE operator_id = '5d3a64db-0c77-4f42-9145-7da54fc9b56f';
