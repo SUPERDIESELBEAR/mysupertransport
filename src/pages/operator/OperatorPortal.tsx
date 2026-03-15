@@ -685,7 +685,7 @@ export default function OperatorPortal() {
         )}
       </header>
 
-      <div className="max-w-4xl mx-auto px-4 py-6 pb-24 md:pb-6 space-y-6">
+      <div className="max-w-4xl mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6">
 
         {/* ── TRUCK DOWN ALERT BANNER ── */}
         {dispatchStatus === 'truck_down' && (
