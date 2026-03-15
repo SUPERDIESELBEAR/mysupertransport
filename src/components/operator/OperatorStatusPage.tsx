@@ -265,59 +265,6 @@ export default function OperatorStatusPage({
     return `${days} day${days !== 1 ? 's' : ''} remaining`;
   };
 
-  const nextStepContent = () => {
-    if (!currentStage) return null;
-
-    if (currentStage.status === 'action_required') {
-      if (currentStage.number === 3 && onboardingStatus.ica_status === 'sent_for_signature') {
-        return {
-          label: '⚠ Action Required',
-          title: 'Sign Your ICA Agreement',
-          body: 'Your Independent Contractor Agreement is ready. Check your email for the PandaDoc link to sign electronically.',
-          cta: null,
-          urgent: true,
-        };
-      }
-      return {
-        label: '⚠ Action Required',
-        title: `${currentStage.title} Needs Attention`,
-        body: 'There may be an issue with this stage. Please contact your onboarding coordinator for guidance.',
-        cta: null,
-        urgent: true,
-      };
-    }
-
-    if (currentStage.number === 2 && currentStage.status === 'not_started') {
-      return {
-        label: "What's Next",
-        title: 'Upload Your Documents',
-        body: 'Head to the Documents tab to upload your Form 2290, truck title, truck photos, and inspection report to keep your onboarding moving.',
-        cta: { label: 'Go to Documents', action: () => onNavigateTo('documents'), icon: <Upload className="h-3.5 w-3.5" /> },
-        urgent: false,
-      };
-    }
-
-    if (currentStage.number === 3 && onboardingStatus.ica_status === 'sent_for_signature') {
-      return {
-        label: "What's Next",
-        title: 'Sign Your ICA Agreement',
-        body: 'Your ICA has been sent for signature. Check your email for the PandaDoc link.',
-        cta: null,
-        urgent: false,
-      };
-    }
-
-    return {
-      label: "What's Next",
-      title: `Stage ${currentStage.number}: ${currentStage.title}`,
-      body: currentStage.hint ?? currentStage.description,
-      cta: null,
-      urgent: false,
-    };
-  };
-
-  const nextStep = nextStepContent();
-
   const unitNumber = onboardingStatus.unit_number;
   const hasDispatcher = !!assignedDispatcher;
   const isOnboarded = isFullyOnboarded;
