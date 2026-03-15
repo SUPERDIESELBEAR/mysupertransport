@@ -69,7 +69,6 @@ const STAGE_INFO: Record<number, StageInfo> = {
     },
     responsibleParty: 'operator',
     responsibleLabel: 'You upload · Coordinator reviews',
-    eta: '1–3 business days',
     steps: [
       { label: 'Form 2290 uploaded', who: 'operator', done: (os, st) => st.substeps.find(s => s.label === 'Form 2290')?.status !== 'not_started' },
       { label: 'Truck Title uploaded', who: 'operator', done: (os, st) => st.substeps.find(s => s.label === 'Truck Title')?.status !== 'not_started' },
@@ -93,7 +92,6 @@ const STAGE_INFO: Record<number, StageInfo> = {
     },
     responsibleParty: 'both',
     responsibleLabel: 'Coordinator sends · You sign',
-    eta: '1–2 business days',
     steps: [
       { label: 'ICA prepared by coordinator', who: 'coordinator', done: (os) => os.ica_status === 'sent_for_signature' || os.ica_status === 'complete' },
       { label: 'ICA signed by you', who: 'operator', done: (os) => os.ica_status === 'complete' },
@@ -113,7 +111,6 @@ const STAGE_INFO: Record<number, StageInfo> = {
     },
     responsibleParty: 'coordinator',
     responsibleLabel: 'Handled by your coordinator',
-    eta: '2–4 weeks',
     steps: [
       { label: 'MO docs submitted to state', who: 'coordinator', done: (os) => os.mo_docs_submitted === 'submitted' },
       { label: 'State approval received', who: 'coordinator', done: (os) => os.mo_reg_received === 'yes' },
@@ -128,7 +125,6 @@ const STAGE_INFO: Record<number, StageInfo> = {
     },
     responsibleParty: 'coordinator',
     responsibleLabel: 'Coordinator arranges installation',
-    eta: '1–5 business days',
     steps: [
       { label: 'Decal applied to truck', who: 'coordinator', done: (os) => os.decal_applied === 'yes' },
       { label: 'ELD device installed', who: 'coordinator', done: (os) => os.eld_installed === 'yes' },
@@ -143,7 +139,6 @@ const STAGE_INFO: Record<number, StageInfo> = {
     },
     responsibleParty: 'coordinator',
     responsibleLabel: 'Handled by your coordinator',
-    eta: '1–3 business days',
     steps: [
       { label: 'Added to insurance policy', who: 'coordinator', done: (os) => !!os.insurance_added_date },
       { label: 'Unit number assigned', who: 'coordinator', done: (os) => !!os.unit_number },
