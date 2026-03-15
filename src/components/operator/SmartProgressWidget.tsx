@@ -45,7 +45,6 @@ const STAGE_INFO: Record<number, StageInfo> = {
     },
     responsibleParty: 'both',
     responsibleLabel: 'Coordinator initiates · You complete screening',
-    eta: '3–7 business days',
     steps: [
       { label: 'MVR submitted', who: 'coordinator', done: (os) => os.mvr_status === 'requested' || os.mvr_status === 'received' },
       { label: 'Clearinghouse submitted', who: 'coordinator', done: (os) => os.ch_status === 'requested' || os.ch_status === 'received' },
