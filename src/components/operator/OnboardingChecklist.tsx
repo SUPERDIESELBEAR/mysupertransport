@@ -316,6 +316,18 @@ export default function OnboardingChecklist({
         </div>
       )}
 
+      {/* ── SMART PROGRESS WIDGET ── */}
+      {!isFullyOnboarded && (
+        <div className="mx-4 mt-3">
+          <SmartProgressWidget
+            stages={stages}
+            onboardingStatus={onboardingStatus}
+            isFullyOnboarded={isFullyOnboarded}
+            onNavigateTo={onNavigateTo}
+          />
+        </div>
+      )}
+
       {/* ── STAGE CARDS ── */}
       <div className="px-4 mt-3 pb-4 space-y-2">
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Onboarding Stages</p>
