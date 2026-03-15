@@ -130,12 +130,14 @@ function TemplatesPanel({
   onInsert,
   onDelete,
   currentUserId,
+  isManagement,
   loading,
 }: {
   templates: MessageTemplate[];
   onInsert: (body: string) => void;
   onDelete: (id: string) => void;
   currentUserId: string | undefined;
+  isManagement: boolean;
   loading: boolean;
 }) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -159,7 +161,9 @@ function TemplatesPanel({
   return (
     <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
       {templates.map(t => {
-        const canDelete = t.created_by === currentUserId || t.created_by === null;
+        // System templates (created_by=null) can only be deleted by management
+        // Own templates can always be deleted by their creator
+        const canDelete = t.created_by === currentUserId || (t.created_by === null && isManagement);
         const isConfirming = confirmDelete === t.id;
         return (
           <div
@@ -220,7 +224,7 @@ function TemplatesPanel({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function BulkMessageModal({ open, onClose, preselectedIds = [] }: BulkMessageModalProps) {
-  const { user, profile } = useAuth();
+  const { user, profile, isManagement } = useAuth();
   const { toast } = useToast();
 
   const [operators, setOperators] = useState<OperatorOption[]>([]);
@@ -703,6 +707,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                         onInsert={handleInsertTemplate}
                         onDelete={handleDeleteTemplate}
                         currentUserId={user?.id}
+                        isManagement={isManagement}
                         loading={templatesLoading}
                       />
                     </div>
