@@ -243,6 +243,7 @@ export default function StaffPortal() {
   return (
     <>
     <StaffNotificationPreferencesModal open={prefOpen} onClose={() => setPrefOpen(false)} />
+    <BulkMessageModal open={bulkMessageOpen} onClose={() => setBulkMessageOpen(false)} />
     <StaffLayout
       navItems={navItems}
       currentPath={currentView}
