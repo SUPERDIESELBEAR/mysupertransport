@@ -236,11 +236,6 @@ export default function SmartProgressWidget({
             Stage {activeStage.number}: {activeStage.title}
           </p>
         </div>
-        {/* ETA chip */}
-        <span className="shrink-0 flex items-center gap-1 text-[10px] text-muted-foreground bg-muted border border-border rounded-full px-2 py-0.5">
-          <Clock className="h-2.5 w-2.5" />
-          {info.eta}
-        </span>
       </div>
 
       {/* ── Blocker description ── */}
