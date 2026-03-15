@@ -309,6 +309,7 @@ export default function StaffPortal() {
             }
           }}
           initialDispatchFilter={pipelineDispatchFilter}
+          onBulkMessage={(ids) => { setBulkMessagePreselected(ids); setBulkMessageOpen(true); }}
         />
       )}
       {currentView === 'operator-detail' && selectedOperatorId && (
