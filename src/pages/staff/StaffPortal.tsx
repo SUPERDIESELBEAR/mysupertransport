@@ -37,6 +37,7 @@ export default function StaffPortal() {
   const [reviewApp, setReviewApp] = useState<FullApplication | null>(null);
   const [reviewFocusField, setReviewFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
   const [panelExpiryOverride, setPanelExpiryOverride] = useState<{ cdl: string | null; medcert: string | null } | undefined>(undefined);
+  const [bulkMessageOpen, setBulkMessageOpen] = useState(false);
   const viewRef = useRef(currentView);
 
   // Deep-link: ?tab=notifications or ?operator=...
