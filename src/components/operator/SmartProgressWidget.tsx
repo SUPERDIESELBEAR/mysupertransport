@@ -1,4 +1,4 @@
-import { ArrowRight, Upload, FileText, Shield, Clock, AlertTriangle, CheckCircle2, User, Users, Zap } from 'lucide-react';
+import { ArrowRight, Upload, FileText, Shield, AlertTriangle, CheckCircle2, User, Users, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
