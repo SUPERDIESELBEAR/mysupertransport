@@ -408,6 +408,72 @@ export default function OperatorPortal() {
   const currentStageIndex = stages.findIndex(s => s.status === 'action_required' || s.status === 'in_progress' || s.status === 'not_started');
   const currentStage = currentStageIndex >= 0 ? stages[currentStageIndex] : null;
 
+  // ── Next-step CTA: compute single most urgent action ──────────────────
+  const nextStep: {
+    label: string;
+    sublabel?: string;
+    action: () => void;
+    variant: 'urgent' | 'action' | 'info';
+    icon: React.ReactNode;
+  } | null = (() => {
+    if (isFullyOnboarded) return null;
+    const s = onboardingStatus;
+
+    // 1. ICA awaiting signature — highest urgency
+    if (s.ica_status === 'sent_for_signature') return {
+      label: 'Sign Your ICA Agreement',
+      sublabel: 'Action required',
+      action: () => setView('ica'),
+      variant: 'urgent',
+      icon: <FileText className="h-4 w-4" />,
+    };
+
+    // 2. Documents explicitly requested by staff
+    const requestedDocs = [
+      s.form_2290 === 'requested' && 'Form 2290',
+      s.truck_title === 'requested' && 'Truck Title',
+      s.truck_photos === 'requested' && 'Truck Photos',
+      s.truck_inspection === 'requested' && 'Truck Inspection',
+    ].filter(Boolean) as string[];
+    if (requestedDocs.length > 0) return {
+      label: requestedDocs.length === 1 ? `Upload ${requestedDocs[0]}` : `Upload ${requestedDocs.length} Documents`,
+      sublabel: 'Your coordinator is waiting',
+      action: () => setView('documents'),
+      variant: 'action',
+      icon: <Upload className="h-4 w-4" />,
+    };
+
+    // 3. Documents stage is in progress but nothing explicitly requested
+    if (getStageStatus(2) === 'in_progress') return {
+      label: 'Continue Document Upload',
+      sublabel: 'Stage 2 in progress',
+      action: () => setView('documents'),
+      variant: 'info',
+      icon: <Upload className="h-4 w-4" />,
+    };
+
+    // 4. Compliance expiry nudge
+    if (hasCriticalExpiry && expiryDotInfo) return {
+      label: expiryDotInfo.count === 1 ? '1 Document Expiring Soon' : `${expiryDotInfo.count} Documents Expiring`,
+      sublabel: expiryDotInfo.tooltip,
+      action: () => setView('progress'),
+      variant: 'urgent',
+      icon: <AlertTriangle className="h-4 w-4" />,
+    };
+
+    // 5. General in-progress nudge based on current active stage
+    const active = stages.find(s => s.status === 'in_progress');
+    if (active) return {
+      label: `Stage ${active.number}: ${active.title}`,
+      sublabel: 'In progress — keep going',
+      action: () => setView('progress'),
+      variant: 'info',
+      icon: <ArrowRight className="h-4 w-4" />,
+    };
+
+    return null;
+  })();
+
   // Compute critical expiry for the Progress nav badge (≤30 days or already expired)
   const expiryDotInfo = (() => {
     const today = new Date(); today.setHours(0,0,0,0);
