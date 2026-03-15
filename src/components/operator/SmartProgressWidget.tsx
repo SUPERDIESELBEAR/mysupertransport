@@ -23,7 +23,6 @@ interface StageInfo {
   blockerText: (os: Record<string, string | null>, stage: Stage) => string;
   responsibleParty: 'operator' | 'coordinator' | 'both';
   responsibleLabel: string;
-  eta: string;
   steps: Array<{
     label: string;
     who: 'operator' | 'coordinator';
