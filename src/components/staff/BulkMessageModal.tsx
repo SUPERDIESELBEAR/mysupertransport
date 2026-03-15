@@ -12,7 +12,8 @@ import { sanitizeText } from '@/lib/sanitize';
 import { useToast } from '@/hooks/use-toast';
 import {
   Search, Users, MessageSquare, Send, CheckSquare, Square, Loader2,
-  CheckCircle2, X, Filter, ChevronDown, ChevronUp,
+  CheckCircle2, X, Filter, ChevronDown, ChevronUp, BookOpen, Plus,
+  Trash2, CornerDownLeft, Save,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -20,8 +21,8 @@ import {
 type DispatchStatus = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
 
 interface OperatorOption {
-  id: string;             // operators.id
-  user_id: string;        // operators.user_id (message recipient)
+  id: string;
+  user_id: string;
   first_name: string | null;
   last_name: string | null;
   current_stage: string;
@@ -29,10 +30,16 @@ interface OperatorOption {
   fully_onboarded: boolean;
 }
 
+interface MessageTemplate {
+  id: string;
+  title: string;
+  body: string;
+  created_by: string | null;
+}
+
 interface BulkMessageModalProps {
   open: boolean;
   onClose: () => void;
-  /** Pre-select operators when opened from pipeline checkboxes */
   preselectedIds?: string[];
 }
 
@@ -74,6 +81,142 @@ function initials(name: string) {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
 }
 
+// ─── Template Save Form ───────────────────────────────────────────────────────
+
+function SaveTemplateInline({
+  defaultTitle,
+  onSave,
+  onCancel,
+}: {
+  defaultTitle: string;
+  onSave: (title: string) => void;
+  onCancel: () => void;
+}) {
+  const [title, setTitle] = useState(defaultTitle);
+  return (
+    <div className="flex items-center gap-2 p-3 bg-muted/40 rounded-lg border border-border animate-fade-in">
+      <Input
+        autoFocus
+        placeholder="Template name…"
+        value={title}
+        onChange={e => setTitle(e.target.value)}
+        className="h-7 text-xs flex-1"
+        maxLength={60}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && title.trim()) onSave(title.trim());
+          if (e.key === 'Escape') onCancel();
+        }}
+      />
+      <Button
+        size="sm"
+        className="h-7 px-2.5 text-xs gap-1.5"
+        disabled={!title.trim()}
+        onClick={() => onSave(title.trim())}
+      >
+        <Save className="h-3 w-3" />
+        Save
+      </Button>
+      <button onClick={onCancel} className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+// ─── Templates Panel ──────────────────────────────────────────────────────────
+
+function TemplatesPanel({
+  templates,
+  onInsert,
+  onDelete,
+  currentUserId,
+  loading,
+}: {
+  templates: MessageTemplate[];
+  onInsert: (body: string) => void;
+  onDelete: (id: string) => void;
+  currentUserId: string | undefined;
+  loading: boolean;
+}) {
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-4">
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (templates.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground italic text-center py-3">
+        No templates yet. Save a message to reuse it later.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+      {templates.map(t => {
+        const canDelete = t.created_by === currentUserId || t.created_by === null;
+        const isConfirming = confirmDelete === t.id;
+        return (
+          <div
+            key={t.id}
+            className="group flex items-start gap-2 rounded-md border border-border/60 bg-muted/20 hover:bg-muted/40 hover:border-border transition-all"
+          >
+            {/* Insert button — main clickable area */}
+            <button
+              className="flex-1 min-w-0 text-left px-3 py-2.5 gap-1"
+              onClick={() => onInsert(t.body)}
+              title="Click to insert"
+            >
+              <div className="flex items-center gap-1.5">
+                <CornerDownLeft className="h-3 w-3 text-muted-foreground/60 shrink-0 group-hover:text-primary transition-colors" />
+                <p className="text-xs font-semibold text-foreground truncate">{t.title}</p>
+              </div>
+              <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5 ml-4.5">
+                {t.body}
+              </p>
+            </button>
+
+            {/* Delete control — only shown for own or system (null) templates */}
+            {canDelete && (
+              <div className="shrink-0 flex items-center self-center pr-2">
+                {isConfirming ? (
+                  <div className="flex items-center gap-1 animate-fade-in">
+                    <button
+                      className="text-[10px] text-destructive font-semibold hover:underline"
+                      onClick={() => { onDelete(t.id); setConfirmDelete(null); }}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      className="text-[10px] text-muted-foreground hover:text-foreground"
+                      onClick={() => setConfirmDelete(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                    onClick={() => setConfirmDelete(t.id)}
+                    title="Delete template"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function BulkMessageModal({ open, onClose, preselectedIds = [] }: BulkMessageModalProps) {
@@ -95,6 +238,13 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
   const [step, setStep] = useState<'select' | 'compose'>('select');
   const [sending, setSending] = useState(false);
   const [sentCount, setSentCount] = useState<number | null>(null);
+
+  // Templates
+  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(true);
+  const [showSaveForm, setShowSaveForm] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   // ── Load operators ─────────────────────────────────────────────────────────
   const loadOperators = useCallback(async () => {
@@ -147,7 +297,6 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
       };
     });
 
-    // Sort alphabetically
     rows.sort((a, b) => {
       const na = `${a.first_name ?? ''} ${a.last_name ?? ''}`.trim().toLowerCase();
       const nb = `${b.first_name ?? ''} ${b.last_name ?? ''}`.trim().toLowerCase();
@@ -158,20 +307,32 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
     setLoading(false);
   }, []);
 
+  // ── Load templates ─────────────────────────────────────────────────────────
+  const loadTemplates = useCallback(async () => {
+    setTemplatesLoading(true);
+    const { data, error } = await supabase
+      .from('message_templates')
+      .select('id, title, body, created_by')
+      .order('created_at', { ascending: true });
+    if (!error && data) setTemplates(data as MessageTemplate[]);
+    setTemplatesLoading(false);
+  }, []);
+
   // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (open) {
       loadOperators();
+      loadTemplates();
       setStep('select');
       setMessage('');
       setSentCount(null);
       setSearch('');
       setStageFilter('all');
       setDispatchFilter('all');
+      setShowSaveForm(false);
     }
-  }, [open, loadOperators]);
+  }, [open, loadOperators, loadTemplates]);
 
-  // Apply preselectedIds once operators load
   useEffect(() => {
     if (operators.length > 0 && preselectedIds.length > 0) {
       setSelectedIds(new Set(preselectedIds));
@@ -196,33 +357,54 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
 
   const toggleAll = () => {
     if (allFilteredSelected) {
-      setSelectedIds(prev => {
-        const next = new Set(prev);
-        filtered.forEach(op => next.delete(op.id));
-        return next;
-      });
+      setSelectedIds(prev => { const n = new Set(prev); filtered.forEach(op => n.delete(op.id)); return n; });
     } else {
-      setSelectedIds(prev => {
-        const next = new Set(prev);
-        filtered.forEach(op => next.add(op.id));
-        return next;
-      });
+      setSelectedIds(prev => { const n = new Set(prev); filtered.forEach(op => n.add(op.id)); return n; });
     }
   };
 
   const toggleOne = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+    setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   };
 
-  // ── Selected operator objects ─────────────────────────────────────────────
   const selectedOperators = useMemo(
     () => operators.filter(op => selectedIds.has(op.id)),
     [operators, selectedIds]
   );
+
+  // ── Template actions ──────────────────────────────────────────────────────
+  const handleInsertTemplate = (body: string) => {
+    setMessage(body);
+    // briefly flash the textarea by scrolling to top (UX cue)
+  };
+
+  const handleSaveTemplate = async (title: string) => {
+    if (!user?.id || !message.trim()) return;
+    setSavingTemplate(true);
+    const body = sanitizeText(message.trim());
+    const { error } = await supabase.from('message_templates').insert({
+      title: sanitizeText(title),
+      body,
+      created_by: user.id,
+    });
+    setSavingTemplate(false);
+    setShowSaveForm(false);
+    if (error) {
+      toast({ title: 'Could not save template', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Template saved', description: `"${title}" added to your template library.` });
+      loadTemplates();
+    }
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+    const { error } = await supabase.from('message_templates').delete().eq('id', id);
+    if (error) {
+      toast({ title: 'Could not delete template', variant: 'destructive' });
+    } else {
+      setTemplates(prev => prev.filter(t => t.id !== id));
+    }
+  };
 
   // ── Send ──────────────────────────────────────────────────────────────────
   const handleSend = async () => {
@@ -232,12 +414,10 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
     const body = sanitizeText(message.trim());
     if (!body) { setSending(false); return; }
 
-    // Get sender name for notifications
     const senderName = profile
       ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || 'Your coordinator'
       : 'Your coordinator';
 
-    // Send all messages in parallel (one per recipient)
     const sends = selectedOperators.map(async (op) => {
       const { error } = await supabase.from('messages').insert({
         sender_id: user.id,
@@ -246,7 +426,6 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
       });
       if (error) return false;
 
-      // Fire notification (non-blocking)
       supabase.functions.invoke('send-notification', {
         body: {
           type: 'new_message',
@@ -285,10 +464,10 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
     setMessage('');
     setStep('select');
     setSentCount(null);
+    setShowSaveForm(false);
     onClose();
   };
 
-  // ── Active filter count ───────────────────────────────────────────────────
   const activeFilterCount = [stageFilter !== 'all', dispatchFilter !== 'all'].filter(Boolean).length;
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -296,7 +475,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
       <DialogContent
         className="max-w-2xl w-full p-0 overflow-hidden flex flex-col"
-        style={{ maxHeight: 'min(90vh, 700px)' }}
+        style={{ maxHeight: 'min(92vh, 760px)' }}
       >
         {/* ── Header ──────────────────────────────────────────────────────── */}
         <DialogHeader className="px-5 pt-5 pb-4 border-b border-border shrink-0">
@@ -330,9 +509,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
         {/* ── Step 1: Operator Selection ───────────────────────────────────── */}
         {step === 'select' && (
           <>
-            {/* Toolbar */}
             <div className="px-5 py-3 border-b border-border shrink-0 space-y-2">
-              {/* Search + filter toggle */}
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -365,7 +542,6 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                 </Button>
               </div>
 
-              {/* Filter dropdowns */}
               {filtersOpen && (
                 <div className="flex flex-wrap gap-2 pt-1 animate-fade-in">
                   <Select value={stageFilter} onValueChange={setStageFilter}>
@@ -374,9 +550,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Stages</SelectItem>
-                      {STAGES.map(s => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
+                      {STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                     </SelectContent>
                   </Select>
 
@@ -394,29 +568,19 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                   </Select>
 
                   {activeFilterCount > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs text-muted-foreground"
-                      onClick={() => { setStageFilter('all'); setDispatchFilter('all'); }}
-                    >
-                      <X className="h-3 w-3 mr-1" />
-                      Clear filters
+                    <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground"
+                      onClick={() => { setStageFilter('all'); setDispatchFilter('all'); }}>
+                      <X className="h-3 w-3 mr-1" />Clear filters
                     </Button>
                   )}
                 </div>
               )}
 
-              {/* Select-all row */}
               <div className="flex items-center justify-between pt-0.5">
-                <button
-                  onClick={toggleAll}
-                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
+                <button onClick={toggleAll} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
                   {allFilteredSelected
                     ? <CheckSquare className="h-4 w-4 text-primary" />
-                    : <Square className="h-4 w-4" />
-                  }
+                    : <Square className="h-4 w-4" />}
                   {allFilteredSelected ? 'Deselect all' : `Select all (${filtered.length})`}
                 </button>
                 <span className="text-xs text-muted-foreground">
@@ -445,33 +609,17 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                   const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Unknown';
                   const checked = selectedIds.has(op.id);
                   return (
-                    <label
-                      key={op.id}
-                      className={`flex items-center gap-3 px-5 py-3 cursor-pointer border-b border-border/50 transition-colors hover:bg-muted/30 ${
-                        checked ? 'bg-primary/5' : ''
-                      }`}
-                    >
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={() => toggleOne(op.id)}
-                        className="shrink-0"
-                      />
-                      {/* Avatar */}
+                    <label key={op.id} className={`flex items-center gap-3 px-5 py-3 cursor-pointer border-b border-border/50 transition-colors hover:bg-muted/30 ${checked ? 'bg-primary/5' : ''}`}>
+                      <Checkbox checked={checked} onCheckedChange={() => toggleOne(op.id)} className="shrink-0" />
                       <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold border ${
-                        checked
-                          ? 'bg-primary/15 border-primary/30 text-primary'
-                          : 'bg-muted border-border text-muted-foreground'
+                        checked ? 'bg-primary/15 border-primary/30 text-primary' : 'bg-muted border-border text-muted-foreground'
                       }`}>
                         {initials(name)}
                       </div>
-                      {/* Name + stage */}
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm truncate leading-tight ${checked ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
-                          {name}
-                        </p>
+                        <p className={`text-sm truncate leading-tight ${checked ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>{name}</p>
                         <p className="text-[11px] text-muted-foreground truncate">{op.current_stage}</p>
                       </div>
-                      {/* Dispatch badge */}
                       {op.dispatch_status && (
                         <div className="flex items-center gap-1.5 shrink-0">
                           <span className={`h-1.5 w-1.5 rounded-full ${DISPATCH_DOT[op.dispatch_status]}`} />
@@ -486,15 +634,8 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
 
             {/* Footer */}
             <div className="px-5 py-4 border-t border-border bg-muted/20 shrink-0 flex items-center justify-between gap-3">
-              <Button variant="outline" size="sm" onClick={handleClose} className="text-xs">
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                disabled={selectedIds.size === 0}
-                onClick={() => setStep('compose')}
-                className="text-xs gap-2"
-              >
+              <Button variant="outline" size="sm" onClick={handleClose} className="text-xs">Cancel</Button>
+              <Button size="sm" disabled={selectedIds.size === 0} onClick={() => setStep('compose')} className="text-xs gap-2">
                 Next: Compose
                 <span className="h-5 min-w-5 px-1.5 rounded-full bg-primary-foreground/20 text-primary-foreground text-[10px] font-bold flex items-center justify-center">
                   {selectedIds.size}
@@ -515,16 +656,9 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                   {selectedOperators.slice(0, 8).map(op => {
                     const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Unknown';
                     return (
-                      <Badge
-                        key={op.id}
-                        variant="secondary"
-                        className="text-[11px] px-2 py-0.5 h-auto gap-1 font-normal"
-                      >
+                      <Badge key={op.id} variant="secondary" className="text-[11px] px-2 py-0.5 h-auto gap-1 font-normal">
                         {name}
-                        <button
-                          onClick={() => toggleOne(op.id)}
-                          className="ml-0.5 hover:text-destructive transition-colors"
-                        >
+                        <button onClick={() => toggleOne(op.id)} className="ml-0.5 hover:text-destructive transition-colors">
                           <X className="h-2.5 w-2.5" />
                         </button>
                       </Badge>
@@ -536,27 +670,78 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                     </Badge>
                   )}
                 </div>
-                <button
-                  onClick={() => setStep('select')}
-                  className="text-[11px] text-muted-foreground hover:text-foreground transition-colors underline shrink-0"
-                >
+                <button onClick={() => setStep('select')} className="text-[11px] text-muted-foreground hover:text-foreground transition-colors underline shrink-0">
                   Edit
                 </button>
               </div>
             </div>
 
-            {/* Message compose area */}
             {sentCount === null ? (
-              <div className="flex-1 flex flex-col p-5 gap-4 min-h-0">
-                <div className="flex-1 flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-foreground/70">Message</label>
+              <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+                {/* ── Templates panel ────────────────────────────────────── */}
+                <div className="px-5 pt-4 pb-0 shrink-0">
+                  <button
+                    className="flex items-center gap-2 w-full text-left group mb-2"
+                    onClick={() => setTemplatesOpen(v => !v)}
+                  >
+                    <BookOpen className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                    <span className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
+                      Templates
+                    </span>
+                    <span className="text-[10px] text-muted-foreground/60 ml-1">
+                      ({templates.length})
+                    </span>
+                    <span className="ml-auto text-muted-foreground group-hover:text-foreground transition-colors">
+                      {templatesOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    </span>
+                  </button>
+
+                  {templatesOpen && (
+                    <div className="mb-3 animate-fade-in">
+                      <TemplatesPanel
+                        templates={templates}
+                        onInsert={handleInsertTemplate}
+                        onDelete={handleDeleteTemplate}
+                        currentUserId={user?.id}
+                        loading={templatesLoading}
+                      />
+                    </div>
+                  )}
+
+                  <div className="border-t border-border/60 mb-0" />
+                </div>
+
+                {/* ── Compose area ───────────────────────────────────────── */}
+                <div className="flex-1 flex flex-col px-5 pt-3 pb-5 gap-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-foreground/70">Message</label>
+                    {/* Save as template */}
+                    {!showSaveForm && message.trim().length > 10 && (
+                      <button
+                        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors"
+                        onClick={() => setShowSaveForm(true)}
+                      >
+                        <Plus className="h-3 w-3" />
+                        Save as template
+                      </button>
+                    )}
+                  </div>
+
+                  {showSaveForm && (
+                    <SaveTemplateInline
+                      defaultTitle=""
+                      onSave={handleSaveTemplate}
+                      onCancel={() => setShowSaveForm(false)}
+                    />
+                  )}
+
                   <Textarea
                     placeholder="Type your message to all selected operators…"
                     value={message}
                     onChange={e => setMessage(e.target.value)}
-                    className="flex-1 resize-none min-h-[180px] text-sm leading-relaxed"
+                    className="flex-1 resize-none min-h-[140px] text-sm leading-relaxed"
                     maxLength={2000}
-                    autoFocus
+                    autoFocus={!templatesOpen}
                   />
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] text-muted-foreground">
@@ -580,22 +765,14 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                     Your message was delivered to <strong>{sentCount}</strong> operator{sentCount !== 1 ? 's' : ''}.
                   </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={handleClose} className="text-xs mt-2">
-                  Close
-                </Button>
+                <Button variant="outline" size="sm" onClick={handleClose} className="text-xs mt-2">Close</Button>
               </div>
             )}
 
             {/* Footer */}
             {sentCount === null && (
               <div className="px-5 py-4 border-t border-border bg-muted/20 shrink-0 flex items-center justify-between gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setStep('select')}
-                  className="text-xs"
-                  disabled={sending}
-                >
+                <Button variant="outline" size="sm" onClick={() => setStep('select')} className="text-xs" disabled={sending}>
                   ← Back
                 </Button>
                 <Button
@@ -605,15 +782,9 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                   className="text-xs gap-2"
                 >
                   {sending ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Sending…
-                    </>
+                    <><Loader2 className="h-3.5 w-3.5 animate-spin" />Sending…</>
                   ) : (
-                    <>
-                      <Send className="h-3.5 w-3.5" />
-                      Send to {selectedIds.size} operator{selectedIds.size !== 1 ? 's' : ''}
-                    </>
+                    <><Send className="h-3.5 w-3.5" />Send to {selectedIds.size} operator{selectedIds.size !== 1 ? 's' : ''}</>
                   )}
                 </Button>
               </div>
