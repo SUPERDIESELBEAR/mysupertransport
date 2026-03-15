@@ -947,6 +947,58 @@ export default function OperatorPortal() {
         {view === 'notifications' && <NotificationHistory />}
       </div>
 
+      {/* ── Floating Next-Step CTA (mobile only, above bottom nav) ────── */}
+      {nextStep && (
+        <div className="md:hidden fixed bottom-16 inset-x-0 z-30 px-3 pb-2 pointer-events-none">
+          <button
+            onClick={nextStep.action}
+            className={`
+              pointer-events-auto w-full flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl
+              border transition-all active:scale-[0.98]
+              ${nextStep.variant === 'urgent'
+                ? 'bg-destructive border-destructive/60 text-white'
+                : nextStep.variant === 'action'
+                ? 'bg-gold border-gold/60 text-surface-dark'
+                : 'bg-surface-dark border-surface-dark-border text-surface-dark-foreground'
+              }
+            `}
+            style={{ backdropFilter: 'blur(12px)' }}
+          >
+            {/* Icon */}
+            <span className={`
+              h-9 w-9 rounded-xl flex items-center justify-center shrink-0
+              ${nextStep.variant === 'urgent'
+                ? 'bg-white/15'
+                : nextStep.variant === 'action'
+                ? 'bg-surface-dark/20'
+                : 'bg-gold/15'
+              }
+            `}>
+              <span className={nextStep.variant === 'action' ? 'text-surface-dark' : nextStep.variant === 'info' ? 'text-gold' : 'text-white'}>
+                {nextStep.icon}
+              </span>
+            </span>
+
+            {/* Text */}
+            <div className="flex-1 min-w-0 text-left">
+              {nextStep.sublabel && (
+                <p className={`text-[10px] font-bold uppercase tracking-widest leading-none mb-0.5 ${
+                  nextStep.variant === 'urgent' ? 'text-white/70' : nextStep.variant === 'action' ? 'text-surface-dark/60' : 'text-gold/70'
+                }`}>
+                  {nextStep.sublabel}
+                </p>
+              )}
+              <p className="text-sm font-bold leading-tight truncate">{nextStep.label}</p>
+            </div>
+
+            {/* Arrow */}
+            <ArrowRight className={`h-4 w-4 shrink-0 ${
+              nextStep.variant === 'urgent' ? 'text-white/70' : nextStep.variant === 'action' ? 'text-surface-dark/60' : 'text-surface-dark-muted'
+            }`} />
+          </button>
+        </div>
+      )}
+
       {/* ── Sticky bottom nav (mobile only) ────────────────────────────── */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-dark border-t border-surface-dark-border">
         <div className="flex items-stretch h-16">
