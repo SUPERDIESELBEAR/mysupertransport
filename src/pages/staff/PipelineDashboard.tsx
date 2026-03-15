@@ -78,6 +78,7 @@ interface PipelineDashboardProps {
   initialStageFilter?: string;
   initialIdleFilter?: boolean;
   complianceRefreshKey?: number;
+  onBulkMessage?: (operatorIds: string[]) => void;
 }
 
 function computeProgress(os: Record<string, string | boolean | null>): number {
