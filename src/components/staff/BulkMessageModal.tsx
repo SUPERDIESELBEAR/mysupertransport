@@ -224,7 +224,7 @@ function TemplatesPanel({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function BulkMessageModal({ open, onClose, preselectedIds = [] }: BulkMessageModalProps) {
-  const { user, profile } = useAuth();
+  const { user, profile, isManagement } = useAuth();
   const { toast } = useToast();
 
   const [operators, setOperators] = useState<OperatorOption[]>([]);
