@@ -2792,31 +2792,59 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                      </td>
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{op.phone ?? '—'}</td>
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      <div className="space-y-1 min-w-[140px]">
-                        <div className="flex items-center justify-between gap-2">
-                          <Badge variant="outline" className="text-xs border-gold/40 text-gold bg-gold/5 truncate max-w-[120px]">
-                            {op.current_stage}
-                          </Badge>
-                          <span className={`text-[11px] font-bold tabular-nums shrink-0 ${
-                            op.progress_pct === 100 ? 'text-status-complete' : 'text-muted-foreground'
-                          }`}>
-                            {op.progress_pct}%
-                          </span>
-                        </div>
-                        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-500"
-                            style={{
-                              width: `${op.progress_pct}%`,
-                              background: op.progress_pct === 100
-                                ? 'hsl(var(--status-complete))'
-                                : 'hsl(var(--gold-main))',
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </td>
+                     <td className="px-4 py-3">
+                       <div className="space-y-1 min-w-[140px]">
+                         <div className="flex items-center justify-between gap-2">
+                           <Badge variant="outline" className="text-xs border-gold/40 text-gold bg-gold/5 truncate max-w-[120px]">
+                             {op.current_stage}
+                           </Badge>
+                           <span className={`text-[11px] font-bold tabular-nums shrink-0 ${
+                             op.progress_pct === 100 ? 'text-status-complete' : 'text-muted-foreground'
+                           }`}>
+                             {op.progress_pct}%
+                           </span>
+                         </div>
+                         {/* Days in Draft chip — shown only for Stage 3 ICA operators with an in_progress draft */}
+                         {op.ica_status === 'in_progress' && op.ica_draft_since && (() => {
+                           const daysInDraft = differenceInDays(new Date(), parseISO(op.ica_draft_since));
+                           const isStale = daysInDraft >= 7;
+                           return (
+                             <TooltipProvider delayDuration={100}>
+                               <Tooltip>
+                                 <TooltipTrigger asChild>
+                                   <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none border cursor-default w-fit ${
+                                     isStale
+                                       ? 'bg-warning/15 text-warning border-warning/30'
+                                       : 'bg-status-progress/10 text-status-progress border-status-progress/25'
+                                   }`} style={isStale ? { color: 'hsl(var(--warning))' } : {}}>
+                                     <FileClock className="h-2.5 w-2.5 shrink-0" />
+                                     {daysInDraft === 0 ? 'Draft today' : `${daysInDraft}d in draft`}
+                                   </span>
+                                 </TooltipTrigger>
+                                 <TooltipContent side="bottom" className="text-xs text-left space-y-0.5">
+                                   <p className="font-semibold">ICA draft in progress</p>
+                                   <p className="text-muted-foreground">
+                                     Started {format(parseISO(op.ica_draft_since), 'MMM d, yyyy')}
+                                     {isStale && ' — consider following up'}
+                                   </p>
+                                 </TooltipContent>
+                               </Tooltip>
+                             </TooltipProvider>
+                           );
+                         })()}
+                         <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                           <div
+                             className="h-full rounded-full transition-all duration-500"
+                             style={{
+                               width: `${op.progress_pct}%`,
+                               background: op.progress_pct === 100
+                                 ? 'hsl(var(--status-complete))'
+                                 : 'hsl(var(--gold-main))',
+                             }}
+                           />
+                         </div>
+                       </div>
+                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       {op.fully_onboarded ? (
                         <Badge className="status-complete border text-xs">Onboarded</Badge>
