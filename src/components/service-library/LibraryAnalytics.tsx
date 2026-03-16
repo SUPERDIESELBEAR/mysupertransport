@@ -1,15 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, CheckCircle2, Bookmark, HelpCircle, BookOpen } from 'lucide-react';
+import { BarChart3, CheckCircle2, Bookmark, HelpCircle, BookOpen, Eye } from 'lucide-react';
 import type { Service } from './ServiceLibraryTypes';
+
+interface ResourceStat {
+  id: string;
+  title: string;
+  completion_count: number;
+  bookmark_count: number;
+  view_count: number;
+}
 
 interface AnalyticsData {
   service_id: string;
   total_start_here: number;
   drivers_completed_all: number;
-  resource_stats: { id: string; title: string; completion_count: number; bookmark_count: number }[];
+  resource_stats: ResourceStat[];
   open_help_requests: number;
+  total_views: number;
 }
 
 export default function LibraryAnalytics({ services }: { services: Service[] }) {
@@ -24,18 +33,25 @@ export default function LibraryAnalytics({ services }: { services: Service[] }) 
         { data: completions },
         { data: bookmarks },
         { data: helpRequests },
+        { data: views },
       ] = await Promise.all([
         supabase.from('service_resources').select('id, service_id, title, is_start_here').eq('is_visible', true),
         supabase.from('service_resource_completions').select('resource_id, user_id'),
         supabase.from('service_resource_bookmarks').select('resource_id'),
         supabase.from('service_help_requests').select('service_id, status'),
+        supabase.from('service_resource_views').select('resource_id'),
       ]);
+
+      // Build view count map
+      const viewCountMap: Record<string, number> = {};
+      (views ?? []).forEach((v: any) => {
+        viewCountMap[v.resource_id] = (viewCountMap[v.resource_id] ?? 0) + 1;
+      });
 
       const analytics: AnalyticsData[] = services.map(svc => {
         const svcResources = (resources ?? []).filter((r: any) => r.service_id === svc.id);
         const startHereResources = svcResources.filter((r: any) => r.is_start_here);
 
-        // Count drivers who completed all start-here items
         const allUserIds = new Set((completions ?? []).map((c: any) => c.user_id));
         let driversCompletedAll = 0;
         allUserIds.forEach(uid => {
@@ -45,12 +61,15 @@ export default function LibraryAnalytics({ services }: { services: Service[] }) 
           if (startHereResources.every((r: any) => completedSet.has(r.id))) driversCompletedAll++;
         });
 
-        const resource_stats = svcResources.map((r: any) => ({
+        const resource_stats: ResourceStat[] = svcResources.map((r: any) => ({
           id: r.id,
           title: r.title,
           completion_count: (completions ?? []).filter((c: any) => c.resource_id === r.id).length,
           bookmark_count: (bookmarks ?? []).filter((b: any) => b.resource_id === r.id).length,
-        })).sort((a, b) => b.completion_count - a.completion_count);
+          view_count: viewCountMap[r.id] ?? 0,
+        })).sort((a, b) => b.view_count - a.view_count);
+
+        const total_views = resource_stats.reduce((sum, r) => sum + r.view_count, 0);
 
         const open_help_requests = (helpRequests ?? []).filter(
           (h: any) => h.service_id === svc.id && h.status === 'Open'
@@ -62,6 +81,7 @@ export default function LibraryAnalytics({ services }: { services: Service[] }) 
           drivers_completed_all: driversCompletedAll,
           resource_stats,
           open_help_requests,
+          total_views,
         };
       });
 
@@ -74,7 +94,7 @@ export default function LibraryAnalytics({ services }: { services: Service[] }) 
   useEffect(() => { fetchAnalytics(); }, [fetchAnalytics]);
 
   if (loading) {
-    return <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)}</div>;
+    return <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-48 rounded-xl" />)}</div>;
   }
 
   if (services.length === 0) {
@@ -92,10 +112,14 @@ export default function LibraryAnalytics({ services }: { services: Service[] }) 
       {services.map(svc => {
         const analytics = data.find(d => d.service_id === svc.id);
         if (!analytics) return null;
-        const topResources = analytics.resource_stats.slice(0, 3);
+
+        // Top 5 by views for the Most Viewed table
+        const topViewed = analytics.resource_stats.slice(0, 5);
+        const maxViews = Math.max(1, ...topViewed.map(r => r.view_count));
 
         return (
-          <div key={svc.id} className="p-4 rounded-xl border border-border bg-card space-y-3">
+          <div key={svc.id} className="p-4 rounded-xl border border-border bg-card space-y-4">
+            {/* Service header */}
             <div className="flex items-center gap-3">
               {svc.logo_url ? (
                 <img src={svc.logo_url} alt="" className="h-8 w-8 rounded-lg object-contain bg-muted shrink-0" />
@@ -107,44 +131,73 @@ export default function LibraryAnalytics({ services }: { services: Service[] }) 
               <p className="font-semibold text-foreground text-sm">{svc.name}</p>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            {/* Stat tiles — now 4 columns */}
+            <div className="grid grid-cols-4 gap-3">
               <div className="text-center p-3 rounded-lg bg-muted/40">
-                <div className="flex items-center justify-center gap-1.5 text-status-complete mb-1">
+                <div className="flex items-center justify-center text-status-complete mb-1">
                   <CheckCircle2 className="h-4 w-4" />
                 </div>
                 <p className="text-lg font-bold text-foreground">{analytics.drivers_completed_all}</p>
-                <p className="text-xs text-muted-foreground">Completed all steps</p>
+                <p className="text-xs text-muted-foreground leading-tight">Completed all steps</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-muted/40">
-                <div className="flex items-center justify-center gap-1.5 text-primary mb-1">
+                <div className="flex items-center justify-center text-primary mb-1">
                   <Bookmark className="h-4 w-4" />
                 </div>
                 <p className="text-lg font-bold text-foreground">
                   {analytics.resource_stats.reduce((sum, r) => sum + r.bookmark_count, 0)}
                 </p>
-                <p className="text-xs text-muted-foreground">Total bookmarks</p>
+                <p className="text-xs text-muted-foreground leading-tight">Total bookmarks</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-muted/40">
-                <div className="flex items-center justify-center gap-1.5 text-destructive mb-1">
+                <div className="flex items-center justify-center mb-1">
+                  <Eye className="h-4 w-4 text-primary/70" />
+                </div>
+                <p className="text-lg font-bold text-foreground">{analytics.total_views}</p>
+                <p className="text-xs text-muted-foreground leading-tight">Total views</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-muted/40">
+                <div className="flex items-center justify-center text-destructive mb-1">
                   <HelpCircle className="h-4 w-4" />
                 </div>
                 <p className="text-lg font-bold text-foreground">{analytics.open_help_requests}</p>
-                <p className="text-xs text-muted-foreground">Open help requests</p>
+                <p className="text-xs text-muted-foreground leading-tight">Open help requests</p>
               </div>
             </div>
 
-            {topResources.length > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Top Resources</p>
-                {topResources.map(r => (
-                  <div key={r.id} className="flex items-center justify-between gap-3 text-sm">
-                    <p className="text-foreground truncate flex-1">{r.title}</p>
-                    <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />{r.completion_count}</span>
-                      <span className="flex items-center gap-1"><Bookmark className="h-3 w-3" />{r.bookmark_count}</span>
+            {/* Most Viewed Resources table */}
+            {topViewed.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Most Viewed Resources</p>
+                </div>
+                <div className="space-y-2">
+                  {topViewed.map((r, idx) => (
+                    <div key={r.id} className="space-y-1">
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-xs text-muted-foreground/60 w-4 shrink-0 text-right">{idx + 1}</span>
+                          <p className="text-foreground truncate">{r.title}</p>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1 text-primary font-medium">
+                            <Eye className="h-3 w-3" />{r.view_count}
+                          </span>
+                          <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-status-complete" />{r.completion_count}</span>
+                          <span className="flex items-center gap-1"><Bookmark className="h-3 w-3 text-primary/60" />{r.bookmark_count}</span>
+                        </div>
+                      </div>
+                      {/* View bar */}
+                      <div className="ml-6 h-1 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary/50 transition-all"
+                          style={{ width: `${Math.round((r.view_count / maxViews) * 100)}%` }}
+                        />
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
