@@ -132,7 +132,7 @@ export default function DocumentHub({ isAdmin = false, onAcknowledged }: Documen
         userId={user?.id ?? ''}
         acknowledgment={getAck(viewingDoc.id)}
         onBack={() => setViewingDoc(null)}
-        onAcknowledged={() => { fetchAcknowledgments(); setViewingDoc(null); }}
+        onAcknowledged={() => { fetchAcknowledgments(); setViewingDoc(null); onAcknowledged?.(); }}
       />
     );
   }
