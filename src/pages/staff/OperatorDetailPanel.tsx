@@ -85,6 +85,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [showICABuilder, setShowICABuilder] = useState(false);
   const [showICAView, setShowICAView] = useState(false);
   const [applicationData, setApplicationData] = useState<any>(null);
+  const [icaDraftUpdatedAt, setIcaDraftUpdatedAt] = useState<string | null>(null);
   const [cdlExpiration, setCdlExpiration] = useState<string | null>(null);
   const [medCertExpiration, setMedCertExpiration] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
@@ -192,6 +193,20 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     fetchDispatchHistory();
     fetchCertHistory();
   }, [operatorId]);
+
+  // Fetch ICA draft updated_at when ica_status is in_progress
+  useEffect(() => {
+    if (status.ica_status !== 'in_progress') { setIcaDraftUpdatedAt(null); return; }
+    supabase
+      .from('ica_contracts' as any)
+      .select('updated_at')
+      .eq('operator_id', operatorId)
+      .eq('status', 'draft')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setIcaDraftUpdatedAt((data as any)?.updated_at ?? null));
+  }, [operatorId, status.ica_status]);
 
   // When parent pushes refreshed expiry values (e.g. after drawer save), update local state instantly
   useEffect(() => {
@@ -953,7 +968,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const resultOptions = [{ value: 'pending', label: 'Pending' }, { value: 'clear', label: 'Clear' }, { value: 'non_clear', label: 'Non-Clear' }];
   const docOptions = [{ value: 'not_started', label: 'Not Started' }, { value: 'requested', label: 'Requested' }, { value: 'received', label: 'Received' }];
   const regOptions = [{ value: 'own_registration', label: 'Own Registration' }, { value: 'needs_mo_reg', label: 'Needs MO Reg' }];
-  const icaOptions = [{ value: 'not_issued', label: 'Not Issued' }, { value: 'sent_for_signature', label: 'Sent for Signature' }, { value: 'complete', label: 'Complete' }];
+  const icaOptions = [{ value: 'not_issued', label: 'Not Issued' }, { value: 'in_progress', label: 'In Progress (Draft)' }, { value: 'sent_for_signature', label: 'Sent for Signature' }, { value: 'complete', label: 'Complete' }];
   const moDocsOptions = [{ value: 'not_submitted', label: 'Not Submitted' }, { value: 'submitted', label: 'Submitted' }];
   const moRegOptions = [{ value: 'not_yet', label: 'Not Yet' }, { value: 'yes', label: 'Yes' }];
   const methodOptions = [{ value: 'ar_shop_install', label: 'AR Shop Install' }, { value: 'ups_self_install', label: 'UPS Self-Install' }];
@@ -1890,15 +1905,40 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 PE Screening must be Clear before sending ICA.
               </div>
             )}
+
+            {/* In-progress draft banner */}
+            {status.ica_status === 'in_progress' && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-[hsl(var(--status-progress)/0.1)] border border-[hsl(var(--status-progress)/0.3)]">
+                <Clock className="h-3.5 w-3.5 text-status-progress shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-status-progress">ICA draft in progress</p>
+                  {icaDraftUpdatedAt && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Last saved {formatDistanceToNow(new Date(icaDraftUpdatedAt), { addSuffix: true })}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {status.pe_screening_result === 'clear' && status.ica_status !== 'complete' && (
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full border-gold text-gold hover:bg-gold/10 text-xs gap-1.5"
+                className={`w-full text-xs gap-1.5 ${
+                  status.ica_status === 'in_progress'
+                    ? 'border-status-progress text-status-progress hover:bg-[hsl(var(--status-progress)/0.1)]'
+                    : 'border-gold text-gold hover:bg-gold/10'
+                }`}
                 onClick={() => setShowICABuilder(true)}
               >
-                <FilePen className="h-3.5 w-3.5" />
-                {status.ica_status === 'sent_for_signature' ? 'View / Edit ICA' : 'Prepare & Send ICA'}
+                {status.ica_status === 'in_progress' ? (
+                  <><Clock className="h-3.5 w-3.5" /> Continue ICA Draft</>
+                ) : status.ica_status === 'sent_for_signature' ? (
+                  <><FilePen className="h-3.5 w-3.5" /> View / Edit ICA</>
+                ) : (
+                  <><FilePen className="h-3.5 w-3.5" /> Prepare ICA</>
+                )}
               </Button>
             )}
             {status.ica_status === 'complete' && (
@@ -1930,8 +1970,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               </Button>
             )}
 
-            {/* Void ICA — available when a contract has been issued (sent or complete) */}
-            {(status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
+            {/* Void ICA — available when a contract has been issued or is in-progress draft */}
+            {(status.ica_status === 'in_progress' || status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
               <div className="pt-1 border-t border-border">
                 {!showVoidConfirm ? (
                   <Button
@@ -1941,12 +1981,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     onClick={() => setShowVoidConfirm(true)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                    Void ICA &amp; Re-issue
+                    {status.ica_status === 'in_progress' ? 'Discard Draft' : 'Void ICA & Re-issue'}
                   </Button>
                 ) : (
                   <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/30 space-y-3">
                     <p className="text-xs font-medium text-destructive">
-                      ⚠ This will permanently delete the current ICA contract and reset the status to "Not Issued". This cannot be undone.
+                      {status.ica_status === 'in_progress'
+                        ? '⚠ This will delete the in-progress draft and reset status to "Not Issued".'
+                        : '⚠ This will permanently delete the current ICA contract and reset the status to "Not Issued". This cannot be undone.'}
                     </p>
                     <div className="flex gap-2">
                       <Button
@@ -1957,7 +1999,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         disabled={voidingICA}
                       >
                         <Trash2 className="h-3 w-3" />
-                        {voidingICA ? 'Voiding…' : 'Yes, Void ICA'}
+                        {voidingICA ? 'Discarding…' : status.ica_status === 'in_progress' ? 'Yes, Discard' : 'Yes, Void ICA'}
                       </Button>
                       <Button
                         size="sm"
@@ -2266,10 +2308,34 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           operatorName={operatorName}
           operatorEmail={operatorEmail}
           applicationData={applicationData}
-          onClose={() => setShowICABuilder(false)}
+          onClose={async () => {
+            setShowICABuilder(false);
+            // Refresh ICA status + draft timestamp in case Save & Close was used
+            const { data: os } = await supabase
+              .from('onboarding_status')
+              .select('ica_status')
+              .eq('operator_id', operatorId)
+              .maybeSingle();
+            if (os?.ica_status) {
+              updateStatus('ica_status', (os as any).ica_status);
+              savedMilestones.current.ica_status = (os as any).ica_status;
+            }
+            // Fetch draft updated_at for banner
+            const { data: draft } = await supabase
+              .from('ica_contracts' as any)
+              .select('updated_at')
+              .eq('operator_id', operatorId)
+              .eq('status', 'draft')
+              .order('updated_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            setIcaDraftUpdatedAt((draft as any)?.updated_at ?? null);
+          }}
           onSent={() => {
             setShowICABuilder(false);
             updateStatus('ica_status', 'sent_for_signature');
+            savedMilestones.current.ica_status = 'sent_for_signature';
+            setIcaDraftUpdatedAt(null);
             toast({ title: 'ICA sent', description: `${operatorName} will be notified to review and sign.` });
           }}
         />

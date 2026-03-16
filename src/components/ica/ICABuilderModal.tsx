@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { X, ChevronRight, ChevronLeft, Save, Send, FileText, Pen } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Save, Send, FileText, Pen, Clock } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import ICADocumentView from './ICADocumentView';
 
@@ -62,6 +62,8 @@ export default function ICABuilderModal({
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [contractId, setContractId] = useState<string | null>(null);
+  const [draftResumed, setDraftResumed] = useState(false);
+  const [draftLastSaved, setDraftLastSaved] = useState<string | null>(null);
 
   const carrierSigRef = useRef<SignatureCanvas>(null);
   const [carrierTypedName, setCarrierTypedName] = useState('');
@@ -92,6 +94,53 @@ export default function ICABuilderModal({
   const set = (field: keyof ICAData, value: string | number) =>
     setData(prev => ({ ...prev, [field]: value }));
 
+  // ── Load existing draft on mount ──────────────────────────────────────────
+  useEffect(() => {
+    const loadDraft = async () => {
+      const { data: existing } = await supabase
+        .from('ica_contracts' as any)
+        .select('*')
+        .eq('operator_id', operatorId)
+        .in('status', ['draft', 'sent_to_operator'])
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!existing) return;
+      const row = existing as any;
+
+      setContractId(row.id);
+      setDraftResumed(true);
+      setDraftLastSaved(row.updated_at ?? null);
+
+      setData({
+        truck_year: row.truck_year ?? new Date().getFullYear().toString(),
+        truck_make: row.truck_make ?? '',
+        truck_model: row.truck_model ?? '',
+        truck_vin: row.truck_vin ?? '',
+        truck_plate: row.truck_plate ?? '',
+        truck_plate_state: row.truck_plate_state ?? applicationData?.address_state ?? 'MO',
+        trailer_number: row.trailer_number ?? '',
+        owner_business_name: row.owner_business_name ?? operatorName,
+        owner_ein_ssn: row.owner_ein_ssn ?? '',
+        owner_address: row.owner_address ?? applicationData?.address_street ?? '',
+        owner_city: row.owner_city ?? applicationData?.address_city ?? '',
+        owner_state: row.owner_state ?? applicationData?.address_state ?? '',
+        owner_zip: row.owner_zip ?? applicationData?.address_zip ?? '',
+        owner_phone: row.owner_phone ?? applicationData?.phone ?? '',
+        owner_email: row.owner_email ?? applicationData?.email ?? operatorEmail,
+        linehaul_split_pct: row.linehaul_split_pct ?? 72,
+        lease_effective_date: row.lease_effective_date ?? new Date().toISOString().split('T')[0],
+        lease_termination_date: row.lease_termination_date ?? '',
+        equipment_location: row.equipment_location ?? 'Pleasant Hill, MO',
+      });
+
+      if (row.carrier_typed_name) setCarrierTypedName(row.carrier_typed_name);
+      if (row.carrier_title) setCarrierTitle(row.carrier_title);
+    };
+    loadDraft();
+  }, [operatorId]);
+
   const uploadSignature = async (sigRef: React.RefObject<SignatureCanvas>, folder: string) => {
     if (!sigRef.current || sigRef.current.isEmpty()) return null;
     const dataUrl = sigRef.current.toDataURL('image/png');
@@ -99,14 +148,14 @@ export default function ICABuilderModal({
     const path = `${folder}/${operatorId}-${Date.now()}.png`;
     const { error } = await supabase.storage.from('ica-signatures').upload(path, blob, { contentType: 'image/png', upsert: true });
     if (error) throw error;
-    // Store the storage path, not a public URL (bucket is private)
     return path;
   };
 
-  const handleSaveAndSend = async () => {
+  // ── Save & Close (in_progress) — available on every step ─────────────────
+  const handleSaveAndClose = async () => {
     setSaving(true);
     try {
-      // Upload carrier signature
+      // Upload carrier sig if already signed
       let carrierSigUrl: string | null = null;
       if (carrierSigRef.current && !carrierSigRef.current.isEmpty()) {
         carrierSigUrl = await uploadSignature(carrierSigRef, 'carrier');
@@ -115,7 +164,53 @@ export default function ICABuilderModal({
       const payload = {
         operator_id: operatorId,
         ...data,
-        // Coerce empty date strings to null so Postgres doesn't reject them
+        lease_effective_date: data.lease_effective_date || null,
+        lease_termination_date: data.lease_termination_date || null,
+        carrier_typed_name: carrierTypedName || null,
+        carrier_title: carrierTitle || null,
+        ...(carrierSigUrl ? { carrier_signature_url: carrierSigUrl } : {}),
+        status: 'draft',
+      };
+
+      let result;
+      if (contractId) {
+        result = await supabase.from('ica_contracts' as any).update(payload).eq('id', contractId).select().single();
+      } else {
+        result = await supabase.from('ica_contracts' as any).insert(payload).select().single();
+      }
+      if (result.error) throw result.error;
+      if (!contractId) setContractId((result.data as any).id);
+
+      // Set ica_status = 'in_progress' on onboarding_status
+      const { data: os } = await supabase
+        .from('onboarding_status')
+        .select('id, ica_status')
+        .eq('operator_id', operatorId)
+        .maybeSingle();
+      if (os?.id && os.ica_status === 'not_issued') {
+        await supabase.from('onboarding_status').update({ ica_status: 'in_progress' as any }).eq('id', os.id);
+      }
+
+      toast({ title: 'Draft saved', description: 'ICA is saved as "In Progress". You can continue anytime.' });
+      onClose();
+    } catch (err: any) {
+      toast({ title: 'Error saving draft', description: err.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAndSend = async () => {
+    setSaving(true);
+    try {
+      let carrierSigUrl: string | null = null;
+      if (carrierSigRef.current && !carrierSigRef.current.isEmpty()) {
+        carrierSigUrl = await uploadSignature(carrierSigRef, 'carrier');
+      }
+
+      const payload = {
+        operator_id: operatorId,
+        ...data,
         lease_effective_date: data.lease_effective_date || null,
         lease_termination_date: data.lease_termination_date || null,
         carrier_typed_name: carrierTypedName,
@@ -189,7 +284,6 @@ export default function ICABuilderModal({
           },
         });
       } catch (notifErr) {
-        // Non-blocking — notification failure should not prevent the send from completing
         console.warn('Notification send failed:', notifErr);
       }
 
@@ -202,6 +296,7 @@ export default function ICABuilderModal({
     }
   };
 
+  // Legacy silent save (used internally when progressing steps)
   const handleSaveDraft = async () => {
     setSaving(true);
     try {
@@ -240,6 +335,21 @@ export default function ICABuilderModal({
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {/* Resuming draft banner */}
+        {draftResumed && (
+          <div className="flex items-center gap-2 px-6 py-2.5 bg-amber-500/10 border-b border-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
+            <Clock className="h-3.5 w-3.5 shrink-0" />
+            <span className="text-xs font-medium">
+              Resuming saved draft
+              {draftLastSaved && (
+                <span className="font-normal text-amber-600/70 dark:text-amber-400/70 ml-1">
+                  — last saved {new Date(draftLastSaved).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                </span>
+              )}
+            </span>
+          </div>
+        )}
 
         {/* Step indicators */}
         <div className="flex items-center gap-0 px-6 pt-4 pb-3 shrink-0 border-b border-border">
@@ -421,11 +531,17 @@ export default function ICABuilderModal({
                 <ChevronLeft className="h-4 w-4" /> Back
               </Button>
             )}
-            {step === 0 && (
-              <Button variant="ghost" size="sm" onClick={handleSaveDraft} disabled={saving} className="text-muted-foreground">
-                <Save className="h-4 w-4 mr-1.5" /> Save Draft
-              </Button>
-            )}
+            {/* Save & Close available on every step */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSaveAndClose}
+              disabled={saving}
+              className="text-muted-foreground hover:text-foreground gap-1.5"
+            >
+              <Save className="h-4 w-4" />
+              {saving ? 'Saving…' : 'Save & Close'}
+            </Button>
           </div>
 
           <div className="flex gap-2">
