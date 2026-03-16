@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 
 interface DocumentHubProps {
   isAdmin?: boolean;
+  onAcknowledged?: () => void;
 }
 
 type AdminTab = 'documents' | 'compliance';
