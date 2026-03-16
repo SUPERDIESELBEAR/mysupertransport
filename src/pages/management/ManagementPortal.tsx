@@ -17,7 +17,7 @@ import DispatchPortal from '../dispatch/DispatchPortal';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
-  Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library,
+  Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Layers,
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
