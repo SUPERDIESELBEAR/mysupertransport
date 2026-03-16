@@ -58,6 +58,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [roleSwitchOpen, setRoleSwitchOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
 
   const displayName = profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() : 'User';
   const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??';
