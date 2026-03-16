@@ -51,7 +51,8 @@ function buildEmail(subject: string, heading: string, body: string, cta?: { labe
 </html>`;
 }
 
-async function sendEmail(to: string, subject: string, html: string, resendKey: string): Promise<void> {
+/** Returns true on success, false on failure (throws never) */
+async function sendEmail(to: string, subject: string, html: string, resendKey: string): Promise<boolean> {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -67,9 +68,14 @@ async function sendEmail(to: string, subject: string, html: string, resendKey: s
   });
   if (!res.ok) {
     const err = await res.text();
-    console.warn(`[notify-document-update] Resend warning [${res.status}] to ${to}: ${err}`);
+    console.warn(`[notify-document-update] Resend error [${res.status}] to ${to}: ${err}`);
+    return false;
   }
+  return true;
 }
+
+/** Wait ms milliseconds */
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 interface Payload {
   /** 'published' = brand-new doc made visible | 'updated' = existing doc content changed */
