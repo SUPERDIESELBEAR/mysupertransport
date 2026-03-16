@@ -181,13 +181,13 @@ export default function ICABuilderModal({
       if (result.error) throw result.error;
       if (!contractId) setContractId((result.data as any).id);
 
-      // Set ica_status = 'in_progress' on onboarding_status
+      // Set ica_status = 'in_progress' on onboarding_status (only if not already sent/complete)
       const { data: os } = await supabase
         .from('onboarding_status')
         .select('id, ica_status')
         .eq('operator_id', operatorId)
         .maybeSingle();
-      if (os?.id && os.ica_status === 'not_issued') {
+      if (os?.id && (os.ica_status === 'not_issued' || os.ica_status === 'in_progress')) {
         await supabase.from('onboarding_status').update({ ica_status: 'in_progress' as any }).eq('id', os.id);
       }
 
