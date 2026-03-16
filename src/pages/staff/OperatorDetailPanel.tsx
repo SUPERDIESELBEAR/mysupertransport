@@ -194,6 +194,20 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     fetchCertHistory();
   }, [operatorId]);
 
+  // Fetch ICA draft updated_at when ica_status is in_progress
+  useEffect(() => {
+    if (status.ica_status !== 'in_progress') { setIcaDraftUpdatedAt(null); return; }
+    supabase
+      .from('ica_contracts' as any)
+      .select('updated_at')
+      .eq('operator_id', operatorId)
+      .eq('status', 'draft')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setIcaDraftUpdatedAt((data as any)?.updated_at ?? null));
+  }, [operatorId, status.ica_status]);
+
   // When parent pushes refreshed expiry values (e.g. after drawer save), update local state instantly
   useEffect(() => {
     if (!expiryOverride) return;
