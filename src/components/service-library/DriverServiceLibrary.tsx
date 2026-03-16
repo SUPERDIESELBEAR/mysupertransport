@@ -182,88 +182,96 @@ export default function DriverServiceLibrary() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Service Library</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Setup guides, tutorials, and support for every tool you use.</p>
-        </div>
-        <Button
-          variant={view === 'bookmarks' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setView(view === 'bookmarks' ? 'home' : 'bookmarks')}
-          className="gap-2 shrink-0"
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Service Library</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Setup guides, tutorials, and support for every tool you use.</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b border-border">
+        <button
+          onClick={() => setView('home')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            view !== 'bookmarks'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+          }`}
+        >
+          <BookOpen className="h-4 w-4" />
+          Browse Library
+        </button>
+        <button
+          onClick={() => setView('bookmarks')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            view === 'bookmarks'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+          }`}
         >
           <Bookmark className="h-4 w-4" />
           My Bookmarks
           {bookmarkedResources.length > 0 && (
-            <Badge className="ml-1 h-4 min-w-4 px-1 text-[10px] bg-primary text-primary-foreground">
+            <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-[10px] font-semibold bg-primary/15 text-primary">
               {bookmarkedResources.length}
-            </Badge>
+            </span>
           )}
-        </Button>
+        </button>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <Input
-          placeholder="Search services, guides, tutorials…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="pl-9 pr-9"
-        />
-        {search && (
-          <button
-            onClick={() => setSearch('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-
-      {/* Type filter */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {(['All', ...ALL_RESOURCE_TYPES] as const).map(t => (
-          <button
-            key={t}
-            onClick={() => setTypeFilter(t)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-              typeFilter === t
-                ? 'bg-foreground text-background border-foreground'
-                : 'bg-background text-muted-foreground border-border hover:border-foreground/40 hover:text-foreground'
-            }`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {/* Bookmarks view */}
+      {/* Bookmarks tab content */}
       {view === 'bookmarks' && (
-        <div className="space-y-3">
-          <h2 className="text-base font-semibold text-foreground">My Bookmarks</h2>
-          {bookmarkedResources.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground">
-              <Bookmark className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p>No bookmarks yet. Bookmark resources to find them quickly.</p>
+        <div className="space-y-4">
+          {loading ? (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+            </div>
+          ) : bookmarkedResources.length === 0 ? (
+            <div className="py-16 text-center text-muted-foreground">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
+                <Bookmark className="h-7 w-7 opacity-40" />
+              </div>
+              <p className="font-medium text-foreground mb-1">No bookmarks yet</p>
+              <p className="text-sm">Tap the bookmark icon on any resource to save it here for quick access.</p>
             </div>
           ) : (
-            bookmarkedResources.map(r => {
-              const svc = services.find(s => s.id === r.service_id);
-              return (
-                <ResourceCard
-                  key={r.id}
-                  resource={{ ...r, is_bookmarked: true, is_completed: completions.has(r.id) }}
-                  service={svc}
-                  onClick={() => {
-                    setSelectedResource(r);
-                    setSelectedService(svc ?? null);
-                    setView('resource');
-                  }}
-                />
-              );
-            })
+            <>
+              <p className="text-sm text-muted-foreground">{bookmarkedResources.length} saved resource{bookmarkedResources.length !== 1 ? 's' : ''}</p>
+              {/* Group by service */}
+              {(() => {
+                const grouped: Record<string, { svc: Service | undefined; resources: ServiceResource[] }> = {};
+                bookmarkedResources.forEach(r => {
+                  const svc = services.find(s => s.id === r.service_id);
+                  const key = r.service_id;
+                  if (!grouped[key]) grouped[key] = { svc, resources: [] };
+                  grouped[key].resources.push(r);
+                });
+                return Object.entries(grouped).map(([, { svc, resources }]) => (
+                  <div key={svc?.id ?? 'unknown'} className="space-y-2">
+                    <div className="flex items-center gap-2 py-1">
+                      {svc?.logo_url ? (
+                        <img src={svc.logo_url} alt="" className="h-5 w-5 rounded object-contain" />
+                      ) : (
+                        <BookOpen className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <span className="text-sm font-semibold text-foreground">{svc?.name ?? 'Unknown Service'}</span>
+                      <span className="text-xs text-muted-foreground ml-auto">{resources.length} saved</span>
+                    </div>
+                    {resources.map(r => (
+                      <ResourceCard
+                        key={r.id}
+                        resource={{ ...r, is_bookmarked: true, is_completed: completions.has(r.id) }}
+                        service={svc}
+                        onClick={() => {
+                          setSelectedResource(r);
+                          setSelectedService(svc ?? null);
+                          setView('resource');
+                        }}
+                      />
+                    ))}
+                  </div>
+                ));
+              })()}
+            </>
           )}
         </div>
       )}
