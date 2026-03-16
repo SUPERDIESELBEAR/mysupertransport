@@ -338,12 +338,12 @@ export default function ICABuilderModal({
 
         {/* Resuming draft banner */}
         {draftResumed && (
-          <div className="flex items-center gap-2 px-6 py-2.5 bg-amber-500/10 border-b border-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
+          <div className="flex items-center gap-2 px-6 py-2.5 bg-status-progress/10 border-b border-status-progress/20 text-status-progress shrink-0">
             <Clock className="h-3.5 w-3.5 shrink-0" />
             <span className="text-xs font-medium">
               Resuming saved draft
               {draftLastSaved && (
-                <span className="font-normal text-amber-600/70 dark:text-amber-400/70 ml-1">
+                <span className="font-normal opacity-70 ml-1">
                   — last saved {new Date(draftLastSaved).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                 </span>
               )}
