@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Bookmark, ChevronRight, Star, BookOpen, CheckCircle2, Circle, Clock, AlertTriangle, X } from 'lucide-react';
+import { Search, Bookmark, ChevronRight, Star, BookOpen, CheckCircle2, Circle, Clock, AlertTriangle, X, History } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,10 +10,16 @@ import ResourceViewer from './ResourceViewer';
 import ServiceDetailPage from './ServiceDetailPage';
 import type { Service, ServiceResource, ResourceType } from './ServiceLibraryTypes';
 import { ALL_RESOURCE_TYPES } from './ServiceLibraryTypes';
-import { differenceInDays, parseISO } from 'date-fns';
+import { differenceInDays, parseISO, formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
 type LibraryView = 'home' | 'service' | 'resource' | 'bookmarks';
+
+interface RecentView {
+  resource: ServiceResource;
+  service: Service | undefined;
+  viewed_at: string;
+}
 
 export default function DriverServiceLibrary() {
   const { user } = useAuth();
@@ -26,6 +32,7 @@ export default function DriverServiceLibrary() {
   const [allResources, setAllResources] = useState<ServiceResource[]>([]);
   const [completions, setCompletions] = useState<Set<string>>(new Set());
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
+  const [recentViews, setRecentViews] = useState<RecentView[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState('');
