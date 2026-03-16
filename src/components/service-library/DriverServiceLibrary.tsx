@@ -299,11 +299,7 @@ export default function DriverServiceLibrary() {
                         key={r.id}
                         resource={{ ...r, is_bookmarked: true, is_completed: completions.has(r.id) }}
                         service={svc}
-                        onClick={() => {
-                          setSelectedResource(r);
-                          setSelectedService(svc ?? null);
-                          setView('resource');
-                        }}
+                        onClick={() => openResource(r, svc ?? null)}
                       />
                     ))}
                   </div>
