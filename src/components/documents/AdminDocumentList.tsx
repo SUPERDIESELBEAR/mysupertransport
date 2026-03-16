@@ -202,22 +202,23 @@ export default function AdminDocumentList({
 
     // Persist new sort_order values to Supabase
     setSaving(true);
-    try {
-      await Promise.all(
-        reordered.map((doc, idx) =>
-          supabase
-            .from('driver_documents')
-            .update({ sort_order: idx })
-            .eq('id', doc.id),
-        ),
-      );
+    const results = await Promise.all(
+      reordered.map((doc, idx) =>
+        supabase
+          .from('driver_documents')
+          .update({ sort_order: idx })
+          .eq('id', doc.id),
+      ),
+    );
+    setSaving(false);
+
+    const failed = results.find(r => r.error);
+    if (failed) {
+      toast({ title: 'Failed to save order', description: failed.error?.message, variant: 'destructive' });
+      setItems(documents); // revert on failure
+    } else {
       toast({ title: 'Order saved ✓' });
       onRefresh();
-    } catch {
-      toast({ title: 'Failed to save order', variant: 'destructive' });
-      setItems(documents); // revert on failure
-    } finally {
-      setSaving(false);
     }
   };
 
