@@ -8,6 +8,11 @@ import logo from '@/assets/supertransport-logo.png';
 import type { Database } from '@/integrations/supabase/types';
 import NotificationBell from '@/components/NotificationBell';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
