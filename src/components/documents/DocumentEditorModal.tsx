@@ -324,6 +324,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                   saving={saving}
                   onSave={handleSave}
                   onClose={onClose}
+                  initialBody={doc?.body ?? ''}
                 />
               </TabsContent>
 
@@ -439,6 +440,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                 saving={saving}
                 onSave={handleSave}
                 onClose={onClose}
+                initialBody=""
               />
             </div>
           )}
@@ -477,9 +479,10 @@ interface EditFormProps {
   saving: boolean;
   onSave: () => void;
   onClose: () => void;
+  initialBody: string;
 }
 
-function EditForm({ form, setForm, doc, saving, onSave, onClose }: EditFormProps) {
+function EditForm({ form, setForm, doc, saving, onSave, onClose, initialBody }: EditFormProps) {
   return (
     <div className="space-y-5 pb-2">
       {/* Title */}
@@ -558,7 +561,7 @@ function EditForm({ form, setForm, doc, saving, onSave, onClose }: EditFormProps
         )}
         <TipTapEditor
           key={doc ? `${doc.id}-${doc.version}` : 'new'}
-          content={form.body}
+          content={initialBody}
           onChange={html => setForm(f => ({ ...f, body: html }))}
           placeholder="Paste content here or start writing…"
         />
