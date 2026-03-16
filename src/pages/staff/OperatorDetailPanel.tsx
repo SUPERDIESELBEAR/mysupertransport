@@ -1891,15 +1891,40 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 PE Screening must be Clear before sending ICA.
               </div>
             )}
+
+            {/* In-progress draft banner */}
+            {status.ica_status === 'in_progress' && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-[hsl(var(--status-progress)/0.1)] border border-[hsl(var(--status-progress)/0.3)]">
+                <Clock className="h-3.5 w-3.5 text-status-progress shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-status-progress">ICA draft in progress</p>
+                  {icaDraftUpdatedAt && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Last saved {formatDistanceToNow(new Date(icaDraftUpdatedAt), { addSuffix: true })}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {status.pe_screening_result === 'clear' && status.ica_status !== 'complete' && (
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full border-gold text-gold hover:bg-gold/10 text-xs gap-1.5"
+                className={`w-full text-xs gap-1.5 ${
+                  status.ica_status === 'in_progress'
+                    ? 'border-status-progress text-status-progress hover:bg-[hsl(var(--status-progress)/0.1)]'
+                    : 'border-gold text-gold hover:bg-gold/10'
+                }`}
                 onClick={() => setShowICABuilder(true)}
               >
-                <FilePen className="h-3.5 w-3.5" />
-                {status.ica_status === 'sent_for_signature' ? 'View / Edit ICA' : 'Prepare & Send ICA'}
+                {status.ica_status === 'in_progress' ? (
+                  <><Clock className="h-3.5 w-3.5" /> Continue ICA Draft</>
+                ) : status.ica_status === 'sent_for_signature' ? (
+                  <><FilePen className="h-3.5 w-3.5" /> View / Edit ICA</>
+                ) : (
+                  <><FilePen className="h-3.5 w-3.5" /> Prepare ICA</>
+                )}
               </Button>
             )}
             {status.ica_status === 'complete' && (
@@ -1931,8 +1956,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               </Button>
             )}
 
-            {/* Void ICA — available when a contract has been issued (sent or complete) */}
-            {(status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
+            {/* Void ICA — available when a contract has been issued or is in-progress draft */}
+            {(status.ica_status === 'in_progress' || status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
               <div className="pt-1 border-t border-border">
                 {!showVoidConfirm ? (
                   <Button
@@ -1942,12 +1967,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     onClick={() => setShowVoidConfirm(true)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                    Void ICA &amp; Re-issue
+                    {status.ica_status === 'in_progress' ? 'Discard Draft' : 'Void ICA & Re-issue'}
                   </Button>
                 ) : (
                   <div className="p-3 rounded-lg bg-destructive/5 border border-destructive/30 space-y-3">
                     <p className="text-xs font-medium text-destructive">
-                      ⚠ This will permanently delete the current ICA contract and reset the status to "Not Issued". This cannot be undone.
+                      {status.ica_status === 'in_progress'
+                        ? '⚠ This will delete the in-progress draft and reset status to "Not Issued".'
+                        : '⚠ This will permanently delete the current ICA contract and reset the status to "Not Issued". This cannot be undone.'}
                     </p>
                     <div className="flex gap-2">
                       <Button
@@ -1958,7 +1985,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         disabled={voidingICA}
                       >
                         <Trash2 className="h-3 w-3" />
-                        {voidingICA ? 'Voiding…' : 'Yes, Void ICA'}
+                        {voidingICA ? 'Discarding…' : status.ica_status === 'in_progress' ? 'Yes, Discard' : 'Yes, Void ICA'}
                       </Button>
                       <Button
                         size="sm"
