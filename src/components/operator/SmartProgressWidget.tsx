@@ -622,6 +622,7 @@ export default function SmartProgressWidget({
   operatorId,
   uploadedDocs = [],
   onUploadComplete,
+  unackedRequiredDocs = 0,
 }: SmartProgressWidgetProps) {
   const [whatsNextOpen, setWhatsNextOpen] = useState(false);
 
