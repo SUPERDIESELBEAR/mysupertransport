@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { differenceInDays, parseISO } from 'date-fns';
 import {
-  Plus, Pencil, Trash2, Eye, EyeOff, Star, GripVertical,
-  CheckCircle, Clock, AlertTriangle, ChevronDown, ChevronUp,
-  BookOpen, Users, Bookmark, HelpCircle, BarChart3,
+  Plus, Pencil, Trash2, GripVertical,
+  CheckCircle, AlertTriangle, ChevronDown, ChevronUp,
+  BookOpen, HelpCircle, BarChart3,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
