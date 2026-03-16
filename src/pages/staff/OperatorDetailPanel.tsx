@@ -2294,10 +2294,34 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           operatorName={operatorName}
           operatorEmail={operatorEmail}
           applicationData={applicationData}
-          onClose={() => setShowICABuilder(false)}
+          onClose={async () => {
+            setShowICABuilder(false);
+            // Refresh ICA status + draft timestamp in case Save & Close was used
+            const { data: os } = await supabase
+              .from('onboarding_status')
+              .select('ica_status')
+              .eq('operator_id', operatorId)
+              .maybeSingle();
+            if (os?.ica_status) {
+              updateStatus('ica_status', (os as any).ica_status);
+              savedMilestones.current.ica_status = (os as any).ica_status;
+            }
+            // Fetch draft updated_at for banner
+            const { data: draft } = await supabase
+              .from('ica_contracts' as any)
+              .select('updated_at')
+              .eq('operator_id', operatorId)
+              .eq('status', 'draft')
+              .order('updated_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            setIcaDraftUpdatedAt((draft as any)?.updated_at ?? null);
+          }}
           onSent={() => {
             setShowICABuilder(false);
             updateStatus('ica_status', 'sent_for_signature');
+            savedMilestones.current.ica_status = 'sent_for_signature';
+            setIcaDraftUpdatedAt(null);
             toast({ title: 'ICA sent', description: `${operatorName} will be notified to review and sign.` });
           }}
         />
