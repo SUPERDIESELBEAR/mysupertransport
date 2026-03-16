@@ -207,6 +207,7 @@ function InlineDocUpload({
 }) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState<SlotKey | null>(null);
+  const [justUploaded, setJustUploaded] = useState<Set<SlotKey>>(new Set());
   const fileRefs = useRef<Partial<Record<SlotKey, HTMLInputElement | null>>>({});
 
   // Only show slots that are currently requested by staff
@@ -247,8 +248,14 @@ function InlineDocUpload({
         file_url: fileUrl,
       });
 
+      // Trigger success flash animation, then refresh parent data
+      setJustUploaded(prev => new Set(prev).add(slotKey));
+      setTimeout(() => {
+        setJustUploaded(prev => { const n = new Set(prev); n.delete(slotKey); return n; });
+        onUploadComplete();
+      }, 1800);
+
       toast({ title: 'Document uploaded', description: `${slotLabel} has been submitted for review.` });
-      onUploadComplete();
     } catch (err: unknown) {
       toast({
         title: 'Upload failed',
