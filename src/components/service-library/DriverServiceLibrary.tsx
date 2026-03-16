@@ -277,6 +277,41 @@ export default function DriverServiceLibrary() {
 
       {view !== 'bookmarks' && (
         <>
+          {/* Search + type filter */}
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Search services, guides, tutorials…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {(['All', ...ALL_RESOURCE_TYPES] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setTypeFilter(t)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    typeFilter === t
+                      ? 'bg-foreground text-background border-foreground'
+                      : 'bg-background text-muted-foreground border-border hover:border-foreground/40 hover:text-foreground'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
           {/* Search results */}
           {searchResults !== null && (
             <div className="space-y-3">
