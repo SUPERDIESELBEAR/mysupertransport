@@ -557,6 +557,7 @@ function EditForm({ form, setForm, doc, saving, onSave, onClose }: EditFormProps
           </p>
         )}
         <TipTapEditor
+          key={doc?.id ?? 'new'}
           content={form.body}
           onChange={html => setForm(f => ({ ...f, body: html }))}
           placeholder="Paste content here or start writing…"
