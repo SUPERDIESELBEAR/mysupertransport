@@ -10,8 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "postinstall": "node -e \"const{execSync}=require('child_process');try{execSync('find node_modules/@tiptap -mindepth 3 -maxdepth 5 -name core -type d | xargs -I{} rm -rf {}',{stdio:\\'ignore\\'});execSync('find node_modules/@tiptap -mindepth 3 -maxdepth 5 -name pm -type d | xargs -I{} rm -rf {}',{stdio:\\'ignore\\'})}catch(e){}\""
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -47,13 +46,11 @@
     "@radix-ui/react-tooltip": "^1.2.7",
     "@supabase/supabase-js": "^2.98.0",
     "@tanstack/react-query": "^5.83.0",
-    "@tiptap/extension-blockquote": "^2.11.0",
-    "@tiptap/extension-heading": "^2.11.0",
-    "@tiptap/extension-horizontal-rule": "^2.11.0",
-    "@tiptap/extension-placeholder": "^2.11.0",
-    "@tiptap/pm": "^2.11.0",
-    "@tiptap/react": "^2.11.0",
-    "@tiptap/starter-kit": "^2.11.0",
+    "@tiptap/core": "^2.27.2",
+    "@tiptap/extension-placeholder": "^2.27.2",
+    "@tiptap/pm": "^2.27.2",
+    "@tiptap/react": "^2.27.2",
+    "@tiptap/starter-kit": "^2.27.2",
     "@types/dompurify": "3.0.5",
     "@types/react-signature-canvas": "^1.0.7",
     "class-variance-authority": "^0.7.1",
@@ -81,9 +78,9 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.0.0",
-    "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^22.16.5",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
@@ -101,9 +98,5 @@
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19",
     "vitest": "^3.2.4"
-  },
-  "overrides": {
-    "@tiptap/core": "2.11.0",
-    "@tiptap/pm": "2.11.0"
   }
 }
