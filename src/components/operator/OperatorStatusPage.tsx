@@ -363,6 +363,9 @@ export default function OperatorStatusPage({
         onboardingStatus={onboardingStatus}
         onNavigateTo={onNavigateTo}
         displayName={displayName}
+        operatorId={operatorId}
+        uploadedDocs={uploadedDocs}
+        onUploadComplete={onUploadComplete}
       />
     </div>
 
