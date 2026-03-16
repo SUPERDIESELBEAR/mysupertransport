@@ -1902,7 +1902,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             <SelectField label="ICA Status" field="ica_status" options={icaOptions} />
             {status.pe_screening_result !== 'clear' && (
               <div className="p-3 rounded-lg bg-status-action/10 border border-status-action/30 text-xs text-status-action">
-                PE Screening must be Clear before sending ICA.
+                PE Screening must be Clear before sending ICA. You can still prepare a draft.
               </div>
             )}
 
@@ -1921,7 +1921,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               </div>
             )}
 
-            {status.pe_screening_result === 'clear' && status.ica_status !== 'complete' && (
+            {status.ica_status !== 'complete' && (
               <Button
                 variant="outline"
                 size="sm"
