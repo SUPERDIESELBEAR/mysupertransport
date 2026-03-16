@@ -36,6 +36,7 @@ interface OnboardingChecklistProps {
   operatorId?: string | null;
   uploadedDocs?: { id: string; document_type: string; file_name: string | null; file_url: string | null; uploaded_at: string }[];
   onUploadComplete?: () => void;
+  unackedRequiredDocs?: number;
 }
 
 const STAGE_COLORS: Record<StageStatus, {

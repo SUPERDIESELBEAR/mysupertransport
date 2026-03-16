@@ -32,6 +32,7 @@ interface SmartProgressWidgetProps {
   operatorId?: string | null;
   uploadedDocs?: UploadedDoc[];
   onUploadComplete?: () => void;
+  unackedRequiredDocs?: number;
 }
 
 // ─── Per-stage knowledge base ─────────────────────────────────────────────────
