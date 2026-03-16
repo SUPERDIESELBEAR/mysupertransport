@@ -128,6 +128,7 @@ export default function StaffPortal() {
     { label: 'Pipeline', icon: <LayoutDashboard className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
     { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'messages', badge: unreadCount },
     { label: 'Doc Hub', icon: <Library className="h-4 w-4" />, path: 'docs-hub' },
+    { label: 'Service Library', icon: <Wrench className="h-4 w-4" />, path: 'service-library' },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
     { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
     { label: 'Notifications', icon: <Bell className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
