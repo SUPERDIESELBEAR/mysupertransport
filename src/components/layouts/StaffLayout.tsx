@@ -8,6 +8,11 @@ import logo from '@/assets/supertransport-logo.png';
 import type { Database } from '@/integrations/supabase/types';
 import NotificationBell from '@/components/NotificationBell';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -53,6 +58,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [roleSwitchOpen, setRoleSwitchOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
 
   const displayName = profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() : 'User';
   const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??';
@@ -177,7 +183,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
               <button
                 type="button"
                 data-sign-out="true"
-                onClick={() => { if (window.confirm('Sign out?')) signOut(); }}
+                onClick={() => setSignOutOpen(true)}
                 title="Sign out"
                 className="text-surface-dark-muted hover:text-destructive transition-colors p-1 rounded"
               >
@@ -193,6 +199,18 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
   return (
     <>
     <ChangePasswordModal open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
+    <AlertDialog open={signOutOpen} onOpenChange={setSignOutOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Sign out?</AlertDialogTitle>
+          <AlertDialogDescription>You will be returned to the login screen.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={() => signOut()}>Sign out</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     <div className="flex h-screen bg-secondary overflow-hidden">
       {/* ── Mobile overlay sidebar ─────────────────────────────────── */}
       {mobileSidebarOpen && (
