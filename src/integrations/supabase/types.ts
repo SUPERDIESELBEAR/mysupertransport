@@ -1179,6 +1179,219 @@ export type Database = {
         }
         Relationships: []
       }
+      service_help_requests: {
+        Row: {
+          created_at: string
+          id: string
+          message: string | null
+          resource_id: string | null
+          service_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          resource_id?: string | null
+          service_id: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          resource_id?: string | null
+          service_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_help_requests_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "service_resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_help_requests_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_resource_bookmarks: {
+        Row: {
+          created_at: string
+          id: string
+          resource_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          resource_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          resource_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_resource_bookmarks_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "service_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_resource_completions: {
+        Row: {
+          completed_at: string
+          id: string
+          resource_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          resource_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          resource_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_resource_completions_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "service_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_resources: {
+        Row: {
+          body: string | null
+          created_at: string
+          description: string | null
+          estimated_minutes: number | null
+          id: string
+          is_start_here: boolean
+          is_visible: boolean
+          last_verified_at: string | null
+          resource_type: string
+          service_id: string
+          sort_order: number
+          title: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          description?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          is_start_here?: boolean
+          is_visible?: boolean
+          last_verified_at?: string | null
+          resource_type: string
+          service_id: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          description?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          is_start_here?: boolean
+          is_visible?: boolean
+          last_verified_at?: string | null
+          resource_type?: string
+          service_id?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_resources_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      services: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_new_driver_essential: boolean
+          is_visible: boolean
+          known_issues_notes: string | null
+          logo_url: string | null
+          name: string
+          sort_order: number
+          support_chat_url: string | null
+          support_email: string | null
+          support_hours: string | null
+          support_phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_new_driver_essential?: boolean
+          is_visible?: boolean
+          known_issues_notes?: string | null
+          logo_url?: string | null
+          name: string
+          sort_order?: number
+          support_chat_url?: string | null
+          support_email?: string | null
+          support_hours?: string | null
+          support_phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_new_driver_essential?: boolean
+          is_visible?: boolean
+          known_issues_notes?: string | null
+          logo_url?: string | null
+          name?: string
+          sort_order?: number
+          support_chat_url?: string | null
+          support_email?: string | null
+          support_hours?: string | null
+          support_phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

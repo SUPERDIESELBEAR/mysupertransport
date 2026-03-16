@@ -10,6 +10,7 @@ import {
   ArrowRight, Library,
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
+import DriverServiceLibrary from '@/components/service-library/DriverServiceLibrary';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import NotificationHistory from '@/components/management/NotificationHistory';
 import logo from '@/assets/supertransport-logo.png';
@@ -25,7 +26,7 @@ import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub';
+type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'service-library';
 
 interface Stage {
   number: number;
@@ -52,7 +53,7 @@ export default function OperatorPortal() {
   const [view, setView] = useState<OperatorView>(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications','docs-hub'].includes(tab)) return tab;
+    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications','docs-hub','service-library'].includes(tab)) return tab;
     return 'progress';
   });
 
@@ -516,6 +517,7 @@ export default function OperatorPortal() {
     { view: 'progress' as OperatorView, label: 'My Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
     { view: 'documents' as OperatorView, label: 'Documents', icon: <Upload className="h-5 w-5" /> },
     { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
+    { view: 'service-library' as OperatorView, label: 'Service Library', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete', icaDot: icaActionDot },
     { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
@@ -978,6 +980,9 @@ export default function OperatorPortal() {
 
         {/* ── ICA SIGNING VIEW ── */}
         {view === 'ica' && <OperatorICASign />}
+
+        {/* ── SERVICE LIBRARY VIEW ── */}
+        {view === 'service-library' && <DriverServiceLibrary />}
 
         {/* ── NOTIFICATIONS VIEW ── */}
         {view === 'notifications' && <NotificationHistory />}
