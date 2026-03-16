@@ -183,7 +183,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
               <button
                 type="button"
                 data-sign-out="true"
-                onClick={() => { if (window.confirm('Sign out?')) signOut(); }}
+                onClick={() => setSignOutOpen(true)}
                 title="Sign out"
                 className="text-surface-dark-muted hover:text-destructive transition-colors p-1 rounded"
               >
