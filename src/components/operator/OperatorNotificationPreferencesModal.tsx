@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell, Truck, MessageCircle, Check, Loader2, Monitor, ShieldAlert } from 'lucide-react';
+import { Bell, Truck, MessageCircle, Check, Loader2, Monitor, ShieldAlert, ClipboardList } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Switch } from '@/components/ui/switch';
@@ -23,6 +23,14 @@ interface EventTypeDef {
 }
 
 const OPERATOR_EVENT_TYPES: EventTypeDef[] = [
+  {
+    type: 'onboarding_update',
+    label: 'Onboarding Updates',
+    description: 'When your coordinator reviews documents, approves checks, sends your ICA, or advances your onboarding stage',
+    icon: ClipboardList,
+    iconBg: 'bg-primary/10',
+    iconColor: 'text-primary',
+  },
   {
     type: 'dispatch_status_change',
     label: 'Dispatch Status Update',
