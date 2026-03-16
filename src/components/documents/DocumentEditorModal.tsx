@@ -167,7 +167,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
         return;
       }
 
-      // Notify drivers who previously acknowledged this doc
+      // Notify drivers who previously acknowledged this doc (in-app + email)
       if (form.is_visible) {
         const { data: acks } = await supabase
           .from('document_acknowledgments')
@@ -176,6 +176,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
 
         if (acks && acks.length > 0) {
           const uniqueUserIds = [...new Set(acks.map(a => a.user_id))];
+          // In-app notifications
           await Promise.all(
             uniqueUserIds.map(uid =>
               supabase.from('notifications').insert({
@@ -188,6 +189,15 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
               })
             )
           );
+          // Branded email notification (fire-and-forget)
+          supabase.functions.invoke('notify-document-update', {
+            body: {
+              event_type: 'updated',
+              document_title: form.title,
+              document_description: form.description || undefined,
+              acknowledged_user_ids: uniqueUserIds,
+            },
+          }).catch(e => console.warn('[notify-document-update] invoke error:', e));
         }
       }
 
@@ -205,10 +215,11 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
         return;
       }
 
-      // If visible on creation, notify all operators
+      // If visible on creation, notify all operators (in-app + email)
       if (form.is_visible && data) {
         const { data: operators } = await supabase.from('operators').select('user_id');
-        if (operators) {
+        if (operators && operators.length > 0) {
+          // In-app notifications
           await Promise.all(
             operators.map(op =>
               supabase.from('notifications').insert({
@@ -221,6 +232,14 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
               })
             )
           );
+          // Branded email notification (fire-and-forget)
+          supabase.functions.invoke('notify-document-update', {
+            body: {
+              event_type: 'published',
+              document_title: form.title,
+              document_description: form.description || undefined,
+            },
+          }).catch(e => console.warn('[notify-document-update] invoke error:', e));
         }
       }
 
