@@ -1266,7 +1266,11 @@ export type Database = {
         | "equipment"
         | "dispatch_operations"
         | "general_owner_operator"
-      ica_status: "not_issued" | "sent_for_signature" | "complete"
+      ica_status:
+        | "not_issued"
+        | "in_progress"
+        | "sent_for_signature"
+        | "complete"
       install_method: "ar_shop_install" | "ups_self_install"
       mo_docs_status: "not_submitted" | "submitted"
       mo_reg_status: "not_yet" | "yes"
@@ -1442,7 +1446,12 @@ export const Constants = {
         "dispatch_operations",
         "general_owner_operator",
       ],
-      ica_status: ["not_issued", "sent_for_signature", "complete"],
+      ica_status: [
+        "not_issued",
+        "in_progress",
+        "sent_for_signature",
+        "complete",
+      ],
       install_method: ["ar_shop_install", "ups_self_install"],
       mo_docs_status: ["not_submitted", "submitted"],
       mo_reg_status: ["not_yet", "yes"],

@@ -1,0 +1,1 @@
+ALTER TYPE public.ica_status ADD VALUE 'in_progress' AFTER 'not_issued';
