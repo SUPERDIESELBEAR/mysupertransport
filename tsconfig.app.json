@@ -19,7 +19,11 @@
     "paths": {
       "@/*": [
         "./src/*"
-      ]
+      ],
+      "@tiptap/core": ["./node_modules/@tiptap/core"],
+      "@tiptap/core/*": ["./node_modules/@tiptap/core/*"],
+      "@tiptap/pm": ["./node_modules/@tiptap/pm"],
+      "@tiptap/pm/*": ["./node_modules/@tiptap/pm/*"]
     },
     "skipLibCheck": true,
     "strict": false,

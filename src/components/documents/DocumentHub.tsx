@@ -47,8 +47,11 @@ export default function DocumentHub({ isAdmin = false, onAcknowledged }: Documen
     }
 
     const { data } = await query;
-    setDocuments((data ?? []) as DriverDocument[]);
+    const fresh = (data ?? []) as DriverDocument[];
+    setDocuments(fresh);
     setLoading(false);
+    // Re-sync the open editor doc so body content is never stale
+    setEditDoc(prev => prev ? (fresh.find(d => d.id === prev.id) ?? prev) : null);
   }, [isAdmin]);
 
   const fetchAcknowledgments = useCallback(async () => {

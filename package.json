@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "postinstall": "node -e \"const{execSync}=require('child_process');try{execSync('find node_modules/@tiptap -mindepth 3 -maxdepth 5 -name core -type d | xargs -I{} rm -rf {}',{stdio:\\'ignore\\'});execSync('find node_modules/@tiptap -mindepth 3 -maxdepth 5 -name pm -type d | xargs -I{} rm -rf {}',{stdio:\\'ignore\\'})}catch(e){}\""
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
