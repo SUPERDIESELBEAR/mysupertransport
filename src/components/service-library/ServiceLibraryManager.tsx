@@ -396,10 +396,9 @@ function ResourceAdminRow({ resource, onEdit, onDelete, onToggleVisible, onToggl
   onToggleStartHere: () => void;
   onMarkVerified: () => void;
 }) {
-  const { differenceInDays: diff, parseISO: parse } = require('date-fns');
   const isOutdated = resource.last_verified_at
-    ? diff(new Date(), parseISO(resource.last_verified_at)) > 90
-    : !resource.last_verified_at;
+    ? differenceInDays(new Date(), parseISO(resource.last_verified_at)) > 90
+    : true;
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card">
