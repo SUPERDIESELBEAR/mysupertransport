@@ -283,12 +283,20 @@ function InlineDocUpload({
         {requestedSlots.map(slot => {
           const uploaded = getUploaded(slot.key);
           const isUploading = uploading === slot.key;
-          const hasUploaded = uploaded.length > 0;
+          const isSuccess = justUploaded.has(slot.key);
+          const hasUploaded = uploaded.length > 0 || isSuccess;
 
           return (
-            <div key={slot.key} className="flex items-center gap-3 px-3 py-2.5">
+            <div
+              key={slot.key}
+              className={`flex items-center gap-3 px-3 py-2.5 transition-colors duration-500 ${
+                isSuccess ? 'bg-status-complete/10' : ''
+              }`}
+            >
               {/* Status icon */}
-              {hasUploaded ? (
+              {isSuccess ? (
+                <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0 animate-fade-in" />
+              ) : hasUploaded ? (
                 <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />
               ) : (
                 <AlertTriangle className={`h-4 w-4 shrink-0 ${isActionRequired ? 'text-destructive' : 'text-gold'}`} />
@@ -296,14 +304,20 @@ function InlineDocUpload({
 
               {/* Label + uploaded filename */}
               <div className="flex-1 min-w-0">
-                <p className={`text-xs font-semibold leading-tight ${hasUploaded ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                <p className={`text-xs font-semibold leading-tight transition-colors duration-300 ${
+                  isSuccess ? 'text-status-complete' : hasUploaded ? 'text-muted-foreground line-through' : 'text-foreground'
+                }`}>
                   {slot.label}
                 </p>
-                {hasUploaded && (
+                {isSuccess ? (
+                  <p className="text-[10px] text-status-complete mt-0.5 font-semibold animate-fade-in">
+                    ✓ Submitted for review
+                  </p>
+                ) : hasUploaded && uploaded.length > 0 ? (
                   <p className="text-[10px] text-status-complete mt-0.5 truncate">
                     ✓ {uploaded[uploaded.length - 1].file_name ?? 'Uploaded'}
                   </p>
-                )}
+                ) : null}
               </div>
 
               {/* Upload button */}
@@ -321,10 +335,12 @@ function InlineDocUpload({
               <Button
                 size="sm"
                 variant={hasUploaded ? 'outline' : 'default'}
-                disabled={isUploading}
+                disabled={isUploading || isSuccess}
                 onClick={() => fileRefs.current[slot.key]?.click()}
-                className={`shrink-0 text-xs h-8 px-3 gap-1.5 font-semibold ${
-                  !hasUploaded
+                className={`shrink-0 text-xs h-8 px-3 gap-1.5 font-semibold transition-all duration-300 ${
+                  isSuccess
+                    ? 'border-status-complete text-status-complete bg-status-complete/10'
+                    : !hasUploaded
                     ? isActionRequired
                       ? 'bg-destructive text-white hover:bg-destructive/90'
                       : 'bg-gold text-surface-dark hover:bg-gold-light'
@@ -333,10 +349,12 @@ function InlineDocUpload({
               >
                 {isUploading ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : isSuccess ? (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
                 ) : (
                   <Upload className="h-3.5 w-3.5" />
                 )}
-                {isUploading ? 'Uploading…' : hasUploaded ? 'Replace' : 'Upload'}
+                {isUploading ? 'Uploading…' : isSuccess ? 'Uploaded!' : hasUploaded ? 'Replace' : 'Upload'}
               </Button>
             </div>
           );
