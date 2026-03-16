@@ -164,6 +164,251 @@ const STAGE_INFO: Record<number, StageInfo> = {
   },
 };
 
+// ─── What's Next? modal data ───────────────────────────────────────────────────
+
+interface WhatsNextStep {
+  label: string;
+  detail: string;
+  who: 'operator' | 'coordinator';
+  actionLabel?: string;
+  actionView?: string;
+}
+
+interface WhatsNextStage {
+  number: number;
+  title: string;
+  icon: 'shield' | 'upload' | 'file' | 'zap' | 'insurance';
+  summary: string;
+  steps: WhatsNextStep[];
+}
+
+const WHATS_NEXT_STAGES: WhatsNextStage[] = [
+  {
+    number: 1,
+    title: 'Background Screening',
+    icon: 'shield',
+    summary: 'Safety checks before you can drive. Your coordinator handles the submissions — you just need to show up for the drug screening.',
+    steps: [
+      { label: 'MVR check submitted', detail: 'Your coordinator requests your Motor Vehicle Record from the state. No action needed from you.', who: 'coordinator' },
+      { label: 'Clearinghouse check submitted', detail: 'A federal drug & alcohol violation check is run through FMCSA. Coordinator handles this too.', who: 'coordinator' },
+      { label: 'Results received', detail: 'Results typically arrive within 2–5 business days. You\'ll be notified once in.', who: 'coordinator' },
+      { label: 'Pre-employment drug screening', detail: 'You\'ll be sent a scheduling link to complete a DOT drug test at a nearby clinic. This is required before dispatch.', who: 'operator' },
+      { label: 'MVR / Clearinghouse approval', detail: 'Your coordinator reviews the results and marks approval before moving to the next stage.', who: 'coordinator' },
+    ],
+  },
+  {
+    number: 2,
+    title: 'Document Collection',
+    icon: 'upload',
+    summary: 'Upload your truck documents so your coordinator can file for Missouri registration and confirm your equipment.',
+    steps: [
+      { label: 'Form 2290 (Heavy Vehicle Use Tax)', detail: 'Your annual IRS tax form for vehicles over 55,000 lbs. Upload the stamped Schedule 1 page.', who: 'operator', actionLabel: 'Upload Documents', actionView: 'documents' },
+      { label: 'Truck Title', detail: 'The official title showing ownership of your truck. A clear photo or PDF scan is fine.', who: 'operator', actionLabel: 'Upload Documents', actionView: 'documents' },
+      { label: 'Truck Photos', detail: 'Photos of the front, sides, and rear of your truck. Used for inspection and MO registration filing.', who: 'operator', actionLabel: 'Upload Documents', actionView: 'documents' },
+      { label: 'Truck Inspection Report', detail: 'A recent DOT/annual inspection report for your vehicle. Must be from within the last 12 months.', who: 'operator', actionLabel: 'Upload Documents', actionView: 'documents' },
+      { label: 'Documents reviewed', detail: 'Your coordinator verifies all documents are complete and usable before proceeding.', who: 'coordinator' },
+    ],
+  },
+  {
+    number: 3,
+    title: 'ICA Contract',
+    icon: 'file',
+    summary: 'Your Independent Contractor Agreement defines your working relationship, pay split, and responsibilities.',
+    steps: [
+      { label: 'ICA prepared by coordinator', detail: 'Your coordinator builds the contract using your truck info, rate split, and owner details. This happens after Stage 1 & 2 are complete.', who: 'coordinator' },
+      { label: 'ICA sent to you for signing', detail: 'You\'ll receive an email with a signing link. You can also sign directly from the ICA tab in your portal.', who: 'coordinator' },
+      { label: 'You sign the ICA', detail: 'Review and sign digitally. Once signed, your coordinator countersigns to finalize the contract.', who: 'operator', actionLabel: 'Go to ICA Tab', actionView: 'ica' },
+    ],
+  },
+  {
+    number: 4,
+    title: 'Missouri Registration',
+    icon: 'file',
+    summary: 'If you need MO apportioned registration, your coordinator files everything on your behalf. Approval takes 2–4 weeks.',
+    steps: [
+      { label: 'MO filing submitted by coordinator', detail: 'Your coordinator submits the apportioned registration application to the state using your Form 2290, title, and signed ICA.', who: 'coordinator' },
+      { label: 'State approval & plates received', detail: 'Once the state approves, your coordinator receives the registration and plates. This typically takes 2–4 weeks.', who: 'coordinator' },
+    ],
+  },
+  {
+    number: 5,
+    title: 'Equipment Setup',
+    icon: 'zap',
+    summary: 'Your truck needs three things before dispatch: a company decal, an ELD device, and a fuel card.',
+    steps: [
+      { label: 'Decal applied to truck', detail: 'The company decal is applied to your truck, either at our shop or via UPS self-install kit. Your coordinator will arrange this.', who: 'coordinator' },
+      { label: 'ELD device installed', detail: 'An Electronic Logging Device is installed to track your Hours of Service. Required by FMCSA for all CDL operators.', who: 'coordinator' },
+      { label: 'Fuel card issued', detail: 'You\'ll receive a company fuel card (e.g. EFS or Comdata) for fuel purchases on the road. Your coordinator issues this.', who: 'coordinator' },
+    ],
+  },
+  {
+    number: 6,
+    title: 'Insurance & Activation',
+    icon: 'insurance',
+    summary: 'Final step: your coordinator adds you to the company insurance policy and assigns your unit number. Then you\'re ready to dispatch!',
+    steps: [
+      { label: 'Added to insurance policy', detail: 'Your coordinator adds your truck and CDL info to the carrier\'s commercial auto insurance. You\'ll receive a certificate of insurance.', who: 'coordinator' },
+      { label: 'Unit number assigned', detail: 'You\'re assigned a permanent unit number (e.g. "Unit 47") used for dispatch, fuel, and logs.', who: 'coordinator' },
+    ],
+  },
+];
+
+// ─── What's Next? modal ───────────────────────────────────────────────────────
+
+function WhatsNextModal({
+  open,
+  onClose,
+  stages,
+  onboardingStatus,
+  onNavigateTo,
+}: {
+  open: boolean;
+  onClose: () => void;
+  stages: Stage[];
+  onboardingStatus: Record<string, string | null>;
+  onNavigateTo: (view: string) => void;
+}) {
+  const getStageStatus = (num: number): StageStatus =>
+    stages.find(s => s.number === num)?.status ?? 'not_started';
+
+  const stageIcon = (icon: WhatsNextStage['icon'], cls: string) => {
+    if (icon === 'shield') return <Shield className={cls} />;
+    if (icon === 'upload') return <Upload className={cls} />;
+    if (icon === 'zap') return <Zap className={cls} />;
+    return <FileText className={cls} />;
+  };
+
+  const statusColors: Record<StageStatus, { border: string; bg: string; label: string; labelColor: string; dot: string }> = {
+    complete:         { border: 'border-status-complete/30', bg: 'bg-status-complete/5',   label: 'Complete',        labelColor: 'text-status-complete', dot: 'bg-status-complete' },
+    in_progress:      { border: 'border-gold/30',            bg: 'bg-gold/5',               label: 'In Progress',     labelColor: 'text-gold',            dot: 'bg-gold' },
+    action_required:  { border: 'border-destructive/30',     bg: 'bg-destructive/5',        label: 'Action Required', labelColor: 'text-destructive',     dot: 'bg-destructive' },
+    not_started:      { border: 'border-border',             bg: 'bg-muted/20',             label: 'Not Started',     labelColor: 'text-muted-foreground', dot: 'bg-muted-foreground/40' },
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="p-0 gap-0 max-w-md w-full rounded-2xl overflow-hidden flex flex-col max-h-[90dvh]">
+        <DialogHeader className="px-5 pt-5 pb-4 border-b shrink-0">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <HelpCircle className="h-4 w-4 text-primary" />
+              </span>
+              <div>
+                <DialogTitle className="text-base font-bold leading-tight">What's Next?</DialogTitle>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Your full onboarding roadmap</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </DialogHeader>
+
+        <ScrollArea className="flex-1 overflow-auto">
+          <div className="px-4 py-4 space-y-3">
+            {WHATS_NEXT_STAGES.map((wStage) => {
+              const status = getStageStatus(wStage.number);
+              const colors = statusColors[status];
+              const stepsForStage = STAGE_INFO[wStage.number]?.steps ?? [];
+              const stepsWithDone = stepsForStage.map(s => ({
+                ...s,
+                isDone: s.done(onboardingStatus, stages.find(st => st.number === wStage.number)!),
+              }));
+              const isCurrentStage = status === 'action_required' || status === 'in_progress';
+
+              return (
+                <div key={wStage.number} className={`rounded-xl border overflow-hidden ${colors.border} ${colors.bg}`}>
+                  {/* Stage header */}
+                  <div className={`px-3.5 py-2.5 flex items-center gap-2.5 border-b ${colors.border}`}>
+                    <span className={`h-6 w-6 rounded-md flex items-center justify-center shrink-0 ${
+                      status === 'complete' ? 'bg-status-complete/15' :
+                      status === 'in_progress' ? 'bg-gold/15' :
+                      status === 'action_required' ? 'bg-destructive/15' : 'bg-muted/60'
+                    }`}>
+                      {status === 'complete'
+                        ? <CheckCircle2 className="h-3.5 w-3.5 text-status-complete" />
+                        : stageIcon(wStage.icon, `h-3.5 w-3.5 ${colors.labelColor}`)}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[9.5px] font-bold uppercase tracking-widest leading-none mb-0.5 ${colors.labelColor}`}>
+                        Stage {wStage.number} · {colors.label}
+                      </p>
+                      <p className="text-[13px] font-bold text-foreground leading-tight truncate">{wStage.title}</p>
+                    </div>
+                    {isCurrentStage && (
+                      <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border ${
+                        status === 'action_required'
+                          ? 'bg-destructive/10 border-destructive/20 text-destructive'
+                          : 'bg-gold/10 border-gold/20 text-gold'
+                      }`}>
+                        Current
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Stage summary */}
+                  <p className="px-3.5 pt-2.5 pb-0 text-xs text-muted-foreground leading-relaxed">{wStage.summary}</p>
+
+                  {/* Steps */}
+                  <div className="px-3.5 pt-2.5 pb-3 space-y-3">
+                    {wStage.steps.map((step, i) => {
+                      const stepData = stepsWithDone[i];
+                      const isDone = stepData?.isDone ?? false;
+                      return (
+                        <div key={i} className={`flex gap-2.5 ${isDone ? 'opacity-60' : ''}`}>
+                          {/* Step number / done indicator */}
+                          <div className="shrink-0 mt-0.5">
+                            {isDone ? (
+                              <CheckCircle2 className="h-4 w-4 text-status-complete" />
+                            ) : (
+                              <span className={`h-4 w-4 rounded-full border-2 flex items-center justify-center text-[8px] font-bold ${
+                                isCurrentStage && !isDone && step.who === 'operator'
+                                  ? 'border-destructive text-destructive'
+                                  : 'border-border text-muted-foreground'
+                              }`}>
+                                {i + 1}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                              <p className={`text-xs font-semibold leading-tight ${isDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                                {step.label}
+                              </p>
+                              <WhoChip who={step.who} />
+                            </div>
+                            <p className="text-[11px] text-muted-foreground leading-snug">{step.detail}</p>
+                            {step.actionView && !isDone && status !== 'not_started' && (
+                              <button
+                                onClick={() => { onNavigateTo(step.actionView!); onClose(); }}
+                                className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:text-primary/80 transition-colors"
+                              >
+                                {step.actionLabel} <ChevronRight className="h-2.5 w-2.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Footer note */}
+          <div className="px-4 pb-5">
+            <p className="text-center text-[10px] text-muted-foreground">
+              Questions? Message your coordinator from the <button onClick={() => { onNavigateTo('messages'); onClose(); }} className="underline text-primary">Messages tab</button>.
+            </p>
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Doc slot config for inline upload ────────────────────────────────────────
 
 const INLINE_SLOTS = [
