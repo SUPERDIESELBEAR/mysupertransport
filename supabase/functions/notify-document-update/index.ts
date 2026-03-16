@@ -87,11 +87,11 @@ async function sendEmail(to: string, subject: string, html: string, resendKey: s
 }
 
 interface Payload {
-  /** 'published' = brand-new doc made visible | 'updated' = existing doc content changed */
-  event_type: 'published' | 'updated';
+  /** 'published' = brand-new doc made visible | 'updated' = existing doc content changed | 'reminder' = manual compliance reminder */
+  event_type: 'published' | 'updated' | 'reminder';
   document_title: string;
   document_description?: string;
-  /** For 'updated': only notify users who previously acknowledged this doc */
+  /** For 'updated' / 'reminder': only notify specific users */
   acknowledged_user_ids?: string[];
 }
 
