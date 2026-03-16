@@ -17,8 +17,9 @@ import DispatchPortal from '../dispatch/DispatchPortal';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
-  Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing,
+  Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library,
 } from 'lucide-react';
+import DocumentHub from '@/components/documents/DocumentHub';
 import { differenceInDays, formatDistanceToNowStrict, parseISO, startOfDay } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
