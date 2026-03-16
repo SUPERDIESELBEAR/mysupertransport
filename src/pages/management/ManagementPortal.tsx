@@ -1301,6 +1301,10 @@ export default function ManagementPortal() {
           <ResourceLibraryManager />
         )}
 
+        {view === 'docs-hub' && (
+          <DocumentHub isAdmin={true} />
+        )}
+
         {view === 'notifications' && (
           <NotificationHistory />
         )}
