@@ -39,6 +39,7 @@ interface OperatorRow {
   mvr_ch_approval: string;
   pe_screening_result: string;
   ica_status: string;
+  ica_draft_since: string | null; // created_at of the in-progress draft ICA contract
   insurance_added_date: string | null;
   dispatch_status: DispatchStatus | null;
   doc_count: number;
