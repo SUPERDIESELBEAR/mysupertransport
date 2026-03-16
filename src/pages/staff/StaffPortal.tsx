@@ -22,7 +22,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources' | 'notifications' | 'docs-hub';
+type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources' | 'notifications' | 'docs-hub' | 'service-library';
 
 export default function StaffPortal() {
   const { user } = useAuth();

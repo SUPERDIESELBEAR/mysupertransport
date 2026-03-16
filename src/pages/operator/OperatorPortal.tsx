@@ -981,6 +981,9 @@ export default function OperatorPortal() {
         {/* ── ICA SIGNING VIEW ── */}
         {view === 'ica' && <OperatorICASign />}
 
+        {/* ── SERVICE LIBRARY VIEW ── */}
+        {view === 'service-library' && <DriverServiceLibrary />}
+
         {/* ── NOTIFICATIONS VIEW ── */}
         {view === 'notifications' && <NotificationHistory />}
       </div>
