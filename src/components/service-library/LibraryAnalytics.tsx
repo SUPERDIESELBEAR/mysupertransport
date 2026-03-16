@@ -150,8 +150,8 @@ export default function LibraryAnalytics({ services }: { services: Service[] }) 
                 <p className="text-xs text-muted-foreground leading-tight">Total bookmarks</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-muted/40">
-                <div className="flex items-center justify-center text-accent-foreground mb-1">
-                  <Eye className="h-4 w-4 text-blue-500" />
+                <div className="flex items-center justify-center mb-1">
+                  <Eye className="h-4 w-4 text-primary/70" />
                 </div>
                 <p className="text-lg font-bold text-foreground">{analytics.total_views}</p>
                 <p className="text-xs text-muted-foreground leading-tight">Total views</p>
