@@ -24,6 +24,14 @@ interface EventTypeDef {
 
 const OPERATOR_EVENT_TYPES: EventTypeDef[] = [
   {
+    type: 'onboarding_update',
+    label: 'Onboarding Updates',
+    description: 'When your coordinator reviews documents, approves checks, sends your ICA, or advances your onboarding stage',
+    icon: ClipboardList,
+    iconBg: 'bg-primary/10',
+    iconColor: 'text-primary',
+  },
+  {
     type: 'dispatch_status_change',
     label: 'Dispatch Status Update',
     description: 'When your dispatch status is updated by your dispatcher',
