@@ -954,7 +954,7 @@ export default function OperatorPortal() {
         {view === 'faq' && <OperatorFAQ />}
 
         {/* ── DOCUMENT HUB VIEW ── */}
-        {view === 'docs-hub' && <DocumentHub isAdmin={false} />}
+        {view === 'docs-hub' && <DocumentHub isAdmin={false} onAcknowledged={fetchUnackedDocs} />}
 
         {/* ── MESSAGES VIEW ── */}
         {view === 'messages' && (
