@@ -490,10 +490,12 @@ export default function OperatorPortal() {
     return null;
   })();
 
+  const icaActionDot = onboardingStatus.ica_status === 'sent_for_signature';
+
   const navItems = [
     { view: 'progress' as OperatorView, label: 'My Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
     { view: 'documents' as OperatorView, label: 'Documents', icon: <Upload className="h-5 w-5" /> },
-    { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete' },
+    { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete', icaDot: icaActionDot },
     { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
     { view: 'resources' as OperatorView, label: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
