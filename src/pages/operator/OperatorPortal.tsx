@@ -1036,8 +1036,8 @@ export default function OperatorPortal() {
                     </span>
                   )}
                   {/* ICA action-required dot */}
-                  {item.view === 'ica' && onboardingStatus.ica_status === 'sent_for_signature' && (
-                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-gold border-2 border-surface-dark" />
+                  {'icaDot' in item && item.icaDot && !isActive && (
+                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark" />
                   )}
                   {/* Critical expiry dot on Progress */}
                   {'criticalDot' in item && item.criticalDot && !isActive && (
