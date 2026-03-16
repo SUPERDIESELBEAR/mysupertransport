@@ -181,17 +181,17 @@ export default function LibraryAnalytics({ services }: { services: Service[] }) 
                           <p className="text-foreground truncate">{r.title}</p>
                         </div>
                         <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1 text-blue-500 font-medium">
+                          <span className="flex items-center gap-1 text-primary font-medium">
                             <Eye className="h-3 w-3" />{r.view_count}
                           </span>
                           <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-status-complete" />{r.completion_count}</span>
-                          <span className="flex items-center gap-1"><Bookmark className="h-3 w-3 text-primary" />{r.bookmark_count}</span>
+                          <span className="flex items-center gap-1"><Bookmark className="h-3 w-3 text-primary/60" />{r.bookmark_count}</span>
                         </div>
                       </div>
                       {/* View bar */}
                       <div className="ml-6 h-1 rounded-full bg-muted overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-blue-500/60 transition-all"
+                          className="h-full rounded-full bg-primary/50 transition-all"
                           style={{ width: `${Math.round((r.view_count / maxViews) * 100)}%` }}
                         />
                       </div>
