@@ -1908,7 +1908,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
             {/* In-progress draft banner */}
             {status.ica_status === 'in_progress' && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-[hsl(var(--status-progress)/0.1)] border border-[hsl(var(--status-progress)/0.3)]">
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-status-progress/10 border border-status-progress/30">
                 <Clock className="h-3.5 w-3.5 text-status-progress shrink-0 mt-0.5" />
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-status-progress">ICA draft in progress</p>
@@ -1927,7 +1927,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 size="sm"
                 className={`w-full text-xs gap-1.5 ${
                   status.ica_status === 'in_progress'
-                    ? 'border-status-progress text-status-progress hover:bg-[hsl(var(--status-progress)/0.1)]'
+                    ? 'border-status-progress text-status-progress hover:bg-status-progress/10'
                     : 'border-gold text-gold hover:bg-gold/10'
                 }`}
                 onClick={() => setShowICABuilder(true)}
