@@ -1307,6 +1307,10 @@ export default function ManagementPortal() {
           <DocumentHub isAdmin={true} />
         )}
 
+        {view === 'service-library' && (
+          <ServiceLibraryManager />
+        )}
+
         {view === 'notifications' && (
           <NotificationHistory />
         )}
