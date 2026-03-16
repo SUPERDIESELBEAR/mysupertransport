@@ -188,6 +188,15 @@ Deno.serve(async (req) => {
           ${descHtml}
         </div>
         <p>Log in to your portal and visit the <strong>Doc Hub</strong> tab to read and acknowledge the document.</p>`;
+    } else if (event_type === 'reminder') {
+      subject = `Reminder: Acknowledge "${document_title}"`;
+      heading = '⏰ Action Required — Document Acknowledgment';
+      bodyHtml = `<p>You have a required document in the <strong>Document Hub</strong> that still needs your acknowledgment.</p>
+        <div style="background:#f9f5e9;border-left:4px solid #C9A84C;padding:12px 16px;border-radius:4px;margin:16px 0;">
+          <p style="margin:0;font-weight:700;color:#0f1117;">${document_title}</p>
+          ${descHtml}
+        </div>
+        <p>Please log in to your portal, open the <strong>Doc Hub</strong> tab, read the document, and click <strong>Acknowledge</strong> to complete this requirement.</p>`;
     } else {
       subject = `Document Updated: ${document_title}`;
       heading = '🔄 A Document Has Been Updated';
