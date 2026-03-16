@@ -622,6 +622,8 @@ export default function SmartProgressWidget({
   uploadedDocs = [],
   onUploadComplete,
 }: SmartProgressWidgetProps) {
+  const [whatsNextOpen, setWhatsNextOpen] = useState(false);
+
   if (isFullyOnboarded) return null;
 
   // Find the most urgent active stage (action_required > in_progress > not_started)
@@ -683,11 +685,16 @@ export default function SmartProgressWidget({
   const showNavCta = !showInlineUpload && !!ctaLabel && !!info.ctaView;
 
   return (
+    <>
     <div className={`rounded-2xl border overflow-hidden ${borderClass}`}>
-      {/* ── Header ── */}
-      <div className={`px-4 py-3 flex items-center gap-3 border-b ${
-        isActionRequired ? 'border-destructive/20' : isInProgress ? 'border-gold/20' : 'border-border'
-      }`}>
+      {/* ── Header (tappable to open What's Next) ── */}
+      <button
+        type="button"
+        onClick={() => setWhatsNextOpen(true)}
+        className={`w-full px-4 py-3 flex items-center gap-3 border-b text-left hover:brightness-95 active:brightness-90 transition-[filter] ${
+          isActionRequired ? 'border-destructive/20' : isInProgress ? 'border-gold/20' : 'border-border'
+        }`}
+      >
         <span className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${iconBgClass}`}>
           <span className={accentClass}>{stageIcon}</span>
         </span>
@@ -699,7 +706,11 @@ export default function SmartProgressWidget({
             Stage {activeStage.number}: {activeStage.title}
           </p>
         </div>
-      </div>
+        <span className="shrink-0 flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
+          <HelpCircle className="h-3.5 w-3.5" />
+          <span className="hidden xs:inline">Full guide</span>
+        </span>
+      </button>
 
       {/* ── Blocker description ── */}
       <div className="px-4 pt-3 pb-0">
