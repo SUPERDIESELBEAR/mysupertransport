@@ -19,7 +19,7 @@ interface DocumentHubProps {
 
 type AdminTab = 'documents' | 'compliance';
 
-export default function DocumentHub({ isAdmin = false }: DocumentHubProps) {
+export default function DocumentHub({ isAdmin = false, onAcknowledged }: DocumentHubProps) {
   const { user } = useAuth();
   const [documents, setDocuments] = useState<DriverDocument[]>([]);
   const [acknowledgments, setAcknowledgments] = useState<DocumentAcknowledgment[]>([]);
