@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// ─── Email HTML builder (matches existing brand) ─────────────────────────────
+// ─── Email HTML builder ───────────────────────────────────────────────────────
 function buildEmail(subject: string, heading: string, body: string, cta?: { label: string; url: string }): string {
   const ctaHtml = cta
     ? `<div style="text-align:center;margin:32px 0;">
@@ -51,23 +51,38 @@ function buildEmail(subject: string, heading: string, body: string, cta?: { labe
 </html>`;
 }
 
-async function sendEmail(to: string, subject: string, html: string, resendKey: string): Promise<void> {
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${resendKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: 'SUPERTRANSPORT <onboarding@mysupertransport.com>',
-      to: [to],
-      subject,
-      html,
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    console.warn(`[notify-document-update] Resend warning [${res.status}] to ${to}: ${err}`);
+/** Wait ms milliseconds */
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Send one email via Resend.
+ * Returns true on HTTP 2xx, false otherwise (never throws).
+ */
+async function sendEmail(to: string, subject: string, html: string, resendKey: string): Promise<boolean> {
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'SUPERTRANSPORT <onboarding@mysupertransport.com>',
+        to: [to],
+        subject,
+        html,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error(`[notify-document-update] Resend error [${res.status}] to ${to}: ${err}`);
+      return false;
+    }
+    await res.text(); // consume body
+    return true;
+  } catch (e) {
+    console.error(`[notify-document-update] Network error sending to ${to}: ${e}`);
+    return false;
   }
 }
 
@@ -128,7 +143,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ─── Filter by notification preferences ─────────────────────────────────
+    // ─── Filter by notification preferences (respect opt-outs) ──────────────
     const { data: optedOut } = await supabaseAdmin
       .from('notification_preferences')
       .select('user_id')
@@ -144,7 +159,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ─── Fetch auth emails in batches (listUsers paginates) ─────────────────
+    // ─── Fetch auth emails ───────────────────────────────────────────────────
     const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
     const filteredSet = new Set(filteredIds);
     const recipients = (users ?? []).filter(u => filteredSet.has(u.id) && u.email);
@@ -189,22 +204,25 @@ Deno.serve(async (req) => {
       url: docHubUrl,
     });
 
-    // ─── Send in parallel (fire-and-forget per recipient) ────────────────────
+    // ─── Send sequentially with 600ms delay to respect Resend 2 req/s limit ─
     let sent = 0;
-    await Promise.all(
-      recipients.map(async (u) => {
-        try {
-          await sendEmail(u.email!, subject, html, RESEND_API_KEY);
-          sent++;
-        } catch (e) {
-          console.warn(`[notify-document-update] Failed to send to ${u.email}: ${e}`);
-        }
-      })
-    );
+    let failed = 0;
+    for (const u of recipients) {
+      const ok = await sendEmail(u.email!, subject, html, RESEND_API_KEY);
+      if (ok) {
+        sent++;
+      } else {
+        failed++;
+      }
+      // Throttle: stay safely under Resend's 2 requests/second limit
+      if (recipients.indexOf(u) < recipients.length - 1) {
+        await sleep(600);
+      }
+    }
 
-    console.log(`[notify-document-update] '${event_type}' '${document_title}' → sent to ${sent}/${recipients.length}`);
+    console.log(`[notify-document-update] '${event_type}' '${document_title}' → sent ${sent}/${recipients.length}, failed ${failed}`);
 
-    return new Response(JSON.stringify({ success: true, event_type, sent, total: recipients.length }), {
+    return new Response(JSON.stringify({ success: true, event_type, sent, failed, total: recipients.length }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
