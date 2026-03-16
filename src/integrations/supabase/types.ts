@@ -368,6 +368,73 @@ export type Database = {
           },
         ]
       }
+      document_acknowledgments: {
+        Row: {
+          acknowledged_at: string
+          document_id: string
+          document_version: number
+          id: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          document_id: string
+          document_version?: number
+          id?: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string
+          document_id?: string
+          document_version?: number
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_acknowledgments_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "driver_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_version_history: {
+        Row: {
+          body: string | null
+          document_id: string
+          id: string
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          body?: string | null
+          document_id: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+          version: number
+        }
+        Update: {
+          body?: string | null
+          document_id?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_version_history_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "driver_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           created_at: string
@@ -417,6 +484,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      driver_documents: {
+        Row: {
+          body: string | null
+          category: string
+          created_at: string
+          description: string | null
+          estimated_read_minutes: number | null
+          id: string
+          is_pinned: boolean
+          is_required: boolean
+          is_visible: boolean
+          sort_order: number
+          title: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          body?: string | null
+          category: string
+          created_at?: string
+          description?: string | null
+          estimated_read_minutes?: number | null
+          id?: string
+          is_pinned?: boolean
+          is_required?: boolean
+          is_visible?: boolean
+          sort_order?: number
+          title: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          body?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          estimated_read_minutes?: number | null
+          id?: string
+          is_pinned?: boolean
+          is_required?: boolean
+          is_visible?: boolean
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
       }
       faq: {
         Row: {

@@ -7,8 +7,9 @@ import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound, UserRound,
-  ArrowRight,
+  ArrowRight, Library,
 } from 'lucide-react';
+import DocumentHub from '@/components/documents/DocumentHub';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import NotificationHistory from '@/components/management/NotificationHistory';
 import logo from '@/assets/supertransport-logo.png';
@@ -24,7 +25,7 @@ import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications';
+type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub';
 
 interface Stage {
   number: number;
@@ -51,7 +52,7 @@ export default function OperatorPortal() {
   const [view, setView] = useState<OperatorView>(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications'].includes(tab)) return tab;
+    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications','docs-hub'].includes(tab)) return tab;
     return 'progress';
   });
 
@@ -64,7 +65,7 @@ export default function OperatorPortal() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications'].includes(tab)) setView(tab);
+    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications','docs-hub'].includes(tab)) setView(tab);
   }, [location.search]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [operatorId, setOperatorId] = useState<string | null>(null);
@@ -72,6 +73,7 @@ export default function OperatorPortal() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [unackedRequiredDocs, setUnackedRequiredDocs] = useState(0);
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
   const [dispatchUpdatedAt, setDispatchUpdatedAt] = useState<string | null>(null);
   const [assignedDispatcher, setAssignedDispatcher] = useState<{ name: string; phone: string | null; userId: string | null } | null>(null);
@@ -195,6 +197,25 @@ export default function OperatorPortal() {
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchUnreadCount(); }, [fetchUnreadCount]);
   useEffect(() => { fetchUnreadNotifCount(); }, [fetchUnreadNotifCount]);
+
+  // Fetch unacknowledged required docs count for badge
+  useEffect(() => {
+    if (!user) return;
+    const fetchUnacked = async () => {
+      const [{ data: docs }, { data: acks }] = await Promise.all([
+        supabase.from('driver_documents').select('id, version').eq('is_visible', true).eq('is_required', true),
+        supabase.from('document_acknowledgments').select('document_id, document_version').eq('user_id', user.id),
+      ]);
+      if (!docs) return;
+      const ackMap = new Map((acks ?? []).map((a: any) => [a.document_id, a.document_version]));
+      const count = docs.filter((d: any) => {
+        const ackedVersion = ackMap.get(d.id);
+        return ackedVersion === undefined || ackedVersion < d.version;
+      }).length;
+      setUnackedRequiredDocs(count);
+    };
+    fetchUnacked();
+  }, [user, view]);
 
   // Realtime: update dispatch status live so the banner appears/disappears without refresh
   useEffect(() => {
@@ -495,6 +516,7 @@ export default function OperatorPortal() {
   const navItems = [
     { view: 'progress' as OperatorView, label: 'My Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
     { view: 'documents' as OperatorView, label: 'Documents', icon: <Upload className="h-5 w-5" /> },
+    { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
     { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete', icaDot: icaActionDot },
     { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
@@ -519,8 +541,8 @@ export default function OperatorPortal() {
     return [
       { view: 'progress' as OperatorView, label: 'Status', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
       { view: 'documents' as OperatorView, label: 'Docs', icon: <Upload className="h-5 w-5" /> },
+      { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
       { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" />, badge: unreadCount },
-      { view: 'resources' as OperatorView, label: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
       { ...slot5 },
     ];
   })();
@@ -931,6 +953,9 @@ export default function OperatorPortal() {
 
         {/* ── FAQ VIEW ── */}
         {view === 'faq' && <OperatorFAQ />}
+
+        {/* ── DOCUMENT HUB VIEW ── */}
+        {view === 'docs-hub' && <DocumentHub isAdmin={false} />}
 
         {/* ── MESSAGES VIEW ── */}
         {view === 'messages' && (

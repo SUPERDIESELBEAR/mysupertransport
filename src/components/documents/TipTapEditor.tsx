@@ -1,0 +1,112 @@
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+import {
+  Bold, Italic, List, ListOrdered, Quote, Minus,
+  Heading1, Heading2, Heading3, Undo, Redo,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface TipTapEditorProps {
+  content: string;
+  onChange: (html: string) => void;
+  placeholder?: string;
+}
+
+function ToolbarButton({
+  onClick, active, title, children,
+}: {
+  onClick: () => void;
+  active?: boolean;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={cn(
+        'p-1.5 rounded text-sm transition-colors',
+        active
+          ? 'bg-foreground text-background'
+          : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+export default function TipTapEditor({ content, onChange, placeholder = 'Start writing…' }: TipTapEditorProps) {
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+      }),
+      Placeholder.configure({ placeholder }),
+    ],
+    content,
+    onUpdate({ editor }) {
+      onChange(editor.getHTML());
+    },
+  });
+
+  if (!editor) return null;
+
+  return (
+    <div className="border border-border rounded-lg overflow-hidden">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-border bg-muted/30">
+        <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={editor.isActive('heading', { level: 1 })} title="Heading 1">
+          <Heading1 className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })} title="Heading 2">
+          <Heading2 className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={editor.isActive('heading', { level: 3 })} title="Heading 3">
+          <Heading3 className="h-4 w-4" />
+        </ToolbarButton>
+
+        <span className="w-px h-5 bg-border mx-1" />
+
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title="Bold">
+          <Bold className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} title="Italic">
+          <Italic className="h-4 w-4" />
+        </ToolbarButton>
+
+        <span className="w-px h-5 bg-border mx-1" />
+
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title="Bullet List">
+          <List className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Numbered List">
+          <ListOrdered className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} title="Blockquote">
+          <Quote className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().setHorizontalRule().run()} active={false} title="Horizontal Rule">
+          <Minus className="h-4 w-4" />
+        </ToolbarButton>
+
+        <span className="w-px h-5 bg-border mx-1" />
+
+        <ToolbarButton onClick={() => editor.chain().focus().undo().run()} active={false} title="Undo">
+          <Undo className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().redo().run()} active={false} title="Redo">
+          <Redo className="h-4 w-4" />
+        </ToolbarButton>
+      </div>
+
+      {/* Editor area */}
+      <EditorContent
+        editor={editor}
+        className="prose prose-sm max-w-none px-4 py-3 min-h-[280px] focus:outline-none [&_.tiptap]:outline-none [&_.tiptap_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_p.is-editor-empty:first-child::before]:float-left [&_.tiptap_p.is-editor-empty:first-child::before]:pointer-events-none [&_.tiptap_p.is-editor-empty:first-child::before]:h-0"
+      />
+    </div>
+  );
+}
