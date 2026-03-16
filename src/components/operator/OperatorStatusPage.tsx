@@ -36,6 +36,9 @@ interface OperatorStatusPageProps {
   onMessageDispatcher?: () => void;
   cdlExpiration?: string | null;
   medicalCertExpiration?: string | null;
+  operatorId?: string | null;
+  uploadedDocs?: { id: string; document_type: string; file_name: string | null; file_url: string | null; uploaded_at: string }[];
+  onUploadComplete?: () => void;
 }
 
 const STAGE_ICONS: Record<number, React.ReactNode> = {
@@ -210,6 +213,9 @@ export default function OperatorStatusPage({
   onMessageDispatcher,
   cdlExpiration,
   medicalCertExpiration,
+  operatorId,
+  uploadedDocs,
+  onUploadComplete,
 }: OperatorStatusPageProps) {
   const [bannerDismissed, setBannerDismissed] = useState(() => {
     return sessionStorage.getItem('cert_expiry_banner_dismissed') === 'true';
@@ -357,6 +363,9 @@ export default function OperatorStatusPage({
         onboardingStatus={onboardingStatus}
         onNavigateTo={onNavigateTo}
         displayName={displayName}
+        operatorId={operatorId}
+        uploadedDocs={uploadedDocs}
+        onUploadComplete={onUploadComplete}
       />
     </div>
 
@@ -600,6 +609,9 @@ export default function OperatorStatusPage({
           onboardingStatus={onboardingStatus}
           isFullyOnboarded={isFullyOnboarded}
           onNavigateTo={onNavigateTo}
+          operatorId={operatorId}
+          uploadedDocs={uploadedDocs}
+          onUploadComplete={onUploadComplete}
         />
       )}
 
