@@ -106,9 +106,70 @@ export default function LibraryAnalytics({ services }: { services: Service[] }) 
     );
   }
 
+  // Fleet-wide totals
+  const fleetTotalViews       = data.reduce((sum, d) => sum + d.total_views, 0);
+  const fleetTotalCompletions = data.reduce((sum, d) => sum + d.resource_stats.reduce((s, r) => s + r.completion_count, 0), 0);
+  const fleetTotalBookmarks   = data.reduce((sum, d) => sum + d.resource_stats.reduce((s, r) => s + r.bookmark_count, 0), 0);
+  const fleetOpenHelp         = data.reduce((sum, d) => sum + d.open_help_requests, 0);
+  const fleetCompletedAll     = data.reduce((sum, d) => sum + d.drivers_completed_all, 0);
+
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Per-service engagement metrics across all drivers.</p>
+      {/* Fleet-wide summary panel */}
+      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-4 w-4 text-primary" />
+          <p className="font-semibold text-foreground text-sm">Fleet-Wide Engagement</p>
+          <span className="ml-auto text-xs text-muted-foreground">{services.length} service{services.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div className="grid grid-cols-5 gap-3">
+          <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-muted/40 gap-1">
+            <Eye className="h-4 w-4 text-primary/70" />
+            <p className="text-2xl font-bold text-foreground leading-none">{fleetTotalViews}</p>
+            <p className="text-xs text-muted-foreground text-center leading-tight">Total Views</p>
+          </div>
+          <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-muted/40 gap-1">
+            <CheckCircle2 className="h-4 w-4 text-status-complete" />
+            <p className="text-2xl font-bold text-foreground leading-none">{fleetTotalCompletions}</p>
+            <p className="text-xs text-muted-foreground text-center leading-tight">Completions</p>
+          </div>
+          <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-muted/40 gap-1">
+            <Bookmark className="h-4 w-4 text-primary" />
+            <p className="text-2xl font-bold text-foreground leading-none">{fleetTotalBookmarks}</p>
+            <p className="text-xs text-muted-foreground text-center leading-tight">Bookmarks</p>
+          </div>
+          <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-muted/40 gap-1">
+            <CheckCircle2 className="h-4 w-4 text-primary/60" />
+            <p className="text-2xl font-bold text-foreground leading-none">{fleetCompletedAll}</p>
+            <p className="text-xs text-muted-foreground text-center leading-tight">Drivers Done</p>
+          </div>
+          <div className="flex flex-col items-center justify-center p-3 rounded-lg bg-muted/40 gap-1">
+            <HelpCircle className="h-4 w-4 text-destructive" />
+            <p className="text-2xl font-bold text-foreground leading-none">{fleetOpenHelp}</p>
+            <p className="text-xs text-muted-foreground text-center leading-tight">Open Requests</p>
+          </div>
+        </div>
+        {/* Engagement score bar — views + completions relative to each other */}
+        {fleetTotalViews > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Completion rate</span>
+              <span className="font-medium text-foreground">
+                {fleetTotalViews > 0 ? Math.round((fleetTotalCompletions / fleetTotalViews) * 100) : 0}%
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${Math.min(100, fleetTotalViews > 0 ? Math.round((fleetTotalCompletions / fleetTotalViews) * 100) : 0)}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">Ratio of total completions to total views across all services</p>
+          </div>
+        )}
+      </div>
+
+      <p className="text-sm text-muted-foreground">Per-service breakdown below.</p>
       {services.map(svc => {
         const analytics = data.find(d => d.service_id === svc.id);
         if (!analytics) return null;
