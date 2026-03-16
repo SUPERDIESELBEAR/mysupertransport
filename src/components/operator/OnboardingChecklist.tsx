@@ -330,6 +330,9 @@ export default function OnboardingChecklist({
             onboardingStatus={onboardingStatus}
             isFullyOnboarded={isFullyOnboarded}
             onNavigateTo={onNavigateTo}
+            operatorId={operatorId}
+            uploadedDocs={uploadedDocs}
+            onUploadComplete={onUploadComplete}
           />
         </div>
       )}

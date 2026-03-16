@@ -606,6 +606,9 @@ export default function OperatorStatusPage({
           onboardingStatus={onboardingStatus}
           isFullyOnboarded={isFullyOnboarded}
           onNavigateTo={onNavigateTo}
+          operatorId={operatorId}
+          uploadedDocs={uploadedDocs}
+          onUploadComplete={onUploadComplete}
         />
       )}
 
