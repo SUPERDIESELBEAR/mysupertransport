@@ -483,7 +483,80 @@ interface EditFormProps {
 function EditForm({ form, setForm, doc, saving, onSave, onClose, initialBody }: EditFormProps) {
   return (
     <div className="space-y-5 pb-2">
-...
+      {/* Title */}
+      <div className="space-y-1.5">
+        <Label htmlFor="doc-title">Title *</Label>
+        <Input
+          id="doc-title"
+          value={form.title}
+          onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+          placeholder="e.g. Driver Safety Handbook"
+        />
+      </div>
+
+      {/* Description */}
+      <div className="space-y-1.5">
+        <Label htmlFor="doc-desc">Short Description</Label>
+        <Input
+          id="doc-desc"
+          value={form.description}
+          onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+          placeholder="One-line summary shown on the card"
+        />
+      </div>
+
+      {/* Category + read time */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="doc-cat">Category</Label>
+          <select
+            id="doc-cat"
+            value={form.category}
+            onChange={e => setForm(f => ({ ...f, category: e.target.value as DriverDocument['category'] }))}
+            className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="doc-rt">Estimated Read Time (minutes)</Label>
+          <Input
+            id="doc-rt"
+            type="number"
+            min="1"
+            value={form.estimated_read_minutes}
+            onChange={e => setForm(f => ({ ...f, estimated_read_minutes: e.target.value }))}
+            placeholder="e.g. 8"
+          />
+        </div>
+      </div>
+
+      {/* Toggles */}
+      <div className="flex flex-wrap gap-6">
+        {[
+          { key: 'is_required', label: 'Required' },
+          { key: 'is_visible', label: 'Visible to Drivers' },
+          { key: 'is_pinned', label: 'Pinned' },
+        ].map(({ key, label }) => (
+          <div key={key} className="flex items-center gap-2">
+            <Switch
+              id={key}
+              checked={form[key as keyof typeof form] as boolean}
+              onCheckedChange={v => setForm(f => ({ ...f, [key]: v }))}
+            />
+            <Label htmlFor={key} className="cursor-pointer">{label}</Label>
+          </div>
+        ))}
+      </div>
+
+      {/* Body */}
+      <div className="space-y-1.5">
+        <Label>Document Body</Label>
+        {doc && (
+          <p className="text-xs text-muted-foreground">
+            Saving will increment the version to <strong>v{doc.version + 1}</strong> and prompt acknowledged drivers to re-read.
+          </p>
+        )}
         <TipTapEditor
           key={doc ? `${doc.id}-${doc.version}` : 'new'}
           content={initialBody}
