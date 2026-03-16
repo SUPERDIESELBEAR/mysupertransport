@@ -213,6 +213,9 @@ export default function OperatorStatusPage({
   onMessageDispatcher,
   cdlExpiration,
   medicalCertExpiration,
+  operatorId,
+  uploadedDocs,
+  onUploadComplete,
 }: OperatorStatusPageProps) {
   const [bannerDismissed, setBannerDismissed] = useState(() => {
     return sessionStorage.getItem('cert_expiry_banner_dismissed') === 'true';
