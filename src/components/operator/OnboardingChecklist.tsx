@@ -33,6 +33,9 @@ interface OnboardingChecklistProps {
   onboardingStatus: Record<string, string | null>;
   onNavigateTo: (view: string) => void;
   displayName: string;
+  operatorId?: string | null;
+  uploadedDocs?: { id: string; document_type: string; file_name: string | null; file_url: string | null; uploaded_at: string }[];
+  onUploadComplete?: () => void;
 }
 
 const STAGE_COLORS: Record<StageStatus, {

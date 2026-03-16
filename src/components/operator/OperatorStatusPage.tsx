@@ -36,6 +36,9 @@ interface OperatorStatusPageProps {
   onMessageDispatcher?: () => void;
   cdlExpiration?: string | null;
   medicalCertExpiration?: string | null;
+  operatorId?: string | null;
+  uploadedDocs?: { id: string; document_type: string; file_name: string | null; file_url: string | null; uploaded_at: string }[];
+  onUploadComplete?: () => void;
 }
 
 const STAGE_ICONS: Record<number, React.ReactNode> = {
