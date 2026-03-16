@@ -1,5 +1,9 @@
-import { ArrowRight, Upload, FileText, Shield, AlertTriangle, CheckCircle2, User, Users, Zap } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { ArrowRight, Upload, FileText, Shield, AlertTriangle, CheckCircle2, User, Users, Zap, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { validateFile } from '@/lib/validateFile';
+import { useToast } from '@/hooks/use-toast';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 
@@ -10,11 +14,22 @@ interface Stage {
   substeps: { label: string; value: string; status: StageStatus }[];
 }
 
+interface UploadedDoc {
+  id: string;
+  document_type: string;
+  file_name: string | null;
+  file_url: string | null;
+  uploaded_at: string;
+}
+
 interface SmartProgressWidgetProps {
   stages: Stage[];
   onboardingStatus: Record<string, string | null>;
   isFullyOnboarded: boolean;
   onNavigateTo: (view: string) => void;
+  operatorId?: string | null;
+  uploadedDocs?: UploadedDoc[];
+  onUploadComplete?: () => void;
 }
 
 // ─── Per-stage knowledge base ─────────────────────────────────────────────────
@@ -62,10 +77,10 @@ const STAGE_INFO: Record<number, StageInfo> = {
         os.truck_inspection === 'requested' && 'Truck Inspection',
       ].filter(Boolean) as string[];
       if (requested.length > 0)
-        return `Your coordinator is waiting on: ${requested.join(', ')}. Upload them to the Documents tab to continue.`;
+        return `Your coordinator is waiting on: ${requested.join(', ')}.`;
       if (os.form_2290 === 'received' || os.truck_title === 'received')
         return 'Documents are being reviewed by your coordinator. You\'ll be notified once all are confirmed.';
-      return 'Upload your Form 2290, truck title, photos, and inspection report to the Documents tab.';
+      return 'Upload your Form 2290, truck title, photos, and inspection report.';
     },
     responsibleParty: 'operator',
     responsibleLabel: 'You upload · Coordinator reviews',
@@ -77,8 +92,9 @@ const STAGE_INFO: Record<number, StageInfo> = {
       { label: 'All documents reviewed', who: 'coordinator', done: (os) => os.form_2290 === 'received' && os.truck_title === 'received' },
     ],
     ctaLabel: (os) => {
-      const requested = [os.form_2290, os.truck_title, os.truck_photos, os.truck_inspection].some(v => v === 'requested');
-      return requested ? 'Upload Requested Documents' : 'Go to Documents';
+      const anyRequested = [os.form_2290, os.truck_title, os.truck_photos, os.truck_inspection].some(v => v === 'requested');
+      // Only show the nav CTA when inline upload is unavailable (no operatorId)
+      return anyRequested ? 'Upload Requested Documents' : 'Go to Documents';
     },
     ctaView: 'documents',
   },
@@ -146,6 +162,17 @@ const STAGE_INFO: Record<number, StageInfo> = {
   },
 };
 
+// ─── Doc slot config for inline upload ────────────────────────────────────────
+
+const INLINE_SLOTS = [
+  { key: 'form_2290',      label: 'Form 2290',           accept: '.pdf,.jpg,.jpeg,.png' },
+  { key: 'truck_title',    label: 'Truck Title',          accept: '.pdf,.jpg,.jpeg,.png' },
+  { key: 'truck_photos',   label: 'Truck Photos',         accept: '.jpg,.jpeg,.png,.heic' },
+  { key: 'truck_inspection', label: 'Truck Inspection', accept: '.pdf,.jpg,.jpeg,.png' },
+] as const;
+
+type SlotKey = typeof INLINE_SLOTS[number]['key'];
+
 // ─── Responsibility badge ─────────────────────────────────────────────────────
 
 function WhoChip({ who }: { who: 'operator' | 'coordinator' }) {
@@ -161,6 +188,157 @@ function WhoChip({ who }: { who: 'operator' | 'coordinator' }) {
   );
 }
 
+// ─── Inline upload panel (Stage 2 only) ──────────────────────────────────────
+
+function InlineDocUpload({
+  operatorId,
+  onboardingStatus,
+  uploadedDocs,
+  onUploadComplete,
+  accentClass,
+  isActionRequired,
+}: {
+  operatorId: string;
+  onboardingStatus: Record<string, string | null>;
+  uploadedDocs: UploadedDoc[];
+  onUploadComplete: () => void;
+  accentClass: string;
+  isActionRequired: boolean;
+}) {
+  const { toast } = useToast();
+  const [uploading, setUploading] = useState<SlotKey | null>(null);
+  const fileRefs = useRef<Partial<Record<SlotKey, HTMLInputElement | null>>>({});
+
+  // Only show slots that are currently requested by staff
+  const requestedSlots = INLINE_SLOTS.filter(s => onboardingStatus[s.key] === 'requested');
+  if (requestedSlots.length === 0) return null;
+
+  const getUploaded = (key: SlotKey) => uploadedDocs.filter(d => d.document_type === key);
+
+  const handleUpload = async (slotKey: SlotKey, slotLabel: string, accept: string, file: File) => {
+    const allowDocs = false;
+    const { valid, error: validationError } = validateFile(file, allowDocs);
+    if (!valid) {
+      toast({ title: 'Invalid file', description: validationError, variant: 'destructive' });
+      return;
+    }
+
+    setUploading(slotKey);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${operatorId}/${slotKey}/${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('operator-documents')
+        .upload(path, file, { upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { data: signedData } = await supabase.storage
+        .from('operator-documents')
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+
+      const { data: urlData } = supabase.storage.from('operator-documents').getPublicUrl(path);
+      const fileUrl = signedData?.signedUrl ?? urlData?.publicUrl;
+
+      await supabase.from('operator_documents').insert({
+        operator_id: operatorId,
+        document_type: slotKey as any,
+        file_name: file.name,
+        file_url: fileUrl,
+      });
+
+      toast({ title: 'Document uploaded', description: `${slotLabel} has been submitted for review.` });
+      onUploadComplete();
+    } catch (err: unknown) {
+      toast({
+        title: 'Upload failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  return (
+    <div className={`mx-4 mb-0 mt-3 rounded-xl border overflow-hidden ${
+      isActionRequired ? 'border-destructive/20 bg-destructive/3' : 'border-gold/20 bg-gold/3'
+    }`}>
+      <p className={`px-3 py-2 text-[10px] font-bold uppercase tracking-widest border-b ${
+        isActionRequired
+          ? 'text-destructive border-destructive/15 bg-destructive/5'
+          : 'text-gold border-gold/15 bg-gold/5'
+      }`}>
+        Upload Requested Documents
+      </p>
+
+      <div className="divide-y divide-border/40">
+        {requestedSlots.map(slot => {
+          const uploaded = getUploaded(slot.key);
+          const isUploading = uploading === slot.key;
+          const hasUploaded = uploaded.length > 0;
+
+          return (
+            <div key={slot.key} className="flex items-center gap-3 px-3 py-2.5">
+              {/* Status icon */}
+              {hasUploaded ? (
+                <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />
+              ) : (
+                <AlertTriangle className={`h-4 w-4 shrink-0 ${isActionRequired ? 'text-destructive' : 'text-gold'}`} />
+              )}
+
+              {/* Label + uploaded filename */}
+              <div className="flex-1 min-w-0">
+                <p className={`text-xs font-semibold leading-tight ${hasUploaded ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                  {slot.label}
+                </p>
+                {hasUploaded && (
+                  <p className="text-[10px] text-status-complete mt-0.5 truncate">
+                    ✓ {uploaded[uploaded.length - 1].file_name ?? 'Uploaded'}
+                  </p>
+                )}
+              </div>
+
+              {/* Upload button */}
+              <input
+                ref={el => { fileRefs.current[slot.key] = el; }}
+                type="file"
+                accept={slot.accept}
+                className="hidden"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) handleUpload(slot.key, slot.label, slot.accept, file);
+                  e.target.value = '';
+                }}
+              />
+              <Button
+                size="sm"
+                variant={hasUploaded ? 'outline' : 'default'}
+                disabled={isUploading}
+                onClick={() => fileRefs.current[slot.key]?.click()}
+                className={`shrink-0 text-xs h-8 px-3 gap-1.5 font-semibold ${
+                  !hasUploaded
+                    ? isActionRequired
+                      ? 'bg-destructive text-white hover:bg-destructive/90'
+                      : 'bg-gold text-surface-dark hover:bg-gold-light'
+                    : ''
+                }`}
+              >
+                {isUploading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Upload className="h-3.5 w-3.5" />
+                )}
+                {isUploading ? 'Uploading…' : hasUploaded ? 'Replace' : 'Upload'}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main widget ──────────────────────────────────────────────────────────────
 
 export default function SmartProgressWidget({
@@ -168,6 +346,9 @@ export default function SmartProgressWidget({
   onboardingStatus,
   isFullyOnboarded,
   onNavigateTo,
+  operatorId,
+  uploadedDocs = [],
+  onUploadComplete,
 }: SmartProgressWidgetProps) {
   if (isFullyOnboarded) return null;
 
@@ -218,6 +399,16 @@ export default function SmartProgressWidget({
     activeStage.number === 4 ? <FileText className="h-4 w-4" /> :
     activeStage.number === 5 ? <Zap className="h-4 w-4" /> :
     <Shield className="h-4 w-4" />;
+
+  // Stage 2: show inline upload if operatorId is available and docs are requested
+  const showInlineUpload =
+    activeStage.number === 2 &&
+    !!operatorId &&
+    !!onUploadComplete &&
+    [onboardingStatus.form_2290, onboardingStatus.truck_title, onboardingStatus.truck_photos, onboardingStatus.truck_inspection].some(v => v === 'requested');
+
+  // Hide the nav CTA when inline upload is shown — no need to navigate away
+  const showNavCta = !showInlineUpload && !!ctaLabel && !!info.ctaView;
 
   return (
     <div className={`rounded-2xl border overflow-hidden ${borderClass}`}>
@@ -279,6 +470,18 @@ export default function SmartProgressWidget({
         </div>
       </div>
 
+      {/* ── Inline upload panel (Stage 2 when docs are requested) ── */}
+      {showInlineUpload && (
+        <InlineDocUpload
+          operatorId={operatorId!}
+          onboardingStatus={onboardingStatus}
+          uploadedDocs={uploadedDocs}
+          onUploadComplete={onUploadComplete!}
+          accentClass={accentClass}
+          isActionRequired={isActionRequired}
+        />
+      )}
+
       {/* ── Progress fraction + CTA ── */}
       <div className="px-4 pt-3 pb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
@@ -302,7 +505,7 @@ export default function SmartProgressWidget({
           </p>
         </div>
 
-        {ctaLabel && info.ctaView && (
+        {showNavCta && (
           <Button
             size="sm"
             onClick={() => onNavigateTo(info.ctaView!)}
