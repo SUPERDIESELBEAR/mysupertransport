@@ -16,6 +16,11 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Force a single copy of @tiptap/core to avoid duplicate-instance TS errors
+      // caused by nested node_modules inside individual extension packages.
+      "@tiptap/core": path.resolve(__dirname, "node_modules/@tiptap/core"),
+      "@tiptap/pm": path.resolve(__dirname, "node_modules/@tiptap/pm"),
     },
+    dedupe: ["@tiptap/core", "@tiptap/pm", "@tiptap/react"],
   },
 }));
