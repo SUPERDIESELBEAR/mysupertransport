@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ArrowRight, Upload, FileText, Shield, AlertTriangle, CheckCircle2, User, Users, Zap, Loader2, HelpCircle, X, ChevronRight } from 'lucide-react';
+import { ArrowRight, Upload, FileText, Shield, AlertTriangle, CheckCircle2, User, Users, Zap, Loader2, HelpCircle, X, ChevronRight, BookOpen } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,7 @@ interface SmartProgressWidgetProps {
   operatorId?: string | null;
   uploadedDocs?: UploadedDoc[];
   onUploadComplete?: () => void;
+  unackedRequiredDocs?: number;
 }
 
 // ─── Per-stage knowledge base ─────────────────────────────────────────────────
@@ -621,6 +622,7 @@ export default function SmartProgressWidget({
   operatorId,
   uploadedDocs = [],
   onUploadComplete,
+  unackedRequiredDocs = 0,
 }: SmartProgressWidgetProps) {
   const [whatsNextOpen, setWhatsNextOpen] = useState(false);
 
@@ -805,6 +807,45 @@ export default function SmartProgressWidget({
         )}
       </div>
     </div>
+
+    {/* ── Required Documents action card ────────────────────────────── */}
+    {unackedRequiredDocs > 0 && (
+      <div className="mt-3 rounded-2xl border border-primary/25 bg-primary/5 overflow-hidden">
+        {/* Header */}
+        <div className="px-4 py-2.5 flex items-center gap-3 border-b border-primary/15">
+          <span className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 bg-primary/10">
+            <BookOpen className="h-3.5 w-3.5 text-primary" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-primary leading-none mb-0.5">
+              Action Required
+            </p>
+            <p className="text-sm font-bold text-foreground leading-tight">Required Documents</p>
+          </div>
+          <span className="shrink-0 flex items-center justify-center h-5 min-w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1.5">
+            {unackedRequiredDocs}
+          </span>
+        </div>
+        {/* Body */}
+        <div className="px-4 pt-2.5 pb-1">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            You have <span className="font-semibold text-foreground">{unackedRequiredDocs} required {unackedRequiredDocs === 1 ? 'document' : 'documents'}</span> in the Doc Hub that need your review and acknowledgment.
+          </p>
+        </div>
+        {/* CTA */}
+        <div className="px-4 pt-2 pb-3.5">
+          <Button
+            size="sm"
+            onClick={() => onNavigateTo('docs-hub')}
+            className="w-full text-xs h-8 gap-1.5 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            Review &amp; Acknowledge Documents
+            <ArrowRight className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    )}
 
     <WhatsNextModal
       open={whatsNextOpen}

@@ -36,6 +36,7 @@ interface OnboardingChecklistProps {
   operatorId?: string | null;
   uploadedDocs?: { id: string; document_type: string; file_name: string | null; file_url: string | null; uploaded_at: string }[];
   onUploadComplete?: () => void;
+  unackedRequiredDocs?: number;
 }
 
 const STAGE_COLORS: Record<StageStatus, {
@@ -238,6 +239,7 @@ export default function OnboardingChecklist({
   operatorId,
   uploadedDocs,
   onUploadComplete,
+  unackedRequiredDocs = 0,
 }: OnboardingChecklistProps) {
   // Animate the progress bar in on mount
   const [barWidth, setBarWidth] = useState(0);
@@ -333,6 +335,7 @@ export default function OnboardingChecklist({
             operatorId={operatorId}
             uploadedDocs={uploadedDocs}
             onUploadComplete={onUploadComplete}
+            unackedRequiredDocs={unackedRequiredDocs}
           />
         </div>
       )}
