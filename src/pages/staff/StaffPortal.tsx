@@ -13,7 +13,7 @@ import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import {
@@ -169,6 +169,9 @@ export default function StaffPortal() {
 
   const [prefOpen, setPrefOpen] = useState(false);
   const [truckDownOperators, setTruckDownOperators] = useState<{ name: string; unit: string }[]>([]);
+  const [icaDraftCount, setIcaDraftCount] = useState(0);
+  const [icaDraftNames, setIcaDraftNames] = useState<string[]>([]);
+  const [pipelineICAFilter, setPipelineICAFilter] = useState(false);
   const [pipelineDispatchFilter, setPipelineDispatchFilter] = useState<'all' | 'truck_down'>('all');
 
   const fetchCriticalExpiries = useCallback(async () => {
@@ -243,6 +246,39 @@ export default function StaffPortal() {
     return () => { supabase.removeChannel(channel); };
   }, [fetchTruckDownOperators]);
 
+  // Fetch ICA drafts in progress
+  const fetchIcaDrafts = useCallback(async () => {
+    const { data } = await supabase
+      .from('onboarding_status')
+      .select(`
+        operator_id,
+        operators!inner(
+          application_id,
+          applications(first_name, last_name)
+        )
+      `)
+      .eq('ica_status', 'in_progress');
+
+    if (!data) return;
+    const names = data.map((row: any) => {
+      const app = row.operators?.applications;
+      return [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown';
+    });
+    setIcaDraftCount(names.length);
+    setIcaDraftNames(names);
+  }, []);
+
+  useEffect(() => {
+    fetchIcaDrafts();
+    const channel = supabase
+      .channel('staff-ica-draft-banner')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'onboarding_status' }, () => {
+        fetchIcaDrafts();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchIcaDrafts]);
+
   return (
     <>
     <StaffNotificationPreferencesModal open={prefOpen} onClose={() => setPrefOpen(false)} />
@@ -268,7 +304,7 @@ export default function StaffPortal() {
     >
       {/* ── TRUCK DOWN ALERT BANNER ── */}
       {truckDownOperators.length > 0 && (
-        <div className="mb-5 flex flex-wrap items-start sm:items-center justify-between gap-3 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 animate-fade-in">
+        <div className="mb-3 flex flex-wrap items-start sm:items-center justify-between gap-3 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 animate-fade-in">
           <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/15 shrink-0 mt-0.5 sm:mt-0">
               <TriangleAlert className="h-4 w-4 text-destructive animate-pulse" />
@@ -293,11 +329,40 @@ export default function StaffPortal() {
         </div>
       )}
 
+      {/* ── ICA DRAFTS IN PROGRESS BANNER ── */}
+      {icaDraftCount > 0 && (
+        <div className="mb-3 flex flex-wrap items-start sm:items-center justify-between gap-3 bg-status-progress/10 border border-status-progress/30 rounded-xl px-4 py-3 animate-fade-in">
+          <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-status-progress/15 shrink-0 mt-0.5 sm:mt-0">
+              <FileClock className="h-4 w-4 text-status-progress" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-status-progress leading-tight">
+                {icaDraftCount} ICA Draft{icaDraftCount !== 1 ? 's' : ''} in Progress
+              </p>
+              <p className="text-xs text-status-progress/70 leading-tight mt-0.5 break-words">
+                {icaDraftNames.slice(0, 4).join('  ·  ')}{icaDraftNames.length > 4 ? `  ·  +${icaDraftNames.length - 4} more` : ''}
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => { setPipelineICAFilter(true); setCurrentView('pipeline'); }}
+            className="border-status-progress/40 text-status-progress hover:bg-status-progress/10 text-xs gap-1.5 shrink-0"
+          >
+            <FileClock className="h-3.5 w-3.5" />
+            View in Pipeline
+          </Button>
+        </div>
+      )}
+
       {currentView === 'pipeline' && (
         <PipelineDashboard
-          onOpenOperator={op => { setPipelineDispatchFilter('all'); handleOpenOperator(op); }}
+          onOpenOperator={op => { setPipelineDispatchFilter('all'); setPipelineICAFilter(false); handleOpenOperator(op); }}
           onOpenOperatorWithFocus={async (operatorId, focusField) => {
             setPipelineDispatchFilter('all');
+            setPipelineICAFilter(false);
             handleOpenOperator(operatorId);
             // Fetch the application and open the review drawer focused on the expiry field
             const { data: op } = await supabase
@@ -311,6 +376,7 @@ export default function StaffPortal() {
             }
           }}
           initialDispatchFilter={pipelineDispatchFilter}
+          initialStageFilter={pipelineICAFilter ? 'Stage 3 — ICA' : undefined}
           onBulkMessage={(ids) => { setBulkMessagePreselected(ids); setBulkMessageOpen(true); }}
         />
       )}
