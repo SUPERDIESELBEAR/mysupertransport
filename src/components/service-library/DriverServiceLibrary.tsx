@@ -172,6 +172,19 @@ export default function DriverServiceLibrary() {
 
   const essentialServices = services.filter(s => s.is_new_driver_essential);
 
+  const openResource = useCallback((res: ServiceResource, svc: Service | null) => {
+    setSelectedResource(res);
+    setSelectedService(svc);
+    setView('resource');
+    trackView(res.id);
+    // Optimistically update recent views list
+    setRecentViews(prev => {
+      const filtered = prev.filter(v => v.resource.id !== res.id);
+      const service = svc ?? services.find(s => s.id === res.service_id);
+      return [{ resource: res, service, viewed_at: new Date().toISOString() }, ...filtered].slice(0, 3);
+    });
+  }, [trackView, services]);
+
   if (view === 'resource' && selectedResource && selectedService) {
     return (
       <ResourceViewer
@@ -197,7 +210,7 @@ export default function DriverServiceLibrary() {
       <ServiceDetailPage
         service={enriched}
         onBack={() => { setView('home'); setSelectedService(null); }}
-        onOpenResource={res => { setSelectedResource(res); setView('resource'); }}
+        onOpenResource={res => openResource(res, selectedService)}
         onCompletion={handleCompletion}
         onBookmark={handleBookmark}
       />
