@@ -1921,7 +1921,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               </div>
             )}
 
-            {status.pe_screening_result === 'clear' && status.ica_status !== 'complete' && (
+            {status.ica_status !== 'complete' && (
               <Button
                 variant="outline"
                 size="sm"
