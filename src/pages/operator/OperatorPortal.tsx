@@ -522,8 +522,8 @@ export default function OperatorPortal() {
     return [
       { view: 'progress' as OperatorView, label: 'Status', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
       { view: 'documents' as OperatorView, label: 'Docs', icon: <Upload className="h-5 w-5" /> },
+      { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
       { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" />, badge: unreadCount },
-      { view: 'resources' as OperatorView, label: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
       { ...slot5 },
     ];
   })();
