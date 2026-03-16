@@ -661,6 +661,9 @@ export default function OperatorPortal() {
                         {(item.badge as number) > 99 ? '99+' : item.badge}
                       </span>
                     )}
+                    {'icaDot' in item && item.icaDot && view !== 'ica' && (
+                      <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark" />
+                    )}
                     {'criticalDot' in item && item.criticalDot && view !== 'progress' && (
                       <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark" />
                     )}
