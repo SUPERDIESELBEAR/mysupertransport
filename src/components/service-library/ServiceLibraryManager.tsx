@@ -5,6 +5,23 @@ import {
   CheckCircle, AlertTriangle, ChevronDown, ChevronUp,
   BookOpen, HelpCircle, BarChart3,
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -24,6 +41,64 @@ import LibraryAnalytics from './LibraryAnalytics';
 import ResourceTypeBadge from './ResourceTypeBadge';
 import type { Service, ServiceResource, ResourceType } from './ServiceLibraryTypes';
 
+// ─── Sortable Service Row wrapper ────────────────────────────────────────────
+
+interface SortableServiceRowProps extends ServiceRowProps {
+  isDragOverlay?: boolean;
+}
+
+function SortableServiceRow(props: SortableServiceRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props.service.id,
+  });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    position: 'relative' as const,
+    zIndex: isDragging ? 0 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <ServiceRow {...props} dragHandleProps={{ ...attributes, ...listeners }} />
+    </div>
+  );
+}
+
+// ─── Sortable Resource Row wrapper ────────────────────────────────────────────
+
+interface SortableResourceRowProps {
+  resource: ServiceResource;
+  onEdit: () => void;
+  onDelete: () => void;
+  onToggleVisible: () => void;
+  onToggleStartHere: () => void;
+  onMarkVerified: () => void;
+  isDragOverlay?: boolean;
+}
+
+function SortableResourceRow(props: SortableResourceRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props.resource.id,
+  });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <ResourceAdminRow {...props} dragHandleProps={{ ...attributes, ...listeners }} />
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export default function ServiceLibraryManager() {
   const { toast } = useToast();
   const [services, setServices] = useState<Service[]>([]);
@@ -32,6 +107,11 @@ export default function ServiceLibraryManager() {
   const [serviceResources, setServiceResources] = useState<Record<string, ServiceResource[]>>({});
   const [loadingResources, setLoadingResources] = useState<Set<string>>(new Set());
 
+  // DnD active items
+  const [activeDragServiceId, setActiveDragServiceId] = useState<string | null>(null);
+  const [activeDragResourceId, setActiveDragResourceId] = useState<string | null>(null);
+  const [draggingInServiceId, setDraggingInServiceId] = useState<string | null>(null);
+
   // Modals
   const [serviceFormOpen, setServiceFormOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
@@ -39,6 +119,10 @@ export default function ServiceLibraryManager() {
   const [editingResource, setEditingResource] = useState<ServiceResource | null>(null);
   const [resourceServiceId, setResourceServiceId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'service' | 'resource'; id: string; name: string } | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
 
   const fetchServices = useCallback(async () => {
     setLoading(true);
@@ -180,6 +264,63 @@ export default function ServiceLibraryManager() {
     setEditingResource(null);
   };
 
+  // ── DnD: Services ──────────────────────────────────────────────────────────
+
+  const handleServiceDragStart = (event: DragStartEvent) => {
+    setActiveDragServiceId(event.active.id as string);
+  };
+
+  const handleServiceDragEnd = async (event: DragEndEvent) => {
+    setActiveDragServiceId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = services.findIndex(s => s.id === active.id);
+    const newIndex = services.findIndex(s => s.id === over.id);
+    const reordered = arrayMove(services, oldIndex, newIndex).map((s, i) => ({ ...s, sort_order: i }));
+    setServices(reordered);
+
+    // Persist to DB
+    await Promise.all(
+      reordered.map(s =>
+        supabase.from('services').update({ sort_order: s.sort_order }).eq('id', s.id)
+      )
+    );
+    toast({ title: 'Order saved ✓' });
+  };
+
+  // ── DnD: Resources ─────────────────────────────────────────────────────────
+
+  const handleResourceDragStart = (serviceId: string) => (event: DragStartEvent) => {
+    setActiveDragResourceId(event.active.id as string);
+    setDraggingInServiceId(serviceId);
+  };
+
+  const handleResourceDragEnd = (serviceId: string) => async (event: DragEndEvent) => {
+    setActiveDragResourceId(null);
+    setDraggingInServiceId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const resources = serviceResources[serviceId] ?? [];
+    const oldIndex = resources.findIndex(r => r.id === active.id);
+    const newIndex = resources.findIndex(r => r.id === over.id);
+    const reordered = arrayMove(resources, oldIndex, newIndex).map((r, i) => ({ ...r, sort_order: i }));
+    setServiceResources(prev => ({ ...prev, [serviceId]: reordered }));
+
+    await Promise.all(
+      reordered.map(r =>
+        supabase.from('service_resources').update({ sort_order: r.sort_order }).eq('id', r.id)
+      )
+    );
+    toast({ title: 'Resource order saved ✓' });
+  };
+
+  const activeDragService = activeDragServiceId ? services.find(s => s.id === activeDragServiceId) : null;
+  const activeDragResource = activeDragResourceId && draggingInServiceId
+    ? (serviceResources[draggingInServiceId] ?? []).find(r => r.id === activeDragResourceId)
+    : null;
+
   return (
     <>
       <AlertDialog open={!!deleteTarget} onOpenChange={v => { if (!v) setDeleteTarget(null); }}>
@@ -220,7 +361,7 @@ export default function ServiceLibraryManager() {
         <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Service Library Manager</h2>
-            <p className="text-sm text-muted-foreground">Manage services, resources, and driver help requests.</p>
+            <p className="text-sm text-muted-foreground">Drag to reorder services and resources, or manage content below.</p>
           </div>
           <div className="flex items-center gap-2">
             <TabsList>
@@ -249,26 +390,65 @@ export default function ServiceLibraryManager() {
               <p className="text-sm mt-1">Add your first service to get started.</p>
             </div>
           ) : (
-            services.map(service => (
-              <ServiceRow
-                key={service.id}
-                service={service}
-                expanded={expandedService === service.id}
-                resources={serviceResources[service.id] ?? []}
-                loadingResources={loadingResources.has(service.id)}
-                onToggleExpand={() => handleToggleExpand(service.id)}
-                onToggleVisible={() => handleToggleVisible(service)}
-                onToggleEssential={() => handleToggleEssential(service)}
-                onEdit={() => { setEditingService(service); setServiceFormOpen(true); }}
-                onDelete={() => setDeleteTarget({ type: 'service', id: service.id, name: service.name })}
-                onAddResource={() => { setResourceServiceId(service.id); setEditingResource(null); setResourceFormOpen(true); }}
-                onEditResource={r => { setEditingResource(r); setResourceServiceId(service.id); setResourceFormOpen(true); }}
-                onDeleteResource={r => setDeleteTarget({ type: 'resource', id: r.id, name: r.title })}
-                onToggleResourceVisible={handleToggleResourceVisible}
-                onToggleStartHere={handleToggleStartHere}
-                onMarkVerified={handleMarkVerified}
-              />
-            ))
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleServiceDragStart}
+              onDragEnd={handleServiceDragEnd}
+            >
+              <SortableContext items={services.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-3">
+                  {services.map(service => (
+                    <SortableServiceRow
+                      key={service.id}
+                      service={service}
+                      expanded={expandedService === service.id}
+                      resources={serviceResources[service.id] ?? []}
+                      loadingResources={loadingResources.has(service.id)}
+                      onToggleExpand={() => handleToggleExpand(service.id)}
+                      onToggleVisible={() => handleToggleVisible(service)}
+                      onToggleEssential={() => handleToggleEssential(service)}
+                      onEdit={() => { setEditingService(service); setServiceFormOpen(true); }}
+                      onDelete={() => setDeleteTarget({ type: 'service', id: service.id, name: service.name })}
+                      onAddResource={() => { setResourceServiceId(service.id); setEditingResource(null); setResourceFormOpen(true); }}
+                      onEditResource={r => { setEditingResource(r); setResourceServiceId(service.id); setResourceFormOpen(true); }}
+                      onDeleteResource={r => setDeleteTarget({ type: 'resource', id: r.id, name: r.title })}
+                      onToggleResourceVisible={handleToggleResourceVisible}
+                      onToggleStartHere={handleToggleStartHere}
+                      onMarkVerified={handleMarkVerified}
+                      onResourceDragStart={handleResourceDragStart(service.id)}
+                      onResourceDragEnd={handleResourceDragEnd(service.id)}
+                      onResourcesReorder={(reordered) => setServiceResources(prev => ({ ...prev, [service.id]: reordered }))}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+              <DragOverlay>
+                {activeDragService && (
+                  <ServiceRow
+                    service={activeDragService}
+                    expanded={false}
+                    resources={[]}
+                    loadingResources={false}
+                    onToggleExpand={() => {}}
+                    onToggleVisible={() => {}}
+                    onToggleEssential={() => {}}
+                    onEdit={() => {}}
+                    onDelete={() => {}}
+                    onAddResource={() => {}}
+                    onEditResource={() => {}}
+                    onDeleteResource={() => {}}
+                    onToggleResourceVisible={() => {}}
+                    onToggleStartHere={() => {}}
+                    onMarkVerified={() => {}}
+                    onResourceDragStart={() => {}}
+                    onResourceDragEnd={() => {}}
+                    onResourcesReorder={() => {}}
+                    isDragOverlay
+                  />
+                )}
+              </DragOverlay>
+            </DndContext>
           )}
         </TabsContent>
 
@@ -283,6 +463,8 @@ export default function ServiceLibraryManager() {
     </>
   );
 }
+
+// ─── ServiceRow ───────────────────────────────────────────────────────────────
 
 interface ServiceRowProps {
   service: Service;
@@ -300,6 +482,11 @@ interface ServiceRowProps {
   onToggleResourceVisible: (r: ServiceResource) => void;
   onToggleStartHere: (r: ServiceResource) => void;
   onMarkVerified: (r: ServiceResource) => void;
+  onResourceDragStart: (event: DragStartEvent) => void;
+  onResourceDragEnd: (event: DragEndEvent) => void;
+  onResourcesReorder: (reordered: ServiceResource[]) => void;
+  dragHandleProps?: React.HTMLAttributes<HTMLElement>;
+  isDragOverlay?: boolean;
 }
 
 function ServiceRow({
@@ -307,12 +494,26 @@ function ServiceRow({
   onToggleExpand, onToggleVisible, onToggleEssential,
   onEdit, onDelete, onAddResource, onEditResource, onDeleteResource,
   onToggleResourceVisible, onToggleStartHere, onMarkVerified,
+  onResourceDragStart, onResourceDragEnd,
+  dragHandleProps,
+  isDragOverlay,
 }: ServiceRowProps) {
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
   return (
-    <div className="border border-border rounded-xl overflow-hidden bg-card">
+    <div className={`border border-border rounded-xl overflow-hidden bg-card ${isDragOverlay ? 'shadow-2xl ring-2 ring-primary/30 rotate-1' : ''}`}>
       {/* Service header */}
       <div className="flex items-center gap-3 px-4 py-3">
-        <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0 cursor-grab" />
+        <span
+          {...dragHandleProps}
+          className="cursor-grab active:cursor-grabbing touch-none shrink-0 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+          title="Drag to reorder"
+        >
+          <GripVertical className="h-4 w-4" />
+        </span>
         {service.logo_url ? (
           <img src={service.logo_url} alt="" className="h-8 w-8 rounded-lg object-contain bg-muted shrink-0" />
         ) : (
@@ -354,7 +555,7 @@ function ServiceRow({
       </div>
 
       {/* Resources */}
-      {expanded && (
+      {expanded && !isDragOverlay && (
         <div className="border-t border-border bg-muted/20">
           <div className="flex items-center justify-between px-4 py-2.5">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Resources ({resources.length})</p>
@@ -369,18 +570,29 @@ function ServiceRow({
           ) : resources.length === 0 ? (
             <div className="px-4 pb-4 text-center text-muted-foreground text-sm">No resources yet.</div>
           ) : (
-            <div className="px-4 pb-3 space-y-2">
-              {resources.map(r => (
-                <ResourceAdminRow
-                  key={r.id}
-                  resource={r}
-                  onEdit={() => onEditResource(r)}
-                  onDelete={() => onDeleteResource(r)}
-                  onToggleVisible={() => onToggleResourceVisible(r)}
-                  onToggleStartHere={() => onToggleStartHere(r)}
-                  onMarkVerified={() => onMarkVerified(r)}
-                />
-              ))}
+            <div className="px-4 pb-3">
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={onResourceDragStart}
+                onDragEnd={onResourceDragEnd}
+              >
+                <SortableContext items={resources.map(r => r.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2">
+                    {resources.map(r => (
+                      <SortableResourceRow
+                        key={r.id}
+                        resource={r}
+                        onEdit={() => onEditResource(r)}
+                        onDelete={() => onDeleteResource(r)}
+                        onToggleVisible={() => onToggleResourceVisible(r)}
+                        onToggleStartHere={() => onToggleStartHere(r)}
+                        onMarkVerified={() => onMarkVerified(r)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </div>
           )}
         </div>
@@ -389,21 +601,31 @@ function ServiceRow({
   );
 }
 
-function ResourceAdminRow({ resource, onEdit, onDelete, onToggleVisible, onToggleStartHere, onMarkVerified }: {
+// ─── ResourceAdminRow ─────────────────────────────────────────────────────────
+
+function ResourceAdminRow({ resource, onEdit, onDelete, onToggleVisible, onToggleStartHere, onMarkVerified, dragHandleProps, isDragOverlay }: {
   resource: ServiceResource;
   onEdit: () => void;
   onDelete: () => void;
   onToggleVisible: () => void;
   onToggleStartHere: () => void;
   onMarkVerified: () => void;
+  dragHandleProps?: React.HTMLAttributes<HTMLElement>;
+  isDragOverlay?: boolean;
 }) {
   const isOutdated = resource.last_verified_at
     ? differenceInDays(new Date(), parseISO(resource.last_verified_at)) > 90
     : true;
 
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card">
-      <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0 cursor-grab" />
+    <div className={`flex items-center gap-3 p-3 rounded-lg border border-border bg-card ${isDragOverlay ? 'shadow-2xl ring-2 ring-primary/30 rotate-1' : ''}`}>
+      <span
+        {...dragHandleProps}
+        className="cursor-grab active:cursor-grabbing touch-none shrink-0 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+        title="Drag to reorder"
+      >
+        <GripVertical className="h-4 w-4" />
+      </span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <ResourceTypeBadge type={resource.resource_type} />
