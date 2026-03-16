@@ -175,11 +175,28 @@ export default function ComplianceDashboard({ documents }: ComplianceDashboardPr
       link: '/operator?tab=docs-hub',
     });
 
-    setSending(null);
-    toast({
-      title: 'Reminder sent ✓',
-      description: `Notified ${op.name} in-app.`,
+    // Email via edge function
+    const { error } = await supabase.functions.invoke('notify-document-update', {
+      body: {
+        event_type: 'reminder',
+        document_title: doc.title,
+        document_description: doc.description ?? '',
+        acknowledged_user_ids: [op.user_id],
+      },
     });
+
+    setSending(null);
+    if (error) {
+      toast({
+        title: 'In-app reminder sent, email failed',
+        description: `Notified ${op.name} in-app. Email error: ${error.message}`,
+      });
+    } else {
+      toast({
+        title: 'Reminder sent ✓',
+        description: `Notified ${op.name} via in-app and email.`,
+      });
+    }
   };
 
   // ── Send reminders to ALL pending for a doc ────────────────────────────────
