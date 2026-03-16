@@ -9,3 +9,6 @@ verify_jwt = false
 [functions.check-cert-expiry]
 verify_jwt = false
 
+[functions.notify-onboarding-update]
+verify_jwt = false
+
