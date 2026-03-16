@@ -477,6 +477,7 @@ interface EditFormProps {
   saving: boolean;
   onSave: () => void;
   onClose: () => void;
+  initialBody: string;
 }
 
 function EditForm({ form, setForm, doc, saving, onSave, onClose }: EditFormProps) {
