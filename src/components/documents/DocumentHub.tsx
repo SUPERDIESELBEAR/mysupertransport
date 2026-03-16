@@ -14,11 +14,12 @@ import { useAuth } from '@/hooks/useAuth';
 
 interface DocumentHubProps {
   isAdmin?: boolean;
+  onAcknowledged?: () => void;
 }
 
 type AdminTab = 'documents' | 'compliance';
 
-export default function DocumentHub({ isAdmin = false }: DocumentHubProps) {
+export default function DocumentHub({ isAdmin = false, onAcknowledged }: DocumentHubProps) {
   const { user } = useAuth();
   const [documents, setDocuments] = useState<DriverDocument[]>([]);
   const [acknowledgments, setAcknowledgments] = useState<DocumentAcknowledgment[]>([]);
@@ -131,7 +132,7 @@ export default function DocumentHub({ isAdmin = false }: DocumentHubProps) {
         userId={user?.id ?? ''}
         acknowledgment={getAck(viewingDoc.id)}
         onBack={() => setViewingDoc(null)}
-        onAcknowledged={() => { fetchAcknowledgments(); setViewingDoc(null); }}
+        onAcknowledged={() => { fetchAcknowledgments(); setViewingDoc(null); onAcknowledged?.(); }}
       />
     );
   }
