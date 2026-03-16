@@ -490,10 +490,12 @@ export default function OperatorPortal() {
     return null;
   })();
 
+  const icaActionDot = onboardingStatus.ica_status === 'sent_for_signature';
+
   const navItems = [
     { view: 'progress' as OperatorView, label: 'My Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
     { view: 'documents' as OperatorView, label: 'Documents', icon: <Upload className="h-5 w-5" /> },
-    { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete' },
+    { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete', icaDot: icaActionDot },
     { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
     { view: 'resources' as OperatorView, label: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
@@ -510,7 +512,7 @@ export default function OperatorPortal() {
   const mobileNavItems = (() => {
     const slot5 =
       (onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete')
-        ? { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" /> }
+        ? { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, icaDot: icaActionDot }
         : isFullyOnboarded
         ? { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" /> }
         : { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> };
@@ -567,6 +569,9 @@ export default function OperatorPortal() {
                       <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
                         {(item.badge as number) > 99 ? '99+' : item.badge}
                       </span>
+                    )}
+                    {'icaDot' in item && item.icaDot && view !== 'ica' && (
+                      <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark" />
                     )}
                     {showExpiry && (
                       <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark" />
@@ -655,6 +660,9 @@ export default function OperatorPortal() {
                       <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
                         {(item.badge as number) > 99 ? '99+' : item.badge}
                       </span>
+                    )}
+                    {'icaDot' in item && item.icaDot && view !== 'ica' && (
+                      <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark" />
                     )}
                     {'criticalDot' in item && item.criticalDot && view !== 'progress' && (
                       <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark" />
@@ -1028,8 +1036,8 @@ export default function OperatorPortal() {
                     </span>
                   )}
                   {/* ICA action-required dot */}
-                  {item.view === 'ica' && onboardingStatus.ica_status === 'sent_for_signature' && (
-                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-gold border-2 border-surface-dark" />
+                  {'icaDot' in item && item.icaDot && !isActive && (
+                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark" />
                   )}
                   {/* Critical expiry dot on Progress */}
                   {'criticalDot' in item && item.criticalDot && !isActive && (
