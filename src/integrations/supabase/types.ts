@@ -1282,6 +1282,35 @@ export type Database = {
           },
         ]
       }
+      service_resource_views: {
+        Row: {
+          id: string
+          resource_id: string
+          user_id: string
+          viewed_at: string
+        }
+        Insert: {
+          id?: string
+          resource_id: string
+          user_id: string
+          viewed_at?: string
+        }
+        Update: {
+          id?: string
+          resource_id?: string
+          user_id?: string
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_resource_views_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "service_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_resources: {
         Row: {
           body: string | null

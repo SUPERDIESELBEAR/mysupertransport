@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Bookmark, ChevronRight, Star, BookOpen, CheckCircle2, Circle, Clock, AlertTriangle, X } from 'lucide-react';
+import { Search, Bookmark, ChevronRight, Star, BookOpen, CheckCircle2, Circle, Clock, AlertTriangle, X, History } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,10 +10,16 @@ import ResourceViewer from './ResourceViewer';
 import ServiceDetailPage from './ServiceDetailPage';
 import type { Service, ServiceResource, ResourceType } from './ServiceLibraryTypes';
 import { ALL_RESOURCE_TYPES } from './ServiceLibraryTypes';
-import { differenceInDays, parseISO } from 'date-fns';
+import { differenceInDays, parseISO, formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
 type LibraryView = 'home' | 'service' | 'resource' | 'bookmarks';
+
+interface RecentView {
+  resource: ServiceResource;
+  service: Service | undefined;
+  viewed_at: string;
+}
 
 export default function DriverServiceLibrary() {
   const { user } = useAuth();
@@ -26,6 +32,7 @@ export default function DriverServiceLibrary() {
   const [allResources, setAllResources] = useState<ServiceResource[]>([]);
   const [completions, setCompletions] = useState<Set<string>>(new Set());
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
+  const [recentViews, setRecentViews] = useState<RecentView[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState('');
@@ -40,11 +47,13 @@ export default function DriverServiceLibrary() {
         { data: resources },
         { data: comps },
         { data: bmarks },
+        { data: views },
       ] = await Promise.all([
         supabase.from('services').select('*').eq('is_visible', true).order('sort_order'),
         supabase.from('service_resources').select('*').eq('is_visible', true).order('sort_order'),
         supabase.from('service_resource_completions').select('resource_id').eq('user_id', user.id),
         supabase.from('service_resource_bookmarks').select('resource_id').eq('user_id', user.id),
+        supabase.from('service_resource_views').select('resource_id, viewed_at').eq('user_id', user.id).order('viewed_at', { ascending: false }).limit(3),
       ]);
 
       const compSet = new Set((comps ?? []).map((c: any) => c.resource_id));
@@ -72,9 +81,26 @@ export default function DriverServiceLibrary() {
         };
       });
       setServices(enrichedServices);
+
+      // Build recent views list
+      const recentViewsList: RecentView[] = (views ?? []).flatMap((v: any) => {
+        const resource = enrichedResources.find(r => r.id === v.resource_id);
+        if (!resource) return [];
+        const service = enrichedServices.find(s => s.id === resource.service_id);
+        return [{ resource, service, viewed_at: v.viewed_at }];
+      });
+      setRecentViews(recentViewsList);
     } finally {
       setLoading(false);
     }
+  }, [user]);
+
+  // Upsert a view record when a resource is opened
+  const trackView = useCallback(async (resourceId: string) => {
+    if (!user) return;
+    await supabase
+      .from('service_resource_views')
+      .upsert({ user_id: user.id, resource_id: resourceId, viewed_at: new Date().toISOString() }, { onConflict: 'user_id,resource_id' });
   }, [user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -146,6 +172,19 @@ export default function DriverServiceLibrary() {
 
   const essentialServices = services.filter(s => s.is_new_driver_essential);
 
+  const openResource = useCallback((res: ServiceResource, svc: Service | null) => {
+    setSelectedResource(res);
+    setSelectedService(svc);
+    setView('resource');
+    trackView(res.id);
+    // Optimistically update recent views list
+    setRecentViews(prev => {
+      const filtered = prev.filter(v => v.resource.id !== res.id);
+      const service = svc ?? services.find(s => s.id === res.service_id);
+      return [{ resource: res, service, viewed_at: new Date().toISOString() }, ...filtered].slice(0, 3);
+    });
+  }, [trackView, services]);
+
   if (view === 'resource' && selectedResource && selectedService) {
     return (
       <ResourceViewer
@@ -171,7 +210,7 @@ export default function DriverServiceLibrary() {
       <ServiceDetailPage
         service={enriched}
         onBack={() => { setView('home'); setSelectedService(null); }}
-        onOpenResource={res => { setSelectedResource(res); setView('resource'); }}
+        onOpenResource={res => openResource(res, selectedService)}
         onCompletion={handleCompletion}
         onBookmark={handleBookmark}
       />
@@ -260,11 +299,7 @@ export default function DriverServiceLibrary() {
                         key={r.id}
                         resource={{ ...r, is_bookmarked: true, is_completed: completions.has(r.id) }}
                         service={svc}
-                        onClick={() => {
-                          setSelectedResource(r);
-                          setSelectedService(svc ?? null);
-                          setView('resource');
-                        }}
+                        onClick={() => openResource(r, svc ?? null)}
                       />
                     ))}
                   </div>
@@ -344,11 +379,7 @@ export default function DriverServiceLibrary() {
                           key={r.id}
                           resource={{ ...r, is_completed: completions.has(r.id), is_bookmarked: bookmarks.has(r.id) }}
                           service={service}
-                          onClick={() => {
-                            setSelectedResource(r);
-                            setSelectedService(service);
-                            setView('resource');
-                          }}
+                          onClick={() => openResource(r, service)}
                         />
                       ))}
                     </div>
@@ -360,6 +391,48 @@ export default function DriverServiceLibrary() {
 
           {searchResults === null && (
             <>
+              {/* Continue where you left off */}
+              {!loading && recentViews.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <History className="h-4 w-4 text-muted-foreground" />
+                    <h2 className="text-base font-semibold text-foreground">Continue where you left off</h2>
+                  </div>
+                  <div className="space-y-2">
+                    {recentViews.map(({ resource, service, viewed_at }) => (
+                      <button
+                        key={resource.id}
+                        onClick={() => openResource(resource, service ?? null)}
+                        className="w-full text-left p-3.5 rounded-xl border border-border bg-card hover:border-primary/40 hover:shadow-sm transition-all group flex items-center gap-3"
+                      >
+                        {service?.logo_url ? (
+                          <img src={service.logo_url} alt={service.name} className="h-8 w-8 rounded-lg object-contain bg-muted shrink-0" />
+                        ) : (
+                          <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                            <BookOpen className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-foreground text-sm truncate">{resource.title}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-muted-foreground truncate">{service?.name}</span>
+                            <span className="text-muted-foreground/40 text-xs">·</span>
+                            <span className="text-xs text-muted-foreground shrink-0">{formatDistanceToNow(parseISO(viewed_at), { addSuffix: true })}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <ResourceTypeBadge type={resource.resource_type as any} />
+                          {completions.has(resource.id)
+                            ? <CheckCircle2 className="h-4 w-4 text-status-complete" />
+                            : <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                          }
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* New Driver Essentials */}
               {!loading && essentialServices.length > 0 && (
                 <div className="space-y-3">
