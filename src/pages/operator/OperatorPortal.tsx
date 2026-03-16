@@ -512,7 +512,7 @@ export default function OperatorPortal() {
   const mobileNavItems = (() => {
     const slot5 =
       (onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete')
-        ? { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" /> }
+        ? { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, icaDot: icaActionDot }
         : isFullyOnboarded
         ? { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" /> }
         : { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> };
