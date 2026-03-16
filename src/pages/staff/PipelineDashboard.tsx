@@ -482,7 +482,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     const assignedStaffIds = opData.map((o: any) => o.assigned_onboarding_staff).filter(Boolean);
     const allUserIds = [...new Set([...operatorUserIds, ...assignedStaffIds, ...allStaffUserIds])];
 
-    const [profileResult, dispatchResult, docResult, unreadResult] = await Promise.all([
+    const [profileResult, dispatchResult, docResult, unreadResult, icaDraftResult] = await Promise.all([
       allUserIds.length > 0
         ? supabase.from('profiles').select('user_id, first_name, last_name, phone, home_state, account_status').in('user_id', allUserIds)
         : Promise.resolve({ data: [] }),
@@ -501,6 +501,15 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             .in('sender_id', operatorUserIds)
             .is('read_at', null)
         : Promise.resolve({ data: [] }),
+      // Fetch ICA draft contracts (status = 'draft') to compute "days in draft"
+      operatorIds.length > 0
+        ? supabase
+            .from('ica_contracts')
+            .select('operator_id, created_at')
+            .eq('status', 'draft')
+            .in('operator_id', operatorIds)
+            .order('created_at', { ascending: true }) // oldest draft first per operator
+        : Promise.resolve({ data: [] }),
     ]);
 
     const profileMap: Record<string, any> = {};
@@ -518,6 +527,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     const unreadMap: Record<string, number> = {};
     ((unreadResult.data as any[]) ?? []).forEach((m: any) => {
       unreadMap[m.sender_id] = (unreadMap[m.sender_id] ?? 0) + 1;
+    });
+
+    // Build ICA draft creation date map: operator_id → earliest draft created_at
+    const icaDraftMap: Record<string, string> = {};
+    ((icaDraftResult.data as any[]) ?? []).forEach((d: any) => {
+      if (!icaDraftMap[d.operator_id]) {
+        icaDraftMap[d.operator_id] = d.created_at;
+      }
     });
 
     // Build staff options
@@ -543,6 +560,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         : null;
       const appRaw = op.applications;
       const appEmail = Array.isArray(appRaw) ? (appRaw[0]?.email ?? null) : (appRaw?.email ?? null);
+      const icaStatus = os.ica_status ?? 'not_issued';
       return {
         id: op.id,
         user_id: op.user_id,
@@ -559,7 +577,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         fully_onboarded: os.fully_onboarded ?? false,
         mvr_ch_approval: os.mvr_ch_approval ?? 'pending',
         pe_screening_result: os.pe_screening_result ?? 'pending',
-        ica_status: os.ica_status ?? 'not_issued',
+        ica_status: icaStatus,
+        ica_draft_since: icaStatus === 'in_progress' ? (icaDraftMap[op.id] ?? null) : null,
         insurance_added_date: os.insurance_added_date ?? null,
         dispatch_status: dispatchMap[op.id] ?? null,
         doc_count: docCountMap[op.id] ?? 0,
