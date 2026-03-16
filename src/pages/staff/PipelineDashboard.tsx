@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw } from 'lucide-react';
+import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw, FileClock } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { differenceInDays, parseISO, format, formatDistanceToNowStrict } from 'date-fns';
@@ -39,6 +39,7 @@ interface OperatorRow {
   mvr_ch_approval: string;
   pe_screening_result: string;
   ica_status: string;
+  ica_draft_since: string | null; // created_at of the in-progress draft ICA contract
   insurance_added_date: string | null;
   dispatch_status: DispatchStatus | null;
   doc_count: number;
@@ -481,7 +482,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     const assignedStaffIds = opData.map((o: any) => o.assigned_onboarding_staff).filter(Boolean);
     const allUserIds = [...new Set([...operatorUserIds, ...assignedStaffIds, ...allStaffUserIds])];
 
-    const [profileResult, dispatchResult, docResult, unreadResult] = await Promise.all([
+    const [profileResult, dispatchResult, docResult, unreadResult, icaDraftResult] = await Promise.all([
       allUserIds.length > 0
         ? supabase.from('profiles').select('user_id, first_name, last_name, phone, home_state, account_status').in('user_id', allUserIds)
         : Promise.resolve({ data: [] }),
@@ -500,6 +501,15 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             .in('sender_id', operatorUserIds)
             .is('read_at', null)
         : Promise.resolve({ data: [] }),
+      // Fetch ICA draft contracts (status = 'draft') to compute "days in draft"
+      operatorIds.length > 0
+        ? supabase
+            .from('ica_contracts')
+            .select('operator_id, created_at')
+            .eq('status', 'draft')
+            .in('operator_id', operatorIds)
+            .order('created_at', { ascending: true }) // oldest draft first per operator
+        : Promise.resolve({ data: [] }),
     ]);
 
     const profileMap: Record<string, any> = {};
@@ -517,6 +527,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     const unreadMap: Record<string, number> = {};
     ((unreadResult.data as any[]) ?? []).forEach((m: any) => {
       unreadMap[m.sender_id] = (unreadMap[m.sender_id] ?? 0) + 1;
+    });
+
+    // Build ICA draft creation date map: operator_id → earliest draft created_at
+    const icaDraftMap: Record<string, string> = {};
+    ((icaDraftResult.data as any[]) ?? []).forEach((d: any) => {
+      if (!icaDraftMap[d.operator_id]) {
+        icaDraftMap[d.operator_id] = d.created_at;
+      }
     });
 
     // Build staff options
@@ -542,6 +560,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         : null;
       const appRaw = op.applications;
       const appEmail = Array.isArray(appRaw) ? (appRaw[0]?.email ?? null) : (appRaw?.email ?? null);
+      const icaStatus = os.ica_status ?? 'not_issued';
       return {
         id: op.id,
         user_id: op.user_id,
@@ -558,7 +577,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         fully_onboarded: os.fully_onboarded ?? false,
         mvr_ch_approval: os.mvr_ch_approval ?? 'pending',
         pe_screening_result: os.pe_screening_result ?? 'pending',
-        ica_status: os.ica_status ?? 'not_issued',
+        ica_status: icaStatus,
+        ica_draft_since: icaStatus === 'in_progress' ? (icaDraftMap[op.id] ?? null) : null,
         insurance_added_date: os.insurance_added_date ?? null,
         dispatch_status: dispatchMap[op.id] ?? null,
         doc_count: docCountMap[op.id] ?? 0,
@@ -2772,31 +2792,59 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                      </td>
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{op.phone ?? '—'}</td>
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      <div className="space-y-1 min-w-[140px]">
-                        <div className="flex items-center justify-between gap-2">
-                          <Badge variant="outline" className="text-xs border-gold/40 text-gold bg-gold/5 truncate max-w-[120px]">
-                            {op.current_stage}
-                          </Badge>
-                          <span className={`text-[11px] font-bold tabular-nums shrink-0 ${
-                            op.progress_pct === 100 ? 'text-status-complete' : 'text-muted-foreground'
-                          }`}>
-                            {op.progress_pct}%
-                          </span>
-                        </div>
-                        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-500"
-                            style={{
-                              width: `${op.progress_pct}%`,
-                              background: op.progress_pct === 100
-                                ? 'hsl(var(--status-complete))'
-                                : 'hsl(var(--gold-main))',
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </td>
+                     <td className="px-4 py-3">
+                       <div className="space-y-1 min-w-[140px]">
+                         <div className="flex items-center justify-between gap-2">
+                           <Badge variant="outline" className="text-xs border-gold/40 text-gold bg-gold/5 truncate max-w-[120px]">
+                             {op.current_stage}
+                           </Badge>
+                           <span className={`text-[11px] font-bold tabular-nums shrink-0 ${
+                             op.progress_pct === 100 ? 'text-status-complete' : 'text-muted-foreground'
+                           }`}>
+                             {op.progress_pct}%
+                           </span>
+                         </div>
+                         {/* Days in Draft chip — shown only for Stage 3 ICA operators with an in_progress draft */}
+                         {op.ica_status === 'in_progress' && op.ica_draft_since && (() => {
+                           const daysInDraft = differenceInDays(new Date(), parseISO(op.ica_draft_since));
+                           const isStale = daysInDraft >= 7;
+                           return (
+                             <TooltipProvider delayDuration={100}>
+                               <Tooltip>
+                                 <TooltipTrigger asChild>
+                                   <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none border cursor-default w-fit ${
+                                     isStale
+                                       ? 'bg-warning/15 text-warning border-warning/30'
+                                       : 'bg-status-progress/10 text-status-progress border-status-progress/25'
+                                   }`} style={isStale ? { color: 'hsl(var(--warning))' } : {}}>
+                                     <FileClock className="h-2.5 w-2.5 shrink-0" />
+                                     {daysInDraft === 0 ? 'Draft today' : `${daysInDraft}d in draft`}
+                                   </span>
+                                 </TooltipTrigger>
+                                 <TooltipContent side="bottom" className="text-xs text-left space-y-0.5">
+                                   <p className="font-semibold">ICA draft in progress</p>
+                                   <p className="text-muted-foreground">
+                                     Started {format(parseISO(op.ica_draft_since), 'MMM d, yyyy')}
+                                     {isStale && ' — consider following up'}
+                                   </p>
+                                 </TooltipContent>
+                               </Tooltip>
+                             </TooltipProvider>
+                           );
+                         })()}
+                         <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                           <div
+                             className="h-full rounded-full transition-all duration-500"
+                             style={{
+                               width: `${op.progress_pct}%`,
+                               background: op.progress_pct === 100
+                                 ? 'hsl(var(--status-complete))'
+                                 : 'hsl(var(--gold-main))',
+                             }}
+                           />
+                         </div>
+                       </div>
+                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       {op.fully_onboarded ? (
                         <Badge className="status-complete border text-xs">Onboarded</Badge>
