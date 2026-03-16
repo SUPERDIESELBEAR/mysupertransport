@@ -805,5 +805,14 @@ export default function SmartProgressWidget({
         )}
       </div>
     </div>
+
+    <WhatsNextModal
+      open={whatsNextOpen}
+      onClose={() => setWhatsNextOpen(false)}
+      stages={stages}
+      onboardingStatus={onboardingStatus}
+      onNavigateTo={onNavigateTo}
+    />
+    </>
   );
 }
