@@ -362,6 +362,9 @@ export default function StaffPortal() {
       {currentView === 'resources' && (
         <ResourceLibraryManager />
       )}
+      {currentView === 'docs-hub' && (
+        <DocumentHub isAdmin={true} />
+      )}
       {currentView === 'notifications' && (
         <NotificationHistory />
       )}

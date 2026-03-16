@@ -487,6 +487,7 @@ export default function ManagementPortal() {
     { label: 'Staff', icon: <UserPlus className="h-4 w-4" />, path: 'staff' },
     { label: 'Activity', icon: <ScrollText className="h-4 w-4" />, path: 'activity' },
     { label: 'Notifications', icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
+    { label: 'Doc Hub', icon: <Library className="h-4 w-4" />, path: 'docs-hub' },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
     { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
   ];
