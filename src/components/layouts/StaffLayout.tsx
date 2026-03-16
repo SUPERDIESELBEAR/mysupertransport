@@ -199,6 +199,18 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
   return (
     <>
     <ChangePasswordModal open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
+    <AlertDialog open={signOutOpen} onOpenChange={setSignOutOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Sign out?</AlertDialogTitle>
+          <AlertDialogDescription>You will be returned to the login screen.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={() => signOut()}>Sign out</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     <div className="flex h-screen bg-secondary overflow-hidden">
       {/* ── Mobile overlay sidebar ─────────────────────────────────── */}
       {mobileSidebarOpen && (
