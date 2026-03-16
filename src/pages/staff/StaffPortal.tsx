@@ -169,6 +169,9 @@ export default function StaffPortal() {
 
   const [prefOpen, setPrefOpen] = useState(false);
   const [truckDownOperators, setTruckDownOperators] = useState<{ name: string; unit: string }[]>([]);
+  const [icaDraftCount, setIcaDraftCount] = useState(0);
+  const [icaDraftNames, setIcaDraftNames] = useState<string[]>([]);
+  const [pipelineICAFilter, setPipelineICAFilter] = useState(false);
   const [pipelineDispatchFilter, setPipelineDispatchFilter] = useState<'all' | 'truck_down'>('all');
 
   const fetchCriticalExpiries = useCallback(async () => {
