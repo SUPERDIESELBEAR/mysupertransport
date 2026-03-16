@@ -367,6 +367,7 @@ export default function OperatorStatusPage({
         operatorId={operatorId}
         uploadedDocs={uploadedDocs}
         onUploadComplete={onUploadComplete}
+        unackedRequiredDocs={unackedRequiredDocs}
       />
     </div>
 

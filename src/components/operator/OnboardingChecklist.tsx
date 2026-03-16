@@ -335,6 +335,7 @@ export default function OnboardingChecklist({
             operatorId={operatorId}
             uploadedDocs={uploadedDocs}
             onUploadComplete={onUploadComplete}
+            unackedRequiredDocs={unackedRequiredDocs}
           />
         </div>
       )}

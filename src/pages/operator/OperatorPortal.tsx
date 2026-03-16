@@ -888,6 +888,7 @@ export default function OperatorPortal() {
               operatorId={operatorId}
               uploadedDocs={uploadedDocs}
               onUploadComplete={fetchData}
+              unackedRequiredDocs={unackedRequiredDocs}
               onMessageDispatcher={() => {
                 if (assignedDispatcher?.userId) {
                   setMessageInitialUserId(assignedDispatcher.userId);
