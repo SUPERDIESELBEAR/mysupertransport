@@ -280,7 +280,55 @@ export default function StaffPortal() {
   }, [fetchIcaDrafts]);
 
   return (
-...
+    <>
+    <StaffNotificationPreferencesModal open={prefOpen} onClose={() => setPrefOpen(false)} />
+    <BulkMessageModal
+      open={bulkMessageOpen}
+      onClose={() => { setBulkMessageOpen(false); setBulkMessagePreselected([]); }}
+      preselectedIds={bulkMessagePreselected}
+    />
+    <StaffLayout
+      navItems={navItems}
+      currentPath={currentView}
+      onNavigate={handleNavigate}
+      title="Onboarding"
+      headerActions={
+        <button
+          onClick={() => setPrefOpen(true)}
+          title="Notification preferences"
+          className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-muted"
+        >
+          <SlidersHorizontal className="h-4.5 w-4.5" />
+        </button>
+      }
+    >
+      {/* ── TRUCK DOWN ALERT BANNER ── */}
+      {truckDownOperators.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-start sm:items-center justify-between gap-3 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 animate-fade-in">
+          <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/15 shrink-0 mt-0.5 sm:mt-0">
+              <TriangleAlert className="h-4 w-4 text-destructive animate-pulse" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-destructive leading-tight">
+                {truckDownOperators.length} Operator{truckDownOperators.length !== 1 ? 's' : ''} Truck Down
+              </p>
+              <p className="text-xs text-destructive/70 leading-tight mt-0.5 break-words">
+                {truckDownOperators.map(o => `${o.name} · ${o.unit}`).join('  ·  ')}
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => { setPipelineDispatchFilter('truck_down'); setCurrentView('pipeline'); }}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs gap-1.5 shrink-0"
+          >
+            <Truck className="h-3.5 w-3.5" />
+            View Pipeline
+          </Button>
+        </div>
+      )}
+
       {/* ── ICA DRAFTS IN PROGRESS BANNER ── */}
       {icaDraftCount > 0 && (
         <div className="mb-3 flex flex-wrap items-start sm:items-center justify-between gap-3 bg-status-progress/10 border border-status-progress/30 rounded-xl px-4 py-3 animate-fade-in">
