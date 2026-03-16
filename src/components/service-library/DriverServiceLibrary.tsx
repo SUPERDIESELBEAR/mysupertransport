@@ -391,6 +391,48 @@ export default function DriverServiceLibrary() {
 
           {searchResults === null && (
             <>
+              {/* Continue where you left off */}
+              {!loading && recentViews.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <History className="h-4 w-4 text-muted-foreground" />
+                    <h2 className="text-base font-semibold text-foreground">Continue where you left off</h2>
+                  </div>
+                  <div className="space-y-2">
+                    {recentViews.map(({ resource, service, viewed_at }) => (
+                      <button
+                        key={resource.id}
+                        onClick={() => openResource(resource, service ?? null)}
+                        className="w-full text-left p-3.5 rounded-xl border border-border bg-card hover:border-primary/40 hover:shadow-sm transition-all group flex items-center gap-3"
+                      >
+                        {service?.logo_url ? (
+                          <img src={service.logo_url} alt={service.name} className="h-8 w-8 rounded-lg object-contain bg-muted shrink-0" />
+                        ) : (
+                          <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                            <BookOpen className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-foreground text-sm truncate">{resource.title}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-muted-foreground truncate">{service?.name}</span>
+                            <span className="text-muted-foreground/40 text-xs">·</span>
+                            <span className="text-xs text-muted-foreground shrink-0">{formatDistanceToNow(parseISO(viewed_at), { addSuffix: true })}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <ResourceTypeBadge type={resource.resource_type as any} />
+                          {completions.has(resource.id)
+                            ? <CheckCircle2 className="h-4 w-4 text-status-complete" />
+                            : <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                          }
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* New Driver Essentials */}
               {!loading && essentialServices.length > 0 && (
                 <div className="space-y-3">
