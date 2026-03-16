@@ -47,11 +47,13 @@ export default function DriverServiceLibrary() {
         { data: resources },
         { data: comps },
         { data: bmarks },
+        { data: views },
       ] = await Promise.all([
         supabase.from('services').select('*').eq('is_visible', true).order('sort_order'),
         supabase.from('service_resources').select('*').eq('is_visible', true).order('sort_order'),
         supabase.from('service_resource_completions').select('resource_id').eq('user_id', user.id),
         supabase.from('service_resource_bookmarks').select('resource_id').eq('user_id', user.id),
+        supabase.from('service_resource_views').select('resource_id, viewed_at').eq('user_id', user.id).order('viewed_at', { ascending: false }).limit(3),
       ]);
 
       const compSet = new Set((comps ?? []).map((c: any) => c.resource_id));
@@ -79,9 +81,26 @@ export default function DriverServiceLibrary() {
         };
       });
       setServices(enrichedServices);
+
+      // Build recent views list
+      const recentViewsList: RecentView[] = (views ?? []).flatMap((v: any) => {
+        const resource = enrichedResources.find(r => r.id === v.resource_id);
+        if (!resource) return [];
+        const service = enrichedServices.find(s => s.id === resource.service_id);
+        return [{ resource, service, viewed_at: v.viewed_at }];
+      });
+      setRecentViews(recentViewsList);
     } finally {
       setLoading(false);
     }
+  }, [user]);
+
+  // Upsert a view record when a resource is opened
+  const trackView = useCallback(async (resourceId: string) => {
+    if (!user) return;
+    await supabase
+      .from('service_resource_views')
+      .upsert({ user_id: user.id, resource_id: resourceId, viewed_at: new Date().toISOString() }, { onConflict: 'user_id,resource_id' });
   }, [user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
