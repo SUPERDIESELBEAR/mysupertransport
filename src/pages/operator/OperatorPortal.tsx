@@ -198,6 +198,25 @@ export default function OperatorPortal() {
   useEffect(() => { fetchUnreadCount(); }, [fetchUnreadCount]);
   useEffect(() => { fetchUnreadNotifCount(); }, [fetchUnreadNotifCount]);
 
+  // Fetch unacknowledged required docs count for badge
+  useEffect(() => {
+    if (!user) return;
+    const fetchUnacked = async () => {
+      const [{ data: docs }, { data: acks }] = await Promise.all([
+        supabase.from('driver_documents').select('id, version').eq('is_visible', true).eq('is_required', true),
+        supabase.from('document_acknowledgments').select('document_id, document_version').eq('user_id', user.id),
+      ]);
+      if (!docs) return;
+      const ackMap = new Map((acks ?? []).map((a: any) => [a.document_id, a.document_version]));
+      const count = docs.filter((d: any) => {
+        const ackedVersion = ackMap.get(d.id);
+        return ackedVersion === undefined || ackedVersion < d.version;
+      }).length;
+      setUnackedRequiredDocs(count);
+    };
+    fetchUnacked();
+  }, [user, view]);
+
   // Realtime: update dispatch status live so the banner appears/disappears without refresh
   useEffect(() => {
     if (!operatorId) return;
