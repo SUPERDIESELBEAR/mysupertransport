@@ -85,6 +85,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [showICABuilder, setShowICABuilder] = useState(false);
   const [showICAView, setShowICAView] = useState(false);
   const [applicationData, setApplicationData] = useState<any>(null);
+  const [icaDraftUpdatedAt, setIcaDraftUpdatedAt] = useState<string | null>(null);
   const [cdlExpiration, setCdlExpiration] = useState<string | null>(null);
   const [medCertExpiration, setMedCertExpiration] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
