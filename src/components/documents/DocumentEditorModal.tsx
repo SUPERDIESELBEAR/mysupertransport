@@ -440,6 +440,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                 saving={saving}
                 onSave={handleSave}
                 onClose={onClose}
+                initialBody=""
               />
             </div>
           )}
