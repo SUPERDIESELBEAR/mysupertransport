@@ -935,6 +935,9 @@ export default function OperatorPortal() {
         {/* ── FAQ VIEW ── */}
         {view === 'faq' && <OperatorFAQ />}
 
+        {/* ── DOCUMENT HUB VIEW ── */}
+        {view === 'docs-hub' && <DocumentHub isAdmin={false} />}
+
         {/* ── MESSAGES VIEW ── */}
         {view === 'messages' && (
           <OperatorMessagesView
