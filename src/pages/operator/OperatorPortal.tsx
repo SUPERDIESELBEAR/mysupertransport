@@ -24,7 +24,7 @@ import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications';
+type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub';
 
 interface Stage {
   number: number;
