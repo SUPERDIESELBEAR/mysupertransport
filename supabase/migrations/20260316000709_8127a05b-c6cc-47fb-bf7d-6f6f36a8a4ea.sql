@@ -1,0 +1,1 @@
+UPDATE public.onboarding_status SET truck_title = 'requested', form_2290 = 'requested' WHERE operator_id = '5d3a64db-0c77-4f42-9145-7da54fc9b56f';
