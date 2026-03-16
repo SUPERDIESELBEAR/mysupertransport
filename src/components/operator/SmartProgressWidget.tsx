@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ArrowRight, Upload, FileText, Shield, AlertTriangle, CheckCircle2, User, Users, Zap, Loader2, HelpCircle, X, ChevronRight } from 'lucide-react';
+import { ArrowRight, Upload, FileText, Shield, AlertTriangle, CheckCircle2, User, Users, Zap, Loader2, HelpCircle, X, ChevronRight, BookOpen } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
