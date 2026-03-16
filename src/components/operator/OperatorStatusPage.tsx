@@ -217,6 +217,7 @@ export default function OperatorStatusPage({
   operatorId,
   uploadedDocs,
   onUploadComplete,
+  unackedRequiredDocs = 0,
 }: OperatorStatusPageProps) {
   const [bannerDismissed, setBannerDismissed] = useState(() => {
     return sessionStorage.getItem('cert_expiry_banner_dismissed') === 'true';
