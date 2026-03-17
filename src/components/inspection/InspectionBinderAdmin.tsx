@@ -9,7 +9,6 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -40,7 +39,6 @@ interface OperatorOption {
 }
 
 interface Props {
-  // If provided, scoped to a specific operator
   operatorUserId?: string;
   operatorName?: string;
 }
@@ -84,8 +82,13 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const [activeTab, setActiveTab] = useState<'company' | 'driver' | 'uploads'>('company');
   const [expiryEditing, setExpiryEditing] = useState<string | null>(null);
   const [expiryValue, setExpiryValue] = useState('');
-  // Map of docName → most-recent reminder record for the selected driver
   const [lastReminders, setLastReminders] = useState<Record<string, ReminderRecord>>({});
+  const [sharingAll, setSharingAll] = useState(false);
+  const [shareAllDialogOpen, setShareAllDialogOpen] = useState(false);
+  const [unsharingAll, setUnsharingAll] = useState(false);
+  const [unshareAllDialogOpen, setUnshareAllDialogOpen] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState<string | null>(null);
+  const [reminderDialogDoc, setReminderDialogDoc] = useState<string | null>(null);
 
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -116,7 +119,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const fetchDocs = useCallback(async () => {
     setLoading(true);
 
-    // Resolve operator row id for cert_reminders lookup (cert_reminders uses operators.id)
+    // Resolve operator row id for cert_reminders lookup
     let resolvedOperatorId: string | null = null;
     if (selectedDriverId) {
       const { data: opRow } = await supabase
@@ -148,7 +151,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     setPerDriverDocs((pdRes.data ?? []) as InspectionDocument[]);
     setDriverUploads((duRes.data ?? []) as DriverUpload[]);
 
-    // Build a map: docName → most-recent reminder (first per doc_type since ordered desc)
+    // Build map: docName → most-recent reminder (results are DESC ordered so first wins)
     const recs = (remRes.data ?? []) as ReminderRecord[];
     const remMap: Record<string, ReminderRecord> = {};
     for (const r of recs) {
@@ -219,23 +222,15 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
   const selectedDriverName = operatorName ?? operators.find(o => o.userId === selectedDriverId)?.name ?? '';
 
-  const [sharingAll, setSharingAll] = useState(false);
-  const [shareAllDialogOpen, setShareAllDialogOpen] = useState(false);
-  const [unsharingAll, setUnsharingAll] = useState(false);
-  const [unshareAllDialogOpen, setUnshareAllDialogOpen] = useState(false);
-  const [sendingReminder, setSendingReminder] = useState<string | null>(null); // docName | 'all'
-  const [reminderDialogDoc, setReminderDialogDoc] = useState<string | null>(null); // docName | 'all'
-
   const unsharedDocs = companyDocs.filter(d => d.file_url && !d.shared_with_fleet);
   const sharedDocs = companyDocs.filter(d => d.file_url && d.shared_with_fleet);
 
-  // Per-driver docs that are missing or expired for the selected driver
   const missingOrExpiredDriverDocs = PER_DRIVER_DOCS.filter(({ key, hasExpiry }) => {
     const doc = perDriverDocs.find(d => d.name === key);
-    if (!doc?.file_url) return true; // missing
+    if (!doc?.file_url) return true;
     if (hasExpiry && doc.expires_at) {
       const days = Math.ceil((new Date(doc.expires_at).getTime() - Date.now()) / 86400000);
-      if (days < 0) return true; // expired
+      if (days < 0) return true;
     }
     return false;
   });
@@ -267,7 +262,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       const docList = docsToRemind.join(', ');
       const isSingle = docsToRemind.length === 1;
 
-      // Resolve current staff name
+      // Resolve current staff name for the record
       const { data: profileRow } = await supabase
         .from('profiles')
         .select('first_name, last_name')
@@ -277,7 +272,6 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         ? [profileRow.first_name, profileRow.last_name].filter(Boolean).join(' ') || 'Staff'
         : 'Staff';
 
-      // Fire notification + cert_reminder records in parallel
       await Promise.all([
         supabase.from('notifications').insert({
           user_id: targetUserId,
@@ -293,7 +287,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           channel: 'in_app',
           link: '/operator?tab=inspection-binder',
         }),
-        // Record one cert_reminders row per doc so we get individual "last reminded" timestamps
+        // Record one cert_reminders row per doc for "last reminded" history
         operatorRowId
           ? supabase.from('cert_reminders').insert(
               docsToRemind.map(d => ({
@@ -307,7 +301,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           : Promise.resolve(),
       ]);
 
-      // Optimistically update lastReminders in state (no need to refetch)
+      // Optimistically update lastReminders state
       const now = new Date().toISOString();
       setLastReminders(prev => {
         const next = { ...prev };
@@ -331,11 +325,9 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     setSharingAll(true);
     setShareAllDialogOpen(false);
     try {
-      await Promise.all(
-        unsharedDocs.map(doc =>
-          supabase.from('inspection_documents').update({ shared_with_fleet: true }).eq('id', doc.id)
-        )
-      );
+      await Promise.all(unsharedDocs.map(doc =>
+        supabase.from('inspection_documents').update({ shared_with_fleet: true }).eq('id', doc.id)
+      ));
       toast({
         title: `${unsharedDocs.length} document${unsharedDocs.length > 1 ? 's' : ''} shared with fleet`,
         description: 'All uploaded company documents are now visible to drivers.',
@@ -353,11 +345,9 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     setUnsharingAll(true);
     setUnshareAllDialogOpen(false);
     try {
-      await Promise.all(
-        sharedDocs.map(doc =>
-          supabase.from('inspection_documents').update({ shared_with_fleet: false }).eq('id', doc.id)
-        )
-      );
+      await Promise.all(sharedDocs.map(doc =>
+        supabase.from('inspection_documents').update({ shared_with_fleet: false }).eq('id', doc.id)
+      ));
       toast({
         title: `${sharedDocs.length} document${sharedDocs.length > 1 ? 's' : ''} removed from fleet`,
         description: 'Drivers will no longer see these documents in their binder.',
@@ -385,8 +375,11 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     remindLoading?: boolean;
     lastReminder?: ReminderRecord;
   }) => {
-    const doc = scope === 'company_wide' ? companyDocs.find(d => d.name === docName) : perDriverDocs.find(d => d.name === docName);
-    const key = `${scope}-${docName}`;
+    const doc = scope === 'company_wide'
+      ? companyDocs.find(d => d.name === docName)
+      : perDriverDocs.find(d => d.name === docName);
+    const rowKey = `${scope}-${docName}`;
+
     return (
       <div className="bg-card border border-border rounded-xl p-4 space-y-3">
         <div className="flex items-start gap-3">
@@ -394,6 +387,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             <FileText className={`h-4 w-4 ${doc?.file_url ? 'text-gold-muted' : 'text-muted-foreground'}`} />
           </div>
           <div className="flex-1 min-w-0">
+            {/* Title row */}
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-sm font-medium text-foreground">{docName}</span>
@@ -422,16 +416,23 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 )}
                 {doc?.file_url && (
                   <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0"><Eye className="h-3.5 w-3.5" /></Button>
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
                   </a>
                 )}
                 {doc && (
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(doc)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                    onClick={() => setDeleteTarget(doc)}
+                  >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 )}
                 <input
-                  ref={el => { fileRefs.current[key] = el; }}
+                  ref={el => { fileRefs.current[rowKey] = el; }}
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
                   className="hidden"
@@ -446,7 +447,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                   className={`h-8 gap-1.5 text-xs ${!doc?.file_url ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
                   variant={doc?.file_url ? 'outline' : 'default'}
                   disabled={uploading === docName}
-                  onClick={() => fileRefs.current[key]?.click()}
+                  onClick={() => fileRefs.current[rowKey]?.click()}
                 >
                   {uploading === docName ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
                   {doc?.file_url ? 'Replace' : 'Upload'}
@@ -454,7 +455,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
               </div>
             </div>
 
-            {/* Fleet share toggle — only for company-wide docs that have a file */}
+            {/* Fleet share toggle — company-wide docs with a file only */}
             {scope === 'company_wide' && doc?.file_url && (
               <div className="flex items-center justify-between pt-2 border-t border-border/50 mt-2">
                 <div className="flex items-center gap-1.5">
@@ -473,7 +474,12 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
               <div className="mt-2 flex items-center gap-2">
                 {expiryEditing === doc?.id ? (
                   <>
-                    <Input type="date" value={expiryValue} onChange={e => setExpiryValue(e.target.value)} className="h-7 text-xs w-36" />
+                    <Input
+                      type="date"
+                      value={expiryValue}
+                      onChange={e => setExpiryValue(e.target.value)}
+                      className="h-7 text-xs w-36"
+                    />
                     <Button size="sm" className="h-7 text-xs" onClick={() => saveExpiry(doc!.id)}>Save</Button>
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setExpiryEditing(null)}>Cancel</Button>
                   </>
@@ -489,108 +495,21 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
               </div>
             )}
 
-            {/* Last Reminded — only shown for per-driver docs */}
+            {/* Last Reminded — per-driver docs only */}
             {scope === 'per_driver' && lastReminder && (
-              <div className="flex items-center gap-1.5 pt-1.5 border-t border-border/40 mt-1.5">
-                <Bell className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+              <div className="flex items-center gap-1.5 pt-1.5 border-t border-border/40 mt-1">
+                <Bell className="h-3 w-3 text-muted-foreground/50 shrink-0" />
                 <span className="text-[11px] text-muted-foreground">
                   Last reminded{' '}
                   <span className="font-medium text-foreground/70">
-                    {new Date(lastReminder.sent_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {new Date(lastReminder.sent_at).toLocaleDateString(undefined, {
+                      month: 'short', day: 'numeric', year: 'numeric',
+                    })}
                   </span>
                   {lastReminder.sent_by_name && (
                     <> by <span className="font-medium text-foreground/70">{lastReminder.sent_by_name}</span></>
                   )}
                 </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {onRemind && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 gap-1 text-xs border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold"
-                    disabled={remindLoading}
-                    onClick={onRemind}
-                  >
-                    {remindLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
-                    Remind
-                  </Button>
-                )}
-                {doc?.file_url && (
-                  <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0"><Eye className="h-3.5 w-3.5" /></Button>
-                  </a>
-                )}
-                {doc && (
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(doc)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                )}
-                <input
-                  ref={el => { fileRefs.current[key] = el; }}
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  className="hidden"
-                  onChange={e => {
-                    const f = e.target.files?.[0];
-                    if (f) handleUpload(docName, scope, f, doc?.id);
-                    e.target.value = '';
-                  }}
-                />
-                <Button
-                  size="sm"
-                  className={`h-8 gap-1.5 text-xs ${!doc?.file_url ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
-                  variant={doc?.file_url ? 'outline' : 'default'}
-                  disabled={uploading === docName}
-                  onClick={() => fileRefs.current[key]?.click()}
-                >
-                  {uploading === docName ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                  {doc?.file_url ? 'Replace' : 'Upload'}
-                </Button>
-              </div>
-            </div>
-
-            {/* Fleet share toggle — only for company-wide docs that have a file */}
-            {scope === 'company_wide' && doc?.file_url && (
-              <div className="flex items-center justify-between pt-2 border-t border-border/50 mt-2">
-                <div className="flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Share with all fleet drivers</span>
-                </div>
-                <Switch
-                  checked={doc.shared_with_fleet}
-                  onCheckedChange={() => toggleFleetShare(doc)}
-                />
-              </div>
-            )}
-
-            {/* Expiry editor */}
-            {hasExpiry && (
-              <div className="mt-2 flex items-center gap-2">
-                {expiryEditing === doc?.id ? (
-                  <>
-                    <Input type="date" value={expiryValue} onChange={e => setExpiryValue(e.target.value)} className="h-7 text-xs w-36" />
-                    <Button size="sm" className="h-7 text-xs" onClick={() => saveExpiry(doc!.id)}>Save</Button>
-                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setExpiryEditing(null)}>Cancel</Button>
-                  </>
-                ) : (
-                  <button
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => { if (doc) { setExpiryEditing(doc.id); setExpiryValue(doc.expires_at ?? ''); } }}
-                  >
-                    <Calendar className="h-3.5 w-3.5" />
-                    {doc?.expires_at ? `Expires ${new Date(doc.expires_at).toLocaleDateString()}` : 'Set expiry date'}
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -654,9 +573,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             <span className="flex items-center gap-1.5">{t.icon}{t.label}</span>
             {'badge' in t && (
               <span className={`text-[10px] font-semibold px-1.5 py-0 rounded-full leading-tight ${
-                t.badgeActive
-                  ? 'bg-info/15 text-info'
-                  : 'bg-muted text-muted-foreground'
+                t.badgeActive ? 'bg-info/15 text-info' : 'bg-muted text-muted-foreground'
               }`}>
                 {t.badge}
               </span>
@@ -671,11 +588,13 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         </div>
       ) : (
         <>
-          {/* Company Docs tab */}
+          {/* ── Company Docs ── */}
           {activeTab === 'company' && (
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-xs text-muted-foreground">These documents apply to all drivers. Uploading here updates every driver's binder.</p>
+                <p className="text-xs text-muted-foreground">
+                  These documents apply to all drivers. Uploading here updates every driver's binder.
+                </p>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {sharedDocs.length > 0 && (
                     <Button
@@ -709,7 +628,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             </div>
           )}
 
-          {/* Driver Docs tab */}
+          {/* ── Driver Docs ── */}
           {activeTab === 'driver' && (
             <div className="space-y-3">
               {!selectedDriverId && (
@@ -751,6 +670,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                         hasExpiry={hasExpiry}
                         onRemind={needsReminder ? () => setReminderDialogDoc(key) : undefined}
                         remindLoading={sendingReminder === key}
+                        lastReminder={lastReminders[key]}
                       />
                     );
                   })}
@@ -759,7 +679,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             </div>
           )}
 
-          {/* Driver Uploads tab */}
+          {/* ── Driver Uploads ── */}
           {activeTab === 'uploads' && (
             <div className="space-y-3">
               {!selectedDriverId && (
@@ -797,7 +717,6 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                       )} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      {/* Top row: name + status badge + view */}
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{upload.file_name ?? 'Document'}</p>
@@ -816,8 +735,6 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                           )}
                         </div>
                       </div>
-
-                      {/* Inline action buttons */}
                       <div className="flex items-center gap-2 flex-wrap">
                         {upload.status !== 'reviewed' && (
                           <Button
@@ -862,25 +779,29 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         </>
       )}
 
-      {/* Delete confirm */}
+      {/* ── Delete confirm ── */}
       <AlertDialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Document?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove <strong>{deleteTarget?.name}</strong> from {deleteTarget?.scope === 'company_wide' ? 'all driver binders' : 'this driver\'s binder'}. This cannot be undone.
+              This will permanently remove <strong>{deleteTarget?.name}</strong> from{' '}
+              {deleteTarget?.scope === 'company_wide' ? "all driver binders" : "this driver's binder"}. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteTarget && handleDelete(deleteTarget)} className="bg-destructive text-destructive-foreground">
+            <AlertDialogAction
+              onClick={() => deleteTarget && handleDelete(deleteTarget)}
+              className="bg-destructive text-destructive-foreground"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Share All confirm */}
+      {/* ── Share All confirm ── */}
       <AlertDialog open={shareAllDialogOpen} onOpenChange={setShareAllDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -901,10 +822,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleShareAll}
-              className="bg-info text-white hover:bg-info/90"
-            >
+            <AlertDialogAction onClick={handleShareAll} className="bg-info text-white hover:bg-info/90">
               <Share2 className="h-3.5 w-3.5 mr-1.5" />
               Share All
             </AlertDialogAction>
@@ -912,7 +830,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Unshare All confirm */}
+      {/* ── Unshare All confirm ── */}
       <AlertDialog open={unshareAllDialogOpen} onOpenChange={setUnshareAllDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -944,7 +862,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Send Reminder confirm */}
+      {/* ── Send Reminder confirm ── */}
       <AlertDialog open={!!reminderDialogDoc} onOpenChange={open => !open && setReminderDialogDoc(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -969,7 +887,9 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                         <li key={d.key} className="flex items-center gap-2 text-foreground text-sm">
                           <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                           {d.key}
-                          <span className={`text-[10px] font-medium px-1.5 py-0 rounded-full ${missing ? 'bg-secondary text-muted-foreground' : 'bg-destructive/10 text-destructive'}`}>
+                          <span className={`text-[10px] font-medium px-1.5 py-0 rounded-full ${
+                            missing ? 'bg-secondary text-muted-foreground' : 'bg-destructive/10 text-destructive'
+                          }`}>
                             {missing ? 'Missing' : 'Expired'}
                           </span>
                         </li>
