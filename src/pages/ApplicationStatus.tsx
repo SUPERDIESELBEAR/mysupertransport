@@ -1,6 +1,7 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, XCircle, Truck } from 'lucide-react';
+import { CheckCircle, Clock, XCircle } from 'lucide-react';
+import logo from '@/assets/supertransport-logo.png';
 
 export default function ApplicationStatus() {
   const { profile, user, signOut } = useAuth();
