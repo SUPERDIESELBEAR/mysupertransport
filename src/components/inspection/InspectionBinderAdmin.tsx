@@ -183,19 +183,22 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const selectedDriverName = operatorName ?? operators.find(o => o.userId === selectedDriverId)?.name ?? '';
 
   const [sharingAll, setSharingAll] = useState(false);
+  const [shareAllDialogOpen, setShareAllDialogOpen] = useState(false);
+
+  const unsharedDocs = companyDocs.filter(d => d.file_url && !d.shared_with_fleet);
 
   const handleShareAll = async () => {
-    const unshared = companyDocs.filter(d => d.file_url && !d.shared_with_fleet);
-    if (unshared.length === 0) return;
+    if (unsharedDocs.length === 0) return;
     setSharingAll(true);
+    setShareAllDialogOpen(false);
     try {
       await Promise.all(
-        unshared.map(doc =>
+        unsharedDocs.map(doc =>
           supabase.from('inspection_documents').update({ shared_with_fleet: true }).eq('id', doc.id)
         )
       );
       toast({
-        title: `${unshared.length} document${unshared.length > 1 ? 's' : ''} shared with fleet`,
+        title: `${unsharedDocs.length} document${unsharedDocs.length > 1 ? 's' : ''} shared with fleet`,
         description: 'All uploaded company documents are now visible to drivers.',
       });
       fetchDocs();
