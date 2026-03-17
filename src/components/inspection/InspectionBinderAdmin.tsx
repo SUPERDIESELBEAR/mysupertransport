@@ -184,8 +184,11 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
   const [sharingAll, setSharingAll] = useState(false);
   const [shareAllDialogOpen, setShareAllDialogOpen] = useState(false);
+  const [unsharingAll, setUnsharingAll] = useState(false);
+  const [unshareAllDialogOpen, setUnshareAllDialogOpen] = useState(false);
 
   const unsharedDocs = companyDocs.filter(d => d.file_url && !d.shared_with_fleet);
+  const sharedDocs = companyDocs.filter(d => d.file_url && d.shared_with_fleet);
 
   const handleShareAll = async () => {
     if (unsharedDocs.length === 0) return;
@@ -206,6 +209,28 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       toast({ title: 'Error sharing documents', variant: 'destructive' });
     } finally {
       setSharingAll(false);
+    }
+  };
+
+  const handleUnshareAll = async () => {
+    if (sharedDocs.length === 0) return;
+    setUnsharingAll(true);
+    setUnshareAllDialogOpen(false);
+    try {
+      await Promise.all(
+        sharedDocs.map(doc =>
+          supabase.from('inspection_documents').update({ shared_with_fleet: false }).eq('id', doc.id)
+        )
+      );
+      toast({
+        title: `${sharedDocs.length} document${sharedDocs.length > 1 ? 's' : ''} removed from fleet`,
+        description: 'Drivers will no longer see these documents in their binder.',
+      });
+      fetchDocs();
+    } catch {
+      toast({ title: 'Error unsharing documents', variant: 'destructive' });
+    } finally {
+      setUnsharingAll(false);
     }
   };
 
@@ -391,18 +416,32 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs text-muted-foreground">These documents apply to all drivers. Uploading here updates every driver's binder.</p>
-                {unsharedDocs.length > 0 && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="shrink-0 h-7 gap-1.5 text-xs border-info/40 text-info hover:bg-info/10 hover:text-info"
-                    disabled={sharingAll}
-                    onClick={() => setShareAllDialogOpen(true)}
-                  >
-                    {sharingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <Share2 className="h-3 w-3" />}
-                    Share All
-                  </Button>
-                )}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {sharedDocs.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1.5 text-xs border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      disabled={unsharingAll}
+                      onClick={() => setUnshareAllDialogOpen(true)}
+                    >
+                      {unsharingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                      Unshare All
+                    </Button>
+                  )}
+                  {unsharedDocs.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1.5 text-xs border-info/40 text-info hover:bg-info/10 hover:text-info"
+                      disabled={sharingAll}
+                      onClick={() => setShareAllDialogOpen(true)}
+                    >
+                      {sharingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <Share2 className="h-3 w-3" />}
+                      Share All
+                    </Button>
+                  )}
+                </div>
               </div>
               {COMPANY_WIDE_DOCS.map(({ key, hasExpiry }) => (
                 <AdminDocRow key={key} docName={key} scope="company_wide" hasExpiry={hasExpiry} />
@@ -572,6 +611,38 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             >
               <Share2 className="h-3.5 w-3.5 mr-1.5" />
               Share All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unshare All confirm */}
+      <AlertDialog open={unshareAllDialogOpen} onOpenChange={setUnshareAllDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {sharedDocs.length} Document{sharedDocs.length !== 1 ? 's' : ''} from Fleet?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>The following document{sharedDocs.length !== 1 ? 's' : ''} will be hidden from all fleet drivers:</p>
+                <ul className="mt-1 space-y-1">
+                  {sharedDocs.map(d => (
+                    <li key={d.id} className="flex items-center gap-2 text-foreground text-sm">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      {d.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleUnshareAll}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+              Unshare All
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
