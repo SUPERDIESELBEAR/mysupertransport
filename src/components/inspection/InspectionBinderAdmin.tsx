@@ -4,7 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
-  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2,
+  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2, Bell,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -186,9 +186,68 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const [shareAllDialogOpen, setShareAllDialogOpen] = useState(false);
   const [unsharingAll, setUnsharingAll] = useState(false);
   const [unshareAllDialogOpen, setUnshareAllDialogOpen] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState<string | null>(null); // docName | 'all'
+  const [reminderDialogDoc, setReminderDialogDoc] = useState<string | null>(null); // docName | 'all'
 
   const unsharedDocs = companyDocs.filter(d => d.file_url && !d.shared_with_fleet);
   const sharedDocs = companyDocs.filter(d => d.file_url && d.shared_with_fleet);
+
+  // Per-driver docs that are missing or expired for the selected driver
+  const missingOrExpiredDriverDocs = PER_DRIVER_DOCS.filter(({ key, hasExpiry }) => {
+    const doc = perDriverDocs.find(d => d.name === key);
+    if (!doc?.file_url) return true; // missing
+    if (hasExpiry && doc.expires_at) {
+      const days = Math.ceil((new Date(doc.expires_at).getTime() - Date.now()) / 86400000);
+      if (days < 0) return true; // expired
+    }
+    return false;
+  });
+
+  const sendDriverDocReminder = async (docName: string | 'all') => {
+    if (!selectedDriverId) return;
+    setSendingReminder(docName);
+    setReminderDialogDoc(null);
+    try {
+      // Resolve the operator's user_id from their userId (selectedDriverId is already user_id)
+      const targetUserId = selectedDriverId;
+
+      const docsToRemind = docName === 'all'
+        ? missingOrExpiredDriverDocs.map(d => d.key)
+        : [docName];
+
+      if (docsToRemind.length === 0) {
+        toast({ title: 'No documents to remind', description: 'All per-driver documents are present and valid.' });
+        return;
+      }
+
+      const docList = docsToRemind.join(', ');
+      const isSingle = docsToRemind.length === 1;
+
+      await supabase.from('notifications').insert({
+        user_id: targetUserId,
+        title: isSingle
+          ? `Action required: ${docsToRemind[0]}`
+          : `Action required: ${docsToRemind.length} binder documents`,
+        body: isSingle
+          ? `Your ${docsToRemind[0]} in the Inspection Binder is ${
+              perDriverDocs.find(d => d.name === docsToRemind[0])?.file_url ? 'expired or needs renewal' : 'missing'
+            }. Please upload an updated copy.`
+          : `The following documents in your Inspection Binder need attention: ${docList}. Please upload updated copies.`,
+        type: 'document_update',
+        channel: 'in_app',
+        link: '/operator?tab=inspection-binder',
+      });
+
+      toast({
+        title: isSingle ? 'Reminder sent' : `${docsToRemind.length} reminders sent`,
+        description: `${selectedDriverName || 'The operator'} has been notified via their in-app notifications.`,
+      });
+    } catch (err: any) {
+      toast({ title: 'Failed to send reminder', description: err.message, variant: 'destructive' });
+    } finally {
+      setSendingReminder(null);
+    }
+  };
 
   const handleShareAll = async () => {
     if (unsharedDocs.length === 0) return;
@@ -457,9 +516,54 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                   Select a driver above to manage their personal documents.
                 </div>
               )}
-              {selectedDriverId && PER_DRIVER_DOCS.map(({ key, hasExpiry }) => (
-                <AdminDocRow key={key} docName={key} scope="per_driver" hasExpiry={hasExpiry} />
-              ))}
+              {selectedDriverId && (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      These documents are specific to this driver's binder.
+                    </p>
+                    {missingOrExpiredDriverDocs.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1.5 text-xs border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold shrink-0"
+                        disabled={sendingReminder === 'all'}
+                        onClick={() => setReminderDialogDoc('all')}
+                      >
+                        {sendingReminder === 'all' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
+                        Remind All ({missingOrExpiredDriverDocs.length})
+                      </Button>
+                    )}
+                  </div>
+                  {PER_DRIVER_DOCS.map(({ key, hasExpiry }) => {
+                    const doc = perDriverDocs.find(d => d.name === key);
+                    const isMissing = !doc?.file_url;
+                    const isExpired = hasExpiry && doc?.expires_at
+                      ? Math.ceil((new Date(doc.expires_at).getTime() - Date.now()) / 86400000) < 0
+                      : false;
+                    const needsReminder = isMissing || isExpired;
+                    return (
+                      <div key={key} className="relative">
+                        <AdminDocRow docName={key} scope="per_driver" hasExpiry={hasExpiry} />
+                        {needsReminder && (
+                          <div className="absolute top-3 right-[6.5rem] z-10">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 gap-1 text-[11px] border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold"
+                              disabled={sendingReminder === key}
+                              onClick={() => setReminderDialogDoc(key)}
+                            >
+                              {sendingReminder === key ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
+                              Remind
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
           )}
 
@@ -643,6 +747,55 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             >
               <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
               Unshare All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Send Reminder confirm */}
+      <AlertDialog open={!!reminderDialogDoc} onOpenChange={open => !open && setReminderDialogDoc(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {reminderDialogDoc === 'all'
+                ? `Send ${missingOrExpiredDriverDocs.length} Reminder${missingOrExpiredDriverDocs.length !== 1 ? 's' : ''}?`
+                : `Send Reminder for ${reminderDialogDoc}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  An in-app notification will be sent to{' '}
+                  <strong>{selectedDriverName || 'this driver'}</strong>{' '}
+                  asking them to upload{reminderDialogDoc === 'all' ? ':' : ' an updated copy.'}
+                </p>
+                {reminderDialogDoc === 'all' && (
+                  <ul className="mt-1 space-y-1">
+                    {missingOrExpiredDriverDocs.map(d => {
+                      const doc = perDriverDocs.find(pd => pd.name === d.key);
+                      const missing = !doc?.file_url;
+                      return (
+                        <li key={d.key} className="flex items-center gap-2 text-foreground text-sm">
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          {d.key}
+                          <span className={`text-[10px] font-medium px-1.5 py-0 rounded-full ${missing ? 'bg-secondary text-muted-foreground' : 'bg-destructive/10 text-destructive'}`}>
+                            {missing ? 'Missing' : 'Expired'}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => reminderDialogDoc && sendDriverDocReminder(reminderDialogDoc)}
+              className="bg-gold text-surface-dark hover:bg-gold-light"
+            >
+              <Bell className="h-3.5 w-3.5 mr-1.5" />
+              Send Reminder{reminderDialogDoc === 'all' && missingOrExpiredDriverDocs.length > 1 ? 's' : ''}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
