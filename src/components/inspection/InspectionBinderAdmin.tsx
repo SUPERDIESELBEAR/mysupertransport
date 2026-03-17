@@ -27,6 +27,12 @@ import {
 } from './InspectionBinderTypes';
 import { ExpiryBadge } from './DocRow';
 
+interface ReminderRecord {
+  doc_type: string;
+  sent_at: string;
+  sent_by_name: string | null;
+}
+
 interface OperatorOption {
   userId: string;
   operatorId: string;
@@ -78,6 +84,8 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const [activeTab, setActiveTab] = useState<'company' | 'driver' | 'uploads'>('company');
   const [expiryEditing, setExpiryEditing] = useState<string | null>(null);
   const [expiryValue, setExpiryValue] = useState('');
+  // Map of docName → most-recent reminder record for the selected driver
+  const [lastReminders, setLastReminders] = useState<Record<string, ReminderRecord>>({});
 
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -107,7 +115,19 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
   const fetchDocs = useCallback(async () => {
     setLoading(true);
-    const [cRes, pdRes, duRes] = await Promise.all([
+
+    // Resolve operator row id for cert_reminders lookup (cert_reminders uses operators.id)
+    let resolvedOperatorId: string | null = null;
+    if (selectedDriverId) {
+      const { data: opRow } = await supabase
+        .from('operators')
+        .select('id')
+        .eq('user_id', selectedDriverId)
+        .maybeSingle();
+      resolvedOperatorId = opRow?.id ?? null;
+    }
+
+    const [cRes, pdRes, duRes, remRes] = await Promise.all([
       supabase.from('inspection_documents').select('*').eq('scope', 'company_wide').order('name'),
       selectedDriverId
         ? supabase.from('inspection_documents').select('*').eq('scope', 'per_driver').eq('driver_id', selectedDriverId).order('name')
@@ -115,10 +135,27 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       selectedDriverId
         ? supabase.from('driver_uploads').select('*').eq('driver_id', selectedDriverId).order('uploaded_at', { ascending: false })
         : Promise.resolve({ data: [] as DriverUpload[] }),
+      resolvedOperatorId
+        ? supabase
+            .from('cert_reminders')
+            .select('doc_type, sent_at, sent_by_name')
+            .eq('operator_id', resolvedOperatorId)
+            .order('sent_at', { ascending: false })
+        : Promise.resolve({ data: [] as ReminderRecord[] }),
     ]);
+
     setCompanyDocs((cRes.data ?? []) as InspectionDocument[]);
     setPerDriverDocs((pdRes.data ?? []) as InspectionDocument[]);
     setDriverUploads((duRes.data ?? []) as DriverUpload[]);
+
+    // Build a map: docName → most-recent reminder (first per doc_type since ordered desc)
+    const recs = (remRes.data ?? []) as ReminderRecord[];
+    const remMap: Record<string, ReminderRecord> = {};
+    for (const r of recs) {
+      if (!remMap[r.doc_type]) remMap[r.doc_type] = r;
+    }
+    setLastReminders(remMap);
+
     setLoading(false);
   }, [selectedDriverId]);
 
@@ -208,8 +245,15 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     setSendingReminder(docName);
     setReminderDialogDoc(null);
     try {
-      // Resolve the operator's user_id from their userId (selectedDriverId is already user_id)
       const targetUserId = selectedDriverId;
+
+      // Resolve operator row id for cert_reminders
+      const { data: opRow } = await supabase
+        .from('operators')
+        .select('id')
+        .eq('user_id', selectedDriverId)
+        .maybeSingle();
+      const operatorRowId = opRow?.id ?? null;
 
       const docsToRemind = docName === 'all'
         ? missingOrExpiredDriverDocs.map(d => d.key)
@@ -223,19 +267,52 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       const docList = docsToRemind.join(', ');
       const isSingle = docsToRemind.length === 1;
 
-      await supabase.from('notifications').insert({
-        user_id: targetUserId,
-        title: isSingle
-          ? `Action required: ${docsToRemind[0]}`
-          : `Action required: ${docsToRemind.length} binder documents`,
-        body: isSingle
-          ? `Your ${docsToRemind[0]} in the Inspection Binder is ${
-              perDriverDocs.find(d => d.name === docsToRemind[0])?.file_url ? 'expired or needs renewal' : 'missing'
-            }. Please upload an updated copy.`
-          : `The following documents in your Inspection Binder need attention: ${docList}. Please upload updated copies.`,
-        type: 'document_update',
-        channel: 'in_app',
-        link: '/operator?tab=inspection-binder',
+      // Resolve current staff name
+      const { data: profileRow } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+      const senderName = profileRow
+        ? [profileRow.first_name, profileRow.last_name].filter(Boolean).join(' ') || 'Staff'
+        : 'Staff';
+
+      // Fire notification + cert_reminder records in parallel
+      await Promise.all([
+        supabase.from('notifications').insert({
+          user_id: targetUserId,
+          title: isSingle
+            ? `Action required: ${docsToRemind[0]}`
+            : `Action required: ${docsToRemind.length} binder documents`,
+          body: isSingle
+            ? `Your ${docsToRemind[0]} in the Inspection Binder is ${
+                perDriverDocs.find(d => d.name === docsToRemind[0])?.file_url ? 'expired or needs renewal' : 'missing'
+              }. Please upload an updated copy.`
+            : `The following documents in your Inspection Binder need attention: ${docList}. Please upload updated copies.`,
+          type: 'document_update',
+          channel: 'in_app',
+          link: '/operator?tab=inspection-binder',
+        }),
+        // Record one cert_reminders row per doc so we get individual "last reminded" timestamps
+        operatorRowId
+          ? supabase.from('cert_reminders').insert(
+              docsToRemind.map(d => ({
+                operator_id: operatorRowId,
+                doc_type: d,
+                sent_by: user?.id ?? null,
+                sent_by_name: senderName,
+                email_sent: false,
+              }))
+            )
+          : Promise.resolve(),
+      ]);
+
+      // Optimistically update lastReminders in state (no need to refetch)
+      const now = new Date().toISOString();
+      setLastReminders(prev => {
+        const next = { ...prev };
+        docsToRemind.forEach(d => { next[d] = { doc_type: d, sent_at: now, sent_by_name: senderName }; });
+        return next;
       });
 
       toast({
@@ -300,12 +377,13 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     fetchDocs();
   };
 
-  const AdminDocRow = ({ docName, scope, hasExpiry, onRemind, remindLoading }: {
+  const AdminDocRow = ({ docName, scope, hasExpiry, onRemind, remindLoading, lastReminder }: {
     docName: string;
     scope: 'company_wide' | 'per_driver';
     hasExpiry: boolean;
     onRemind?: () => void;
     remindLoading?: boolean;
+    lastReminder?: ReminderRecord;
   }) => {
     const doc = scope === 'company_wide' ? companyDocs.find(d => d.name === docName) : perDriverDocs.find(d => d.name === docName);
     const key = `${scope}-${docName}`;
@@ -328,6 +406,111 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     <Users className="h-3 w-3" />Fleet
                   </span>
                 )}
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {onRemind && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1 text-xs border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold"
+                    disabled={remindLoading}
+                    onClick={onRemind}
+                  >
+                    {remindLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
+                    Remind
+                  </Button>
+                )}
+                {doc?.file_url && (
+                  <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0"><Eye className="h-3.5 w-3.5" /></Button>
+                  </a>
+                )}
+                {doc && (
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(doc)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+                <input
+                  ref={el => { fileRefs.current[key] = el; }}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="hidden"
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (f) handleUpload(docName, scope, f, doc?.id);
+                    e.target.value = '';
+                  }}
+                />
+                <Button
+                  size="sm"
+                  className={`h-8 gap-1.5 text-xs ${!doc?.file_url ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
+                  variant={doc?.file_url ? 'outline' : 'default'}
+                  disabled={uploading === docName}
+                  onClick={() => fileRefs.current[key]?.click()}
+                >
+                  {uploading === docName ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                  {doc?.file_url ? 'Replace' : 'Upload'}
+                </Button>
+              </div>
+            </div>
+
+            {/* Fleet share toggle — only for company-wide docs that have a file */}
+            {scope === 'company_wide' && doc?.file_url && (
+              <div className="flex items-center justify-between pt-2 border-t border-border/50 mt-2">
+                <div className="flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Share with all fleet drivers</span>
+                </div>
+                <Switch
+                  checked={doc.shared_with_fleet}
+                  onCheckedChange={() => toggleFleetShare(doc)}
+                />
+              </div>
+            )}
+
+            {/* Expiry editor */}
+            {hasExpiry && (
+              <div className="mt-2 flex items-center gap-2">
+                {expiryEditing === doc?.id ? (
+                  <>
+                    <Input type="date" value={expiryValue} onChange={e => setExpiryValue(e.target.value)} className="h-7 text-xs w-36" />
+                    <Button size="sm" className="h-7 text-xs" onClick={() => saveExpiry(doc!.id)}>Save</Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setExpiryEditing(null)}>Cancel</Button>
+                  </>
+                ) : (
+                  <button
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => { if (doc) { setExpiryEditing(doc.id); setExpiryValue(doc.expires_at ?? ''); } }}
+                  >
+                    <Calendar className="h-3.5 w-3.5" />
+                    {doc?.expires_at ? `Expires ${new Date(doc.expires_at).toLocaleDateString()}` : 'Set expiry date'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Last Reminded — only shown for per-driver docs */}
+            {scope === 'per_driver' && lastReminder && (
+              <div className="flex items-center gap-1.5 pt-1.5 border-t border-border/40 mt-1.5">
+                <Bell className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                <span className="text-[11px] text-muted-foreground">
+                  Last reminded{' '}
+                  <span className="font-medium text-foreground/70">
+                    {new Date(lastReminder.sent_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                  {lastReminder.sent_by_name && (
+                    <> by <span className="font-medium text-foreground/70">{lastReminder.sent_by_name}</span></>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {onRemind && (
