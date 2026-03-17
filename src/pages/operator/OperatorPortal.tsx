@@ -27,7 +27,7 @@ import EditProfileModal from '@/components/EditProfileModal';
 import OperatorInspectionBinder from '@/components/inspection/OperatorInspectionBinder';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'service-library';
+type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder';
 
 interface Stage {
   number: number;
