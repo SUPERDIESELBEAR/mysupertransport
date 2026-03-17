@@ -77,6 +77,7 @@ type FilterDoc   = 'all' | DocKey;
 
 export default function InspectionComplianceSummary({ onOpenOperator, onOpenOperatorAtBinder, onOpenInspectionBinder }: Props) {
   const { toast } = useToast();
+  const { user, profile } = useAuth();
   const [entries, setEntries] = useState<DocEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(true);
