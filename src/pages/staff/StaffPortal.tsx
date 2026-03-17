@@ -379,6 +379,7 @@ export default function StaffPortal() {
               setReviewFocusField(focusField);
             }
           }}
+          onOpenInspectionBinder={() => setCurrentView('inspection-binder')}
           initialDispatchFilter={pipelineDispatchFilter}
           initialStageFilter={pipelineICAFilter ? 'Stage 3 — ICA' : undefined}
           onBulkMessage={(ids) => { setBulkMessagePreselected(ids); setBulkMessageOpen(true); }}
