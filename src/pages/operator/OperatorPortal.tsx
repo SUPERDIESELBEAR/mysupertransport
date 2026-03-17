@@ -939,6 +939,11 @@ export default function OperatorPortal() {
           </>
         )}
 
+        {/* ── INSPECTION BINDER VIEW ── */}
+        {view === 'inspection-binder' && user && (
+          <OperatorInspectionBinder userId={user.id} operatorId={operatorId} />
+        )}
+
         {/* ── DOCUMENTS VIEW ── */}
         {view === 'documents' && operatorId && (
           <OperatorDocumentUpload

@@ -17,6 +17,7 @@ import StaffPortal from "./pages/staff/StaffPortal";
 import ManagementPortal from "./pages/management/ManagementPortal";
 import DispatchPortal from "./pages/dispatch/DispatchPortal";
 import NotFound from "./pages/NotFound";
+import InspectionSharePage from "./pages/InspectionSharePage";
 
 const queryClient = new QueryClient();
 
