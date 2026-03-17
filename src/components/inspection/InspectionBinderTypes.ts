@@ -10,6 +10,7 @@ export interface InspectionDocument {
   uploaded_at: string;
   updated_at: string;
   uploaded_by: string | null;
+  shared_with_fleet: boolean;
 }
 
 export interface DriverUpload {
