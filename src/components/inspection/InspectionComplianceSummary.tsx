@@ -454,7 +454,22 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                           </Tooltip>
                         </TooltipProvider>
                       )}
-                      {!isFleet && onOpenOperator && (
+                      {!isFleet && onOpenOperatorAtBinder && (
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => onOpenOperatorAtBinder(entry.operatorId)}
+                                className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">Open in Inspection Binder</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      {!isFleet && !onOpenOperatorAtBinder && onOpenOperator && (
                         <TooltipProvider delayDuration={100}>
                           <Tooltip>
                             <TooltipTrigger asChild>
