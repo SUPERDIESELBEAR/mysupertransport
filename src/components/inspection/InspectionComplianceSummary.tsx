@@ -62,6 +62,7 @@ const INSPECTION_NAMES: Record<string, DocKey> = {
 // ── Component ──────────────────────────────────────────────────────────────
 interface Props {
   onOpenOperator?: (operatorId: string) => void;
+  onOpenOperatorAtBinder?: (operatorId: string) => void;
   onOpenInspectionBinder?: () => void;
 }
 
