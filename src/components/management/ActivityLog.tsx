@@ -113,6 +113,12 @@ const ACTION_CONFIG: Record<string, {
     color: 'text-status-complete',
     bg: 'bg-status-complete/10 border-status-complete/20',
   },
+  expiry_updated: {
+    label: 'Expiry Updated',
+    icon: <CalendarIcon className="h-4 w-4" />,
+    color: 'text-sky-600',
+    bg: 'bg-sky-50 border-sky-200',
+  },
 };
 
 const FILTER_OPTIONS = [
