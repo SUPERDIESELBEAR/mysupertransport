@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
   History, RotateCcw, Clock, User, Eye, AlertTriangle, BookOpen,
-  FileText, Upload, X, File,
+  FileText, Upload, X, File, ExternalLink,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -378,6 +378,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
 
   // Derive the currently shown PDF (pending upload takes priority over existing)
   const shownPdfName = pendingPdfFile?.name ?? (form.pdf_url ? form.pdf_path?.split('/').pop() ?? 'existing.pdf' : null);
+  const shownPdfUrl  = pendingPdfUrl ?? form.pdf_url ?? null;
   const hasPdf = !!pendingPdfUrl || !!form.pdf_url;
 
   return (
@@ -422,6 +423,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                   pendingPdfFile={pendingPdfFile}
                   hasPdf={hasPdf}
                   shownPdfName={shownPdfName}
+                  shownPdfUrl={shownPdfUrl}
                   dragOver={dragOver}
                   fileInputRef={fileInputRef}
                   onUploadPdf={uploadPdf}
@@ -631,6 +633,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                 pendingPdfFile={pendingPdfFile}
                 hasPdf={hasPdf}
                 shownPdfName={shownPdfName}
+                shownPdfUrl={shownPdfUrl}
                 dragOver={dragOver}
                 fileInputRef={fileInputRef}
                 onUploadPdf={uploadPdf}
@@ -682,6 +685,7 @@ interface EditFormProps {
   pendingPdfFile: File | null;
   hasPdf: boolean;
   shownPdfName: string | null;
+  shownPdfUrl: string | null;
   dragOver: boolean;
   fileInputRef: React.RefObject<HTMLInputElement>;
   onUploadPdf: (f: File) => void;
@@ -693,7 +697,7 @@ interface EditFormProps {
 
 function EditForm({
   form, setForm, doc, saving, onSave, onClose, initialBody,
-  pdfUploading, pendingPdfFile, hasPdf, shownPdfName,
+  pdfUploading, pendingPdfFile, hasPdf, shownPdfName, shownPdfUrl,
   dragOver, fileInputRef, onUploadPdf, onRemovePdf,
   onDragOver, onDragLeave, onDrop,
 }: EditFormProps) {
@@ -829,9 +833,22 @@ function EditForm({
                 <p className="text-sm font-medium text-foreground truncate">
                   {shownPdfName ?? 'document.pdf'}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {pendingPdfFile ? `${(pendingPdfFile.size / 1024 / 1024).toFixed(1)} MB — ready to save` : 'Currently attached'}
-                </p>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <p className="text-xs text-muted-foreground">
+                    {pendingPdfFile ? `${(pendingPdfFile.size / 1024 / 1024).toFixed(1)} MB — ready to save` : 'Currently attached'}
+                  </p>
+                  {shownPdfUrl && (
+                    <a
+                      href={shownPdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors font-medium"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Open in new tab
+                    </a>
+                  )}
+                </div>
               </div>
               <button
                 type="button"
