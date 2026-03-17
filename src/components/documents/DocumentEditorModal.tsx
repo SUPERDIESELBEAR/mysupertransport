@@ -464,6 +464,11 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                             <FileText className="h-3 w-3" /> PDF
                           </Badge>
                         )}
+                        {form.content_type === 'video' && (
+                          <Badge className="text-xs border bg-info/10 text-info border-info/30 font-medium gap-1">
+                            <Video className="h-3 w-3" /> Video
+                          </Badge>
+                        )}
                         {!form.is_visible && (
                           <Badge className="text-xs border bg-muted text-muted-foreground border-border gap-1">
                             <Eye className="h-3 w-3 opacity-50" /> Hidden from drivers
