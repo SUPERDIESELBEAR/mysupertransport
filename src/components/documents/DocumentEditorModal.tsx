@@ -7,11 +7,11 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import TipTapEditor from './TipTapEditor';
-import { DriverDocument, CATEGORIES } from './DocumentHubTypes';
+import { DriverDocument, CATEGORIES, CATEGORY_COLORS } from './DocumentHubTypes';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { History, RotateCcw, Clock, User } from 'lucide-react';
+import { History, RotateCcw, Clock, User, Eye, AlertTriangle, BookOpen } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
