@@ -153,6 +153,16 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     return () => observer.disconnect();
   }, [loading]);
 
+  // Scroll to Inspection Binder section when requested (after data loads)
+  useEffect(() => {
+    if (!scrollToInspectionBinder || loading) return;
+    const el = inspectionBinderRef.current;
+    if (!el) return;
+    setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }, [scrollToInspectionBinder, loading]);
+
   const toggleStage = (stageKey: string) => {
     setCollapsedStages(prev => {
       const next = new Set(prev);
