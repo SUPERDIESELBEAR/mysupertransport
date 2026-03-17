@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Clock, CheckCircle2, AlertTriangle, BookOpen, FileText } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle2, AlertTriangle, BookOpen, FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DriverDocument, CATEGORY_COLORS } from './DocumentHubTypes';
