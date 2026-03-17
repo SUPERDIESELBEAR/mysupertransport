@@ -487,6 +487,7 @@ export default function ManagementPortal() {
     { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
     { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
     { label: 'Staff', icon: <UserPlus className="h-4 w-4" />, path: 'staff' },
+    { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />, path: 'inspection-binder' },
     { label: 'Activity', icon: <ScrollText className="h-4 w-4" />, path: 'activity' },
     { label: 'Notifications', icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
     { label: 'Doc Hub', icon: <Library className="h-4 w-4" />, path: 'docs-hub' },
