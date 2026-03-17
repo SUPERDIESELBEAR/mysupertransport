@@ -407,6 +407,8 @@ function buildDetailText(entry: AuditEntry): string {
       return (meta.milestones as string[])?.join(', ') ?? 'Status updated';
     case 'cert_renewed':
       return `${meta.document_type as string} renewed · was ${meta.old_expiry ? new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString() : 'unknown'} → ${new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString()}`;
+    case 'expiry_updated':
+      return `Fleet ${meta.document_type as string} · ${meta.old_expiry ? new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString() + ' → ' : ''}${meta.new_expiry ? new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString() : ''} · ${meta.urgency ?? ''}`;
     default:
       return '';
   }
