@@ -121,7 +121,8 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } },
     );
 
-    const appUrl = (Deno.env.get('APP_URL') ?? 'https://mysupertransport.com').replace(/\\/$/, '');
+    const rawAppUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
+    const appUrl = rawAppUrl.endsWith('/') ? rawAppUrl.slice(0, -1) : rawAppUrl;
 
     // ── Helper: check email preference (default enabled) ──────────────────
     const userEmailEnabled = async (userId: string, eventType: string): Promise<boolean> => {
