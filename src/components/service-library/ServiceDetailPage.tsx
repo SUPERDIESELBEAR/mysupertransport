@@ -11,6 +11,7 @@ import HelpRequestModal from './HelpRequestModal';
 import type { Service, ServiceResource, ResourceType } from './ServiceLibraryTypes';
 import { ALL_RESOURCE_TYPES } from './ServiceLibraryTypes';
 import { differenceInDays, parseISO } from 'date-fns';
+import { getYouTubeVideoId } from '@/components/documents/DocumentHubTypes';
 
 interface ServiceDetailPageProps {
   service: Service;
@@ -285,6 +286,10 @@ function ResourceRow({ resource, onClick, onToggleComplete, onToggleBookmark }: 
     ? differenceInDays(new Date(), parseISO(resource.last_verified_at)) > 90
     : false;
 
+  const isTutorialVideo = resource.resource_type === 'Tutorial Video';
+  const ytId = isTutorialVideo && resource.url ? getYouTubeVideoId(resource.url) : null;
+  const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null;
+
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card hover:border-primary/30 transition-all group">
       <button onClick={onToggleComplete} className="shrink-0">
@@ -293,6 +298,16 @@ function ResourceRow({ resource, onClick, onToggleComplete, onToggleBookmark }: 
           : <Circle className="h-5 w-5 text-muted-foreground/40 group-hover:text-muted-foreground" />
         }
       </button>
+      {thumbUrl && (
+        <button onClick={onClick} className="shrink-0 relative rounded-lg overflow-hidden w-16 h-10 bg-muted">
+          <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/20 transition-colors">
+            <div className="w-5 h-5 rounded-full bg-white/90 flex items-center justify-center">
+              <svg className="w-2.5 h-2.5 text-foreground fill-current ml-0.5" viewBox="0 0 8 10"><path d="M0 0l8 5-8 5V0z" /></svg>
+            </div>
+          </div>
+        </button>
+      )}
       <button onClick={onClick} className="flex-1 min-w-0 text-left">
         <div className="flex items-center gap-2 flex-wrap mb-0.5">
           {resource.is_start_here && (
