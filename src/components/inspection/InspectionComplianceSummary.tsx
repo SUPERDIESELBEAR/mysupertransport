@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type DocKey = 'IRP Registration' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate';
@@ -76,6 +77,7 @@ type FilterDoc   = 'all' | DocKey;
 
 export default function InspectionComplianceSummary({ onOpenOperator, onOpenOperatorAtBinder, onOpenInspectionBinder }: Props) {
   const { toast } = useToast();
+  const { user, profile } = useAuth();
   const [entries, setEntries] = useState<DocEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(true);
@@ -249,6 +251,38 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           ? { ...e, expiresAt: isoDate, daysUntil, status: urgency }
           : e,
       ));
+
+      // ── Notify all management users ────────────────────────────────────────
+      const updaterName = profile
+        ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || 'A staff member'
+        : 'A staff member';
+      const notifTitle = `${DOC_DISPLAY[docKey]} expiry updated`;
+      const notifBody  = `${updaterName} set the fleet ${DOC_DISPLAY[docKey]} expiry to ${format(date, 'MMM d, yyyy')} · ${urgencyLabel}.`;
+
+      const { data: mgmtRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'management');
+
+      if (mgmtRoles && mgmtRoles.length > 0) {
+        // Exclude the current user from notifications (they already see the toast)
+        const recipients = mgmtRoles
+          .map(r => r.user_id)
+          .filter(uid => uid !== user?.id);
+
+        if (recipients.length > 0) {
+          await supabase.from('notifications').insert(
+            recipients.map(uid => ({
+              user_id: uid,
+              title: notifTitle,
+              body: notifBody,
+              type: 'compliance_update',
+              channel: 'in_app' as const,
+              link: '/management?view=pipeline',
+            }))
+          );
+        }
+      }
     }
   };
 
