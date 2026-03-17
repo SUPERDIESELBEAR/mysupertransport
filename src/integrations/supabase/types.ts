@@ -533,6 +533,45 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_uploads: {
+        Row: {
+          category: Database["public"]["Enums"]["driver_upload_category"]
+          driver_id: string
+          file_name: string | null
+          file_path: string | null
+          file_url: string | null
+          id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["driver_upload_status"]
+          uploaded_at: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["driver_upload_category"]
+          driver_id: string
+          file_name?: string | null
+          file_path?: string | null
+          file_url?: string | null
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["driver_upload_status"]
+          uploaded_at?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["driver_upload_category"]
+          driver_id?: string
+          file_name?: string | null
+          file_path?: string | null
+          file_url?: string | null
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["driver_upload_status"]
+          uploaded_at?: string
+        }
+        Relationships: []
+      }
       faq: {
         Row: {
           answer: string
@@ -720,6 +759,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      inspection_documents: {
+        Row: {
+          driver_id: string | null
+          expires_at: string | null
+          file_path: string | null
+          file_url: string | null
+          id: string
+          name: string
+          public_share_token: string
+          scope: Database["public"]["Enums"]["inspection_doc_scope"]
+          updated_at: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          driver_id?: string | null
+          expires_at?: string | null
+          file_path?: string | null
+          file_url?: string | null
+          id?: string
+          name: string
+          public_share_token?: string
+          scope?: Database["public"]["Enums"]["inspection_doc_scope"]
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          driver_id?: string | null
+          expires_at?: string | null
+          file_path?: string | null
+          file_url?: string | null
+          id?: string
+          name?: string
+          public_share_token?: string
+          scope?: Database["public"]["Enums"]["inspection_doc_scope"]
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
       }
       message_templates: {
         Row: {
@@ -1447,6 +1528,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_inspection_doc_by_token: {
+        Args: { p_token: string }
+        Returns: {
+          expires_at: string
+          file_url: string
+          id: string
+          name: string
+        }[]
+      }
       get_user_roles: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"][]
@@ -1499,6 +1589,10 @@ export type Database = {
       dispatch_status: "not_dispatched" | "dispatched" | "home" | "truck_down"
       doc_review_status: "pending" | "approved" | "rejected"
       document_status: "not_started" | "requested" | "received"
+      driver_upload_category:
+        | "roadside_inspection_report"
+        | "repairs_maintenance_receipt"
+      driver_upload_status: "pending_review" | "reviewed" | "needs_attention"
       faq_category:
         | "application_process"
         | "background_screening"
@@ -1513,6 +1607,7 @@ export type Database = {
         | "in_progress"
         | "sent_for_signature"
         | "complete"
+      inspection_doc_scope: "company_wide" | "per_driver"
       install_method: "ar_shop_install" | "ups_self_install"
       mo_docs_status: "not_submitted" | "submitted"
       mo_reg_status: "not_yet" | "yes"
@@ -1678,6 +1773,11 @@ export const Constants = {
       dispatch_status: ["not_dispatched", "dispatched", "home", "truck_down"],
       doc_review_status: ["pending", "approved", "rejected"],
       document_status: ["not_started", "requested", "received"],
+      driver_upload_category: [
+        "roadside_inspection_report",
+        "repairs_maintenance_receipt",
+      ],
+      driver_upload_status: ["pending_review", "reviewed", "needs_attention"],
       faq_category: [
         "application_process",
         "background_screening",
@@ -1694,6 +1794,7 @@ export const Constants = {
         "sent_for_signature",
         "complete",
       ],
+      inspection_doc_scope: ["company_wide", "per_driver"],
       install_method: ["ar_shop_install", "ups_self_install"],
       mo_docs_status: ["not_submitted", "submitted"],
       mo_reg_status: ["not_yet", "yes"],

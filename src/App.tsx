@@ -17,6 +17,7 @@ import StaffPortal from "./pages/staff/StaffPortal";
 import ManagementPortal from "./pages/management/ManagementPortal";
 import DispatchPortal from "./pages/dispatch/DispatchPortal";
 import NotFound from "./pages/NotFound";
+import InspectionSharePage from "./pages/InspectionSharePage";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ function AppRoutes() {
       <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/dashboard" replace />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/welcome" element={<WelcomeOperator />} />
+      <Route path="/inspect/:token" element={<InspectionSharePage />} />
 
       {/* Protected routes */}
       <Route path="/dashboard" element={

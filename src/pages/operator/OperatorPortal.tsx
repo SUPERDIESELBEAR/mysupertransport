@@ -24,9 +24,10 @@ import OperatorICASign from '@/components/operator/OperatorICASign';
 import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
+import OperatorInspectionBinder from '@/components/inspection/OperatorInspectionBinder';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'service-library';
+type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder';
 
 interface Stage {
   number: number;
@@ -53,7 +54,7 @@ export default function OperatorPortal() {
   const [view, setView] = useState<OperatorView>(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications','docs-hub','service-library'].includes(tab)) return tab;
+    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications','docs-hub','service-library','inspection-binder'].includes(tab)) return tab;
     return 'progress';
   });
 
@@ -66,7 +67,7 @@ export default function OperatorPortal() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications','docs-hub'].includes(tab)) setView(tab);
+    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications','docs-hub','inspection-binder'].includes(tab)) setView(tab);
   }, [location.search]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [operatorId, setOperatorId] = useState<string | null>(null);
@@ -517,6 +518,7 @@ export default function OperatorPortal() {
     { view: 'progress' as OperatorView, label: 'My Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
     { view: 'documents' as OperatorView, label: 'Documents', icon: <Upload className="h-5 w-5" /> },
     { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
+    { view: 'inspection-binder' as OperatorView, label: 'Inspection Binder', icon: <Shield className="h-5 w-5" /> },
     { view: 'service-library' as OperatorView, label: 'Service Library', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete', icaDot: icaActionDot },
     { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
@@ -935,6 +937,11 @@ export default function OperatorPortal() {
               </div>
             </div>
           </>
+        )}
+
+        {/* ── INSPECTION BINDER VIEW ── */}
+        {view === 'inspection-binder' && user && (
+          <OperatorInspectionBinder userId={user.id} operatorId={operatorId} />
         )}
 
         {/* ── DOCUMENTS VIEW ── */}
