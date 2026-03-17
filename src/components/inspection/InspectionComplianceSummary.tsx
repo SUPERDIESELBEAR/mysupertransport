@@ -214,7 +214,7 @@ export default function InspectionComplianceSummary({ onOpenOperator }: Props) {
             'h-7 w-7 rounded-lg flex items-center justify-center shrink-0',
             hasCritical ? 'bg-warning/15' : 'bg-status-complete/10',
           )}>
-            <ShieldCheck className={cn('h-4 w-4', hasCritical ? 'text-warning' : 'text-status-complete')} style={hasCritical ? {color: 'hsl(var(--warning))'} : {}} />
+            <ShieldCheck className={cn('h-4 w-4', hasCritical ? 'text-warning-foreground' : 'text-status-complete')} />
           </div>
           <span className="font-semibold text-sm text-foreground">Compliance Summary</span>
           <span className={cn(
