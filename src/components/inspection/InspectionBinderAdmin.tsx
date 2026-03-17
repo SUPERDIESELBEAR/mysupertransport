@@ -416,18 +416,32 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs text-muted-foreground">These documents apply to all drivers. Uploading here updates every driver's binder.</p>
-                {unsharedDocs.length > 0 && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="shrink-0 h-7 gap-1.5 text-xs border-info/40 text-info hover:bg-info/10 hover:text-info"
-                    disabled={sharingAll}
-                    onClick={() => setShareAllDialogOpen(true)}
-                  >
-                    {sharingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <Share2 className="h-3 w-3" />}
-                    Share All
-                  </Button>
-                )}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {sharedDocs.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1.5 text-xs border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      disabled={unsharingAll}
+                      onClick={() => setUnshareAllDialogOpen(true)}
+                    >
+                      {unsharingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                      Unshare All
+                    </Button>
+                  )}
+                  {unsharedDocs.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1.5 text-xs border-info/40 text-info hover:bg-info/10 hover:text-info"
+                      disabled={sharingAll}
+                      onClick={() => setShareAllDialogOpen(true)}
+                    >
+                      {sharingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <Share2 className="h-3 w-3" />}
+                      Share All
+                    </Button>
+                  )}
+                </div>
               </div>
               {COMPANY_WIDE_DOCS.map(({ key, hasExpiry }) => (
                 <AdminDocRow key={key} docName={key} scope="company_wide" hasExpiry={hasExpiry} />
