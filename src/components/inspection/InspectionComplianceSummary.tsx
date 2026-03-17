@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { differenceInDays, parseISO, format } from 'date-fns';
-import { ShieldCheck, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Clock, ExternalLink } from 'lucide-react';
+import { ShieldCheck, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Clock, ExternalLink, CalendarIcon, Loader2, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type DocKey = 'IRP Registration' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate';
@@ -17,6 +20,8 @@ interface DocEntry {
   expiresAt: string | null; // ISO date string
   daysUntil: number | null; // null = missing/no expiry
   status: Status;
+  /** Only set for fleet-wide (IRP/Insurance/IFTA) rows */
+  inspectionDocId?: string;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -70,11 +75,17 @@ type FilterStatus = 'all' | 'expired' | 'critical' | 'warning' | 'valid';
 type FilterDoc   = 'all' | DocKey;
 
 export default function InspectionComplianceSummary({ onOpenOperator, onOpenOperatorAtBinder, onOpenInspectionBinder }: Props) {
+  const { toast } = useToast();
   const [entries, setEntries] = useState<DocEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(true);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [filterDoc, setFilterDoc]     = useState<FilterDoc>('all');
+  // Per fleet-row save state: key = inspectionDocId
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [saved, setSaved]   = useState<Record<string, boolean>>({});
+  // Open popover tracking: key = inspectionDocId
+  const [openPicker, setOpenPicker] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -107,16 +118,14 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     });
 
     // ── Company-wide docs (IRP, Insurance, IFTA) ───────────────────────────
-    // These are a single record per doc type, shared across all operators.
-    // We show each company-wide doc ONCE (not per-operator) as a fleet row.
-    const companyDocMap: Partial<Record<DocKey, { expiresAt: string | null; daysUntil: number | null }>> = {};
+    const companyDocMap: Partial<Record<DocKey, { id: string; expiresAt: string | null; daysUntil: number | null }>> = {};
     (inspDocs ?? []).forEach((doc: any) => {
       const key = INSPECTION_NAMES[doc.name];
       if (!key) return;
       const daysUntil = doc.expires_at
         ? differenceInDays(parseISO(doc.expires_at), today)
         : null;
-      companyDocMap[key] = { expiresAt: doc.expires_at, daysUntil };
+      companyDocMap[key] = { id: doc.id, expiresAt: doc.expires_at, daysUntil };
     });
 
     // For each company-wide doc, emit one row labelled "Fleet"
@@ -129,6 +138,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         expiresAt: info?.expiresAt ?? null,
         daysUntil: info?.daysUntil ?? null,
         status: getStatus(info?.daysUntil ?? null),
+        inspectionDocId: info?.id,
       });
     });
 
@@ -202,6 +212,45 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       supabase.removeChannel(appChannel);
     };
   }, [fetchData]);
+
+  // ── Inline date save for fleet rows ───────────────────────────────────────
+  const handleFleetDateChange = async (inspectionDocId: string, docKey: DocKey, date: Date | undefined) => {
+    if (!date || !inspectionDocId) return;
+    setOpenPicker(null);
+    setSaving(prev => ({ ...prev, [inspectionDocId]: true }));
+
+    const isoDate = format(date, 'yyyy-MM-dd');
+    const { error } = await supabase
+      .from('inspection_documents')
+      .update({ expires_at: isoDate, updated_at: new Date().toISOString() })
+      .eq('id', inspectionDocId);
+
+    setSaving(prev => ({ ...prev, [inspectionDocId]: false }));
+
+    if (error) {
+      toast({ variant: 'destructive', title: 'Save failed', description: `Could not update ${DOC_DISPLAY[docKey]} expiry.` });
+    } else {
+      setSaved(prev => ({ ...prev, [inspectionDocId]: true }));
+      setTimeout(() => setSaved(prev => ({ ...prev, [inspectionDocId]: false })), 2000);
+
+      const daysUntil = differenceInDays(date, new Date());
+      const urgency = getStatus(daysUntil);
+      const toastVariant = urgency === 'expired' || urgency === 'critical' ? 'destructive' : 'default';
+      const urgencyLabel = urgency === 'expired' ? 'Expired' : urgency === 'critical' ? 'Critical — expiring soon' : urgency === 'warning' ? 'Expiring within 90 days' : 'On track';
+      toast({
+        variant: toastVariant,
+        title: `${DOC_DISPLAY[docKey]} expiry updated`,
+        description: `${format(date, 'MMM d, yyyy')} · ${urgencyLabel}`,
+      });
+
+      // Optimistically update local state too (realtime will confirm)
+      setEntries(prev => prev.map(e =>
+        e.inspectionDocId === inspectionDocId
+          ? { ...e, expiresAt: isoDate, daysUntil, status: urgency }
+          : e,
+      ));
+    }
+  };
 
   // ── Derived counts ────────────────────────────────────────────────────────
   const counts = {
@@ -351,7 +400,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           <div className="flex items-center gap-3 px-4 py-1.5 bg-muted/10">
             <span className="h-2 w-2 shrink-0" />
             <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator / Document</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[86px]">Expires</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[118px]">Expires</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[116px] text-right">Status</span>
           </div>
 
@@ -374,6 +423,11 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
               filtered.map((entry, i) => {
                 const cfg = STATUS_CONFIG[entry.status];
                 const isFleet = entry.operatorId === '__fleet__';
+                const docId = entry.inspectionDocId;
+                const isSaving = docId ? !!saving[docId] : false;
+                const isSaved  = docId ? !!saved[docId]  : false;
+                const isPickerOpen = docId ? openPicker === docId : false;
+
                 return (
                   <div
                     key={`${entry.operatorId}-${entry.docKey}-${i}`}
@@ -398,13 +452,59 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                       )}
                     </div>
 
-                    {/* Expiry date */}
-                    <span className="text-xs text-muted-foreground hidden sm:block shrink-0 w-[86px]">
-                      {entry.expiresAt
-                        ? format(parseISO(entry.expiresAt), 'MMM d, yyyy')
-                        : <span className="italic text-muted-foreground/50">Not set</span>
-                      }
-                    </span>
+                    {/* Expiry date — clickable date picker for fleet rows */}
+                    <div className="hidden sm:block shrink-0 w-[118px]">
+                      {isFleet && docId ? (
+                        <Popover open={isPickerOpen} onOpenChange={open => setOpenPicker(open ? docId : null)}>
+                          <PopoverTrigger asChild>
+                            <button
+                              className={cn(
+                                'flex items-center gap-1.5 text-xs rounded px-1.5 py-0.5 -mx-1.5 transition-colors group',
+                                isPickerOpen
+                                  ? 'bg-muted/60 text-foreground'
+                                  : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
+                                isSaved && 'text-status-complete',
+                              )}
+                              disabled={isSaving}
+                            >
+                              {isSaving ? (
+                                <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                              ) : isSaved ? (
+                                <Check className="h-3 w-3 text-status-complete shrink-0" />
+                              ) : (
+                                <CalendarIcon className="h-3 w-3 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" />
+                              )}
+                              <span className={cn(isSaved && 'text-status-complete font-medium')}>
+                                {entry.expiresAt
+                                  ? format(parseISO(entry.expiresAt), 'MMM d, yyyy')
+                                  : <span className="italic opacity-50">Set date</span>
+                                }
+                              </span>
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start" side="bottom">
+                            <div className="px-3 pt-3 pb-1 border-b border-border/60">
+                              <p className="text-xs font-semibold text-foreground">{DOC_DISPLAY[entry.docKey]} Expiry</p>
+                              <p className="text-[11px] text-muted-foreground">Click a date to save</p>
+                            </div>
+                            <Calendar
+                              mode="single"
+                              selected={entry.expiresAt ? parseISO(entry.expiresAt) : undefined}
+                              onSelect={date => handleFleetDateChange(docId, entry.docKey, date)}
+                              initialFocus
+                              className={cn('p-3 pointer-events-auto')}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          {entry.expiresAt
+                            ? format(parseISO(entry.expiresAt), 'MMM d, yyyy')
+                            : <span className="italic text-muted-foreground/50">Not set</span>
+                          }
+                        </span>
+                      )}
+                    </div>
 
                     {/* Status badge + open operator link */}
                     <div className="flex items-center gap-1.5 shrink-0 w-[116px] justify-end">
@@ -515,6 +615,9 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                   <span>{counts.missing} no date set</span>
                 </div>
               )}
+              <div className="ml-auto text-[10px] text-muted-foreground/40 italic hidden sm:block">
+                Click a fleet date to edit
+              </div>
             </div>
           )}
         </div>
