@@ -544,6 +544,38 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Share All confirm */}
+      <AlertDialog open={shareAllDialogOpen} onOpenChange={setShareAllDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Share {unsharedDocs.length} Document{unsharedDocs.length !== 1 ? 's' : ''} with Fleet?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>The following document{unsharedDocs.length !== 1 ? 's' : ''} will become visible to all fleet drivers:</p>
+                <ul className="mt-1 space-y-1">
+                  {unsharedDocs.map(d => (
+                    <li key={d.id} className="flex items-center gap-2 text-foreground text-sm">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      {d.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleShareAll}
+              className="bg-info text-white hover:bg-info/90"
+            >
+              <Share2 className="h-3.5 w-3.5 mr-1.5" />
+              Share All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
