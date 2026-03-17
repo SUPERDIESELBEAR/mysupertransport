@@ -45,15 +45,18 @@ export default function StaffPortal() {
   const [scrollToInspectionBinder, setScrollToInspectionBinder] = useState(false);
   const viewRef = useRef(currentView);
 
-  // Deep-link: ?tab=notifications or ?operator=...
+  // Deep-link: ?tab=notifications or ?operator=... or ?view=inspection-binder
   useEffect(() => {
     const tab = searchParams.get('tab');
     const operatorId = searchParams.get('operator');
+    const view = searchParams.get('view') as StaffView | null;
     if (tab === 'notifications') {
       setCurrentView('notifications');
     } else if (operatorId) {
       setSelectedOperatorId(operatorId);
       setCurrentView('operator-detail');
+    } else if (view && ['pipeline','messages','faq','resources','notifications','docs-hub','service-library','inspection-binder'].includes(view)) {
+      setCurrentView(view);
     }
   }, [searchParams]);
 

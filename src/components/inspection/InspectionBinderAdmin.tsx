@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -70,16 +71,23 @@ function UploadStatusBadge({ status }: { status: string }) {
 export default function InspectionBinderAdmin({ operatorUserId, operatorName }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+
+  // Support deep-link: ?driver=<userId>&tab=driver|company|uploads
+  const urlDriver = searchParams.get('driver') ?? '';
+  const urlTab = searchParams.get('tab') as 'company' | 'driver' | 'uploads' | null;
 
   const [companyDocs, setCompanyDocs] = useState<InspectionDocument[]>([]);
   const [perDriverDocs, setPerDriverDocs] = useState<InspectionDocument[]>([]);
   const [driverUploads, setDriverUploads] = useState<DriverUpload[]>([]);
   const [operators, setOperators] = useState<OperatorOption[]>([]);
-  const [selectedDriverId, setSelectedDriverId] = useState<string>(operatorUserId ?? '');
+  const [selectedDriverId, setSelectedDriverId] = useState<string>(operatorUserId ?? urlDriver);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<InspectionDocument | null>(null);
-  const [activeTab, setActiveTab] = useState<'company' | 'driver' | 'uploads'>('company');
+  const [activeTab, setActiveTab] = useState<'company' | 'driver' | 'uploads'>(
+    urlTab && ['company', 'driver', 'uploads'].includes(urlTab) ? urlTab : 'company'
+  );
   const [expiryEditing, setExpiryEditing] = useState<string | null>(null);
   const [expiryValue, setExpiryValue] = useState('');
   const [lastReminders, setLastReminders] = useState<Record<string, ReminderRecord>>({});
