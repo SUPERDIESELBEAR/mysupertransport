@@ -219,8 +219,8 @@ export default function InspectionComplianceSummary({ onOpenOperator }: Props) {
           <span className="font-semibold text-sm text-foreground">Compliance Summary</span>
           <span className={cn(
             'inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-[10px] font-bold leading-none',
-            hasCritical ? 'bg-warning text-white' : 'bg-muted text-muted-foreground',
-          )} style={hasCritical ? {backgroundColor: 'hsl(var(--warning))', color: '#fff'} : {}}>
+            hasCritical ? 'bg-warning text-warning-foreground' : 'bg-muted text-muted-foreground',
+          )}>
             {entries.length}
           </span>
 
