@@ -13,9 +13,10 @@ import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Wrench } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Wrench, Shield } from 'lucide-react';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
 import DocumentHub from '@/components/documents/DocumentHub';
+import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
