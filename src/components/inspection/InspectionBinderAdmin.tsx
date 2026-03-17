@@ -751,6 +751,55 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Send Reminder confirm */}
+      <AlertDialog open={!!reminderDialogDoc} onOpenChange={open => !open && setReminderDialogDoc(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {reminderDialogDoc === 'all'
+                ? `Send ${missingOrExpiredDriverDocs.length} Reminder${missingOrExpiredDriverDocs.length !== 1 ? 's' : ''}?`
+                : `Send Reminder for ${reminderDialogDoc}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  An in-app notification will be sent to{' '}
+                  <strong>{selectedDriverName || 'this driver'}</strong>{' '}
+                  asking them to upload{reminderDialogDoc === 'all' ? ':' : ' an updated copy.'}
+                </p>
+                {reminderDialogDoc === 'all' && (
+                  <ul className="mt-1 space-y-1">
+                    {missingOrExpiredDriverDocs.map(d => {
+                      const doc = perDriverDocs.find(pd => pd.name === d.key);
+                      const missing = !doc?.file_url;
+                      return (
+                        <li key={d.key} className="flex items-center gap-2 text-foreground text-sm">
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          {d.key}
+                          <span className={`text-[10px] font-medium px-1.5 py-0 rounded-full ${missing ? 'bg-secondary text-muted-foreground' : 'bg-destructive/10 text-destructive'}`}>
+                            {missing ? 'Missing' : 'Expired'}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => reminderDialogDoc && sendDriverDocReminder(reminderDialogDoc)}
+              className="bg-gold text-surface-dark hover:bg-gold-light"
+            >
+              <Bell className="h-3.5 w-3.5 mr-1.5" />
+              Send Reminder{reminderDialogDoc === 'all' && missingOrExpiredDriverDocs.length > 1 ? 's' : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
