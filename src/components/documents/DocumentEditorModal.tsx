@@ -633,6 +633,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                 pendingPdfFile={pendingPdfFile}
                 hasPdf={hasPdf}
                 shownPdfName={shownPdfName}
+                shownPdfUrl={shownPdfUrl}
                 dragOver={dragOver}
                 fileInputRef={fileInputRef}
                 onUploadPdf={uploadPdf}
