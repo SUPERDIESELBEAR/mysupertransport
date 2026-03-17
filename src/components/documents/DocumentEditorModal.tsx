@@ -207,13 +207,20 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
       toast({ title: 'Please upload a PDF file', variant: 'destructive' });
       return;
     }
+    if (form.content_type === 'video') {
+      const embedUrl = parseVideoEmbedUrl(form.video_url ?? '');
+      if (!embedUrl) {
+        toast({ title: 'Invalid video URL', description: 'Please enter a valid YouTube or Vimeo URL.', variant: 'destructive' });
+        return;
+      }
+    }
     setSaving(true);
 
     // Determine final PDF fields
     const finalPdfUrl  = pendingPdfUrl  ?? form.pdf_url;
     const finalPdfPath = pendingPdfPath ?? form.pdf_path;
 
-    // If switching to rich_text, clear PDF fields; if switching to pdf, clear body
+    // Only keep body for rich_text, PDF fields for pdf, video_url for video
     const finalBody    = form.content_type === 'rich_text' ? (form.body || null) : null;
 
     const payload = {
@@ -226,8 +233,9 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
       is_pinned: form.is_pinned,
       body: finalBody,
       content_type: form.content_type,
-      pdf_url:  form.content_type === 'pdf' ? finalPdfUrl  : null,
-      pdf_path: form.content_type === 'pdf' ? finalPdfPath : null,
+      pdf_url:   form.content_type === 'pdf'   ? finalPdfUrl   : null,
+      pdf_path:  form.content_type === 'pdf'   ? finalPdfPath  : null,
+      video_url: form.content_type === 'video' ? (form.video_url ?? null) : null,
     };
 
     if (doc) {
