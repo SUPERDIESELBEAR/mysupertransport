@@ -140,6 +140,14 @@ export default function StaffPortal() {
   const handleOpenOperator = (operatorId: string) => {
     setSelectedOperatorId(operatorId);
     setOperatorHasUnsavedChanges(false);
+    setScrollToInspectionBinder(false);
+    setCurrentView('operator-detail');
+  };
+
+  const handleOpenOperatorAtBinder = (operatorId: string) => {
+    setSelectedOperatorId(operatorId);
+    setOperatorHasUnsavedChanges(false);
+    setScrollToInspectionBinder(true);
     setCurrentView('operator-detail');
   };
 
