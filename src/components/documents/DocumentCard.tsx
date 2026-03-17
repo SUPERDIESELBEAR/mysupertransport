@@ -1,4 +1,4 @@
-import { Clock, CheckCircle2, Pin, AlertTriangle, BookOpen, FileText } from 'lucide-react';
+import { Clock, CheckCircle2, Pin, AlertTriangle, BookOpen, FileText, Video } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DriverDocument, CATEGORY_COLORS } from './DocumentHubTypes';
@@ -13,6 +13,7 @@ export default function DocumentCard({ doc, acknowledgment, onView }: DocumentCa
   const isAcknowledged = !!acknowledgment && acknowledgment.document_version === doc.version;
   const isUpdated = !!acknowledgment && acknowledgment.document_version < doc.version;
   const isPdf = doc.content_type === 'pdf';
+  const isVideo = doc.content_type === 'video';
 
   return (
     <div
@@ -47,6 +48,11 @@ export default function DocumentCard({ doc, acknowledgment, onView }: DocumentCa
             <FileText className="h-3 w-3" /> PDF
           </Badge>
         )}
+        {isVideo && (
+          <Badge className="text-xs border bg-info/10 text-info border-info/30 font-medium gap-1">
+            <Video className="h-3 w-3" /> Video
+          </Badge>
+        )}
       </div>
 
       {/* Title + description */}
@@ -62,13 +68,18 @@ export default function DocumentCard({ doc, acknowledgment, onView }: DocumentCa
         {doc.estimated_read_minutes && (
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            ~{doc.estimated_read_minutes} min read
+            ~{doc.estimated_read_minutes} min {isVideo ? 'watch' : 'read'}
           </span>
         )}
         {isPdf ? (
           <span className="flex items-center gap-1">
             <FileText className="h-3 w-3" />
             PDF document
+          </span>
+        ) : isVideo ? (
+          <span className="flex items-center gap-1">
+            <Video className="h-3 w-3" />
+            Video
           </span>
         ) : (
           <span className="flex items-center gap-1">
@@ -90,11 +101,11 @@ export default function DocumentCard({ doc, acknowledgment, onView }: DocumentCa
           </span>
         ) : (
           <span className="text-xs text-muted-foreground">
-            {doc.is_required ? 'Acknowledgment required' : 'Tap to read'}
+            {doc.is_required ? 'Acknowledgment required' : 'Tap to view'}
           </span>
         )}
         <Button size="sm" onClick={() => onView(doc)} className="text-xs h-8">
-          {isPdf ? 'View PDF' : 'View Document'}
+          {isPdf ? 'View PDF' : isVideo ? 'Watch Video' : 'View Document'}
         </Button>
       </div>
     </div>
