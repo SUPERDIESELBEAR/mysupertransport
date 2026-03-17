@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { ArrowLeft, Clock, Bookmark, BookmarkCheck, CheckCircle2, CheckCircle,
-  Circle, Phone, Mail, MessageSquare, ExternalLink, AlertTriangle,
-  PlayCircle, FileText, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Clock, Bookmark, BookmarkCheck, CheckCircle2,
+  Circle, ExternalLink, AlertTriangle,
+  FileText, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,6 +16,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { differenceInDays, parseISO } from 'date-fns';
+import { parseVideoEmbedUrl } from '@/components/documents/DocumentHubTypes';
 
 interface ResourceViewerProps {
   resource: ServiceResource;
@@ -24,17 +24,6 @@ interface ResourceViewerProps {
   onBack: () => void;
   onCompletion: (resourceId: string, completed: boolean) => void;
   onBookmark: (resourceId: string, bookmarked: boolean) => void;
-}
-
-function getYouTubeEmbedUrl(url: string): string | null {
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-  ];
-  for (const p of patterns) {
-    const m = url.match(p);
-    if (m) return `https://www.youtube.com/embed/${m[1]}`;
-  }
-  return null;
 }
 
 export default function ResourceViewer({ resource, service, onBack, onCompletion, onBookmark }: ResourceViewerProps) {
@@ -111,7 +100,7 @@ export default function ResourceViewer({ resource, service, onBack, onCompletion
     const { resource_type, url, body } = resource;
 
     if (resource_type === 'Tutorial Video' && url) {
-      const embedUrl = getYouTubeEmbedUrl(url);
+      const embedUrl = parseVideoEmbedUrl(url);
       if (embedUrl) {
         return (
           <div className="rounded-xl overflow-hidden border border-border aspect-video w-full">
