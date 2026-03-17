@@ -121,7 +121,7 @@ export default function ResourceFormModal({ resource, serviceId, onClose, onSave
           {showUrl && (
             <div className="space-y-1.5">
               <Label htmlFor="url">
-                {form.resource_type === 'Tutorial Video' ? 'YouTube URL' :
+                {form.resource_type === 'Tutorial Video' ? 'YouTube or Vimeo URL' :
                  form.resource_type === 'PDF' ? 'PDF URL' :
                  form.resource_type === 'External Link' ? 'External Link URL' :
                  'URL (optional)'}
@@ -130,8 +130,28 @@ export default function ResourceFormModal({ resource, serviceId, onClose, onSave
                 id="url"
                 value={form.url}
                 onChange={set('url')}
-                placeholder={form.resource_type === 'Tutorial Video' ? 'https://youtube.com/watch?v=...' : 'https://…'}
+                placeholder={
+                  form.resource_type === 'Tutorial Video'
+                    ? 'https://youtube.com/watch?v=… or https://vimeo.com/…'
+                    : 'https://…'
+                }
               />
+              {/* Live video preview */}
+              {form.resource_type === 'Tutorial Video' && (() => {
+                const embedUrl = form.url ? parseVideoEmbedUrl(form.url) : null;
+                if (!embedUrl) return null;
+                return (
+                  <div className="mt-2 rounded-xl overflow-hidden border border-border aspect-video w-full">
+                    <iframe
+                      src={embedUrl}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="w-full h-full"
+                      title="Video preview"
+                    />
+                  </div>
+                );
+              })()}
             </div>
           )}
 
