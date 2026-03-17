@@ -238,23 +238,32 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
           {/* Company Documents */}
           <div>
             <SectionHeader title="Company Documents" icon={<Shield className="h-3.5 w-3.5 text-gold" />} />
-            <div className="space-y-2">
-              {COMPANY_WIDE_DOCS.map(({ key, hasExpiry }) => {
-                const doc = findCompanyDoc(key);
-                return (
-                  <DocRow
-                    key={key}
-                    name={key}
-                    doc={doc}
-                    hasExpiry={hasExpiry}
-                    selected={doc ? selected.has(doc.id) : false}
-                    selectMode={selectMode}
-                    onToggleSelect={() => doc && toggleSelect(doc.id)}
-                    canUpload={false}
-                  />
-                );
-              })}
-            </div>
+            {companyDocs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-2 py-8 rounded-xl border border-dashed border-border text-center">
+                <Shield className="h-7 w-7 text-muted-foreground/40" />
+                <p className="text-sm font-medium text-muted-foreground">No company documents are currently shared with the fleet</p>
+                <p className="text-xs text-muted-foreground/60">Your coordinator will share company-wide documents here when available.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {COMPANY_WIDE_DOCS.map(({ key, hasExpiry }) => {
+                  const doc = findCompanyDoc(key);
+                  if (!doc) return null;
+                  return (
+                    <DocRow
+                      key={key}
+                      name={key}
+                      doc={doc}
+                      hasExpiry={hasExpiry}
+                      selected={selected.has(doc.id)}
+                      selectMode={selectMode}
+                      onToggleSelect={() => toggleSelect(doc.id)}
+                      canUpload={false}
+                    />
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* My Documents */}
