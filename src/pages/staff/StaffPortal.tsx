@@ -42,6 +42,7 @@ export default function StaffPortal() {
   const [panelExpiryOverride, setPanelExpiryOverride] = useState<{ cdl: string | null; medcert: string | null } | undefined>(undefined);
   const [bulkMessageOpen, setBulkMessageOpen] = useState(false);
   const [bulkMessagePreselected, setBulkMessagePreselected] = useState<string[]>([]);
+  const [scrollToInspectionBinder, setScrollToInspectionBinder] = useState(false);
   const viewRef = useRef(currentView);
 
   // Deep-link: ?tab=notifications or ?operator=...
