@@ -4,8 +4,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
-  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw,
+  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
