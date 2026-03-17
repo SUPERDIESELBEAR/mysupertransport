@@ -72,6 +72,7 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
         .from('inspection_documents')
         .select('*')
         .eq('scope', 'company_wide')
+        .eq('shared_with_fleet', true)
         .order('name'),
       supabase
         .from('inspection_documents')
