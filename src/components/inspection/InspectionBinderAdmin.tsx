@@ -287,8 +287,17 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     );
   };
 
+  const sharedCount = companyDocs.filter(d => d.shared_with_fleet).length;
+  const totalCompany = COMPANY_WIDE_DOCS.length;
+
   const tabs = [
-    { key: 'company' as const, label: 'Company Docs', icon: <Globe className="h-3.5 w-3.5" /> },
+    {
+      key: 'company' as const,
+      label: 'Company Docs',
+      icon: <Globe className="h-3.5 w-3.5" />,
+      badge: `${sharedCount} of ${totalCompany} shared`,
+      badgeActive: sharedCount > 0,
+    },
     { key: 'driver' as const, label: 'Driver Docs', icon: <User className="h-3.5 w-3.5" /> },
     { key: 'uploads' as const, label: 'Driver Uploads', icon: <Upload className="h-3.5 w-3.5" /> },
   ];
