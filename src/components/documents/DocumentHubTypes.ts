@@ -39,6 +39,19 @@ export const CATEGORY_COLORS: Record<DocCategory, string> = {
   General:    'bg-muted text-muted-foreground border-border',
 };
 
+/** Extract a YouTube video ID from any YouTube URL. Returns null if not a YouTube URL. */
+export function getYouTubeVideoId(url: string): string | null {
+  if (!url) return null;
+  const trimmed = url.trim();
+  const ytShort = trimmed.match(/^https?:\/\/(?:www\.)?youtu\.be\/([A-Za-z0-9_-]{11})/);
+  if (ytShort) return ytShort[1];
+  const ytWatch = trimmed.match(/^https?:\/\/(?:www\.)?youtube\.com\/watch\?(?:.*&)?v=([A-Za-z0-9_-]{11})/);
+  if (ytWatch) return ytWatch[1];
+  const ytEmbed = trimmed.match(/^https?:\/\/(?:www\.)?youtube\.com\/embed\/([A-Za-z0-9_-]{11})/);
+  if (ytEmbed) return ytEmbed[1];
+  return null;
+}
+
 /** Parse a YouTube or Vimeo share/watch URL into an embeddable iframe src. Returns null if not recognized. */
 export function parseVideoEmbedUrl(url: string): string | null {
   if (!url) return null;
