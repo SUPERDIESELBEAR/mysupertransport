@@ -69,7 +69,7 @@ interface Props {
 type FilterStatus = 'all' | 'expired' | 'critical' | 'warning' | 'valid';
 type FilterDoc   = 'all' | DocKey;
 
-export default function InspectionComplianceSummary({ onOpenOperator, onOpenInspectionBinder }: Props) {
+export default function InspectionComplianceSummary({ onOpenOperator, onOpenOperatorAtBinder, onOpenInspectionBinder }: Props) {
   const [entries, setEntries] = useState<DocEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(true);
