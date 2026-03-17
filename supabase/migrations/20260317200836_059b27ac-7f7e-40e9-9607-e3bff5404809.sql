@@ -1,0 +1,1 @@
+ALTER TABLE public.driver_documents ADD COLUMN IF NOT EXISTS video_url text;

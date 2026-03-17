@@ -7,13 +7,13 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import TipTapEditor from './TipTapEditor';
-import { DriverDocument, CATEGORIES, CATEGORY_COLORS } from './DocumentHubTypes';
+import { DriverDocument, CATEGORIES, CATEGORY_COLORS, parseVideoEmbedUrl } from './DocumentHubTypes';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
   History, RotateCcw, Clock, User, Eye, AlertTriangle, BookOpen,
-  FileText, Upload, X, File, ExternalLink,
+  FileText, Upload, X, File, ExternalLink, Video,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -38,9 +38,10 @@ const EMPTY_FORM = {
   is_visible: false,
   is_pinned: false,
   body: '',
-  content_type: 'rich_text' as 'rich_text' | 'pdf',
+  content_type: 'rich_text' as 'rich_text' | 'pdf' | 'video',
   pdf_url: null as string | null,
   pdf_path: null as string | null,
+  video_url: null as string | null,
 };
 
 interface VersionEntry {
@@ -88,6 +89,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
         content_type: doc.content_type ?? 'rich_text',
         pdf_url: doc.pdf_url ?? null,
         pdf_path: doc.pdf_path ?? null,
+        video_url: doc.video_url ?? null,
       });
     } else {
       setForm(EMPTY_FORM);
@@ -205,13 +207,20 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
       toast({ title: 'Please upload a PDF file', variant: 'destructive' });
       return;
     }
+    if (form.content_type === 'video') {
+      const embedUrl = parseVideoEmbedUrl(form.video_url ?? '');
+      if (!embedUrl) {
+        toast({ title: 'Invalid video URL', description: 'Please enter a valid YouTube or Vimeo URL.', variant: 'destructive' });
+        return;
+      }
+    }
     setSaving(true);
 
     // Determine final PDF fields
     const finalPdfUrl  = pendingPdfUrl  ?? form.pdf_url;
     const finalPdfPath = pendingPdfPath ?? form.pdf_path;
 
-    // If switching to rich_text, clear PDF fields; if switching to pdf, clear body
+    // Only keep body for rich_text, PDF fields for pdf, video_url for video
     const finalBody    = form.content_type === 'rich_text' ? (form.body || null) : null;
 
     const payload = {
@@ -224,8 +233,9 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
       is_pinned: form.is_pinned,
       body: finalBody,
       content_type: form.content_type,
-      pdf_url:  form.content_type === 'pdf' ? finalPdfUrl  : null,
-      pdf_path: form.content_type === 'pdf' ? finalPdfPath : null,
+      pdf_url:   form.content_type === 'pdf'   ? finalPdfUrl   : null,
+      pdf_path:  form.content_type === 'pdf'   ? finalPdfPath  : null,
+      video_url: form.content_type === 'video' ? (form.video_url ?? null) : null,
     };
 
     if (doc) {
@@ -233,8 +243,8 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
       if (pendingPdfPath && doc.pdf_path && pendingPdfPath !== doc.pdf_path) {
         await supabase.storage.from('resource-library').remove([doc.pdf_path]);
       }
-      // If switching away from PDF, delete old PDF file
-      if (form.content_type === 'rich_text' && doc.pdf_path) {
+      // If switching away from PDF to another type, delete old PDF file
+      if (form.content_type !== 'pdf' && doc.pdf_path) {
         await supabase.storage.from('resource-library').remove([doc.pdf_path]);
       }
 
@@ -454,6 +464,11 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                             <FileText className="h-3 w-3" /> PDF
                           </Badge>
                         )}
+                        {form.content_type === 'video' && (
+                          <Badge className="text-xs border bg-info/10 text-info border-info/30 font-medium gap-1">
+                            <Video className="h-3 w-3" /> Video
+                          </Badge>
+                        )}
                         {!form.is_visible && (
                           <Badge className="text-xs border bg-muted text-muted-foreground border-border gap-1">
                             <Eye className="h-3 w-3 opacity-50" /> Hidden from drivers
@@ -476,8 +491,30 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
 
                     <hr className="border-border mb-8" />
 
-                    {/* Rendered body or PDF preview */}
-                    {form.content_type === 'pdf' ? (
+                    {/* Rendered body, PDF, or Video preview */}
+                    {form.content_type === 'video' ? (
+                      (() => {
+                        const embedUrl = parseVideoEmbedUrl(form.video_url ?? '');
+                        return embedUrl ? (
+                          <div className="rounded-xl overflow-hidden border border-border bg-muted/20">
+                            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                              <iframe
+                                src={embedUrl}
+                                title="Video Preview"
+                                className="absolute inset-0 w-full h-full"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="py-12 text-center text-muted-foreground">
+                            <Video className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                            <p>Enter a YouTube or Vimeo URL above to see a preview.</p>
+                          </div>
+                        );
+                      })()
+                    ) : form.content_type === 'pdf' ? (
                       (pendingPdfUrl || form.pdf_url) ? (
                         <div className="rounded-xl overflow-hidden border border-border">
                           <iframe
@@ -772,7 +809,7 @@ function EditForm({
       {/* ── Content Type toggle ─────────────────────────────────────── */}
       <div className="space-y-3">
         <Label>Content Type</Label>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => setForm(f => ({ ...f, content_type: 'rich_text' }))}
@@ -797,6 +834,18 @@ function EditForm({
             <FileText className="h-4 w-4" />
             PDF Upload
           </button>
+          <button
+            type="button"
+            onClick={() => setForm(f => ({ ...f, content_type: 'video' }))}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+              form.content_type === 'video'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
+            }`}
+          >
+            <Video className="h-4 w-4" />
+            Video Embed
+          </button>
         </div>
       </div>
 
@@ -815,6 +864,39 @@ function EditForm({
             onChange={html => setForm(f => ({ ...f, body: html }))}
             placeholder="Paste content here or start writing…"
           />
+        </div>
+      ) : form.content_type === 'video' ? (
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="doc-video-url">Video URL</Label>
+            <p className="text-xs text-muted-foreground">
+              Paste a YouTube or Vimeo link — share links, watch links, and embed links all work.
+            </p>
+            <Input
+              id="doc-video-url"
+              value={form.video_url ?? ''}
+              onChange={e => setForm(f => ({ ...f, video_url: e.target.value || null }))}
+              placeholder="https://youtu.be/... or https://vimeo.com/..."
+            />
+          </div>
+          {/* Live embed preview */}
+          {(() => {
+            const embedUrl = parseVideoEmbedUrl(form.video_url ?? '');
+            if (!embedUrl) return null;
+            return (
+              <div className="rounded-xl overflow-hidden border border-border bg-muted/10">
+                <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                  <iframe
+                    src={embedUrl}
+                    title="Video Preview"
+                    className="absolute inset-0 w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              </div>
+            );
+          })()}
         </div>
       ) : (
         <div className="space-y-1.5">

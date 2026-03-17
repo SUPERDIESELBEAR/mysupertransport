@@ -16,7 +16,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Edit2, Trash2, GripVertical, Eye, EyeOff, AlertTriangle, CheckCircle2, Pin } from 'lucide-react';
+import { Edit2, Trash2, GripVertical, Eye, EyeOff, AlertTriangle, CheckCircle2, Pin, FileText, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -100,6 +100,16 @@ function SortableRow({
           {doc.is_required && (
             <Badge className="text-xs border bg-destructive/10 text-destructive border-destructive/30 gap-1">
               <AlertTriangle className="h-3 w-3" /> Required
+            </Badge>
+          )}
+          {doc.content_type === 'pdf' && (
+            <Badge className="text-xs border bg-secondary text-secondary-foreground border-border gap-1">
+              <FileText className="h-3 w-3" /> PDF
+            </Badge>
+          )}
+          {doc.content_type === 'video' && (
+            <Badge className="text-xs border bg-info/10 text-info border-info/30 gap-1">
+              <Video className="h-3 w-3" /> Video
             </Badge>
           )}
           <span className="text-xs text-muted-foreground">v{doc.version}</span>

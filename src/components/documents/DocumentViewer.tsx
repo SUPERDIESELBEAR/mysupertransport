@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { ArrowLeft, Clock, CheckCircle2, AlertTriangle, BookOpen, FileText, Download } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle2, AlertTriangle, BookOpen, FileText, Download, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DriverDocument, CATEGORY_COLORS } from './DocumentHubTypes';
+import { DriverDocument, CATEGORY_COLORS, parseVideoEmbedUrl } from './DocumentHubTypes';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,6 +21,9 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
   const isAcknowledged = !!acknowledgment && acknowledgment.document_version === doc.version;
   const isUpdated = !!acknowledgment && acknowledgment.document_version < doc.version;
   const isPdf = doc.content_type === 'pdf';
+  const isVideo = doc.content_type === 'video';
+
+  const embedUrl = isVideo ? parseVideoEmbedUrl(doc.video_url ?? '') : null;
 
   const handleAcknowledge = async () => {
     setAcknowledging(true);
@@ -79,6 +82,11 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
                 <FileText className="h-3 w-3" /> PDF
               </Badge>
             )}
+            {isVideo && (
+              <Badge className="text-xs border bg-info/10 text-info border-info/30 font-medium gap-1">
+                <Video className="h-3 w-3" /> Video
+              </Badge>
+            )}
           </div>
 
           <h1 className="text-2xl font-bold text-foreground mb-2">{doc.title}</h1>
@@ -90,7 +98,7 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
             {doc.estimated_read_minutes && (
               <span className="flex items-center gap-1.5">
                 <Clock className="h-4 w-4" />
-                ~{doc.estimated_read_minutes} min read
+                ~{doc.estimated_read_minutes} min {isVideo ? 'watch' : 'read'}
               </span>
             )}
             <span className="flex items-center gap-1.5">
@@ -115,8 +123,27 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
 
         <hr className="border-border mb-8" />
 
-        {/* Body — PDF or rich text */}
-        {isPdf ? (
+        {/* Body — Video, PDF, or rich text */}
+        {isVideo ? (
+          embedUrl ? (
+            <div className="rounded-xl overflow-hidden border border-border bg-muted/20">
+              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                <iframe
+                  src={embedUrl}
+                  title={doc.title}
+                  className="absolute inset-0 w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="py-12 text-center text-muted-foreground">
+              <Video className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p>Video not available.</p>
+            </div>
+          )
+        ) : isPdf ? (
           doc.pdf_url ? (
             <div className="rounded-xl overflow-hidden border border-border bg-muted/20">
               <iframe
@@ -162,7 +189,7 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
           ) : (
             <div className="flex flex-col items-center gap-3 text-center">
               <p className="text-sm text-muted-foreground max-w-md">
-                By clicking below, you confirm that you have{isPdf ? ' opened and' : ''} read and understood this document.
+                By clicking below, you confirm that you have{isPdf ? ' opened and' : isVideo ? ' watched and' : ''} read and understood this document.
               </p>
               <Button
                 onClick={handleAcknowledge}
