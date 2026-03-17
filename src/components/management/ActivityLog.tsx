@@ -209,6 +209,14 @@ function EntryDetail({ entry }: { entry: AuditEntry }) {
           {meta.old_expiry ? ` · was ${new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString()}` : ''}
         </span>
       );
+    case 'expiry_updated':
+      return (
+        <span className="text-xs text-muted-foreground">
+          Fleet <span className="font-medium text-foreground">{meta.document_type as string}</span>
+          {meta.old_expiry ? ` · ${new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString()} → ` : ' updated to '}
+          <span className="font-medium text-foreground">{meta.new_expiry ? new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString() : ''}</span>
+        </span>
+      );
     default:
       return null;
   }
