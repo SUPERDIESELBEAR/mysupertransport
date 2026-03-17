@@ -833,9 +833,22 @@ function EditForm({
                 <p className="text-sm font-medium text-foreground truncate">
                   {shownPdfName ?? 'document.pdf'}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {pendingPdfFile ? `${(pendingPdfFile.size / 1024 / 1024).toFixed(1)} MB — ready to save` : 'Currently attached'}
-                </p>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <p className="text-xs text-muted-foreground">
+                    {pendingPdfFile ? `${(pendingPdfFile.size / 1024 / 1024).toFixed(1)} MB — ready to save` : 'Currently attached'}
+                  </p>
+                  {shownPdfUrl && (
+                    <a
+                      href={shownPdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors font-medium"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Open in new tab
+                    </a>
+                  )}
+                </div>
               </div>
               <button
                 type="button"
