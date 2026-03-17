@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
 import ICAViewModal from '@/components/ica/ICAViewModal';
+import OperatorBinderPanel from '@/components/inspection/OperatorBinderPanel';
 import { formatDistanceToNow, format, differenceInDays, parseISO, startOfDay } from 'date-fns';
 
 interface OperatorDetailPanelProps {
