@@ -4,7 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
-  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users,
+  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -181,6 +181,30 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   };
 
   const selectedDriverName = operatorName ?? operators.find(o => o.userId === selectedDriverId)?.name ?? '';
+
+  const [sharingAll, setSharingAll] = useState(false);
+
+  const handleShareAll = async () => {
+    const unshared = companyDocs.filter(d => d.file_url && !d.shared_with_fleet);
+    if (unshared.length === 0) return;
+    setSharingAll(true);
+    try {
+      await Promise.all(
+        unshared.map(doc =>
+          supabase.from('inspection_documents').update({ shared_with_fleet: true }).eq('id', doc.id)
+        )
+      );
+      toast({
+        title: `${unshared.length} document${unshared.length > 1 ? 's' : ''} shared with fleet`,
+        description: 'All uploaded company documents are now visible to drivers.',
+      });
+      fetchDocs();
+    } catch {
+      toast({ title: 'Error sharing documents', variant: 'destructive' });
+    } finally {
+      setSharingAll(false);
+    }
+  };
 
   const toggleFleetShare = async (doc: InspectionDocument) => {
     const newVal = !doc.shared_with_fleet;
@@ -362,7 +386,21 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           {/* Company Docs tab */}
           {activeTab === 'company' && (
             <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">These documents apply to all drivers. Uploading here updates every driver's binder.</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">These documents apply to all drivers. Uploading here updates every driver's binder.</p>
+                {companyDocs.some(d => d.file_url && !d.shared_with_fleet) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0 h-7 gap-1.5 text-xs border-info/40 text-info hover:bg-info/10 hover:text-info"
+                    disabled={sharingAll}
+                    onClick={handleShareAll}
+                  >
+                    {sharingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <Share2 className="h-3 w-3" />}
+                    Share All
+                  </Button>
+                )}
+              </div>
               {COMPANY_WIDE_DOCS.map(({ key, hasExpiry }) => (
                 <AdminDocRow key={key} docName={key} scope="company_wide" hasExpiry={hasExpiry} />
               ))}
