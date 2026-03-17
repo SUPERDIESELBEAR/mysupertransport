@@ -28,6 +28,8 @@ interface OperatorDetailPanelProps {
   onOpenAppReview?: (focusField: 'cdl' | 'medcert') => void;
   /** Called by parent to push refreshed expiry dates into this panel */
   expiryOverride?: { cdl: string | null; medcert: string | null };
+  /** If true, scroll to the Inspection Binder section after load */
+  scrollToInspectionBinder?: boolean;
 }
 
 type OnboardingStatus = {
