@@ -383,7 +383,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenInsp
                     </span>
 
                     {/* Status badge + open operator link */}
-                    <div className="flex items-center gap-1.5 shrink-0 w-[90px] justify-end">
+                    <div className="flex items-center gap-1.5 shrink-0 w-[116px] justify-end">
                       <TooltipProvider delayDuration={100}>
                         <Tooltip>
                           <TooltipTrigger asChild>
