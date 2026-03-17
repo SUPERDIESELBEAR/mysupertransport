@@ -16,7 +16,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Edit2, Trash2, GripVertical, Eye, EyeOff, AlertTriangle, CheckCircle2, Pin } from 'lucide-react';
+import { Edit2, Trash2, GripVertical, Eye, EyeOff, AlertTriangle, CheckCircle2, Pin, FileText, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
