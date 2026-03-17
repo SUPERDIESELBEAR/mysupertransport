@@ -7,11 +7,11 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import TipTapEditor from './TipTapEditor';
-import { DriverDocument, CATEGORIES } from './DocumentHubTypes';
+import { DriverDocument, CATEGORIES, CATEGORY_COLORS } from './DocumentHubTypes';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { History, RotateCcw, Clock, User } from 'lucide-react';
+import { History, RotateCcw, Clock, User, Eye, AlertTriangle, BookOpen } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -301,12 +301,16 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
           </DialogHeader>
 
           {doc ? (
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-              <TabsList className="shrink-0 w-full grid grid-cols-2">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+              <TabsList className="shrink-0 w-full grid grid-cols-3">
                 <TabsTrigger value="edit">Edit Content</TabsTrigger>
+                <TabsTrigger value="preview" className="gap-1.5">
+                  <Eye className="h-3.5 w-3.5" />
+                  Preview
+                </TabsTrigger>
                 <TabsTrigger value="history" className="gap-1.5">
                   <History className="h-3.5 w-3.5" />
-                  Version History
+                  History
                   {versions.length > 0 && (
                     <Badge className="ml-1 h-4 px-1.5 text-[10px] bg-muted text-muted-foreground border-border">
                       {versions.length}
@@ -326,6 +330,67 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                   onClose={onClose}
                   initialBody={doc?.body ?? ''}
                 />
+              </TabsContent>
+
+              {/* ── Preview tab ──────────────────────────────────────── */}
+              <TabsContent value="preview" className="flex-1 min-h-0 mt-0 pt-4">
+                <ScrollArea className="h-[calc(90vh-200px)] pr-2">
+                  <div className="max-w-2xl mx-auto pb-8">
+                    {/* Driver-facing header replica */}
+                    <div className="mb-6">
+                      <div className="flex flex-wrap items-center gap-2 mb-3">
+                        <Badge className={`text-xs border font-medium ${CATEGORY_COLORS[form.category as DriverDocument['category']] ?? ''}`}>
+                          {form.category}
+                        </Badge>
+                        {form.is_required && (
+                          <Badge className="text-xs border bg-destructive/10 text-destructive border-destructive/30 font-medium gap-1">
+                            <AlertTriangle className="h-3 w-3" /> Required
+                          </Badge>
+                        )}
+                        {!form.is_visible && (
+                          <Badge className="text-xs border bg-muted text-muted-foreground border-border gap-1">
+                            <Eye className="h-3 w-3 opacity-50" /> Hidden from drivers
+                          </Badge>
+                        )}
+                      </div>
+                      <h1 className="text-2xl font-bold text-foreground mb-2">
+                        {form.title || <span className="text-muted-foreground italic">Untitled document</span>}
+                      </h1>
+                      {form.description && (
+                        <p className="text-muted-foreground text-base leading-relaxed mb-3">{form.description}</p>
+                      )}
+                      {form.estimated_read_minutes && (
+                        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          ~{form.estimated_read_minutes} min read
+                        </span>
+                      )}
+                    </div>
+
+                    <hr className="border-border mb-8" />
+
+                    {/* Rendered body */}
+                    {form.body ? (
+                      <div
+                        className="prose prose-sm max-w-none text-foreground
+                          prose-headings:font-bold prose-headings:text-foreground
+                          prose-h1:text-xl prose-h2:text-lg prose-h3:text-base
+                          prose-p:text-foreground prose-p:leading-relaxed
+                          prose-li:text-foreground prose-li:leading-relaxed
+                          prose-blockquote:border-l-4 prose-blockquote:border-primary/40 prose-blockquote:text-muted-foreground prose-blockquote:pl-4 prose-blockquote:italic
+                          prose-hr:border-border
+                          prose-strong:text-foreground prose-strong:font-semibold
+                          [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+                        dangerouslySetInnerHTML={{ __html: form.body }}
+                      />
+                    ) : (
+                      <div className="py-12 text-center text-muted-foreground">
+                        <BookOpen className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                        <p>No content yet — switch to Edit Content to start writing.</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
               </TabsContent>
 
               {/* ── History tab ──────────────────────────────────────── */}
