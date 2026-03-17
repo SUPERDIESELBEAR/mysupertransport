@@ -1884,7 +1884,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       )}
 
       {/* Inspection Compliance Summary — IRP, Insurance, IFTA, CDL, Med Cert */}
-      <InspectionComplianceSummary onOpenOperator={onOpenOperator} onOpenInspectionBinder={onOpenInspectionBinder} />
+      <InspectionComplianceSummary onOpenOperator={onOpenOperator} onOpenOperatorAtBinder={onOpenOperatorAtBinder} onOpenInspectionBinder={onOpenInspectionBinder} />
 
       {/* Stage breakdown (clickable) */}
       <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
