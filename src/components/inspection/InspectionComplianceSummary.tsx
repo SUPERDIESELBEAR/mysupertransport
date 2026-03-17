@@ -62,12 +62,13 @@ const INSPECTION_NAMES: Record<string, DocKey> = {
 // ── Component ──────────────────────────────────────────────────────────────
 interface Props {
   onOpenOperator?: (operatorId: string) => void;
+  onOpenInspectionBinder?: () => void;
 }
 
 type FilterStatus = 'all' | 'expired' | 'critical' | 'warning' | 'valid';
 type FilterDoc   = 'all' | DocKey;
 
-export default function InspectionComplianceSummary({ onOpenOperator }: Props) {
+export default function InspectionComplianceSummary({ onOpenOperator, onOpenInspectionBinder }: Props) {
   const [entries, setEntries] = useState<DocEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(true);
