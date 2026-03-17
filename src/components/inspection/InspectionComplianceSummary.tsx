@@ -272,7 +272,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           entity_label: `Fleet ${DOC_DISPLAY[docKey]}`,
           action: 'expiry_updated',
           metadata: {
-            doc_type: docKey,
+            document_type: docKey,
             old_expiry: oldDate,
             new_expiry: isoDate,
             urgency,

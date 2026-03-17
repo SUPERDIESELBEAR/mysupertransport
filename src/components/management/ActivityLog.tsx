@@ -113,6 +113,12 @@ const ACTION_CONFIG: Record<string, {
     color: 'text-status-complete',
     bg: 'bg-status-complete/10 border-status-complete/20',
   },
+  expiry_updated: {
+    label: 'Expiry Updated',
+    icon: <CalendarIcon className="h-4 w-4" />,
+    color: 'text-sky-600',
+    bg: 'bg-sky-50 border-sky-200',
+  },
 };
 
 const FILTER_OPTIONS = [
@@ -130,6 +136,7 @@ const FILTER_OPTIONS = [
   { value: 'ica_signed', label: 'ICA Signed' },
   { value: 'onboarding_completed', label: 'Onboarding Completed' },
   { value: 'cert_renewed', label: 'Cert Renewals' },
+  { value: 'expiry_updated', label: 'Fleet Expiry Updates' },
 ];
 
 const DATE_PRESETS = [
@@ -200,6 +207,14 @@ function EntryDetail({ entry }: { entry: AuditEntry }) {
           {' '}renewed for{' '}
           <span className="font-medium text-foreground">{meta.operator_name as string}</span>
           {meta.old_expiry ? ` · was ${new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString()}` : ''}
+        </span>
+      );
+    case 'expiry_updated':
+      return (
+        <span className="text-xs text-muted-foreground">
+          Fleet <span className="font-medium text-foreground">{meta.document_type as string}</span>
+          {meta.old_expiry ? ` · ${new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString()} → ` : ' updated to '}
+          <span className="font-medium text-foreground">{meta.new_expiry ? new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString() : ''}</span>
         </span>
       );
     default:
@@ -315,10 +330,16 @@ function EntryExpandedPanel({
       if (meta.old_expiry) structuredRows.push({ icon: <Clock className="h-3.5 w-3.5" />, label: 'Previous Expiry', value: new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString() });
       if (meta.new_expiry) structuredRows.push({ icon: <CheckCircle2 className="h-3.5 w-3.5" />, label: 'New Expiry', value: new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString() });
       break;
+    case 'expiry_updated':
+      if (meta.document_type) structuredRows.push({ icon: <CalendarIcon className="h-3.5 w-3.5" />, label: 'Document Type', value: meta.document_type as string });
+      if (meta.old_expiry) structuredRows.push({ icon: <Clock className="h-3.5 w-3.5" />, label: 'Previous Expiry', value: new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString() });
+      if (meta.new_expiry) structuredRows.push({ icon: <CheckCircle2 className="h-3.5 w-3.5" />, label: 'New Expiry', value: new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString() });
+      if (meta.urgency) structuredRows.push({ icon: <Info className="h-3.5 w-3.5" />, label: 'Urgency', value: String(meta.urgency) });
+      break;
   }
 
   // Remaining raw metadata keys not already shown
-  const shownKeys = new Set(['applicant_name', 'applicant_email', 'reviewer_notes', 'role', 'target_user', 'milestones', 'changed_fields', 'operator_name', 'document_type', 'old_expiry', 'new_expiry']);
+  const shownKeys = new Set(['applicant_name', 'applicant_email', 'reviewer_notes', 'role', 'target_user', 'milestones', 'changed_fields', 'operator_name', 'document_type', 'old_expiry', 'new_expiry', 'urgency']);
   const rawExtras = Object.entries(meta).filter(([k]) => !shownKeys.has(k));
 
   return (
@@ -386,6 +407,8 @@ function buildDetailText(entry: AuditEntry): string {
       return (meta.milestones as string[])?.join(', ') ?? 'Status updated';
     case 'cert_renewed':
       return `${meta.document_type as string} renewed · was ${meta.old_expiry ? new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString() : 'unknown'} → ${new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString()}`;
+    case 'expiry_updated':
+      return `Fleet ${meta.document_type as string} · ${meta.old_expiry ? new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString() + ' → ' : ''}${meta.new_expiry ? new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString() : ''} · ${meta.urgency ?? ''}`;
     default:
       return '';
   }
