@@ -532,21 +532,21 @@ export default function OperatorPortal() {
     return true;
   });
 
-  // Mobile bottom nav: 5 priority slots.
-  // Slot 5 = ICA (action required) → Dispatch (if onboarded) → FAQ (fallback)
+  // Mobile bottom nav: scrollable with priority items always visible.
+  // Core: Status, Binder, Messages, Doc Hub + context slot (ICA/Dispatch/FAQ)
   const mobileNavItems = (() => {
-    const slot5 =
-      (onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete')
+    const contextSlot =
+      onboardingStatus.ica_status === 'sent_for_signature'
         ? { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, icaDot: icaActionDot }
         : isFullyOnboarded
         ? { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" /> }
         : { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> };
     return [
       { view: 'progress' as OperatorView, label: 'Status', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
-      { view: 'documents' as OperatorView, label: 'Docs', icon: <Upload className="h-5 w-5" /> },
-      { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
+      { view: 'inspection-binder' as OperatorView, label: 'Binder', icon: <Shield className="h-5 w-5" /> },
       { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" />, badge: unreadCount },
-      { ...slot5 },
+      { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
+      { ...contextSlot },
     ];
   })();
 
