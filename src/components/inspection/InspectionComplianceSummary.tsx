@@ -221,6 +221,10 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     setOpenPicker(null);
     setSaving(prev => ({ ...prev, [inspectionDocId]: true }));
 
+    // Capture old expiry before the update for the audit trail
+    const oldEntry = entries.find(e => e.inspectionDocId === inspectionDocId);
+    const oldDate = oldEntry?.expiresAt ?? null;
+
     const isoDate = format(date, 'yyyy-MM-dd');
     const { error } = await supabase
       .from('inspection_documents')
@@ -252,20 +256,35 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           : e,
       ));
 
-      // ── Notify all management users ────────────────────────────────────────
       const updaterName = profile
         ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || 'A staff member'
         : 'A staff member';
+
+      // ── Fan-out: notifications + audit log in parallel ─────────────────────
+      const [{ data: mgmtRoles }] = await Promise.all([
+        supabase.from('user_roles').select('user_id').eq('role', 'management'),
+        // Audit log entry
+        supabase.from('audit_log').insert({
+          actor_id: user?.id ?? null,
+          actor_name: updaterName,
+          entity_type: 'compliance',
+          entity_id: inspectionDocId,
+          entity_label: `Fleet ${DOC_DISPLAY[docKey]}`,
+          action: 'expiry_updated',
+          metadata: {
+            doc_type: docKey,
+            old_expiry: oldDate,
+            new_expiry: isoDate,
+            urgency,
+          },
+        }),
+      ]);
+
+      // ── Notify all management users ────────────────────────────────────────
       const notifTitle = `${DOC_DISPLAY[docKey]} expiry updated`;
       const notifBody  = `${updaterName} set the fleet ${DOC_DISPLAY[docKey]} expiry to ${format(date, 'MMM d, yyyy')} · ${urgencyLabel}.`;
 
-      const { data: mgmtRoles } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'management');
-
       if (mgmtRoles && mgmtRoles.length > 0) {
-        // Exclude the current user from notifications (they already see the toast)
         const recipients = mgmtRoles
           .map(r => r.user_id)
           .filter(uid => uid !== user?.id);
