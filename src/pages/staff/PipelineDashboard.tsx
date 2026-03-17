@@ -74,6 +74,7 @@ interface ComplianceAlert {
 interface PipelineDashboardProps {
   onOpenOperator: (operatorId: string) => void;
   onOpenOperatorWithFocus?: (operatorId: string, focusField: 'cdl' | 'medcert') => void;
+  onOpenInspectionBinder?: () => void;
   initialDispatchFilter?: DispatchStatus | 'all';
   initialCoordinatorFilter?: string;
   initialCoordinatorName?: string;
@@ -112,7 +113,7 @@ const STAGES = [
   'Stage 6 — Insurance',
 ];
 
-export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, initialDispatchFilter, initialCoordinatorFilter, initialCoordinatorName, initialStageFilter, initialIdleFilter, complianceRefreshKey, onBulkMessage }: PipelineDashboardProps) {
+export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, onOpenInspectionBinder, initialDispatchFilter, initialCoordinatorFilter, initialCoordinatorName, initialStageFilter, initialIdleFilter, complianceRefreshKey, onBulkMessage }: PipelineDashboardProps) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
@@ -1882,7 +1883,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       )}
 
       {/* Inspection Compliance Summary — IRP, Insurance, IFTA, CDL, Med Cert */}
-      <InspectionComplianceSummary onOpenOperator={onOpenOperator} />
+      <InspectionComplianceSummary onOpenOperator={onOpenOperator} onOpenInspectionBinder={onOpenInspectionBinder} />
 
       {/* Stage breakdown (clickable) */}
       <div className="bg-white border border-border rounded-xl p-4 shadow-sm">

@@ -62,12 +62,13 @@ const INSPECTION_NAMES: Record<string, DocKey> = {
 // ── Component ──────────────────────────────────────────────────────────────
 interface Props {
   onOpenOperator?: (operatorId: string) => void;
+  onOpenInspectionBinder?: () => void;
 }
 
 type FilterStatus = 'all' | 'expired' | 'critical' | 'warning' | 'valid';
 type FilterDoc   = 'all' | DocKey;
 
-export default function InspectionComplianceSummary({ onOpenOperator }: Props) {
+export default function InspectionComplianceSummary({ onOpenOperator, onOpenInspectionBinder }: Props) {
   const [entries, setEntries] = useState<DocEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(true);
@@ -414,6 +415,21 @@ export default function InspectionComplianceSummary({ onOpenOperator }: Props) {
                         </Tooltip>
                       </TooltipProvider>
 
+                      {isFleet && onOpenInspectionBinder && (
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={onOpenInspectionBinder}
+                                className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-gold hover:bg-gold/10 transition-colors"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">Update in Inspection Binder</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                       {!isFleet && onOpenOperator && (
                         <TooltipProvider delayDuration={100}>
                           <Tooltip>
