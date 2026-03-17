@@ -13,12 +13,7 @@ export default function ApplicationStatus() {
       <div className="w-full max-w-lg">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="h-12 w-12 rounded-full bg-gold flex items-center justify-center">
-              <Truck className="h-6 w-6 text-surface-dark" />
-            </div>
-          </div>
-          <h1 className="text-xl font-bold text-surface-dark-foreground tracking-tight">SUPERTRANSPORT</h1>
+          <img src={logo} alt="SuperTransport" className="h-20 max-w-[320px] object-contain mx-auto" />
         </div>
 
         <div className="bg-surface-dark-card border border-surface-dark-border rounded-xl p-8 shadow-2xl text-center">
