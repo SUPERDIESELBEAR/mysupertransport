@@ -183,19 +183,22 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const selectedDriverName = operatorName ?? operators.find(o => o.userId === selectedDriverId)?.name ?? '';
 
   const [sharingAll, setSharingAll] = useState(false);
+  const [shareAllDialogOpen, setShareAllDialogOpen] = useState(false);
+
+  const unsharedDocs = companyDocs.filter(d => d.file_url && !d.shared_with_fleet);
 
   const handleShareAll = async () => {
-    const unshared = companyDocs.filter(d => d.file_url && !d.shared_with_fleet);
-    if (unshared.length === 0) return;
+    if (unsharedDocs.length === 0) return;
     setSharingAll(true);
+    setShareAllDialogOpen(false);
     try {
       await Promise.all(
-        unshared.map(doc =>
+        unsharedDocs.map(doc =>
           supabase.from('inspection_documents').update({ shared_with_fleet: true }).eq('id', doc.id)
         )
       );
       toast({
-        title: `${unshared.length} document${unshared.length > 1 ? 's' : ''} shared with fleet`,
+        title: `${unsharedDocs.length} document${unsharedDocs.length > 1 ? 's' : ''} shared with fleet`,
         description: 'All uploaded company documents are now visible to drivers.',
       });
       fetchDocs();
@@ -388,13 +391,13 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs text-muted-foreground">These documents apply to all drivers. Uploading here updates every driver's binder.</p>
-                {companyDocs.some(d => d.file_url && !d.shared_with_fleet) && (
+                {unsharedDocs.length > 0 && (
                   <Button
                     size="sm"
                     variant="outline"
                     className="shrink-0 h-7 gap-1.5 text-xs border-info/40 text-info hover:bg-info/10 hover:text-info"
                     disabled={sharingAll}
-                    onClick={handleShareAll}
+                    onClick={() => setShareAllDialogOpen(true)}
                   >
                     {sharingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <Share2 className="h-3 w-3" />}
                     Share All
@@ -537,6 +540,38 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => deleteTarget && handleDelete(deleteTarget)} className="bg-destructive text-destructive-foreground">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Share All confirm */}
+      <AlertDialog open={shareAllDialogOpen} onOpenChange={setShareAllDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Share {unsharedDocs.length} Document{unsharedDocs.length !== 1 ? 's' : ''} with Fleet?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>The following document{unsharedDocs.length !== 1 ? 's' : ''} will become visible to all fleet drivers:</p>
+                <ul className="mt-1 space-y-1">
+                  {unsharedDocs.map(d => (
+                    <li key={d.id} className="flex items-center gap-2 text-foreground text-sm">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      {d.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleShareAll}
+              className="bg-info text-white hover:bg-info/90"
+            >
+              <Share2 className="h-3.5 w-3.5 mr-1.5" />
+              Share All
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
