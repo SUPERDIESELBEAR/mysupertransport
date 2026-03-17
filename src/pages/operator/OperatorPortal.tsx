@@ -54,7 +54,7 @@ export default function OperatorPortal() {
   const [view, setView] = useState<OperatorView>(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications','docs-hub','service-library'].includes(tab)) return tab;
+    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications','docs-hub','service-library','inspection-binder'].includes(tab)) return tab;
     return 'progress';
   });
 
