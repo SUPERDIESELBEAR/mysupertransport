@@ -868,34 +868,89 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           <AlertDialogHeader>
             <AlertDialogTitle>
               {reminderDialogDoc === 'all'
-                ? `Send ${missingOrExpiredDriverDocs.length} Reminder${missingOrExpiredDriverDocs.length !== 1 ? 's' : ''}?`
-                : `Send Reminder for ${reminderDialogDoc}?`}
+                ? `Remind ${selectedDriverName || 'Driver'} — ${missingOrExpiredDriverDocs.length} Document${missingOrExpiredDriverDocs.length !== 1 ? 's' : ''}`
+                : `Remind ${selectedDriverName || 'Driver'} — ${reminderDialogDoc}`}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="space-y-2">
-                <p>
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
                   An in-app notification will be sent to{' '}
-                  <strong>{selectedDriverName || 'this driver'}</strong>{' '}
-                  asking them to upload{reminderDialogDoc === 'all' ? ':' : ' an updated copy.'}
+                  <span className="font-medium text-foreground">{selectedDriverName || 'this driver'}</span>{' '}
+                  asking them to upload the following{reminderDialogDoc === 'all' ? ' documents' : ' document'}:
                 </p>
+
+                {/* Single-doc detail */}
+                {reminderDialogDoc && reminderDialogDoc !== 'all' && (() => {
+                  const singleDoc = perDriverDocs.find(pd => pd.name === reminderDialogDoc);
+                  const isMissing = !singleDoc?.file_url;
+                  const expiresAt = singleDoc?.expires_at ?? null;
+                  const daysLeft = expiresAt
+                    ? Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000)
+                    : null;
+                  return (
+                    <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5 flex items-center gap-3">
+                      <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        isMissing ? 'bg-secondary' : 'bg-destructive/10'
+                      }`}>
+                        <FileText className={`h-4 w-4 ${isMissing ? 'text-muted-foreground' : 'text-destructive'}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">{reminderDialogDoc}</p>
+                        <p className={`text-xs font-medium mt-0.5 ${isMissing ? 'text-muted-foreground' : 'text-destructive'}`}>
+                          {isMissing
+                            ? 'No file uploaded'
+                            : daysLeft !== null && daysLeft < 0
+                              ? `Expired ${Math.abs(daysLeft)}d ago`
+                              : 'Expired'}
+                        </p>
+                      </div>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
+                        isMissing
+                          ? 'bg-secondary text-muted-foreground border border-border'
+                          : 'bg-destructive/10 text-destructive border border-destructive/30'
+                      }`}>
+                        {isMissing ? 'Missing' : 'Expired'}
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                {/* Remind All doc list */}
                 {reminderDialogDoc === 'all' && (
-                  <ul className="mt-1 space-y-1">
+                  <div className="rounded-lg border border-border bg-muted/40 divide-y divide-border overflow-hidden">
                     {missingOrExpiredDriverDocs.map(d => {
                       const doc = perDriverDocs.find(pd => pd.name === d.key);
-                      const missing = !doc?.file_url;
+                      const isMissing = !doc?.file_url;
+                      const expiresAt = doc?.expires_at ?? null;
+                      const daysLeft = expiresAt
+                        ? Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000)
+                        : null;
                       return (
-                        <li key={d.key} className="flex items-center gap-2 text-foreground text-sm">
-                          <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          {d.key}
-                          <span className={`text-[10px] font-medium px-1.5 py-0 rounded-full ${
-                            missing ? 'bg-secondary text-muted-foreground' : 'bg-destructive/10 text-destructive'
+                        <div key={d.key} className="flex items-center gap-3 px-3 py-2.5">
+                          <div className={`h-7 w-7 rounded-md flex items-center justify-center shrink-0 ${
+                            isMissing ? 'bg-secondary' : 'bg-destructive/10'
                           }`}>
-                            {missing ? 'Missing' : 'Expired'}
+                            <FileText className={`h-3.5 w-3.5 ${isMissing ? 'text-muted-foreground' : 'text-destructive'}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground">{d.key}</p>
+                            {!isMissing && daysLeft !== null && (
+                              <p className="text-xs text-destructive font-medium">
+                                {daysLeft < 0 ? `Expired ${Math.abs(daysLeft)}d ago` : `Expires in ${daysLeft}d`}
+                              </p>
+                            )}
+                          </div>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
+                            isMissing
+                              ? 'bg-secondary text-muted-foreground border border-border'
+                              : 'bg-destructive/10 text-destructive border border-destructive/30'
+                          }`}>
+                            {isMissing ? 'Missing' : 'Expired'}
                           </span>
-                        </li>
+                        </div>
                       );
                     })}
-                  </ul>
+                  </div>
                 )}
               </div>
             </AlertDialogDescription>
