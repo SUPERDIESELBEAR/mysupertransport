@@ -489,6 +489,7 @@ export type Database = {
         Row: {
           body: string | null
           category: string
+          content_type: string
           created_at: string
           description: string | null
           estimated_read_minutes: number | null
@@ -496,6 +497,8 @@ export type Database = {
           is_pinned: boolean
           is_required: boolean
           is_visible: boolean
+          pdf_path: string | null
+          pdf_url: string | null
           sort_order: number
           title: string
           updated_at: string
@@ -504,6 +507,7 @@ export type Database = {
         Insert: {
           body?: string | null
           category: string
+          content_type?: string
           created_at?: string
           description?: string | null
           estimated_read_minutes?: number | null
@@ -511,6 +515,8 @@ export type Database = {
           is_pinned?: boolean
           is_required?: boolean
           is_visible?: boolean
+          pdf_path?: string | null
+          pdf_url?: string | null
           sort_order?: number
           title: string
           updated_at?: string
@@ -519,6 +525,7 @@ export type Database = {
         Update: {
           body?: string | null
           category?: string
+          content_type?: string
           created_at?: string
           description?: string | null
           estimated_read_minutes?: number | null
@@ -526,6 +533,8 @@ export type Database = {
           is_pinned?: boolean
           is_required?: boolean
           is_visible?: boolean
+          pdf_path?: string | null
+          pdf_url?: string | null
           sort_order?: number
           title?: string
           updated_at?: string
