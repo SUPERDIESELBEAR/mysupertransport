@@ -2290,6 +2290,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       })()}
 
 
+      {/* Inspection Binder — per-driver docs & uploads */}
+      {operatorUserId && (
+        <OperatorBinderPanel driverUserId={operatorUserId} operatorName={operatorName} />
+      )}
+
       {/* Internal Notes */}
       <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
         <Label className="text-sm font-semibold text-foreground mb-2 block">Internal Notes</Label>
