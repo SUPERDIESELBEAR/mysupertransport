@@ -287,8 +287,17 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     );
   };
 
+  const sharedCount = companyDocs.filter(d => d.shared_with_fleet).length;
+  const totalCompany = COMPANY_WIDE_DOCS.length;
+
   const tabs = [
-    { key: 'company' as const, label: 'Company Docs', icon: <Globe className="h-3.5 w-3.5" /> },
+    {
+      key: 'company' as const,
+      label: 'Company Docs',
+      icon: <Globe className="h-3.5 w-3.5" />,
+      badge: `${sharedCount} of ${totalCompany} shared`,
+      badgeActive: sharedCount > 0,
+    },
     { key: 'driver' as const, label: 'Driver Docs', icon: <User className="h-3.5 w-3.5" /> },
     { key: 'uploads' as const, label: 'Driver Uploads', icon: <Upload className="h-3.5 w-3.5" /> },
   ];
@@ -326,11 +335,20 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
-            className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-lg transition-colors ${
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium py-2 rounded-lg transition-colors ${
               activeTab === t.key ? 'bg-card text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t.icon}{t.label}
+            <span className="flex items-center gap-1.5">{t.icon}{t.label}</span>
+            {'badge' in t && (
+              <span className={`text-[10px] font-semibold px-1.5 py-0 rounded-full leading-tight ${
+                t.badgeActive
+                  ? 'bg-info/15 text-info'
+                  : 'bg-muted text-muted-foreground'
+              }`}>
+                {t.badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
