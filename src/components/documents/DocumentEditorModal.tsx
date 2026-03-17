@@ -809,7 +809,7 @@ function EditForm({
       {/* ── Content Type toggle ─────────────────────────────────────── */}
       <div className="space-y-3">
         <Label>Content Type</Label>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => setForm(f => ({ ...f, content_type: 'rich_text' }))}
@@ -834,11 +834,71 @@ function EditForm({
             <FileText className="h-4 w-4" />
             PDF Upload
           </button>
+          <button
+            type="button"
+            onClick={() => setForm(f => ({ ...f, content_type: 'video' }))}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+              form.content_type === 'video'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
+            }`}
+          >
+            <Video className="h-4 w-4" />
+            Video Embed
+          </button>
         </div>
       </div>
 
       {/* ── Content area ────────────────────────────────────────────── */}
       {form.content_type === 'rich_text' ? (
+        <div className="space-y-1.5">
+          <Label>Document Body</Label>
+          {doc && (
+            <p className="text-xs text-muted-foreground">
+              Saving will increment the version to <strong>v{doc.version + 1}</strong> and prompt acknowledged drivers to re-read.
+            </p>
+          )}
+          <TipTapEditor
+            key={doc ? `${doc.id}-${doc.version}` : 'new'}
+            content={initialBody}
+            onChange={html => setForm(f => ({ ...f, body: html }))}
+            placeholder="Paste content here or start writing…"
+          />
+        </div>
+      ) : form.content_type === 'video' ? (
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="doc-video-url">Video URL</Label>
+            <p className="text-xs text-muted-foreground">
+              Paste a YouTube or Vimeo link — share links, watch links, and embed links all work.
+            </p>
+            <Input
+              id="doc-video-url"
+              value={form.video_url ?? ''}
+              onChange={e => setForm(f => ({ ...f, video_url: e.target.value || null }))}
+              placeholder="https://youtu.be/... or https://vimeo.com/..."
+            />
+          </div>
+          {/* Live embed preview */}
+          {(() => {
+            const embedUrl = parseVideoEmbedUrl(form.video_url ?? '');
+            if (!embedUrl) return null;
+            return (
+              <div className="rounded-xl overflow-hidden border border-border bg-muted/10">
+                <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                  <iframe
+                    src={embedUrl}
+                    title="Video Preview"
+                    className="absolute inset-0 w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      ) : (
         <div className="space-y-1.5">
           <Label>Document Body</Label>
           {doc && (
