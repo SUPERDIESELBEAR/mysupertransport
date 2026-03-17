@@ -12,6 +12,7 @@ import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { differenceInDays, parseISO, format, formatDistanceToNowStrict } from 'date-fns';
+import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
 
 type DispatchStatus = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
 
@@ -1875,10 +1876,13 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   </span>
                 </div>
               )}
-            </div>
+        </div>
           )}
         </div>
       )}
+
+      {/* Inspection Compliance Summary — IRP, Insurance, IFTA, CDL, Med Cert */}
+      <InspectionComplianceSummary onOpenOperator={onOpenOperator} />
 
       {/* Stage breakdown (clickable) */}
       <div className="bg-white border border-border rounded-xl p-4 shadow-sm">

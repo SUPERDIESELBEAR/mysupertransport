@@ -1,0 +1,469 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { differenceInDays, parseISO, format } from 'date-fns';
+import { ShieldCheck, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Clock, ExternalLink } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+
+// ── Types ──────────────────────────────────────────────────────────────────
+type DocKey = 'IRP Registration' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate';
+
+type Status = 'expired' | 'critical' | 'warning' | 'valid' | 'missing';
+
+interface DocEntry {
+  docKey: DocKey;
+  operatorId: string;
+  operatorName: string;
+  expiresAt: string | null; // ISO date string
+  daysUntil: number | null; // null = missing/no expiry
+  status: Status;
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function getStatus(daysUntil: number | null): Status {
+  if (daysUntil === null) return 'missing';
+  if (daysUntil < 0) return 'expired';
+  if (daysUntil <= 30) return 'critical';
+  if (daysUntil <= 90) return 'warning';
+  return 'valid';
+}
+
+const STATUS_CONFIG: Record<Status, { label: string; rowCls: string; badgeCls: string; dotCls: string }> = {
+  expired:  { label: 'Expired',      rowCls: 'bg-destructive/[0.04] hover:bg-destructive/[0.07] border-l-2 border-l-destructive', badgeCls: 'bg-destructive/10 text-destructive border-destructive/30', dotCls: 'bg-destructive animate-pulse' },
+  critical: { label: 'Critical',     rowCls: 'bg-destructive/[0.03] hover:bg-destructive/[0.06] border-l-2 border-l-destructive/60', badgeCls: 'bg-destructive/10 text-destructive border-destructive/30', dotCls: 'bg-destructive' },
+  warning:  { label: 'Expiring Soon',rowCls: 'bg-warning/[0.03] hover:bg-warning/[0.06] border-l-2 border-l-warning/60', badgeCls: 'bg-yellow-50 text-yellow-700 border-yellow-300', dotCls: 'bg-yellow-500' },
+  valid:    { label: 'Valid',         rowCls: 'bg-background/60 hover:bg-background/80 border-l-2 border-l-transparent', badgeCls: 'bg-status-complete/10 text-status-complete border-status-complete/30', dotCls: 'bg-status-complete' },
+  missing:  { label: 'No Expiry Set', rowCls: 'bg-muted/30 hover:bg-muted/50 border-l-2 border-l-border', badgeCls: 'bg-muted text-muted-foreground border-border', dotCls: 'bg-muted-foreground/40' },
+};
+
+const DOC_BADGE: Record<DocKey, string> = {
+  'IRP Registration':  'bg-sky-50 text-sky-700 border-sky-200',
+  'Insurance':         'bg-violet-50 text-violet-700 border-violet-200',
+  'IFTA License':      'bg-orange-50 text-orange-700 border-orange-200',
+  'CDL':               'bg-blue-50 text-blue-700 border-blue-200',
+  'Medical Certificate': 'bg-purple-50 text-purple-700 border-purple-200',
+};
+
+const DOC_DISPLAY: Record<DocKey, string> = {
+  'IRP Registration':  'IRP',
+  'Insurance':         'Insurance',
+  'IFTA License':      'IFTA',
+  'CDL':               'CDL',
+  'Medical Certificate': 'Med Cert',
+};
+
+// Map inspection_documents.name → our DocKey
+const INSPECTION_NAMES: Record<string, DocKey> = {
+  'IRP Registration': 'IRP Registration',
+  'Insurance':        'Insurance',
+  'IFTA License':     'IFTA License',
+};
+
+// ── Component ──────────────────────────────────────────────────────────────
+interface Props {
+  onOpenOperator?: (operatorId: string) => void;
+}
+
+type FilterStatus = 'all' | 'expired' | 'critical' | 'warning' | 'valid';
+type FilterDoc   = 'all' | DocKey;
+
+export default function InspectionComplianceSummary({ onOpenOperator }: Props) {
+  const [entries, setEntries] = useState<DocEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(true);
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [filterDoc, setFilterDoc]     = useState<FilterDoc>('all');
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const today = new Date();
+
+    // 1. Fetch all operators with their names (from applications)
+    const { data: ops } = await supabase
+      .from('operators')
+      .select(`id, user_id, application_id, applications(first_name, last_name, cdl_expiration, medical_cert_expiration)`)
+      .not('application_id', 'is', null);
+
+    // 2. Fetch company-wide inspection docs (IRP, Insurance, IFTA)
+    const { data: inspDocs } = await supabase
+      .from('inspection_documents')
+      .select('id, name, expires_at')
+      .eq('scope', 'company_wide')
+      .in('name', ['IRP Registration', 'Insurance', 'IFTA License']);
+
+    if (!ops) { setLoading(false); return; }
+
+    const result: DocEntry[] = [];
+
+    // Build operator name lookup
+    const opNames: Record<string, string> = {};
+    (ops as any[]).forEach(op => {
+      const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
+      opNames[op.id] = app
+        ? `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || 'Unknown'
+        : 'Unknown';
+    });
+
+    // ── Company-wide docs (IRP, Insurance, IFTA) ───────────────────────────
+    // These are a single record per doc type, shared across all operators.
+    // We show each company-wide doc ONCE (not per-operator) as a fleet row.
+    const companyDocMap: Partial<Record<DocKey, { expiresAt: string | null; daysUntil: number | null }>> = {};
+    (inspDocs ?? []).forEach((doc: any) => {
+      const key = INSPECTION_NAMES[doc.name];
+      if (!key) return;
+      const daysUntil = doc.expires_at
+        ? differenceInDays(parseISO(doc.expires_at), today)
+        : null;
+      companyDocMap[key] = { expiresAt: doc.expires_at, daysUntil };
+    });
+
+    // For each company-wide doc, emit one row labelled "Fleet"
+    (['IRP Registration', 'Insurance', 'IFTA License'] as DocKey[]).forEach(docKey => {
+      const info = companyDocMap[docKey];
+      result.push({
+        docKey,
+        operatorId: '__fleet__',
+        operatorName: 'Fleet (all drivers)',
+        expiresAt: info?.expiresAt ?? null,
+        daysUntil: info?.daysUntil ?? null,
+        status: getStatus(info?.daysUntil ?? null),
+      });
+    });
+
+    // ── Per-operator: CDL & Medical Cert ──────────────────────────────────
+    (ops as any[]).forEach(op => {
+      const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
+      if (!app) return;
+      const name = opNames[op.id];
+
+      const cdlDays = app.cdl_expiration
+        ? differenceInDays(parseISO(app.cdl_expiration), today)
+        : null;
+      const medDays = app.medical_cert_expiration
+        ? differenceInDays(parseISO(app.medical_cert_expiration), today)
+        : null;
+
+      result.push({
+        docKey: 'CDL',
+        operatorId: op.id,
+        operatorName: name,
+        expiresAt: app.cdl_expiration ?? null,
+        daysUntil: cdlDays,
+        status: getStatus(cdlDays),
+      });
+      result.push({
+        docKey: 'Medical Certificate',
+        operatorId: op.id,
+        operatorName: name,
+        expiresAt: app.medical_cert_expiration ?? null,
+        daysUntil: medDays,
+        status: getStatus(medDays),
+      });
+    });
+
+    // Sort: expired first → critical → warning → valid → missing; then by daysUntil asc
+    const tierOrder: Record<Status, number> = { expired: 0, critical: 1, warning: 2, valid: 3, missing: 4 };
+    result.sort((a, b) => {
+      const td = tierOrder[a.status] - tierOrder[b.status];
+      if (td !== 0) return td;
+      if (a.daysUntil === null && b.daysUntil === null) return 0;
+      if (a.daysUntil === null) return 1;
+      if (b.daysUntil === null) return -1;
+      return a.daysUntil - b.daysUntil;
+    });
+
+    setEntries(result);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // ── Derived counts ────────────────────────────────────────────────────────
+  const counts = {
+    expired:  entries.filter(e => e.status === 'expired').length,
+    critical: entries.filter(e => e.status === 'critical').length,
+    warning:  entries.filter(e => e.status === 'warning').length,
+    valid:    entries.filter(e => e.status === 'valid').length,
+    missing:  entries.filter(e => e.status === 'missing').length,
+  };
+
+  const hasCritical = counts.expired + counts.critical > 0;
+
+  const filtered = entries.filter(e => {
+    if (filterStatus !== 'all' && e.status !== filterStatus) return false;
+    if (filterDoc !== 'all' && e.docKey !== filterDoc) return false;
+    return true;
+  });
+
+  if (!loading && entries.length === 0) return null;
+
+  const DOC_KEYS: DocKey[] = ['IRP Registration', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate'];
+
+  return (
+    <div className={cn(
+      'border rounded-xl shadow-sm overflow-hidden',
+      hasCritical ? 'border-warning/40 bg-warning/[0.03]' : 'border-border bg-card',
+    )}>
+      {/* ── Header ── */}
+      <div className="flex items-center gap-2 px-4 py-3">
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="flex-1 flex items-center gap-2.5 text-left hover:opacity-80 transition-opacity min-w-0"
+        >
+          <div className={cn(
+            'h-7 w-7 rounded-lg flex items-center justify-center shrink-0',
+            hasCritical ? 'bg-warning/15' : 'bg-status-complete/10',
+          )}>
+            <ShieldCheck className={cn('h-4 w-4', hasCritical ? 'text-warning-foreground' : 'text-status-complete')} />
+          </div>
+          <span className="font-semibold text-sm text-foreground">Compliance Summary</span>
+          <span className={cn(
+            'inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-[10px] font-bold leading-none',
+            hasCritical ? 'bg-warning text-warning-foreground' : 'bg-muted text-muted-foreground',
+          )}>
+            {entries.length}
+          </span>
+
+          {/* Summary chips */}
+          <div className="hidden sm:flex items-center gap-1 ml-1 flex-wrap">
+            {counts.expired > 0 && (
+              <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-semibold bg-destructive/10 text-destructive border border-destructive/30">
+                <span className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
+                {counts.expired} Expired
+              </span>
+            )}
+            {counts.critical > 0 && (
+              <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-semibold bg-destructive/10 text-destructive border border-destructive/30">
+                <span className="h-1.5 w-1.5 rounded-full bg-destructive" />
+                {counts.critical} Critical
+              </span>
+            )}
+            {counts.warning > 0 && (
+              <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-semibold bg-yellow-50 text-yellow-700 border border-yellow-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
+                {counts.warning} Expiring Soon
+              </span>
+            )}
+            {counts.valid > 0 && (
+              <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30">
+                <span className="h-1.5 w-1.5 rounded-full bg-status-complete" />
+                {counts.valid} Valid
+              </span>
+            )}
+          </div>
+
+          <span className="text-xs text-muted-foreground hidden lg:inline truncate">
+            IRP · Insurance · IFTA · CDL · Med Cert
+          </span>
+        </button>
+
+        <button onClick={() => setExpanded(v => !v)} className="shrink-0 hover:opacity-80 transition-opacity">
+          {expanded
+            ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        </button>
+      </div>
+
+      {/* ── Expanded content ── */}
+      {expanded && (
+        <div className="border-t border-border/60">
+          {/* Filter chips */}
+          <div className="flex flex-wrap items-center gap-1.5 px-4 py-2 bg-muted/20 border-b border-border/40">
+            {/* Status filters */}
+            {(['all', 'expired', 'critical', 'warning', 'valid'] as FilterStatus[]).map(s => {
+              const count = s === 'all' ? entries.length : counts[s];
+              if (s !== 'all' && count === 0) return null;
+              const active = filterStatus === s && filterDoc === 'all';
+              return (
+                <button
+                  key={s}
+                  onClick={() => { setFilterStatus(s); setFilterDoc('all'); }}
+                  className={cn(
+                    'inline-flex items-center gap-1 h-6 px-2.5 rounded-full text-[11px] font-semibold border transition-all',
+                    active
+                      ? s === 'all'
+                        ? 'bg-foreground text-background border-foreground'
+                        : s === 'valid'
+                        ? 'bg-status-complete/20 text-status-complete border-status-complete/40'
+                        : s === 'warning'
+                        ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                        : 'bg-destructive/15 text-destructive border-destructive/40'
+                      : 'bg-background border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground',
+                  )}
+                >
+                  {s === 'all' ? 'All' : s === 'critical' ? 'Critical' : s === 'warning' ? 'Expiring Soon' : s === 'valid' ? 'Valid' : 'Expired'}
+                  <span className="text-[9px] font-bold">{count}</span>
+                </button>
+              );
+            })}
+
+            <span className="h-4 w-px bg-border mx-0.5" />
+
+            {/* Doc type filters */}
+            {DOC_KEYS.map(dk => {
+              const count = entries.filter(e => e.docKey === dk).length;
+              if (count === 0) return null;
+              const active = filterDoc === dk;
+              return (
+                <button
+                  key={dk}
+                  onClick={() => { setFilterDoc(active ? 'all' : dk); setFilterStatus('all'); }}
+                  className={cn(
+                    'inline-flex items-center gap-1 h-6 px-2.5 rounded-full text-[11px] font-semibold border transition-all',
+                    active
+                      ? DOC_BADGE[dk]
+                      : 'bg-background border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground',
+                  )}
+                >
+                  {DOC_DISPLAY[dk]}
+                  <span className="text-[9px] font-bold">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Column headers */}
+          <div className="flex items-center gap-3 px-4 py-1.5 bg-muted/10">
+            <span className="h-2 w-2 shrink-0" />
+            <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator / Document</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[86px]">Expires</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[90px] text-right">Status</span>
+          </div>
+
+          {/* Rows */}
+          <div className="divide-y divide-border/50">
+            {loading ? (
+              [...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-2.5 animate-pulse">
+                  <span className="h-2 w-2 rounded-full bg-muted shrink-0" />
+                  <span className="flex-1 h-4 bg-muted rounded" />
+                  <span className="h-4 w-20 bg-muted rounded hidden sm:block" />
+                  <span className="h-5 w-20 bg-muted rounded" />
+                </div>
+              ))
+            ) : filtered.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                No entries match the current filter.
+              </div>
+            ) : (
+              filtered.map((entry, i) => {
+                const cfg = STATUS_CONFIG[entry.status];
+                const isFleet = entry.operatorId === '__fleet__';
+                return (
+                  <div
+                    key={`${entry.operatorId}-${entry.docKey}-${i}`}
+                    className={cn('flex items-center gap-3 px-4 py-2.5 transition-colors', cfg.rowCls)}
+                  >
+                    {/* Dot */}
+                    <span className={cn('h-2 w-2 rounded-full shrink-0', cfg.dotCls)} />
+
+                    {/* Name + doc badge */}
+                    <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span className="font-medium text-sm text-foreground truncate">
+                        {entry.operatorName}
+                      </span>
+                      <span className={cn(
+                        'inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium border',
+                        DOC_BADGE[entry.docKey],
+                      )}>
+                        {DOC_DISPLAY[entry.docKey]}
+                      </span>
+                      {isFleet && (
+                        <span className="text-[10px] text-muted-foreground italic">Fleet-wide</span>
+                      )}
+                    </div>
+
+                    {/* Expiry date */}
+                    <span className="text-xs text-muted-foreground hidden sm:block shrink-0 w-[86px]">
+                      {entry.expiresAt
+                        ? format(parseISO(entry.expiresAt), 'MMM d, yyyy')
+                        : <span className="italic text-muted-foreground/50">Not set</span>
+                      }
+                    </span>
+
+                    {/* Status badge + open operator link */}
+                    <div className="flex items-center gap-1.5 shrink-0 w-[90px] justify-end">
+                      <TooltipProvider delayDuration={100}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className={cn(
+                              'inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border cursor-default',
+                              cfg.badgeCls,
+                            )}>
+                              {entry.status === 'expired'
+                                ? `${Math.abs(entry.daysUntil!)}d ago`
+                                : entry.status === 'missing'
+                                ? 'No date'
+                                : entry.status === 'valid'
+                                ? `${entry.daysUntil}d`
+                                : entry.daysUntil === 0
+                                ? 'Today'
+                                : `${entry.daysUntil}d`
+                              }
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">
+                            {entry.status === 'expired'
+                              ? `Expired ${Math.abs(entry.daysUntil!)} days ago`
+                              : entry.status === 'missing'
+                              ? 'No expiry date set'
+                              : entry.daysUntil === 0
+                              ? 'Expires today'
+                              : `${entry.daysUntil} days until expiry`}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
+                      {!isFleet && onOpenOperator && (
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => onOpenOperator(entry.operatorId)}
+                                className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">Open operator detail</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Footer summary */}
+          {!loading && filtered.length > 0 && (
+            <div className="flex items-center gap-4 px-4 py-2 bg-muted/10 border-t border-border/40">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <CheckCircle2 className="h-3.5 w-3.5 text-status-complete" />
+                {counts.valid} valid
+              </div>
+              {counts.warning > 0 && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5 text-yellow-500" />
+                  {counts.warning} expiring soon
+                </div>
+              )}
+              {(counts.expired + counts.critical) > 0 && (
+                <div className="flex items-center gap-1 text-xs text-destructive">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {counts.expired + counts.critical} need attention
+                </div>
+              )}
+              {counts.missing > 0 && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground/60">
+                  <span>{counts.missing} no date set</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
