@@ -139,6 +139,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
+  const inspectionBinderRef = useRef<HTMLDivElement | null>(null);
 
   // Show sticky bar when the main progress bar scrolls out of view
   useEffect(() => {
