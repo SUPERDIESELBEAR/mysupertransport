@@ -330,10 +330,16 @@ function EntryExpandedPanel({
       if (meta.old_expiry) structuredRows.push({ icon: <Clock className="h-3.5 w-3.5" />, label: 'Previous Expiry', value: new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString() });
       if (meta.new_expiry) structuredRows.push({ icon: <CheckCircle2 className="h-3.5 w-3.5" />, label: 'New Expiry', value: new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString() });
       break;
+    case 'expiry_updated':
+      if (meta.document_type) structuredRows.push({ icon: <CalendarIcon className="h-3.5 w-3.5" />, label: 'Document Type', value: meta.document_type as string });
+      if (meta.old_expiry) structuredRows.push({ icon: <Clock className="h-3.5 w-3.5" />, label: 'Previous Expiry', value: new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString() });
+      if (meta.new_expiry) structuredRows.push({ icon: <CheckCircle2 className="h-3.5 w-3.5" />, label: 'New Expiry', value: new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString() });
+      if (meta.urgency) structuredRows.push({ icon: <Info className="h-3.5 w-3.5" />, label: 'Urgency', value: String(meta.urgency) });
+      break;
   }
 
   // Remaining raw metadata keys not already shown
-  const shownKeys = new Set(['applicant_name', 'applicant_email', 'reviewer_notes', 'role', 'target_user', 'milestones', 'changed_fields', 'operator_name', 'document_type', 'old_expiry', 'new_expiry']);
+  const shownKeys = new Set(['applicant_name', 'applicant_email', 'reviewer_notes', 'role', 'target_user', 'milestones', 'changed_fields', 'operator_name', 'document_type', 'old_expiry', 'new_expiry', 'urgency']);
   const rawExtras = Object.entries(meta).filter(([k]) => !shownKeys.has(k));
 
   return (
