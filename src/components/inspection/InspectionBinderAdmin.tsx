@@ -375,7 +375,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                       </div>
                       {/* Status changer */}
                       <div className="mt-2">
-                        <Select value={upload.status} onValueChange={val => updateUploadStatus(upload.id, val)}>
+                        <Select value={upload.status} onValueChange={val => updateUploadStatus(upload.id, val as 'pending_review' | 'reviewed' | 'needs_attention')}>
                           <SelectTrigger className="h-7 text-xs w-44">
                             <SelectValue />
                           </SelectTrigger>
