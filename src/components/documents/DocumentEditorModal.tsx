@@ -89,6 +89,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
         content_type: doc.content_type ?? 'rich_text',
         pdf_url: doc.pdf_url ?? null,
         pdf_path: doc.pdf_path ?? null,
+        video_url: doc.video_url ?? null,
       });
     } else {
       setForm(EMPTY_FORM);
