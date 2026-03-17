@@ -516,9 +516,54 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                   Select a driver above to manage their personal documents.
                 </div>
               )}
-              {selectedDriverId && PER_DRIVER_DOCS.map(({ key, hasExpiry }) => (
-                <AdminDocRow key={key} docName={key} scope="per_driver" hasExpiry={hasExpiry} />
-              ))}
+              {selectedDriverId && (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      These documents are specific to this driver's binder.
+                    </p>
+                    {missingOrExpiredDriverDocs.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1.5 text-xs border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold shrink-0"
+                        disabled={sendingReminder === 'all'}
+                        onClick={() => setReminderDialogDoc('all')}
+                      >
+                        {sendingReminder === 'all' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
+                        Remind All ({missingOrExpiredDriverDocs.length})
+                      </Button>
+                    )}
+                  </div>
+                  {PER_DRIVER_DOCS.map(({ key, hasExpiry }) => {
+                    const doc = perDriverDocs.find(d => d.name === key);
+                    const isMissing = !doc?.file_url;
+                    const isExpired = hasExpiry && doc?.expires_at
+                      ? Math.ceil((new Date(doc.expires_at).getTime() - Date.now()) / 86400000) < 0
+                      : false;
+                    const needsReminder = isMissing || isExpired;
+                    return (
+                      <div key={key} className="relative">
+                        <AdminDocRow docName={key} scope="per_driver" hasExpiry={hasExpiry} />
+                        {needsReminder && (
+                          <div className="absolute top-3 right-[6.5rem] z-10">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 gap-1 text-[11px] border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold"
+                              disabled={sendingReminder === key}
+                              onClick={() => setReminderDialogDoc(key)}
+                            >
+                              {sendingReminder === key ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
+                              Remind
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
           )}
 
