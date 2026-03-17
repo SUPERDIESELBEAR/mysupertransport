@@ -4,8 +4,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
-  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw,
+  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -181,6 +182,13 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
   const selectedDriverName = operatorName ?? operators.find(o => o.userId === selectedDriverId)?.name ?? '';
 
+  const toggleFleetShare = async (doc: InspectionDocument) => {
+    const newVal = !doc.shared_with_fleet;
+    await supabase.from('inspection_documents').update({ shared_with_fleet: newVal }).eq('id', doc.id);
+    toast({ title: newVal ? 'Shared with fleet' : 'Removed from fleet', description: `${doc.name} is now ${newVal ? 'visible to all drivers' : 'hidden from drivers'}.` });
+    fetchDocs();
+  };
+
   const AdminDocRow = ({ docName, scope, hasExpiry }: { docName: string; scope: 'company_wide' | 'per_driver'; hasExpiry: boolean }) => {
     const doc = scope === 'company_wide' ? companyDocs.find(d => d.name === docName) : perDriverDocs.find(d => d.name === docName);
     const key = `${scope}-${docName}`;
@@ -198,6 +206,11 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                   <Badge variant="secondary" className="text-[10px]">No file</Badge>
                 )}
                 {doc?.file_url && hasExpiry && <ExpiryBadge expiresAt={doc.expires_at} />}
+                {doc?.shared_with_fleet && (
+                  <span className="inline-flex items-center gap-1 text-[10px] bg-info/10 text-info border border-info/30 rounded-full px-2 py-0.5 font-semibold">
+                    <Users className="h-3 w-3" />Fleet
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {doc?.file_url && (
@@ -233,6 +246,20 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 </Button>
               </div>
             </div>
+
+            {/* Fleet share toggle — only for company-wide docs that have a file */}
+            {scope === 'company_wide' && doc?.file_url && (
+              <div className="flex items-center justify-between pt-2 border-t border-border/50 mt-2">
+                <div className="flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Share with all fleet drivers</span>
+                </div>
+                <Switch
+                  checked={doc.shared_with_fleet}
+                  onCheckedChange={() => toggleFleetShare(doc)}
+                />
+              </div>
+            )}
 
             {/* Expiry editor */}
             {hasExpiry && (

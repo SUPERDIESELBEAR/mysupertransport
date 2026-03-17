@@ -779,6 +779,7 @@ export type Database = {
           name: string
           public_share_token: string
           scope: Database["public"]["Enums"]["inspection_doc_scope"]
+          shared_with_fleet: boolean
           updated_at: string
           uploaded_at: string
           uploaded_by: string | null
@@ -792,6 +793,7 @@ export type Database = {
           name: string
           public_share_token?: string
           scope?: Database["public"]["Enums"]["inspection_doc_scope"]
+          shared_with_fleet?: boolean
           updated_at?: string
           uploaded_at?: string
           uploaded_by?: string | null
@@ -805,6 +807,7 @@ export type Database = {
           name?: string
           public_share_token?: string
           scope?: Database["public"]["Enums"]["inspection_doc_scope"]
+          shared_with_fleet?: boolean
           updated_at?: string
           uploaded_at?: string
           uploaded_by?: string | null
