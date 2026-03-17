@@ -100,7 +100,7 @@ export default function ResourceViewer({ resource, service, onBack, onCompletion
     const { resource_type, url, body } = resource;
 
     if (resource_type === 'Tutorial Video' && url) {
-      const embedUrl = getYouTubeEmbedUrl(url);
+      const embedUrl = parseVideoEmbedUrl(url);
       if (embedUrl) {
         return (
           <div className="rounded-xl overflow-hidden border border-border aspect-video w-full">
