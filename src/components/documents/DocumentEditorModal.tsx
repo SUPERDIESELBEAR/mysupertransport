@@ -900,21 +900,6 @@ function EditForm({
         </div>
       ) : (
         <div className="space-y-1.5">
-          <Label>Document Body</Label>
-          {doc && (
-            <p className="text-xs text-muted-foreground">
-              Saving will increment the version to <strong>v{doc.version + 1}</strong> and prompt acknowledged drivers to re-read.
-            </p>
-          )}
-          <TipTapEditor
-            key={doc ? `${doc.id}-${doc.version}` : 'new'}
-            content={initialBody}
-            onChange={html => setForm(f => ({ ...f, body: html }))}
-            placeholder="Paste content here or start writing…"
-          />
-        </div>
-      ) : (
-        <div className="space-y-1.5">
           <Label>PDF File</Label>
           {doc && (
             <p className="text-xs text-muted-foreground">
