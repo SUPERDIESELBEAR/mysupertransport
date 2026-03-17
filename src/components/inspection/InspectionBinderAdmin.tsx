@@ -615,6 +615,38 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Unshare All confirm */}
+      <AlertDialog open={unshareAllDialogOpen} onOpenChange={setUnshareAllDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {sharedDocs.length} Document{sharedDocs.length !== 1 ? 's' : ''} from Fleet?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>The following document{sharedDocs.length !== 1 ? 's' : ''} will be hidden from all fleet drivers:</p>
+                <ul className="mt-1 space-y-1">
+                  {sharedDocs.map(d => (
+                    <li key={d.id} className="flex items-center gap-2 text-foreground text-sm">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      {d.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleUnshareAll}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+              Unshare All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
