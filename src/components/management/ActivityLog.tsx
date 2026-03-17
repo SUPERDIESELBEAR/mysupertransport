@@ -136,6 +136,7 @@ const FILTER_OPTIONS = [
   { value: 'ica_signed', label: 'ICA Signed' },
   { value: 'onboarding_completed', label: 'Onboarding Completed' },
   { value: 'cert_renewed', label: 'Cert Renewals' },
+  { value: 'expiry_updated', label: 'Fleet Expiry Updates' },
 ];
 
 const DATE_PRESETS = [
