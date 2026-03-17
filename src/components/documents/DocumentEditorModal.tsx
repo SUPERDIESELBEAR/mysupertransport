@@ -301,12 +301,16 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
           </DialogHeader>
 
           {doc ? (
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-              <TabsList className="shrink-0 w-full grid grid-cols-2">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+              <TabsList className="shrink-0 w-full grid grid-cols-3">
                 <TabsTrigger value="edit">Edit Content</TabsTrigger>
+                <TabsTrigger value="preview" className="gap-1.5">
+                  <Eye className="h-3.5 w-3.5" />
+                  Preview
+                </TabsTrigger>
                 <TabsTrigger value="history" className="gap-1.5">
                   <History className="h-3.5 w-3.5" />
-                  Version History
+                  History
                   {versions.length > 0 && (
                     <Badge className="ml-1 h-4 px-1.5 text-[10px] bg-muted text-muted-foreground border-border">
                       {versions.length}
