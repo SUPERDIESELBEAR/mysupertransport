@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,10 @@ import { DriverDocument, CATEGORIES, CATEGORY_COLORS } from './DocumentHubTypes'
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { History, RotateCcw, Clock, User, Eye, AlertTriangle, BookOpen } from 'lucide-react';
+import {
+  History, RotateCcw, Clock, User, Eye, AlertTriangle, BookOpen,
+  FileText, Upload, X, File,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -35,6 +38,9 @@ const EMPTY_FORM = {
   is_visible: false,
   is_pinned: false,
   body: '',
+  content_type: 'rich_text' as 'rich_text' | 'pdf',
+  pdf_url: null as string | null,
+  pdf_path: null as string | null,
 };
 
 interface VersionEntry {
@@ -60,6 +66,14 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
   const [restoring, setRestoring] = useState(false);
   const [expandedVersion, setExpandedVersion] = useState<string | null>(null);
 
+  // PDF upload state
+  const [pdfUploading, setPdfUploading] = useState(false);
+  const [pendingPdfFile, setPendingPdfFile] = useState<File | null>(null);
+  const [pendingPdfUrl, setPendingPdfUrl] = useState<string | null>(null);
+  const [pendingPdfPath, setPendingPdfPath] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (doc) {
       setForm({
@@ -71,13 +85,18 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
         is_visible: doc.is_visible,
         is_pinned: doc.is_pinned,
         body: doc.body ?? '',
+        content_type: doc.content_type ?? 'rich_text',
+        pdf_url: doc.pdf_url ?? null,
+        pdf_path: doc.pdf_path ?? null,
       });
     } else {
       setForm(EMPTY_FORM);
     }
-    // Reset tab to edit when modal reopens
     setActiveTab('edit');
     setVersions([]);
+    setPendingPdfFile(null);
+    setPendingPdfUrl(null);
+    setPendingPdfPath(null);
   }, [doc, open]);
 
   const loadVersionHistory = useCallback(async () => {
@@ -94,7 +113,6 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
       return;
     }
 
-    // Fetch editor names from profiles
     const editorIds = [...new Set(data.map(v => v.updated_by).filter(Boolean))] as string[];
     let profileMap: Record<string, string> = {};
     if (editorIds.length > 0) {
@@ -121,19 +139,80 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
     setVersionsLoading(false);
   }, [doc]);
 
-  // Load history when switching to history tab
   useEffect(() => {
     if (activeTab === 'history' && doc) {
       loadVersionHistory();
     }
   }, [activeTab, doc, loadVersionHistory]);
 
+  // ── PDF upload helpers ─────────────────────────────────────────────────────
+
+  const uploadPdf = async (file: File) => {
+    if (file.type !== 'application/pdf') {
+      toast({ title: 'Only PDF files are accepted', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Maximum PDF size is 20 MB.', variant: 'destructive' });
+      return;
+    }
+    setPdfUploading(true);
+    const ext = 'pdf';
+    const path = `doc-hub-pdfs/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { data, error } = await supabase.storage
+      .from('resource-library')
+      .upload(path, file, { contentType: 'application/pdf', upsert: false });
+
+    if (error || !data) {
+      toast({ title: 'Upload failed', description: error?.message, variant: 'destructive' });
+      setPdfUploading(false);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from('resource-library').getPublicUrl(data.path);
+    setPendingPdfFile(file);
+    setPendingPdfUrl(urlData.publicUrl);
+    setPendingPdfPath(data.path);
+    setPdfUploading(false);
+  };
+
+  const removePdf = async () => {
+    // If there's a newly uploaded pending PDF, delete it from storage
+    if (pendingPdfPath) {
+      await supabase.storage.from('resource-library').remove([pendingPdfPath]);
+    }
+    setPendingPdfFile(null);
+    setPendingPdfUrl(null);
+    setPendingPdfPath(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) uploadPdf(file);
+  };
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+
   const handleSave = async () => {
     if (!form.title.trim()) {
       toast({ title: 'Title required', variant: 'destructive' });
       return;
     }
+    if (form.content_type === 'pdf' && !pendingPdfUrl && !form.pdf_url) {
+      toast({ title: 'Please upload a PDF file', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
+
+    // Determine final PDF fields
+    const finalPdfUrl  = pendingPdfUrl  ?? form.pdf_url;
+    const finalPdfPath = pendingPdfPath ?? form.pdf_path;
+
+    // If switching to rich_text, clear PDF fields; if switching to pdf, clear body
+    const finalBody    = form.content_type === 'rich_text' ? (form.body || null) : null;
 
     const payload = {
       title: form.title.trim(),
@@ -143,11 +222,23 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
       is_required: form.is_required,
       is_visible: form.is_visible,
       is_pinned: form.is_pinned,
-      body: form.body || null,
+      body: finalBody,
+      content_type: form.content_type,
+      pdf_url:  form.content_type === 'pdf' ? finalPdfUrl  : null,
+      pdf_path: form.content_type === 'pdf' ? finalPdfPath : null,
     };
 
     if (doc) {
-      // Save version history first
+      // If we have a new PDF and there was an old one, delete the old one
+      if (pendingPdfPath && doc.pdf_path && pendingPdfPath !== doc.pdf_path) {
+        await supabase.storage.from('resource-library').remove([doc.pdf_path]);
+      }
+      // If switching away from PDF, delete old PDF file
+      if (form.content_type === 'rich_text' && doc.pdf_path) {
+        await supabase.storage.from('resource-library').remove([doc.pdf_path]);
+      }
+
+      // Archive current version
       await supabase.from('document_version_history').insert({
         document_id: doc.id,
         version: doc.version,
@@ -155,7 +246,6 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
         updated_by: user?.id ?? null,
       });
 
-      // Update document, increment version
       const { error } = await supabase
         .from('driver_documents')
         .update({ ...payload, version: doc.version + 1, updated_at: new Date().toISOString() })
@@ -167,7 +257,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
         return;
       }
 
-      // Notify drivers who previously acknowledged this doc (in-app + email)
+      // Notify acknowledged drivers
       if (form.is_visible) {
         const { data: acks } = await supabase
           .from('document_acknowledgments')
@@ -176,7 +266,6 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
 
         if (acks && acks.length > 0) {
           const uniqueUserIds = [...new Set(acks.map(a => a.user_id))];
-          // In-app notifications
           await Promise.all(
             uniqueUserIds.map(uid =>
               supabase.from('notifications').insert({
@@ -189,7 +278,6 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
               })
             )
           );
-          // Branded email notification (fire-and-forget)
           supabase.functions.invoke('notify-document-update', {
             body: {
               event_type: 'updated',
@@ -215,11 +303,9 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
         return;
       }
 
-      // If visible on creation, notify all operators (in-app + email)
       if (form.is_visible && data) {
         const { data: operators } = await supabase.from('operators').select('user_id');
         if (operators && operators.length > 0) {
-          // In-app notifications
           await Promise.all(
             operators.map(op =>
               supabase.from('notifications').insert({
@@ -232,7 +318,6 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
               })
             )
           );
-          // Branded email notification (fire-and-forget)
           supabase.functions.invoke('notify-document-update', {
             body: {
               event_type: 'published',
@@ -255,7 +340,6 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
     if (!restoreTarget || !doc) return;
     setRestoring(true);
 
-    // Archive the current body before restoring
     await supabase.from('document_version_history').insert({
       document_id: doc.id,
       version: doc.version,
@@ -291,6 +375,10 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
       month: 'short', day: 'numeric', year: 'numeric',
     }) + ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   };
+
+  // Derive the currently shown PDF (pending upload takes priority over existing)
+  const shownPdfName = pendingPdfFile?.name ?? (form.pdf_url ? form.pdf_path?.split('/').pop() ?? 'existing.pdf' : null);
+  const hasPdf = !!pendingPdfUrl || !!form.pdf_url;
 
   return (
     <>
@@ -329,6 +417,18 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                   onSave={handleSave}
                   onClose={onClose}
                   initialBody={doc?.body ?? ''}
+                  // PDF props
+                  pdfUploading={pdfUploading}
+                  pendingPdfFile={pendingPdfFile}
+                  hasPdf={hasPdf}
+                  shownPdfName={shownPdfName}
+                  dragOver={dragOver}
+                  fileInputRef={fileInputRef}
+                  onUploadPdf={uploadPdf}
+                  onRemovePdf={removePdf}
+                  onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleDrop}
                 />
               </TabsContent>
 
@@ -345,6 +445,11 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                         {form.is_required && (
                           <Badge className="text-xs border bg-destructive/10 text-destructive border-destructive/30 font-medium gap-1">
                             <AlertTriangle className="h-3 w-3" /> Required
+                          </Badge>
+                        )}
+                        {form.content_type === 'pdf' && (
+                          <Badge className="text-xs border bg-secondary text-secondary-foreground border-border font-medium gap-1">
+                            <FileText className="h-3 w-3" /> PDF
                           </Badge>
                         )}
                         {!form.is_visible && (
@@ -369,8 +474,24 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
 
                     <hr className="border-border mb-8" />
 
-                    {/* Rendered body */}
-                    {form.body ? (
+                    {/* Rendered body or PDF preview */}
+                    {form.content_type === 'pdf' ? (
+                      (pendingPdfUrl || form.pdf_url) ? (
+                        <div className="rounded-xl overflow-hidden border border-border">
+                          <iframe
+                            src={pendingPdfUrl ?? form.pdf_url ?? ''}
+                            title="PDF Preview"
+                            className="w-full"
+                            style={{ height: '500px' }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="py-12 text-center text-muted-foreground">
+                          <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                          <p>Upload a PDF to see a preview here.</p>
+                        </div>
+                      )
+                    ) : form.body ? (
                       <div
                         className="prose prose-sm max-w-none text-foreground
                           prose-headings:font-bold prose-headings:text-foreground
@@ -506,6 +627,17 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                 onSave={handleSave}
                 onClose={onClose}
                 initialBody=""
+                pdfUploading={pdfUploading}
+                pendingPdfFile={pendingPdfFile}
+                hasPdf={hasPdf}
+                shownPdfName={shownPdfName}
+                dragOver={dragOver}
+                fileInputRef={fileInputRef}
+                onUploadPdf={uploadPdf}
+                onRemovePdf={removePdf}
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
               />
             </div>
           )}
@@ -535,7 +667,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
   );
 }
 
-// ── Extracted edit form to avoid duplication ──────────────────────────────────
+// ── Extracted edit form ────────────────────────────────────────────────────────
 
 interface EditFormProps {
   form: typeof EMPTY_FORM;
@@ -545,9 +677,26 @@ interface EditFormProps {
   onSave: () => void;
   onClose: () => void;
   initialBody: string;
+  // PDF props
+  pdfUploading: boolean;
+  pendingPdfFile: File | null;
+  hasPdf: boolean;
+  shownPdfName: string | null;
+  dragOver: boolean;
+  fileInputRef: React.RefObject<HTMLInputElement>;
+  onUploadPdf: (f: File) => void;
+  onRemovePdf: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent) => void;
 }
 
-function EditForm({ form, setForm, doc, saving, onSave, onClose, initialBody }: EditFormProps) {
+function EditForm({
+  form, setForm, doc, saving, onSave, onClose, initialBody,
+  pdfUploading, pendingPdfFile, hasPdf, shownPdfName,
+  dragOver, fileInputRef, onUploadPdf, onRemovePdf,
+  onDragOver, onDragLeave, onDrop,
+}: EditFormProps) {
   return (
     <div className="space-y-5 pb-2">
       {/* Title */}
@@ -616,26 +765,127 @@ function EditForm({ form, setForm, doc, saving, onSave, onClose, initialBody }: 
         ))}
       </div>
 
-      {/* Body */}
-      <div className="space-y-1.5">
-        <Label>Document Body</Label>
-        {doc && (
-          <p className="text-xs text-muted-foreground">
-            Saving will increment the version to <strong>v{doc.version + 1}</strong> and prompt acknowledged drivers to re-read.
-          </p>
-        )}
-        <TipTapEditor
-          key={doc ? `${doc.id}-${doc.version}` : 'new'}
-          content={initialBody}
-          onChange={html => setForm(f => ({ ...f, body: html }))}
-          placeholder="Paste content here or start writing…"
-        />
+      {/* ── Content Type toggle ─────────────────────────────────────── */}
+      <div className="space-y-3">
+        <Label>Content Type</Label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setForm(f => ({ ...f, content_type: 'rich_text' }))}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+              form.content_type === 'rich_text'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
+            }`}
+          >
+            <BookOpen className="h-4 w-4" />
+            Rich Text
+          </button>
+          <button
+            type="button"
+            onClick={() => setForm(f => ({ ...f, content_type: 'pdf' }))}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+              form.content_type === 'pdf'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-background text-muted-foreground border-border hover:bg-muted/50'
+            }`}
+          >
+            <FileText className="h-4 w-4" />
+            PDF Upload
+          </button>
+        </div>
       </div>
+
+      {/* ── Content area ────────────────────────────────────────────── */}
+      {form.content_type === 'rich_text' ? (
+        <div className="space-y-1.5">
+          <Label>Document Body</Label>
+          {doc && (
+            <p className="text-xs text-muted-foreground">
+              Saving will increment the version to <strong>v{doc.version + 1}</strong> and prompt acknowledged drivers to re-read.
+            </p>
+          )}
+          <TipTapEditor
+            key={doc ? `${doc.id}-${doc.version}` : 'new'}
+            content={initialBody}
+            onChange={html => setForm(f => ({ ...f, body: html }))}
+            placeholder="Paste content here or start writing…"
+          />
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <Label>PDF File</Label>
+          {doc && (
+            <p className="text-xs text-muted-foreground">
+              Saving will increment the version to <strong>v{doc.version + 1}</strong> and prompt acknowledged drivers to re-read.
+            </p>
+          )}
+
+          {hasPdf ? (
+            /* Uploaded PDF indicator */
+            <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30">
+              <File className="h-8 w-8 text-destructive shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {shownPdfName ?? 'document.pdf'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {pendingPdfFile ? `${(pendingPdfFile.size / 1024 / 1024).toFixed(1)} MB — ready to save` : 'Currently attached'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onRemovePdf}
+                className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                title="Remove PDF"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            /* Drop zone */
+            <div
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`relative flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center cursor-pointer transition-colors ${
+                dragOver
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border bg-muted/20 hover:bg-muted/40 hover:border-muted-foreground/40'
+              }`}
+            >
+              {pdfUploading ? (
+                <>
+                  <Upload className="h-8 w-8 text-muted-foreground animate-bounce" />
+                  <p className="text-sm text-muted-foreground">Uploading…</p>
+                </>
+              ) : (
+                <>
+                  <FileText className="h-8 w-8 text-muted-foreground" />
+                  <p className="text-sm font-medium text-foreground">Drop PDF here or click to browse</p>
+                  <p className="text-xs text-muted-foreground">PDF files only · max 20 MB</p>
+                </>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="sr-only"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) onUploadPdf(file);
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-        <Button onClick={onSave} disabled={saving}>
-          {saving ? 'Saving…' : doc ? 'Save Changes' : 'Create Document'}
+        <Button onClick={onSave} disabled={saving || pdfUploading}>
+          {saving ? 'Saving…' : pdfUploading ? 'Uploading PDF…' : doc ? 'Save Changes' : 'Create Document'}
         </Button>
       </div>
     </div>
