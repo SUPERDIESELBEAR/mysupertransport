@@ -1,0 +1,1 @@
+ALTER TABLE public.inspection_documents ADD COLUMN IF NOT EXISTS shared_with_fleet boolean NOT NULL DEFAULT false;
