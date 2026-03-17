@@ -243,8 +243,8 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
       if (pendingPdfPath && doc.pdf_path && pendingPdfPath !== doc.pdf_path) {
         await supabase.storage.from('resource-library').remove([doc.pdf_path]);
       }
-      // If switching away from PDF, delete old PDF file
-      if (form.content_type === 'rich_text' && doc.pdf_path) {
+      // If switching away from PDF to another type, delete old PDF file
+      if (form.content_type !== 'pdf' && doc.pdf_path) {
         await supabase.storage.from('resource-library').remove([doc.pdf_path]);
       }
 
