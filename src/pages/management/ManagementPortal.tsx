@@ -1313,6 +1313,10 @@ export default function ManagementPortal() {
           <ServiceLibraryManager />
         )}
 
+        {view === 'inspection-binder' && (
+          <InspectionBinderAdmin />
+        )}
+
         {view === 'notifications' && (
           <NotificationHistory />
         )}
