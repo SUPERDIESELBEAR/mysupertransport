@@ -378,6 +378,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
 
   // Derive the currently shown PDF (pending upload takes priority over existing)
   const shownPdfName = pendingPdfFile?.name ?? (form.pdf_url ? form.pdf_path?.split('/').pop() ?? 'existing.pdf' : null);
+  const shownPdfUrl  = pendingPdfUrl ?? form.pdf_url ?? null;
   const hasPdf = !!pendingPdfUrl || !!form.pdf_url;
 
   return (
