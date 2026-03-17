@@ -38,9 +38,10 @@ const EMPTY_FORM = {
   is_visible: false,
   is_pinned: false,
   body: '',
-  content_type: 'rich_text' as 'rich_text' | 'pdf',
+  content_type: 'rich_text' as 'rich_text' | 'pdf' | 'video',
   pdf_url: null as string | null,
   pdf_path: null as string | null,
+  video_url: null as string | null,
 };
 
 interface VersionEntry {
