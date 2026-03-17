@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
   History, RotateCcw, Clock, User, Eye, AlertTriangle, BookOpen,
-  FileText, Upload, X, File,
+  FileText, Upload, X, File, ExternalLink,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
