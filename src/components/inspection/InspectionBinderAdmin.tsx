@@ -561,23 +561,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                       : false;
                     const needsReminder = isMissing || isExpired;
                     return (
-                      <div key={key} className="relative">
-                        <AdminDocRow docName={key} scope="per_driver" hasExpiry={hasExpiry} />
-                        {needsReminder && (
-                          <div className="absolute top-3 right-[6.5rem] z-10">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 gap-1 text-[11px] border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold"
-                              disabled={sendingReminder === key}
-                              onClick={() => setReminderDialogDoc(key)}
-                            >
-                              {sendingReminder === key ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
-                              Remind
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+                      <AdminDocRow
+                        key={key}
+                        docName={key}
+                        scope="per_driver"
+                        hasExpiry={hasExpiry}
+                        onRemind={needsReminder ? () => setReminderDialogDoc(key) : undefined}
+                        remindLoading={sendingReminder === key}
+                      />
                     );
                   })}
                 </>
