@@ -4,7 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
-  ChevronDown, CheckCircle2, AlertTriangle, Clock, RefreshCw, Eye,
+  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
