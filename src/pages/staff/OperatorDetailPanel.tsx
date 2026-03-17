@@ -2305,7 +2305,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Inspection Binder — per-driver docs & uploads */}
       {operatorUserId && (
-        <OperatorBinderPanel driverUserId={operatorUserId} operatorName={operatorName} />
+        <div ref={inspectionBinderRef}>
+          <OperatorBinderPanel driverUserId={operatorUserId} operatorName={operatorName} />
+        </div>
       )}
 
       {/* Internal Notes */}
