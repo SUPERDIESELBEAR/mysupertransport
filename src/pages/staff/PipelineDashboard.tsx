@@ -74,6 +74,7 @@ interface ComplianceAlert {
 interface PipelineDashboardProps {
   onOpenOperator: (operatorId: string) => void;
   onOpenOperatorWithFocus?: (operatorId: string, focusField: 'cdl' | 'medcert') => void;
+  onOpenOperatorAtBinder?: (operatorId: string) => void;
   onOpenInspectionBinder?: () => void;
   initialDispatchFilter?: DispatchStatus | 'all';
   initialCoordinatorFilter?: string;
