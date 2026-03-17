@@ -438,6 +438,9 @@ export default function StaffPortal() {
       {currentView === 'service-library' && (
         <ServiceLibraryManager />
       )}
+      {currentView === 'inspection-binder' && (
+        <InspectionBinderAdmin />
+      )}
       {currentView === 'notifications' && (
         <NotificationHistory />
       )}
