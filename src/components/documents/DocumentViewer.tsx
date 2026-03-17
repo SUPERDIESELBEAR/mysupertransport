@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Clock, CheckCircle2, AlertTriangle, BookOpen } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle2, AlertTriangle, BookOpen, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DriverDocument, CATEGORY_COLORS } from './DocumentHubTypes';
@@ -20,6 +20,7 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
 
   const isAcknowledged = !!acknowledgment && acknowledgment.document_version === doc.version;
   const isUpdated = !!acknowledgment && acknowledgment.document_version < doc.version;
+  const isPdf = doc.content_type === 'pdf';
 
   const handleAcknowledge = async () => {
     setAcknowledging(true);
@@ -73,6 +74,11 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
                 <AlertTriangle className="h-3 w-3" /> Required
               </Badge>
             )}
+            {isPdf && (
+              <Badge className="text-xs border bg-secondary text-secondary-foreground border-border font-medium gap-1">
+                <FileText className="h-3 w-3" /> PDF
+              </Badge>
+            )}
           </div>
 
           <h1 className="text-2xl font-bold text-foreground mb-2">{doc.title}</h1>
@@ -97,8 +103,24 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
 
         <hr className="border-border mb-8" />
 
-        {/* Body */}
-        {doc.body ? (
+        {/* Body — PDF or rich text */}
+        {isPdf ? (
+          doc.pdf_url ? (
+            <div className="rounded-xl overflow-hidden border border-border bg-muted/20">
+              <iframe
+                src={doc.pdf_url}
+                title={doc.title}
+                className="w-full"
+                style={{ height: '620px' }}
+              />
+            </div>
+          ) : (
+            <div className="py-12 text-center text-muted-foreground">
+              <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p>PDF not available.</p>
+            </div>
+          )
+        ) : doc.body ? (
           <div
             className="prose prose-sm max-w-none text-foreground
               prose-headings:font-bold prose-headings:text-foreground
@@ -128,7 +150,7 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
           ) : (
             <div className="flex flex-col items-center gap-3 text-center">
               <p className="text-sm text-muted-foreground max-w-md">
-                By clicking below, you confirm that you have read and understood this document.
+                By clicking below, you confirm that you have{isPdf ? ' opened and' : ''} read and understood this document.
               </p>
               <Button
                 onClick={handleAcknowledge}

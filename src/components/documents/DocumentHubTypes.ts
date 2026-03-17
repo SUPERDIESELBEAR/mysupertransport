@@ -14,6 +14,10 @@ export interface DriverDocument {
   version: number;
   created_at: string;
   updated_at: string;
+  // PDF attachment fields
+  content_type: 'rich_text' | 'pdf';
+  pdf_url: string | null;
+  pdf_path: string | null;
 }
 
 export interface DocumentAcknowledgment {

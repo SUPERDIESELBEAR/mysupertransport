@@ -1,4 +1,4 @@
-import { Clock, CheckCircle2, Pin, AlertTriangle, BookOpen } from 'lucide-react';
+import { Clock, CheckCircle2, Pin, AlertTriangle, BookOpen, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DriverDocument, CATEGORY_COLORS } from './DocumentHubTypes';
@@ -12,6 +12,7 @@ interface DocumentCardProps {
 export default function DocumentCard({ doc, acknowledgment, onView }: DocumentCardProps) {
   const isAcknowledged = !!acknowledgment && acknowledgment.document_version === doc.version;
   const isUpdated = !!acknowledgment && acknowledgment.document_version < doc.version;
+  const isPdf = doc.content_type === 'pdf';
 
   return (
     <div
@@ -41,6 +42,11 @@ export default function DocumentCard({ doc, acknowledgment, onView }: DocumentCa
             Updated
           </Badge>
         )}
+        {isPdf && (
+          <Badge className="text-xs border bg-secondary text-secondary-foreground border-border font-medium gap-1">
+            <FileText className="h-3 w-3" /> PDF
+          </Badge>
+        )}
       </div>
 
       {/* Title + description */}
@@ -59,10 +65,17 @@ export default function DocumentCard({ doc, acknowledgment, onView }: DocumentCa
             ~{doc.estimated_read_minutes} min read
           </span>
         )}
-        <span className="flex items-center gap-1">
-          <BookOpen className="h-3 w-3" />
-          v{doc.version}
-        </span>
+        {isPdf ? (
+          <span className="flex items-center gap-1">
+            <FileText className="h-3 w-3" />
+            PDF document
+          </span>
+        ) : (
+          <span className="flex items-center gap-1">
+            <BookOpen className="h-3 w-3" />
+            v{doc.version}
+          </span>
+        )}
         <span className="ml-auto">
           {new Date(doc.updated_at).toLocaleDateString()}
         </span>
@@ -81,7 +94,7 @@ export default function DocumentCard({ doc, acknowledgment, onView }: DocumentCa
           </span>
         )}
         <Button size="sm" onClick={() => onView(doc)} className="text-xs h-8">
-          View Document
+          {isPdf ? 'View PDF' : 'View Document'}
         </Button>
       </div>
     </div>
