@@ -128,6 +128,7 @@ export default function StaffPortal() {
   const navItems = [
     { label: 'Pipeline', icon: <LayoutDashboard className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
     { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'messages', badge: unreadCount },
+    { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />, path: 'inspection-binder' },
     { label: 'Doc Hub', icon: <Library className="h-4 w-4" />, path: 'docs-hub' },
     { label: 'Service Library', icon: <Wrench className="h-4 w-4" />, path: 'service-library' },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
