@@ -491,8 +491,30 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
 
                     <hr className="border-border mb-8" />
 
-                    {/* Rendered body or PDF preview */}
-                    {form.content_type === 'pdf' ? (
+                    {/* Rendered body, PDF, or Video preview */}
+                    {form.content_type === 'video' ? (
+                      (() => {
+                        const embedUrl = parseVideoEmbedUrl(form.video_url ?? '');
+                        return embedUrl ? (
+                          <div className="rounded-xl overflow-hidden border border-border bg-muted/20">
+                            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                              <iframe
+                                src={embedUrl}
+                                title="Video Preview"
+                                className="absolute inset-0 w-full h-full"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="py-12 text-center text-muted-foreground">
+                            <Video className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                            <p>Enter a YouTube or Vimeo URL above to see a preview.</p>
+                          </div>
+                        );
+                      })()
+                    ) : form.content_type === 'pdf' ? (
                       (pendingPdfUrl || form.pdf_url) ? (
                         <div className="rounded-xl overflow-hidden border border-border">
                           <iframe
