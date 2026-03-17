@@ -7,13 +7,13 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import TipTapEditor from './TipTapEditor';
-import { DriverDocument, CATEGORIES, CATEGORY_COLORS } from './DocumentHubTypes';
+import { DriverDocument, CATEGORIES, CATEGORY_COLORS, parseVideoEmbedUrl } from './DocumentHubTypes';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
   History, RotateCcw, Clock, User, Eye, AlertTriangle, BookOpen,
-  FileText, Upload, X, File, ExternalLink,
+  FileText, Upload, X, File, ExternalLink, Video,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
