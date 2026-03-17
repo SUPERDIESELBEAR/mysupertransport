@@ -177,7 +177,30 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenInsp
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+
+    // Realtime: re-fetch when inspection_documents changes (IRP, Insurance, IFTA expiry updates)
+    const inspChannel = supabase
+      .channel('compliance-summary-inspection')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inspection_documents' }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    // Realtime: re-fetch when applications changes (CDL / Medical Cert expiry updates)
+    const appChannel = supabase
+      .channel('compliance-summary-applications')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(inspChannel);
+      supabase.removeChannel(appChannel);
+    };
+  }, [fetchData]);
 
   // ── Derived counts ────────────────────────────────────────────────────────
   const counts = {
