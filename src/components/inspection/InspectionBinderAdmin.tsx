@@ -184,8 +184,11 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
   const [sharingAll, setSharingAll] = useState(false);
   const [shareAllDialogOpen, setShareAllDialogOpen] = useState(false);
+  const [unsharingAll, setUnsharingAll] = useState(false);
+  const [unshareAllDialogOpen, setUnshareAllDialogOpen] = useState(false);
 
   const unsharedDocs = companyDocs.filter(d => d.file_url && !d.shared_with_fleet);
+  const sharedDocs = companyDocs.filter(d => d.file_url && d.shared_with_fleet);
 
   const handleShareAll = async () => {
     if (unsharedDocs.length === 0) return;
@@ -206,6 +209,28 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       toast({ title: 'Error sharing documents', variant: 'destructive' });
     } finally {
       setSharingAll(false);
+    }
+  };
+
+  const handleUnshareAll = async () => {
+    if (sharedDocs.length === 0) return;
+    setUnsharingAll(true);
+    setUnshareAllDialogOpen(false);
+    try {
+      await Promise.all(
+        sharedDocs.map(doc =>
+          supabase.from('inspection_documents').update({ shared_with_fleet: false }).eq('id', doc.id)
+        )
+      );
+      toast({
+        title: `${sharedDocs.length} document${sharedDocs.length > 1 ? 's' : ''} removed from fleet`,
+        description: 'Drivers will no longer see these documents in their binder.',
+      });
+      fetchDocs();
+    } catch {
+      toast({ title: 'Error unsharing documents', variant: 'destructive' });
+    } finally {
+      setUnsharingAll(false);
     }
   };
 
