@@ -503,6 +503,7 @@ export type Database = {
           title: string
           updated_at: string
           version: number
+          video_url: string | null
         }
         Insert: {
           body?: string | null
@@ -521,6 +522,7 @@ export type Database = {
           title: string
           updated_at?: string
           version?: number
+          video_url?: string | null
         }
         Update: {
           body?: string | null
@@ -539,6 +541,7 @@ export type Database = {
           title?: string
           updated_at?: string
           version?: number
+          video_url?: string | null
         }
         Relationships: []
       }
