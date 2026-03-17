@@ -388,6 +388,7 @@ export default function StaffPortal() {
               setReviewFocusField(focusField);
             }
           }}
+          onOpenOperatorAtBinder={op => { setPipelineDispatchFilter('all'); setPipelineICAFilter(false); handleOpenOperatorAtBinder(op); }}
           onOpenInspectionBinder={() => setCurrentView('inspection-binder')}
           initialDispatchFilter={pipelineDispatchFilter}
           initialStageFilter={pipelineICAFilter ? 'Stage 3 — ICA' : undefined}
@@ -401,6 +402,7 @@ export default function StaffPortal() {
           onMessageOperator={handleMessageOperator}
           onUnsavedChangesChange={setOperatorHasUnsavedChanges}
           expiryOverride={panelExpiryOverride}
+          scrollToInspectionBinder={scrollToInspectionBinder}
           onOpenAppReview={async (focusField) => {
             const { data: op } = await supabase
               .from('operators')
