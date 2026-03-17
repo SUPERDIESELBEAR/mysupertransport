@@ -42,6 +42,7 @@ export default function StaffPortal() {
   const [panelExpiryOverride, setPanelExpiryOverride] = useState<{ cdl: string | null; medcert: string | null } | undefined>(undefined);
   const [bulkMessageOpen, setBulkMessageOpen] = useState(false);
   const [bulkMessagePreselected, setBulkMessagePreselected] = useState<string[]>([]);
+  const [scrollToInspectionBinder, setScrollToInspectionBinder] = useState(false);
   const viewRef = useRef(currentView);
 
   // Deep-link: ?tab=notifications or ?operator=...
@@ -139,6 +140,14 @@ export default function StaffPortal() {
   const handleOpenOperator = (operatorId: string) => {
     setSelectedOperatorId(operatorId);
     setOperatorHasUnsavedChanges(false);
+    setScrollToInspectionBinder(false);
+    setCurrentView('operator-detail');
+  };
+
+  const handleOpenOperatorAtBinder = (operatorId: string) => {
+    setSelectedOperatorId(operatorId);
+    setOperatorHasUnsavedChanges(false);
+    setScrollToInspectionBinder(true);
     setCurrentView('operator-detail');
   };
 
@@ -379,6 +388,7 @@ export default function StaffPortal() {
               setReviewFocusField(focusField);
             }
           }}
+          onOpenOperatorAtBinder={op => { setPipelineDispatchFilter('all'); setPipelineICAFilter(false); handleOpenOperatorAtBinder(op); }}
           onOpenInspectionBinder={() => setCurrentView('inspection-binder')}
           initialDispatchFilter={pipelineDispatchFilter}
           initialStageFilter={pipelineICAFilter ? 'Stage 3 — ICA' : undefined}
@@ -392,6 +402,7 @@ export default function StaffPortal() {
           onMessageOperator={handleMessageOperator}
           onUnsavedChangesChange={setOperatorHasUnsavedChanges}
           expiryOverride={panelExpiryOverride}
+          scrollToInspectionBinder={scrollToInspectionBinder}
           onOpenAppReview={async (focusField) => {
             const { data: op } = await supabase
               .from('operators')

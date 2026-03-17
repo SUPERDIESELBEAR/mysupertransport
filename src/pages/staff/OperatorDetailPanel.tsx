@@ -28,6 +28,8 @@ interface OperatorDetailPanelProps {
   onOpenAppReview?: (focusField: 'cdl' | 'medcert') => void;
   /** Called by parent to push refreshed expiry dates into this panel */
   expiryOverride?: { cdl: string | null; medcert: string | null };
+  /** If true, scroll to the Inspection Binder section after load */
+  scrollToInspectionBinder?: boolean;
 }
 
 type OnboardingStatus = {
@@ -73,7 +75,7 @@ const DISPATCH_STATUS_CONFIG: Record<string, { label: string; dotClass: string; 
   truck_down:     { label: 'Truck Down',     dotClass: 'bg-destructive',       badgeClass: 'bg-destructive/10 text-destructive border-destructive/30', emoji: '🔴' },
 };
 
-export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator, onUnsavedChangesChange, onOpenAppReview, expiryOverride }: OperatorDetailPanelProps) {
+export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator, onUnsavedChangesChange, onOpenAppReview, expiryOverride, scrollToInspectionBinder }: OperatorDetailPanelProps) {
   const { toast } = useToast();
   const { session } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -137,6 +139,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
+  const inspectionBinderRef = useRef<HTMLDivElement | null>(null);
 
   // Show sticky bar when the main progress bar scrolls out of view
   useEffect(() => {
@@ -149,6 +152,16 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     observer.observe(el);
     return () => observer.disconnect();
   }, [loading]);
+
+  // Scroll to Inspection Binder section when requested (after data loads)
+  useEffect(() => {
+    if (!scrollToInspectionBinder || loading) return;
+    const el = inspectionBinderRef.current;
+    if (!el) return;
+    setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }, [scrollToInspectionBinder, loading]);
 
   const toggleStage = (stageKey: string) => {
     setCollapsedStages(prev => {
@@ -2292,7 +2305,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Inspection Binder — per-driver docs & uploads */}
       {operatorUserId && (
-        <OperatorBinderPanel driverUserId={operatorUserId} operatorName={operatorName} />
+        <div ref={inspectionBinderRef}>
+          <OperatorBinderPanel driverUserId={operatorUserId} operatorName={operatorName} />
+        </div>
       )}
 
       {/* Internal Notes */}
