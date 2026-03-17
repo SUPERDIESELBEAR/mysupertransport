@@ -102,6 +102,16 @@ function SortableRow({
               <AlertTriangle className="h-3 w-3" /> Required
             </Badge>
           )}
+          {doc.content_type === 'pdf' && (
+            <Badge className="text-xs border bg-secondary text-secondary-foreground border-border gap-1">
+              <FileText className="h-3 w-3" /> PDF
+            </Badge>
+          )}
+          {doc.content_type === 'video' && (
+            <Badge className="text-xs border bg-info/10 text-info border-info/30 gap-1">
+              <Video className="h-3 w-3" /> Video
+            </Badge>
+          )}
           <span className="text-xs text-muted-foreground">v{doc.version}</span>
         </div>
         {doc.is_required && (
