@@ -11,6 +11,7 @@ import ServiceDetailPage from './ServiceDetailPage';
 import type { Service, ServiceResource, ResourceType } from './ServiceLibraryTypes';
 import { ALL_RESOURCE_TYPES } from './ServiceLibraryTypes';
 import { differenceInDays, parseISO, formatDistanceToNow } from 'date-fns';
+import { getYouTubeVideoId } from '@/components/documents/DocumentHubTypes';
 import { useToast } from '@/hooks/use-toast';
 
 type LibraryView = 'home' | 'service' | 'resource' | 'bookmarks';

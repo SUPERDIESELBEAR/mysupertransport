@@ -11,6 +11,7 @@ import HelpRequestModal from './HelpRequestModal';
 import type { Service, ServiceResource, ResourceType } from './ServiceLibraryTypes';
 import { ALL_RESOURCE_TYPES } from './ServiceLibraryTypes';
 import { differenceInDays, parseISO } from 'date-fns';
+import { getYouTubeVideoId } from '@/components/documents/DocumentHubTypes';
 
 interface ServiceDetailPageProps {
   service: Service;
