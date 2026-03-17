@@ -300,7 +300,13 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     fetchDocs();
   };
 
-  const AdminDocRow = ({ docName, scope, hasExpiry }: { docName: string; scope: 'company_wide' | 'per_driver'; hasExpiry: boolean }) => {
+  const AdminDocRow = ({ docName, scope, hasExpiry, onRemind, remindLoading }: {
+    docName: string;
+    scope: 'company_wide' | 'per_driver';
+    hasExpiry: boolean;
+    onRemind?: () => void;
+    remindLoading?: boolean;
+  }) => {
     const doc = scope === 'company_wide' ? companyDocs.find(d => d.name === docName) : perDriverDocs.find(d => d.name === docName);
     const key = `${scope}-${docName}`;
     return (
@@ -324,6 +330,18 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 )}
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
+                {onRemind && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1 text-xs border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold"
+                    disabled={remindLoading}
+                    onClick={onRemind}
+                  >
+                    {remindLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
+                    Remind
+                  </Button>
+                )}
                 {doc?.file_url && (
                   <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
                     <Button size="sm" variant="ghost" className="h-8 w-8 p-0"><Eye className="h-3.5 w-3.5" /></Button>
