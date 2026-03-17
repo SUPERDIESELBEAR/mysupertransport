@@ -377,7 +377,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                           prose-h1:text-xl prose-h2:text-lg prose-h3:text-base
                           prose-p:text-foreground prose-p:leading-relaxed
                           prose-li:text-foreground prose-li:leading-relaxed
-                          prose-blockquote:border-l-4 prose-blockquote:border-primary/40 prose-blockquote:text-muted-foreground prose-blockquote:pl-4 prose-blockquote:italic
+                          prose-blockquote:border-l-4 prose-blockquote:border-gold/40 prose-blockquote:text-muted-foreground prose-blockquote:pl-4 prose-blockquote:italic
                           prose-hr:border-border
                           prose-strong:text-foreground prose-strong:font-semibold
                           [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
