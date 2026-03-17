@@ -328,7 +328,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenInsp
             <span className="h-2 w-2 shrink-0" />
             <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Operator / Document</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 hidden sm:block shrink-0 w-[86px]">Expires</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[90px] text-right">Status</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60 shrink-0 w-[116px] text-right">Status</span>
           </div>
 
           {/* Rows */}
@@ -383,7 +383,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenInsp
                     </span>
 
                     {/* Status badge + open operator link */}
-                    <div className="flex items-center gap-1.5 shrink-0 w-[90px] justify-end">
+                    <div className="flex items-center gap-1.5 shrink-0 w-[116px] justify-end">
                       <TooltipProvider delayDuration={100}>
                         <Tooltip>
                           <TooltipTrigger asChild>
