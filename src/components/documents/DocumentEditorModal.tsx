@@ -685,6 +685,7 @@ interface EditFormProps {
   pendingPdfFile: File | null;
   hasPdf: boolean;
   shownPdfName: string | null;
+  shownPdfUrl: string | null;
   dragOver: boolean;
   fileInputRef: React.RefObject<HTMLInputElement>;
   onUploadPdf: (f: File) => void;
@@ -696,7 +697,7 @@ interface EditFormProps {
 
 function EditForm({
   form, setForm, doc, saving, onSave, onClose, initialBody,
-  pdfUploading, pendingPdfFile, hasPdf, shownPdfName,
+  pdfUploading, pendingPdfFile, hasPdf, shownPdfName, shownPdfUrl,
   dragOver, fileInputRef, onUploadPdf, onRemovePdf,
   onDragOver, onDragLeave, onDrop,
 }: EditFormProps) {
