@@ -4,7 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
-  ChevronDown, CheckCircle2, AlertTriangle, Clock, RefreshCw, Eye,
+  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -351,40 +352,85 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 </div>
               )}
               {driverUploads.map(upload => (
-                <div key={upload.id} className="bg-card border border-border rounded-xl p-4">
+                <div
+                  key={upload.id}
+                  className={cn(
+                    'bg-card border rounded-xl p-4 transition-colors',
+                    upload.status === 'reviewed' && 'border-status-complete/40 bg-status-complete/5',
+                    upload.status === 'needs_attention' && 'border-destructive/40 bg-destructive/5',
+                    upload.status === 'pending_review' && 'border-info/30',
+                  )}
+                >
                   <div className="flex items-start gap-3">
-                    <div className="h-9 w-9 rounded-lg bg-secondary flex items-center justify-center shrink-0">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
+                    <div className={cn(
+                      'h-9 w-9 rounded-lg flex items-center justify-center shrink-0',
+                      upload.status === 'reviewed' && 'bg-status-complete/10',
+                      upload.status === 'needs_attention' && 'bg-destructive/10',
+                      upload.status === 'pending_review' && 'bg-info/10',
+                    )}>
+                      <FileText className={cn(
+                        'h-4 w-4',
+                        upload.status === 'reviewed' && 'text-status-complete',
+                        upload.status === 'needs_attention' && 'text-destructive',
+                        upload.status === 'pending_review' && 'text-info',
+                      )} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{upload.file_name ?? 'Document'}</p>
+                      {/* Top row: name + status badge + view */}
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{upload.file_name ?? 'Document'}</p>
                           <p className="text-xs text-muted-foreground capitalize">
                             {upload.category.replace(/_/g, ' ')} · {new Date(upload.uploaded_at).toLocaleDateString()}
                           </p>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           <UploadStatusBadge status={upload.status} />
                           {upload.file_url && (
                             <a href={upload.file_url} target="_blank" rel="noopener noreferrer">
-                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0"><Eye className="h-3.5 w-3.5" /></Button>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
                             </a>
                           )}
                         </div>
                       </div>
-                      {/* Status changer */}
-                      <div className="mt-2">
-                        <Select value={upload.status} onValueChange={val => updateUploadStatus(upload.id, val as 'pending_review' | 'reviewed' | 'needs_attention')}>
-                          <SelectTrigger className="h-7 text-xs w-44">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending_review">Pending Review</SelectItem>
-                            <SelectItem value="reviewed">Reviewed</SelectItem>
-                            <SelectItem value="needs_attention">Needs Attention</SelectItem>
-                          </SelectContent>
-                        </Select>
+
+                      {/* Inline action buttons */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {upload.status !== 'reviewed' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 gap-1.5 text-xs border-status-complete/50 text-status-complete hover:bg-status-complete/10 hover:text-status-complete hover:border-status-complete"
+                            onClick={() => updateUploadStatus(upload.id, 'reviewed')}
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Mark Reviewed
+                          </Button>
+                        )}
+                        {upload.status !== 'needs_attention' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 gap-1.5 text-xs border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
+                            onClick={() => updateUploadStatus(upload.id, 'needs_attention')}
+                          >
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                            Needs Attention
+                          </Button>
+                        )}
+                        {upload.status !== 'pending_review' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => updateUploadStatus(upload.id, 'pending_review')}
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                            Reset
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
