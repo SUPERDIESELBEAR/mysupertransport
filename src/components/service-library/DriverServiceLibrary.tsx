@@ -566,12 +566,26 @@ function ResourceCard({ resource, service, onClick }: { resource: ServiceResourc
     ? differenceInDays(new Date(), parseISO(resource.last_verified_at)) > 90
     : false;
 
+  const isTutorialVideo = resource.resource_type === 'Tutorial Video';
+  const ytId = isTutorialVideo && resource.url ? getYouTubeVideoId(resource.url) : null;
+  const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null;
+
   return (
     <button
       onClick={onClick}
-      className="w-full text-left p-3.5 rounded-xl border border-border bg-card hover:border-primary/40 hover:shadow-sm transition-all group"
+      className="w-full text-left rounded-xl border border-border bg-card hover:border-primary/40 hover:shadow-sm transition-all group overflow-hidden"
     >
-      <div className="flex items-start justify-between gap-3">
+      {thumbUrl && (
+        <div className="relative w-full aspect-video bg-muted">
+          <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/20 transition-colors">
+            <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center shadow-md">
+              <svg className="w-4 h-4 text-foreground fill-current ml-0.5" viewBox="0 0 8 10"><path d="M0 0l8 5-8 5V0z" /></svg>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className={`flex items-start justify-between gap-3 ${thumbUrl ? 'p-3' : 'p-3.5'}`}>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <ResourceTypeBadge type={resource.resource_type} />
