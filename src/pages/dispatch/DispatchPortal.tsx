@@ -118,7 +118,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
     onNavigate: (link) => navigate(link),
   });
   const [prefOpen, setPrefOpen] = useState(false);
-  const [activePage, setActivePage] = useState<'dispatch' | 'dispatch-messages' | 'dispatch-notifications'>('dispatch');
+  const [activePage, setActivePage] = useState<'dispatch' | 'dispatch-messages' | 'dispatch-notifications' | 'dispatch-drivers'>('dispatch');
   const [rows, setRows] = useState<DispatchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
