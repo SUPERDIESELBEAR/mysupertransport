@@ -24,13 +24,14 @@ interface DriverRow {
 }
 
 export type DispatchFilter = 'all' | 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
-export type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed';
+export type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed' | 'not_yet_reminded';
 
 export interface ComplianceCounts {
   expired: number;
   critical: number;
   warning: number;
   neverRenewed: number;
+  notYetReminded: number;
 }
 
 export function isNeverRenewed(cdl: string | null, med: string | null): boolean {
@@ -312,16 +313,17 @@ export default function DriverRoster({
 
   // Compliance tier counts (over all drivers, before any filter)
   const complianceCounts = useMemo(() => {
-    let expired = 0, critical = 0, warning = 0, neverRenewed = 0;
+    let expired = 0, critical = 0, warning = 0, neverRenewed = 0, notYetReminded = 0;
     for (const d of drivers) {
       if (isNeverRenewed(d.cdl_expiration, d.medical_cert_expiration)) neverRenewed++;
       const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
       if (tier === 'expired') expired++;
       else if (tier === 'critical') critical++;
       else if (tier === 'warning') warning++;
+      if (!lastReminderMap[d.operator_id]) notYetReminded++;
     }
-    return { expired, critical, warning, neverRenewed };
-  }, [drivers]);
+    return { expired, critical, warning, neverRenewed, notYetReminded };
+  }, [drivers, lastReminderMap]);
 
   // Notify parent when counts change (e.g. after data fetch)
   useEffect(() => {
@@ -337,12 +339,14 @@ export default function DriverRoster({
         (d.phone ?? '').includes(q);
       const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
       const never = isNeverRenewed(d.cdl_expiration, d.medical_cert_expiration);
+      const notYetReminded = !lastReminderMap[d.operator_id];
       const matchesCompliance =
         complianceFilter === 'all' ||
         (complianceFilter === 'expired' && tier === 'expired') ||
         (complianceFilter === 'critical' && (tier === 'expired' || tier === 'critical')) ||
         (complianceFilter === 'warning' && (tier === 'expired' || tier === 'critical' || tier === 'warning')) ||
-        (complianceFilter === 'never_renewed' && never);
+        (complianceFilter === 'never_renewed' && never) ||
+        (complianceFilter === 'not_yet_reminded' && notYetReminded);
       return matchesStatus && matchesSearch && matchesCompliance;
     });
 
@@ -355,7 +359,7 @@ export default function DriverRoster({
       });
     }
     return base;
-  }, [drivers, search, statusFilter, complianceFilter]);
+  }, [drivers, search, statusFilter, complianceFilter, lastReminderMap]);
 
   const allFilteredSelected = filtered.length > 0 && filtered.every(d => selected.has(d.operator_id));
   const someFilteredSelected = filtered.some(d => selected.has(d.operator_id));
@@ -500,6 +504,21 @@ export default function DriverRoster({
               <span className="font-semibold">{complianceCounts.neverRenewed}</span>
             </button>
           )}
+
+          {complianceCounts.notYetReminded > 0 && (
+            <button
+              onClick={() => setComplianceFilter(complianceFilter === 'not_yet_reminded' ? 'all' : 'not_yet_reminded')}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                complianceFilter === 'not_yet_reminded'
+                  ? 'bg-primary/15 border-primary/40 text-primary'
+                  : 'border-primary/25 text-primary/70 hover:bg-primary/10 hover:border-primary/40 hover:text-primary'
+              }`}
+            >
+              <Bell className="h-3 w-3" />
+              Not Yet Reminded
+              <span className="font-semibold">{complianceCounts.notYetReminded}</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -526,9 +545,11 @@ export default function DriverRoster({
             {drivers.length === 0
               ? 'Fully onboarded operators will appear here automatically.'
               : complianceFilter === 'never_renewed'
-              ? 'No drivers are missing CDL or Med Cert expiry dates.'
-              : complianceFilter !== 'all'
-              ? `No drivers match the "${complianceFilter}" compliance filter.`
+                ? 'No drivers are missing CDL or Med Cert expiry dates.'
+                : complianceFilter === 'not_yet_reminded'
+                ? 'All drivers have received at least one reminder.'
+                : complianceFilter !== 'all'
+                ? `No drivers match the "${complianceFilter}" compliance filter.`
               : 'Try adjusting your search or filter.'}
           </p>
         </div>
@@ -596,7 +617,8 @@ export default function DriverRoster({
                 const showUpdateLink = complianceFilter !== 'all' && !!onUpdateCompliance && !dispatchMode;
                 const lastRemindedAt = lastReminderMap[driver.operator_id];
                 // Show the badge only when a compliance filter is active (where it's most actionable)
-                const showReminderBadge = complianceFilter !== 'all' && !dispatchMode;
+                // For not_yet_reminded filter, only show badge if they DO have one (edge case)
+                const showReminderBadge = complianceFilter !== 'all' && !dispatchMode && complianceFilter !== 'not_yet_reminded';
 
                 return (
                   <TableRow

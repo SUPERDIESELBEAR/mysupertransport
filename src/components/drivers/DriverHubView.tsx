@@ -57,6 +57,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
     critical: 0,
     warning: 0,
     neverRenewed: 0,
+    notYetReminded: 0,
   });
 
   // Inline App Review Drawer state (opened via "Update" link on roster rows)
@@ -112,6 +113,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
       if (filter === 'expired') return complianceCounts.expired;
       if (filter === 'critical') return complianceCounts.critical;
       if (filter === 'warning') return complianceCounts.warning;
+      if (filter === 'not_yet_reminded') return complianceCounts.notYetReminded;
       return complianceCounts.neverRenewed;
     };
     const count = n(complianceFilter);
@@ -119,6 +121,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
     if (complianceFilter === 'expired') return { text: `Showing ${count} ${driver} with an expired CDL or Med Cert. Click Update on any row to fix their expiration date.`, variant: 'destructive' as const };
     if (complianceFilter === 'critical') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 7 days. Click Update on any row to fix their expiration date.`, variant: 'destructive' as const };
     if (complianceFilter === 'warning') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 90 days. Click Update on any row to review their documents.`, variant: 'warning' as const };
+    if (complianceFilter === 'not_yet_reminded') return { text: `Showing ${count} ${driver} who have never received a cert reminder. Use the Send Reminders button or individual rows to start their outreach history.`, variant: 'warning' as const };
     return { text: `Showing ${count} ${driver} with no CDL or Med Cert expiration date on file. Click Update on any row to add their dates.`, variant: 'destructive' as const };
   }, [complianceFilter, complianceCounts]);
 
@@ -336,6 +339,27 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
                   <TooltipContent side="bottom" className="text-left space-y-1.5 max-w-[220px]">
                     <p className="font-semibold">Missing Dates</p>
                     <p className="text-muted-foreground">No CDL or Med Cert expiration date on file. Use Update to add them.</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {complianceCounts.notYetReminded > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setComplianceFilter(complianceFilter === 'not_yet_reminded' ? 'all' : 'not_yet_reminded')}
+                      className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                        complianceFilter === 'not_yet_reminded'
+                          ? 'bg-primary/15 border-primary/40 text-primary'
+                          : 'border-primary/25 text-primary/70 hover:bg-primary/10 hover:border-primary/40 hover:text-primary'
+                      }`}
+                    >
+                      <Bell className="h-3 w-3" />
+                      {complianceCounts.notYetReminded} not yet reminded
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-left space-y-1.5 max-w-[220px]">
+                    <p className="font-semibold">Not Yet Reminded</p>
+                    <p className="text-muted-foreground">Drivers who have never received a cert reminder. Send one to start their outreach history.</p>
                   </TooltipContent>
                 </Tooltip>
               )}
