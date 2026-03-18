@@ -173,6 +173,20 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         </div>
       </div>
 
+      {/* Contextual guidance banner — shown when a compliance filter is active */}
+      {!dispatchMode && guidanceBanner && (
+        <div
+          className={`flex items-start gap-2.5 rounded-lg px-3.5 py-2.5 border text-xs animate-fade-in ${
+            guidanceBanner.variant === 'warning'
+              ? 'bg-[hsl(var(--warning)/0.08)] border-[hsl(var(--warning)/0.25)] text-[hsl(var(--warning))]'
+              : 'bg-destructive/8 border-destructive/20 text-destructive/90'
+          }`}
+        >
+          <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 opacity-70" />
+          <span>{guidanceBanner.text}</span>
+        </div>
+      )}
+
       {/* Roster */}
       <DriverRoster
         key={rosterKey}
