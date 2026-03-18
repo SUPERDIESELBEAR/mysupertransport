@@ -71,9 +71,10 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
   error?: boolean;
 }
 
-export function AppTextarea({ error, className, ...props }: TextareaProps) {
+export const AppTextarea = forwardRef<HTMLTextAreaElement, TextareaProps>(({ error, className, ...props }, ref) => {
   return (
     <textarea
+      ref={ref}
       {...props}
       className={cn(
         'w-full px-3 py-2.5 rounded-lg border text-sm bg-white text-foreground transition-colors',
@@ -84,7 +85,8 @@ export function AppTextarea({ error, className, ...props }: TextareaProps) {
       )}
     />
   );
-}
+});
+AppTextarea.displayName = 'AppTextarea';
 
 interface RadioGroupProps {
   name: string;
@@ -94,9 +96,9 @@ interface RadioGroupProps {
   error?: boolean;
 }
 
-export function RadioGroup({ name, value, onChange, options, error }: RadioGroupProps) {
+export const RadioGroup = forwardRef<HTMLDivElement, RadioGroupProps>(({ name, value, onChange, options, error }, ref) => {
   return (
-    <div className="flex flex-wrap gap-3">
+    <div ref={ref} className="flex flex-wrap gap-3">
       {options.map(opt => (
         <label
           key={opt.value}
