@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2 } from 'lucide-react';
 
 interface DriverRow {
   operator_id: string;
@@ -161,9 +162,60 @@ function expiryPill(dateStr: string | null, label: string) {
   );
 }
 
-/** Renders a "Last Sent" badge with send count + history tooltip. */
-function reminderHistoryBadge(entries: ReminderEntry[] | undefined) {
-  if (!entries || entries.length === 0) return null;
+/** Popover badge: shows send history and a "Send Reminder Now" quick-action button. */
+function ReminderHistoryBadge({
+  entries,
+  operatorId,
+  driverName,
+  onSent,
+}: {
+  entries: ReminderEntry[] | undefined;
+  operatorId: string;
+  driverName: string;
+  onSent?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sentOk, setSentOk] = useState(false);
+  const [sendErr, setSendErr] = useState<string | null>(null);
+
+  const handleSend = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSending(true);
+    setSentOk(false);
+    setSendErr(null);
+    const { error } = await supabase.functions.invoke('send-cert-reminder', {
+      body: { operator_id: operatorId },
+    });
+    setSending(false);
+    if (error) {
+      setSendErr('Send failed — check connection');
+    } else {
+      setSentOk(true);
+      onSent?.();
+      setTimeout(() => { setOpen(false); setSentOk(false); }, 1400);
+    }
+  };
+
+  if (!entries || entries.length === 0) {
+    // No history — show a plain "Never" that still opens the send popover
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            className="text-xs text-muted-foreground/60 italic hover:text-primary hover:not-italic transition-colors px-1 py-0.5 rounded hover:bg-primary/8"
+            onClick={e => e.stopPropagation()}
+            title="Send a reminder"
+          >
+            Never
+          </button>
+        </PopoverTrigger>
+        <PopoverContent side="left" align="center" className="w-64 p-0 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <QuickSendPanel driverName={driverName} sending={sending} sentOk={sentOk} sendErr={sendErr} onSend={handleSend} />
+        </PopoverContent>
+      </Popover>
+    );
+  }
 
   const latest = entries[0];
   const days = differenceInDays(startOfDay(new Date()), startOfDay(parseISO(latest.sent_at)));
@@ -172,80 +224,114 @@ function reminderHistoryBadge(entries: ReminderEntry[] | undefined) {
   const count = entries.length;
 
   return (
-    <TooltipProvider delayDuration={100}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            className={`inline-flex items-center gap-1 text-xs font-medium rounded px-1.5 py-0.5 border cursor-default select-none ${
-              isRecent
-                ? 'text-primary bg-primary/10 border-primary/25'
-                : 'text-muted-foreground bg-muted border-border'
-            }`}
-            onClick={e => e.stopPropagation()}
-          >
-            <Bell className="h-2.5 w-2.5 shrink-0" />
-            {dateLabel}
-            {count > 1 && (
-              <span className={`ml-0.5 rounded-full px-1 py-px text-[10px] font-semibold leading-none ${
-                isRecent ? 'bg-primary/20 text-primary' : 'bg-muted-foreground/20 text-muted-foreground'
-              }`}>
-                ×{count}
-              </span>
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="p-0 overflow-hidden max-w-[260px]" sideOffset={6}>
-          {/* Header */}
-          <div className="flex items-center gap-1.5 px-3 py-2 bg-muted/60 border-b border-border">
-            <History className="h-3 w-3 text-muted-foreground shrink-0" />
-            <span className="text-xs font-semibold text-foreground">
-              Reminder History ({count} sent)
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className={`inline-flex items-center gap-1 text-xs font-medium rounded px-1.5 py-0.5 border transition-colors ${
+            isRecent
+              ? 'text-primary bg-primary/10 border-primary/25 hover:bg-primary/15'
+              : 'text-muted-foreground bg-muted border-border hover:bg-muted/80 hover:text-foreground'
+          }`}
+          onClick={e => e.stopPropagation()}
+          title="View history & send reminder"
+        >
+          <Bell className="h-2.5 w-2.5 shrink-0" />
+          {dateLabel}
+          {count > 1 && (
+            <span className={`ml-0.5 rounded-full px-1 py-px text-[10px] font-semibold leading-none ${
+              isRecent ? 'bg-primary/20 text-primary' : 'bg-muted-foreground/20 text-muted-foreground'
+            }`}>
+              ×{count}
             </span>
-          </div>
-          {/* History rows — show up to 5 */}
-          <div className="divide-y divide-border/50">
-            {entries.slice(0, 5).map((r, i) => {
-              const entryDays = differenceInDays(startOfDay(new Date()), startOfDay(parseISO(r.sent_at)));
-              const entryLabel = entryDays === 0 ? 'Today' : entryDays === 1 ? '1d ago' : `${entryDays}d ago`;
-              return (
-                <div key={i} className="flex items-start gap-2 px-3 py-1.5">
-                  {/* Delivery icon */}
-                  <div className="mt-0.5 shrink-0">
-                    {r.email_sent
-                      ? <CheckCircle2 className="h-3 w-3 text-status-complete" />
-                      : <XCircle className="h-3 w-3 text-destructive" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-xs font-medium text-foreground">{r.doc_type}</span>
-                      <span className="text-[10px] text-muted-foreground">{entryLabel}</span>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground truncate">
-                      {format(parseISO(r.sent_at), 'MMM d, yyyy · h:mm a')}
-                    </div>
-                    {r.sent_by_name && (
-                      <div className="text-[10px] text-muted-foreground/80 truncate">
-                        by {r.sent_by_name}
-                      </div>
-                    )}
-                    {!r.email_sent && r.email_error && (
-                      <div className="text-[10px] text-destructive truncate" title={r.email_error}>
-                        ✗ {r.email_error}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          {count > 5 && (
-            <div className="px-3 py-1.5 text-[10px] text-muted-foreground bg-muted/30 border-t border-border">
-              + {count - 5} more · open driver profile for full history
-            </div>
           )}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="left" align="center" className="w-72 p-0 overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* History section */}
+        <div className="flex items-center gap-1.5 px-3 py-2 bg-muted/50 border-b border-border">
+          <History className="h-3 w-3 text-muted-foreground shrink-0" />
+          <span className="text-xs font-semibold text-foreground">
+            Reminder History ({count} sent)
+          </span>
+        </div>
+        <div className="divide-y divide-border/50 max-h-48 overflow-y-auto">
+          {entries.slice(0, 5).map((r, i) => {
+            const entryDays = differenceInDays(startOfDay(new Date()), startOfDay(parseISO(r.sent_at)));
+            const entryLabel = entryDays === 0 ? 'Today' : entryDays === 1 ? '1d ago' : `${entryDays}d ago`;
+            return (
+              <div key={i} className="flex items-start gap-2 px-3 py-1.5">
+                <div className="mt-0.5 shrink-0">
+                  {r.email_sent
+                    ? <CheckCircle2 className="h-3 w-3 text-[hsl(var(--status-complete))]" />
+                    : <XCircle className="h-3 w-3 text-destructive" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-medium text-foreground">{r.doc_type}</span>
+                    <span className="text-[10px] text-muted-foreground">{entryLabel}</span>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground truncate">
+                    {format(parseISO(r.sent_at), 'MMM d, yyyy · h:mm a')}
+                  </div>
+                  {r.sent_by_name && (
+                    <div className="text-[10px] text-muted-foreground/80 truncate">by {r.sent_by_name}</div>
+                  )}
+                  {!r.email_sent && r.email_error && (
+                    <div className="text-[10px] text-destructive truncate" title={r.email_error}>✗ {r.email_error}</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {count > 5 && (
+          <div className="px-3 py-1 text-[10px] text-muted-foreground bg-muted/30 border-t border-border">
+            + {count - 5} more · open driver profile for full history
+          </div>
+        )}
+        {/* Send action */}
+        <QuickSendPanel driverName={driverName} sending={sending} sentOk={sentOk} sendErr={sendErr} onSend={handleSend} />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function QuickSendPanel({
+  driverName,
+  sending,
+  sentOk,
+  sendErr,
+  onSend,
+}: {
+  driverName: string;
+  sending: boolean;
+  sentOk: boolean;
+  sendErr: string | null;
+  onSend: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <div className="px-3 py-2.5 border-t border-border bg-background">
+      <p className="text-[11px] text-muted-foreground mb-2 leading-snug">
+        Send a compliance reminder email to <span className="font-medium text-foreground">{driverName}</span>.
+      </p>
+      {sendErr && (
+        <p className="text-[11px] text-destructive mb-2">{sendErr}</p>
+      )}
+      <Button
+        size="sm"
+        className="w-full h-7 text-xs gap-1.5"
+        disabled={sending || sentOk}
+        onClick={onSend}
+      >
+        {sending ? (
+          <><Loader2 className="h-3 w-3 animate-spin" />Sending…</>
+        ) : sentOk ? (
+          <><CheckCircle2 className="h-3 w-3" />Sent!</>
+        ) : (
+          <><Send className="h-3 w-3" />Send Reminder Now</>
+        )}
+      </Button>
+    </div>
   );
 }
 
@@ -784,7 +870,12 @@ export default function DriverRoster({
                           {/* Show reminder badge inline inside compliance col below xl (where Last Sent col is hidden) */}
                           {showReminderBadge && (
                             <span className="xl:hidden">
-                              {reminderHistoryBadge(reminderHistory)}
+                              <ReminderHistoryBadge
+                                entries={reminderHistory}
+                                operatorId={driver.operator_id}
+                                driverName={name}
+                                onSent={() => fetchDrivers(true)}
+                              />
                             </span>
                           )}
                         </div>
@@ -794,11 +885,12 @@ export default function DriverRoster({
                     {/* Last Sent dedicated column — visible at xl when compliance filter is active */}
                     {showLastSentCol && (
                       <TableCell className="hidden xl:table-cell" onClick={e => e.stopPropagation()}>
-                        {reminderHistory
-                          ? reminderHistoryBadge(reminderHistory)
-                          : (
-                            <span className="text-xs text-muted-foreground/50 italic">Never</span>
-                          )}
+                        <ReminderHistoryBadge
+                          entries={reminderHistory}
+                          operatorId={driver.operator_id}
+                          driverName={name}
+                          onSent={() => fetchDrivers(true)}
+                        />
                       </TableCell>
                     )}
 
@@ -808,7 +900,12 @@ export default function DriverRoster({
                         {/* On small screens where both compliance + last-sent cols are hidden, show badge inline */}
                         {showReminderBadge && (
                           <span className="lg:hidden">
-                            {reminderHistoryBadge(reminderHistory)}
+                            <ReminderHistoryBadge
+                              entries={reminderHistory}
+                              operatorId={driver.operator_id}
+                              driverName={name}
+                              onSent={() => fetchDrivers(true)}
+                            />
                           </span>
                         )}
                         {showUpdateLink && (
