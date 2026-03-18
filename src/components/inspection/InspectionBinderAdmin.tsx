@@ -15,6 +15,9 @@ import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -26,6 +29,12 @@ import {
   COMPANY_WIDE_DOCS, PER_DRIVER_DOCS,
 } from './InspectionBinderTypes';
 import { ExpiryBadge } from './DocRow';
+
+/** Returns true if a reminder was sent within the last 24 hours */
+function isOnCooldown(sentAt: string | undefined): boolean {
+  if (!sentAt) return false;
+  return Date.now() - new Date(sentAt).getTime() < 24 * 60 * 60 * 1000;
+}
 
 interface ReminderRecord {
   doc_type: string;
