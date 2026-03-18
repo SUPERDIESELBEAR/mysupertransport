@@ -24,7 +24,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [rosterKey, setRosterKey] = useState(0);
   const [selectedOperatorIds, setSelectedOperatorIds] = useState<string[]>([]);
-  const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>('all');
+  const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>(defaultComplianceFilter ?? 'all');
   const [complianceCounts, setComplianceCounts] = useState<ComplianceCounts>({
     expired: 0,
     critical: 0,
