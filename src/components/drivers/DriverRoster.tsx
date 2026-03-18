@@ -607,6 +607,24 @@ export default function DriverRoster({
                     {/* Actions */}
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                        {showUpdateLink && (
+                          <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  className="inline-flex items-center gap-1 text-xs font-medium text-primary/80 hover:text-primary underline-offset-2 hover:underline transition-colors px-1.5 py-1 rounded hover:bg-primary/8"
+                                  onClick={() => onUpdateCompliance!(driver.operator_id, updateFocusField)}
+                                >
+                                  <Pencil className="h-3 w-3 shrink-0" />
+                                  Update
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="left">
+                                Update {updateFocusField === 'cdl' ? 'CDL' : 'Med Cert'} expiration
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                         {onMessageDriver && (
                           <Button
                             size="sm"
