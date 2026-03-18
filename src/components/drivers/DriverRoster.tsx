@@ -120,6 +120,7 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<DispatchFilter>('all');
+  const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const fetchDrivers = useCallback(async (silent = false) => {
