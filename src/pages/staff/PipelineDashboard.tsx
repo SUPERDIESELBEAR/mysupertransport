@@ -153,6 +153,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [noActionBulkSending, setNoActionBulkSending] = useState(false);
   const [noActionBulkSentCount, setNoActionBulkSentCount] = useState<number | null>(null);
   const [showNoActionBulkConfirm, setShowNoActionBulkConfirm] = useState(false);
+  const { isCoolingDown: bulkCooldown, minutesLeft: bulkCooldownMinutes, startCooldown: startBulkCooldown } = useBulkReminderCooldown();
+  const { isCoolingDown: noActionCooldown, minutesLeft: noActionCooldownMinutes, startCooldown: startNoActionCooldown } = useBulkReminderCooldown();
   // Resend invite state: key = operator id
   const [resendingSending, setResendingSending] = useState<Record<string, boolean>>({});
   const [resendSent, setResendSent] = useState<Record<string, boolean>>({});
