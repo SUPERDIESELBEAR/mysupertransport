@@ -88,6 +88,9 @@ export default function StaffPortal() {
   useEffect(() => {
     if (currentView === 'messages') setUnreadCount(0);
     if (currentView === 'notifications') setUnreadNotifCount(0);
+    // Re-fetch driver alerts when leaving the drivers tab (so count stays accurate)
+    // Clear immediately on entry so the badge disappears while viewing
+    if (currentView === 'drivers') setDriverAlertCount(0);
   }, [currentView]);
 
   // Keep viewRef in sync for realtime callbacks
