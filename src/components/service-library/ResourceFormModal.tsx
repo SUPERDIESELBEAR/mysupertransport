@@ -158,6 +158,25 @@ export default function ResourceFormModal({ resource, serviceId, onClose, onSave
             </div>
           )}
 
+          {/* Thumbnail URL — useful for Vimeo or any custom image */}
+          <div className="space-y-1.5">
+            <Label htmlFor="thumbnail_url">
+              Thumbnail URL
+              <span className="ml-1.5 text-xs font-normal text-muted-foreground">(optional — Vimeo, custom image, etc.)</span>
+            </Label>
+            <Input
+              id="thumbnail_url"
+              value={form.thumbnail_url}
+              onChange={set('thumbnail_url')}
+              placeholder="https://… (overrides auto-fetched YouTube thumbnail)"
+            />
+            {form.thumbnail_url && (
+              <div className="mt-1.5 rounded-lg overflow-hidden border border-border w-24 h-16">
+                <img src={form.thumbnail_url} alt="Thumbnail preview" className="w-full h-full object-cover" />
+              </div>
+            )}
+          </div>
+
           {showBody && (
             <div className="space-y-1.5">
               <Label>
