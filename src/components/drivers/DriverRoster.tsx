@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil } from 'lucide-react';
+import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell } from 'lucide-react';
 
 interface DriverRow {
   operator_id: string;
@@ -152,6 +152,33 @@ function expiryPill(dateStr: string | null, label: string) {
   );
 }
 
+/** Renders a subtle "Reminded Xd ago" badge for the last cert reminder sent. */
+function lastReminderBadge(sentAt: string | undefined) {
+  if (!sentAt) return null;
+  const days = differenceInDays(startOfDay(new Date()), startOfDay(parseISO(sentAt)));
+  const label = days === 0 ? 'Today' : days === 1 ? '1d ago' : `${days}d ago`;
+  const isRecent = days <= 7;
+  return (
+    <TooltipProvider delayDuration={100}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={`inline-flex items-center gap-1 text-xs font-medium rounded px-1.5 py-0.5 border ${
+            isRecent
+              ? 'text-primary bg-primary/10 border-primary/25'
+              : 'text-muted-foreground bg-muted border-border'
+          }`}>
+            <Bell className="h-2.5 w-2.5 shrink-0" />
+            {label}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          Last reminder sent {format(parseISO(sentAt), 'MMM d, yyyy')}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 export default function DriverRoster({
   onOpenDriver,
   onMessageDriver,
@@ -169,6 +196,8 @@ export default function DriverRoster({
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<DispatchFilter>('all');
   const [internalComplianceFilter, setInternalComplianceFilter] = useState<ComplianceFilter>('all');
+  // Map of operator_id → most recent cert_reminders sent_at (ISO string)
+  const [lastReminderMap, setLastReminderMap] = useState<Record<string, string>>({});
   const complianceFilter = externalComplianceFilter ?? internalComplianceFilter;
   const setComplianceFilter = (f: ComplianceFilter) => {
     setInternalComplianceFilter(f);
@@ -180,17 +209,30 @@ export default function DriverRoster({
     if (!silent) setLoading(true);
     else setRefreshing(true);
 
-    const { data } = await supabase
-      .from('operators')
-      .select(`
-        id,
-        user_id,
-        unit_number,
-        onboarding_status!inner (fully_onboarded, unit_number),
-        active_dispatch (dispatch_status),
-        applications (first_name, last_name, phone, address_state, cdl_expiration, medical_cert_expiration)
-      `)
-      .eq('onboarding_status.fully_onboarded', true);
+    const [{ data }, { data: reminders }] = await Promise.all([
+      supabase
+        .from('operators')
+        .select(`
+          id,
+          user_id,
+          unit_number,
+          onboarding_status!inner (fully_onboarded, unit_number),
+          active_dispatch (dispatch_status),
+          applications (first_name, last_name, phone, address_state, cdl_expiration, medical_cert_expiration)
+        `)
+        .eq('onboarding_status.fully_onboarded', true),
+      supabase
+        .from('cert_reminders')
+        .select('operator_id, sent_at')
+        .order('sent_at', { ascending: false }),
+    ]);
+
+    // Build latest-reminder-per-operator map
+    const reminderMap: Record<string, string> = {};
+    for (const r of (reminders ?? []) as Array<{ operator_id: string; sent_at: string }>) {
+      if (!reminderMap[r.operator_id]) reminderMap[r.operator_id] = r.sent_at;
+    }
+    setLastReminderMap(reminderMap);
 
     if (data) {
       const getOne = (val: any) => (Array.isArray(val) ? val[0] : val) ?? null;
@@ -552,6 +594,9 @@ export default function DriverRoster({
 
                 // Show inline Update link only when a compliance filter is active and the handler is provided
                 const showUpdateLink = complianceFilter !== 'all' && !!onUpdateCompliance && !dispatchMode;
+                const lastRemindedAt = lastReminderMap[driver.operator_id];
+                // Show the badge only when a compliance filter is active (where it's most actionable)
+                const showReminderBadge = complianceFilter !== 'all' && !dispatchMode;
 
                 return (
                   <TableRow
@@ -559,63 +604,14 @@ export default function DriverRoster({
                     className={`cursor-pointer hover:bg-muted/30 transition-colors ${rowHighlight} ${isSelected ? 'bg-primary/[0.04]' : ''}`}
                     onClick={() => onOpenDriver(driver.operator_id)}
                   >
-                    {/* Checkbox */}
-                    <TableCell className="pr-0" onClick={e => toggleOne(driver.operator_id, e)}>
-                      <div className="flex items-center justify-center">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => {}}
-                          aria-label={`Select ${name}`}
-                        />
-                      </div>
-                    </TableCell>
-
-                    {/* Unit */}
-                    <TableCell>
-                      <span className="font-mono text-sm font-semibold text-foreground">
-                        {driver.unit_number ?? <span className="text-muted-foreground text-xs">—</span>}
-                      </span>
-                    </TableCell>
-
-                    {/* Driver Name */}
-                    <TableCell>
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-8 w-8 rounded-full bg-surface-dark flex items-center justify-center shrink-0">
-                          <span className="text-xs font-bold text-gold">{initials}</span>
-                        </div>
-                        <span className="font-medium text-sm text-foreground">{name}</span>
-                      </div>
-                    </TableCell>
-
-                    {/* Phone */}
-                    {!dispatchMode && (
-                      <TableCell className="hidden sm:table-cell">
-                        {driver.phone
-                          ? <a href={`tel:${driver.phone}`} className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1" onClick={e => e.stopPropagation()}><Phone className="h-3 w-3" />{driver.phone}</a>
-                          : <span className="text-muted-foreground text-xs">—</span>}
-                      </TableCell>
-                    )}
-
-                    {/* State */}
-                    {!dispatchMode && (
-                      <TableCell className="hidden md:table-cell">
-                        <span className="text-sm text-muted-foreground">{driver.home_state ?? '—'}</span>
-                      </TableCell>
-                    )}
-
-                    {/* Dispatch Status */}
-                    <TableCell>
-                      <Badge className={`text-xs ${statusCfg.badgeClass}`}>
-                        {statusCfg.label}
-                      </Badge>
-                    </TableCell>
-
+...
                     {/* Compliance pills */}
                     {!dispatchMode && (
                       <TableCell className="hidden lg:table-cell">
-                        <div className="flex flex-wrap gap-1" onClick={e => e.stopPropagation()}>
+                        <div className="flex flex-wrap gap-1 items-center" onClick={e => e.stopPropagation()}>
                           {expiryPill(driver.cdl_expiration, 'CDL')}
                           {expiryPill(driver.medical_cert_expiration, 'Med Cert')}
+                          {showReminderBadge && lastReminderBadge(lastRemindedAt)}
                         </div>
                       </TableCell>
                     )}
@@ -623,6 +619,12 @@ export default function DriverRoster({
                     {/* Actions */}
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                        {/* On small screens where the compliance col is hidden, show reminder badge inline here */}
+                        {showReminderBadge && (
+                          <span className="lg:hidden">
+                            {lastReminderBadge(lastRemindedAt)}
+                          </span>
+                        )}
                         {showUpdateLink && (
                           <TooltipProvider delayDuration={100}>
                             <Tooltip>
