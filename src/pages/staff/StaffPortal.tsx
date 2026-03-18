@@ -232,21 +232,27 @@ export default function StaffPortal() {
           application_id,
           unit_number,
           applications(first_name, last_name),
-          onboarding_status(unit_number)
+          onboarding_status(unit_number, fully_onboarded)
         )
       `)
       .eq('dispatch_status', 'truck_down');
 
     if (!data) return;
 
-    const ops = data.map((row: any) => {
-      const op = row.operators;
-      const app = op?.applications;
-      const osUnit = op?.onboarding_status?.[0]?.unit_number ?? op?.onboarding_status?.unit_number;
-      const unit = osUnit ?? op?.unit_number ?? '—';
-      const name = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown';
-      return { name, unit };
-    });
+    const ops = data
+      .filter((row: any) => {
+        const os = row.operators?.onboarding_status;
+        const status = Array.isArray(os) ? os[0] : os;
+        return status?.fully_onboarded === true;
+      })
+      .map((row: any) => {
+        const op = row.operators;
+        const app = op?.applications;
+        const osUnit = op?.onboarding_status?.[0]?.unit_number ?? op?.onboarding_status?.unit_number;
+        const unit = osUnit ?? op?.unit_number ?? '—';
+        const name = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown';
+        return { name, unit };
+      });
     setTruckDownOperators(ops);
   }, []);
 
