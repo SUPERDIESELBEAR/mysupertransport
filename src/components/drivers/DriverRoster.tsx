@@ -313,16 +313,17 @@ export default function DriverRoster({
 
   // Compliance tier counts (over all drivers, before any filter)
   const complianceCounts = useMemo(() => {
-    let expired = 0, critical = 0, warning = 0, neverRenewed = 0;
+    let expired = 0, critical = 0, warning = 0, neverRenewed = 0, notYetReminded = 0;
     for (const d of drivers) {
       if (isNeverRenewed(d.cdl_expiration, d.medical_cert_expiration)) neverRenewed++;
       const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
       if (tier === 'expired') expired++;
       else if (tier === 'critical') critical++;
       else if (tier === 'warning') warning++;
+      if (!lastReminderMap[d.operator_id]) notYetReminded++;
     }
-    return { expired, critical, warning, neverRenewed };
-  }, [drivers]);
+    return { expired, critical, warning, neverRenewed, notYetReminded };
+  }, [drivers, lastReminderMap]);
 
   // Notify parent when counts change (e.g. after data fetch)
   useEffect(() => {
