@@ -95,7 +95,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
         const inFilter =
           (complianceFilter === 'expired' && days < 0) ||
-          (complianceFilter === 'critical' && days <= 7);
+          (complianceFilter === 'critical' && days >= 0 && days <= 7);
         if (inFilter) { seen.add(d.operator_id); count++; }
       };
       check(d.cdl_expiration);
@@ -150,8 +150,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
         const inFilter =
           (complianceFilter === 'expired' && days < 0) ||
-          (complianceFilter === 'critical' && days < 0) ||
-          (complianceFilter === 'critical' && days <= 7);
+          (complianceFilter === 'critical' && days >= 0 && days <= 7);
         if (inFilter) {
           targets.push({ operator_id: d.operator_id, name, doc_type: label, days_until: days, expiration_date: dateStr });
         }
