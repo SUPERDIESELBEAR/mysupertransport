@@ -678,18 +678,41 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     <p className="text-xs text-muted-foreground">
                       These documents are specific to this driver's binder.
                     </p>
-                    {missingOrExpiredDriverDocs.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 gap-1.5 text-xs border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold shrink-0"
-                        disabled={sendingReminder === 'all'}
-                        onClick={() => setReminderDialogDoc('all')}
-                      >
-                        {sendingReminder === 'all' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
-                        Remind All ({missingOrExpiredDriverDocs.length})
-                      </Button>
-                    )}
+                    {missingOrExpiredDriverDocs.length > 0 && (() => {
+                      const allOnCooldown = missingOrExpiredDriverDocs.every(
+                        d => isOnCooldown(lastReminders[d.key]?.sent_at)
+                      );
+                      return (
+                        <TooltipProvider delayDuration={200}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className={allOnCooldown ? 'cursor-not-allowed' : undefined}>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className={cn(
+                                    'h-7 gap-1.5 text-xs shrink-0',
+                                    allOnCooldown
+                                      ? 'border-border text-muted-foreground opacity-50 pointer-events-none'
+                                      : 'border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold',
+                                  )}
+                                  disabled={sendingReminder === 'all' || allOnCooldown}
+                                  onClick={allOnCooldown ? undefined : () => setReminderDialogDoc('all')}
+                                >
+                                  {sendingReminder === 'all' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
+                                  Remind All ({missingOrExpiredDriverDocs.length})
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            {allOnCooldown && (
+                              <TooltipContent side="top" className="text-xs">
+                                Reminder sent today
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    })()}
                   </div>
                   {PER_DRIVER_DOCS.map(({ key, hasExpiry }) => {
                     const doc = perDriverDocs.find(d => d.name === key);
@@ -698,6 +721,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                       ? Math.ceil((new Date(doc.expires_at).getTime() - Date.now()) / 86400000) < 0
                       : false;
                     const needsReminder = isMissing || isExpired;
+                    const docCooldown = isOnCooldown(lastReminders[key]?.sent_at);
                     return (
                       <AdminDocRow
                         key={key}
@@ -707,6 +731,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                         onRemind={needsReminder ? () => setReminderDialogDoc(key) : undefined}
                         remindLoading={sendingReminder === key}
                         lastReminder={lastReminders[key]}
+                        cooldown={docCooldown}
                       />
                     );
                   })}
