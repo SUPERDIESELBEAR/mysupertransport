@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare } from 'lucide-react';
+import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock } from 'lucide-react';
 
 interface DriverRow {
   operator_id: string;
@@ -24,6 +24,19 @@ interface DriverRow {
 }
 
 type DispatchFilter = 'all' | 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
+type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning';
+
+function getComplianceTier(cdl: string | null, med: string | null): ComplianceFilter {
+  const getDays = (d: string | null) =>
+    d ? differenceInDays(startOfDay(parseISO(d)), startOfDay(new Date())) : null;
+  const days = [getDays(cdl), getDays(med)].filter((d): d is number => d !== null);
+  if (days.length === 0) return 'all';
+  const min = Math.min(...days);
+  if (min < 0) return 'expired';
+  if (min <= 7) return 'critical';
+  if (min <= 30) return 'warning';
+  return 'all';
+}
 
 interface DriverRosterProps {
   onOpenDriver: (operatorId: string) => void;
@@ -107,6 +120,7 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<DispatchFilter>('all');
+  const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const fetchDrivers = useCallback(async (silent = false) => {
@@ -187,13 +201,31 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
     onSelectionChange?.([...selected]);
   }, [selected, onSelectionChange]);
 
+  // Compliance tier counts (over all drivers, before any filter)
+  const complianceCounts = useMemo(() => {
+    let expired = 0, critical = 0, warning = 0;
+    for (const d of drivers) {
+      const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
+      if (tier === 'expired') expired++;
+      else if (tier === 'critical') critical++;
+      else if (tier === 'warning') warning++;
+    }
+    return { expired, critical, warning };
+  }, [drivers]);
+
   const filtered = drivers.filter(d => {
     const matchesStatus = statusFilter === 'all' || d.dispatch_status === statusFilter;
     const q = search.toLowerCase();
     const matchesSearch = !q || `${d.first_name ?? ''} ${d.last_name ?? ''}`.toLowerCase().includes(q) ||
       (d.unit_number ?? '').toLowerCase().includes(q) ||
       (d.phone ?? '').includes(q);
-    return matchesStatus && matchesSearch;
+    const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
+    const matchesCompliance =
+      complianceFilter === 'all' ||
+      (complianceFilter === 'expired' && tier === 'expired') ||
+      (complianceFilter === 'critical' && (tier === 'expired' || tier === 'critical')) ||
+      (complianceFilter === 'warning' && (tier === 'expired' || tier === 'critical' || tier === 'warning'));
+    return matchesStatus && matchesSearch && matchesCompliance;
   });
 
   const allFilteredSelected = filtered.length > 0 && filtered.every(d => selected.has(d.operator_id));
@@ -265,6 +297,68 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
         </Button>
       </div>
 
+      {/* Compliance filter chips */}
+      {!dispatchMode && (complianceCounts.expired + complianceCounts.critical + complianceCounts.warning) > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setComplianceFilter('all')}
+            className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+              complianceFilter === 'all'
+                ? 'bg-muted border-border text-foreground'
+                : 'border-border/50 text-muted-foreground hover:border-border hover:text-foreground'
+            }`}
+          >
+            All Drivers
+            <span className="font-semibold">{drivers.length}</span>
+          </button>
+
+          {complianceCounts.expired > 0 && (
+            <button
+              onClick={() => setComplianceFilter(complianceFilter === 'expired' ? 'all' : 'expired')}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                complianceFilter === 'expired'
+                  ? 'bg-destructive/15 border-destructive/40 text-destructive'
+                  : 'border-destructive/30 text-destructive/80 hover:bg-destructive/10 hover:border-destructive/50'
+              }`}
+            >
+              <AlertCircle className="h-3 w-3" />
+              Expired
+              <span className="font-semibold">{complianceCounts.expired}</span>
+            </button>
+          )}
+
+          {complianceCounts.critical > 0 && (
+            <button
+              onClick={() => setComplianceFilter(complianceFilter === 'critical' ? 'all' : 'critical')}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                complianceFilter === 'critical'
+                  ? 'bg-destructive/15 border-destructive/40 text-destructive'
+                  : 'border-destructive/30 text-destructive/80 hover:bg-destructive/10 hover:border-destructive/50'
+              }`}
+            >
+              <AlertTriangle className="h-3 w-3" />
+              Critical ≤ 7d
+              <span className="font-semibold">{complianceCounts.critical}</span>
+            </button>
+          )}
+
+          {complianceCounts.warning > 0 && (
+            <button
+              onClick={() => setComplianceFilter(complianceFilter === 'warning' ? 'all' : 'warning')}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                complianceFilter === 'warning'
+                  ? 'bg-[hsl(var(--warning))]/15 border-[hsl(var(--warning))]/40 text-[hsl(var(--warning))]'
+                  : 'border-[hsl(var(--warning))]/30 text-[hsl(var(--warning))]/80 hover:bg-[hsl(var(--warning))]/10 hover:border-[hsl(var(--warning))]/50'
+              }`}
+            >
+              <Clock className="h-3 w-3" />
+              Warning ≤ 30d
+              <span className="font-semibold">{complianceCounts.warning}</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Summary counts */}
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
@@ -285,7 +379,11 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
           <Users2 className="h-10 w-10 text-muted-foreground/40 mb-3" />
           <p className="text-sm font-medium text-foreground">No active drivers found</p>
           <p className="text-xs text-muted-foreground mt-1">
-            {drivers.length === 0 ? 'Fully onboarded operators will appear here automatically.' : 'Try adjusting your search or filter.'}
+            {drivers.length === 0
+              ? 'Fully onboarded operators will appear here automatically.'
+              : complianceFilter !== 'all'
+              ? `No drivers match the "${complianceFilter}" compliance filter.`
+              : 'Try adjusting your search or filter.'}
           </p>
         </div>
       ) : (
