@@ -59,7 +59,19 @@ const DISPATCH_STATUS_CONFIG = {
 };
 
 function expiryPill(dateStr: string | null, label: string) {
-  if (!dateStr) return <span className="text-xs text-muted-foreground">—</span>;
+  if (!dateStr) return (
+    <TooltipProvider delayDuration={100}>
+      <Tooltip>
+        <TooltipTrigger>
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted border border-border rounded px-1.5 py-0.5">
+            <FileX className="h-3 w-3 shrink-0" />
+            {label} · No Date
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>No expiration date on file</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
   const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
   const formatted = format(parseISO(dateStr), 'MM/dd/yyyy');
   if (days < 0) {
