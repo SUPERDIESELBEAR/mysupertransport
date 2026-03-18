@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock } from 'lucide-react';
+import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX } from 'lucide-react';
 
 interface DriverRow {
   operator_id: string;
@@ -24,9 +24,13 @@ interface DriverRow {
 }
 
 type DispatchFilter = 'all' | 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
-type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning';
+type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed';
 
-function getComplianceTier(cdl: string | null, med: string | null): ComplianceFilter {
+function isNeverRenewed(cdl: string | null, med: string | null): boolean {
+  return cdl === null || med === null;
+}
+
+function getComplianceTier(cdl: string | null, med: string | null): Exclude<ComplianceFilter, 'never_renewed' | 'all'> | 'all' {
   const getDays = (d: string | null) =>
     d ? differenceInDays(startOfDay(parseISO(d)), startOfDay(new Date())) : null;
   const days = [getDays(cdl), getDays(med)].filter((d): d is number => d !== null);
@@ -203,30 +207,45 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
 
   // Compliance tier counts (over all drivers, before any filter)
   const complianceCounts = useMemo(() => {
-    let expired = 0, critical = 0, warning = 0;
+    let expired = 0, critical = 0, warning = 0, neverRenewed = 0;
     for (const d of drivers) {
+      if (isNeverRenewed(d.cdl_expiration, d.medical_cert_expiration)) neverRenewed++;
       const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
       if (tier === 'expired') expired++;
       else if (tier === 'critical') critical++;
       else if (tier === 'warning') warning++;
     }
-    return { expired, critical, warning };
+    return { expired, critical, warning, neverRenewed };
   }, [drivers]);
 
-  const filtered = drivers.filter(d => {
-    const matchesStatus = statusFilter === 'all' || d.dispatch_status === statusFilter;
-    const q = search.toLowerCase();
-    const matchesSearch = !q || `${d.first_name ?? ''} ${d.last_name ?? ''}`.toLowerCase().includes(q) ||
-      (d.unit_number ?? '').toLowerCase().includes(q) ||
-      (d.phone ?? '').includes(q);
-    const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
-    const matchesCompliance =
-      complianceFilter === 'all' ||
-      (complianceFilter === 'expired' && tier === 'expired') ||
-      (complianceFilter === 'critical' && (tier === 'expired' || tier === 'critical')) ||
-      (complianceFilter === 'warning' && (tier === 'expired' || tier === 'critical' || tier === 'warning'));
-    return matchesStatus && matchesSearch && matchesCompliance;
-  });
+  const filtered = useMemo(() => {
+    const base = drivers.filter(d => {
+      const matchesStatus = statusFilter === 'all' || d.dispatch_status === statusFilter;
+      const q = search.toLowerCase();
+      const matchesSearch = !q || `${d.first_name ?? ''} ${d.last_name ?? ''}`.toLowerCase().includes(q) ||
+        (d.unit_number ?? '').toLowerCase().includes(q) ||
+        (d.phone ?? '').includes(q);
+      const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
+      const never = isNeverRenewed(d.cdl_expiration, d.medical_cert_expiration);
+      const matchesCompliance =
+        complianceFilter === 'all' ||
+        (complianceFilter === 'expired' && tier === 'expired') ||
+        (complianceFilter === 'critical' && (tier === 'expired' || tier === 'critical')) ||
+        (complianceFilter === 'warning' && (tier === 'expired' || tier === 'critical' || tier === 'warning')) ||
+        (complianceFilter === 'never_renewed' && never);
+      return matchesStatus && matchesSearch && matchesCompliance;
+    });
+
+    // When never_renewed filter is active, float never-renewed drivers to the top
+    if (complianceFilter === 'never_renewed') {
+      return [...base].sort((a, b) => {
+        const aNever = isNeverRenewed(a.cdl_expiration, a.medical_cert_expiration) ? 0 : 1;
+        const bNever = isNeverRenewed(b.cdl_expiration, b.medical_cert_expiration) ? 0 : 1;
+        return aNever - bNever;
+      });
+    }
+    return base;
+  }, [drivers, search, statusFilter, complianceFilter]);
 
   const allFilteredSelected = filtered.length > 0 && filtered.every(d => selected.has(d.operator_id));
   const someFilteredSelected = filtered.some(d => selected.has(d.operator_id));
@@ -298,7 +317,7 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
       </div>
 
       {/* Compliance filter chips */}
-      {!dispatchMode && (complianceCounts.expired + complianceCounts.critical + complianceCounts.warning) > 0 && (
+      {!dispatchMode && (complianceCounts.expired + complianceCounts.critical + complianceCounts.warning + complianceCounts.neverRenewed) > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setComplianceFilter('all')}
@@ -356,6 +375,21 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
               <span className="font-semibold">{complianceCounts.warning}</span>
             </button>
           )}
+
+          {complianceCounts.neverRenewed > 0 && (
+            <button
+              onClick={() => setComplianceFilter(complianceFilter === 'never_renewed' ? 'all' : 'never_renewed')}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                complianceFilter === 'never_renewed'
+                  ? 'bg-destructive/15 border-destructive/40 text-destructive'
+                  : 'border-destructive/30 text-destructive/80 hover:bg-destructive/10 hover:border-destructive/50'
+              }`}
+            >
+              <FileX className="h-3 w-3" />
+              Never Renewed
+              <span className="font-semibold">{complianceCounts.neverRenewed}</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -381,6 +415,8 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
           <p className="text-xs text-muted-foreground mt-1">
             {drivers.length === 0
               ? 'Fully onboarded operators will appear here automatically.'
+              : complianceFilter === 'never_renewed'
+              ? 'No drivers are missing CDL or Med Cert expiry dates.'
               : complianceFilter !== 'all'
               ? `No drivers match the "${complianceFilter}" compliance filter.`
               : 'Try adjusting your search or filter.'}
@@ -427,11 +463,14 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
                 const minDays = [cdlDays, medDays]
                   .filter((d): d is number => d !== null)
                   .reduce((a, b) => Math.min(a, b), Infinity);
+                const driverNeverRenewed = isNeverRenewed(driver.cdl_expiration, driver.medical_cert_expiration);
                 const rowHighlight =
                   minDays <= 7
                     ? 'border-l-4 border-l-destructive bg-destructive/[0.03]'
                     : minDays <= 30
                     ? 'border-l-4 border-l-[hsl(var(--status-action))] bg-[hsl(var(--status-action))]/[0.03]'
+                    : driverNeverRenewed && complianceFilter === 'never_renewed'
+                    ? 'border-l-4 border-l-destructive bg-destructive/[0.03]'
                     : '';
 
                 return (
