@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -29,6 +30,8 @@ interface DriverRosterProps {
   onMessageDriver?: (userId: string) => void;
   /** If true, only shows dispatch-relevant columns (for Dispatch Portal) */
   dispatchMode?: boolean;
+  /** Called whenever the selection set changes (operator IDs) */
+  onSelectionChange?: (selectedOperatorIds: string[]) => void;
 }
 
 const DISPATCH_STATUS_CONFIG = {
@@ -98,12 +101,13 @@ function expiryPill(dateStr: string | null, label: string) {
   );
 }
 
-export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMode = false }: DriverRosterProps) {
+export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMode = false, onSelectionChange }: DriverRosterProps) {
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<DispatchFilter>('all');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const fetchDrivers = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -124,7 +128,6 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
     if (data) {
       const getOne = (val: any) => (Array.isArray(val) ? val[0] : val) ?? null;
 
-      // Fetch profiles for name/phone/home_state
       const userIds = (data as any[]).map((op: any) => op.user_id).filter(Boolean);
       const profileMap: Record<string, any> = {};
       if (userIds.length > 0) {
@@ -158,6 +161,12 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
       });
 
       setDrivers(mapped);
+      // Clear selections that no longer exist
+      setSelected(prev => {
+        const validIds = new Set(mapped.map(d => d.operator_id));
+        const next = new Set([...prev].filter(id => validIds.has(id)));
+        return next;
+      });
     }
     setLoading(false);
     setRefreshing(false);
@@ -173,6 +182,11 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
     return () => { supabase.removeChannel(channel); };
   }, [fetchDrivers]);
 
+  // Notify parent on selection changes
+  useEffect(() => {
+    onSelectionChange?.([...selected]);
+  }, [selected, onSelectionChange]);
+
   const filtered = drivers.filter(d => {
     const matchesStatus = statusFilter === 'all' || d.dispatch_status === statusFilter;
     const q = search.toLowerCase();
@@ -181,6 +195,30 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
       (d.phone ?? '').includes(q);
     return matchesStatus && matchesSearch;
   });
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every(d => selected.has(d.operator_id));
+  const someFilteredSelected = filtered.some(d => selected.has(d.operator_id));
+
+  const toggleAll = () => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        filtered.forEach(d => next.delete(d.operator_id));
+      } else {
+        filtered.forEach(d => next.add(d.operator_id));
+      }
+      return next;
+    });
+  };
+
+  const toggleOne = (operatorId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(operatorId) ? next.delete(operatorId) : next.add(operatorId);
+      return next;
+    });
+  };
 
   if (loading) {
     return (
@@ -234,6 +272,11 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
           <strong className="text-foreground">{filtered.length}</strong> driver{filtered.length !== 1 ? 's' : ''}
           {filtered.length !== drivers.length && ` (of ${drivers.length})`}
         </span>
+        {selected.size > 0 && (
+          <span className="flex items-center gap-1.5 text-primary font-medium">
+            · <strong>{selected.size}</strong> selected
+          </span>
+        )}
       </div>
 
       {/* Table */}
@@ -250,6 +293,18 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40">
+                {/* Select All checkbox */}
+                <TableHead className="w-10 pr-0">
+                  <div className="flex items-center justify-center" onClick={e => e.stopPropagation()}>
+                    <Checkbox
+                      checked={allFilteredSelected}
+                      data-state={someFilteredSelected && !allFilteredSelected ? 'indeterminate' : undefined}
+                      onCheckedChange={toggleAll}
+                      aria-label="Select all drivers"
+                      className="data-[state=indeterminate]:opacity-60"
+                    />
+                  </div>
+                </TableHead>
                 <TableHead className="w-20">Unit #</TableHead>
                 <TableHead>Driver</TableHead>
                 {!dispatchMode && <TableHead className="hidden sm:table-cell">Phone</TableHead>}
@@ -264,6 +319,7 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
                 const name = [driver.first_name, driver.last_name].filter(Boolean).join(' ') || 'Unknown Driver';
                 const initials = [driver.first_name?.[0], driver.last_name?.[0]].filter(Boolean).join('').toUpperCase() || '?';
                 const statusCfg = DISPATCH_STATUS_CONFIG[driver.dispatch_status];
+                const isSelected = selected.has(driver.operator_id);
 
                 // Compliance row highlighting
                 const getDaysUntil = (dateStr: string | null) =>
@@ -283,9 +339,20 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
                 return (
                   <TableRow
                     key={driver.operator_id}
-                    className={`cursor-pointer hover:bg-muted/30 transition-colors ${rowHighlight}`}
+                    className={`cursor-pointer hover:bg-muted/30 transition-colors ${rowHighlight} ${isSelected ? 'bg-primary/[0.04]' : ''}`}
                     onClick={() => onOpenDriver(driver.operator_id)}
                   >
+                    {/* Checkbox */}
+                    <TableCell className="pr-0" onClick={e => toggleOne(driver.operator_id, e)}>
+                      <div className="flex items-center justify-center">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => {}}
+                          aria-label={`Select ${name}`}
+                        />
+                      </div>
+                    </TableCell>
+
                     {/* Unit */}
                     <TableCell>
                       <span className="font-mono text-sm font-semibold text-foreground">

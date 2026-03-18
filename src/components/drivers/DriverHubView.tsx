@@ -2,8 +2,9 @@ import { useState } from 'react';
 import DriverRoster from './DriverRoster';
 import AddDriverModal from './AddDriverModal';
 import OperatorDetailPanel from '@/pages/staff/OperatorDetailPanel';
+import BulkMessageModal from '@/components/staff/BulkMessageModal';
 import { Button } from '@/components/ui/button';
-import { Users2, UserPlus, ArrowLeft } from 'lucide-react';
+import { Users2, UserPlus, MessageSquare } from 'lucide-react';
 
 interface DriverHubViewProps {
   /** If true, show the "Add Driver" button (management only) */
@@ -17,7 +18,9 @@ interface DriverHubViewProps {
 export default function DriverHubView({ canAddDriver = false, dispatchMode = false, onMessageDriver }: DriverHubViewProps) {
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [rosterKey, setRosterKey] = useState(0);
+  const [selectedOperatorIds, setSelectedOperatorIds] = useState<string[]>([]);
 
   if (selectedOperatorId) {
     return (
@@ -47,16 +50,32 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
             </div>
           </div>
         </div>
-        {canAddDriver && (
-          <Button
-            onClick={() => setAddModalOpen(true)}
-            className="gap-2 shrink-0"
-            size="sm"
-          >
-            <UserPlus className="h-4 w-4" />
-            Add Driver
-          </Button>
-        )}
+
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Bulk Message button — visible only when drivers are selected */}
+          {selectedOperatorIds.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 animate-fade-in"
+              onClick={() => setBulkModalOpen(true)}
+            >
+              <MessageSquare className="h-4 w-4" />
+              Message {selectedOperatorIds.length} Driver{selectedOperatorIds.length !== 1 ? 's' : ''}
+            </Button>
+          )}
+
+          {canAddDriver && (
+            <Button
+              onClick={() => setAddModalOpen(true)}
+              className="gap-2"
+              size="sm"
+            >
+              <UserPlus className="h-4 w-4" />
+              Add Driver
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Roster */}
@@ -65,6 +84,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         onOpenDriver={setSelectedOperatorId}
         onMessageDriver={onMessageDriver}
         dispatchMode={dispatchMode}
+        onSelectionChange={setSelectedOperatorIds}
       />
 
       {/* Add Driver Modal */}
@@ -72,6 +92,13 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         open={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         onAdded={() => setRosterKey(k => k + 1)}
+      />
+
+      {/* Bulk Message Modal */}
+      <BulkMessageModal
+        open={bulkModalOpen}
+        onClose={() => setBulkModalOpen(false)}
+        preselectedIds={selectedOperatorIds}
       />
     </div>
   );
