@@ -118,17 +118,22 @@ export default function ManagementPortal() {
 
 
   const fetchTruckDownCount = useCallback(async () => {
-    const { count } = await supabase
+    const { data } = await supabase
       .from('active_dispatch')
-      .select('id', { count: 'exact', head: true })
+      .select('operator_id, operators!inner(onboarding_status(fully_onboarded))')
       .eq('dispatch_status', 'truck_down');
-    setTruckDownCount(count ?? 0);
+    const count = (data ?? []).filter((row: any) => {
+      const os = row.operators?.onboarding_status;
+      const status = Array.isArray(os) ? os[0] : os;
+      return status?.fully_onboarded === true;
+    }).length;
+    setTruckDownCount(count);
   }, []);
 
   const fetchDispatchBreakdown = useCallback(async () => {
     const { data } = await supabase
       .from('active_dispatch')
-      .select('dispatch_status, updated_by, updated_at')
+      .select('dispatch_status, updated_by, updated_at, operators!inner(onboarding_status(fully_onboarded))')
       .order('updated_at', { ascending: false });
     if (!data) return;
 
@@ -139,6 +144,11 @@ export default function ManagementPortal() {
     const seenStatus = new Set<string>();
 
     for (const row of data) {
+      // Only count fully-onboarded operators (matches Dispatch Board visibility)
+      const os = (row as any).operators?.onboarding_status;
+      const onboardingStatus = Array.isArray(os) ? os[0] : os;
+      if (!onboardingStatus?.fully_onboarded) continue;
+
       const s = row.dispatch_status as keyof typeof breakdown;
       if (s in breakdown) {
         breakdown[s]++;
