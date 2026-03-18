@@ -339,12 +339,14 @@ export default function DriverRoster({
         (d.phone ?? '').includes(q);
       const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
       const never = isNeverRenewed(d.cdl_expiration, d.medical_cert_expiration);
+      const notYetReminded = !lastReminderMap[d.operator_id];
       const matchesCompliance =
         complianceFilter === 'all' ||
         (complianceFilter === 'expired' && tier === 'expired') ||
         (complianceFilter === 'critical' && (tier === 'expired' || tier === 'critical')) ||
         (complianceFilter === 'warning' && (tier === 'expired' || tier === 'critical' || tier === 'warning')) ||
-        (complianceFilter === 'never_renewed' && never);
+        (complianceFilter === 'never_renewed' && never) ||
+        (complianceFilter === 'not_yet_reminded' && notYetReminded);
       return matchesStatus && matchesSearch && matchesCompliance;
     });
 
@@ -357,7 +359,7 @@ export default function DriverRoster({
       });
     }
     return base;
-  }, [drivers, search, statusFilter, complianceFilter]);
+  }, [drivers, search, statusFilter, complianceFilter, lastReminderMap]);
 
   const allFilteredSelected = filtered.length > 0 && filtered.every(d => selected.has(d.operator_id));
   const someFilteredSelected = filtered.some(d => selected.has(d.operator_id));
