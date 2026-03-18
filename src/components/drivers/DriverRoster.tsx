@@ -594,6 +594,9 @@ export default function DriverRoster({
 
                 // Show inline Update link only when a compliance filter is active and the handler is provided
                 const showUpdateLink = complianceFilter !== 'all' && !!onUpdateCompliance && !dispatchMode;
+                const lastRemindedAt = lastReminderMap[driver.operator_id];
+                // Show the badge only when a compliance filter is active (where it's most actionable)
+                const showReminderBadge = complianceFilter !== 'all' && !dispatchMode;
 
                 return (
                   <TableRow
@@ -601,63 +604,14 @@ export default function DriverRoster({
                     className={`cursor-pointer hover:bg-muted/30 transition-colors ${rowHighlight} ${isSelected ? 'bg-primary/[0.04]' : ''}`}
                     onClick={() => onOpenDriver(driver.operator_id)}
                   >
-                    {/* Checkbox */}
-                    <TableCell className="pr-0" onClick={e => toggleOne(driver.operator_id, e)}>
-                      <div className="flex items-center justify-center">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => {}}
-                          aria-label={`Select ${name}`}
-                        />
-                      </div>
-                    </TableCell>
-
-                    {/* Unit */}
-                    <TableCell>
-                      <span className="font-mono text-sm font-semibold text-foreground">
-                        {driver.unit_number ?? <span className="text-muted-foreground text-xs">—</span>}
-                      </span>
-                    </TableCell>
-
-                    {/* Driver Name */}
-                    <TableCell>
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-8 w-8 rounded-full bg-surface-dark flex items-center justify-center shrink-0">
-                          <span className="text-xs font-bold text-gold">{initials}</span>
-                        </div>
-                        <span className="font-medium text-sm text-foreground">{name}</span>
-                      </div>
-                    </TableCell>
-
-                    {/* Phone */}
-                    {!dispatchMode && (
-                      <TableCell className="hidden sm:table-cell">
-                        {driver.phone
-                          ? <a href={`tel:${driver.phone}`} className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1" onClick={e => e.stopPropagation()}><Phone className="h-3 w-3" />{driver.phone}</a>
-                          : <span className="text-muted-foreground text-xs">—</span>}
-                      </TableCell>
-                    )}
-
-                    {/* State */}
-                    {!dispatchMode && (
-                      <TableCell className="hidden md:table-cell">
-                        <span className="text-sm text-muted-foreground">{driver.home_state ?? '—'}</span>
-                      </TableCell>
-                    )}
-
-                    {/* Dispatch Status */}
-                    <TableCell>
-                      <Badge className={`text-xs ${statusCfg.badgeClass}`}>
-                        {statusCfg.label}
-                      </Badge>
-                    </TableCell>
-
+...
                     {/* Compliance pills */}
                     {!dispatchMode && (
                       <TableCell className="hidden lg:table-cell">
-                        <div className="flex flex-wrap gap-1" onClick={e => e.stopPropagation()}>
+                        <div className="flex flex-wrap gap-1 items-center" onClick={e => e.stopPropagation()}>
                           {expiryPill(driver.cdl_expiration, 'CDL')}
                           {expiryPill(driver.medical_cert_expiration, 'Med Cert')}
+                          {showReminderBadge && lastReminderBadge(lastRemindedAt)}
                         </div>
                       </TableCell>
                     )}
@@ -665,6 +619,12 @@ export default function DriverRoster({
                     {/* Actions */}
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                        {/* On small screens where the compliance col is hidden, show reminder badge inline here */}
+                        {showReminderBadge && (
+                          <span className="lg:hidden">
+                            {lastReminderBadge(lastRemindedAt)}
+                          </span>
+                        )}
                         {showUpdateLink && (
                           <TooltipProvider delayDuration={100}>
                             <Tooltip>
