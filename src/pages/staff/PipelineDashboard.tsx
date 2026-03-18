@@ -1375,11 +1375,15 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               </div>
             </button>
 
-            {/* Bulk send button — only when there are critical (≤30d) alerts */}
+            {/* Bulk send button — filter-aware: targets expired + critical alerts for active doc-type filter */}
             {(() => {
-              const criticalCount = complianceAlerts.filter(a => a.days_until <= 30).length;
-              if (criticalCount === 0) return null;
+              const filteredTargets = complianceAlerts.filter(a => {
+                if (complianceDocFilter !== 'all' && a.doc_type !== complianceDocFilter) return false;
+                return a.days_until <= 30; // expired (<0) and critical (≤30)
+              });
+              if (filteredTargets.length === 0) return null;
               const allSent = bulkSentCount !== null;
+              const docLabel = complianceDocFilter === 'all' ? 'critical' : complianceDocFilter;
               return (
                 <TooltipProvider delayDuration={100}>
                   <Tooltip>
@@ -1400,14 +1404,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         ) : allSent ? (
                           <><CheckCheck className="h-3 w-3" />{bulkSentCount} Sent</>
                         ) : (
-                          <><Send className="h-3 w-3" />Send All ({criticalCount})</>
+                          <><Send className="h-3 w-3" />Send Reminders to All ({filteredTargets.length})</>
                         )}
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs max-w-[220px] text-center">
+                    <TooltipContent side="bottom" className="text-xs max-w-[240px] text-center">
                       {allSent
-                        ? `${bulkSentCount} reminder${bulkSentCount !== 1 ? 's' : ''} sent to critical operators`
-                        : `Send renewal reminder emails to all ${criticalCount} operator${criticalCount !== 1 ? 's' : ''} with critical expiries (≤ 30 days)`}
+                        ? `${bulkSentCount} reminder${bulkSentCount !== 1 ? 's' : ''} sent`
+                        : `Send renewal reminder emails to all ${filteredTargets.length} ${docLabel} operator${filteredTargets.length !== 1 ? 's' : ''} with expired or critical expiries (≤ 30 days)`}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
