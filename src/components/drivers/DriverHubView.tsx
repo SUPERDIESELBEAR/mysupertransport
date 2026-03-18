@@ -83,6 +83,28 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   // Whether the bulk-remind button should appear (only expired/critical filters)
   const showBulkRemindButton = !dispatchMode && (complianceFilter === 'expired' || complianceFilter === 'critical');
 
+  // Live count of remindable targets for the button label (computed from roster snapshot)
+  const bulkReminderCount = useMemo(() => {
+    if (!showBulkRemindButton) return 0;
+    const today = startOfDay(new Date());
+    const seen = new Set<string>();
+    let count = 0;
+    for (const d of allDriversRef.current) {
+      const check = (dateStr: string | null) => {
+        if (!dateStr || seen.has(d.operator_id)) return;
+        const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
+        const inFilter =
+          (complianceFilter === 'expired' && days < 0) ||
+          (complianceFilter === 'critical' && days <= 7);
+        if (inFilter) { seen.add(d.operator_id); count++; }
+      };
+      check(d.cdl_expiration);
+      check(d.medical_cert_expiration);
+    }
+    return count;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showBulkRemindButton, complianceFilter, complianceCounts]);
+
   // Derive contextual guidance text for active filter
   const guidanceBanner = useMemo(() => {
     if (complianceFilter === 'all') return null;
