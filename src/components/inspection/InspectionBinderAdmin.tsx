@@ -384,13 +384,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     fetchDocs();
   };
 
-  const AdminDocRow = ({ docName, scope, hasExpiry, onRemind, remindLoading, lastReminder }: {
+  const AdminDocRow = ({ docName, scope, hasExpiry, onRemind, remindLoading, lastReminder, cooldown }: {
     docName: string;
     scope: 'company_wide' | 'per_driver';
     hasExpiry: boolean;
     onRemind?: () => void;
     remindLoading?: boolean;
     lastReminder?: ReminderRecord;
+    cooldown?: boolean;
   }) => {
     const doc = scope === 'company_wide'
       ? companyDocs.find(d => d.name === docName)
