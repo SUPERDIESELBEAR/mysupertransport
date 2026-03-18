@@ -297,6 +297,68 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
         </Button>
       </div>
 
+      {/* Compliance filter chips */}
+      {!dispatchMode && (complianceCounts.expired + complianceCounts.critical + complianceCounts.warning) > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setComplianceFilter('all')}
+            className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+              complianceFilter === 'all'
+                ? 'bg-muted border-border text-foreground'
+                : 'border-border/50 text-muted-foreground hover:border-border hover:text-foreground'
+            }`}
+          >
+            All Drivers
+            <span className="font-semibold">{drivers.length}</span>
+          </button>
+
+          {complianceCounts.expired > 0 && (
+            <button
+              onClick={() => setComplianceFilter(complianceFilter === 'expired' ? 'all' : 'expired')}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                complianceFilter === 'expired'
+                  ? 'bg-destructive/15 border-destructive/40 text-destructive'
+                  : 'border-destructive/30 text-destructive/80 hover:bg-destructive/10 hover:border-destructive/50'
+              }`}
+            >
+              <AlertCircle className="h-3 w-3" />
+              Expired
+              <span className="font-semibold">{complianceCounts.expired}</span>
+            </button>
+          )}
+
+          {complianceCounts.critical > 0 && (
+            <button
+              onClick={() => setComplianceFilter(complianceFilter === 'critical' ? 'all' : 'critical')}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                complianceFilter === 'critical'
+                  ? 'bg-destructive/15 border-destructive/40 text-destructive'
+                  : 'border-destructive/30 text-destructive/80 hover:bg-destructive/10 hover:border-destructive/50'
+              }`}
+            >
+              <AlertTriangle className="h-3 w-3" />
+              Critical ≤ 7d
+              <span className="font-semibold">{complianceCounts.critical}</span>
+            </button>
+          )}
+
+          {complianceCounts.warning > 0 && (
+            <button
+              onClick={() => setComplianceFilter(complianceFilter === 'warning' ? 'all' : 'warning')}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                complianceFilter === 'warning'
+                  ? 'bg-[hsl(var(--warning))]/15 border-[hsl(var(--warning))]/40 text-[hsl(var(--warning))]'
+                  : 'border-[hsl(var(--warning))]/30 text-[hsl(var(--warning))]/80 hover:bg-[hsl(var(--warning))]/10 hover:border-[hsl(var(--warning))]/50'
+              }`}
+            >
+              <Clock className="h-3 w-3" />
+              Warning ≤ 30d
+              <span className="font-semibold">{complianceCounts.warning}</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Summary counts */}
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
