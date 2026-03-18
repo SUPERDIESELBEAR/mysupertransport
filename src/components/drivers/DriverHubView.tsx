@@ -57,6 +57,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
     critical: 0,
     warning: 0,
     neverRenewed: 0,
+    notYetReminded: 0,
   });
 
   // Inline App Review Drawer state (opened via "Update" link on roster rows)
