@@ -153,8 +153,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [noActionBulkSending, setNoActionBulkSending] = useState(false);
   const [noActionBulkSentCount, setNoActionBulkSentCount] = useState<number | null>(null);
   const [showNoActionBulkConfirm, setShowNoActionBulkConfirm] = useState(false);
-  const { isCoolingDown: bulkCooldown, minutesLeft: bulkCooldownMinutes, lastSentLabel: bulkLastSentLabel, startCooldown: startBulkCooldown } = useBulkReminderCooldown();
-  const { isCoolingDown: noActionCooldown, minutesLeft: noActionCooldownMinutes, lastSentLabel: noActionLastSentLabel, startCooldown: startNoActionCooldown } = useBulkReminderCooldown();
+  const { isCoolingDown: bulkCooldown, minutesLeft: bulkCooldownMinutes, lastSentLabel: bulkLastSentLabel, startCooldown: startBulkCooldown } = useBulkReminderCooldown('bulk-reminder-pipeline-compliance');
+  const { isCoolingDown: noActionCooldown, minutesLeft: noActionCooldownMinutes, lastSentLabel: noActionLastSentLabel, startCooldown: startNoActionCooldown } = useBulkReminderCooldown('bulk-reminder-pipeline-noaction');
   // Resend invite state: key = operator id
   const [resendingSending, setResendingSending] = useState<Record<string, boolean>>({});
   const [resendSent, setResendSent] = useState<Record<string, boolean>>({});

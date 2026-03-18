@@ -71,7 +71,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   const [bulkReminderTargets, setBulkReminderTargets] = useState<BulkReminderTarget[]>([]);
   const [bulkReminderLoading, setBulkReminderLoading] = useState(false);
   const [bulkReminderProgress, setBulkReminderProgress] = useState<{ sent: number; total: number } | null>(null);
-  const { isCoolingDown: bulkCooldown, minutesLeft: bulkCooldownMinutes, lastSentLabel: bulkLastSentLabel, startCooldown: startBulkCooldown } = useBulkReminderCooldown();
+  const { isCoolingDown: bulkCooldown, minutesLeft: bulkCooldownMinutes, lastSentLabel: bulkLastSentLabel, startCooldown: startBulkCooldown } = useBulkReminderCooldown('bulk-reminder-driver-hub');
   // Keep a snapshot of all roster drivers for the bulk reminder lookup
   const allDriversRef = useRef<Array<{
     operator_id: string;
