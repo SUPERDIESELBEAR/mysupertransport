@@ -497,7 +497,7 @@ export default function DriverRoster({
                 {!dispatchMode && <TableHead className="hidden md:table-cell">State</TableHead>}
                 <TableHead>Status</TableHead>
                 {!dispatchMode && <TableHead className="hidden lg:table-cell">Compliance</TableHead>}
-                <TableHead className="w-20 text-right">Action</TableHead>
+                <TableHead className="w-32 text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
