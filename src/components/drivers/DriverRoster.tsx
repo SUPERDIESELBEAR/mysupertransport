@@ -142,13 +142,26 @@ function expiryPill(dateStr: string | null, label: string) {
   );
 }
 
-export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMode = false, onSelectionChange }: DriverRosterProps) {
+export default function DriverRoster({
+  onOpenDriver,
+  onMessageDriver,
+  dispatchMode = false,
+  onSelectionChange,
+  complianceFilter: externalComplianceFilter,
+  onComplianceFilterChange,
+  onComplianceCountsChange,
+}: DriverRosterProps) {
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<DispatchFilter>('all');
-  const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>('all');
+  const [internalComplianceFilter, setInternalComplianceFilter] = useState<ComplianceFilter>('all');
+  const complianceFilter = externalComplianceFilter ?? internalComplianceFilter;
+  const setComplianceFilter = (f: ComplianceFilter) => {
+    setInternalComplianceFilter(f);
+    onComplianceFilterChange?.(f);
+  };
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const fetchDrivers = useCallback(async (silent = false) => {
