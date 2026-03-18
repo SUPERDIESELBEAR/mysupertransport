@@ -666,6 +666,46 @@ export default function ManagementPortal() {
                 );
               })()}
 
+              {/* Active Drivers */}
+              <TooltipProvider delayDuration={150}>
+                <button
+                  onClick={() => setView('drivers')}
+                  className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group bg-white border-border"
+                >
+                  <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg bg-primary/10 flex items-center justify-center mb-2 sm:mb-3">
+                    <Users2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                  </div>
+                  <p className="text-2xl sm:text-3xl font-bold text-foreground">{onboardingStageBreakdown.fully_onboarded}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-tight">Active Drivers</p>
+                  {onboardingStageBreakdown.fully_onboarded > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {([
+                        { key: 'dispatched',     label: 'On Road',   dotClass: 'bg-status-complete' },
+                        { key: 'home',           label: 'Home',      dotClass: 'bg-info' },
+                        { key: 'not_dispatched', label: 'Available', dotClass: 'bg-muted-foreground' },
+                        { key: 'truck_down',     label: 'Down',      dotClass: 'bg-destructive' },
+                      ] as const).map(({ key, label, dotClass }) => {
+                        const count = dispatchBreakdown[key];
+                        if (!count) return null;
+                        return (
+                          <Tooltip key={key}>
+                            <TooltipTrigger asChild>
+                              <span
+                                className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1 py-0.5 rounded bg-secondary border border-border text-foreground leading-none"
+                              >
+                                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotClass}`} />
+                                {count}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="text-xs">{label}: {count}</TooltipContent>
+                          </Tooltip>
+                        );
+                      })}
+                    </div>
+                  )}
+                </button>
+              </TooltipProvider>
+
               {/* Active Dispatch */}
               <button
                 onClick={() => setView('dispatch')}
