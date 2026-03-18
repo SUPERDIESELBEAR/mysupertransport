@@ -684,9 +684,12 @@ export default function ManagementPortal() {
 
               {/* Active Drivers */}
               <TooltipProvider delayDuration={150}>
-                <button
-                  onClick={() => setView('drivers')}
-                  className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left group bg-white border-border"
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => { setDriverComplianceFilter('all'); setView('drivers'); }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setDriverComplianceFilter('all'); setView('drivers'); } }}
+                  className="border rounded-xl p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow text-left cursor-pointer group bg-white border-border"
                 >
                   <div className="h-8 w-8 sm:h-11 sm:w-11 rounded-lg bg-primary/10 flex items-center justify-center mb-2 sm:mb-3">
                     <Users2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
@@ -719,7 +722,76 @@ export default function ManagementPortal() {
                       })}
                     </div>
                   )}
-                </button>
+                  {/* Compliance chips — only show when there are issues */}
+                  {(driverComplianceCounts.expired > 0 || driverComplianceCounts.critical > 0 || driverComplianceCounts.warning > 0 || driverComplianceCounts.neverRenewed > 0) && (
+                    <div className="flex flex-wrap gap-1 mt-2 pt-1.5 border-t border-border/60">
+                      {driverComplianceCounts.expired > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); setDriverComplianceFilter('expired'); setView('drivers'); }}
+                              className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded border leading-none transition-colors"
+                              style={{ background: 'hsl(var(--destructive) / 0.12)', borderColor: 'hsl(var(--destructive) / 0.35)', color: 'hsl(var(--destructive))' }}
+                            >
+                              <AlertCircle className="h-2.5 w-2.5 shrink-0" />
+                              {driverComplianceCounts.expired} exp
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">{driverComplianceCounts.expired} driver{driverComplianceCounts.expired !== 1 ? 's' : ''} with expired CDL or Med Cert</TooltipContent>
+                        </Tooltip>
+                      )}
+                      {driverComplianceCounts.critical > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); setDriverComplianceFilter('critical'); setView('drivers'); }}
+                              className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded border leading-none transition-colors"
+                              style={{ background: 'hsl(var(--destructive) / 0.12)', borderColor: 'hsl(var(--destructive) / 0.35)', color: 'hsl(var(--destructive))' }}
+                            >
+                              <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                              {driverComplianceCounts.critical} crit
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">{driverComplianceCounts.critical} driver{driverComplianceCounts.critical !== 1 ? 's' : ''} expiring within 30 days</TooltipContent>
+                        </Tooltip>
+                      )}
+                      {driverComplianceCounts.warning > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); setDriverComplianceFilter('warning'); setView('drivers'); }}
+                              className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded border leading-none transition-colors"
+                              style={{ background: 'hsl(var(--warning) / 0.12)', borderColor: 'hsl(var(--warning) / 0.4)', color: 'hsl(var(--warning))' }}
+                            >
+                              <Clock className="h-2.5 w-2.5 shrink-0" />
+                              {driverComplianceCounts.warning} warn
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">{driverComplianceCounts.warning} driver{driverComplianceCounts.warning !== 1 ? 's' : ''} expiring within 90 days</TooltipContent>
+                        </Tooltip>
+                      )}
+                      {driverComplianceCounts.neverRenewed > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); setDriverComplianceFilter('never_renewed'); setView('drivers'); }}
+                              className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded border leading-none transition-colors"
+                              style={{ background: 'hsl(var(--destructive) / 0.08)', borderColor: 'hsl(var(--destructive) / 0.25)', color: 'hsl(var(--destructive))' }}
+                            >
+                              <FileX className="h-2.5 w-2.5 shrink-0" />
+                              {driverComplianceCounts.neverRenewed} miss
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-xs">{driverComplianceCounts.neverRenewed} driver{driverComplianceCounts.neverRenewed !== 1 ? 's' : ''} missing expiration dates</TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                  )}
+                </div>
               </TooltipProvider>
 
               {/* Active Dispatch */}
