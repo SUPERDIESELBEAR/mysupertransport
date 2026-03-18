@@ -1386,7 +1386,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 if (complianceDocFilter !== 'all' && a.doc_type !== complianceDocFilter) return false;
                 return a.days_until <= 30; // expired (<0) and critical (≤30)
               });
-              if (filteredTargets.length === 0) return null;
+              if (filteredTargets.length === 0 && !bulkCooldown) return null;
               const allSent = bulkSentCount !== null;
               const docLabel = complianceDocFilter === 'all' ? 'critical' : complianceDocFilter;
               return (
@@ -1397,15 +1397,19 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         size="sm"
                         variant="outline"
                         onClick={(e) => { e.stopPropagation(); setShowBulkConfirm(true); }}
-                        disabled={bulkSending}
+                        disabled={bulkSending || bulkCooldown}
                         className={`shrink-0 h-7 px-3 text-xs gap-1.5 font-semibold transition-all ${
-                          allSent
+                          bulkCooldown
+                            ? 'border-border/40 text-muted-foreground/50 bg-muted/30 cursor-not-allowed opacity-50'
+                            : allSent
                             ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10'
                             : 'border-destructive/40 text-destructive bg-destructive/5 hover:bg-destructive/15'
                         }`}
                       >
                         {bulkSending ? (
                           <><Loader2 className="h-3 w-3 animate-spin" />Sending…</>
+                        ) : bulkCooldown ? (
+                          <><CheckCheck className="h-3 w-3" />Sent · {bulkCooldownMinutes}m cooldown</>
                         ) : allSent ? (
                           <><CheckCheck className="h-3 w-3" />{bulkSentCount} Sent</>
                         ) : (
@@ -1414,7 +1418,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-xs max-w-[240px] text-center">
-                      {allSent
+                      {bulkCooldown
+                        ? `Reminders already sent this session. Available again in ${bulkCooldownMinutes} minute${bulkCooldownMinutes !== 1 ? 's' : ''}.`
+                        : allSent
                         ? `${bulkSentCount} reminder${bulkSentCount !== 1 ? 's' : ''} sent`
                         : `Send renewal reminder emails to all ${filteredTargets.length} ${docLabel} operator${filteredTargets.length !== 1 ? 's' : ''} with expired or critical expiries (≤ 30 days)`}
                     </TooltipContent>
