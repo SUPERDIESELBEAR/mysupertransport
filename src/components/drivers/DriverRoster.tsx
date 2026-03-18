@@ -24,6 +24,19 @@ interface DriverRow {
 }
 
 type DispatchFilter = 'all' | 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
+type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning';
+
+function getComplianceTier(cdl: string | null, med: string | null): ComplianceFilter {
+  const getDays = (d: string | null) =>
+    d ? differenceInDays(startOfDay(parseISO(d)), startOfDay(new Date())) : null;
+  const days = [getDays(cdl), getDays(med)].filter((d): d is number => d !== null);
+  if (days.length === 0) return 'all';
+  const min = Math.min(...days);
+  if (min < 0) return 'expired';
+  if (min <= 7) return 'critical';
+  if (min <= 30) return 'warning';
+  return 'all';
+}
 
 interface DriverRosterProps {
   onOpenDriver: (operatorId: string) => void;
