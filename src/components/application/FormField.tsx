@@ -49,9 +49,10 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   error?: boolean;
 }
 
-export function AppSelect({ error, className, children, ...props }: SelectProps) {
+export const AppSelect = forwardRef<HTMLSelectElement, SelectProps>(({ error, className, children, ...props }, ref) => {
   return (
     <select
+      ref={ref}
       {...props}
       className={cn(
         'w-full px-3 py-2.5 rounded-lg border text-sm bg-white text-foreground transition-colors',
@@ -63,7 +64,8 @@ export function AppSelect({ error, className, children, ...props }: SelectProps)
       {children}
     </select>
   );
-}
+});
+AppSelect.displayName = 'AppSelect';
 
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   error?: boolean;
