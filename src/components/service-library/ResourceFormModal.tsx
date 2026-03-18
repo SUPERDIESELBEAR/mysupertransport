@@ -53,6 +53,7 @@ export default function ResourceFormModal({ resource, serviceId, onClose, onSave
         resource_type: form.resource_type,
         url: form.url.trim() || null,
         body: form.body.trim() || null,
+        thumbnail_url: form.thumbnail_url.trim() || null,
         is_start_here: form.is_start_here,
         is_visible: form.is_visible,
         estimated_minutes: form.estimated_minutes ? parseInt(form.estimated_minutes) : null,
