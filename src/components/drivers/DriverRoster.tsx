@@ -182,17 +182,30 @@ export default function DriverRoster({
     if (!silent) setLoading(true);
     else setRefreshing(true);
 
-    const { data } = await supabase
-      .from('operators')
-      .select(`
-        id,
-        user_id,
-        unit_number,
-        onboarding_status!inner (fully_onboarded, unit_number),
-        active_dispatch (dispatch_status),
-        applications (first_name, last_name, phone, address_state, cdl_expiration, medical_cert_expiration)
-      `)
-      .eq('onboarding_status.fully_onboarded', true);
+    const [{ data }, { data: reminders }] = await Promise.all([
+      supabase
+        .from('operators')
+        .select(`
+          id,
+          user_id,
+          unit_number,
+          onboarding_status!inner (fully_onboarded, unit_number),
+          active_dispatch (dispatch_status),
+          applications (first_name, last_name, phone, address_state, cdl_expiration, medical_cert_expiration)
+        `)
+        .eq('onboarding_status.fully_onboarded', true),
+      supabase
+        .from('cert_reminders')
+        .select('operator_id, sent_at')
+        .order('sent_at', { ascending: false }),
+    ]);
+
+    // Build latest-reminder-per-operator map
+    const reminderMap: Record<string, string> = {};
+    for (const r of (reminders ?? []) as Array<{ operator_id: string; sent_at: string }>) {
+      if (!reminderMap[r.operator_id]) reminderMap[r.operator_id] = r.sent_at;
+    }
+    setLastReminderMap(reminderMap);
 
     if (data) {
       const getOne = (val: any) => (Array.isArray(val) ? val[0] : val) ?? null;
