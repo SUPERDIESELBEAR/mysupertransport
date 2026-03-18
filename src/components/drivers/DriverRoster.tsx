@@ -431,7 +431,7 @@ export default function DriverRoster({
       </div>
 
       {/* Compliance filter chips */}
-      {!dispatchMode && (complianceCounts.expired + complianceCounts.critical + complianceCounts.warning + complianceCounts.neverRenewed) > 0 && (
+      {!dispatchMode && (complianceCounts.expired + complianceCounts.critical + complianceCounts.warning + complianceCounts.neverRenewed + complianceCounts.notYetReminded) > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setComplianceFilter('all')}
