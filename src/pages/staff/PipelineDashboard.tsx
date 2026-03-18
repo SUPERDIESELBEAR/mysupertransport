@@ -716,8 +716,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     }
   };
 
-  const handleSendAllCritical = async () => {
-    const criticalAlerts = complianceAlerts.filter(a => a.days_until <= 30);
+  const handleSendAllCritical = async (targets?: ComplianceAlert[]) => {
+    const criticalAlerts = targets ?? complianceAlerts.filter(a => a.days_until <= 30);
     if (criticalAlerts.length === 0) return;
     setBulkSending(true);
     setBulkSentCount(null);
@@ -728,54 +728,53 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     let successCount = 0;
     let failCount = 0;
 
-    await Promise.all(
-      criticalAlerts.map(async (alert) => {
-        const key = `${alert.operator_id}|${alert.doc_type}`;
-        // Skip already-sending or already-sent items
-        if (reminderSending[key] || reminderSent[key]) { successCount++; return; }
-        setReminderSending(prev => ({ ...prev, [key]: true }));
-        try {
-          const res = await fetch(`${supabaseUrl}/functions/v1/send-cert-reminder`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session?.access_token ?? ''}`,
-              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            },
-            body: JSON.stringify({
-              operator_id: alert.operator_id,
-              doc_type: alert.doc_type,
-              days_until: alert.days_until,
-              expiration_date: alert.expiration_date,
-            }),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error ?? 'Failed');
-          const now = new Date().toISOString();
-          setLastReminded(prev => ({ ...prev, [key]: now }));
-          if (data.email_error) {
-            setLastReminderOutcome(prev => ({ ...prev, [key]: { sent: false, error: data.email_error } }));
-            failCount++;
-          } else {
-            setLastReminderOutcome(prev => ({ ...prev, [key]: { sent: true } }));
-            successCount++;
-          }
-          setReminderSent(prev => ({ ...prev, [key]: true }));
-          setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
-        } catch {
+    for (const alert of criticalAlerts) {
+      const key = `${alert.operator_id}|${alert.doc_type}`;
+      if (reminderSending[key] || reminderSent[key]) { successCount++; continue; }
+      setReminderSending(prev => ({ ...prev, [key]: true }));
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/send-cert-reminder`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token ?? ''}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            operator_id: alert.operator_id,
+            doc_type: alert.doc_type,
+            days_until: alert.days_until,
+            expiration_date: alert.expiration_date,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? 'Failed');
+        const now = new Date().toISOString();
+        setLastReminded(prev => ({ ...prev, [key]: now }));
+        if (data.email_error) {
+          setLastReminderOutcome(prev => ({ ...prev, [key]: { sent: false, error: data.email_error } }));
           failCount++;
-        } finally {
-          setReminderSending(prev => ({ ...prev, [key]: false }));
+        } else {
+          setLastReminderOutcome(prev => ({ ...prev, [key]: { sent: true } }));
+          successCount++;
         }
-      })
-    );
+        setReminderSent(prev => ({ ...prev, [key]: true }));
+        setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
+      } catch {
+        failCount++;
+      } finally {
+        setReminderSending(prev => ({ ...prev, [key]: false }));
+      }
+      // Rate-limit: 600ms between requests
+      await new Promise(r => setTimeout(r, 600));
+    }
 
     setBulkSending(false);
     setBulkSentCount(successCount);
     if (failCount === 0) {
       toast({
         title: `${successCount} reminder${successCount !== 1 ? 's' : ''} sent`,
-        description: `All critical operators have been notified.`,
+        description: `All targeted operators have been notified.`,
       });
     } else {
       toast({
