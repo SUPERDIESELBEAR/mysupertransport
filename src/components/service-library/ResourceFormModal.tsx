@@ -30,6 +30,7 @@ export default function ResourceFormModal({ resource, serviceId, onClose, onSave
     resource_type: (resource?.resource_type ?? 'Setup Guide') as ResourceType,
     url: resource?.url ?? '',
     body: resource?.body ?? '',
+    thumbnail_url: resource?.thumbnail_url ?? '',
     is_start_here: resource?.is_start_here ?? false,
     is_visible: resource?.is_visible ?? true,
     estimated_minutes: resource?.estimated_minutes?.toString() ?? '',
@@ -52,6 +53,7 @@ export default function ResourceFormModal({ resource, serviceId, onClose, onSave
         resource_type: form.resource_type,
         url: form.url.trim() || null,
         body: form.body.trim() || null,
+        thumbnail_url: form.thumbnail_url.trim() || null,
         is_start_here: form.is_start_here,
         is_visible: form.is_visible,
         estimated_minutes: form.estimated_minutes ? parseInt(form.estimated_minutes) : null,
@@ -155,6 +157,25 @@ export default function ResourceFormModal({ resource, serviceId, onClose, onSave
               })()}
             </div>
           )}
+
+          {/* Thumbnail URL — useful for Vimeo or any custom image */}
+          <div className="space-y-1.5">
+            <Label htmlFor="thumbnail_url">
+              Thumbnail URL
+              <span className="ml-1.5 text-xs font-normal text-muted-foreground">(optional — Vimeo, custom image, etc.)</span>
+            </Label>
+            <Input
+              id="thumbnail_url"
+              value={form.thumbnail_url}
+              onChange={set('thumbnail_url')}
+              placeholder="https://… (overrides auto-fetched YouTube thumbnail)"
+            />
+            {form.thumbnail_url && (
+              <div className="mt-1.5 rounded-lg overflow-hidden border border-border w-24 h-16">
+                <img src={form.thumbnail_url} alt="Thumbnail preview" className="w-full h-full object-cover" />
+              </div>
+            )}
+          </div>
 
           {showBody && (
             <div className="space-y-1.5">
