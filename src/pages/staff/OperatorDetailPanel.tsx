@@ -1251,6 +1251,92 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         {status.pe_screening_result === 'clear' && <Badge className="status-complete border text-xs">PE Clear</Badge>}
       </div>
 
+      {/* ── Compliance Alert Banner ─────────────────────────────────────── */}
+      {(() => {
+        type Issue = {
+          label: string;
+          severity: 'expired' | 'critical' | 'missing';
+          focusField: 'cdl' | 'medcert';
+          daysLabel?: string;
+        };
+        const issues: Issue[] = [];
+
+        const checkDoc = (label: string, dateStr: string | null, focusField: 'cdl' | 'medcert') => {
+          if (!dateStr) {
+            issues.push({ label, severity: 'missing', focusField });
+            return;
+          }
+          const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
+          if (days < 0) {
+            issues.push({ label, severity: 'expired', focusField, daysLabel: `${Math.abs(days)}d ago` });
+          } else if (days <= 30) {
+            issues.push({ label, severity: 'critical', focusField, daysLabel: `${days}d left` });
+          }
+        };
+
+        checkDoc('CDL', cdlExpiration, 'cdl');
+        checkDoc('Med Cert', medCertExpiration, 'medcert');
+
+        if (issues.length === 0) return null;
+
+        const hasExpired  = issues.some(i => i.severity === 'expired');
+        const hasCritical = issues.some(i => i.severity === 'critical');
+        const hasMissing  = issues.some(i => i.severity === 'missing');
+
+        const bannerBg   = hasExpired || hasCritical
+          ? 'bg-destructive/5 border-destructive/25'
+          : 'bg-yellow-50 border-yellow-200';
+        const iconColor  = hasExpired || hasCritical ? 'text-destructive' : 'text-yellow-600';
+        const titleColor = hasExpired || hasCritical ? 'text-destructive' : 'text-yellow-800';
+        const tagBg: Record<Issue['severity'], string> = {
+          expired:  'bg-destructive/10 text-destructive border-destructive/30',
+          critical: 'bg-destructive/10 text-destructive border-destructive/25',
+          missing:  'bg-muted text-muted-foreground border-border',
+        };
+        const tagLabel: Record<Issue['severity'], string> = {
+          expired:  'Expired',
+          critical: 'Critical',
+          missing:  'No date on file',
+        };
+
+        const title = hasMissing && !hasExpired && !hasCritical
+          ? 'Missing compliance dates'
+          : hasExpired
+          ? 'Expired compliance document'
+          : 'Critical compliance expiry';
+
+        return (
+          <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${bannerBg}`}>
+            <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${iconColor}`} />
+            <div className="flex-1 min-w-0">
+              <p className={`text-xs font-semibold ${titleColor}`}>{title}</p>
+              <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                {issues.map(issue => (
+                  <button
+                    key={issue.focusField}
+                    onClick={onOpenAppReview ? () => onOpenAppReview(issue.focusField) : undefined}
+                    className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border transition-all ${tagBg[issue.severity]} ${onOpenAppReview ? 'hover:opacity-75 cursor-pointer' : 'cursor-default'}`}
+                  >
+                    <span>{issue.label}</span>
+                    <span className="opacity-60">·</span>
+                    <span>{issue.daysLabel ?? tagLabel[issue.severity]}</span>
+                    {onOpenAppReview && <span className="opacity-50 text-[10px]">✎</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {onOpenAppReview && (
+              <button
+                onClick={() => onOpenAppReview(issues[0].focusField)}
+                className={`text-[10px] font-semibold shrink-0 mt-0.5 ${titleColor} opacity-60 hover:opacity-100 transition-opacity`}
+              >
+                Update →
+              </button>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Compliance expiry row */}
       {(cdlExpiration || medCertExpiration) && (() => {
         const buildPill = (label: string, dateStr: string, focusField: 'cdl' | 'medcert') => {
