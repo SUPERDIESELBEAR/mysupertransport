@@ -117,7 +117,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
     const count = n(complianceFilter);
     const driver = count === 1 ? 'driver' : 'drivers';
     if (complianceFilter === 'expired') return { text: `Showing ${count} ${driver} with an expired CDL or Med Cert. Click Update on any row to fix their expiration date.`, variant: 'destructive' as const };
-    if (complianceFilter === 'critical') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 30 days. Click Update on any row to fix their expiration date.`, variant: 'destructive' as const };
+    if (complianceFilter === 'critical') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 7 days. Click Update on any row to fix their expiration date.`, variant: 'destructive' as const };
     if (complianceFilter === 'warning') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 90 days. Click Update on any row to review their documents.`, variant: 'warning' as const };
     return { text: `Showing ${count} ${driver} with no CDL or Med Cert expiration date on file. Click Update on any row to add their dates.`, variant: 'destructive' as const };
   }, [complianceFilter, complianceCounts]);
