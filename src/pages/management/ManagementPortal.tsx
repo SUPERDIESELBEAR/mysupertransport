@@ -109,7 +109,7 @@ export default function ManagementPortal() {
   useEffect(() => {
     const v = searchParams.get('view') as ManagementView | null;
     const s = searchParams.get('status') as StatusFilter | null;
-    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder'].includes(v)) {
+    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers'].includes(v)) {
       setView(v);
     }
     if (s && ['pending','approved','denied','all'].includes(s)) {
