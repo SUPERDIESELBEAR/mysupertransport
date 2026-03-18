@@ -14,9 +14,11 @@ interface DriverHubViewProps {
   dispatchMode?: boolean;
   /** Called when the user clicks "Message" on a driver (navigates to messages tab) */
   onMessageDriver?: (userId: string) => void;
+  /** Initial compliance filter to pre-apply when this view mounts */
+  defaultComplianceFilter?: ComplianceFilter;
 }
 
-export default function DriverHubView({ canAddDriver = false, dispatchMode = false, onMessageDriver }: DriverHubViewProps) {
+export default function DriverHubView({ canAddDriver = false, dispatchMode = false, onMessageDriver, defaultComplianceFilter }: DriverHubViewProps) {
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
