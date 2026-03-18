@@ -61,6 +61,8 @@ interface DriverRosterProps {
   onComplianceFilterChange?: (filter: ComplianceFilter) => void;
   /** Called after each data fetch with fresh fleet-wide counts */
   onComplianceCountsChange?: (counts: ComplianceCounts) => void;
+  /** Called when inline "Update" is clicked on a compliance-filtered row */
+  onUpdateCompliance?: (operatorId: string, focusField: 'cdl' | 'medcert') => void;
 }
 
 const DISPATCH_STATUS_CONFIG = {
