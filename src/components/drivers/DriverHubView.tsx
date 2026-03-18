@@ -4,7 +4,8 @@ import AddDriverModal from './AddDriverModal';
 import OperatorDetailPanel from '@/pages/staff/OperatorDetailPanel';
 import BulkMessageModal from '@/components/staff/BulkMessageModal';
 import { Button } from '@/components/ui/button';
-import { Users2, UserPlus, MessageSquare } from 'lucide-react';
+import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX } from 'lucide-react';
+import type { ComplianceFilter, ComplianceCounts } from './DriverRoster';
 
 interface DriverHubViewProps {
   /** If true, show the "Add Driver" button (management only) */
@@ -21,6 +22,15 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [rosterKey, setRosterKey] = useState(0);
   const [selectedOperatorIds, setSelectedOperatorIds] = useState<string[]>([]);
+  const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>('all');
+  const [complianceCounts, setComplianceCounts] = useState<ComplianceCounts>({
+    expired: 0,
+    critical: 0,
+    warning: 0,
+    neverRenewed: 0,
+  });
+
+  const hasAlerts = complianceCounts.expired + complianceCounts.critical + complianceCounts.warning + complianceCounts.neverRenewed > 0;
 
   if (selectedOperatorId) {
     return (
@@ -38,8 +48,8 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+        <div className="space-y-2">
           <div className="flex items-center gap-2.5">
             <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
               <Users2 className="h-5 w-5 text-primary" />
@@ -49,6 +59,72 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
               <p className="text-xs text-muted-foreground mt-0.5">Fully onboarded operators ready for dispatch</p>
             </div>
           </div>
+
+          {/* Compliance summary chips — only in non-dispatch mode */}
+          {!dispatchMode && hasAlerts && (
+            <div className="flex items-center gap-2 flex-wrap pl-0.5">
+              {complianceCounts.expired > 0 && (
+                <button
+                  onClick={() => setComplianceFilter(complianceFilter === 'expired' ? 'all' : 'expired')}
+                  className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                    complianceFilter === 'expired'
+                      ? 'bg-destructive/15 border-destructive/40 text-destructive'
+                      : 'border-destructive/30 text-destructive/80 hover:bg-destructive/10 hover:border-destructive/50'
+                  }`}
+                >
+                  <AlertCircle className="h-3 w-3" />
+                  {complianceCounts.expired} expired
+                </button>
+              )}
+              {complianceCounts.critical > 0 && (
+                <button
+                  onClick={() => setComplianceFilter(complianceFilter === 'critical' ? 'all' : 'critical')}
+                  className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                    complianceFilter === 'critical'
+                      ? 'bg-destructive/15 border-destructive/40 text-destructive'
+                      : 'border-destructive/30 text-destructive/80 hover:bg-destructive/10 hover:border-destructive/50'
+                  }`}
+                >
+                  <AlertTriangle className="h-3 w-3" />
+                  {complianceCounts.critical} critical
+                </button>
+              )}
+              {complianceCounts.warning > 0 && (
+                <button
+                  onClick={() => setComplianceFilter(complianceFilter === 'warning' ? 'all' : 'warning')}
+                  className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                    complianceFilter === 'warning'
+                      ? 'bg-[hsl(var(--warning))]/15 border-[hsl(var(--warning))]/40 text-[hsl(var(--warning))]'
+                      : 'border-[hsl(var(--warning))]/30 text-[hsl(var(--warning))]/80 hover:bg-[hsl(var(--warning))]/10 hover:border-[hsl(var(--warning))]/50'
+                  }`}
+                >
+                  <Clock className="h-3 w-3" />
+                  {complianceCounts.warning} expiring soon
+                </button>
+              )}
+              {complianceCounts.neverRenewed > 0 && (
+                <button
+                  onClick={() => setComplianceFilter(complianceFilter === 'never_renewed' ? 'all' : 'never_renewed')}
+                  className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                    complianceFilter === 'never_renewed'
+                      ? 'bg-destructive/15 border-destructive/40 text-destructive'
+                      : 'border-destructive/30 text-destructive/80 hover:bg-destructive/10 hover:border-destructive/50'
+                  }`}
+                >
+                  <FileX className="h-3 w-3" />
+                  {complianceCounts.neverRenewed} missing dates
+                </button>
+              )}
+              {complianceFilter !== 'all' && (
+                <button
+                  onClick={() => setComplianceFilter('all')}
+                  className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline transition-colors"
+                >
+                  Clear filter
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -85,6 +161,9 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         onMessageDriver={onMessageDriver}
         dispatchMode={dispatchMode}
         onSelectionChange={setSelectedOperatorIds}
+        complianceFilter={complianceFilter}
+        onComplianceFilterChange={setComplianceFilter}
+        onComplianceCountsChange={setComplianceCounts}
       />
 
       {/* Add Driver Modal */}
