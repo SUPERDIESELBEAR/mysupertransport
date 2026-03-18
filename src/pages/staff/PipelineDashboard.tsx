@@ -1770,6 +1770,43 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       );
                     })()}
 
+                    {/* Last-reminded badge — always visible, inline before the Remind button */}
+                    {remindedAt && !isSent && (() => {
+                      const daysSince = differenceInDays(new Date(), new Date(remindedAt));
+                      const label = daysSince === 0 ? 'Today' : daysSince === 1 ? '1d ago' : `${daysSince}d ago`;
+                      const isRecent = daysSince <= 7;
+                      const emailFailed = reminderOutcome && !reminderOutcome.sent;
+                      return (
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium rounded px-1.5 py-0.5 border shrink-0 cursor-default ${
+                                emailFailed
+                                  ? 'text-destructive bg-destructive/10 border-destructive/30'
+                                  : isRecent
+                                  ? 'text-primary bg-primary/10 border-primary/25'
+                                  : 'text-muted-foreground bg-muted border-border'
+                              }`}>
+                                <Send className="h-2.5 w-2.5 shrink-0" />
+                                {label}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs max-w-[220px]">
+                              <span className="flex flex-col gap-0.5">
+                                <span>Last reminder {format(new Date(remindedAt), "MMM d, yyyy 'at' h:mm a")}</span>
+                                {remindedBy && <span className="text-muted-foreground">by {remindedBy}</span>}
+                                {emailFailed ? (
+                                  <span className="text-destructive font-medium">✗ Email failed{reminderOutcome?.error ? ` — ${reminderOutcome.error.replace(/^Error:\s*/i, '').slice(0, 80)}` : ''}</span>
+                                ) : (
+                                  <span className="text-status-complete font-medium">✓ Email delivered</span>
+                                )}
+                              </span>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    })()}
+
                     {/* Send Reminder button */}
                     <TooltipProvider delayDuration={100}>
                       <Tooltip>
