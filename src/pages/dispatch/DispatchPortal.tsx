@@ -19,11 +19,12 @@ import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
   LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell, Volume2, VolumeX,
-  CheckCheck
+  CheckCheck, Users2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { formatDistanceToNow } from 'date-fns';
+import DriverHubView from '@/components/drivers/DriverHubView';
 
 interface QuickComposeTarget {
   operatorUserId: string;
