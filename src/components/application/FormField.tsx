@@ -28,9 +28,10 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: boolean;
 }
 
-export function AppInput({ error, className, ...props }: InputProps) {
+export const AppInput = forwardRef<HTMLInputElement, InputProps>(({ error, className, ...props }, ref) => {
   return (
     <input
+      ref={ref}
       {...props}
       className={cn(
         'w-full px-3 py-2.5 rounded-lg border text-sm bg-white text-foreground transition-colors',
@@ -41,7 +42,8 @@ export function AppInput({ error, className, ...props }: InputProps) {
       )}
     />
   );
-}
+});
+AppInput.displayName = 'AppInput';
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   error?: boolean;
