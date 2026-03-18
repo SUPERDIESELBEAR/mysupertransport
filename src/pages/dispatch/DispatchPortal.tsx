@@ -1714,6 +1714,8 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
           ? <MessagesView initialUserId={messageInitialUserId} />
           : activePage === 'dispatch-notifications'
           ? <NotificationHistory />
+          : activePage === 'dispatch-drivers'
+          ? <DriverHubView dispatchMode={true} onMessageDriver={userId => { setMessageInitialUserId(userId); setActivePage('dispatch-messages'); }} />
           : board}
       </StaffLayout>
     </>
