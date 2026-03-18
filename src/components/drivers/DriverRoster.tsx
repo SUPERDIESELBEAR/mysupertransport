@@ -23,14 +23,21 @@ interface DriverRow {
   medical_cert_expiration: string | null;
 }
 
-type DispatchFilter = 'all' | 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
-type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed';
+export type DispatchFilter = 'all' | 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
+export type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed';
 
-function isNeverRenewed(cdl: string | null, med: string | null): boolean {
+export interface ComplianceCounts {
+  expired: number;
+  critical: number;
+  warning: number;
+  neverRenewed: number;
+}
+
+export function isNeverRenewed(cdl: string | null, med: string | null): boolean {
   return cdl === null || med === null;
 }
 
-function getComplianceTier(cdl: string | null, med: string | null): Exclude<ComplianceFilter, 'never_renewed' | 'all'> | 'all' {
+export function getComplianceTier(cdl: string | null, med: string | null): Exclude<ComplianceFilter, 'never_renewed' | 'all'> | 'all' {
   const getDays = (d: string | null) =>
     d ? differenceInDays(startOfDay(parseISO(d)), startOfDay(new Date())) : null;
   const days = [getDays(cdl), getDays(med)].filter((d): d is number => d !== null);
@@ -49,6 +56,11 @@ interface DriverRosterProps {
   dispatchMode?: boolean;
   /** Called whenever the selection set changes (operator IDs) */
   onSelectionChange?: (selectedOperatorIds: string[]) => void;
+  /** Controlled compliance filter — lifted to parent for header chips */
+  complianceFilter?: ComplianceFilter;
+  onComplianceFilterChange?: (filter: ComplianceFilter) => void;
+  /** Called after each data fetch with fresh fleet-wide counts */
+  onComplianceCountsChange?: (counts: ComplianceCounts) => void;
 }
 
 const DISPATCH_STATUS_CONFIG = {
@@ -130,13 +142,26 @@ function expiryPill(dateStr: string | null, label: string) {
   );
 }
 
-export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMode = false, onSelectionChange }: DriverRosterProps) {
+export default function DriverRoster({
+  onOpenDriver,
+  onMessageDriver,
+  dispatchMode = false,
+  onSelectionChange,
+  complianceFilter: externalComplianceFilter,
+  onComplianceFilterChange,
+  onComplianceCountsChange,
+}: DriverRosterProps) {
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<DispatchFilter>('all');
-  const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>('all');
+  const [internalComplianceFilter, setInternalComplianceFilter] = useState<ComplianceFilter>('all');
+  const complianceFilter = externalComplianceFilter ?? internalComplianceFilter;
+  const setComplianceFilter = (f: ComplianceFilter) => {
+    setInternalComplianceFilter(f);
+    onComplianceFilterChange?.(f);
+  };
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const fetchDrivers = useCallback(async (silent = false) => {
@@ -217,6 +242,13 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
     onSelectionChange?.([...selected]);
   }, [selected, onSelectionChange]);
 
+  // Sync internal filter if parent changes external filter
+  useEffect(() => {
+    if (externalComplianceFilter !== undefined) {
+      setInternalComplianceFilter(externalComplianceFilter);
+    }
+  }, [externalComplianceFilter]);
+
   // Compliance tier counts (over all drivers, before any filter)
   const complianceCounts = useMemo(() => {
     let expired = 0, critical = 0, warning = 0, neverRenewed = 0;
@@ -229,6 +261,11 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
     }
     return { expired, critical, warning, neverRenewed };
   }, [drivers]);
+
+  // Notify parent when counts change (e.g. after data fetch)
+  useEffect(() => {
+    onComplianceCountsChange?.(complianceCounts);
+  }, [complianceCounts, onComplianceCountsChange]);
 
   const filtered = useMemo(() => {
     const base = drivers.filter(d => {
