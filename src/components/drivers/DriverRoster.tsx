@@ -242,6 +242,13 @@ export default function DriverRoster({
     onSelectionChange?.([...selected]);
   }, [selected, onSelectionChange]);
 
+  // Sync internal filter if parent changes external filter
+  useEffect(() => {
+    if (externalComplianceFilter !== undefined) {
+      setInternalComplianceFilter(externalComplianceFilter);
+    }
+  }, [externalComplianceFilter]);
+
   // Compliance tier counts (over all drivers, before any filter)
   const complianceCounts = useMemo(() => {
     let expired = 0, critical = 0, warning = 0, neverRenewed = 0;
@@ -254,6 +261,11 @@ export default function DriverRoster({
     }
     return { expired, critical, warning, neverRenewed };
   }, [drivers]);
+
+  // Notify parent when counts change (e.g. after data fetch)
+  useEffect(() => {
+    onComplianceCountsChange?.(complianceCounts);
+  }, [complianceCounts, onComplianceCountsChange]);
 
   const filtered = useMemo(() => {
     const base = drivers.filter(d => {
