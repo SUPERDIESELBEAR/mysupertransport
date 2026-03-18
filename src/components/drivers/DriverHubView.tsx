@@ -6,6 +6,7 @@ import OperatorDetailPanel from '@/pages/staff/OperatorDetailPanel';
 import BulkMessageModal from '@/components/staff/BulkMessageModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX, Info } from 'lucide-react';
 import type { ComplianceFilter, ComplianceCounts } from './DriverRoster';
 
