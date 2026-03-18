@@ -545,9 +545,11 @@ export default function DriverRoster({
             {drivers.length === 0
               ? 'Fully onboarded operators will appear here automatically.'
               : complianceFilter === 'never_renewed'
-              ? 'No drivers are missing CDL or Med Cert expiry dates.'
-              : complianceFilter !== 'all'
-              ? `No drivers match the "${complianceFilter}" compliance filter.`
+                ? 'No drivers are missing CDL or Med Cert expiry dates.'
+                : complianceFilter === 'not_yet_reminded'
+                ? 'All drivers have received at least one reminder.'
+                : complianceFilter !== 'all'
+                ? `No drivers match the "${complianceFilter}" compliance filter.`
               : 'Try adjusting your search or filter.'}
           </p>
         </div>
