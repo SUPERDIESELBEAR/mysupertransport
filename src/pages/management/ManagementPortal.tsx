@@ -1460,6 +1460,7 @@ export default function ManagementPortal() {
         {view === 'drivers' && (
           <DriverHubView
             canAddDriver={true}
+            defaultComplianceFilter={driverComplianceFilter}
             onMessageDriver={() => {
               setView('dispatch');
             }}
