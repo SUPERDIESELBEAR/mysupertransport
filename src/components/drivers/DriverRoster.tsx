@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX } from 'lucide-react';
+import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil } from 'lucide-react';
 
 interface DriverRow {
   operator_id: string;
@@ -61,6 +61,8 @@ interface DriverRosterProps {
   onComplianceFilterChange?: (filter: ComplianceFilter) => void;
   /** Called after each data fetch with fresh fleet-wide counts */
   onComplianceCountsChange?: (counts: ComplianceCounts) => void;
+  /** Called when inline "Update" is clicked on a compliance-filtered row */
+  onUpdateCompliance?: (operatorId: string, focusField: 'cdl' | 'medcert') => void;
 }
 
 const DISPATCH_STATUS_CONFIG = {
@@ -150,6 +152,7 @@ export default function DriverRoster({
   complianceFilter: externalComplianceFilter,
   onComplianceFilterChange,
   onComplianceCountsChange,
+  onUpdateCompliance,
 }: DriverRosterProps) {
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -494,7 +497,7 @@ export default function DriverRoster({
                 {!dispatchMode && <TableHead className="hidden md:table-cell">State</TableHead>}
                 <TableHead>Status</TableHead>
                 {!dispatchMode && <TableHead className="hidden lg:table-cell">Compliance</TableHead>}
-                <TableHead className="w-20 text-right">Action</TableHead>
+                <TableHead className="w-32 text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -521,6 +524,18 @@ export default function DriverRoster({
                     : driverNeverRenewed && complianceFilter === 'never_renewed'
                     ? 'border-l-4 border-l-destructive bg-destructive/[0.03]'
                     : '';
+
+                // Determine which expiry field to focus when Update is clicked
+                // Pick the field that is most urgent (or missing), falling back to 'cdl'
+                const updateFocusField: 'cdl' | 'medcert' = (() => {
+                  if (!driver.cdl_expiration) return 'cdl';
+                  if (!driver.medical_cert_expiration) return 'medcert';
+                  // Both present — focus whichever expires sooner
+                  return (cdlDays ?? Infinity) <= (medDays ?? Infinity) ? 'cdl' : 'medcert';
+                })();
+
+                // Show inline Update link only when a compliance filter is active and the handler is provided
+                const showUpdateLink = complianceFilter !== 'all' && !!onUpdateCompliance && !dispatchMode;
 
                 return (
                   <TableRow
@@ -592,6 +607,24 @@ export default function DriverRoster({
                     {/* Actions */}
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+                        {showUpdateLink && (
+                          <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  className="inline-flex items-center gap-1 text-xs font-medium text-primary/80 hover:text-primary underline-offset-2 hover:underline transition-colors px-1.5 py-1 rounded hover:bg-primary/8"
+                                  onClick={() => onUpdateCompliance!(driver.operator_id, updateFocusField)}
+                                >
+                                  <Pencil className="h-3 w-3 shrink-0" />
+                                  Update
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="left">
+                                Update {updateFocusField === 'cdl' ? 'CDL' : 'Med Cert'} expiration
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                         {onMessageDriver && (
                           <Button
                             size="sm"

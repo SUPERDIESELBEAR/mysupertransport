@@ -1,8 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import DriverRoster from './DriverRoster';
 import AddDriverModal from './AddDriverModal';
 import OperatorDetailPanel from '@/pages/staff/OperatorDetailPanel';
 import BulkMessageModal from '@/components/staff/BulkMessageModal';
+import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
 import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX, Info } from 'lucide-react';
 import type { ComplianceFilter, ComplianceCounts } from './DriverRoster';
@@ -20,6 +22,7 @@ interface DriverHubViewProps {
 
 export default function DriverHubView({ canAddDriver = false, dispatchMode = false, onMessageDriver, defaultComplianceFilter }: DriverHubViewProps) {
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
+  const [pendingFocusField, setPendingFocusField] = useState<'cdl' | 'medcert' | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [rosterKey, setRosterKey] = useState(0);
@@ -31,6 +34,11 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
     warning: 0,
     neverRenewed: 0,
   });
+
+  // Inline App Review Drawer state (opened via "Update" link on roster rows)
+  const [reviewApp, setReviewApp] = useState<FullApplication | null>(null);
+  const [reviewFocusField, setReviewFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
+  const [reviewLoading, setReviewLoading] = useState(false);
 
   const hasAlerts = complianceCounts.expired + complianceCounts.critical + complianceCounts.warning + complianceCounts.neverRenewed > 0;
 
@@ -45,19 +53,35 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
     };
     const count = n(complianceFilter);
     const driver = count === 1 ? 'driver' : 'drivers';
-    if (complianceFilter === 'expired') return { text: `Showing ${count} ${driver} with an expired CDL or Med Cert. Click a driver to update their expiration date.`, variant: 'destructive' as const };
-    if (complianceFilter === 'critical') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 30 days. Click a driver to update their expiration date.`, variant: 'destructive' as const };
-    if (complianceFilter === 'warning') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 90 days. Click a driver to review their documents.`, variant: 'warning' as const };
-    return { text: `Showing ${count} ${driver} with no CDL or Med Cert expiration date on file. Click a driver to add their dates.`, variant: 'destructive' as const };
+    if (complianceFilter === 'expired') return { text: `Showing ${count} ${driver} with an expired CDL or Med Cert. Click Update on any row to fix their expiration date.`, variant: 'destructive' as const };
+    if (complianceFilter === 'critical') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 30 days. Click Update on any row to fix their expiration date.`, variant: 'destructive' as const };
+    if (complianceFilter === 'warning') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 90 days. Click Update on any row to review their documents.`, variant: 'warning' as const };
+    return { text: `Showing ${count} ${driver} with no CDL or Med Cert expiration date on file. Click Update on any row to add their dates.`, variant: 'destructive' as const };
   }, [complianceFilter, complianceCounts]);
+
+  // Called when the inline "Update" link is clicked on a roster row
+  const handleUpdateCompliance = useCallback(async (operatorId: string, focusField: 'cdl' | 'medcert') => {
+    setReviewLoading(true);
+    const { data } = await supabase
+      .from('operators')
+      .select('application_id, applications(*)')
+      .eq('id', operatorId)
+      .single();
+    if (data?.applications) {
+      setReviewApp(data.applications as FullApplication);
+      setReviewFocusField(focusField);
+    }
+    setReviewLoading(false);
+  }, []);
 
   if (selectedOperatorId) {
     return (
       <OperatorDetailPanel
         operatorId={selectedOperatorId}
-        onBack={() => setSelectedOperatorId(null)}
+        onBack={() => { setSelectedOperatorId(null); setPendingFocusField(null); }}
         onMessageOperator={userId => {
           setSelectedOperatorId(null);
+          setPendingFocusField(null);
           onMessageDriver?.(userId);
         }}
       />
@@ -197,6 +221,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         complianceFilter={complianceFilter}
         onComplianceFilterChange={setComplianceFilter}
         onComplianceCountsChange={setComplianceCounts}
+        onUpdateCompliance={handleUpdateCompliance}
       />
 
       {/* Add Driver Modal */}
@@ -212,6 +237,18 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         onClose={() => setBulkModalOpen(false)}
         preselectedIds={selectedOperatorIds}
       />
+
+      {/* Inline App Review Drawer — opened from row "Update" links */}
+      {reviewApp && (
+        <ApplicationReviewDrawer
+          app={reviewApp}
+          focusField={reviewFocusField}
+          onClose={() => { setReviewApp(null); setReviewFocusField(undefined); }}
+          onApprove={async () => { setReviewApp(null); }}
+          onDeny={async () => { setReviewApp(null); }}
+          onExpiryUpdated={() => setRosterKey(k => k + 1)}
+        />
+      )}
     </div>
   );
 }
