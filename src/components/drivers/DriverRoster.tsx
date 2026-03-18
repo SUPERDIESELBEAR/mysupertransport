@@ -617,7 +617,8 @@ export default function DriverRoster({
                 const showUpdateLink = complianceFilter !== 'all' && !!onUpdateCompliance && !dispatchMode;
                 const lastRemindedAt = lastReminderMap[driver.operator_id];
                 // Show the badge only when a compliance filter is active (where it's most actionable)
-                const showReminderBadge = complianceFilter !== 'all' && !dispatchMode;
+                // For not_yet_reminded filter, only show badge if they DO have one (edge case)
+                const showReminderBadge = complianceFilter !== 'all' && !dispatchMode && complianceFilter !== 'not_yet_reminded';
 
                 return (
                   <TableRow
