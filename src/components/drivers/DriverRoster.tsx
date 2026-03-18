@@ -23,14 +23,21 @@ interface DriverRow {
   medical_cert_expiration: string | null;
 }
 
-type DispatchFilter = 'all' | 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
-type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed';
+export type DispatchFilter = 'all' | 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
+export type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed';
 
-function isNeverRenewed(cdl: string | null, med: string | null): boolean {
+export interface ComplianceCounts {
+  expired: number;
+  critical: number;
+  warning: number;
+  neverRenewed: number;
+}
+
+export function isNeverRenewed(cdl: string | null, med: string | null): boolean {
   return cdl === null || med === null;
 }
 
-function getComplianceTier(cdl: string | null, med: string | null): Exclude<ComplianceFilter, 'never_renewed' | 'all'> | 'all' {
+export function getComplianceTier(cdl: string | null, med: string | null): Exclude<ComplianceFilter, 'never_renewed' | 'all'> | 'all' {
   const getDays = (d: string | null) =>
     d ? differenceInDays(startOfDay(parseISO(d)), startOfDay(new Date())) : null;
   const days = [getDays(cdl), getDays(med)].filter((d): d is number => d !== null);
@@ -49,6 +56,11 @@ interface DriverRosterProps {
   dispatchMode?: boolean;
   /** Called whenever the selection set changes (operator IDs) */
   onSelectionChange?: (selectedOperatorIds: string[]) => void;
+  /** Controlled compliance filter — lifted to parent for header chips */
+  complianceFilter?: ComplianceFilter;
+  onComplianceFilterChange?: (filter: ComplianceFilter) => void;
+  /** Called after each data fetch with fresh fleet-wide counts */
+  onComplianceCountsChange?: (counts: ComplianceCounts) => void;
 }
 
 const DISPATCH_STATUS_CONFIG = {
