@@ -1334,9 +1334,7 @@ export default function ManagementPortal() {
             canAddDriver={true}
             onMessageDriver={userId => {
               setSelectedOperatorId(null);
-              setView('notifications');
-              // navigate to messages after brief state reset
-              setTimeout(() => setView('notifications'), 0);
+              setView('pipeline');
             }}
           />
         )}
