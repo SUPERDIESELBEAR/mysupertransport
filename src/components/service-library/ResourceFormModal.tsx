@@ -30,6 +30,7 @@ export default function ResourceFormModal({ resource, serviceId, onClose, onSave
     resource_type: (resource?.resource_type ?? 'Setup Guide') as ResourceType,
     url: resource?.url ?? '',
     body: resource?.body ?? '',
+    thumbnail_url: resource?.thumbnail_url ?? '',
     is_start_here: resource?.is_start_here ?? false,
     is_visible: resource?.is_visible ?? true,
     estimated_minutes: resource?.estimated_minutes?.toString() ?? '',

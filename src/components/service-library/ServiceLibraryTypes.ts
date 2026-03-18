@@ -30,6 +30,7 @@ export interface ServiceResource {
   resource_type: ResourceType;
   url: string | null;
   body: string | null;
+  thumbnail_url: string | null;
   is_start_here: boolean;
   is_visible: boolean;
   estimated_minutes: number | null;
