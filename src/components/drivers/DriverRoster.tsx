@@ -218,20 +218,34 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
     return { expired, critical, warning, neverRenewed };
   }, [drivers]);
 
-  const filtered = drivers.filter(d => {
-    const matchesStatus = statusFilter === 'all' || d.dispatch_status === statusFilter;
-    const q = search.toLowerCase();
-    const matchesSearch = !q || `${d.first_name ?? ''} ${d.last_name ?? ''}`.toLowerCase().includes(q) ||
-      (d.unit_number ?? '').toLowerCase().includes(q) ||
-      (d.phone ?? '').includes(q);
-    const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
-    const matchesCompliance =
-      complianceFilter === 'all' ||
-      (complianceFilter === 'expired' && tier === 'expired') ||
-      (complianceFilter === 'critical' && (tier === 'expired' || tier === 'critical')) ||
-      (complianceFilter === 'warning' && (tier === 'expired' || tier === 'critical' || tier === 'warning'));
-    return matchesStatus && matchesSearch && matchesCompliance;
-  });
+  const filtered = useMemo(() => {
+    const base = drivers.filter(d => {
+      const matchesStatus = statusFilter === 'all' || d.dispatch_status === statusFilter;
+      const q = search.toLowerCase();
+      const matchesSearch = !q || `${d.first_name ?? ''} ${d.last_name ?? ''}`.toLowerCase().includes(q) ||
+        (d.unit_number ?? '').toLowerCase().includes(q) ||
+        (d.phone ?? '').includes(q);
+      const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
+      const never = isNeverRenewed(d.cdl_expiration, d.medical_cert_expiration);
+      const matchesCompliance =
+        complianceFilter === 'all' ||
+        (complianceFilter === 'expired' && tier === 'expired') ||
+        (complianceFilter === 'critical' && (tier === 'expired' || tier === 'critical')) ||
+        (complianceFilter === 'warning' && (tier === 'expired' || tier === 'critical' || tier === 'warning')) ||
+        (complianceFilter === 'never_renewed' && never);
+      return matchesStatus && matchesSearch && matchesCompliance;
+    });
+
+    // When never_renewed filter is active, float never-renewed drivers to the top
+    if (complianceFilter === 'never_renewed') {
+      return [...base].sort((a, b) => {
+        const aNever = isNeverRenewed(a.cdl_expiration, a.medical_cert_expiration) ? 0 : 1;
+        const bNever = isNeverRenewed(b.cdl_expiration, b.medical_cert_expiration) ? 0 : 1;
+        return aNever - bNever;
+      });
+    }
+    return base;
+  }, [drivers, search, statusFilter, complianceFilter]);
 
   const allFilteredSelected = filtered.length > 0 && filtered.every(d => selected.has(d.operator_id));
   const someFilteredSelected = filtered.some(d => selected.has(d.operator_id));
