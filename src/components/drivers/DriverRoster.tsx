@@ -161,6 +161,7 @@ export default function DriverRoster({
   onComplianceFilterChange,
   onComplianceCountsChange,
   onUpdateCompliance,
+  onDriversChange,
 }: DriverRosterProps) {
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
   const [loading, setLoading] = useState(true);
