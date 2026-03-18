@@ -209,7 +209,7 @@ export default function ManagementPortal() {
     const today = startOfDay(new Date());
     let count = 0;
     const rows: ComplianceRow[] = [];
-    const driverCounts: ComplianceCounts = { expired: 0, critical: 0, warning: 0, neverRenewed: 0 };
+    const driverCounts: ComplianceCounts = { expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0 };
 
     (data as any[]).forEach((op: any) => {
       const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
