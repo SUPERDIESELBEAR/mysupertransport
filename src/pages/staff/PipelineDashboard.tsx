@@ -786,8 +786,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         variant: 'destructive',
       });
     }
-    // Reset bulk sent indicator after 10 seconds
+    // Reset bulk sent indicator after 10 seconds, start 60-min cooldown
     setTimeout(() => setBulkSentCount(null), 10000);
+    startBulkCooldown();
   };
 
   // Bulk Send All — No Action rows only (no prior reminder AND no renewal)
