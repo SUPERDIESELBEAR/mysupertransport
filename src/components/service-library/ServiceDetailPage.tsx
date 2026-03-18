@@ -288,7 +288,8 @@ function ResourceRow({ resource, onClick, onToggleComplete, onToggleBookmark }: 
 
   const isTutorialVideo = resource.resource_type === 'Tutorial Video';
   const ytId = isTutorialVideo && resource.url ? getYouTubeVideoId(resource.url) : null;
-  const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null;
+  const thumbUrl = resource.thumbnail_url
+    || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null);
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card hover:border-primary/30 transition-all group">
