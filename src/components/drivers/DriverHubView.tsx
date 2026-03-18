@@ -34,6 +34,23 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
 
   const hasAlerts = complianceCounts.expired + complianceCounts.critical + complianceCounts.warning + complianceCounts.neverRenewed > 0;
 
+  // Derive contextual guidance text for active filter
+  const guidanceBanner = useMemo(() => {
+    if (complianceFilter === 'all') return null;
+    const n = (filter: ComplianceFilter) => {
+      if (filter === 'expired') return complianceCounts.expired;
+      if (filter === 'critical') return complianceCounts.critical;
+      if (filter === 'warning') return complianceCounts.warning;
+      return complianceCounts.neverRenewed;
+    };
+    const count = n(complianceFilter);
+    const driver = count === 1 ? 'driver' : 'drivers';
+    if (complianceFilter === 'expired') return { text: `Showing ${count} ${driver} with an expired CDL or Med Cert. Click a driver to update their expiration date.`, variant: 'destructive' as const };
+    if (complianceFilter === 'critical') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 30 days. Click a driver to update their expiration date.`, variant: 'destructive' as const };
+    if (complianceFilter === 'warning') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 90 days. Click a driver to review their documents.`, variant: 'warning' as const };
+    return { text: `Showing ${count} ${driver} with no CDL or Med Cert expiration date on file. Click a driver to add their dates.`, variant: 'destructive' as const };
+  }, [complianceFilter, complianceCounts]);
+
   if (selectedOperatorId) {
     return (
       <OperatorDetailPanel
