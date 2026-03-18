@@ -349,7 +349,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
   // Clear badges when navigating to the respective tab
   const handleNavigate = (path: string) => {
-    const p = path as 'dispatch' | 'dispatch-messages' | 'dispatch-notifications';
+    const p = path as 'dispatch' | 'dispatch-messages' | 'dispatch-notifications' | 'dispatch-drivers';
     setActivePage(p);
     if (p === 'dispatch-messages') {
       setUnreadMessages(0);
