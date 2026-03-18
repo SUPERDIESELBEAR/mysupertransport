@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import DriverRoster from './DriverRoster';
 import AddDriverModal from './AddDriverModal';
 import OperatorDetailPanel from '@/pages/staff/OperatorDetailPanel';
 import BulkMessageModal from '@/components/staff/BulkMessageModal';
 import { Button } from '@/components/ui/button';
-import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX } from 'lucide-react';
+import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX, Info } from 'lucide-react';
 import type { ComplianceFilter, ComplianceCounts } from './DriverRoster';
 
 interface DriverHubViewProps {
@@ -33,6 +33,23 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   });
 
   const hasAlerts = complianceCounts.expired + complianceCounts.critical + complianceCounts.warning + complianceCounts.neverRenewed > 0;
+
+  // Derive contextual guidance text for active filter
+  const guidanceBanner = useMemo(() => {
+    if (complianceFilter === 'all') return null;
+    const n = (filter: ComplianceFilter) => {
+      if (filter === 'expired') return complianceCounts.expired;
+      if (filter === 'critical') return complianceCounts.critical;
+      if (filter === 'warning') return complianceCounts.warning;
+      return complianceCounts.neverRenewed;
+    };
+    const count = n(complianceFilter);
+    const driver = count === 1 ? 'driver' : 'drivers';
+    if (complianceFilter === 'expired') return { text: `Showing ${count} ${driver} with an expired CDL or Med Cert. Click a driver to update their expiration date.`, variant: 'destructive' as const };
+    if (complianceFilter === 'critical') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 30 days. Click a driver to update their expiration date.`, variant: 'destructive' as const };
+    if (complianceFilter === 'warning') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 90 days. Click a driver to review their documents.`, variant: 'warning' as const };
+    return { text: `Showing ${count} ${driver} with no CDL or Med Cert expiration date on file. Click a driver to add their dates.`, variant: 'destructive' as const };
+  }, [complianceFilter, complianceCounts]);
 
   if (selectedOperatorId) {
     return (
@@ -155,6 +172,20 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
           )}
         </div>
       </div>
+
+      {/* Contextual guidance banner — shown when a compliance filter is active */}
+      {!dispatchMode && guidanceBanner && (
+        <div
+          className={`flex items-start gap-2.5 rounded-lg px-3.5 py-2.5 border text-xs animate-fade-in ${
+            guidanceBanner.variant === 'warning'
+              ? 'bg-[hsl(var(--warning)/0.08)] border-[hsl(var(--warning)/0.25)] text-[hsl(var(--warning))]'
+              : 'bg-destructive/8 border-destructive/20 text-destructive/90'
+          }`}
+        >
+          <Info className="h-3.5 w-3.5 mt-0.5 shrink-0 opacity-70" />
+          <span>{guidanceBanner.text}</span>
+        </div>
+      )}
 
       {/* Roster */}
       <DriverRoster
