@@ -225,6 +225,70 @@ export default function StaffPortal() {
     return () => { supabase.removeChannel(channel); };
   }, [fetchCriticalExpiries]);
 
+  // Driver Hub alert badge: count of fully-onboarded drivers with expired/critical docs OR never reminded
+  const fetchDriverAlertCount = useCallback(async () => {
+    // 1. Get all fully-onboarded operators with their CDL/medcert dates
+    const { data: ops } = await supabase
+      .from('onboarding_status')
+      .select('operator_id, operators!inner(applications(cdl_expiration, medical_cert_expiration))')
+      .eq('fully_onboarded', true);
+    if (!ops || ops.length === 0) { setDriverAlertCount(0); return; }
+
+    const today = startOfDay(new Date());
+    const alertOperatorIds = new Set<string>();
+
+    for (const row of ops as any[]) {
+      const app = Array.isArray(row.operators?.applications)
+        ? row.operators.applications[0]
+        : row.operators?.applications;
+      if (!app) continue;
+      const cdlDays = app.cdl_expiration
+        ? differenceInDays(startOfDay(parseISO(app.cdl_expiration)), today)
+        : null;
+      const medDays = app.medical_cert_expiration
+        ? differenceInDays(startOfDay(parseISO(app.medical_cert_expiration)), today)
+        : null;
+      const days = [cdlDays, medDays].filter((d): d is number => d !== null);
+      if (days.length > 0 && Math.min(...days) <= 7) {
+        alertOperatorIds.add(row.operator_id);
+      }
+    }
+
+    // 2. Find operators that have NEVER received a cert reminder
+    const operatorIds = ops.map((r: any) => r.operator_id);
+    const { data: reminders } = await supabase
+      .from('cert_reminders')
+      .select('operator_id')
+      .in('operator_id', operatorIds);
+    const remindedSet = new Set((reminders ?? []).map((r: any) => r.operator_id));
+    for (const id of operatorIds) {
+      if (!remindedSet.has(id)) alertOperatorIds.add(id);
+    }
+
+    setDriverAlertCount(alertOperatorIds.size);
+  }, []);
+
+  useEffect(() => {
+    fetchDriverAlertCount();
+    const ch1 = supabase
+      .channel('staff-driver-alert-badge-apps')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'applications' }, () => fetchDriverAlertCount())
+      .subscribe();
+    const ch2 = supabase
+      .channel('staff-driver-alert-badge-reminders')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cert_reminders' }, () => fetchDriverAlertCount())
+      .subscribe();
+    const ch3 = supabase
+      .channel('staff-driver-alert-badge-onboarding')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'onboarding_status' }, () => fetchDriverAlertCount())
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch1);
+      supabase.removeChannel(ch2);
+      supabase.removeChannel(ch3);
+    };
+  }, [fetchDriverAlertCount]);
+
 
   const fetchTruckDownOperators = useCallback(async () => {
     const { data } = await supabase
