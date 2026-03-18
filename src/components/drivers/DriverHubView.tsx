@@ -113,6 +113,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
       if (filter === 'expired') return complianceCounts.expired;
       if (filter === 'critical') return complianceCounts.critical;
       if (filter === 'warning') return complianceCounts.warning;
+      if (filter === 'not_yet_reminded') return complianceCounts.notYetReminded;
       return complianceCounts.neverRenewed;
     };
     const count = n(complianceFilter);
