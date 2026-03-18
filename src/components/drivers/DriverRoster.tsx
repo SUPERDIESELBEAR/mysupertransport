@@ -63,6 +63,14 @@ interface DriverRosterProps {
   onComplianceCountsChange?: (counts: ComplianceCounts) => void;
   /** Called when inline "Update" is clicked on a compliance-filtered row */
   onUpdateCompliance?: (operatorId: string, focusField: 'cdl' | 'medcert') => void;
+  /** Called after each data fetch with the full driver list (for parent bulk actions) */
+  onDriversChange?: (drivers: Array<{
+    operator_id: string;
+    first_name: string | null;
+    last_name: string | null;
+    cdl_expiration: string | null;
+    medical_cert_expiration: string | null;
+  }>) => void;
 }
 
 const DISPATCH_STATUS_CONFIG = {
@@ -153,6 +161,7 @@ export default function DriverRoster({
   onComplianceFilterChange,
   onComplianceCountsChange,
   onUpdateCompliance,
+  onDriversChange,
 }: DriverRosterProps) {
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -219,6 +228,13 @@ export default function DriverRoster({
       });
 
       setDrivers(mapped);
+      onDriversChange?.(mapped.map(d => ({
+        operator_id: d.operator_id,
+        first_name: d.first_name,
+        last_name: d.last_name,
+        cdl_expiration: d.cdl_expiration,
+        medical_cert_expiration: d.medical_cert_expiration,
+      })));
       // Clear selections that no longer exist
       setSelected(prev => {
         const validIds = new Set(mapped.map(d => d.operator_id));
