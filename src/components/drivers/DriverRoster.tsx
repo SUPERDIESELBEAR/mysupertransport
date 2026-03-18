@@ -264,10 +264,26 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
                 const name = [driver.first_name, driver.last_name].filter(Boolean).join(' ') || 'Unknown Driver';
                 const initials = [driver.first_name?.[0], driver.last_name?.[0]].filter(Boolean).join('').toUpperCase() || '?';
                 const statusCfg = DISPATCH_STATUS_CONFIG[driver.dispatch_status];
+
+                // Compliance row highlighting
+                const getDaysUntil = (dateStr: string | null) =>
+                  dateStr ? differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date())) : null;
+                const cdlDays = getDaysUntil(driver.cdl_expiration);
+                const medDays = getDaysUntil(driver.medical_cert_expiration);
+                const minDays = [cdlDays, medDays]
+                  .filter((d): d is number => d !== null)
+                  .reduce((a, b) => Math.min(a, b), Infinity);
+                const rowHighlight =
+                  minDays <= 7
+                    ? 'border-l-4 border-l-destructive bg-destructive/[0.03]'
+                    : minDays <= 30
+                    ? 'border-l-4 border-l-[hsl(var(--status-action))] bg-[hsl(var(--status-action))]/[0.03]'
+                    : '';
+
                 return (
                   <TableRow
                     key={driver.operator_id}
-                    className="cursor-pointer hover:bg-muted/30 transition-colors"
+                    className={`cursor-pointer hover:bg-muted/30 transition-colors ${rowHighlight}`}
                     onClick={() => onOpenDriver(driver.operator_id)}
                   >
                     {/* Unit */}
