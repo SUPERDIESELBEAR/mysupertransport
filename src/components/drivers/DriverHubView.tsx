@@ -83,6 +83,28 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   // Whether the bulk-remind button should appear (only expired/critical filters)
   const showBulkRemindButton = !dispatchMode && (complianceFilter === 'expired' || complianceFilter === 'critical');
 
+  // Live count of remindable targets for the button label (computed from roster snapshot)
+  const bulkReminderCount = useMemo(() => {
+    if (!showBulkRemindButton) return 0;
+    const today = startOfDay(new Date());
+    const seen = new Set<string>();
+    let count = 0;
+    for (const d of allDriversRef.current) {
+      const check = (dateStr: string | null) => {
+        if (!dateStr || seen.has(d.operator_id)) return;
+        const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
+        const inFilter =
+          (complianceFilter === 'expired' && days < 0) ||
+          (complianceFilter === 'critical' && days <= 7);
+        if (inFilter) { seen.add(d.operator_id); count++; }
+      };
+      check(d.cdl_expiration);
+      check(d.medical_cert_expiration);
+    }
+    return count;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showBulkRemindButton, complianceFilter, complianceCounts]);
+
   // Derive contextual guidance text for active filter
   const guidanceBanner = useMemo(() => {
     if (complianceFilter === 'all') return null;
@@ -95,7 +117,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
     const count = n(complianceFilter);
     const driver = count === 1 ? 'driver' : 'drivers';
     if (complianceFilter === 'expired') return { text: `Showing ${count} ${driver} with an expired CDL or Med Cert. Click Update on any row to fix their expiration date.`, variant: 'destructive' as const };
-    if (complianceFilter === 'critical') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 30 days. Click Update on any row to fix their expiration date.`, variant: 'destructive' as const };
+    if (complianceFilter === 'critical') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 7 days. Click Update on any row to fix their expiration date.`, variant: 'destructive' as const };
     if (complianceFilter === 'warning') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 90 days. Click Update on any row to review their documents.`, variant: 'warning' as const };
     return { text: `Showing ${count} ${driver} with no CDL or Med Cert expiration date on file. Click Update on any row to add their dates.`, variant: 'destructive' as const };
   }, [complianceFilter, complianceCounts]);
@@ -333,7 +355,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
 
         <div className="flex items-center gap-2 shrink-0">
           {/* Send Reminders to All — only for expired/critical filters */}
-          {showBulkRemindButton && (
+          {showBulkRemindButton && bulkReminderCount > 0 && (
             <Button
               variant="outline"
               size="sm"
@@ -341,7 +363,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
               onClick={handleOpenBulkReminderDialog}
             >
               <Bell className="h-4 w-4" />
-              Send Reminders to All
+              Send Reminders to All ({bulkReminderCount})
             </Button>
           )}
 
