@@ -56,11 +56,14 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
     return (
       <OperatorDetailPanel
         operatorId={selectedOperatorId}
-        onBack={() => setSelectedOperatorId(null)}
+        onBack={() => { setSelectedOperatorId(null); setPendingFocusField(null); }}
         onMessageOperator={userId => {
           setSelectedOperatorId(null);
+          setPendingFocusField(null);
           onMessageDriver?.(userId);
         }}
+        onOpenAppReview={pendingFocusField ? undefined : undefined}
+        {...(pendingFocusField ? { defaultFocusField: pendingFocusField } : {})}
       />
     );
   }
