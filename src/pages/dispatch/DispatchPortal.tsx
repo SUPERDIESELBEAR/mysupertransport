@@ -19,11 +19,12 @@ import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
   LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell, Volume2, VolumeX,
-  CheckCheck
+  CheckCheck, Users2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { formatDistanceToNow } from 'date-fns';
+import DriverHubView from '@/components/drivers/DriverHubView';
 
 interface QuickComposeTarget {
   operatorUserId: string;
@@ -117,7 +118,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
     onNavigate: (link) => navigate(link),
   });
   const [prefOpen, setPrefOpen] = useState(false);
-  const [activePage, setActivePage] = useState<'dispatch' | 'dispatch-messages' | 'dispatch-notifications'>('dispatch');
+  const [activePage, setActivePage] = useState<'dispatch' | 'dispatch-messages' | 'dispatch-notifications' | 'dispatch-drivers'>('dispatch');
   const [rows, setRows] = useState<DispatchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -348,7 +349,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
   // Clear badges when navigating to the respective tab
   const handleNavigate = (path: string) => {
-    const p = path as 'dispatch' | 'dispatch-messages' | 'dispatch-notifications';
+    const p = path as 'dispatch' | 'dispatch-messages' | 'dispatch-notifications' | 'dispatch-drivers';
     setActivePage(p);
     if (p === 'dispatch-messages') {
       setUnreadMessages(0);
@@ -1589,6 +1590,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
 
   const navItems = [
     { label: 'Dispatch Board', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
+    { label: 'Drivers', icon: <Users2 className="h-4 w-4" />, path: 'dispatch-drivers' },
     { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages', badge: unreadMessages || undefined },
     { label: 'Notifications', icon: <Bell className="h-4 w-4" />, path: 'dispatch-notifications', badge: unreadNotifCount || undefined },
   ];
@@ -1712,6 +1714,8 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
           ? <MessagesView initialUserId={messageInitialUserId} />
           : activePage === 'dispatch-notifications'
           ? <NotificationHistory />
+          : activePage === 'dispatch-drivers'
+          ? <DriverHubView dispatchMode={true} onMessageDriver={userId => { setMessageInitialUserId(userId); setActivePage('dispatch-messages'); }} />
           : board}
       </StaffLayout>
     </>

@@ -17,11 +17,12 @@ import DispatchPortal from '../dispatch/DispatchPortal';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
-  Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Layers, Shield,
+  Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Layers, Shield, Users2,
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
+import DriverHubView from '@/components/drivers/DriverHubView';
 import { differenceInDays, formatDistanceToNowStrict, parseISO, startOfDay } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
@@ -51,7 +52,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers';
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -108,7 +109,7 @@ export default function ManagementPortal() {
   useEffect(() => {
     const v = searchParams.get('view') as ManagementView | null;
     const s = searchParams.get('status') as StatusFilter | null;
-    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder'].includes(v)) {
+    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers'].includes(v)) {
       setView(v);
     }
     if (s && ['pending','approved','denied','all'].includes(s)) {
@@ -495,6 +496,7 @@ export default function ManagementPortal() {
     { label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
     { label: 'Applications', icon: <ClipboardList className="h-4 w-4" />, path: 'applications' },
     { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
+    { label: 'Drivers', icon: <Users2 className="h-4 w-4" />, path: 'drivers' },
     { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
     { label: 'Staff', icon: <UserPlus className="h-4 w-4" />, path: 'staff' },
     { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />, path: 'inspection-binder' },
@@ -509,7 +511,7 @@ export default function ManagementPortal() {
   // Bottom nav on mobile: 5 priority items that fit cleanly at 375px
   const mobileNavItems = [
     { label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
-    { label: 'Applic.', icon: <ClipboardList className="h-4 w-4" />, path: 'applications' },
+    { label: 'Drivers', icon: <Users2 className="h-4 w-4" />, path: 'drivers' },
     { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
     { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
     { label: 'Notifs', icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
@@ -1325,6 +1327,16 @@ export default function ManagementPortal() {
 
         {view === 'inspection-binder' && (
           <InspectionBinderAdmin />
+        )}
+
+        {view === 'drivers' && (
+          <DriverHubView
+            canAddDriver={true}
+            onMessageDriver={userId => {
+              setSelectedOperatorId(null);
+              setView('pipeline');
+            }}
+          />
         )}
 
         {view === 'notifications' && (
