@@ -14,7 +14,6 @@ import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificat
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
 import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Wrench, Shield, Users2 } from 'lucide-react';
-import { differenceInDays as diffInDays, parseISO as pISO, startOfDay as sod } from 'date-fns';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
 import DriverHubView from '@/components/drivers/DriverHubView';
 import DocumentHub from '@/components/documents/DocumentHub';
