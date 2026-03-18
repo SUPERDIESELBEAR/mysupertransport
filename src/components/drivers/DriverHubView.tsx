@@ -355,7 +355,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
 
         <div className="flex items-center gap-2 shrink-0">
           {/* Send Reminders to All — only for expired/critical filters */}
-          {showBulkRemindButton && (
+          {showBulkRemindButton && bulkReminderCount > 0 && (
             <Button
               variant="outline"
               size="sm"
@@ -363,7 +363,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
               onClick={handleOpenBulkReminderDialog}
             >
               <Bell className="h-4 w-4" />
-              Send Reminders to All
+              Send Reminders to All ({bulkReminderCount})
             </Button>
           )}
 
