@@ -33,7 +33,18 @@ interface DriverHubViewProps {
   defaultComplianceFilter?: ComplianceFilter;
 }
 
+interface BulkReminderTarget {
+  operator_id: string;
+  name: string;
+  doc_type: 'CDL' | 'Medical Cert';
+  days_until: number;
+  expiration_date: string;
+}
+
+const RATE_LIMIT_MS = 600;
+
 export default function DriverHubView({ canAddDriver = false, dispatchMode = false, onMessageDriver, defaultComplianceFilter }: DriverHubViewProps) {
+  const { toast } = useToast();
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [pendingFocusField, setPendingFocusField] = useState<'cdl' | 'medcert' | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -53,7 +64,24 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   const [reviewFocusField, setReviewFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
   const [reviewLoading, setReviewLoading] = useState(false);
 
+  // Bulk reminder state
+  const [bulkReminderDialogOpen, setBulkReminderDialogOpen] = useState(false);
+  const [bulkReminderTargets, setBulkReminderTargets] = useState<BulkReminderTarget[]>([]);
+  const [bulkReminderLoading, setBulkReminderLoading] = useState(false);
+  const [bulkReminderProgress, setBulkReminderProgress] = useState<{ sent: number; total: number } | null>(null);
+  // Keep a snapshot of all roster drivers for the bulk reminder lookup
+  const allDriversRef = useRef<Array<{
+    operator_id: string;
+    first_name: string | null;
+    last_name: string | null;
+    cdl_expiration: string | null;
+    medical_cert_expiration: string | null;
+  }>>([]);
+
   const hasAlerts = complianceCounts.expired + complianceCounts.critical + complianceCounts.warning + complianceCounts.neverRenewed > 0;
+
+  // Whether the bulk-remind button should appear (only expired/critical filters)
+  const showBulkRemindButton = !dispatchMode && (complianceFilter === 'expired' || complianceFilter === 'critical');
 
   // Derive contextual guidance text for active filter
   const guidanceBanner = useMemo(() => {
@@ -86,6 +114,92 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
     }
     setReviewLoading(false);
   }, []);
+
+  // Build the list of targets for the bulk reminder confirmation dialog
+  const handleOpenBulkReminderDialog = useCallback(() => {
+    const today = startOfDay(new Date());
+    const targets: BulkReminderTarget[] = [];
+
+    for (const d of allDriversRef.current) {
+      const name = [d.first_name, d.last_name].filter(Boolean).join(' ') || 'Unknown Driver';
+
+      const checkDoc = (dateStr: string | null, label: 'CDL' | 'Medical Cert') => {
+        if (!dateStr) return;
+        const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
+        const inFilter =
+          (complianceFilter === 'expired' && days < 0) ||
+          (complianceFilter === 'critical' && days < 0) ||
+          (complianceFilter === 'critical' && days <= 7);
+        if (inFilter) {
+          targets.push({ operator_id: d.operator_id, name, doc_type: label, days_until: days, expiration_date: dateStr });
+        }
+      };
+
+      checkDoc(d.cdl_expiration, 'CDL');
+      checkDoc(d.medical_cert_expiration, 'Medical Cert');
+    }
+
+    // De-duplicate: one entry per operator — pick the worst doc
+    const byOperator: Record<string, BulkReminderTarget> = {};
+    for (const t of targets) {
+      if (!byOperator[t.operator_id] || t.days_until < byOperator[t.operator_id].days_until) {
+        byOperator[t.operator_id] = t;
+      }
+    }
+
+    const deduped = Object.values(byOperator);
+    setBulkReminderTargets(deduped);
+    setBulkReminderDialogOpen(true);
+  }, [complianceFilter]);
+
+  // Fire off the reminders sequentially with rate-limiting
+  const handleConfirmBulkReminder = useCallback(async () => {
+    if (bulkReminderTargets.length === 0) return;
+    setBulkReminderLoading(true);
+    setBulkReminderProgress({ sent: 0, total: bulkReminderTargets.length });
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    let sent = 0;
+    let failed = 0;
+
+    for (const target of bulkReminderTargets) {
+      try {
+        const { error } = await supabase.functions.invoke('send-cert-reminder', {
+          body: {
+            operator_id: target.operator_id,
+            doc_type: target.doc_type,
+            days_until: target.days_until,
+            expiration_date: target.expiration_date,
+          },
+        });
+        if (error) throw error;
+        sent++;
+      } catch {
+        failed++;
+      }
+      setBulkReminderProgress({ sent: sent + failed, total: bulkReminderTargets.length });
+      // Rate-limit between calls
+      if (sent + failed < bulkReminderTargets.length) {
+        await new Promise(r => setTimeout(r, RATE_LIMIT_MS));
+      }
+    }
+
+    setBulkReminderLoading(false);
+    setBulkReminderDialogOpen(false);
+    setBulkReminderProgress(null);
+
+    if (failed === 0) {
+      toast({ title: `✓ Reminders sent`, description: `${sent} reminder${sent !== 1 ? 's' : ''} sent successfully.` });
+    } else {
+      toast({
+        title: `Reminders sent with errors`,
+        description: `${sent} sent, ${failed} failed. Check audit log for details.`,
+        variant: 'destructive',
+      });
+    }
+  }, [bulkReminderTargets, toast]);
 
   if (selectedOperatorId) {
     return (
@@ -218,6 +332,19 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {/* Send Reminders to All — only for expired/critical filters */}
+          {showBulkRemindButton && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 animate-fade-in border-destructive/40 text-destructive hover:bg-destructive/10 hover:border-destructive/60 hover:text-destructive"
+              onClick={handleOpenBulkReminderDialog}
+            >
+              <Bell className="h-4 w-4" />
+              Send Reminders to All
+            </Button>
+          )}
+
           {/* Bulk Message button — visible only when drivers are selected */}
           {selectedOperatorIds.length > 0 && (
             <Button
@@ -269,6 +396,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         onComplianceFilterChange={setComplianceFilter}
         onComplianceCountsChange={setComplianceCounts}
         onUpdateCompliance={handleUpdateCompliance}
+        onDriversChange={drivers => { allDriversRef.current = drivers; }}
       />
 
       {/* Add Driver Modal */}
@@ -296,6 +424,67 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
           onExpiryUpdated={() => setRosterKey(k => k + 1)}
         />
       )}
+
+      {/* Bulk Reminder Confirmation Dialog */}
+      <AlertDialog open={bulkReminderDialogOpen} onOpenChange={open => { if (!bulkReminderLoading) setBulkReminderDialogOpen(open); }}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-destructive" />
+              Send Reminders to All
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  This will send a renewal reminder email to{' '}
+                  <strong className="text-foreground">{bulkReminderTargets.length} driver{bulkReminderTargets.length !== 1 ? 's' : ''}</strong>{' '}
+                  with {complianceFilter === 'expired' ? 'expired' : 'expired or critical'} documents.
+                </p>
+                {bulkReminderTargets.length > 0 && (
+                  <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-muted/40 divide-y divide-border text-xs">
+                    {bulkReminderTargets.map(t => (
+                      <div key={t.operator_id} className="flex items-center justify-between px-3 py-2 gap-2">
+                        <span className="font-medium text-foreground truncate">{t.name}</span>
+                        <span className={`shrink-0 font-medium ${t.days_until < 0 ? 'text-destructive' : 'text-[hsl(var(--status-action))]'}`}>
+                          {t.doc_type} · {t.days_until < 0 ? `${Math.abs(t.days_until)}d ago` : `${t.days_until}d left`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {bulkReminderLoading && bulkReminderProgress && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Sending {bulkReminderProgress.sent} of {bulkReminderProgress.total}…
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full bg-primary transition-all duration-300 rounded-full"
+                        style={{ width: `${(bulkReminderProgress.sent / bulkReminderProgress.total) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkReminderLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={bulkReminderLoading || bulkReminderTargets.length === 0}
+              onClick={e => { e.preventDefault(); handleConfirmBulkReminder(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-2"
+            >
+              {bulkReminderLoading ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin" />Sending…</>
+              ) : (
+                <><Bell className="h-3.5 w-3.5" />Send {bulkReminderTargets.length} Reminder{bulkReminderTargets.length !== 1 ? 's' : ''}</>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
