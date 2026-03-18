@@ -169,6 +169,8 @@ export default function DriverRoster({
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<DispatchFilter>('all');
   const [internalComplianceFilter, setInternalComplianceFilter] = useState<ComplianceFilter>('all');
+  // Map of operator_id → most recent cert_reminders sent_at (ISO string)
+  const [lastReminderMap, setLastReminderMap] = useState<Record<string, string>>({});
   const complianceFilter = externalComplianceFilter ?? internalComplianceFilter;
   const setComplianceFilter = (f: ComplianceFilter) => {
     setInternalComplianceFilter(f);
