@@ -865,6 +865,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       });
     }
     setTimeout(() => setNoActionBulkSentCount(null), 10000);
+    startNoActionCooldown();
   };
 
   // Bulk Mark as Renewed — extends all alerted docs by +1 year and writes audit log entries
