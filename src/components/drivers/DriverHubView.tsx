@@ -225,7 +225,9 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         variant: 'destructive',
       });
     }
-  }, [bulkReminderTargets, toast]);
+    // Start cooldown regardless of partial failures to prevent duplicate sends
+    startBulkCooldown();
+  }, [bulkReminderTargets, toast, startBulkCooldown]);
 
   if (selectedOperatorId) {
     return (
