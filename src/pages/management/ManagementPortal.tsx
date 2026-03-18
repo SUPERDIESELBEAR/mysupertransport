@@ -203,15 +203,19 @@ export default function ManagementPortal() {
   const fetchCriticalExpiries = useCallback(async () => {
     const { data } = await supabase
       .from('operators')
-      .select('id, applications(first_name, last_name, cdl_expiration, medical_cert_expiration)')
+      .select('id, onboarding_status(fully_onboarded), applications(first_name, last_name, cdl_expiration, medical_cert_expiration)')
       .not('application_id', 'is', null);
     if (!data) return;
     const today = startOfDay(new Date());
     let count = 0;
     const rows: ComplianceRow[] = [];
+    const driverCounts: ComplianceCounts = { expired: 0, critical: 0, warning: 0, neverRenewed: 0 };
+
     (data as any[]).forEach((op: any) => {
       const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
       if (!app) return;
+      const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
+      const isFullyOnboarded = os?.fully_onboarded === true;
       const name = [app.first_name, app.last_name].filter(Boolean).join(' ') || 'Unknown';
       const docs: { field: string; label: 'CDL' | 'Med Cert' }[] = [
         { field: 'cdl_expiration', label: 'CDL' },
@@ -219,17 +223,26 @@ export default function ManagementPortal() {
       ];
       docs.forEach(({ field, label }) => {
         const dateStr: string | null = app[field];
-        if (!dateStr) return;
+        if (!dateStr) {
+          if (isFullyOnboarded) driverCounts.neverRenewed++;
+          return;
+        }
         const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
         if (days <= 30) count++;
         if (days <= 90) {
           rows.push({ operatorId: op.id, name, daysUntil: days, docType: label, expiryDate: dateStr });
+        }
+        if (isFullyOnboarded) {
+          if (days < 0) driverCounts.expired++;
+          else if (days <= 30) driverCounts.critical++;
+          else if (days <= 90) driverCounts.warning++;
         }
       });
     });
     rows.sort((a, b) => a.daysUntil - b.daysUntil);
     setCriticalExpiryCount(count);
     setComplianceSummary(rows.slice(0, 5));
+    setDriverComplianceCounts(driverCounts);
   }, []);
 
   // Subscribe to realtime changes on active_dispatch to keep the banner + overview live
