@@ -24,9 +24,13 @@ interface DriverRow {
 }
 
 type DispatchFilter = 'all' | 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
-type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning';
+type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed';
 
-function getComplianceTier(cdl: string | null, med: string | null): ComplianceFilter {
+function isNeverRenewed(cdl: string | null, med: string | null): boolean {
+  return cdl === null || med === null;
+}
+
+function getComplianceTier(cdl: string | null, med: string | null): Exclude<ComplianceFilter, 'never_renewed' | 'all'> | 'all' {
   const getDays = (d: string | null) =>
     d ? differenceInDays(startOfDay(parseISO(d)), startOfDay(new Date())) : null;
   const days = [getDays(cdl), getDays(med)].filter((d): d is number => d !== null);
