@@ -340,6 +340,27 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
                   </TooltipContent>
                 </Tooltip>
               )}
+              {complianceCounts.notYetReminded > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setComplianceFilter(complianceFilter === 'not_yet_reminded' ? 'all' : 'not_yet_reminded')}
+                      className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                        complianceFilter === 'not_yet_reminded'
+                          ? 'bg-primary/15 border-primary/40 text-primary'
+                          : 'border-primary/25 text-primary/70 hover:bg-primary/10 hover:border-primary/40 hover:text-primary'
+                      }`}
+                    >
+                      <Bell className="h-3 w-3" />
+                      {complianceCounts.notYetReminded} not yet reminded
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-left space-y-1.5 max-w-[220px]">
+                    <p className="font-semibold">Not Yet Reminded</p>
+                    <p className="text-muted-foreground">Drivers who have never received a cert reminder. Send one to start their outreach history.</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               </TooltipProvider>
               {complianceFilter !== 'all' && (
                 <button
