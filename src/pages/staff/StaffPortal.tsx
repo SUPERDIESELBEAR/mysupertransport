@@ -464,6 +464,12 @@ export default function StaffPortal() {
       {currentView === 'inspection-binder' && (
         <InspectionBinderAdmin />
       )}
+      {currentView === 'drivers' && (
+        <DriverHubView
+          canAddDriver={false}
+          onMessageDriver={userId => { setMessageInitialUserId(userId); setCurrentView('messages'); }}
+        />
+      )}
       {currentView === 'notifications' && (
         <NotificationHistory />
       )}
