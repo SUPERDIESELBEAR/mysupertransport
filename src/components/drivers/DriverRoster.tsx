@@ -228,6 +228,13 @@ export default function DriverRoster({
       });
 
       setDrivers(mapped);
+      onDriversChange?.(mapped.map(d => ({
+        operator_id: d.operator_id,
+        first_name: d.first_name,
+        last_name: d.last_name,
+        cdl_expiration: d.cdl_expiration,
+        medical_cert_expiration: d.medical_cert_expiration,
+      })));
       // Clear selections that no longer exist
       setSelected(prev => {
         const validIds = new Set(mapped.map(d => d.operator_id));
