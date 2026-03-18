@@ -20,6 +20,7 @@ interface DriverHubViewProps {
 
 export default function DriverHubView({ canAddDriver = false, dispatchMode = false, onMessageDriver, defaultComplianceFilter }: DriverHubViewProps) {
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
+  const [pendingFocusField, setPendingFocusField] = useState<'cdl' | 'medcert' | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [rosterKey, setRosterKey] = useState(0);
