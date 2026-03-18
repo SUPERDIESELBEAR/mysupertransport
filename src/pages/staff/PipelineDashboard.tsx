@@ -716,8 +716,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     }
   };
 
-  const handleSendAllCritical = async () => {
-    const criticalAlerts = complianceAlerts.filter(a => a.days_until <= 30);
+  const handleSendAllCritical = async (targets?: ComplianceAlert[]) => {
+    const criticalAlerts = targets ?? complianceAlerts.filter(a => a.days_until <= 30);
     if (criticalAlerts.length === 0) return;
     setBulkSending(true);
     setBulkSentCount(null);
@@ -728,54 +728,53 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     let successCount = 0;
     let failCount = 0;
 
-    await Promise.all(
-      criticalAlerts.map(async (alert) => {
-        const key = `${alert.operator_id}|${alert.doc_type}`;
-        // Skip already-sending or already-sent items
-        if (reminderSending[key] || reminderSent[key]) { successCount++; return; }
-        setReminderSending(prev => ({ ...prev, [key]: true }));
-        try {
-          const res = await fetch(`${supabaseUrl}/functions/v1/send-cert-reminder`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session?.access_token ?? ''}`,
-              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            },
-            body: JSON.stringify({
-              operator_id: alert.operator_id,
-              doc_type: alert.doc_type,
-              days_until: alert.days_until,
-              expiration_date: alert.expiration_date,
-            }),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error ?? 'Failed');
-          const now = new Date().toISOString();
-          setLastReminded(prev => ({ ...prev, [key]: now }));
-          if (data.email_error) {
-            setLastReminderOutcome(prev => ({ ...prev, [key]: { sent: false, error: data.email_error } }));
-            failCount++;
-          } else {
-            setLastReminderOutcome(prev => ({ ...prev, [key]: { sent: true } }));
-            successCount++;
-          }
-          setReminderSent(prev => ({ ...prev, [key]: true }));
-          setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
-        } catch {
+    for (const alert of criticalAlerts) {
+      const key = `${alert.operator_id}|${alert.doc_type}`;
+      if (reminderSending[key] || reminderSent[key]) { successCount++; continue; }
+      setReminderSending(prev => ({ ...prev, [key]: true }));
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/send-cert-reminder`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token ?? ''}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            operator_id: alert.operator_id,
+            doc_type: alert.doc_type,
+            days_until: alert.days_until,
+            expiration_date: alert.expiration_date,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? 'Failed');
+        const now = new Date().toISOString();
+        setLastReminded(prev => ({ ...prev, [key]: now }));
+        if (data.email_error) {
+          setLastReminderOutcome(prev => ({ ...prev, [key]: { sent: false, error: data.email_error } }));
           failCount++;
-        } finally {
-          setReminderSending(prev => ({ ...prev, [key]: false }));
+        } else {
+          setLastReminderOutcome(prev => ({ ...prev, [key]: { sent: true } }));
+          successCount++;
         }
-      })
-    );
+        setReminderSent(prev => ({ ...prev, [key]: true }));
+        setTimeout(() => setReminderSent(prev => ({ ...prev, [key]: false })), 8000);
+      } catch {
+        failCount++;
+      } finally {
+        setReminderSending(prev => ({ ...prev, [key]: false }));
+      }
+      // Rate-limit: 600ms between requests
+      await new Promise(r => setTimeout(r, 600));
+    }
 
     setBulkSending(false);
     setBulkSentCount(successCount);
     if (failCount === 0) {
       toast({
         title: `${successCount} reminder${successCount !== 1 ? 's' : ''} sent`,
-        description: `All critical operators have been notified.`,
+        description: `All targeted operators have been notified.`,
       });
     } else {
       toast({
@@ -1376,11 +1375,15 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               </div>
             </button>
 
-            {/* Bulk send button — only when there are critical (≤30d) alerts */}
+            {/* Bulk send button — filter-aware: targets expired + critical alerts for active doc-type filter */}
             {(() => {
-              const criticalCount = complianceAlerts.filter(a => a.days_until <= 30).length;
-              if (criticalCount === 0) return null;
+              const filteredTargets = complianceAlerts.filter(a => {
+                if (complianceDocFilter !== 'all' && a.doc_type !== complianceDocFilter) return false;
+                return a.days_until <= 30; // expired (<0) and critical (≤30)
+              });
+              if (filteredTargets.length === 0) return null;
               const allSent = bulkSentCount !== null;
+              const docLabel = complianceDocFilter === 'all' ? 'critical' : complianceDocFilter;
               return (
                 <TooltipProvider delayDuration={100}>
                   <Tooltip>
@@ -1401,14 +1404,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         ) : allSent ? (
                           <><CheckCheck className="h-3 w-3" />{bulkSentCount} Sent</>
                         ) : (
-                          <><Send className="h-3 w-3" />Send All ({criticalCount})</>
+                          <><Send className="h-3 w-3" />Send Reminders to All ({filteredTargets.length})</>
                         )}
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs max-w-[220px] text-center">
+                    <TooltipContent side="bottom" className="text-xs max-w-[240px] text-center">
                       {allSent
-                        ? `${bulkSentCount} reminder${bulkSentCount !== 1 ? 's' : ''} sent to critical operators`
-                        : `Send renewal reminder emails to all ${criticalCount} operator${criticalCount !== 1 ? 's' : ''} with critical expiries (≤ 30 days)`}
+                        ? `${bulkSentCount} reminder${bulkSentCount !== 1 ? 's' : ''} sent`
+                        : `Send renewal reminder emails to all ${filteredTargets.length} ${docLabel} operator${filteredTargets.length !== 1 ? 's' : ''} with expired or critical expiries (≤ 30 days)`}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -3084,24 +3087,31 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         </div>
       </div>
 
-      {/* Bulk Send All Reminders — confirmation dialog */}
+      {/* Bulk Send Reminders to All — filter-aware confirmation dialog */}
       {(() => {
-        const criticalAlerts = complianceAlerts.filter(a => a.days_until <= 30);
+        const filteredTargets = complianceAlerts.filter(a => {
+          if (complianceDocFilter !== 'all' && a.doc_type !== complianceDocFilter) return false;
+          return a.days_until <= 30;
+        });
+        const docScope = complianceDocFilter === 'all' ? 'CDL/Med Cert' : complianceDocFilter;
         return (
           <AlertDialog open={showBulkConfirm} onOpenChange={setShowBulkConfirm}>
             <AlertDialogContent className="max-w-md">
               <AlertDialogHeader>
                 <AlertDialogTitle className="flex items-center gap-2">
                   <Send className="h-4 w-4 text-destructive" />
-                  Send All Reminders
+                  Send Reminders to All
+                  {complianceDocFilter !== 'all' && (
+                    <span className="text-xs font-normal text-muted-foreground">— {complianceDocFilter} only</span>
+                  )}
                 </AlertDialogTitle>
                 <AlertDialogDescription asChild>
                   <div className="space-y-3">
                     <p className="text-sm text-muted-foreground">
-                      The following {criticalAlerts.length} operator{criticalAlerts.length !== 1 ? 's' : ''} will receive a CDL/Med Cert expiry reminder email:
+                      The following {filteredTargets.length} operator{filteredTargets.length !== 1 ? 's' : ''} will receive a {docScope} expiry reminder email:
                     </p>
-                    <ul className="divide-y divide-border rounded-md border border-border overflow-hidden text-sm">
-                      {criticalAlerts.map(alert => (
+                    <ul className="divide-y divide-border rounded-md border border-border overflow-hidden text-sm max-h-64 overflow-y-auto">
+                      {filteredTargets.map(alert => (
                         <li key={`${alert.operator_id}|${alert.doc_type}`} className="flex items-center justify-between px-3 py-2 bg-background">
                           <span className="font-medium text-foreground">{alert.operator_name}</span>
                           <div className="flex items-center gap-2">
@@ -3109,9 +3119,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                             <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
                               alert.days_until < 0
                                 ? 'bg-destructive/15 text-destructive'
-                                : alert.days_until <= 30
-                                ? 'bg-destructive/10 text-destructive'
-                                : 'bg-gold/10 text-gold'
+                                : 'bg-destructive/10 text-destructive'
                             }`}>
                               {alert.days_until < 0 ? `${Math.abs(alert.days_until)}d expired` : `${alert.days_until}d left`}
                             </span>
@@ -3125,11 +3133,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={() => { setShowBulkConfirm(false); handleSendAllCritical(); }}
+                  onClick={() => { setShowBulkConfirm(false); handleSendAllCritical(filteredTargets); }}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
                   <Send className="h-3.5 w-3.5 mr-1.5" />
-                  Send {criticalAlerts.length} Reminder{criticalAlerts.length !== 1 ? 's' : ''}
+                  Send {filteredTargets.length} Reminder{filteredTargets.length !== 1 ? 's' : ''}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
