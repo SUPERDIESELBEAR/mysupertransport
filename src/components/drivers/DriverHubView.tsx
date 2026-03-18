@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useBulkReminderCooldown } from '@/hooks/useBulkReminderCooldown';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX, Info, Bell, Loader2 } from 'lucide-react';
 import type { ComplianceFilter, ComplianceCounts } from './DriverRoster';
@@ -70,6 +71,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   const [bulkReminderTargets, setBulkReminderTargets] = useState<BulkReminderTarget[]>([]);
   const [bulkReminderLoading, setBulkReminderLoading] = useState(false);
   const [bulkReminderProgress, setBulkReminderProgress] = useState<{ sent: number; total: number } | null>(null);
+  const { isCoolingDown: bulkCooldown, minutesLeft: bulkCooldownMinutes, startCooldown: startBulkCooldown } = useBulkReminderCooldown();
   // Keep a snapshot of all roster drivers for the bulk reminder lookup
   const allDriversRef = useRef<Array<{
     operator_id: string;
@@ -223,7 +225,9 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         variant: 'destructive',
       });
     }
-  }, [bulkReminderTargets, toast]);
+    // Start cooldown regardless of partial failures to prevent duplicate sends
+    startBulkCooldown();
+  }, [bulkReminderTargets, toast, startBulkCooldown]);
 
   if (selectedOperatorId) {
     return (
@@ -378,16 +382,36 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
 
         <div className="flex items-center gap-2 shrink-0">
           {/* Send Reminders to All — only for expired/critical filters */}
-          {showBulkRemindButton && bulkReminderCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 animate-fade-in border-destructive/40 text-destructive hover:bg-destructive/10 hover:border-destructive/60 hover:text-destructive"
-              onClick={handleOpenBulkReminderDialog}
-            >
-              <Bell className="h-4 w-4" />
-              Send Reminders to All ({bulkReminderCount})
-            </Button>
+          {showBulkRemindButton && (bulkReminderCount > 0 || bulkCooldown) && (
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={bulkCooldown}
+                      className={`gap-2 animate-fade-in transition-all ${
+                        bulkCooldown
+                          ? 'border-border/40 text-muted-foreground/50 bg-muted/30 cursor-not-allowed opacity-50'
+                          : 'border-destructive/40 text-destructive hover:bg-destructive/10 hover:border-destructive/60 hover:text-destructive'
+                      }`}
+                      onClick={handleOpenBulkReminderDialog}
+                    >
+                      <Bell className="h-4 w-4" />
+                      {bulkCooldown
+                        ? `Reminders Sent · ${bulkCooldownMinutes}m cooldown`
+                        : `Send Reminders to All (${bulkReminderCount})`}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs max-w-[220px] text-center">
+                  {bulkCooldown
+                    ? `Reminders sent this session. Available again in ${bulkCooldownMinutes} minute${bulkCooldownMinutes !== 1 ? 's' : ''}.`
+                    : `Send renewal reminder emails to all ${bulkReminderCount} driver${bulkReminderCount !== 1 ? 's' : ''} with expired or critical documents.`}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
 
           {/* Bulk Message button — visible only when drivers are selected */}
