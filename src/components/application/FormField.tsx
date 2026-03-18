@@ -123,7 +123,8 @@ export const RadioGroup = forwardRef<HTMLDivElement, RadioGroupProps>(({ name, v
       ))}
     </div>
   );
-}
+});
+RadioGroup.displayName = 'RadioGroup';
 
 interface CheckboxGroupProps {
   values: string[];
