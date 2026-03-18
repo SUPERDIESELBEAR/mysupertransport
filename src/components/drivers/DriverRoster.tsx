@@ -415,6 +415,8 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
           <p className="text-xs text-muted-foreground mt-1">
             {drivers.length === 0
               ? 'Fully onboarded operators will appear here automatically.'
+              : complianceFilter === 'never_renewed'
+              ? 'No drivers are missing CDL or Med Cert expiry dates.'
               : complianceFilter !== 'all'
               ? `No drivers match the "${complianceFilter}" compliance filter.`
               : 'Try adjusting your search or filter.'}
