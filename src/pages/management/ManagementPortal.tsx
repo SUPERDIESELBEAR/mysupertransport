@@ -1332,9 +1332,8 @@ export default function ManagementPortal() {
         {view === 'drivers' && (
           <DriverHubView
             canAddDriver={true}
-            onMessageDriver={userId => {
-              setSelectedOperatorId(null);
-              setView('pipeline');
+            onMessageDriver={() => {
+              setView('dispatch');
             }}
           />
         )}
