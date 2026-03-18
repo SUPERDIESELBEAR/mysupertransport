@@ -870,7 +870,12 @@ export default function DriverRoster({
                           {/* Show reminder badge inline inside compliance col below xl (where Last Sent col is hidden) */}
                           {showReminderBadge && (
                             <span className="xl:hidden">
-                              {reminderHistoryBadge(reminderHistory)}
+                              <ReminderHistoryBadge
+                                entries={reminderHistory}
+                                operatorId={driver.operator_id}
+                                driverName={name}
+                                onSent={() => fetchDrivers(true)}
+                              />
                             </span>
                           )}
                         </div>
@@ -880,11 +885,12 @@ export default function DriverRoster({
                     {/* Last Sent dedicated column — visible at xl when compliance filter is active */}
                     {showLastSentCol && (
                       <TableCell className="hidden xl:table-cell" onClick={e => e.stopPropagation()}>
-                        {reminderHistory
-                          ? reminderHistoryBadge(reminderHistory)
-                          : (
-                            <span className="text-xs text-muted-foreground/50 italic">Never</span>
-                          )}
+                        <ReminderHistoryBadge
+                          entries={reminderHistory}
+                          operatorId={driver.operator_id}
+                          driverName={name}
+                          onSent={() => fetchDrivers(true)}
+                        />
                       </TableCell>
                     )}
 
@@ -894,7 +900,12 @@ export default function DriverRoster({
                         {/* On small screens where both compliance + last-sent cols are hidden, show badge inline */}
                         {showReminderBadge && (
                           <span className="lg:hidden">
-                            {reminderHistoryBadge(reminderHistory)}
+                            <ReminderHistoryBadge
+                              entries={reminderHistory}
+                              operatorId={driver.operator_id}
+                              driverName={name}
+                              onSent={() => fetchDrivers(true)}
+                            />
                           </span>
                         )}
                         {showUpdateLink && (
