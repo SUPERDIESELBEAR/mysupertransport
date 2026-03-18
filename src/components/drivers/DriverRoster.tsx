@@ -201,13 +201,31 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
     onSelectionChange?.([...selected]);
   }, [selected, onSelectionChange]);
 
+  // Compliance tier counts (over all drivers, before any filter)
+  const complianceCounts = useMemo(() => {
+    let expired = 0, critical = 0, warning = 0;
+    for (const d of drivers) {
+      const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
+      if (tier === 'expired') expired++;
+      else if (tier === 'critical') critical++;
+      else if (tier === 'warning') warning++;
+    }
+    return { expired, critical, warning };
+  }, [drivers]);
+
   const filtered = drivers.filter(d => {
     const matchesStatus = statusFilter === 'all' || d.dispatch_status === statusFilter;
     const q = search.toLowerCase();
     const matchesSearch = !q || `${d.first_name ?? ''} ${d.last_name ?? ''}`.toLowerCase().includes(q) ||
       (d.unit_number ?? '').toLowerCase().includes(q) ||
       (d.phone ?? '').includes(q);
-    return matchesStatus && matchesSearch;
+    const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
+    const matchesCompliance =
+      complianceFilter === 'all' ||
+      (complianceFilter === 'expired' && tier === 'expired') ||
+      (complianceFilter === 'critical' && (tier === 'expired' || tier === 'critical')) ||
+      (complianceFilter === 'warning' && (tier === 'expired' || tier === 'critical' || tier === 'warning'));
+    return matchesStatus && matchesSearch && matchesCompliance;
   });
 
   const allFilteredSelected = filtered.length > 0 && filtered.every(d => selected.has(d.operator_id));
