@@ -63,6 +63,14 @@ interface DriverRosterProps {
   onComplianceCountsChange?: (counts: ComplianceCounts) => void;
   /** Called when inline "Update" is clicked on a compliance-filtered row */
   onUpdateCompliance?: (operatorId: string, focusField: 'cdl' | 'medcert') => void;
+  /** Called after each data fetch with the full driver list (for parent bulk actions) */
+  onDriversChange?: (drivers: Array<{
+    operator_id: string;
+    first_name: string | null;
+    last_name: string | null;
+    cdl_expiration: string | null;
+    medical_cert_expiration: string | null;
+  }>) => void;
 }
 
 const DISPATCH_STATUS_CONFIG = {
