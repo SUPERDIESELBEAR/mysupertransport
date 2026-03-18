@@ -379,7 +379,11 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
           <Users2 className="h-10 w-10 text-muted-foreground/40 mb-3" />
           <p className="text-sm font-medium text-foreground">No active drivers found</p>
           <p className="text-xs text-muted-foreground mt-1">
-            {drivers.length === 0 ? 'Fully onboarded operators will appear here automatically.' : 'Try adjusting your search or filter.'}
+            {drivers.length === 0
+              ? 'Fully onboarded operators will appear here automatically.'
+              : complianceFilter !== 'all'
+              ? `No drivers match the "${complianceFilter}" compliance filter.`
+              : 'Try adjusting your search or filter.'}
           </p>
         </div>
       ) : (
