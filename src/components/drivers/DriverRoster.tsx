@@ -317,7 +317,7 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
       </div>
 
       {/* Compliance filter chips */}
-      {!dispatchMode && (complianceCounts.expired + complianceCounts.critical + complianceCounts.warning) > 0 && (
+      {!dispatchMode && (complianceCounts.expired + complianceCounts.critical + complianceCounts.warning + complianceCounts.neverRenewed) > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setComplianceFilter('all')}
@@ -373,6 +373,21 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
               <Clock className="h-3 w-3" />
               Warning ≤ 30d
               <span className="font-semibold">{complianceCounts.warning}</span>
+            </button>
+          )}
+
+          {complianceCounts.neverRenewed > 0 && (
+            <button
+              onClick={() => setComplianceFilter(complianceFilter === 'never_renewed' ? 'all' : 'never_renewed')}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                complianceFilter === 'never_renewed'
+                  ? 'bg-destructive/15 border-destructive/40 text-destructive'
+                  : 'border-destructive/30 text-destructive/80 hover:bg-destructive/10 hover:border-destructive/50'
+              }`}
+            >
+              <FileX className="h-3 w-3" />
+              Never Renewed
+              <span className="font-semibold">{complianceCounts.neverRenewed}</span>
             </button>
           )}
         </div>
