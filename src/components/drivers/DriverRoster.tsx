@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell } from 'lucide-react';
+import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History } from 'lucide-react';
 
 interface DriverRow {
   operator_id: string;
@@ -21,6 +21,14 @@ interface DriverRow {
   dispatch_status: 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
   cdl_expiration: string | null;
   medical_cert_expiration: string | null;
+}
+
+interface ReminderEntry {
+  sent_at: string;
+  doc_type: string;
+  sent_by_name: string | null;
+  email_sent: boolean;
+  email_error: string | null;
 }
 
 export type DispatchFilter = 'all' | 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
@@ -153,27 +161,88 @@ function expiryPill(dateStr: string | null, label: string) {
   );
 }
 
-/** Renders a subtle "Reminded Xd ago" badge for the last cert reminder sent. */
-function lastReminderBadge(sentAt: string | undefined) {
-  if (!sentAt) return null;
-  const days = differenceInDays(startOfDay(new Date()), startOfDay(parseISO(sentAt)));
-  const label = days === 0 ? 'Today' : days === 1 ? '1d ago' : `${days}d ago`;
+/** Renders a "Last Sent" badge with send count + history tooltip. */
+function reminderHistoryBadge(entries: ReminderEntry[] | undefined) {
+  if (!entries || entries.length === 0) return null;
+
+  const latest = entries[0];
+  const days = differenceInDays(startOfDay(new Date()), startOfDay(parseISO(latest.sent_at)));
+  const dateLabel = days === 0 ? 'Today' : days === 1 ? '1d ago' : `${days}d ago`;
   const isRecent = days <= 7;
+  const count = entries.length;
+
   return (
     <TooltipProvider delayDuration={100}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className={`inline-flex items-center gap-1 text-xs font-medium rounded px-1.5 py-0.5 border ${
-            isRecent
-              ? 'text-primary bg-primary/10 border-primary/25'
-              : 'text-muted-foreground bg-muted border-border'
-          }`}>
+          <button
+            className={`inline-flex items-center gap-1 text-xs font-medium rounded px-1.5 py-0.5 border cursor-default select-none ${
+              isRecent
+                ? 'text-primary bg-primary/10 border-primary/25'
+                : 'text-muted-foreground bg-muted border-border'
+            }`}
+            onClick={e => e.stopPropagation()}
+          >
             <Bell className="h-2.5 w-2.5 shrink-0" />
-            {label}
-          </span>
+            {dateLabel}
+            {count > 1 && (
+              <span className={`ml-0.5 rounded-full px-1 py-px text-[10px] font-semibold leading-none ${
+                isRecent ? 'bg-primary/20 text-primary' : 'bg-muted-foreground/20 text-muted-foreground'
+              }`}>
+                ×{count}
+              </span>
+            )}
+          </button>
         </TooltipTrigger>
-        <TooltipContent side="top">
-          Last reminder sent {format(parseISO(sentAt), 'MMM d, yyyy')}
+        <TooltipContent side="top" className="p-0 overflow-hidden max-w-[260px]" sideOffset={6}>
+          {/* Header */}
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-muted/60 border-b border-border">
+            <History className="h-3 w-3 text-muted-foreground shrink-0" />
+            <span className="text-xs font-semibold text-foreground">
+              Reminder History ({count} sent)
+            </span>
+          </div>
+          {/* History rows — show up to 5 */}
+          <div className="divide-y divide-border/50">
+            {entries.slice(0, 5).map((r, i) => {
+              const entryDays = differenceInDays(startOfDay(new Date()), startOfDay(parseISO(r.sent_at)));
+              const entryLabel = entryDays === 0 ? 'Today' : entryDays === 1 ? '1d ago' : `${entryDays}d ago`;
+              return (
+                <div key={i} className="flex items-start gap-2 px-3 py-1.5">
+                  {/* Delivery icon */}
+                  <div className="mt-0.5 shrink-0">
+                    {r.email_sent
+                      ? <CheckCircle2 className="h-3 w-3 text-status-complete" />
+                      : <XCircle className="h-3 w-3 text-destructive" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-medium text-foreground">{r.doc_type}</span>
+                      <span className="text-[10px] text-muted-foreground">{entryLabel}</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground truncate">
+                      {format(parseISO(r.sent_at), 'MMM d, yyyy · h:mm a')}
+                    </div>
+                    {r.sent_by_name && (
+                      <div className="text-[10px] text-muted-foreground/80 truncate">
+                        by {r.sent_by_name}
+                      </div>
+                    )}
+                    {!r.email_sent && r.email_error && (
+                      <div className="text-[10px] text-destructive truncate" title={r.email_error}>
+                        ✗ {r.email_error}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {count > 5 && (
+            <div className="px-3 py-1.5 text-[10px] text-muted-foreground bg-muted/30 border-t border-border">
+              + {count - 5} more · open driver profile for full history
+            </div>
+          )}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -197,8 +266,10 @@ export default function DriverRoster({
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<DispatchFilter>('all');
   const [internalComplianceFilter, setInternalComplianceFilter] = useState<ComplianceFilter>('all');
-  // Map of operator_id → most recent cert_reminders sent_at (ISO string)
+  // Map of operator_id → most recent cert_reminders sent_at (ISO string) — for counts
   const [lastReminderMap, setLastReminderMap] = useState<Record<string, string>>({});
+  // Map of operator_id → sorted reminder entries (newest first, up to 5)
+  const [reminderHistoryMap, setReminderHistoryMap] = useState<Record<string, ReminderEntry[]>>({});
   const complianceFilter = externalComplianceFilter ?? internalComplianceFilter;
   const setComplianceFilter = (f: ComplianceFilter) => {
     setInternalComplianceFilter(f);
@@ -224,16 +295,36 @@ export default function DriverRoster({
         .eq('onboarding_status.fully_onboarded', true),
       supabase
         .from('cert_reminders')
-        .select('operator_id, sent_at')
+        .select('operator_id, sent_at, doc_type, sent_by_name, email_sent, email_error')
         .order('sent_at', { ascending: false }),
     ]);
 
-    // Build latest-reminder-per-operator map
-    const reminderMap: Record<string, string> = {};
-    for (const r of (reminders ?? []) as Array<{ operator_id: string; sent_at: string }>) {
-      if (!reminderMap[r.operator_id]) reminderMap[r.operator_id] = r.sent_at;
+    // Build per-operator reminder maps
+    const latestMap: Record<string, string> = {};
+    const historyMap: Record<string, ReminderEntry[]> = {};
+
+    for (const r of (reminders ?? []) as Array<{
+      operator_id: string;
+      sent_at: string;
+      doc_type: string;
+      sent_by_name: string | null;
+      email_sent: boolean;
+      email_error: string | null;
+    }>) {
+      if (!latestMap[r.operator_id]) latestMap[r.operator_id] = r.sent_at;
+      if (!historyMap[r.operator_id]) historyMap[r.operator_id] = [];
+      // Keep all entries (we'll slice to 5 in the render)
+      historyMap[r.operator_id].push({
+        sent_at: r.sent_at,
+        doc_type: r.doc_type,
+        sent_by_name: r.sent_by_name,
+        email_sent: r.email_sent,
+        email_error: r.email_error,
+      });
     }
-    setLastReminderMap(reminderMap);
+
+    setLastReminderMap(latestMap);
+    setReminderHistoryMap(historyMap);
 
     if (data) {
       const getOne = (val: any) => (Array.isArray(val) ? val[0] : val) ?? null;
@@ -576,6 +667,15 @@ export default function DriverRoster({
                 {!dispatchMode && <TableHead className="hidden md:table-cell">State</TableHead>}
                 <TableHead>Status</TableHead>
                 {!dispatchMode && <TableHead className="hidden lg:table-cell">Compliance</TableHead>}
+                {/* Last Sent column — visible at xl when a compliance filter is active */}
+                {!dispatchMode && complianceFilter !== 'all' && (
+                  <TableHead className="hidden xl:table-cell w-32">
+                    <span className="flex items-center gap-1">
+                      <History className="h-3 w-3 text-muted-foreground" />
+                      Last Sent
+                    </span>
+                  </TableHead>
+                )}
                 <TableHead className="w-32 text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
@@ -605,20 +705,18 @@ export default function DriverRoster({
                     : '';
 
                 // Determine which expiry field to focus when Update is clicked
-                // Pick the field that is most urgent (or missing), falling back to 'cdl'
                 const updateFocusField: 'cdl' | 'medcert' = (() => {
                   if (!driver.cdl_expiration) return 'cdl';
                   if (!driver.medical_cert_expiration) return 'medcert';
-                  // Both present — focus whichever expires sooner
                   return (cdlDays ?? Infinity) <= (medDays ?? Infinity) ? 'cdl' : 'medcert';
                 })();
 
-                // Show inline Update link only when a compliance filter is active and the handler is provided
                 const showUpdateLink = complianceFilter !== 'all' && !!onUpdateCompliance && !dispatchMode;
-                const lastRemindedAt = lastReminderMap[driver.operator_id];
-                // Show the badge only when a compliance filter is active (where it's most actionable)
-                // For not_yet_reminded filter, only show badge if they DO have one (edge case)
+                const reminderHistory = reminderHistoryMap[driver.operator_id];
+                // Show reminder badge on compliance-filtered rows (except not_yet_reminded where badge is N/A)
                 const showReminderBadge = complianceFilter !== 'all' && !dispatchMode && complianceFilter !== 'not_yet_reminded';
+                // Show dedicated Last Sent column at xl breakpoint when filter is active
+                const showLastSentCol = !dispatchMode && complianceFilter !== 'all';
 
                 return (
                   <TableRow
@@ -677,24 +775,40 @@ export default function DriverRoster({
                       </Badge>
                     </TableCell>
 
-                    {/* Compliance pills */}
+                    {/* Compliance pills (hidden below lg) */}
                     {!dispatchMode && (
                       <TableCell className="hidden lg:table-cell">
                         <div className="flex flex-wrap gap-1 items-center" onClick={e => e.stopPropagation()}>
                           {expiryPill(driver.cdl_expiration, 'CDL')}
                           {expiryPill(driver.medical_cert_expiration, 'Med Cert')}
-                          {showReminderBadge && lastReminderBadge(lastRemindedAt)}
+                          {/* Show reminder badge inline inside compliance col below xl (where Last Sent col is hidden) */}
+                          {showReminderBadge && (
+                            <span className="xl:hidden">
+                              {reminderHistoryBadge(reminderHistory)}
+                            </span>
+                          )}
                         </div>
+                      </TableCell>
+                    )}
+
+                    {/* Last Sent dedicated column — visible at xl when compliance filter is active */}
+                    {showLastSentCol && (
+                      <TableCell className="hidden xl:table-cell" onClick={e => e.stopPropagation()}>
+                        {reminderHistory
+                          ? reminderHistoryBadge(reminderHistory)
+                          : (
+                            <span className="text-xs text-muted-foreground/50 italic">Never</span>
+                          )}
                       </TableCell>
                     )}
 
                     {/* Actions */}
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-                        {/* On small screens where the compliance col is hidden, show reminder badge inline here */}
+                        {/* On small screens where both compliance + last-sent cols are hidden, show badge inline */}
                         {showReminderBadge && (
                           <span className="lg:hidden">
-                            {lastReminderBadge(lastRemindedAt)}
+                            {reminderHistoryBadge(reminderHistory)}
                           </span>
                         )}
                         {showUpdateLink && (
