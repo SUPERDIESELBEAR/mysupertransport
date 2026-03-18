@@ -152,6 +152,33 @@ function expiryPill(dateStr: string | null, label: string) {
   );
 }
 
+/** Renders a subtle "Reminded Xd ago" badge for the last cert reminder sent. */
+function lastReminderBadge(sentAt: string | undefined) {
+  if (!sentAt) return null;
+  const days = differenceInDays(startOfDay(new Date()), startOfDay(parseISO(sentAt)));
+  const label = days === 0 ? 'Today' : days === 1 ? '1d ago' : `${days}d ago`;
+  const isRecent = days <= 7;
+  return (
+    <TooltipProvider delayDuration={100}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={`inline-flex items-center gap-1 text-xs font-medium rounded px-1.5 py-0.5 border ${
+            isRecent
+              ? 'text-primary bg-primary/10 border-primary/25'
+              : 'text-muted-foreground bg-muted border-border'
+          }`}>
+            <Bell className="h-2.5 w-2.5 shrink-0" />
+            {label}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          Last reminder sent {format(parseISO(sentAt), 'MMM d, yyyy')}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 export default function DriverRoster({
   onOpenDriver,
   onMessageDriver,
