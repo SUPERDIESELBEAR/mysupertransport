@@ -24,13 +24,14 @@ interface DriverRow {
 }
 
 export type DispatchFilter = 'all' | 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
-export type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed';
+export type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed' | 'not_yet_reminded';
 
 export interface ComplianceCounts {
   expired: number;
   critical: number;
   warning: number;
   neverRenewed: number;
+  notYetReminded: number;
 }
 
 export function isNeverRenewed(cdl: string | null, med: string | null): boolean {
