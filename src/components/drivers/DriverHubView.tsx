@@ -6,6 +6,7 @@ import OperatorDetailPanel from '@/pages/staff/OperatorDetailPanel';
 import BulkMessageModal from '@/components/staff/BulkMessageModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX, Info } from 'lucide-react';
 import type { ComplianceFilter, ComplianceCounts } from './DriverRoster';
 
@@ -106,58 +107,92 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
           {/* Compliance summary chips — only in non-dispatch mode */}
           {!dispatchMode && hasAlerts && (
             <div className="flex items-center gap-2 flex-wrap pl-0.5">
+              <TooltipProvider delayDuration={200}>
               {complianceCounts.expired > 0 && (
-                <button
-                  onClick={() => setComplianceFilter(complianceFilter === 'expired' ? 'all' : 'expired')}
-                  className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
-                    complianceFilter === 'expired'
-                      ? 'bg-destructive/15 border-destructive/40 text-destructive'
-                      : 'border-destructive/30 text-destructive/80 hover:bg-destructive/10 hover:border-destructive/50'
-                  }`}
-                >
-                  <AlertCircle className="h-3 w-3" />
-                  {complianceCounts.expired} expired
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setComplianceFilter(complianceFilter === 'expired' ? 'all' : 'expired')}
+                      className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                        complianceFilter === 'expired'
+                          ? 'bg-destructive/15 border-destructive/40 text-destructive'
+                          : 'border-destructive/30 text-destructive/80 hover:bg-destructive/10 hover:border-destructive/50'
+                      }`}
+                    >
+                      <AlertCircle className="h-3 w-3" />
+                      {complianceCounts.expired} expired
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-left space-y-1.5 max-w-[220px]">
+                    <p className="font-semibold">Expired</p>
+                    <p className="text-muted-foreground">CDL or Med Cert is past its expiration date. Immediate action required.</p>
+                  </TooltipContent>
+                </Tooltip>
               )}
               {complianceCounts.critical > 0 && (
-                <button
-                  onClick={() => setComplianceFilter(complianceFilter === 'critical' ? 'all' : 'critical')}
-                  className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
-                    complianceFilter === 'critical'
-                      ? 'bg-destructive/15 border-destructive/40 text-destructive'
-                      : 'border-destructive/30 text-destructive/80 hover:bg-destructive/10 hover:border-destructive/50'
-                  }`}
-                >
-                  <AlertTriangle className="h-3 w-3" />
-                  {complianceCounts.critical} critical
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setComplianceFilter(complianceFilter === 'critical' ? 'all' : 'critical')}
+                      className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                        complianceFilter === 'critical'
+                          ? 'bg-destructive/15 border-destructive/40 text-destructive'
+                          : 'border-destructive/30 text-destructive/80 hover:bg-destructive/10 hover:border-destructive/50'
+                      }`}
+                    >
+                      <AlertTriangle className="h-3 w-3" />
+                      {complianceCounts.critical} critical
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-left space-y-1.5 max-w-[220px]">
+                    <p className="font-semibold">Critical — ≤ 7 days</p>
+                    <p className="text-muted-foreground">CDL or Med Cert expiring within 7 days. Send a renewal reminder urgently.</p>
+                  </TooltipContent>
+                </Tooltip>
               )}
               {complianceCounts.warning > 0 && (
-                <button
-                  onClick={() => setComplianceFilter(complianceFilter === 'warning' ? 'all' : 'warning')}
-                  className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
-                    complianceFilter === 'warning'
-                      ? 'bg-[hsl(var(--warning))]/15 border-[hsl(var(--warning))]/40 text-[hsl(var(--warning))]'
-                      : 'border-[hsl(var(--warning))]/30 text-[hsl(var(--warning))]/80 hover:bg-[hsl(var(--warning))]/10 hover:border-[hsl(var(--warning))]/50'
-                  }`}
-                >
-                  <Clock className="h-3 w-3" />
-                  {complianceCounts.warning} expiring soon
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setComplianceFilter(complianceFilter === 'warning' ? 'all' : 'warning')}
+                      className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                        complianceFilter === 'warning'
+                          ? 'bg-[hsl(var(--warning))]/15 border-[hsl(var(--warning))]/40 text-[hsl(var(--warning))]'
+                          : 'border-[hsl(var(--warning))]/30 text-[hsl(var(--warning))]/80 hover:bg-[hsl(var(--warning))]/10 hover:border-[hsl(var(--warning))]/50'
+                      }`}
+                    >
+                      <Clock className="h-3 w-3" />
+                      {complianceCounts.warning} expiring soon
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-left space-y-1.5 max-w-[220px]">
+                    <p className="font-semibold">Warning — 8–30 days</p>
+                    <p className="text-muted-foreground">CDL or Med Cert expiring within 30 days. Plan for renewal now.</p>
+                  </TooltipContent>
+                </Tooltip>
               )}
               {complianceCounts.neverRenewed > 0 && (
-                <button
-                  onClick={() => setComplianceFilter(complianceFilter === 'never_renewed' ? 'all' : 'never_renewed')}
-                  className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
-                    complianceFilter === 'never_renewed'
-                      ? 'bg-destructive/15 border-destructive/40 text-destructive'
-                      : 'border-destructive/30 text-destructive/80 hover:bg-destructive/10 hover:border-destructive/50'
-                  }`}
-                >
-                  <FileX className="h-3 w-3" />
-                  {complianceCounts.neverRenewed} missing dates
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setComplianceFilter(complianceFilter === 'never_renewed' ? 'all' : 'never_renewed')}
+                      className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                        complianceFilter === 'never_renewed'
+                          ? 'bg-destructive/15 border-destructive/40 text-destructive'
+                          : 'border-destructive/30 text-destructive/80 hover:bg-destructive/10 hover:border-destructive/50'
+                      }`}
+                    >
+                      <FileX className="h-3 w-3" />
+                      {complianceCounts.neverRenewed} missing dates
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-left space-y-1.5 max-w-[220px]">
+                    <p className="font-semibold">Missing Dates</p>
+                    <p className="text-muted-foreground">No CDL or Med Cert expiration date on file. Use Update to add them.</p>
+                  </TooltipContent>
+                </Tooltip>
               )}
+              </TooltipProvider>
               {complianceFilter !== 'all' && (
                 <button
                   onClick={() => setComplianceFilter('all')}
