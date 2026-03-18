@@ -525,6 +525,18 @@ export default function DriverRoster({
                     ? 'border-l-4 border-l-destructive bg-destructive/[0.03]'
                     : '';
 
+                // Determine which expiry field to focus when Update is clicked
+                // Pick the field that is most urgent (or missing), falling back to 'cdl'
+                const updateFocusField: 'cdl' | 'medcert' = (() => {
+                  if (!driver.cdl_expiration) return 'cdl';
+                  if (!driver.medical_cert_expiration) return 'medcert';
+                  // Both present — focus whichever expires sooner
+                  return (cdlDays ?? Infinity) <= (medDays ?? Infinity) ? 'cdl' : 'medcert';
+                })();
+
+                // Show inline Update link only when a compliance filter is active and the handler is provided
+                const showUpdateLink = complianceFilter !== 'all' && !!onUpdateCompliance && !dispatchMode;
+
                 return (
                   <TableRow
                     key={driver.operator_id}
