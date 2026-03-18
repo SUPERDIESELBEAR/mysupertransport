@@ -153,8 +153,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [noActionBulkSending, setNoActionBulkSending] = useState(false);
   const [noActionBulkSentCount, setNoActionBulkSentCount] = useState<number | null>(null);
   const [showNoActionBulkConfirm, setShowNoActionBulkConfirm] = useState(false);
-  const { isCoolingDown: bulkCooldown, minutesLeft: bulkCooldownMinutes, startCooldown: startBulkCooldown } = useBulkReminderCooldown();
-  const { isCoolingDown: noActionCooldown, minutesLeft: noActionCooldownMinutes, startCooldown: startNoActionCooldown } = useBulkReminderCooldown();
+  const { isCoolingDown: bulkCooldown, minutesLeft: bulkCooldownMinutes, lastSentLabel: bulkLastSentLabel, startCooldown: startBulkCooldown } = useBulkReminderCooldown();
+  const { isCoolingDown: noActionCooldown, minutesLeft: noActionCooldownMinutes, lastSentLabel: noActionLastSentLabel, startCooldown: startNoActionCooldown } = useBulkReminderCooldown();
   // Resend invite state: key = operator id
   const [resendingSending, setResendingSending] = useState<Record<string, boolean>>({});
   const [resendSent, setResendSent] = useState<Record<string, boolean>>({});
@@ -1390,42 +1390,49 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               const allSent = bulkSentCount !== null;
               const docLabel = complianceDocFilter === 'all' ? 'critical' : complianceDocFilter;
               return (
-                <TooltipProvider delayDuration={100}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => { e.stopPropagation(); setShowBulkConfirm(true); }}
-                        disabled={bulkSending || bulkCooldown}
-                        className={`shrink-0 h-7 px-3 text-xs gap-1.5 font-semibold transition-all ${
-                          bulkCooldown
-                            ? 'border-border/40 text-muted-foreground/50 bg-muted/30 cursor-not-allowed opacity-50'
-                            : allSent
-                            ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10'
-                            : 'border-destructive/40 text-destructive bg-destructive/5 hover:bg-destructive/15'
-                        }`}
-                      >
-                        {bulkSending ? (
-                          <><Loader2 className="h-3 w-3 animate-spin" />Sending…</>
-                        ) : bulkCooldown ? (
-                          <><CheckCheck className="h-3 w-3" />Sent · {bulkCooldownMinutes}m cooldown</>
-                        ) : allSent ? (
-                          <><CheckCheck className="h-3 w-3" />{bulkSentCount} Sent</>
-                        ) : (
-                          <><Send className="h-3 w-3" />Send Reminders to All ({filteredTargets.length})</>
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs max-w-[240px] text-center">
-                      {bulkCooldown
-                        ? `Reminders already sent this session. Available again in ${bulkCooldownMinutes} minute${bulkCooldownMinutes !== 1 ? 's' : ''}.`
-                        : allSent
-                        ? `${bulkSentCount} reminder${bulkSentCount !== 1 ? 's' : ''} sent`
-                        : `Send renewal reminder emails to all ${filteredTargets.length} ${docLabel} operator${filteredTargets.length !== 1 ? 's' : ''} with expired or critical expiries (≤ 30 days)`}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <div className="flex flex-col items-end gap-0.5">
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => { e.stopPropagation(); setShowBulkConfirm(true); }}
+                          disabled={bulkSending || bulkCooldown}
+                          className={`shrink-0 h-7 px-3 text-xs gap-1.5 font-semibold transition-all ${
+                            bulkCooldown
+                              ? 'border-border/40 text-muted-foreground/50 bg-muted/30 cursor-not-allowed opacity-50'
+                              : allSent
+                              ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10'
+                              : 'border-destructive/40 text-destructive bg-destructive/5 hover:bg-destructive/15'
+                          }`}
+                        >
+                          {bulkSending ? (
+                            <><Loader2 className="h-3 w-3 animate-spin" />Sending…</>
+                          ) : bulkCooldown ? (
+                            <><CheckCheck className="h-3 w-3" />Sent · {bulkCooldownMinutes}m cooldown</>
+                          ) : allSent ? (
+                            <><CheckCheck className="h-3 w-3" />{bulkSentCount} Sent</>
+                          ) : (
+                            <><Send className="h-3 w-3" />Send Reminders to All ({filteredTargets.length})</>
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs max-w-[240px] text-center">
+                        {bulkCooldown
+                          ? `Reminders already sent this session. Available again in ${bulkCooldownMinutes} minute${bulkCooldownMinutes !== 1 ? 's' : ''}.`
+                          : allSent
+                          ? `${bulkSentCount} reminder${bulkSentCount !== 1 ? 's' : ''} sent`
+                          : `Send renewal reminder emails to all ${filteredTargets.length} ${docLabel} operator${filteredTargets.length !== 1 ? 's' : ''} with expired or critical expiries (≤ 30 days)`}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  {bulkLastSentLabel && (
+                    <span className="text-[10px] text-muted-foreground/70 leading-none">
+                      Last sent: {bulkLastSentLabel}
+                    </span>
+                  )}
+                </div>
               );
             })()}
 
@@ -1476,42 +1483,49 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               // Show "N Sent" flash even after list empties, then hide once the timer expires
               if (noActionAlerts.length === 0 && !allSent && !noActionBulkSending && !noActionCooldown) return null;
               return (
-                <TooltipProvider delayDuration={100}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => { e.stopPropagation(); setShowNoActionBulkConfirm(true); }}
-                        disabled={noActionBulkSending || allSent || noActionAlerts.length === 0 || noActionCooldown}
-                        className={`shrink-0 h-7 px-3 text-xs gap-1.5 font-semibold transition-all ${
-                          noActionCooldown
-                            ? 'border-border/40 text-muted-foreground/50 bg-muted/30 cursor-not-allowed opacity-50'
-                            : allSent
-                            ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10'
-                            : 'border-muted-foreground/40 text-muted-foreground bg-muted/30 hover:border-foreground/40 hover:text-foreground hover:bg-muted/60'
-                        }`}
-                      >
-                        {noActionBulkSending ? (
-                          <><Loader2 className="h-3 w-3 animate-spin" />Sending…</>
-                        ) : noActionCooldown ? (
-                          <><CheckCheck className="h-3 w-3" />Sent · {noActionCooldownMinutes}m cooldown</>
-                        ) : allSent ? (
-                          <><CheckCheck className="h-3 w-3" />{noActionBulkSentCount} Sent</>
-                        ) : (
-                          <><Send className="h-3 w-3" />Remind Uncontacted ({noActionAlerts.length})</>
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs max-w-[240px] text-center">
-                      {noActionCooldown
-                        ? `Reminders already sent this session. Available again in ${noActionCooldownMinutes} minute${noActionCooldownMinutes !== 1 ? 's' : ''}.`
-                        : allSent
-                        ? `${noActionBulkSentCount} reminder${noActionBulkSentCount !== 1 ? 's' : ''} sent to uncontacted operators`
-                        : `Send reminders to ${noActionAlerts.length} operator${noActionAlerts.length !== 1 ? 's' : ''} with no prior reminder or renewal on record`}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <div className="flex flex-col items-end gap-0.5">
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => { e.stopPropagation(); setShowNoActionBulkConfirm(true); }}
+                          disabled={noActionBulkSending || allSent || noActionAlerts.length === 0 || noActionCooldown}
+                          className={`shrink-0 h-7 px-3 text-xs gap-1.5 font-semibold transition-all ${
+                            noActionCooldown
+                              ? 'border-border/40 text-muted-foreground/50 bg-muted/30 cursor-not-allowed opacity-50'
+                              : allSent
+                              ? 'border-status-complete/40 text-status-complete bg-status-complete/10 hover:bg-status-complete/10'
+                              : 'border-muted-foreground/40 text-muted-foreground bg-muted/30 hover:border-foreground/40 hover:text-foreground hover:bg-muted/60'
+                          }`}
+                        >
+                          {noActionBulkSending ? (
+                            <><Loader2 className="h-3 w-3 animate-spin" />Sending…</>
+                          ) : noActionCooldown ? (
+                            <><CheckCheck className="h-3 w-3" />Sent · {noActionCooldownMinutes}m cooldown</>
+                          ) : allSent ? (
+                            <><CheckCheck className="h-3 w-3" />{noActionBulkSentCount} Sent</>
+                          ) : (
+                            <><Send className="h-3 w-3" />Remind Uncontacted ({noActionAlerts.length})</>
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs max-w-[240px] text-center">
+                        {noActionCooldown
+                          ? `Reminders already sent this session. Available again in ${noActionCooldownMinutes} minute${noActionCooldownMinutes !== 1 ? 's' : ''}.`
+                          : allSent
+                          ? `${noActionBulkSentCount} reminder${noActionBulkSentCount !== 1 ? 's' : ''} sent to uncontacted operators`
+                          : `Send reminders to ${noActionAlerts.length} operator${noActionAlerts.length !== 1 ? 's' : ''} with no prior reminder or renewal on record`}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  {noActionLastSentLabel && (
+                    <span className="text-[10px] text-muted-foreground/70 leading-none">
+                      Last sent: {noActionLastSentLabel}
+                    </span>
+                  )}
+                </div>
               );
             })()}
 

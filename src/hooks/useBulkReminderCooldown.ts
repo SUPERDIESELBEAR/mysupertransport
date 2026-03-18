@@ -7,40 +7,36 @@ const COOLDOWN_MS = 60 * 60 * 1000; // 60 minutes
  * Returns:
  *  - isCoolingDown: true while cooldown is active
  *  - minutesLeft: minutes remaining (rounds up, minimum 1)
+ *  - lastSentAt: Date when the last bulk send was triggered (persists after cooldown)
  *  - startCooldown(): call this after a successful bulk send
  */
 export function useBulkReminderCooldown() {
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+  const [lastSentAt, setLastSentAt] = useState<Date | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Tick every 30s to keep minutesLeft fresh
+  // Tick every 60s to keep minutesLeft + "X ago" text fresh
   useEffect(() => {
-    if (cooldownUntil === null) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      return;
-    }
     intervalRef.current = setInterval(() => {
       const t = Date.now();
       setNow(t);
-      // Auto-clear once expired
-      if (t >= cooldownUntil) {
+      // Auto-clear cooldown once expired
+      if (cooldownUntil !== null && t >= cooldownUntil) {
         setCooldownUntil(null);
-        if (intervalRef.current) clearInterval(intervalRef.current);
       }
-    }, 30_000);
+    }, 60_000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [cooldownUntil]);
 
   const startCooldown = useCallback(() => {
-    const until = Date.now() + COOLDOWN_MS;
+    const t = Date.now();
+    const until = t + COOLDOWN_MS;
     setCooldownUntil(until);
-    setNow(Date.now());
+    setLastSentAt(new Date(t));
+    setNow(t);
   }, []);
 
   const isCoolingDown = cooldownUntil !== null && now < cooldownUntil;
@@ -48,5 +44,17 @@ export function useBulkReminderCooldown() {
     ? Math.ceil((cooldownUntil - now) / 60_000)
     : 0;
 
-  return { isCoolingDown, minutesLeft, startCooldown };
+  // "X ago" label for lastSentAt
+  const lastSentLabel = lastSentAt
+    ? (() => {
+        const mins = Math.floor((now - lastSentAt.getTime()) / 60_000);
+        if (mins < 1) return 'just now';
+        if (mins === 1) return '1m ago';
+        if (mins < 60) return `${mins}m ago`;
+        const hrs = Math.floor(mins / 60);
+        return hrs === 1 ? '1h ago' : `${hrs}h ago`;
+      })()
+    : null;
+
+  return { isCoolingDown, minutesLeft, lastSentAt, lastSentLabel, startCooldown };
 }

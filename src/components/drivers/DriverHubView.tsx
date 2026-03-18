@@ -71,7 +71,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   const [bulkReminderTargets, setBulkReminderTargets] = useState<BulkReminderTarget[]>([]);
   const [bulkReminderLoading, setBulkReminderLoading] = useState(false);
   const [bulkReminderProgress, setBulkReminderProgress] = useState<{ sent: number; total: number } | null>(null);
-  const { isCoolingDown: bulkCooldown, minutesLeft: bulkCooldownMinutes, startCooldown: startBulkCooldown } = useBulkReminderCooldown();
+  const { isCoolingDown: bulkCooldown, minutesLeft: bulkCooldownMinutes, lastSentLabel: bulkLastSentLabel, startCooldown: startBulkCooldown } = useBulkReminderCooldown();
   // Keep a snapshot of all roster drivers for the bulk reminder lookup
   const allDriversRef = useRef<Array<{
     operator_id: string;
@@ -383,35 +383,42 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         <div className="flex items-center gap-2 shrink-0">
           {/* Send Reminders to All — only for expired/critical filters */}
           {showBulkRemindButton && (bulkReminderCount > 0 || bulkCooldown) && (
-            <TooltipProvider delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={bulkCooldown}
-                      className={`gap-2 animate-fade-in transition-all ${
-                        bulkCooldown
-                          ? 'border-border/40 text-muted-foreground/50 bg-muted/30 cursor-not-allowed opacity-50'
-                          : 'border-destructive/40 text-destructive hover:bg-destructive/10 hover:border-destructive/60 hover:text-destructive'
-                      }`}
-                      onClick={handleOpenBulkReminderDialog}
-                    >
-                      <Bell className="h-4 w-4" />
-                      {bulkCooldown
-                        ? `Reminders Sent · ${bulkCooldownMinutes}m cooldown`
-                        : `Send Reminders to All (${bulkReminderCount})`}
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs max-w-[220px] text-center">
-                  {bulkCooldown
-                    ? `Reminders sent this session. Available again in ${bulkCooldownMinutes} minute${bulkCooldownMinutes !== 1 ? 's' : ''}.`
-                    : `Send renewal reminder emails to all ${bulkReminderCount} driver${bulkReminderCount !== 1 ? 's' : ''} with expired or critical documents.`}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div className="flex flex-col items-end gap-0.5">
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={bulkCooldown}
+                        className={`gap-2 animate-fade-in transition-all ${
+                          bulkCooldown
+                            ? 'border-border/40 text-muted-foreground/50 bg-muted/30 cursor-not-allowed opacity-50'
+                            : 'border-destructive/40 text-destructive hover:bg-destructive/10 hover:border-destructive/60 hover:text-destructive'
+                        }`}
+                        onClick={handleOpenBulkReminderDialog}
+                      >
+                        <Bell className="h-4 w-4" />
+                        {bulkCooldown
+                          ? `Reminders Sent · ${bulkCooldownMinutes}m cooldown`
+                          : `Send Reminders to All (${bulkReminderCount})`}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[220px] text-center">
+                    {bulkCooldown
+                      ? `Reminders sent this session. Available again in ${bulkCooldownMinutes} minute${bulkCooldownMinutes !== 1 ? 's' : ''}.`
+                      : `Send renewal reminder emails to all ${bulkReminderCount} driver${bulkReminderCount !== 1 ? 's' : ''} with expired or critical documents.`}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {bulkLastSentLabel && (
+                <span className="text-[10px] text-muted-foreground/70 leading-none pr-0.5">
+                  Last sent: {bulkLastSentLabel}
+                </span>
+              )}
+            </div>
           )}
 
           {/* Bulk Message button — visible only when drivers are selected */}
