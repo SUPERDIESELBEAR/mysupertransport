@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import DriverRoster from './DriverRoster';
 import AddDriverModal from './AddDriverModal';
 import OperatorDetailPanel from '@/pages/staff/OperatorDetailPanel';
 import BulkMessageModal from '@/components/staff/BulkMessageModal';
 import { Button } from '@/components/ui/button';
-import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX } from 'lucide-react';
+import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX, Info } from 'lucide-react';
 import type { ComplianceFilter, ComplianceCounts } from './DriverRoster';
 
 interface DriverHubViewProps {
