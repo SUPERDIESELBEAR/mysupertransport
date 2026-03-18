@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import DriverRoster from './DriverRoster';
 import AddDriverModal from './AddDriverModal';
@@ -7,7 +7,19 @@ import BulkMessageModal from '@/components/staff/BulkMessageModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX, Info } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
+import { differenceInDays, parseISO, startOfDay } from 'date-fns';
+import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX, Info, Bell, Loader2 } from 'lucide-react';
 import type { ComplianceFilter, ComplianceCounts } from './DriverRoster';
 
 interface DriverHubViewProps {
