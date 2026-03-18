@@ -1,0 +1,1 @@
+UPDATE onboarding_status SET insurance_added_date = '2026-01-01' WHERE operator_id = '2d9e8cce-3079-445c-9a48-e135139f9059';
