@@ -461,11 +461,14 @@ export default function DriverRoster({ onOpenDriver, onMessageDriver, dispatchMo
                 const minDays = [cdlDays, medDays]
                   .filter((d): d is number => d !== null)
                   .reduce((a, b) => Math.min(a, b), Infinity);
+                const driverNeverRenewed = isNeverRenewed(driver.cdl_expiration, driver.medical_cert_expiration);
                 const rowHighlight =
                   minDays <= 7
                     ? 'border-l-4 border-l-destructive bg-destructive/[0.03]'
                     : minDays <= 30
                     ? 'border-l-4 border-l-[hsl(var(--status-action))] bg-[hsl(var(--status-action))]/[0.03]'
+                    : driverNeverRenewed && complianceFilter === 'never_renewed'
+                    ? 'border-l-4 border-l-destructive bg-destructive/[0.03]'
                     : '';
 
                 return (
