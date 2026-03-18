@@ -1329,6 +1329,18 @@ export default function ManagementPortal() {
           <InspectionBinderAdmin />
         )}
 
+        {view === 'drivers' && (
+          <DriverHubView
+            canAddDriver={true}
+            onMessageDriver={userId => {
+              setSelectedOperatorId(null);
+              setView('notifications');
+              // navigate to messages after brief state reset
+              setTimeout(() => setView('notifications'), 0);
+            }}
+          />
+        )}
+
         {view === 'notifications' && (
           <NotificationHistory />
         )}
