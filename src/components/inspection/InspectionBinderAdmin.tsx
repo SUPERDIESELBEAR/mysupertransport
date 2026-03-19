@@ -1531,6 +1531,10 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {previewUrl && (
+        <FilePreviewModal url={previewUrl} name={previewName} onClose={() => setPreviewUrl(null)} />
+      )}
     </div>
   );
 }
