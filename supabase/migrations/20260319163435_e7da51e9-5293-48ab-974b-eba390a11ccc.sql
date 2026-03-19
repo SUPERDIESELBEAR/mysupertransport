@@ -1,0 +1,1 @@
+INSERT INTO public.operators (user_id) VALUES ('5cca4f77-c4a9-4c4d-bcf7-f950965c1ffe') ON CONFLICT DO NOTHING;
