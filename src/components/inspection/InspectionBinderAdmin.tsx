@@ -1048,12 +1048,33 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                           <div className="flex-1 h-px bg-border/60" />
                         </div>
                         {sharedFromCompany.map(doc => (
-                          <AdminDocRow
-                            key={doc.id}
-                            docName={doc.name}
-                            scope="per_driver"
-                            hasExpiry={COMPANY_WIDE_DOCS.find(c => c.key === doc.name)?.hasExpiry ?? false}
-                          />
+                          <div key={doc.id} className="relative">
+                            <AdminDocRow
+                              docName={doc.name}
+                              scope="per_driver"
+                              hasExpiry={COMPANY_WIDE_DOCS.find(c => c.key === doc.name)?.hasExpiry ?? false}
+                            />
+                            {/* Go to Company Docs link */}
+                            <button
+                              className="absolute bottom-3 left-4 flex items-center gap-1 text-[11px] text-info hover:text-info/80 transition-colors"
+                              onClick={() => {
+                                setActiveTab('company');
+                                setTimeout(() => {
+                                  const el = companyDocRowRefs.current[doc.name];
+                                  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                  // Briefly highlight the row
+                                  if (el) {
+                                    el.style.transition = 'box-shadow 0.2s';
+                                    el.style.boxShadow = '0 0 0 2px hsl(var(--info))';
+                                    setTimeout(() => { el.style.boxShadow = ''; }, 1800);
+                                  }
+                                }, 80);
+                              }}
+                            >
+                              <ArrowRight className="h-3 w-3" />
+                              Go to Company Docs
+                            </button>
+                          </div>
                         ))}
                       </>
                     );
