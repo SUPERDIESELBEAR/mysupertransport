@@ -13,7 +13,7 @@ import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Wrench, Shield, Users2, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Wrench, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff } from 'lucide-react';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
 import DriverHubView from '@/components/drivers/DriverHubView';
 import DocumentHub from '@/components/documents/DocumentHub';
@@ -38,6 +38,8 @@ export default function StaffPortal() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [criticalExpiryCount, setCriticalExpiryCount] = useState(0);
+  const [expiredCount, setExpiredCount] = useState(0);
+  const [noReminderCount, setNoReminderCount] = useState(0);
   const [driverAlertCount, setDriverAlertCount] = useState(0);
   const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
@@ -200,35 +202,64 @@ export default function StaffPortal() {
   const [pipelineDispatchFilter, setPipelineDispatchFilter] = useState<'all' | 'truck_down'>('all');
 
   const fetchCriticalExpiries = useCallback(async () => {
-    const { data } = await supabase
-      .from('operators')
-      .select('applications(cdl_expiration, medical_cert_expiration)')
-      .not('application_id', 'is', null);
+    const [{ data }, { data: reminders }] = await Promise.all([
+      supabase
+        .from('operators')
+        .select('id, applications(cdl_expiration, medical_cert_expiration)')
+        .not('application_id', 'is', null),
+      supabase
+        .from('cert_reminders')
+        .select('operator_id, doc_type'),
+    ]);
     if (!data) return;
     const today = startOfDay(new Date());
-    let count = 0;
+
+    // Build a set of operator+doctype keys that have at least one reminder
+    const remindedKeys = new Set<string>();
+    (reminders ?? []).forEach((r: any) => remindedKeys.add(`${r.operator_id}|${r.doc_type}`));
+
+    let critical = 0;
+    let expired = 0;
+    let noReminder = 0;
+
     (data as any[]).forEach((op: any) => {
       const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
       if (!app) return;
-      ['cdl_expiration', 'medical_cert_expiration'].forEach((field: string) => {
+      const fields: Array<[string, string]> = [
+        ['cdl_expiration', 'CDL'],
+        ['medical_cert_expiration', 'Medical Cert'],
+      ];
+      fields.forEach(([field, docType]) => {
         const dateStr: string | null = app[field];
         if (!dateStr) return;
         const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
-        if (days <= 30) count++;
+        if (days < 0) expired++;
+        else if (days <= 30) critical++;
+        const key = `${op.id}|${docType}`;
+        if (days <= 30 && !remindedKeys.has(key)) noReminder++;
       });
     });
-    setCriticalExpiryCount(count);
+
+    setCriticalExpiryCount(critical + expired);
+    setExpiredCount(expired);
+    setNoReminderCount(noReminder);
   }, []);
 
   useEffect(() => {
     fetchCriticalExpiries();
-    const channel = supabase
+    const ch1 = supabase
       .channel('staff-compliance-badge')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'applications' }, () => {
         fetchCriticalExpiries();
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const ch2 = supabase
+      .channel('staff-compliance-badge-reminders')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cert_reminders' }, () => {
+        fetchCriticalExpiries();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
   }, [fetchCriticalExpiries]);
 
   // Driver Hub alert badge: count of fully-onboarded drivers with expired/critical docs OR never reminded
@@ -538,6 +569,42 @@ export default function StaffPortal() {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-foreground">Fleet Compliance</h1>
             <p className="text-muted-foreground text-sm mt-1">Monitor CDL, Medical Cert, and fleet document expiries</p>
+          </div>
+          {/* Stat cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
+            <div className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-warning/10 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold text-foreground">{criticalExpiryCount - expiredCount}</p>
+                  <p className="text-xs text-muted-foreground">Expiring Within 30 Days</p>
+                </div>
+              </div>
+            </div>
+            <div className={`border rounded-xl p-3 sm:p-4 shadow-sm ${expiredCount > 0 ? 'bg-destructive/5 border-destructive/30' : 'bg-white border-border'}`}>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+                  <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
+                </div>
+                <div>
+                  <p className={`text-xl sm:text-2xl font-bold ${expiredCount > 0 ? 'text-destructive' : 'text-foreground'}`}>{expiredCount}</p>
+                  <p className="text-xs text-muted-foreground">Already Expired</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <BellOff className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold text-foreground">{noReminderCount}</p>
+                  <p className="text-xs text-muted-foreground">No Reminder Sent</p>
+                </div>
+              </div>
+            </div>
           </div>
           <ComplianceAlertsPanel
             onOpenOperator={handleOpenOperator}
