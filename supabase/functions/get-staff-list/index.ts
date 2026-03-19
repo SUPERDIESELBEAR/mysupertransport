@@ -63,17 +63,50 @@ Deno.serve(async (req) => {
 
     if (req.method === 'POST' && hasBody) {
       const body = await req.json();
-      const { action, user_id, role, target_name, phone } = body as {
+      const { action, user_id, role, target_name, phone, first_name, last_name } = body as {
         action: string;
         user_id: string;
         role?: string;
         target_name?: string;
         phone?: string;
+        first_name?: string;
+        last_name?: string;
       };
 
       if (!user_id) {
         return new Response(JSON.stringify({ error: 'user_id is required' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // ── Update name ───────────────────────────────────────────────────
+      if (action === 'update_name') {
+        const sanitizedFirst = (first_name ?? '').trim().slice(0, 100);
+        const sanitizedLast = (last_name ?? '').trim().slice(0, 100);
+        const { error: nameErr } = await supabaseAdmin
+          .from('profiles')
+          .update({ first_name: sanitizedFirst || null, last_name: sanitizedLast || null })
+          .eq('user_id', user_id);
+
+        if (nameErr) {
+          return new Response(JSON.stringify({ error: nameErr.message }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const actorName = await getActorName();
+        supabaseAdmin.from('audit_log').insert({
+          actor_id: callerUser.id,
+          actor_name: actorName,
+          action: 'name_updated',
+          entity_type: 'staff_profile',
+          entity_id: user_id,
+          entity_label: target_name ?? user_id,
+          metadata: { target_user_id: user_id, first_name: sanitizedFirst, last_name: sanitizedLast },
+        }).then(() => {}).catch(e => console.error('Audit log error:', e));
+
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 

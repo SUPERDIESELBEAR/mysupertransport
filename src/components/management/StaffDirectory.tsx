@@ -81,6 +81,10 @@ export default function StaffDirectory() {
   const [editingPhone, setEditingPhone] = useState('');
   const [phoneEditActive, setPhoneEditActive] = useState(false);
   const [phoneSaving, setPhoneSaving] = useState(false);
+  const [editingFirstName, setEditingFirstName] = useState('');
+  const [editingLastName, setEditingLastName] = useState('');
+  const [nameEditActive, setNameEditActive] = useState(false);
+  const [nameSaving, setNameSaving] = useState(false);
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
