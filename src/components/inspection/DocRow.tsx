@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { QRCodeSVG } from 'qrcode.react';
 import { InspectionDocument, getExpiryStatus, daysUntilExpiry } from './InspectionBinderTypes';
 import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface DocRowProps {
   doc: InspectionDocument | null;
@@ -16,6 +17,8 @@ interface DocRowProps {
   onUpload?: (file: File) => Promise<void>;
   isUploading?: boolean;
   canUpload?: boolean;
+  /** When true, the Upload/Replace button is disabled with a tooltip explaining it's managed from Company Docs */
+  isManagedByCompany?: boolean;
 }
 
 export function ExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
@@ -229,7 +232,7 @@ function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => vo
   );
 }
 
-export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSelect, onUpload, isUploading, canUpload }: DocRowProps) {
+export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSelect, onUpload, isUploading, canUpload, isManagedByCompany }: DocRowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
@@ -319,19 +322,41 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
                     e.target.value = '';
                   }}
                 />
-                <Button
-                  size="sm"
-                  variant={hasFile ? 'ghost' : 'default'}
-                  className={`h-8 px-2.5 text-xs gap-1 ${!hasFile ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
-                  disabled={isUploading}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  {isUploading
-                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    : <Upload className="h-3.5 w-3.5" />
-                  }
-                  {hasFile ? '' : 'Upload'}
-                </Button>
+                {isManagedByCompany ? (
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-not-allowed">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2.5 text-xs gap-1 opacity-40 pointer-events-none"
+                            disabled
+                          >
+                            <Upload className="h-3.5 w-3.5" />
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">
+                        Managed from Company Docs
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant={hasFile ? 'ghost' : 'default'}
+                    className={`h-8 px-2.5 text-xs gap-1 ${!hasFile ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
+                    disabled={isUploading}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {isUploading
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <Upload className="h-3.5 w-3.5" />
+                    }
+                    {hasFile ? '' : 'Upload'}
+                  </Button>
+                )}
               </>
             )}
           </div>

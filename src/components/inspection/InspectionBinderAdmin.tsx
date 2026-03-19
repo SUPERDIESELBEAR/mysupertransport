@@ -701,16 +701,37 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     e.target.value = '';
                   }}
                 />
-                <Button
-                  size="sm"
-                  className={`h-8 gap-1.5 text-xs ${!doc?.file_url ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
-                  variant={doc?.file_url ? 'outline' : 'default'}
-                  disabled={uploading === docName}
-                  onClick={() => fileRefs.current[rowKey]?.click()}
-                >
-                  {uploading === docName ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                  {doc?.file_url ? 'Replace' : 'Upload'}
-                </Button>
+                {isSharedFromCompany ? (
+                  <Tooltip delayDuration={100}>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-not-allowed">
+                        <Button
+                          size="sm"
+                          className="h-8 gap-1.5 text-xs opacity-40 pointer-events-none"
+                          variant={doc?.file_url ? 'outline' : 'default'}
+                          disabled
+                        >
+                          <Upload className="h-3 w-3" />
+                          {doc?.file_url ? 'Replace' : 'Upload'}
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      Managed from Company Docs
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <Button
+                    size="sm"
+                    className={`h-8 gap-1.5 text-xs ${!doc?.file_url ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
+                    variant={doc?.file_url ? 'outline' : 'default'}
+                    disabled={uploading === docName}
+                    onClick={() => fileRefs.current[rowKey]?.click()}
+                  >
+                    {uploading === docName ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                    {doc?.file_url ? 'Replace' : 'Upload'}
+                  </Button>
+                )}
               </div>
             </div>
 
