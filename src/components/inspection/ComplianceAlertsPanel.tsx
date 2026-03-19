@@ -22,17 +22,19 @@ export interface ComplianceAlert {
 interface Props {
   onOpenOperator?: (operatorId: string) => void;
   onOpenOperatorWithFocus?: (operatorId: string, focusField: 'cdl' | 'medcert') => void;
+  /** When true the panel mounts with the "No Action" filter pre-applied */
+  defaultNoActionOnly?: boolean;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
-export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWithFocus }: Props) {
+export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWithFocus, defaultNoActionOnly = false }: Props) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
 
   const [alerts, setAlerts] = useState<ComplianceAlert[]>([]);
   const [expanded, setExpanded] = useState(true);
   const [sort, setSort] = useState<'urgency' | 'last_action_asc' | 'last_action_desc'>('urgency');
-  const [noActionOnly, setNoActionOnly] = useState(false);
+  const [noActionOnly, setNoActionOnly] = useState(defaultNoActionOnly);
   const [docFilter, setDocFilter] = useState<'all' | 'CDL' | 'Medical Cert'>('all');
 
   // Outreach tracking
