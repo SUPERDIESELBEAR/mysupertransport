@@ -1862,55 +1862,141 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ── Bulk Share to Driver Dialog ── */}
-      <AlertDialog open={bulkShareDialogOpen} onOpenChange={setBulkShareDialogOpen}>
-        <AlertDialogContent>
+      {/* ── Bulk Share to Driver Dialog (2-step) ── */}
+      <AlertDialog open={bulkShareDialogOpen} onOpenChange={open => {
+        if (!open) { setBulkShareStep('select'); setBulkDiff({}); }
+        setBulkShareDialogOpen(open);
+      }}>
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Share {bulkSelected.size} Document{bulkSelected.size > 1 ? 's' : ''} to a Driver</AlertDialogTitle>
+            {/* Step indicator */}
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                bulkShareStep === 'select'
+                  ? 'bg-info/15 text-info border-info/30'
+                  : 'bg-muted text-muted-foreground border-border'
+              }`}>1 Select Driver</span>
+              <ArrowRight className="h-3 w-3 text-muted-foreground" />
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                bulkShareStep === 'preview'
+                  ? 'bg-info/15 text-info border-info/30'
+                  : 'bg-muted text-muted-foreground border-border'
+              }`}>2 Review Changes</span>
+            </div>
+            <AlertDialogTitle>
+              {bulkShareStep === 'select'
+                ? `Share ${bulkSelected.size} Document${bulkSelected.size > 1 ? 's' : ''} to a Driver`
+                : `Review Changes for ${operators.find(o => o.userId === bulkShareTarget)?.name ?? 'Driver'}`}
+            </AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Select a driver to add these documents to their Inspection Binder. An in-app notification will be sent.
-                </p>
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-foreground">Selected documents:</p>
-                  <ul className="text-xs text-muted-foreground space-y-0.5 max-h-36 overflow-y-auto">
-                    {companyDocs
-                      .filter(d => bulkSelected.has(d.id))
-                      .map(d => (
-                        <li key={d.id} className="flex items-center gap-1.5">
-                          <FileText className="h-3 w-3 shrink-0" />
-                          {d.name}
-                        </li>
+              <div className="space-y-3 mt-1">
+                {/* ── STEP 1: Select driver ── */}
+                {bulkShareStep === 'select' && (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Choose a driver, then preview exactly what will change in their binder before sharing.
+                    </p>
+                    <div className="rounded-lg border border-border bg-muted/40 divide-y divide-border/60 overflow-hidden">
+                      {companyDocs.filter(d => bulkSelected.has(d.id)).map(d => (
+                        <div key={d.id} className="flex items-center gap-2 px-3 py-2">
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-sm text-foreground">{d.name}</span>
+                        </div>
                       ))}
-                  </ul>
-                </div>
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-foreground">Choose driver:</p>
-                  <Select value={bulkShareTarget} onValueChange={setBulkShareTarget}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a driver…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {operators.map(op => (
-                        <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-foreground">Choose driver:</p>
+                      <Select value={bulkShareTarget} onValueChange={setBulkShareTarget}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a driver…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {operators.map(op => (
+                            <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+
+                {/* ── STEP 2: Diff preview ── */}
+                {bulkShareStep === 'preview' && (() => {
+                  const selectedDocs = companyDocs.filter(d => bulkSelected.has(d.id));
+                  const newDocs = selectedDocs.filter(d => bulkDiff[d.id] === 'new');
+                  const skipDocs = selectedDocs.filter(d => bulkDiff[d.id] === 'skip');
+                  return (
+                    <>
+                      {newDocs.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          All selected documents are already in this driver's binder — nothing new will be added.
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-semibold text-status-complete">{newDocs.length}</span> document{newDocs.length > 1 ? 's' : ''} will be added.
+                          {skipDocs.length > 0 && <> <span className="font-semibold text-muted-foreground">{skipDocs.length}</span> already exist{skipDocs.length === 1 ? 's' : ''} and will be skipped.</>}
+                        </p>
+                      )}
+                      <div className="rounded-lg border border-border overflow-hidden divide-y divide-border/60">
+                        {newDocs.map(d => (
+                          <div key={d.id} className="flex items-center gap-2.5 px-3 py-2.5 bg-status-complete/5">
+                            <div className="h-6 w-6 rounded-md bg-status-complete/15 flex items-center justify-center shrink-0">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-status-complete" />
+                            </div>
+                            <span className="text-sm text-foreground flex-1">{d.name}</span>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-status-complete/15 text-status-complete border border-status-complete/30">
+                              New
+                            </span>
+                          </div>
+                        ))}
+                        {skipDocs.map(d => (
+                          <div key={d.id} className="flex items-center gap-2.5 px-3 py-2.5 bg-muted/30">
+                            <div className="h-6 w-6 rounded-md bg-muted flex items-center justify-center shrink-0">
+                              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                            </div>
+                            <span className="text-sm text-muted-foreground flex-1">{d.name}</span>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                              Already shared
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={bulkSharing}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={!bulkShareTarget || bulkSharing}
-              onClick={(e) => { e.preventDefault(); handleBulkShareToDriver(); }}
-              className="bg-info text-info-foreground hover:bg-info/90"
-            >
-              {bulkSharing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <UserCheck className="h-3.5 w-3.5 mr-1.5" />}
-              Share to Driver
-            </AlertDialogAction>
+            {bulkShareStep === 'select' ? (
+              <>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <Button
+                  disabled={!bulkShareTarget || bulkPreviewLoading}
+                  onClick={() => loadBulkDiff(bulkShareTarget)}
+                  className="bg-info text-info-foreground hover:bg-info/90"
+                >
+                  {bulkPreviewLoading
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Checking…</>
+                    : <><ArrowRight className="h-3.5 w-3.5 mr-1.5" />Preview Changes</>}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setBulkShareStep('select')} disabled={bulkSharing}>
+                  Back
+                </Button>
+                <Button
+                  disabled={bulkSharing || Object.values(bulkDiff).every(v => v === 'skip')}
+                  onClick={() => handleBulkShareToDriver()}
+                  className="bg-info text-info-foreground hover:bg-info/90"
+                >
+                  {bulkSharing
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Sharing…</>
+                    : <><UserCheck className="h-3.5 w-3.5 mr-1.5" />Confirm &amp; Share</>}
+                </Button>
+              </>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
