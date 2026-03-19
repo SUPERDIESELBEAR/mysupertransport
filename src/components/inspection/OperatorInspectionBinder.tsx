@@ -13,7 +13,7 @@ import {
   InspectionDocument, DriverUpload,
   COMPANY_WIDE_DOCS, PER_DRIVER_DOCS, getExpiryStatus,
 } from './InspectionBinderTypes';
-import { DocRow, ExpiryBadge } from './DocRow';
+import { DocRow, ExpiryBadge, FilePreviewModal } from './DocRow';
 
 interface Props {
   userId: string;

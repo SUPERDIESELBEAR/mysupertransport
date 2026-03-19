@@ -29,7 +29,7 @@ import {
   InspectionDocument, DriverUpload,
   COMPANY_WIDE_DOCS, PER_DRIVER_DOCS,
 } from './InspectionBinderTypes';
-import { ExpiryBadge } from './DocRow';
+import { ExpiryBadge, FilePreviewModal } from './DocRow';
 
 /** Returns true if a reminder was sent within the last 24 hours */
 function isOnCooldown(sentAt: string | undefined): boolean {

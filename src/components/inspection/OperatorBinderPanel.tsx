@@ -23,7 +23,7 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS } from './InspectionBinderTypes';
-import { ExpiryBadge } from './DocRow';
+import { ExpiryBadge, FilePreviewModal } from './DocRow';
 
 interface Props {
   /** auth.uid() of the operator/driver */
