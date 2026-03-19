@@ -325,7 +325,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
   if (!loading && entries.length === 0) return null;
 
-  const DOC_KEYS: DocKey[] = ['IRP Registration', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate'];
+  const DOC_KEYS: DocKey[] = ['IRP Registration (cab card)', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate'];
 
   return (
     <div className={cn(
