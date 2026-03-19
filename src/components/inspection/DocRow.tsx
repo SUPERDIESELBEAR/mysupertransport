@@ -171,6 +171,7 @@ export function FilePreviewModal({ url, name, onClose }: { url: string; name: st
 function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => void }) {
   const [loaded, setLoaded] = useState(false);
   const handleLoad = useCallback(() => setLoaded(true), []);
+  const inlineUrl = doc.file_url ? toInlineUrl(doc.file_url) : null;
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/90" onClick={onClose}>
       <div className="flex items-center justify-between px-4 py-3 bg-surface-dark border-b border-surface-dark-border" onClick={e => e.stopPropagation()}>
@@ -191,7 +192,7 @@ function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => vo
         </div>
       </div>
       <div className="flex-1 relative" onClick={e => e.stopPropagation()}>
-        {doc.file_url ? (
+        {inlineUrl ? (
           <>
             {!loaded && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80">
@@ -200,7 +201,7 @@ function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => vo
               </div>
             )}
             <iframe
-              src={`${doc.file_url}#toolbar=0`}
+              src={`${inlineUrl}#toolbar=0`}
               className={`w-full h-full transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
               title={doc.name}
               onLoad={handleLoad}
