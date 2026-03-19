@@ -322,19 +322,41 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
                     e.target.value = '';
                   }}
                 />
-                <Button
-                  size="sm"
-                  variant={hasFile ? 'ghost' : 'default'}
-                  className={`h-8 px-2.5 text-xs gap-1 ${!hasFile ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
-                  disabled={isUploading}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  {isUploading
-                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    : <Upload className="h-3.5 w-3.5" />
-                  }
-                  {hasFile ? '' : 'Upload'}
-                </Button>
+                {isManagedByCompany ? (
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-not-allowed">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2.5 text-xs gap-1 opacity-40 pointer-events-none"
+                            disabled
+                          >
+                            <Upload className="h-3.5 w-3.5" />
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">
+                        Managed from Company Docs
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant={hasFile ? 'ghost' : 'default'}
+                    className={`h-8 px-2.5 text-xs gap-1 ${!hasFile ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
+                    disabled={isUploading}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {isUploading
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <Upload className="h-3.5 w-3.5" />
+                    }
+                    {hasFile ? '' : 'Upload'}
+                  </Button>
+                )}
               </>
             )}
           </div>
