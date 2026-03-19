@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { QRCodeSVG } from 'qrcode.react';
 import { InspectionDocument, getExpiryStatus, daysUntilExpiry } from './InspectionBinderTypes';
 import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface DocRowProps {
   doc: InspectionDocument | null;
