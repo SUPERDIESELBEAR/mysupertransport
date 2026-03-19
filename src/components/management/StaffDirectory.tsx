@@ -94,6 +94,7 @@ export default function StaffDirectory() {
   const [emailConfirmPending, setEmailConfirmPending] = useState(false);
   const [deleteConfirmPending, setDeleteConfirmPending] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [togglingStatus, setTogglingStatus] = useState(false);
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
@@ -333,6 +334,37 @@ export default function StaffDirectory() {
       toast({ title: 'Delete Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleToggleStatus = async () => {
+    if (!managingMember) return;
+    const isActive = managingMember.account_status === 'active';
+    const newStatus = isActive ? 'inactive' : 'active';
+    const action = isActive ? 'deactivate_user' : 'reactivate_user';
+    setTogglingStatus(true);
+    try {
+      const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
+      const { data, error } = await supabase.functions.invoke('get-staff-list', {
+        method: 'POST',
+        body: { action, user_id: managingMember.user_id, target_name: memberName },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setManagingMember(prev => prev ? { ...prev, account_status: newStatus } : prev);
+      setStaff(prev => prev.map(m => m.user_id === managingMember.user_id ? { ...m, account_status: newStatus } : m));
+      toast({
+        title: isActive ? 'Account Suspended' : '✅ Account Reactivated',
+        description: isActive
+          ? `${memberName} has been suspended and can no longer log in.`
+          : `${memberName} can now log in again.`,
+      });
+    } catch (err) {
+      toast({ title: isActive ? 'Deactivation Failed' : 'Reactivation Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setTogglingStatus(false);
     }
   };
 
@@ -894,10 +926,47 @@ export default function StaffDirectory() {
                 )}
               </div>
 
-              {/* ── Danger Zone: Delete Staff Member ── */}
+              {/* ── Danger Zone: Deactivate + Delete ── */}
               {managingMember.user_id !== user?.id && (
-                <div className="pt-1 border-t border-destructive/20">
+                <div className="pt-1 border-t border-destructive/20 space-y-2">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Danger Zone</p>
+
+                  {/* Deactivate / Reactivate toggle */}
+                  {managingMember.account_status === 'active' ? (
+                    <button
+                      type="button"
+                      disabled={togglingStatus}
+                      onClick={handleToggleStatus}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-dashed border-amber-400/40 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors group disabled:opacity-60"
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        {togglingStatus
+                          ? <RefreshCcw className="h-4 w-4 shrink-0 animate-spin" />
+                          : <AlertTriangle className="h-4 w-4 shrink-0" />
+                        }
+                        {togglingStatus ? 'Suspending…' : 'Suspend Account'}
+                      </div>
+                      <span className="text-xs text-amber-600/70 group-hover:text-amber-700 transition-colors">Blocks login</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={togglingStatus}
+                      onClick={handleToggleStatus}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-dashed border-status-complete/40 bg-status-complete/5 text-status-complete hover:bg-status-complete/10 transition-colors group disabled:opacity-60"
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        {togglingStatus
+                          ? <RefreshCcw className="h-4 w-4 shrink-0 animate-spin" />
+                          : <CheckCircle2 className="h-4 w-4 shrink-0" />
+                        }
+                        {togglingStatus ? 'Reactivating…' : 'Reactivate Account'}
+                      </div>
+                      <span className="text-xs text-status-complete/70 group-hover:text-status-complete transition-colors">Restore login</span>
+                    </button>
+                  )}
+
+                  {/* Delete */}
                   {!deleteConfirmPending ? (
                     <button
                       type="button"
@@ -958,7 +1027,7 @@ export default function StaffDirectory() {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); }}
+                onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); setTogglingStatus(false); }}
               >
                 Done
               </Button>
