@@ -58,7 +58,7 @@ export default function StaffPortal() {
     } else if (operatorId) {
       setSelectedOperatorId(operatorId);
       setCurrentView('operator-detail');
-    } else if (view && ['pipeline','messages','faq','resources','notifications','docs-hub','service-library','inspection-binder','drivers'].includes(view)) {
+    } else if (view && ['pipeline','messages','faq','resources','notifications','docs-hub','service-library','inspection-binder','drivers','compliance'].includes(view)) {
       setCurrentView(view);
     }
   }, [searchParams]);
