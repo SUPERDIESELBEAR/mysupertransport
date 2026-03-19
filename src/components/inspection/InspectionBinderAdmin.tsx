@@ -327,6 +327,26 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         shared_with_fleet: false,
       });
 
+      // Send in-app notification to the driver (respects their document_update preference)
+      const { data: pref } = await supabase
+        .from('notification_preferences')
+        .select('in_app_enabled')
+        .eq('user_id', shareToDriverTarget)
+        .eq('event_type', 'document_update')
+        .maybeSingle();
+
+      const notifEnabled = pref ? pref.in_app_enabled : true;
+      if (notifEnabled) {
+        await supabase.from('notifications').insert({
+          user_id: shareToDriverTarget,
+          title: 'New document in your Inspection Binder',
+          body: `"${doc.name}" has been added to your inspection binder.`,
+          type: 'document_update',
+          channel: 'in_app',
+          link: '/operator?tab=inspection-binder',
+        });
+      }
+
       toast({
         title: `${doc.name} shared`,
         description: `Document added to ${driverName}'s binder.`,
