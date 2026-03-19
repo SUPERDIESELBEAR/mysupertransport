@@ -261,14 +261,21 @@ export default function StaffDirectory() {
     }
   };
 
-  const handleEmailUpdate = async () => {
+  const handleEmailSaveRequest = () => {
     if (!managingMember) return;
     const trimmed = editingEmail.trim().toLowerCase();
     if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
       toast({ title: 'Invalid Email', description: 'Please enter a valid email address.', variant: 'destructive' });
       return;
     }
+    setEmailConfirmPending(true);
+  };
+
+  const handleEmailUpdate = async () => {
+    if (!managingMember) return;
+    const trimmed = editingEmail.trim().toLowerCase();
     setEmailSaving(true);
+    setEmailConfirmPending(false);
     try {
       const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
       const { data, error } = await supabase.functions.invoke('get-staff-list', {
