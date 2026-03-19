@@ -342,7 +342,7 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
                           No documents uploaded yet
                         </div>
                       ) : (
-                        myUploads.map(u => <DriverUploadRow key={u.id} upload={u} />)
+                        myUploads.map(u => <DriverUploadRow key={u.id} upload={u} onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }} />)
                       )}
                     </div>
                   </div>
