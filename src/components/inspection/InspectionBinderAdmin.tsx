@@ -389,7 +389,32 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     setAssigningStaged(doc.id);
     try {
       const driverName = operators.find(o => o.userId === driverUserId)?.name ?? 'Driver';
-      await supabase.from('inspection_documents').update({ driver_id: driverUserId }).eq('id', doc.id);
+
+      // Assign the doc and check driver's notification preference in parallel
+      const [, prefRes] = await Promise.all([
+        supabase.from('inspection_documents').update({ driver_id: driverUserId }).eq('id', doc.id),
+        supabase
+          .from('notification_preferences')
+          .select('in_app_enabled')
+          .eq('user_id', driverUserId)
+          .eq('event_type', 'document_update')
+          .maybeSingle(),
+      ]);
+
+      // Default to enabled if no preference row exists
+      const inAppEnabled = prefRes.data?.in_app_enabled ?? true;
+
+      if (inAppEnabled) {
+        await supabase.from('notifications').insert({
+          user_id: driverUserId,
+          title: 'New document in your Inspection Binder',
+          body: `"${doc.name}" has been added to your Inspection Binder by your coordinator.`,
+          type: 'document_update',
+          channel: 'in_app',
+          link: '/operator?tab=inspection-binder',
+        });
+      }
+
       toast({ title: 'Document assigned', description: `${doc.name} has been added to ${driverName}'s binder.` });
       setStagingAssignMap(prev => { const n = { ...prev }; delete n[doc.id]; return n; });
       fetchDocs();
