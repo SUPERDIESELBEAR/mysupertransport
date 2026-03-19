@@ -120,7 +120,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const { user, profile } = useAuth();
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
   const [complianceSort, setComplianceSort] = useState<'urgency' | 'last_action_asc' | 'last_action_desc'>('urgency');
-  const [complianceExpanded, setComplianceExpanded] = useState(true);
+  const [complianceExpanded, setComplianceExpanded] = useState(false);
   const [complianceNoActionOnly, setComplianceNoActionOnly] = useState(false);
   const [complianceDocFilter, setComplianceDocFilter] = useState<'all' | 'CDL' | 'Medical Cert'>('all');
   // Bulk messaging selection
