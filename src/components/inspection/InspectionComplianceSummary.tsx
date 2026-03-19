@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
 // ── Types ──────────────────────────────────────────────────────────────────
-type DocKey = 'IRP Registration' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate';
+type DocKey = 'IRP Registration (cab card)' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate';
 
 type Status = 'expired' | 'critical' | 'warning' | 'valid' | 'missing';
 
@@ -43,7 +43,7 @@ const STATUS_CONFIG: Record<Status, { label: string; rowCls: string; badgeCls: s
 };
 
 const DOC_BADGE: Record<DocKey, string> = {
-  'IRP Registration':  'bg-sky-50 text-sky-700 border-sky-200',
+  'IRP Registration (cab card)': 'bg-sky-50 text-sky-700 border-sky-200',
   'Insurance':         'bg-violet-50 text-violet-700 border-violet-200',
   'IFTA License':      'bg-orange-50 text-orange-700 border-orange-200',
   'CDL':               'bg-blue-50 text-blue-700 border-blue-200',
@@ -51,7 +51,7 @@ const DOC_BADGE: Record<DocKey, string> = {
 };
 
 const DOC_DISPLAY: Record<DocKey, string> = {
-  'IRP Registration':  'IRP',
+  'IRP Registration (cab card)': 'IRP (cab card)',
   'Insurance':         'Insurance',
   'IFTA License':      'IFTA',
   'CDL':               'CDL',
@@ -60,7 +60,7 @@ const DOC_DISPLAY: Record<DocKey, string> = {
 
 // Map inspection_documents.name → our DocKey
 const INSPECTION_NAMES: Record<string, DocKey> = {
-  'IRP Registration': 'IRP Registration',
+  'IRP Registration (cab card)': 'IRP Registration (cab card)',
   'Insurance':        'Insurance',
   'IFTA License':     'IFTA License',
 };
@@ -100,12 +100,12 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       .select(`id, user_id, application_id, applications(first_name, last_name, cdl_expiration, medical_cert_expiration)`)
       .not('application_id', 'is', null);
 
-    // 2. Fetch company-wide inspection docs (IRP, Insurance, IFTA)
+    // 2. Fetch company-wide inspection docs (Insurance, IFTA — IRP is now per-driver)
     const { data: inspDocs } = await supabase
       .from('inspection_documents')
       .select('id, name, expires_at')
       .eq('scope', 'company_wide')
-      .in('name', ['IRP Registration', 'Insurance', 'IFTA License']);
+      .in('name', ['Insurance', 'IFTA License']);
 
     if (!ops) { setLoading(false); return; }
 
@@ -120,7 +120,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         : 'Unknown';
     });
 
-    // ── Company-wide docs (IRP, Insurance, IFTA) ───────────────────────────
+    // ── Company-wide docs (Insurance, IFTA) ───────────────────────────────
     const companyDocMap: Partial<Record<DocKey, { id: string; expiresAt: string | null; daysUntil: number | null }>> = {};
     (inspDocs ?? []).forEach((doc: any) => {
       const key = INSPECTION_NAMES[doc.name];
@@ -132,7 +132,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     });
 
     // For each company-wide doc, emit one row labelled "Fleet"
-    (['IRP Registration', 'Insurance', 'IFTA License'] as DocKey[]).forEach(docKey => {
+    (['Insurance', 'IFTA License'] as DocKey[]).forEach(docKey => {
       const info = companyDocMap[docKey];
       result.push({
         docKey,
@@ -325,7 +325,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
   if (!loading && entries.length === 0) return null;
 
-  const DOC_KEYS: DocKey[] = ['IRP Registration', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate'];
+  const DOC_KEYS: DocKey[] = ['IRP Registration (cab card)', 'Insurance', 'IFTA License', 'CDL', 'Medical Certificate'];
 
   return (
     <div className={cn(
@@ -381,7 +381,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           </div>
 
           <span className="text-xs text-muted-foreground hidden lg:inline truncate">
-            IRP · Insurance · IFTA · CDL · Med Cert
+            Insurance · IFTA · IRP (cab card) · CDL · Med Cert
           </span>
         </button>
 
