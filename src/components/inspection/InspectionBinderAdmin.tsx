@@ -605,6 +605,10 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       ? companyDocs.find(d => d.name === docName)
       : perDriverDocs.find(d => d.name === docName);
     const rowKey = `${scope}-${docName}`;
+
+    // Badge: per-driver docs whose name matches a company-wide slot were shared from the company library
+    const isSharedFromCompany = scope === 'per_driver' && doc?.file_url
+      && COMPANY_WIDE_DOCS.some(c => c.key === docName);
     const isShareOpen = shareToDriverOpen === (doc?.id ?? `new-${docName}`);
 
     return (
@@ -625,6 +629,11 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 {doc?.shared_with_fleet && (
                   <span className="inline-flex items-center gap-1 text-[10px] bg-info/10 text-info border border-info/30 rounded-full px-2 py-0.5 font-semibold">
                     <Users className="h-3 w-3" />Fleet
+                  </span>
+                )}
+                {isSharedFromCompany && (
+                  <span className="inline-flex items-center gap-1 text-[10px] bg-gold/10 text-gold-muted border border-gold/30 rounded-full px-2 py-0.5 font-semibold">
+                    <Globe className="h-3 w-3" />Shared from company
                   </span>
                 )}
               </div>
