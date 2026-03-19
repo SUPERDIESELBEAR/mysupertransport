@@ -574,7 +574,7 @@ export default function StaffDirectory() {
                           {statusCfg.label}
                         </Badge>
                         {member.account_status === 'inactive' && (
-                          <Badge className="text-xs border bg-amber-500/15 text-amber-700 border-amber-400/40 gap-1">
+                          <Badge className="text-xs border bg-warning/15 text-warning border-warning/40 gap-1">
                             <AlertTriangle className="h-2.5 w-2.5" />
                             Suspended
                           </Badge>
