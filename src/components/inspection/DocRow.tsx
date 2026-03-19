@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check } from 'lucide-react';
+import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { QRCodeSVG } from 'qrcode.react';
@@ -135,6 +135,7 @@ function toInlineUrl(url: string): string {
 /** Generic in-app file preview modal — no new tab required */
 export function FilePreviewModal({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
   const [loaded, setLoaded] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const handleLoad = useCallback(() => setLoaded(true), []);
   const inlineUrl = toInlineUrl(url);
 
@@ -144,6 +145,11 @@ export function FilePreviewModal({ url, name, onClose }: { url: string; name: st
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
+  const handlePrint = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    iframeRef.current?.contentWindow?.print();
+  }, []);
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/90" onClick={onClose}>
       <div className="flex items-center justify-between px-4 py-3 bg-surface-dark border-b border-surface-dark-border" onClick={e => e.stopPropagation()}>
@@ -152,10 +158,18 @@ export function FilePreviewModal({ url, name, onClose }: { url: string; name: st
           <span className="text-sm font-semibold text-surface-dark-foreground truncate max-w-[60vw]">{name}</span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handlePrint}
+            disabled={!loaded}
+            className="text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+            title="Print document"
+          >
+            <Printer className="h-4 w-4" />
+          </button>
           <a href={url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground" onClick={e => e.stopPropagation()} title="Open in new tab">
             <ExternalLink className="h-4 w-4" />
           </a>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground" title="Close (Esc)">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -168,6 +182,7 @@ export function FilePreviewModal({ url, name, onClose }: { url: string; name: st
           </div>
         )}
         <iframe
+          ref={iframeRef}
           src={`${inlineUrl}#toolbar=0`}
           className={`w-full h-full transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
           title={name}
@@ -180,6 +195,7 @@ export function FilePreviewModal({ url, name, onClose }: { url: string; name: st
 
 function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => void }) {
   const [loaded, setLoaded] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const handleLoad = useCallback(() => setLoaded(true), []);
   const inlineUrl = doc.file_url ? toInlineUrl(doc.file_url) : null;
 
@@ -188,6 +204,11 @@ function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => vo
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose]);
+
+  const handlePrint = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    iframeRef.current?.contentWindow?.print();
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/90" onClick={onClose}>
@@ -199,11 +220,21 @@ function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => vo
         </div>
         <div className="flex items-center gap-2">
           {doc.file_url && (
-            <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground" onClick={e => e.stopPropagation()}>
-              <ExternalLink className="h-4 w-4" />
-            </a>
+            <>
+              <button
+                onClick={handlePrint}
+                disabled={!loaded}
+                className="text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                title="Print document"
+              >
+                <Printer className="h-4 w-4" />
+              </button>
+              <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground" onClick={e => e.stopPropagation()} title="Open in new tab">
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            </>
           )}
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground" title="Close (Esc)">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -218,6 +249,7 @@ function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => vo
               </div>
             )}
             <iframe
+              ref={iframeRef}
               src={`${inlineUrl}#toolbar=0`}
               className={`w-full h-full transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
               title={doc.name}
