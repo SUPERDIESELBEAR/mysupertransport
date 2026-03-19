@@ -93,6 +93,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
   const [companyDocs, setCompanyDocs] = useState<InspectionDocument[]>([]);
   const [perDriverShareCounts, setPerDriverShareCounts] = useState<Record<string, number>>({});
+  const [perDriverShareNames, setPerDriverShareNames] = useState<Record<string, string[]>>({});
   const [perDriverDocs, setPerDriverDocs] = useState<InspectionDocument[]>([]);
   const [driverUploads, setDriverUploads] = useState<DriverUpload[]>([]);
   const [stagedDocs, setStagedDocs] = useState<StagedDoc[]>([]);
@@ -226,16 +227,52 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
     setCompanyDocs((cRes.data ?? []) as InspectionDocument[]);
 
-    // Build docName → unique driver count map
+    // Build docName → unique driver set map
     const shareRows = (shareCountsRes.data ?? []) as { name: string; driver_id: string }[];
-    const countMap: Record<string, Set<string>> = {};
+    const driverIdMap: Record<string, Set<string>> = {};
     for (const row of shareRows) {
-      if (!countMap[row.name]) countMap[row.name] = new Set();
-      countMap[row.name].add(row.driver_id);
+      if (!driverIdMap[row.name]) driverIdMap[row.name] = new Set();
+      driverIdMap[row.name].add(row.driver_id);
     }
     setPerDriverShareCounts(Object.fromEntries(
-      Object.entries(countMap).map(([name, set]) => [name, set.size])
+      Object.entries(driverIdMap).map(([name, set]) => [name, set.size])
     ));
+
+    // Resolve driver names for each unique driver_id
+    const allDriverIds = [...new Set(shareRows.map(r => r.driver_id))];
+    if (allDriverIds.length > 0) {
+      const [appsRes, profilesRes] = await Promise.all([
+        supabase
+          .from('operators')
+          .select('user_id, applications(first_name, last_name)')
+          .in('user_id', allDriverIds),
+        supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', allDriverIds),
+      ]);
+      const driverNameMap: Record<string, string> = {};
+      for (const p of (profilesRes.data ?? []) as any[]) {
+        const fn = p.first_name ?? '';
+        const ln = p.last_name ?? '';
+        const name = [fn, ln].filter(Boolean).join(' ');
+        if (name) driverNameMap[p.user_id] = name;
+      }
+      for (const op of (appsRes.data ?? []) as any[]) {
+        const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
+        if (app?.first_name || app?.last_name) {
+          const name = [app.first_name, app.last_name].filter(Boolean).join(' ');
+          if (name) driverNameMap[op.user_id] = name;
+        }
+      }
+      const namesMap: Record<string, string[]> = {};
+      for (const [docName, idSet] of Object.entries(driverIdMap)) {
+        namesMap[docName] = [...idSet].map(id => driverNameMap[id] || id.slice(0, 8));
+      }
+      setPerDriverShareNames(namesMap);
+    } else {
+      setPerDriverShareNames({});
+    }
     setPerDriverDocs((pdRes.data ?? []) as InspectionDocument[]);
     setDriverUploads((duRes.data ?? []) as DriverUpload[]);
     setStagedDocs((stagRes.data ?? []) as StagedDoc[]);
@@ -656,10 +693,21 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 )}
                 {scope === 'company_wide' && (() => {
                   const count = perDriverShareCounts[docName] ?? 0;
+                  const names = perDriverShareNames[docName] ?? [];
                   return count > 0 ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] bg-secondary text-muted-foreground border border-border rounded-full px-2 py-0.5 font-medium">
-                      <UserCheck className="h-3 w-3" />Shared with {count} {count === 1 ? 'driver' : 'drivers'}
-                    </span>
+                    <Tooltip delayDuration={150}>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-1 text-[10px] bg-secondary text-muted-foreground border border-border rounded-full px-2 py-0.5 font-medium cursor-default">
+                          <UserCheck className="h-3 w-3" />Shared with {count} {count === 1 ? 'driver' : 'drivers'}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs text-left space-y-1 max-w-[200px]">
+                        <p className="font-semibold text-foreground">Shared with:</p>
+                        {names.map(name => (
+                          <p key={name} className="text-muted-foreground">• {name}</p>
+                        ))}
+                      </TooltipContent>
+                    </Tooltip>
                   ) : null;
                 })()}
                 {isSharedFromCompany && (
