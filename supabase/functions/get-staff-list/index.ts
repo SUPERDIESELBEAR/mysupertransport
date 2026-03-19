@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
 
     if (req.method === 'POST' && hasBody) {
       const body = await req.json();
-      const { action, user_id, role, target_name, phone, first_name, last_name } = body as {
+      const { action, user_id, role, target_name, phone, first_name, last_name, email } = body as {
         action: string;
         user_id: string;
         role?: string;
@@ -71,6 +71,7 @@ Deno.serve(async (req) => {
         phone?: string;
         first_name?: string;
         last_name?: string;
+        email?: string;
       };
 
       if (!user_id) {
@@ -79,7 +80,43 @@ Deno.serve(async (req) => {
         });
       }
 
-      // ── Update name ───────────────────────────────────────────────────
+      // ── Update email ──────────────────────────────────────────────────
+      if (action === 'update_email') {
+        const sanitizedEmail = (email ?? '').trim().toLowerCase().slice(0, 254);
+        if (!sanitizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sanitizedEmail)) {
+          return new Response(JSON.stringify({ error: 'Invalid email address' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const { error: emailErr } = await supabaseAdmin.auth.admin.updateUserById(user_id, {
+          email: sanitizedEmail,
+          email_confirm: true,
+        });
+
+        if (emailErr) {
+          return new Response(JSON.stringify({ error: emailErr.message }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const actorName = await getActorName();
+        supabaseAdmin.from('audit_log').insert({
+          actor_id: callerUser.id,
+          actor_name: actorName,
+          action: 'email_updated',
+          entity_type: 'staff_profile',
+          entity_id: user_id,
+          entity_label: target_name ?? user_id,
+          metadata: { target_user_id: user_id, new_email: sanitizedEmail },
+        }).then(() => {}).catch(e => console.error('Audit log error:', e));
+
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+
       if (action === 'update_name') {
         const sanitizedFirst = (first_name ?? '').trim().slice(0, 100);
         const sanitizedLast = (last_name ?? '').trim().slice(0, 100);
