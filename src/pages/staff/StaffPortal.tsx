@@ -19,6 +19,7 @@ import DriverHubView from '@/components/drivers/DriverHubView';
 import DocumentHub from '@/components/documents/DocumentHub';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
 import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
+import ComplianceAlertsPanel from '@/components/inspection/ComplianceAlertsPanel';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -532,12 +533,29 @@ export default function StaffPortal() {
         <ServiceLibraryManager />
       )}
       {currentView === 'compliance' && (
-        <InspectionComplianceSummary
-          defaultExpanded={true}
-          onOpenOperator={handleOpenOperator}
-          onOpenOperatorAtBinder={handleOpenOperatorAtBinder}
-          onOpenInspectionBinder={() => setCurrentView('inspection-binder')}
-        />
+        <div className="flex flex-col gap-4">
+          <ComplianceAlertsPanel
+            onOpenOperator={handleOpenOperator}
+            onOpenOperatorWithFocus={async (operatorId, focusField) => {
+              handleOpenOperator(operatorId);
+              const { data: op } = await supabase
+                .from('operators')
+                .select('application_id, applications(*)')
+                .eq('id', operatorId)
+                .single();
+              if (op?.applications) {
+                setReviewApp(op.applications as FullApplication);
+                setReviewFocusField(focusField);
+              }
+            }}
+          />
+          <InspectionComplianceSummary
+            defaultExpanded={true}
+            onOpenOperator={handleOpenOperator}
+            onOpenOperatorAtBinder={handleOpenOperatorAtBinder}
+            onOpenInspectionBinder={() => setCurrentView('inspection-binder')}
+          />
+        </div>
       )}
       {currentView === 'inspection-binder' && (
         <InspectionBinderAdmin />
