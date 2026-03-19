@@ -101,12 +101,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { email, role, first_name, last_name, phone } = await req.json() as {
+    const { email, role, first_name, last_name, phone, password } = await req.json() as {
       email: string;
       role: StaffRole;
       first_name?: string;
       last_name?: string;
       phone?: string;
+      password?: string;
     };
 
     if (!email || !role) {
@@ -114,6 +115,8 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    const manualCreate = !!password;
 
     const validRoles: StaffRole[] = ['onboarding_staff', 'dispatcher', 'management'];
     if (!validRoles.includes(role)) {
