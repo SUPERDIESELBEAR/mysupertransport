@@ -631,6 +631,11 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     <Users className="h-3 w-3" />Fleet
                   </span>
                 )}
+                {isSharedFromCompany && (
+                  <span className="inline-flex items-center gap-1 text-[10px] bg-gold/10 text-gold-muted border border-gold/30 rounded-full px-2 py-0.5 font-semibold">
+                    <Globe className="h-3 w-3" />Shared from company
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {onRemind && (
