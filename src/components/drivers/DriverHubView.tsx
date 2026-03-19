@@ -463,6 +463,41 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         </div>
       )}
 
+      {/* CDL / Med Cert Alerts Panel */}
+      {!dispatchMode && (
+        <div className="border border-border rounded-xl overflow-hidden shadow-sm">
+          <button
+            onClick={() => setAlertsPanelOpen(o => !o)}
+            className="w-full flex items-center justify-between px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors text-sm font-semibold text-foreground"
+          >
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-destructive/70" />
+              CDL &amp; Med Cert Alerts
+            </div>
+            {alertsPanelOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </button>
+          {alertsPanelOpen && (
+            <div className="p-4 pt-3">
+              <ComplianceAlertsPanel
+                onOpenOperator={setSelectedOperatorId}
+                onOpenOperatorWithFocus={async (operatorId, focusField) => {
+                  setSelectedOperatorId(operatorId);
+                  const { data } = await supabase
+                    .from('operators')
+                    .select('application_id, applications(*)')
+                    .eq('id', operatorId)
+                    .single();
+                  if (data?.applications) {
+                    setReviewApp(data.applications as FullApplication);
+                    setReviewFocusField(focusField);
+                  }
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Roster */}
       <DriverRoster
         key={rosterKey}
