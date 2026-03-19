@@ -100,12 +100,12 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       .select(`id, user_id, application_id, applications(first_name, last_name, cdl_expiration, medical_cert_expiration)`)
       .not('application_id', 'is', null);
 
-    // 2. Fetch company-wide inspection docs (IRP, Insurance, IFTA)
+    // 2. Fetch company-wide inspection docs (Insurance, IFTA — IRP is now per-driver)
     const { data: inspDocs } = await supabase
       .from('inspection_documents')
       .select('id, name, expires_at')
       .eq('scope', 'company_wide')
-      .in('name', ['IRP Registration', 'Insurance', 'IFTA License']);
+      .in('name', ['Insurance', 'IFTA License']);
 
     if (!ops) { setLoading(false); return; }
 
