@@ -893,13 +893,72 @@ export default function StaffDirectory() {
                   </div>
                 )}
               </div>
+
+              {/* ── Danger Zone: Delete Staff Member ── */}
+              {managingMember.user_id !== user?.id && (
+                <div className="pt-1 border-t border-destructive/20">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Danger Zone</p>
+                  {!deleteConfirmPending ? (
+                    <button
+                      type="button"
+                      onClick={() => setDeleteConfirmPending(true)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-dashed border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10 transition-colors group"
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <Trash2 className="h-4 w-4 shrink-0" />
+                        Delete Staff Member
+                      </div>
+                      <span className="text-xs text-destructive/60 group-hover:text-destructive transition-colors">Permanent</span>
+                    </button>
+                  ) : (
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-3 space-y-3">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                        <div className="text-xs text-destructive leading-relaxed">
+                          <p className="font-semibold mb-0.5">This action cannot be undone</p>
+                          <p>
+                            <span className="font-medium">
+                              {[managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email}
+                            </span>
+                            {' '}will be permanently removed from the system, losing all access immediately.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={deleting}
+                          onClick={() => setDeleteConfirmPending(false)}
+                          className="flex-1 h-8 text-xs"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={deleting}
+                          onClick={handleDeleteMember}
+                          className="flex-1 h-8 text-xs bg-destructive hover:bg-destructive/90 text-destructive-foreground gap-1"
+                        >
+                          {deleting ? (
+                            <RefreshCcw className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3" />
+                          )}
+                          {deleting ? 'Deleting…' : 'Yes, Delete'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="px-6 pb-5">
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => setManagingMember(null)}
+                onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); }}
               >
                 Done
               </Button>
