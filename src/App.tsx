@@ -17,6 +17,7 @@ import StaffPortal from "./pages/staff/StaffPortal";
 import ManagementPortal from "./pages/management/ManagementPortal";
 import DispatchPortal from "./pages/dispatch/DispatchPortal";
 import NotFound from "./pages/NotFound";
+import SplashPage from "./pages/SplashPage";
 import InspectionSharePage from "./pages/InspectionSharePage";
 
 const queryClient = new QueryClient();
@@ -81,7 +82,7 @@ function AppRoutes() {
       } />
 
       {/* Root redirect */}
-      <Route path="/" element={<Navigate to={user ? "/dashboard" : "/apply"} replace />} />
+      <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <SplashPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
