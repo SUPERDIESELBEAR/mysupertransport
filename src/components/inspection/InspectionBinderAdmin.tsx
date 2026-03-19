@@ -1265,11 +1265,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                                 </Tooltip>
                               )}
                               {doc.file_url && (
-                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
-                                    <Eye className="h-3.5 w-3.5" />
-                                  </Button>
-                                </a>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                                  onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(doc.name); }}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
                               )}
                               <Button
                                 size="sm"
