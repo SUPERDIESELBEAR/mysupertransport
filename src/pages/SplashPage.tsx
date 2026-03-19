@@ -1,5 +1,5 @@
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowRight, Shield, TrendingUp, HeadphonesIcon, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Shield, TrendingUp, Headphones, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logo from '@/assets/supertransport-logo.png';
 
@@ -8,21 +8,21 @@ const valueProps = [
     icon: Shield,
     title: 'DOT-Compliant Operations',
     description:
-      'All paperwork, inspections, and certifications managed end-to-end so you can focus on the road, not the red tape.',
+      "All paperwork, inspections, and certifications managed end-to-end so you can focus on the road, not the red tape.",
     highlight: 'Fully compliant from day one',
   },
   {
     icon: TrendingUp,
     title: 'Competitive Owner-Operator Pay',
     description:
-      'Transparent linehaul rates, no hidden deductions, and consistent freight lanes that keep your wheels turning and your revenue growing.',
+      "Transparent linehaul rates, no hidden deductions, and consistent freight lanes that keep your wheels turning and your revenue growing.",
     highlight: 'Transparent rates, consistent loads',
   },
   {
-    icon: HeadphonesIcon,
+    icon: Headphones,
     title: 'Dedicated Onboarding Support',
     description:
-      'A real team walks you through every step — from your CDL verification and ICA to your first dispatch. You're never on your own.',
+      "A real team walks you through every step from your CDL verification and ICA to your first dispatch. You are never on your own.",
     highlight: 'A real team, every step of the way',
   },
 ];
@@ -48,7 +48,6 @@ export default function SplashPage() {
               'radial-gradient(ellipse 80% 40% at 50% -10%, hsl(41 47% 54% / 0.08) 0%, transparent 60%), radial-gradient(circle at 85% 70%, hsl(41 47% 54% / 0.04) 0%, transparent 40%)',
           }}
         />
-        {/* Subtle grid texture */}
         <div
           className="absolute inset-0 opacity-[0.015]"
           style={{
@@ -59,7 +58,7 @@ export default function SplashPage() {
         />
       </div>
 
-      {/* ── HEADER ── */}
+      {/* HEADER */}
       <header className="relative z-10 flex items-center justify-between px-6 py-5 max-w-6xl mx-auto w-full">
         <img src={logo} alt="SUPERTRANSPORT" className="h-10 max-w-[180px] object-contain shrink-0" />
         <div className="flex items-center gap-4">
@@ -78,9 +77,8 @@ export default function SplashPage() {
         </div>
       </header>
 
-      {/* ── HERO ── */}
-      <section className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6 pt-12 pb-8 max-w-4xl mx-auto w-full animate-fade-in">
-
+      {/* HERO */}
+      <section className="relative z-10 flex flex-col items-center justify-center text-center px-6 pt-12 pb-8 max-w-4xl mx-auto w-full animate-fade-in">
         {/* Pill badge */}
         <div className="inline-flex items-center gap-2 bg-gold/10 border border-gold/30 text-gold text-xs font-semibold tracking-widest uppercase px-4 py-1.5 rounded-full mb-8">
           <span className="h-1.5 w-1.5 rounded-full bg-gold animate-pulse" />
@@ -95,15 +93,14 @@ export default function SplashPage() {
 
         {/* Mission statement */}
         <p className="text-lg sm:text-xl text-surface-dark-muted max-w-2xl leading-relaxed mb-10">
-          SUPERTRANSPORT partners with owner-operators who want more than just a load — they want
-          a company that invests in their success, handles the complexity, and treats them like
-          professionals.
+          SUPERTRANSPORT partners with owner-operators who want more than just a load. We invest
+          in your success, handle the complexity, and treat you like the professional you are.
         </p>
 
         {/* CTA */}
         <Button
           onClick={() => navigate('/apply')}
-          className="bg-gold hover:bg-gold-light text-surface-dark font-bold text-base h-13 px-10 rounded-lg shadow-lg transition-all hover:scale-[1.02] group mb-4"
+          className="bg-gold hover:bg-gold-light text-surface-dark font-bold text-base px-10 py-3 h-auto rounded-lg shadow-lg transition-all hover:scale-[1.02] group mb-4"
           size="lg"
         >
           Begin Your Application
@@ -111,12 +108,12 @@ export default function SplashPage() {
         </Button>
 
         <p className="text-surface-dark-muted text-sm">
-          No login required to apply · Takes about 10–15 minutes
+          No login required to apply &middot; Takes about 10&ndash;15 minutes
         </p>
       </section>
 
-      {/* ── QUICK CHECKLIST ── */}
-      <section className="relative z-10 max-w-4xl mx-auto w-full px-6 pb-10 animate-fade-in">
+      {/* QUICK CHECKLIST */}
+      <section className="relative z-10 max-w-4xl mx-auto w-full px-6 pb-12">
         <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
           {checkpoints.map((item) => (
             <div key={item} className="flex items-center gap-2 text-sm text-surface-dark-muted">
@@ -127,7 +124,7 @@ export default function SplashPage() {
         </div>
       </section>
 
-      {/* ── VALUE PROP CARDS ── */}
+      {/* VALUE PROP CARDS */}
       <section className="relative z-10 max-w-6xl mx-auto w-full px-6 pb-16">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {valueProps.map(({ icon: Icon, title, description, highlight }) => (
@@ -150,10 +147,10 @@ export default function SplashPage() {
         </div>
       </section>
 
-      {/* ── FOOTER ── */}
-      <footer className="relative z-10 border-t border-surface-dark-border py-6 px-6">
+      {/* FOOTER */}
+      <footer className="relative z-10 border-t border-surface-dark-border py-6 px-6 mt-auto">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-surface-dark-muted">
-          <p>© {new Date().getFullYear()} SUPERTRANSPORT. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} SUPERTRANSPORT. All rights reserved.</p>
           <div className="flex items-center gap-5">
             <Link to="/status" className="hover:text-gold transition-colors">
               Check Application Status
