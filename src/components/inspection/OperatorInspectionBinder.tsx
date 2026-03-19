@@ -376,6 +376,10 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
           </button>
         </div>
       )}
+
+      {previewUrl && (
+        <FilePreviewModal url={previewUrl} name={previewName} onClose={() => setPreviewUrl(null)} />
+      )}
     </div>
   );
 }
