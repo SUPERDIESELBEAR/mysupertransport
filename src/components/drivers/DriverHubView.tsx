@@ -5,6 +5,7 @@ import AddDriverModal from './AddDriverModal';
 import OperatorDetailPanel from '@/pages/staff/OperatorDetailPanel';
 import BulkMessageModal from '@/components/staff/BulkMessageModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
+import ComplianceAlertsPanel from '@/components/inspection/ComplianceAlertsPanel';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -20,7 +21,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useBulkReminderCooldown } from '@/hooks/useBulkReminderCooldown';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
-import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX, Info, Bell, Loader2 } from 'lucide-react';
+import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX, Info, Bell, Loader2, ChevronDown, ChevronUp, ShieldAlert } from 'lucide-react';
 import type { ComplianceFilter, ComplianceCounts } from './DriverRoster';
 
 interface DriverHubViewProps {
