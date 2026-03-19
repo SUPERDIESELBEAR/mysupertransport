@@ -381,7 +381,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           </div>
 
           <span className="text-xs text-muted-foreground hidden lg:inline truncate">
-            IRP · Insurance · IFTA · CDL · Med Cert
+            Insurance · IFTA · IRP (cab card) · CDL · Med Cert
           </span>
         </button>
 
