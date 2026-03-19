@@ -232,7 +232,7 @@ function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => vo
   );
 }
 
-export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSelect, onUpload, isUploading, canUpload }: DocRowProps) {
+export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSelect, onUpload, isUploading, canUpload, isManagedByCompany }: DocRowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
