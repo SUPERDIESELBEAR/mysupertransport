@@ -125,6 +125,12 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const [shareToDriverTarget, setShareToDriverTarget] = useState<string>('');
   const [sharingToDriver, setSharingToDriver] = useState(false);
 
+  // Bulk-share to driver state
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set()); // doc ids
+  const [bulkShareDialogOpen, setBulkShareDialogOpen] = useState(false);
+  const [bulkShareTarget, setBulkShareTarget] = useState<string>('');
+  const [bulkSharing, setBulkSharing] = useState(false);
+
   // Staging state
   const [stagingLabelMap, setStagingLabelMap] = useState<Record<string, string>>({});
   const [stagingAssignMap, setStagingAssignMap] = useState<Record<string, string>>({});
