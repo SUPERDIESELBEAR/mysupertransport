@@ -1100,12 +1100,32 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       ) : (
         <>
           {/* ── Company Docs ── */}
-          {activeTab === 'company' && (
+          {activeTab === 'company' && (() => {
+            const selectableDocIds = companyDocs.filter(d => d.file_url).map(d => d.id);
+            const allSelected = selectableDocIds.length > 0 && selectableDocIds.every(id => bulkSelected.has(id));
+            const someSelected = selectableDocIds.some(id => bulkSelected.has(id));
+            const handleSelectAll = (checked: boolean | 'indeterminate') => {
+              setBulkSelected(checked === true
+                ? new Set(selectableDocIds)
+                : new Set()
+              );
+            };
+            return (
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-xs text-muted-foreground">
-                  These documents apply to all drivers. Upload here, then share fleet-wide or to a specific driver.
-                </p>
+                <div className="flex items-center gap-2">
+                  {selectableDocIds.length > 0 && (
+                    <Checkbox
+                      checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Select all uploaded documents"
+                      className="shrink-0"
+                    />
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    These documents apply to all drivers. Upload here, then share fleet-wide or to a specific driver.
+                  </p>
+                </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {sharedDocs.length > 0 && (
                     <Button
