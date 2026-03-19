@@ -93,6 +93,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
   const [companyDocs, setCompanyDocs] = useState<InspectionDocument[]>([]);
   const [perDriverShareCounts, setPerDriverShareCounts] = useState<Record<string, number>>({});
+  const [perDriverShareNames, setPerDriverShareNames] = useState<Record<string, string[]>>({});
   const [perDriverDocs, setPerDriverDocs] = useState<InspectionDocument[]>([]);
   const [driverUploads, setDriverUploads] = useState<DriverUpload[]>([]);
   const [stagedDocs, setStagedDocs] = useState<StagedDoc[]>([]);
