@@ -120,6 +120,8 @@ function ShareModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => 
 
 /** Generic in-app file preview modal — no new tab required */
 export function FilePreviewModal({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
+  const [loaded, setLoaded] = useState(false);
+  const handleLoad = useCallback(() => setLoaded(true), []);
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/90" onClick={onClose}>
       <div className="flex items-center justify-between px-4 py-3 bg-surface-dark border-b border-surface-dark-border" onClick={e => e.stopPropagation()}>
@@ -136,14 +138,27 @@ export function FilePreviewModal({ url, name, onClose }: { url: string; name: st
           </button>
         </div>
       </div>
-      <div className="flex-1" onClick={e => e.stopPropagation()}>
-        <iframe src={`${url}#toolbar=0`} className="w-full h-full" title={name} />
+      <div className="flex-1 relative" onClick={e => e.stopPropagation()}>
+        {!loaded && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80">
+            <Loader2 className="h-8 w-8 text-gold animate-spin" />
+            <span className="text-sm text-muted-foreground">Loading document…</span>
+          </div>
+        )}
+        <iframe
+          src={`${url}#toolbar=0`}
+          className={`w-full h-full transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          title={name}
+          onLoad={handleLoad}
+        />
       </div>
     </div>
   );
 }
 
 function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => void }) {
+  const [loaded, setLoaded] = useState(false);
+  const handleLoad = useCallback(() => setLoaded(true), []);
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/90" onClick={onClose}>
       <div className="flex items-center justify-between px-4 py-3 bg-surface-dark border-b border-surface-dark-border" onClick={e => e.stopPropagation()}>
@@ -163,9 +178,22 @@ function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => vo
           </button>
         </div>
       </div>
-      <div className="flex-1" onClick={e => e.stopPropagation()}>
+      <div className="flex-1 relative" onClick={e => e.stopPropagation()}>
         {doc.file_url ? (
-          <iframe src={`${doc.file_url}#toolbar=0`} className="w-full h-full" title={doc.name} />
+          <>
+            {!loaded && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80">
+                <Loader2 className="h-8 w-8 text-gold animate-spin" />
+                <span className="text-sm text-muted-foreground">Loading document…</span>
+              </div>
+            )}
+            <iframe
+              src={`${doc.file_url}#toolbar=0`}
+              className={`w-full h-full transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+              title={doc.name}
+              onLoad={handleLoad}
+            />
+          </>
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">No file available.</div>
         )}
