@@ -133,6 +133,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const [deleteStagedTarget, setDeleteStagedTarget] = useState<StagedDoc | null>(null);
 
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const companyDocRowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Fetch operator list (for non-scoped admin)
   useEffect(() => {
