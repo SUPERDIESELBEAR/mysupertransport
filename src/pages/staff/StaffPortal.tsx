@@ -534,6 +534,11 @@ export default function StaffPortal() {
       )}
       {currentView === 'compliance' && (
         <div className="flex flex-col gap-4">
+          {/* Page header */}
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Fleet Compliance</h1>
+            <p className="text-muted-foreground text-sm mt-1">Monitor CDL, Medical Cert, and fleet document expiries</p>
+          </div>
           <ComplianceAlertsPanel
             onOpenOperator={handleOpenOperator}
             onOpenOperatorWithFocus={async (operatorId, focusField) => {
