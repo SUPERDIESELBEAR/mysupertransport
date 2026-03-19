@@ -337,6 +337,37 @@ export default function StaffDirectory() {
     }
   };
 
+  const handleToggleStatus = async () => {
+    if (!managingMember) return;
+    const isActive = managingMember.account_status === 'active';
+    const newStatus = isActive ? 'inactive' : 'active';
+    const action = isActive ? 'deactivate_user' : 'reactivate_user';
+    setTogglingStatus(true);
+    try {
+      const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
+      const { data, error } = await supabase.functions.invoke('get-staff-list', {
+        method: 'POST',
+        body: { action, user_id: managingMember.user_id, target_name: memberName },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setManagingMember(prev => prev ? { ...prev, account_status: newStatus } : prev);
+      setStaff(prev => prev.map(m => m.user_id === managingMember.user_id ? { ...m, account_status: newStatus } : m));
+      toast({
+        title: isActive ? 'Account Suspended' : '✅ Account Reactivated',
+        description: isActive
+          ? `${memberName} has been suspended and can no longer log in.`
+          : `${memberName} can now log in again.`,
+      });
+    } catch (err) {
+      toast({ title: isActive ? 'Deactivation Failed' : 'Reactivation Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setTogglingStatus(false);
+    }
+  };
+
   const filteredStaff = staff.filter(s => {
     const matchesRole = roleFilter === 'all' || s.roles.includes(roleFilter as AppRole);
     if (!matchesRole) return false;
