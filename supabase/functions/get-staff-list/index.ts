@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
 
     if (req.method === 'POST' && hasBody) {
       const body = await req.json();
-      const { action, user_id, role, target_name, phone, first_name, last_name } = body as {
+      const { action, user_id, role, target_name, phone, first_name, last_name, email } = body as {
         action: string;
         user_id: string;
         role?: string;
@@ -71,6 +71,7 @@ Deno.serve(async (req) => {
         phone?: string;
         first_name?: string;
         last_name?: string;
+        email?: string;
       };
 
       if (!user_id) {
