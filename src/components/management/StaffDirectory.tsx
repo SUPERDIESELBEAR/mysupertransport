@@ -1027,7 +1027,7 @@ export default function StaffDirectory() {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); }}
+                onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); setTogglingStatus(false); }}
               >
                 Done
               </Button>
