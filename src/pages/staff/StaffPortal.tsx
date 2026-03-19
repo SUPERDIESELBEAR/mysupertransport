@@ -617,27 +617,39 @@ export default function StaffPortal() {
                 </div>
               </div>
             </button>
-            <div className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm">
+            {/* No Reminder Sent — clickable, applies No Action filter */}
+            <button
+              onClick={() => {
+                alertsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                setAlertsPanelNoAction(true);
+                setAlertsPanelHighlight('muted');
+                setTimeout(() => setAlertsPanelHighlight(false), 1800);
+              }}
+              className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm text-left hover:border-primary/30 hover:bg-primary/5 transition-colors group cursor-pointer"
+            >
               <div className="flex items-center gap-2 sm:gap-3">
-                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                  <BellOff className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+                  <BellOff className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                 </div>
                 <div>
                   <p className="text-xl sm:text-2xl font-bold text-foreground">{noReminderCount}</p>
-                  <p className="text-xs text-muted-foreground">No Reminder Sent</p>
+                  <p className="text-xs text-muted-foreground group-hover:text-primary/80 transition-colors">No Reminder Sent ↓</p>
                 </div>
               </div>
-            </div>
+            </button>
           </div>
           {/* Alerts panel — ref target for scroll-into-view from stat cards */}
           <div
             ref={alertsPanelRef}
             className={`rounded-xl transition-all duration-300 ${
               alertsPanelHighlight === 'warning' ? 'ring-2 ring-warning/60 ring-offset-2' :
-              alertsPanelHighlight === 'destructive' ? 'ring-2 ring-destructive/60 ring-offset-2' : ''
+              alertsPanelHighlight === 'destructive' ? 'ring-2 ring-destructive/60 ring-offset-2' :
+              alertsPanelHighlight === 'muted' ? 'ring-2 ring-primary/40 ring-offset-2' : ''
             }`}
           >
             <ComplianceAlertsPanel
+              key={alertsPanelNoAction ? 'no-action' : 'default'}
+              defaultNoActionOnly={alertsPanelNoAction}
               onOpenOperator={handleOpenOperator}
               onOpenOperatorWithFocus={async (operatorId, focusField) => {
                 handleOpenOperator(operatorId);
