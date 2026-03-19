@@ -82,7 +82,7 @@ function AppRoutes() {
       } />
 
       {/* Root redirect */}
-      <Route path="/" element={<Navigate to={user ? "/dashboard" : "/apply"} replace />} />
+      <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <SplashPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
