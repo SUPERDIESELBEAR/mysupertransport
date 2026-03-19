@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2, Bell,
-  Inbox, UserCheck, X,
+  Inbox, UserCheck, X, Pencil,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -1151,13 +1151,13 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               {stagingLabelMap[doc.id] !== undefined ? (
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1.5">
                                   <Input
                                     value={stagingLabelMap[doc.id]}
                                     onChange={e => setStagingLabelMap(prev => ({ ...prev, [doc.id]: e.target.value }))}
-                                    className="h-7 text-xs"
+                                    className="h-7 text-xs flex-1"
                                     onBlur={async () => {
                                       const newName = stagingLabelMap[doc.id].trim();
                                       if (newName && newName !== doc.name) {
@@ -1172,21 +1172,40 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                                     }}
                                     autoFocus
                                   />
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 w-7 p-0 text-muted-foreground shrink-0"
+                                    onClick={() => setStagingLabelMap(prev => { const n = { ...prev }; delete n[doc.id]; return n; })}
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
                                 </div>
                               ) : (
-                                <button
-                                  className="text-sm font-medium text-foreground hover:text-muted-foreground text-left"
-                                  onClick={() => setStagingLabelMap(prev => ({ ...prev, [doc.id]: doc.name }))}
-                                  title="Click to rename"
-                                >
-                                  {doc.name}
-                                </button>
+                                <p className="text-sm font-medium text-foreground leading-snug">{doc.name}</p>
                               )}
                               <p className="text-xs text-muted-foreground mt-0.5">
                                 Staged {new Date(doc.uploaded_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                               </p>
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="flex items-center gap-1 shrink-0">
+                              {stagingLabelMap[doc.id] === undefined && (
+                                <TooltipProvider delayDuration={200}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                                        onClick={() => setStagingLabelMap(prev => ({ ...prev, [doc.id]: doc.name }))}
+                                      >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-xs">Rename</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
                               {doc.file_url && (
                                 <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
                                   <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
