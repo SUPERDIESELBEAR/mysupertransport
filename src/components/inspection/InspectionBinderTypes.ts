@@ -28,7 +28,6 @@ export interface DriverUpload {
 
 // Company-wide document slots (one per scope: company_wide)
 export const COMPANY_WIDE_DOCS = [
-  { key: 'IRP Registration', hasExpiry: true },
   { key: 'IFTA License', hasExpiry: true },
   { key: 'Insurance', hasExpiry: true },
   { key: 'UCR', hasExpiry: true },
@@ -42,6 +41,7 @@ export const COMPANY_WIDE_DOCS = [
 
 // Per-driver document slots
 export const PER_DRIVER_DOCS = [
+  { key: 'IRP Registration (cab card)', hasExpiry: true },
   { key: 'CDL', hasExpiry: true },
   { key: 'Medical Certificate', hasExpiry: true },
   { key: 'DOT Inspections', hasExpiry: true },

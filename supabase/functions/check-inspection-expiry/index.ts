@@ -7,7 +7,7 @@ const corsHeaders = {
 
 // Documents to check for expiry alerts
 const ALERT_DOCS = new Set([
-  "IRP Registration",
+  "IRP Registration (cab card)",
   "Insurance",
   "IFTA License",
   "CDL",
