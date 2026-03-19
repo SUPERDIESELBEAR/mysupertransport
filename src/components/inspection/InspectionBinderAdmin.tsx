@@ -693,10 +693,21 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 )}
                 {scope === 'company_wide' && (() => {
                   const count = perDriverShareCounts[docName] ?? 0;
+                  const names = perDriverShareNames[docName] ?? [];
                   return count > 0 ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] bg-secondary text-muted-foreground border border-border rounded-full px-2 py-0.5 font-medium">
-                      <UserCheck className="h-3 w-3" />Shared with {count} {count === 1 ? 'driver' : 'drivers'}
-                    </span>
+                    <Tooltip delayDuration={150}>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-1 text-[10px] bg-secondary text-muted-foreground border border-border rounded-full px-2 py-0.5 font-medium cursor-default">
+                          <UserCheck className="h-3 w-3" />Shared with {count} {count === 1 ? 'driver' : 'drivers'}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs text-left space-y-1 max-w-[200px]">
+                        <p className="font-semibold text-foreground">Shared with:</p>
+                        {names.map(name => (
+                          <p key={name} className="text-muted-foreground">• {name}</p>
+                        ))}
+                      </TooltipContent>
+                    </Tooltip>
                   ) : null;
                 })()}
                 {isSharedFromCompany && (
