@@ -1190,7 +1190,8 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 </div>
               ))}
             </div>
-          )}
+            );
+          })()}
 
           {/* ── Driver Docs ── */}
           {activeTab === 'driver' && (
