@@ -113,6 +113,10 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const [sendingReminder, setSendingReminder] = useState<string | null>(null);
   const [reminderDialogDoc, setReminderDialogDoc] = useState<string | null>(null);
 
+  // In-app file preview
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState<string>('');
+
   // Share to specific driver state (per company doc)
   const [shareToDriverOpen, setShareToDriverOpen] = useState<string | null>(null); // doc id
   const [shareToDriverTarget, setShareToDriverTarget] = useState<string>('');
