@@ -247,13 +247,19 @@ export default function StaffPortal() {
 
   useEffect(() => {
     fetchCriticalExpiries();
-    const channel = supabase
+    const ch1 = supabase
       .channel('staff-compliance-badge')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'applications' }, () => {
         fetchCriticalExpiries();
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const ch2 = supabase
+      .channel('staff-compliance-badge-reminders')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cert_reminders' }, () => {
+        fetchCriticalExpiries();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
   }, [fetchCriticalExpiries]);
 
   // Driver Hub alert badge: count of fully-onboarded drivers with expired/critical docs OR never reminded
