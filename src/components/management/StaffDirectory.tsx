@@ -225,6 +225,38 @@ export default function StaffDirectory() {
     }
   };
 
+  const handleNameUpdate = async () => {
+    if (!managingMember) return;
+    setNameSaving(true);
+    try {
+      const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
+      const { data, error } = await supabase.functions.invoke('get-staff-list', {
+        method: 'POST',
+        body: {
+          action: 'update_name',
+          user_id: managingMember.user_id,
+          first_name: editingFirstName,
+          last_name: editingLastName,
+          target_name: memberName,
+        },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const savedFirst = editingFirstName.trim() || null;
+      const savedLast = editingLastName.trim() || null;
+      setManagingMember(prev => prev ? { ...prev, first_name: savedFirst, last_name: savedLast } : prev);
+      setStaff(prev => prev.map(m => m.user_id === managingMember.user_id ? { ...m, first_name: savedFirst, last_name: savedLast } : m));
+      setNameEditActive(false);
+      toast({ title: '✅ Name Updated', description: 'Staff member name saved successfully.' });
+    } catch (err) {
+      toast({ title: 'Update Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setNameSaving(false);
+    }
+  };
+
   const filteredStaff = staff.filter(s => {
     const matchesRole = roleFilter === 'all' || s.roles.includes(roleFilter as AppRole);
     if (!matchesRole) return false;
