@@ -50,6 +50,8 @@ export default function StaffPortal() {
   const [bulkMessagePreselected, setBulkMessagePreselected] = useState<string[]>([]);
   const [scrollToInspectionBinder, setScrollToInspectionBinder] = useState(false);
   const viewRef = useRef(currentView);
+  const alertsPanelRef = useRef<HTMLDivElement>(null);
+  const [alertsPanelHighlight, setAlertsPanelHighlight] = useState(false);
 
   // Deep-link: ?tab=notifications or ?operator=... or ?view=inspection-binder
   useEffect(() => {
