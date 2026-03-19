@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   UserPlus, RefreshCcw, Mail, Shield, Truck, Users,
   Search, X, ChevronDown, Clock, Settings2, Plus, Minus,
-  AlertTriangle, CheckCircle2, Phone
+  AlertTriangle, CheckCircle2, Phone, Trash2
 } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -92,6 +92,8 @@ export default function StaffDirectory() {
   const [emailEditActive, setEmailEditActive] = useState(false);
   const [emailSaving, setEmailSaving] = useState(false);
   const [emailConfirmPending, setEmailConfirmPending] = useState(false);
+  const [deleteConfirmPending, setDeleteConfirmPending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
@@ -307,6 +309,30 @@ export default function StaffDirectory() {
       toast({ title: 'Update Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
     } finally {
       setEmailSaving(false);
+    }
+  };
+
+  const handleDeleteMember = async () => {
+    if (!managingMember) return;
+    setDeleting(true);
+    try {
+      const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
+      const { data, error } = await supabase.functions.invoke('get-staff-list', {
+        method: 'POST',
+        body: { action: 'delete_user', user_id: managingMember.user_id, target_name: memberName },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setStaff(prev => prev.filter(m => m.user_id !== managingMember.user_id));
+      setManagingMember(null);
+      setDeleteConfirmPending(false);
+      toast({ title: '✅ Staff Member Removed', description: `${memberName} has been permanently deleted.` });
+    } catch (err) {
+      toast({ title: 'Delete Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -547,10 +573,10 @@ export default function StaffDirectory() {
       {/* ── Manage Access Modal ── */}
       {managingMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setManagingMember(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md animate-scale-in">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); }} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md animate-scale-in max-h-[90vh] overflow-y-auto">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-border">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-border sticky top-0 bg-white z-10 rounded-t-2xl">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-surface-dark flex items-center justify-center shrink-0">
                   <span className="text-base font-bold text-gold">
@@ -564,7 +590,7 @@ export default function StaffDirectory() {
                   <p className="text-xs text-muted-foreground">{managingMember.email ?? 'No email'}</p>
                 </div>
               </div>
-              <button onClick={() => setManagingMember(null)} className="text-muted-foreground hover:text-foreground transition-colors">
+              <button onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); }} className="text-muted-foreground hover:text-foreground transition-colors">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -867,13 +893,72 @@ export default function StaffDirectory() {
                   </div>
                 )}
               </div>
+
+              {/* ── Danger Zone: Delete Staff Member ── */}
+              {managingMember.user_id !== user?.id && (
+                <div className="pt-1 border-t border-destructive/20">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Danger Zone</p>
+                  {!deleteConfirmPending ? (
+                    <button
+                      type="button"
+                      onClick={() => setDeleteConfirmPending(true)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-dashed border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10 transition-colors group"
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <Trash2 className="h-4 w-4 shrink-0" />
+                        Delete Staff Member
+                      </div>
+                      <span className="text-xs text-destructive/60 group-hover:text-destructive transition-colors">Permanent</span>
+                    </button>
+                  ) : (
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-3 space-y-3">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                        <div className="text-xs text-destructive leading-relaxed">
+                          <p className="font-semibold mb-0.5">This action cannot be undone</p>
+                          <p>
+                            <span className="font-medium">
+                              {[managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email}
+                            </span>
+                            {' '}will be permanently removed from the system, losing all access immediately.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={deleting}
+                          onClick={() => setDeleteConfirmPending(false)}
+                          className="flex-1 h-8 text-xs"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={deleting}
+                          onClick={handleDeleteMember}
+                          className="flex-1 h-8 text-xs bg-destructive hover:bg-destructive/90 text-destructive-foreground gap-1"
+                        >
+                          {deleting ? (
+                            <RefreshCcw className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3" />
+                          )}
+                          {deleting ? 'Deleting…' : 'Yes, Delete'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="px-6 pb-5">
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => setManagingMember(null)}
+                onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); }}
               >
                 Done
               </Button>
