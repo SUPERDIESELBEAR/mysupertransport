@@ -43,7 +43,7 @@ const STATUS_CONFIG: Record<Status, { label: string; rowCls: string; badgeCls: s
 };
 
 const DOC_BADGE: Record<DocKey, string> = {
-  'IRP Registration':  'bg-sky-50 text-sky-700 border-sky-200',
+  'IRP Registration (cab card)': 'bg-sky-50 text-sky-700 border-sky-200',
   'Insurance':         'bg-violet-50 text-violet-700 border-violet-200',
   'IFTA License':      'bg-orange-50 text-orange-700 border-orange-200',
   'CDL':               'bg-blue-50 text-blue-700 border-blue-200',
@@ -51,7 +51,7 @@ const DOC_BADGE: Record<DocKey, string> = {
 };
 
 const DOC_DISPLAY: Record<DocKey, string> = {
-  'IRP Registration':  'IRP',
+  'IRP Registration (cab card)': 'IRP (cab card)',
   'Insurance':         'Insurance',
   'IFTA License':      'IFTA',
   'CDL':               'CDL',
@@ -60,7 +60,7 @@ const DOC_DISPLAY: Record<DocKey, string> = {
 
 // Map inspection_documents.name → our DocKey
 const INSPECTION_NAMES: Record<string, DocKey> = {
-  'IRP Registration': 'IRP Registration',
+  'IRP Registration (cab card)': 'IRP Registration (cab card)',
   'Insurance':        'Insurance',
   'IFTA License':     'IFTA License',
 };
