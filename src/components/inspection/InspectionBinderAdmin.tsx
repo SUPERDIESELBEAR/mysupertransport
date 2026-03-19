@@ -1179,7 +1179,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     <Button
                       size="sm"
                       className="h-7 gap-1.5 text-xs bg-info text-info-foreground hover:bg-info/90"
-                      onClick={() => { setBulkShareTarget(''); setBulkShareDialogOpen(true); }}
+                      onClick={() => { setBulkShareTarget(''); setBulkDiff({}); setBulkShareStep('select'); setBulkShareDialogOpen(true); }}
                     >
                       <UserCheck className="h-3 w-3" />
                       Share to Driver
