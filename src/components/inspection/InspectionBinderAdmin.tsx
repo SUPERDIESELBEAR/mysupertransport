@@ -1133,6 +1133,37 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                   )}
                 </div>
               </div>
+
+              {/* Bulk-select action bar */}
+              {bulkSelected.size > 0 && (
+                <div className="flex items-center justify-between gap-2 bg-info/10 border border-info/30 rounded-xl px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="h-4 w-4 text-info shrink-0" />
+                    <span className="text-xs font-medium text-info">
+                      {bulkSelected.size} document{bulkSelected.size > 1 ? 's' : ''} selected
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs text-muted-foreground"
+                      onClick={() => setBulkSelected(new Set())}
+                    >
+                      <X className="h-3 w-3 mr-1" />Clear
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-7 gap-1.5 text-xs bg-info text-info-foreground hover:bg-info/90"
+                      onClick={() => { setBulkShareTarget(''); setBulkShareDialogOpen(true); }}
+                    >
+                      <UserCheck className="h-3 w-3" />
+                      Share to Driver
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {COMPANY_WIDE_DOCS.map(({ key, hasExpiry }) => (
                 <div key={key} ref={el => { companyDocRowRefs.current[key] = el; }}>
                   <AdminDocRow docName={key} scope="company_wide" hasExpiry={hasExpiry} />
