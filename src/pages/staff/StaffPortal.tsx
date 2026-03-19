@@ -51,7 +51,8 @@ export default function StaffPortal() {
   const [scrollToInspectionBinder, setScrollToInspectionBinder] = useState(false);
   const viewRef = useRef(currentView);
   const alertsPanelRef = useRef<HTMLDivElement>(null);
-  const [alertsPanelHighlight, setAlertsPanelHighlight] = useState<'warning' | 'destructive' | false>(false);
+  const [alertsPanelHighlight, setAlertsPanelHighlight] = useState<'warning' | 'destructive' | 'muted' | false>(false);
+  const [alertsPanelNoAction, setAlertsPanelNoAction] = useState(false);
 
   // Deep-link: ?tab=notifications or ?operator=... or ?view=inspection-binder
   useEffect(() => {
