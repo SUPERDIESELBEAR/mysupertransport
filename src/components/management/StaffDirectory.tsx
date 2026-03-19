@@ -926,10 +926,47 @@ export default function StaffDirectory() {
                 )}
               </div>
 
-              {/* ── Danger Zone: Delete Staff Member ── */}
+              {/* ── Danger Zone: Deactivate + Delete ── */}
               {managingMember.user_id !== user?.id && (
-                <div className="pt-1 border-t border-destructive/20">
+                <div className="pt-1 border-t border-destructive/20 space-y-2">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Danger Zone</p>
+
+                  {/* Deactivate / Reactivate toggle */}
+                  {managingMember.account_status === 'active' ? (
+                    <button
+                      type="button"
+                      disabled={togglingStatus}
+                      onClick={handleToggleStatus}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-dashed border-amber-400/40 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors group disabled:opacity-60"
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        {togglingStatus
+                          ? <RefreshCcw className="h-4 w-4 shrink-0 animate-spin" />
+                          : <AlertTriangle className="h-4 w-4 shrink-0" />
+                        }
+                        {togglingStatus ? 'Suspending…' : 'Suspend Account'}
+                      </div>
+                      <span className="text-xs text-amber-600/70 group-hover:text-amber-700 transition-colors">Blocks login</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={togglingStatus}
+                      onClick={handleToggleStatus}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-dashed border-status-complete/40 bg-status-complete/5 text-status-complete hover:bg-status-complete/10 transition-colors group disabled:opacity-60"
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        {togglingStatus
+                          ? <RefreshCcw className="h-4 w-4 shrink-0 animate-spin" />
+                          : <CheckCircle2 className="h-4 w-4 shrink-0" />
+                        }
+                        {togglingStatus ? 'Reactivating…' : 'Reactivate Account'}
+                      </div>
+                      <span className="text-xs text-status-complete/70 group-hover:text-status-complete transition-colors">Restore login</span>
+                    </button>
+                  )}
+
+                  {/* Delete */}
                   {!deleteConfirmPending ? (
                     <button
                       type="button"
