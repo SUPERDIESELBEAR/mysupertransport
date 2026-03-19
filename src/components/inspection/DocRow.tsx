@@ -264,9 +264,15 @@ export function FilePreviewModal({ url, name, onClose }: { url: string; name: st
 
 function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => void }) {
   const [loaded, setLoaded] = useState(false);
+  const [zoomIdx, setZoomIdx] = useState(DEFAULT_ZOOM_IDX);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const handleLoad = useCallback(() => setLoaded(true), []);
   const inlineUrl = doc.file_url ? toInlineUrl(doc.file_url) : null;
+
+  const zoom = ZOOM_STEPS[zoomIdx];
+  const canZoomIn = zoomIdx < ZOOM_STEPS.length - 1;
+  const canZoomOut = zoomIdx > 0;
+  const scale = zoom / 100;
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -287,13 +293,38 @@ function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => vo
           <span className="text-sm font-semibold text-surface-dark-foreground">{doc.name}</span>
           <ExpiryBadge expiresAt={doc.expires_at} />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          {/* Zoom controls */}
+          <button
+            onClick={e => { e.stopPropagation(); setZoomIdx(i => Math.max(0, i - 1)); }}
+            disabled={!canZoomOut}
+            className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            title="Zoom out"
+          >
+            <ZoomOut className="h-4 w-4" />
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); setZoomIdx(DEFAULT_ZOOM_IDX); }}
+            className="h-8 px-2 rounded text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors min-w-[44px] text-center"
+            title="Reset zoom"
+          >
+            {zoom}%
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); setZoomIdx(i => Math.min(ZOOM_STEPS.length - 1, i + 1)); }}
+            disabled={!canZoomIn}
+            className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            title="Zoom in"
+          >
+            <ZoomIn className="h-4 w-4" />
+          </button>
+          <span className="w-px h-5 bg-white/15 mx-1" />
           {doc.file_url && (
             <>
               <button
                 onClick={handlePrint}
                 disabled={!loaded}
-                className="text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 title="Print document"
               >
                 <Printer className="h-4 w-4" />
@@ -301,38 +332,59 @@ function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => vo
               <a
                 href={doc.file_url}
                 download={doc.name}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
                 onClick={e => e.stopPropagation()}
                 title="Download document"
               >
                 <Download className="h-4 w-4" />
               </a>
-              <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground" onClick={e => e.stopPropagation()} title="Open in new tab">
+              <a
+                href={doc.file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+                onClick={e => e.stopPropagation()}
+                title="Open in new tab"
+              >
                 <ExternalLink className="h-4 w-4" />
               </a>
             </>
           )}
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground" title="Close (Esc)">
+          <button
+            onClick={onClose}
+            className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+            title="Close (Esc)"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
       </div>
-      <div className="flex-1 relative" onClick={e => e.stopPropagation()}>
+      <div className="flex-1 relative overflow-auto" onClick={e => e.stopPropagation()}>
         {inlineUrl ? (
           <>
             {!loaded && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 z-10">
                 <Loader2 className="h-8 w-8 text-gold animate-spin" />
                 <span className="text-sm text-muted-foreground">Loading document…</span>
               </div>
             )}
-            <iframe
-              ref={iframeRef}
-              src={`${inlineUrl}#toolbar=0`}
-              className={`w-full h-full transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-              title={doc.name}
-              onLoad={handleLoad}
-            />
+            <div
+              style={{
+                width: `${scale * 100}%`,
+                height: `${scale * 100}%`,
+                minWidth: scale <= 1 ? '100%' : undefined,
+                minHeight: scale <= 1 ? '100%' : undefined,
+              }}
+            >
+              <iframe
+                ref={iframeRef}
+                src={`${inlineUrl}#toolbar=0`}
+                style={{ width: `${100 / scale}%`, height: `${100 / scale}%`, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+                className={`transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+                title={doc.name}
+                onLoad={handleLoad}
+              />
+            </div>
           </>
         ) : (
           <div className="flex items-center justify-center h-full text-muted-foreground">No file available.</div>
