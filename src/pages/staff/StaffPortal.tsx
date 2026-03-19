@@ -38,6 +38,8 @@ export default function StaffPortal() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [criticalExpiryCount, setCriticalExpiryCount] = useState(0);
+  const [expiredCount, setExpiredCount] = useState(0);
+  const [noReminderCount, setNoReminderCount] = useState(0);
   const [driverAlertCount, setDriverAlertCount] = useState(0);
   const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
