@@ -136,15 +136,35 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     (async () => {
       const { data } = await supabase
         .from('operators')
-        .select('id, user_id, applications(first_name, last_name), profiles(first_name, last_name)')
+        .select('id, user_id, applications(first_name, last_name)')
         .order('created_at');
       if (!data) return;
+
+      // Fetch profiles separately via user_id for operators with no application name
+      const userIds = (data as any[])
+        .filter(op => {
+          const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
+          return !app?.first_name && !app?.last_name;
+        })
+        .map(op => op.user_id);
+
+      let profileMap: Record<string, { first_name: string | null; last_name: string | null }> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', userIds);
+        for (const p of profiles ?? []) {
+          profileMap[p.user_id] = { first_name: p.first_name, last_name: p.last_name };
+        }
+      }
+
       const opts = (data as any[]).map(op => ({
         userId: op.user_id,
         operatorId: op.id,
         name: (() => {
           const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
-          const prof = Array.isArray(op.profiles) ? op.profiles[0] : op.profiles;
+          const prof = profileMap[op.user_id];
           const fn = app?.first_name ?? prof?.first_name ?? '';
           const ln = app?.last_name ?? prof?.last_name ?? '';
           return [fn, ln].filter(Boolean).join(' ') || op.user_id.slice(0, 8);
