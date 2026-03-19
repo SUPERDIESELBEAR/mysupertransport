@@ -582,7 +582,70 @@ export default function StaffDirectory() {
                 </div>
               </div>
 
+              {/* Name editing */}
+              <div className="pt-1 border-t border-border">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</p>
+                </div>
+                {nameEditActive ? (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={editingFirstName}
+                        onChange={e => setEditingFirstName(e.target.value)}
+                        placeholder="First name"
+                        maxLength={100}
+                        autoFocus
+                        className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+                      />
+                      <input
+                        type="text"
+                        value={editingLastName}
+                        onChange={e => setEditingLastName(e.target.value)}
+                        placeholder="Last name"
+                        maxLength={100}
+                        className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        disabled={nameSaving}
+                        onClick={handleNameUpdate}
+                        className="h-8 px-3 text-xs bg-surface-dark text-surface-dark-foreground hover:bg-surface-dark/90 gap-1"
+                      >
+                        {nameSaving ? <RefreshCcw className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                        Save
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={nameSaving}
+                        onClick={() => { setNameEditActive(false); setEditingFirstName(managingMember.first_name ?? ''); setEditingLastName(managingMember.last_name ?? ''); }}
+                        className="h-8 px-3 text-xs"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="flex items-center justify-between px-3 py-2 rounded-lg border border-dashed border-border bg-secondary/30 cursor-pointer hover:bg-secondary/50 transition-colors group"
+                    onClick={() => setNameEditActive(true)}
+                  >
+                    <span className="text-sm text-foreground">
+                      {[managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || (
+                        <span className="text-muted-foreground/60 italic">No name set</span>
+                      )}
+                    </span>
+                    <span className="text-xs text-muted-foreground/50 group-hover:text-muted-foreground transition-colors">Edit</span>
+                  </div>
+                )}
+              </div>
+
               {/* Phone number */}
+
               <div className="pt-1 border-t border-border">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Phone Number</p>
