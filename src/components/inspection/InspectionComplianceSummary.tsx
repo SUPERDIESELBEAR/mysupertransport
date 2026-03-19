@@ -120,7 +120,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         : 'Unknown';
     });
 
-    // ── Company-wide docs (IRP, Insurance, IFTA) ───────────────────────────
+    // ── Company-wide docs (Insurance, IFTA) ───────────────────────────────
     const companyDocMap: Partial<Record<DocKey, { id: string; expiresAt: string | null; daysUntil: number | null }>> = {};
     (inspDocs ?? []).forEach((doc: any) => {
       const key = INSPECTION_NAMES[doc.name];
@@ -132,7 +132,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     });
 
     // For each company-wide doc, emit one row labelled "Fleet"
-    (['IRP Registration', 'Insurance', 'IFTA License'] as DocKey[]).forEach(docKey => {
+    (['Insurance', 'IFTA License'] as DocKey[]).forEach(docKey => {
       const info = companyDocMap[docKey];
       result.push({
         docKey,
