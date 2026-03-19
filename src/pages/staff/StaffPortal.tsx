@@ -533,6 +533,7 @@ export default function StaffPortal() {
       )}
       {currentView === 'compliance' && (
         <InspectionComplianceSummary
+          defaultExpanded={true}
           onOpenOperator={handleOpenOperator}
           onOpenOperatorAtBinder={handleOpenOperatorAtBinder}
           onOpenInspectionBinder={() => setCurrentView('inspection-binder')}
