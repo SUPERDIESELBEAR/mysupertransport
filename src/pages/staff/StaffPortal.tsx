@@ -531,6 +531,13 @@ export default function StaffPortal() {
       {currentView === 'service-library' && (
         <ServiceLibraryManager />
       )}
+      {currentView === 'compliance' && (
+        <InspectionComplianceSummary
+          onOpenOperator={handleOpenOperator}
+          onOpenOperatorAtBinder={handleOpenOperatorAtBinder}
+          onOpenInspectionBinder={() => setCurrentView('inspection-binder')}
+        />
+      )}
       {currentView === 'inspection-binder' && (
         <InspectionBinderAdmin />
       )}
