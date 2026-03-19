@@ -1055,6 +1055,12 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const sharedCount = companyDocs.filter(d => d.shared_with_fleet).length;
   const totalCompany = COMPANY_WIDE_DOCS.length;
 
+  // Count per-driver docs that were shared from company docs for the selected driver
+  const companyDocNames = new Set(COMPANY_WIDE_DOCS.map(d => d.key));
+  const sharedFromCompanyCount = selectedDriverId
+    ? perDriverDocs.filter(d => companyDocNames.has(d.name as any) && d.file_url).length
+    : 0;
+
   const tabs = [
     {
       key: 'company' as const,
@@ -1063,7 +1069,13 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       badge: `${sharedCount} of ${totalCompany} shared`,
       badgeActive: sharedCount > 0,
     },
-    { key: 'driver' as const, label: 'Driver Docs', icon: <User className="h-3.5 w-3.5" /> },
+    {
+      key: 'driver' as const,
+      label: 'Driver Docs',
+      icon: <User className="h-3.5 w-3.5" />,
+      badge: sharedFromCompanyCount > 0 ? `${sharedFromCompanyCount} from company` : undefined,
+      badgeActive: sharedFromCompanyCount > 0,
+    },
     { key: 'uploads' as const, label: 'Driver Uploads', icon: <Upload className="h-3.5 w-3.5" /> },
     {
       key: 'staging' as const,
