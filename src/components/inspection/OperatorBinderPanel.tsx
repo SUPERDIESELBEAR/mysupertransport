@@ -153,9 +153,14 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {doc?.file_url && (
-                  <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0"><Eye className="h-3.5 w-3.5" /></Button>
-                  </a>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(docName); }}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
                 )}
                 {doc && (
                   <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(doc)}>
