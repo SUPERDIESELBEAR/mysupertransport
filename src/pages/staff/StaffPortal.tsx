@@ -202,24 +202,47 @@ export default function StaffPortal() {
   const [pipelineDispatchFilter, setPipelineDispatchFilter] = useState<'all' | 'truck_down'>('all');
 
   const fetchCriticalExpiries = useCallback(async () => {
-    const { data } = await supabase
-      .from('operators')
-      .select('applications(cdl_expiration, medical_cert_expiration)')
-      .not('application_id', 'is', null);
+    const [{ data }, { data: reminders }] = await Promise.all([
+      supabase
+        .from('operators')
+        .select('id, applications(cdl_expiration, medical_cert_expiration)')
+        .not('application_id', 'is', null),
+      supabase
+        .from('cert_reminders')
+        .select('operator_id, doc_type'),
+    ]);
     if (!data) return;
     const today = startOfDay(new Date());
-    let count = 0;
+
+    // Build a set of operator+doctype keys that have at least one reminder
+    const remindedKeys = new Set<string>();
+    (reminders ?? []).forEach((r: any) => remindedKeys.add(`${r.operator_id}|${r.doc_type}`));
+
+    let critical = 0;
+    let expired = 0;
+    let noReminder = 0;
+
     (data as any[]).forEach((op: any) => {
       const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
       if (!app) return;
-      ['cdl_expiration', 'medical_cert_expiration'].forEach((field: string) => {
+      const fields: Array<[string, string]> = [
+        ['cdl_expiration', 'CDL'],
+        ['medical_cert_expiration', 'Medical Cert'],
+      ];
+      fields.forEach(([field, docType]) => {
         const dateStr: string | null = app[field];
         if (!dateStr) return;
         const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
-        if (days <= 30) count++;
+        if (days < 0) expired++;
+        else if (days <= 30) critical++;
+        const key = `${op.id}|${docType}`;
+        if (days <= 30 && !remindedKeys.has(key)) noReminder++;
       });
     });
-    setCriticalExpiryCount(count);
+
+    setCriticalExpiryCount(critical + expired);
+    setExpiredCount(expired);
+    setNoReminderCount(noReminder);
   }, []);
 
   useEffect(() => {
