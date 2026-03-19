@@ -29,7 +29,7 @@ import {
   InspectionDocument, DriverUpload,
   COMPANY_WIDE_DOCS, PER_DRIVER_DOCS,
 } from './InspectionBinderTypes';
-import { ExpiryBadge } from './DocRow';
+import { ExpiryBadge, FilePreviewModal } from './DocRow';
 
 /** Returns true if a reminder was sent within the last 24 hours */
 function isOnCooldown(sentAt: string | undefined): boolean {
@@ -112,6 +112,10 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const [unshareAllDialogOpen, setUnshareAllDialogOpen] = useState(false);
   const [sendingReminder, setSendingReminder] = useState<string | null>(null);
   const [reminderDialogDoc, setReminderDialogDoc] = useState<string | null>(null);
+
+  // In-app file preview
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState<string>('');
 
   // Share to specific driver state (per company doc)
   const [shareToDriverOpen, setShareToDriverOpen] = useState<string | null>(null); // doc id
@@ -667,11 +671,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                   </Tooltip>
                 )}
                 {doc?.file_url && (
-                  <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                      <Eye className="h-3.5 w-3.5" />
-                    </Button>
-                  </a>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(docName); }}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
                 )}
                 {doc && (
                   <Button
@@ -1054,11 +1061,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                         <div className="flex items-center gap-1.5 shrink-0">
                           <UploadStatusBadge status={upload.status} />
                           {upload.file_url && (
-                            <a href={upload.file_url} target="_blank" rel="noopener noreferrer">
-                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
-                                <Eye className="h-3.5 w-3.5" />
-                              </Button>
-                            </a>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                              onClick={() => { setPreviewUrl(upload.file_url!); setPreviewName(upload.file_name ?? 'Document'); }}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
                           )}
                         </div>
                       </div>
@@ -1255,11 +1265,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                                 </Tooltip>
                               )}
                               {doc.file_url && (
-                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
-                                    <Eye className="h-3.5 w-3.5" />
-                                  </Button>
-                                </a>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                                  onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(doc.name); }}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
                               )}
                               <Button
                                 size="sm"
@@ -1518,6 +1531,10 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {previewUrl && (
+        <FilePreviewModal url={previewUrl} name={previewName} onClose={() => setPreviewUrl(null)} />
+      )}
     </div>
   );
 }

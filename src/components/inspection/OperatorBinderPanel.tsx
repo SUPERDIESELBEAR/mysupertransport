@@ -23,7 +23,7 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS } from './InspectionBinderTypes';
-import { ExpiryBadge } from './DocRow';
+import { ExpiryBadge, FilePreviewModal } from './DocRow';
 
 interface Props {
   /** auth.uid() of the operator/driver */
@@ -67,6 +67,10 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
   const [activeTab, setActiveTab] = useState<'driver' | 'uploads'>('driver');
   const [expiryEditing, setExpiryEditing] = useState<string | null>(null);
   const [expiryValue, setExpiryValue] = useState('');
+
+  // In-app file preview
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState<string>('');
 
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -149,9 +153,14 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {doc?.file_url && (
-                  <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0"><Eye className="h-3.5 w-3.5" /></Button>
-                  </a>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(docName); }}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
                 )}
                 {doc && (
                   <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(doc)}>
@@ -304,11 +313,14 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
                             <div className="flex items-center gap-1.5 shrink-0">
                               <UploadStatusBadge status={upload.status} />
                               {upload.file_url && (
-                                <a href={upload.file_url} target="_blank" rel="noopener noreferrer">
-                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
-                                    <Eye className="h-3.5 w-3.5" />
-                                  </Button>
-                                </a>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                                  onClick={() => { setPreviewUrl(upload.file_url!); setPreviewName(upload.file_name ?? 'Document'); }}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
                               )}
                             </div>
                           </div>
@@ -370,6 +382,10 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {previewUrl && (
+        <FilePreviewModal url={previewUrl} name={previewName} onClose={() => setPreviewUrl(null)} />
+      )}
     </div>
   );
 }

@@ -118,6 +118,31 @@ function ShareModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => 
   );
 }
 
+/** Generic in-app file preview modal — no new tab required */
+export function FilePreviewModal({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/90" onClick={onClose}>
+      <div className="flex items-center justify-between px-4 py-3 bg-surface-dark border-b border-surface-dark-border" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-gold" />
+          <span className="text-sm font-semibold text-surface-dark-foreground truncate max-w-[60vw]">{name}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <a href={url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground" onClick={e => e.stopPropagation()} title="Open in new tab">
+            <ExternalLink className="h-4 w-4" />
+          </a>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+      <div className="flex-1" onClick={e => e.stopPropagation()}>
+        <iframe src={`${url}#toolbar=0`} className="w-full h-full" title={name} />
+      </div>
+    </div>
+  );
+}
+
 function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/90" onClick={onClose}>
