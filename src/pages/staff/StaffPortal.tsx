@@ -13,11 +13,12 @@ import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Wrench, Shield, Users2 } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Wrench, Shield, Users2, ShieldCheck } from 'lucide-react';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
 import DriverHubView from '@/components/drivers/DriverHubView';
 import DocumentHub from '@/components/documents/DocumentHub';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
+import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -25,7 +26,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers';
+type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers' | 'compliance';
 
 export default function StaffPortal() {
   const { user } = useAuth();
