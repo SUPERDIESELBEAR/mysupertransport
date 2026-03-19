@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   UserPlus, RefreshCcw, Mail, Shield, Truck, Users,
   Search, X, ChevronDown, Clock, Settings2, Plus, Minus,
-  AlertTriangle, CheckCircle2, Phone
+  AlertTriangle, CheckCircle2, Phone, Trash2
 } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
