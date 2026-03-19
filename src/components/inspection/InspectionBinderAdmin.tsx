@@ -428,6 +428,84 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     }
   };
 
+  // ── Bulk-share selected company docs to a specific driver ──
+  const handleBulkShareToDriver = async () => {
+    if (!bulkShareTarget || bulkSelected.size === 0 || !user) return;
+    setBulkSharing(true);
+    try {
+      const driverName = operators.find(o => o.userId === bulkShareTarget)?.name ?? 'Driver';
+      const docsToShare = companyDocs.filter(d => bulkSelected.has(d.id) && d.file_url);
+
+      let skipped = 0;
+      let shared = 0;
+
+      // Check existing shares and insert new ones
+      await Promise.all(docsToShare.map(async doc => {
+        const { data: existing } = await supabase
+          .from('inspection_documents')
+          .select('id')
+          .eq('scope', 'per_driver')
+          .eq('driver_id', bulkShareTarget)
+          .eq('name', doc.name)
+          .maybeSingle();
+
+        if (existing) { skipped++; return; }
+
+        await supabase.from('inspection_documents').insert({
+          name: doc.name,
+          scope: 'per_driver',
+          driver_id: bulkShareTarget,
+          file_url: doc.file_url,
+          file_path: doc.file_path,
+          expires_at: doc.expires_at,
+          uploaded_by: user.id,
+          shared_with_fleet: false,
+        });
+        shared++;
+      }));
+
+      // Send one combined notification if any were newly shared
+      if (shared > 0) {
+        const { data: pref } = await supabase
+          .from('notification_preferences')
+          .select('in_app_enabled')
+          .eq('user_id', bulkShareTarget)
+          .eq('event_type', 'document_update')
+          .maybeSingle();
+
+        const notifEnabled = pref ? pref.in_app_enabled : true;
+        if (notifEnabled) {
+          await supabase.from('notifications').insert({
+            user_id: bulkShareTarget,
+            title: `${shared} new document${shared > 1 ? 's' : ''} in your Inspection Binder`,
+            body: `Your coordinator shared ${shared} document${shared > 1 ? 's' : ''} to your binder.`,
+            type: 'document_update',
+            channel: 'in_app',
+            link: '/operator?tab=inspection-binder',
+          });
+        }
+      }
+
+      if (shared > 0) {
+        toast({
+          title: `${shared} document${shared > 1 ? 's' : ''} shared to ${driverName}`,
+          description: skipped > 0 ? `${skipped} already existed and were skipped.` : undefined,
+        });
+      } else {
+        toast({ title: 'Nothing new to share', description: `All selected documents are already in ${driverName}'s binder.` });
+      }
+
+      setBulkSelected(new Set());
+      setBulkShareDialogOpen(false);
+      setBulkShareTarget('');
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: 'Bulk share failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setBulkSharing(false);
+    }
+  };
+
   // ── Staging: upload new unassigned doc ──
   const handleStagedUpload = async (file: File, label: string) => {
     if (!user) return;
