@@ -312,6 +312,30 @@ export default function StaffDirectory() {
     }
   };
 
+  const handleDeleteMember = async () => {
+    if (!managingMember) return;
+    setDeleting(true);
+    try {
+      const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
+      const { data, error } = await supabase.functions.invoke('get-staff-list', {
+        method: 'POST',
+        body: { action: 'delete_user', user_id: managingMember.user_id, target_name: memberName },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setStaff(prev => prev.filter(m => m.user_id !== managingMember.user_id));
+      setManagingMember(null);
+      setDeleteConfirmPending(false);
+      toast({ title: '✅ Staff Member Removed', description: `${memberName} has been permanently deleted.` });
+    } catch (err) {
+      toast({ title: 'Delete Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const filteredStaff = staff.filter(s => {
     const matchesRole = roleFilter === 'all' || s.roles.includes(roleFilter as AppRole);
     if (!matchesRole) return false;
