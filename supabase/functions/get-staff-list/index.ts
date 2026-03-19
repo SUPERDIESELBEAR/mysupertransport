@@ -74,6 +74,75 @@ Deno.serve(async (req) => {
         email?: string;
       };
 
+      // ── Deactivate user ───────────────────────────────────────────────
+      if (action === 'deactivate_user') {
+        if (user_id === callerUser.id) {
+          return new Response(JSON.stringify({ error: 'Cannot deactivate your own account' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Update profile status
+        const { error: profileErr } = await supabaseAdmin
+          .from('profiles')
+          .update({ account_status: 'inactive' })
+          .eq('user_id', user_id);
+        if (profileErr) {
+          return new Response(JSON.stringify({ error: profileErr.message }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Ban in auth so existing tokens are invalidated and new logins are blocked
+        await supabaseAdmin.auth.admin.updateUserById(user_id, { ban_duration: '876000h' });
+
+        const actorName = await getActorName();
+        supabaseAdmin.from('audit_log').insert({
+          actor_id: callerUser.id,
+          actor_name: actorName,
+          action: 'staff_deactivated',
+          entity_type: 'staff',
+          entity_id: user_id,
+          entity_label: target_name ?? user_id,
+          metadata: { target_user_id: user_id },
+        }).then(() => {}).catch(e => console.error('Audit log error:', e));
+
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // ── Reactivate user ───────────────────────────────────────────────
+      if (action === 'reactivate_user') {
+        const { error: profileErr } = await supabaseAdmin
+          .from('profiles')
+          .update({ account_status: 'active' })
+          .eq('user_id', user_id);
+        if (profileErr) {
+          return new Response(JSON.stringify({ error: profileErr.message }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Lift the ban so the user can log in again
+        await supabaseAdmin.auth.admin.updateUserById(user_id, { ban_duration: 'none' });
+
+        const actorName = await getActorName();
+        supabaseAdmin.from('audit_log').insert({
+          actor_id: callerUser.id,
+          actor_name: actorName,
+          action: 'staff_reactivated',
+          entity_type: 'staff',
+          entity_id: user_id,
+          entity_label: target_name ?? user_id,
+          metadata: { target_user_id: user_id },
+        }).then(() => {}).catch(e => console.error('Audit log error:', e));
+
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       if (!user_id) {
         return new Response(JSON.stringify({ error: 'user_id is required' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
