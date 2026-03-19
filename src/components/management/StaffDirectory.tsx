@@ -123,6 +123,10 @@ export default function StaffDirectory() {
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteEmail.trim()) return;
+    if (inviteMode === 'manual' && invitePassword.length < 8) {
+      toast({ title: 'Password too short', description: 'Password must be at least 8 characters.', variant: 'destructive' });
+      return;
+    }
     setInviting(true);
     try {
       const { data, error } = await supabase.functions.invoke('invite-staff', {
@@ -132,6 +136,7 @@ export default function StaffDirectory() {
           first_name: inviteFirstName.trim() || undefined,
           last_name: inviteLastName.trim() || undefined,
           phone: invitePhone.trim() || undefined,
+          ...(inviteMode === 'manual' ? { password: invitePassword } : {}),
         },
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
@@ -140,8 +145,10 @@ export default function StaffDirectory() {
       if (data?.error) throw new Error(data.error);
 
       toast({
-        title: '✅ Invitation Sent',
-        description: `${inviteEmail} has been invited as ${ROLE_CONFIG[inviteRole].label}.`,
+        title: inviteMode === 'manual' ? '✅ Staff Member Created' : '✅ Invitation Sent',
+        description: inviteMode === 'manual'
+          ? `${inviteEmail} has been added as ${ROLE_CONFIG[inviteRole].label}. Share the temporary password with them.`
+          : `${inviteEmail} has been invited as ${ROLE_CONFIG[inviteRole].label}.`,
       });
       setShowInvite(false);
       setInviteEmail('');
@@ -149,10 +156,13 @@ export default function StaffDirectory() {
       setInviteLastName('');
       setInvitePhone('');
       setInviteRole('onboarding_staff');
+      setInviteMode('invite');
+      setInvitePassword('');
+      setShowPassword(false);
       await fetchStaff();
     } catch (err) {
       toast({
-        title: 'Invite Failed',
+        title: inviteMode === 'manual' ? 'Creation Failed' : 'Invite Failed',
         description: err instanceof Error ? err.message : 'Unknown error',
         variant: 'destructive',
       });
