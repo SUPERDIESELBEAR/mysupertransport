@@ -6,9 +6,10 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2, Bell,
-  Inbox, UserCheck, X, Pencil, ArrowRight,
+  Inbox, UserCheck, X, Pencil, ArrowRight, CheckSquare,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -123,6 +124,12 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const [shareToDriverOpen, setShareToDriverOpen] = useState<string | null>(null); // doc id
   const [shareToDriverTarget, setShareToDriverTarget] = useState<string>('');
   const [sharingToDriver, setSharingToDriver] = useState(false);
+
+  // Bulk-share to driver state
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set()); // doc ids
+  const [bulkShareDialogOpen, setBulkShareDialogOpen] = useState(false);
+  const [bulkShareTarget, setBulkShareTarget] = useState<string>('');
+  const [bulkSharing, setBulkSharing] = useState(false);
 
   // Staging state
   const [stagingLabelMap, setStagingLabelMap] = useState<Record<string, string>>({});
@@ -421,6 +428,84 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     }
   };
 
+  // ── Bulk-share selected company docs to a specific driver ──
+  const handleBulkShareToDriver = async () => {
+    if (!bulkShareTarget || bulkSelected.size === 0 || !user) return;
+    setBulkSharing(true);
+    try {
+      const driverName = operators.find(o => o.userId === bulkShareTarget)?.name ?? 'Driver';
+      const docsToShare = companyDocs.filter(d => bulkSelected.has(d.id) && d.file_url);
+
+      let skipped = 0;
+      let shared = 0;
+
+      // Check existing shares and insert new ones
+      await Promise.all(docsToShare.map(async doc => {
+        const { data: existing } = await supabase
+          .from('inspection_documents')
+          .select('id')
+          .eq('scope', 'per_driver')
+          .eq('driver_id', bulkShareTarget)
+          .eq('name', doc.name)
+          .maybeSingle();
+
+        if (existing) { skipped++; return; }
+
+        await supabase.from('inspection_documents').insert({
+          name: doc.name,
+          scope: 'per_driver',
+          driver_id: bulkShareTarget,
+          file_url: doc.file_url,
+          file_path: doc.file_path,
+          expires_at: doc.expires_at,
+          uploaded_by: user.id,
+          shared_with_fleet: false,
+        });
+        shared++;
+      }));
+
+      // Send one combined notification if any were newly shared
+      if (shared > 0) {
+        const { data: pref } = await supabase
+          .from('notification_preferences')
+          .select('in_app_enabled')
+          .eq('user_id', bulkShareTarget)
+          .eq('event_type', 'document_update')
+          .maybeSingle();
+
+        const notifEnabled = pref ? pref.in_app_enabled : true;
+        if (notifEnabled) {
+          await supabase.from('notifications').insert({
+            user_id: bulkShareTarget,
+            title: `${shared} new document${shared > 1 ? 's' : ''} in your Inspection Binder`,
+            body: `Your coordinator shared ${shared} document${shared > 1 ? 's' : ''} to your binder.`,
+            type: 'document_update',
+            channel: 'in_app',
+            link: '/operator?tab=inspection-binder',
+          });
+        }
+      }
+
+      if (shared > 0) {
+        toast({
+          title: `${shared} document${shared > 1 ? 's' : ''} shared to ${driverName}`,
+          description: skipped > 0 ? `${skipped} already existed and were skipped.` : undefined,
+        });
+      } else {
+        toast({ title: 'Nothing new to share', description: `All selected documents are already in ${driverName}'s binder.` });
+      }
+
+      setBulkSelected(new Set());
+      setBulkShareDialogOpen(false);
+      setBulkShareTarget('');
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: 'Bulk share failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setBulkSharing(false);
+    }
+  };
+
   // ── Staging: upload new unassigned doc ──
   const handleStagedUpload = async (file: File, label: string) => {
     if (!user) return;
@@ -670,10 +755,29 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     const isSharedFromCompany = scope === 'per_driver' && doc?.file_url
       && companyDocs.some(c => c.name === docName && c.file_url);
     const isShareOpen = shareToDriverOpen === (doc?.id ?? `new-${docName}`);
+    const isSelected = doc?.id ? bulkSelected.has(doc.id) : false;
 
     return (
-      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+      <div className={`bg-card border rounded-xl p-4 space-y-3 transition-colors ${isSelected ? 'border-info/60 bg-info/5' : 'border-border'}`}>
         <div className="flex items-start gap-3">
+          {/* Bulk-select checkbox — only for company docs that have a file */}
+          {scope === 'company_wide' && doc?.id && doc?.file_url && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={(checked) => {
+                setBulkSelected(prev => {
+                  const next = new Set(prev);
+                  checked ? next.add(doc.id) : next.delete(doc.id);
+                  return next;
+                });
+              }}
+              className="mt-1 shrink-0"
+            />
+          )}
+          {/* Spacer to keep alignment for rows without checkbox */}
+          {scope === 'company_wide' && doc?.id && !doc?.file_url && (
+            <div className="w-4 shrink-0 mt-1" />
+          )}
           <div className={`h-9 w-9 rounded-lg shrink-0 flex items-center justify-center ${doc?.file_url ? 'bg-gold/10' : 'bg-secondary'}`}>
             <FileText className={`h-4 w-4 ${doc?.file_url ? 'text-gold-muted' : 'text-muted-foreground'}`} />
           </div>
@@ -1029,6 +1133,37 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                   )}
                 </div>
               </div>
+
+              {/* Bulk-select action bar */}
+              {bulkSelected.size > 0 && (
+                <div className="flex items-center justify-between gap-2 bg-info/10 border border-info/30 rounded-xl px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="h-4 w-4 text-info shrink-0" />
+                    <span className="text-xs font-medium text-info">
+                      {bulkSelected.size} document{bulkSelected.size > 1 ? 's' : ''} selected
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs text-muted-foreground"
+                      onClick={() => setBulkSelected(new Set())}
+                    >
+                      <X className="h-3 w-3 mr-1" />Clear
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-7 gap-1.5 text-xs bg-info text-info-foreground hover:bg-info/90"
+                      onClick={() => { setBulkShareTarget(''); setBulkShareDialogOpen(true); }}
+                    >
+                      <UserCheck className="h-3 w-3" />
+                      Share to Driver
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {COMPANY_WIDE_DOCS.map(({ key, hasExpiry }) => (
                 <div key={key} ref={el => { companyDocRowRefs.current[key] = el; }}>
                   <AdminDocRow docName={key} scope="company_wide" hasExpiry={hasExpiry} />
@@ -1671,6 +1806,59 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             >
               <Bell className="h-3.5 w-3.5 mr-1.5" />
               Send Reminder{reminderDialogDoc === 'all' && missingOrExpiredDriverDocs.length > 1 ? 's' : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Bulk Share to Driver Dialog ── */}
+      <AlertDialog open={bulkShareDialogOpen} onOpenChange={setBulkShareDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Share {bulkSelected.size} Document{bulkSelected.size > 1 ? 's' : ''} to a Driver</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Select a driver to add these documents to their Inspection Binder. An in-app notification will be sent.
+                </p>
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-foreground">Selected documents:</p>
+                  <ul className="text-xs text-muted-foreground space-y-0.5 max-h-36 overflow-y-auto">
+                    {companyDocs
+                      .filter(d => bulkSelected.has(d.id))
+                      .map(d => (
+                        <li key={d.id} className="flex items-center gap-1.5">
+                          <FileText className="h-3 w-3 shrink-0" />
+                          {d.name}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-foreground">Choose driver:</p>
+                  <Select value={bulkShareTarget} onValueChange={setBulkShareTarget}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a driver…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {operators.map(op => (
+                        <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkSharing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!bulkShareTarget || bulkSharing}
+              onClick={(e) => { e.preventDefault(); handleBulkShareToDriver(); }}
+              className="bg-info text-info-foreground hover:bg-info/90"
+            >
+              {bulkSharing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <UserCheck className="h-3.5 w-3.5 mr-1.5" />}
+              Share to Driver
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
