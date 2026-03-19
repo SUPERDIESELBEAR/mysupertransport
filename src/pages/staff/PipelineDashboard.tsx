@@ -1261,18 +1261,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         })()}
       </div>
 
-      {/* Compliance Alerts Panel */}
-      {complianceAlerts.length > 0 && (
-        <div className="border border-destructive/30 bg-destructive/5 rounded-xl shadow-sm overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center px-4 py-3 gap-2">
-            {/* Expand/collapse toggle — takes remaining space */}
-            <button
-              onClick={() => setComplianceExpanded(v => !v)}
-              className="flex-1 flex items-center gap-2.5 text-left hover:opacity-80 transition-opacity min-w-0"
-            >
-              <div className="h-7 w-7 rounded-lg bg-destructive/15 flex items-center justify-center shrink-0">
-                <ShieldAlert className="h-4 w-4 text-destructive" />
+      {/* Compliance Alerts Panel moved to the dedicated Compliance tab */}
               </div>
               <span className="font-semibold text-sm text-destructive">Compliance Alerts</span>
               <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none">
