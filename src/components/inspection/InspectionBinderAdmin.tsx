@@ -585,34 +585,32 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {onRemind && (
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className={cooldown ? 'cursor-not-allowed' : undefined}>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className={cn(
-                              'h-8 gap-1 text-xs',
-                              cooldown
-                                ? 'border-border text-muted-foreground opacity-50 pointer-events-none'
-                                : 'border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold',
-                            )}
-                            disabled={remindLoading || cooldown}
-                            onClick={cooldown ? undefined : onRemind}
-                          >
-                            {remindLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
-                            Remind
-                          </Button>
-                        </span>
-                      </TooltipTrigger>
-                      {cooldown && (
-                        <TooltipContent side="top" className="text-xs">
-                          Reminder sent today
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                  </TooltipProvider>
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <span className={cooldown ? 'cursor-not-allowed' : undefined}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={cn(
+                            'h-8 gap-1 text-xs',
+                            cooldown
+                              ? 'border-border text-muted-foreground opacity-50 pointer-events-none'
+                              : 'border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold',
+                          )}
+                          disabled={remindLoading || cooldown}
+                          onClick={cooldown ? undefined : onRemind}
+                        >
+                          {remindLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
+                          Remind
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {cooldown && (
+                      <TooltipContent side="top" className="text-xs">
+                        Reminder sent today
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
                 )}
                 {doc?.file_url && (
                   <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
@@ -899,34 +897,32 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                         d => isOnCooldown(lastReminders[d.key]?.sent_at)
                       );
                       return (
-                        <TooltipProvider delayDuration={200}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className={allOnCooldown ? 'cursor-not-allowed' : undefined}>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className={cn(
-                                    'h-7 gap-1.5 text-xs shrink-0',
-                                    allOnCooldown
-                                      ? 'border-border text-muted-foreground opacity-50 pointer-events-none'
-                                      : 'border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold',
-                                  )}
-                                  disabled={sendingReminder === 'all' || allOnCooldown}
-                                  onClick={allOnCooldown ? undefined : () => setReminderDialogDoc('all')}
-                                >
-                                  {sendingReminder === 'all' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
-                                  Remind All ({missingOrExpiredDriverDocs.length})
-                                </Button>
-                              </span>
-                            </TooltipTrigger>
-                            {allOnCooldown && (
-                              <TooltipContent side="top" className="text-xs">
-                                Reminder sent today
-                              </TooltipContent>
-                            )}
-                          </Tooltip>
-                        </TooltipProvider>
+                        <Tooltip delayDuration={200}>
+                          <TooltipTrigger asChild>
+                            <span className={allOnCooldown ? 'cursor-not-allowed' : undefined}>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className={cn(
+                                  'h-7 gap-1.5 text-xs shrink-0',
+                                  allOnCooldown
+                                    ? 'border-border text-muted-foreground opacity-50 pointer-events-none'
+                                    : 'border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold',
+                                )}
+                                disabled={sendingReminder === 'all' || allOnCooldown}
+                                onClick={allOnCooldown ? undefined : () => setReminderDialogDoc('all')}
+                              >
+                                {sendingReminder === 'all' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
+                                Remind All ({missingOrExpiredDriverDocs.length})
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          {allOnCooldown && (
+                            <TooltipContent side="top" className="text-xs">
+                              Reminder sent today
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
                       );
                     })()}
                   </div>
@@ -1190,21 +1186,19 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                               {stagingLabelMap[doc.id] === undefined && (
-                                <TooltipProvider delayDuration={200}>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                                        onClick={() => setStagingLabelMap(prev => ({ ...prev, [doc.id]: doc.name }))}
-                                      >
-                                        <Pencil className="h-3.5 w-3.5" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="text-xs">Rename</TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
+                                <Tooltip delayDuration={200}>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                                      onClick={() => setStagingLabelMap(prev => ({ ...prev, [doc.id]: doc.name }))}
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs">Rename</TooltipContent>
+                                </Tooltip>
                               )}
                               {doc.file_url && (
                                 <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
