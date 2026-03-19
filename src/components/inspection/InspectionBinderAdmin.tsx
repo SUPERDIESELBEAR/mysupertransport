@@ -654,6 +654,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     <Users className="h-3 w-3" />Fleet
                   </span>
                 )}
+                {scope === 'company_wide' && (() => {
+                  const count = perDriverShareCounts[docName] ?? 0;
+                  return count > 0 ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] bg-secondary text-muted-foreground border border-border rounded-full px-2 py-0.5 font-medium">
+                      <UserCheck className="h-3 w-3" />Shared with {count} {count === 1 ? 'driver' : 'drivers'}
+                    </span>
+                  ) : null;
+                })()}
                 {isSharedFromCompany && (
                   <span className="inline-flex items-center gap-1 text-[10px] bg-gold/10 text-gold-muted border border-gold/30 rounded-full px-2 py-0.5 font-semibold">
                     <Globe className="h-3 w-3" />Shared from company
