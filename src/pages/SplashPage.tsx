@@ -8,7 +8,7 @@ const valueProps = [
     icon: Shield,
     title: 'DOT-Compliant Operations',
     description:
-      'All paperwork, inspections, and certifications managed end-to-end — so you can focus on the road, not the red tape.',
+      'All paperwork, inspections, and certifications managed end-to-end so you can focus on the road, not the red tape.',
     highlight: 'Fully compliant from day one',
   },
   {
