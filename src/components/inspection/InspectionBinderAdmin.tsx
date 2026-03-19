@@ -1188,21 +1188,19 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                               {stagingLabelMap[doc.id] === undefined && (
-                                <TooltipProvider delayDuration={200}>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                                        onClick={() => setStagingLabelMap(prev => ({ ...prev, [doc.id]: doc.name }))}
-                                      >
-                                        <Pencil className="h-3.5 w-3.5" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top" className="text-xs">Rename</TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
+                                <Tooltip delayDuration={200}>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                                      onClick={() => setStagingLabelMap(prev => ({ ...prev, [doc.id]: doc.name }))}
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs">Rename</TooltipContent>
+                                </Tooltip>
                               )}
                               {doc.file_url && (
                                 <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
