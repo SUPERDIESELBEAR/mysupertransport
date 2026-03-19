@@ -128,8 +128,12 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   // Bulk-share to driver state
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set()); // doc ids
   const [bulkShareDialogOpen, setBulkShareDialogOpen] = useState(false);
+  const [bulkShareStep, setBulkShareStep] = useState<'select' | 'preview'>('select');
   const [bulkShareTarget, setBulkShareTarget] = useState<string>('');
   const [bulkSharing, setBulkSharing] = useState(false);
+  const [bulkPreviewLoading, setBulkPreviewLoading] = useState(false);
+  // diff: docId → 'new' | 'skip'
+  const [bulkDiff, setBulkDiff] = useState<Record<string, 'new' | 'skip'>>({});
 
   // Staging state
   const [stagingLabelMap, setStagingLabelMap] = useState<Record<string, string>>({});
