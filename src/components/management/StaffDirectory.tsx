@@ -260,6 +260,35 @@ export default function StaffDirectory() {
     }
   };
 
+  const handleEmailUpdate = async () => {
+    if (!managingMember) return;
+    const trimmed = editingEmail.trim().toLowerCase();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      toast({ title: 'Invalid Email', description: 'Please enter a valid email address.', variant: 'destructive' });
+      return;
+    }
+    setEmailSaving(true);
+    try {
+      const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
+      const { data, error } = await supabase.functions.invoke('get-staff-list', {
+        method: 'POST',
+        body: { action: 'update_email', user_id: managingMember.user_id, email: trimmed, target_name: memberName },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setManagingMember(prev => prev ? { ...prev, email: trimmed } : prev);
+      setStaff(prev => prev.map(m => m.user_id === managingMember.user_id ? { ...m, email: trimmed } : m));
+      setEmailEditActive(false);
+      toast({ title: '✅ Email Updated', description: 'Email address saved successfully.' });
+    } catch (err) {
+      toast({ title: 'Update Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setEmailSaving(false);
+    }
+  };
+
   const filteredStaff = staff.filter(s => {
     const matchesRole = roleFilter === 'all' || s.roles.includes(roleFilter as AppRole);
     if (!matchesRole) return false;
