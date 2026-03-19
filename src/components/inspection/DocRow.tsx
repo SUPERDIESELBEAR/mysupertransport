@@ -251,7 +251,7 @@ export function FilePreviewModal({ url, name, onClose }: { url: string; name: st
           <iframe
             ref={iframeRef}
             src={`${inlineUrl}#toolbar=0`}
-            style={{ width: `${100 / scale}%`, height: `${100 / scale}%`, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+            style={{ width: `${100 / scale}%`, height: `${100 / scale}%`, transform: `scale(${scale})`, transformOrigin: 'top left', transition: 'transform 0.2s ease-out' }}
             className={`transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
             title={name}
             onLoad={handleLoad}
@@ -379,7 +379,7 @@ function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => vo
               <iframe
                 ref={iframeRef}
                 src={`${inlineUrl}#toolbar=0`}
-                style={{ width: `${100 / scale}%`, height: `${100 / scale}%`, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+                style={{ width: `${100 / scale}%`, height: `${100 / scale}%`, transform: `scale(${scale})`, transformOrigin: 'top left', transition: 'transform 0.2s ease-out' }}
                 className={`transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
                 title={doc.name}
                 onLoad={handleLoad}
