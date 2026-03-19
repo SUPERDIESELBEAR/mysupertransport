@@ -27,7 +27,7 @@ const UPLOAD_SECTIONS: { key: UploadCategory; label: string; desc: string }[] = 
   { key: 'repairs_maintenance_receipt', label: 'Repairs & Maintenance Receipts', desc: 'Upload repair receipts and maintenance records for your truck.' },
 ];
 
-function DriverUploadRow({ upload }: { upload: DriverUpload }) {
+function DriverUploadRow({ upload, onPreview }: { upload: DriverUpload; onPreview: (url: string, name: string) => void }) {
   const statusBadge: Record<DriverUpload['status'], JSX.Element> = {
     pending_review: <span className="text-[10px] bg-info/10 text-info border border-info/30 rounded-full px-2 py-0.5 font-semibold inline-flex items-center gap-1"><Clock className="h-3 w-3" />Pending Review</span>,
     reviewed: <span className="text-[10px] bg-status-complete/10 text-status-complete border border-status-complete/30 rounded-full px-2 py-0.5 font-semibold inline-flex items-center gap-1"><CheckSquare className="h-3 w-3" />Reviewed</span>,
@@ -46,7 +46,12 @@ function DriverUploadRow({ upload }: { upload: DriverUpload }) {
       <div className="flex items-center gap-2 shrink-0">
         {statusBadge[upload.status]}
         {upload.file_url && (
-          <a href={upload.file_url} target="_blank" rel="noopener noreferrer" className="text-xs text-gold hover:underline">View</a>
+          <button
+            className="text-xs text-gold hover:underline"
+            onClick={() => onPreview(upload.file_url!, upload.file_name ?? 'Document')}
+          >
+            View
+          </button>
         )}
       </div>
     </div>
