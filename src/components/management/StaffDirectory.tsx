@@ -74,6 +74,9 @@ export default function StaffDirectory() {
   const [invitePhone, setInvitePhone] = useState('');
   const [inviteRole, setInviteRole] = useState<StaffRole>('onboarding_staff');
   const [inviting, setInviting] = useState(false);
+  const [inviteMode, setInviteMode] = useState<'invite' | 'manual'>('invite');
+  const [invitePassword, setInvitePassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // Manage access panel
   const [managingMember, setManagingMember] = useState<StaffMember | null>(null);

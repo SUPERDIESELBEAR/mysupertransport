@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
     const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
     const inviteeName = [first_name, last_name].filter(Boolean).join(' ') || email;
 
-    // Get caller's name for the email
+    // Get caller's name for the email / audit log
     const { data: callerProfile } = await supabaseAdmin
       .from('profiles')
       .select('first_name, last_name')
@@ -146,31 +146,70 @@ Deno.serve(async (req) => {
       ? [callerProfile.first_name, callerProfile.last_name].filter(Boolean).join(' ') || 'SUPERTRANSPORT Management'
       : 'SUPERTRANSPORT Management';
 
-    // Send auth invite
-    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-      data: {
-        first_name: first_name ?? '',
-        last_name: last_name ?? '',
-        invited_as: role,
-      },
-      redirectTo: `${appUrl}/dashboard`,
-    });
-
-    if (inviteError && !inviteError.message.includes('already been registered')) {
-      console.error('Invite error:', inviteError.message);
-      return new Response(JSON.stringify({ error: inviteError.message }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Resolve user id
     let invitedUserId: string | null = null;
-    if (inviteData?.user) {
-      invitedUserId = inviteData.user.id;
+
+    if (manualCreate) {
+      // ── Manual creation path: create user with password, confirm email immediately ──
+      const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          first_name: first_name ?? '',
+          last_name: last_name ?? '',
+          invited_as: role,
+        },
+      });
+
+      if (createError) {
+        console.error('Create user error:', createError.message);
+        return new Response(JSON.stringify({ error: createError.message }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      invitedUserId = createData.user?.id ?? null;
     } else {
-      const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-      const existing = users?.find(u => u.email === email);
-      if (existing) invitedUserId = existing.id;
+      // ── Invite path: send magic-link email ──
+      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        data: {
+          first_name: first_name ?? '',
+          last_name: last_name ?? '',
+          invited_as: role,
+        },
+        redirectTo: `${appUrl}/dashboard`,
+      });
+
+      if (inviteError && !inviteError.message.includes('already been registered')) {
+        console.error('Invite error:', inviteError.message);
+        return new Response(JSON.stringify({ error: inviteError.message }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (inviteData?.user) {
+        invitedUserId = inviteData.user.id;
+      } else {
+        const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+        const existing = users?.find(u => u.email === email);
+        if (existing) invitedUserId = existing.id;
+      }
+
+      // Send branded invite email via Resend
+      const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+      if (RESEND_API_KEY) {
+        const html = buildInviteEmail(inviteeName, role, inviterName, `${appUrl}/login`);
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'SUPERTRANSPORT <onboarding@mysupertransport.com>',
+            to: [email],
+            subject: `You're invited to join SUPERTRANSPORT as ${ROLE_LABELS[role]}`,
+            html,
+          }),
+        }).catch(e => console.error('Resend error:', e));
+      }
     }
 
     if (!invitedUserId) {
@@ -179,14 +218,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Upsert profile (include phone if provided)
+    // Upsert profile
     await supabaseAdmin.from('profiles').upsert({
       user_id: invitedUserId,
       first_name: first_name ?? null,
       last_name: last_name ?? null,
       phone: phone?.trim() || null,
       invited_by: callerUser.id,
-      account_status: 'pending',
+      account_status: manualCreate ? 'active' : 'pending',
     }, { onConflict: 'user_id' });
 
     // Assign role
@@ -195,33 +234,11 @@ Deno.serve(async (req) => {
       { onConflict: 'user_id,role' }
     );
 
-    // Send branded email via Resend
-    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-    if (RESEND_API_KEY) {
-      const subject = `You're invited to join SUPERTRANSPORT as ${ROLE_LABELS[role]}`;
-      // Build a usable invite URL pointing to login
-      const html = buildInviteEmail(inviteeName, role, inviterName, `${appUrl}/login`);
-
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: 'SUPERTRANSPORT <onboarding@mysupertransport.com>',
-          to: [email],
-          subject,
-          html,
-        }),
-      }).catch(e => console.error('Resend error:', e));
-    }
-
     // Write audit log entry
     await supabaseAdmin.from('audit_log').insert({
       actor_id: callerUser.id,
       actor_name: inviterName,
-      action: 'staff_invited',
+      action: manualCreate ? 'staff_created' : 'staff_invited',
       entity_type: 'staff',
       entity_id: invitedUserId,
       entity_label: inviteeName,
@@ -230,6 +247,7 @@ Deno.serve(async (req) => {
         role,
         role_label: ROLE_LABELS[role],
         phone: phone?.trim() || null,
+        manual_create: manualCreate,
       },
     });
 
