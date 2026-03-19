@@ -88,6 +88,7 @@ export default function StaffDirectory() {
   const [editingEmail, setEditingEmail] = useState('');
   const [emailEditActive, setEmailEditActive] = useState(false);
   const [emailSaving, setEmailSaving] = useState(false);
+  const [emailConfirmPending, setEmailConfirmPending] = useState(false);
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
@@ -260,14 +261,21 @@ export default function StaffDirectory() {
     }
   };
 
-  const handleEmailUpdate = async () => {
+  const handleEmailSaveRequest = () => {
     if (!managingMember) return;
     const trimmed = editingEmail.trim().toLowerCase();
     if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
       toast({ title: 'Invalid Email', description: 'Please enter a valid email address.', variant: 'destructive' });
       return;
     }
+    setEmailConfirmPending(true);
+  };
+
+  const handleEmailUpdate = async () => {
+    if (!managingMember) return;
+    const trimmed = editingEmail.trim().toLowerCase();
     setEmailSaving(true);
+    setEmailConfirmPending(false);
     try {
       const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
       const { data, error } = await supabase.functions.invoke('get-staff-list', {
@@ -744,37 +752,74 @@ export default function StaffDirectory() {
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email Address</p>
                 </div>
                 {emailEditActive ? (
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                      <input
-                        type="email"
-                        value={editingEmail}
-                        onChange={e => setEditingEmail(e.target.value)}
-                        placeholder="email@example.com"
-                        maxLength={254}
-                        autoFocus
-                        className="w-full pl-8 pr-3 py-1.5 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
-                      />
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                        <input
+                          type="email"
+                          value={editingEmail}
+                          onChange={e => { setEditingEmail(e.target.value); setEmailConfirmPending(false); }}
+                          placeholder="email@example.com"
+                          maxLength={254}
+                          autoFocus
+                          className="w-full pl-8 pr-3 py-1.5 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={emailSaving}
+                        onClick={handleEmailSaveRequest}
+                        className="h-8 px-3 text-xs bg-surface-dark text-surface-dark-foreground hover:bg-surface-dark/90 gap-1"
+                      >
+                        {emailSaving ? <RefreshCcw className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                        Save
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={emailSaving}
+                        onClick={() => { setEmailEditActive(false); setEmailConfirmPending(false); setEditingEmail(managingMember.email ?? ''); }}
+                        className="h-8 px-3 text-xs"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
                     </div>
-                    <Button
-                      size="sm"
-                      disabled={emailSaving}
-                      onClick={handleEmailUpdate}
-                      className="h-8 px-3 text-xs bg-surface-dark text-surface-dark-foreground hover:bg-surface-dark/90 gap-1"
-                    >
-                      {emailSaving ? <RefreshCcw className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                      Save
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={emailSaving}
-                      onClick={() => { setEmailEditActive(false); setEditingEmail(managingMember.email ?? ''); }}
-                      className="h-8 px-3 text-xs"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
+                    {emailConfirmPending && (
+                      <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                          <div className="text-xs text-amber-800 leading-relaxed">
+                            <p className="font-semibold mb-0.5">Confirm email change</p>
+                            <p>
+                              This staff member's login email will be changed to{' '}
+                              <span className="font-mono font-semibold">{editingEmail.trim().toLowerCase()}</span>.
+                              They will need to use this new address to sign in from now on.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={emailSaving}
+                            onClick={() => setEmailConfirmPending(false)}
+                            className="h-7 px-3 text-xs"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            disabled={emailSaving}
+                            onClick={handleEmailUpdate}
+                            className="h-7 px-3 text-xs bg-amber-600 hover:bg-amber-700 text-white gap-1"
+                          >
+                            {emailSaving ? <RefreshCcw className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                            Yes, Update Email
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div
