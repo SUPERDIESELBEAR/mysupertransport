@@ -80,6 +80,43 @@ Deno.serve(async (req) => {
         });
       }
 
+      // ── Delete user ──────────────────────────────────────────────────
+      if (action === 'delete_user') {
+        // Cannot delete yourself
+        if (user_id === callerUser.id) {
+          return new Response(JSON.stringify({ error: 'Cannot delete your own account' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Delete from auth (cascades to profiles via trigger, but we clean up manually too)
+        const { error: deleteErr } = await supabaseAdmin.auth.admin.deleteUser(user_id);
+        if (deleteErr) {
+          return new Response(JSON.stringify({ error: deleteErr.message }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Clean up public tables
+        await supabaseAdmin.from('user_roles').delete().eq('user_id', user_id);
+        await supabaseAdmin.from('profiles').delete().eq('user_id', user_id);
+
+        const actorName = await getActorName();
+        supabaseAdmin.from('audit_log').insert({
+          actor_id: callerUser.id,
+          actor_name: actorName,
+          action: 'staff_deleted',
+          entity_type: 'staff',
+          entity_id: user_id,
+          entity_label: target_name ?? user_id,
+          metadata: { target_user_id: user_id },
+        }).then(() => {}).catch(e => console.error('Audit log error:', e));
+
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       // ── Update email ──────────────────────────────────────────────────
       if (action === 'update_email') {
         const sanitizedEmail = (email ?? '').trim().toLowerCase().slice(0, 254);
