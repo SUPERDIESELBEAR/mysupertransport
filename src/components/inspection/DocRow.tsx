@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer } from 'lucide-react';
+import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { QRCodeSVG } from 'qrcode.react';
@@ -166,6 +166,15 @@ export function FilePreviewModal({ url, name, onClose }: { url: string; name: st
           >
             <Printer className="h-4 w-4" />
           </button>
+          <a
+            href={url}
+            download={name}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            onClick={e => e.stopPropagation()}
+            title="Download document"
+          >
+            <Download className="h-4 w-4" />
+          </a>
           <a href={url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground" onClick={e => e.stopPropagation()} title="Open in new tab">
             <ExternalLink className="h-4 w-4" />
           </a>
@@ -229,6 +238,15 @@ function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => vo
               >
                 <Printer className="h-4 w-4" />
               </button>
+              <a
+                href={doc.file_url}
+                download={doc.name}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                onClick={e => e.stopPropagation()}
+                title="Download document"
+              >
+                <Download className="h-4 w-4" />
+              </a>
               <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground" onClick={e => e.stopPropagation()} title="Open in new tab">
                 <ExternalLink className="h-4 w-4" />
               </a>
