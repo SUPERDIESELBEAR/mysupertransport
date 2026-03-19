@@ -569,9 +569,17 @@ export default function StaffDirectory() {
 
                     {/* Status + joined */}
                     <div className="col-span-2">
-                      <Badge className={`text-xs border ${statusCfg.color}`}>
-                        {statusCfg.label}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge className={`text-xs border ${statusCfg.color}`}>
+                          {statusCfg.label}
+                        </Badge>
+                        {member.account_status === 'inactive' && (
+                          <Badge className="text-xs border bg-warning/15 text-warning border-warning/40 gap-1">
+                            <AlertTriangle className="h-2.5 w-2.5" />
+                            Suspended
+                          </Badge>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                         <Clock className="h-3 w-3 shrink-0" />
                         {formatDate(member.created_at)}
