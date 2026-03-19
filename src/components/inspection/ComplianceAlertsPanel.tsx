@@ -372,7 +372,17 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
 
   const noActionCount = alerts.filter(a => { const key = `${a.operator_id}|${a.doc_type}`; return !lastReminded[key] && !lastRenewed[key]; }).length;
 
-  if (alerts.length === 0) return null;
+  if (alerts.length === 0) return (
+    <div className="border border-status-complete/30 bg-status-complete/5 rounded-xl shadow-sm px-5 py-6 flex items-center gap-4">
+      <div className="h-10 w-10 rounded-full bg-status-complete/15 flex items-center justify-center shrink-0">
+        <ShieldCheck className="h-5 w-5 text-status-complete" />
+      </div>
+      <div>
+        <p className="font-semibold text-sm text-status-complete">All clear — fleet is compliant</p>
+        <p className="text-xs text-muted-foreground mt-0.5">No CDL or Medical Cert expiries within the next 90 days</p>
+      </div>
+    </div>
+  );
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
