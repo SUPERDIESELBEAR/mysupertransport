@@ -585,34 +585,32 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {onRemind && (
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className={cooldown ? 'cursor-not-allowed' : undefined}>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className={cn(
-                              'h-8 gap-1 text-xs',
-                              cooldown
-                                ? 'border-border text-muted-foreground opacity-50 pointer-events-none'
-                                : 'border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold',
-                            )}
-                            disabled={remindLoading || cooldown}
-                            onClick={cooldown ? undefined : onRemind}
-                          >
-                            {remindLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
-                            Remind
-                          </Button>
-                        </span>
-                      </TooltipTrigger>
-                      {cooldown && (
-                        <TooltipContent side="top" className="text-xs">
-                          Reminder sent today
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                  </TooltipProvider>
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <span className={cooldown ? 'cursor-not-allowed' : undefined}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={cn(
+                            'h-8 gap-1 text-xs',
+                            cooldown
+                              ? 'border-border text-muted-foreground opacity-50 pointer-events-none'
+                              : 'border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold',
+                          )}
+                          disabled={remindLoading || cooldown}
+                          onClick={cooldown ? undefined : onRemind}
+                        >
+                          {remindLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
+                          Remind
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {cooldown && (
+                      <TooltipContent side="top" className="text-xs">
+                        Reminder sent today
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
                 )}
                 {doc?.file_url && (
                   <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
