@@ -1029,6 +1029,32 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                       />
                     );
                   })}
+
+                  {/* Extra per-driver docs shared from company (name matches a company doc with a file) */}
+                  {(() => {
+                    const standardKeys = new Set(PER_DRIVER_DOCS.map(d => d.key));
+                    const sharedFromCompany = perDriverDocs.filter(
+                      d => !standardKeys.has(d.name as any) && companyDocs.some(c => c.name === d.name && c.file_url)
+                    );
+                    if (sharedFromCompany.length === 0) return null;
+                    return (
+                      <>
+                        <div className="flex items-center gap-2 pt-1">
+                          <Globe className="h-3 w-3 text-muted-foreground/60" />
+                          <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Shared from Company Docs</span>
+                          <div className="flex-1 h-px bg-border/60" />
+                        </div>
+                        {sharedFromCompany.map(doc => (
+                          <AdminDocRow
+                            key={doc.id}
+                            docName={doc.name}
+                            scope="per_driver"
+                            hasExpiry={COMPANY_WIDE_DOCS.find(c => c.key === doc.name)?.hasExpiry ?? false}
+                          />
+                        ))}
+                      </>
+                    );
+                  })()}
                 </>
               )}
             </div>
