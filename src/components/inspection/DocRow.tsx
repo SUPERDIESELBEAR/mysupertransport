@@ -289,4 +289,4 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
   );
 }
 
-export { ShareModal, PDFModal, FilePreviewModal };
+export { ShareModal, PDFModal };
