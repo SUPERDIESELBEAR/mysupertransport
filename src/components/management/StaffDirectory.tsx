@@ -505,7 +505,7 @@ export default function StaffDirectory() {
                           variant="ghost"
                           size="sm"
                           className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                          onClick={() => { setManagingMember(member); setEditingPhone(member.phone ?? ''); setPhoneEditActive(false); setEditingFirstName(member.first_name ?? ''); setEditingLastName(member.last_name ?? ''); setNameEditActive(false); }}
+                          onClick={() => { setManagingMember(member); setEditingPhone(member.phone ?? ''); setPhoneEditActive(false); setEditingFirstName(member.first_name ?? ''); setEditingLastName(member.last_name ?? ''); setNameEditActive(false); setEditingEmail(member.email ?? ''); setEmailEditActive(false); }}
                           title="Manage access"
                         >
                         <Settings2 className="h-4 w-4" />
