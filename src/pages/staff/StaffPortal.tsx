@@ -570,6 +570,42 @@ export default function StaffPortal() {
             <h1 className="text-xl sm:text-2xl font-bold text-foreground">Fleet Compliance</h1>
             <p className="text-muted-foreground text-sm mt-1">Monitor CDL, Medical Cert, and fleet document expiries</p>
           </div>
+          {/* Stat cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
+            <div className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-warning/10 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold text-foreground">{criticalExpiryCount - expiredCount}</p>
+                  <p className="text-xs text-muted-foreground">Expiring Within 30 Days</p>
+                </div>
+              </div>
+            </div>
+            <div className={`border rounded-xl p-3 sm:p-4 shadow-sm ${expiredCount > 0 ? 'bg-destructive/5 border-destructive/30' : 'bg-white border-border'}`}>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+                  <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
+                </div>
+                <div>
+                  <p className={`text-xl sm:text-2xl font-bold ${expiredCount > 0 ? 'text-destructive' : 'text-foreground'}`}>{expiredCount}</p>
+                  <p className="text-xs text-muted-foreground">Already Expired</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <BellOff className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold text-foreground">{noReminderCount}</p>
+                  <p className="text-xs text-muted-foreground">No Reminder Sent</p>
+                </div>
+              </div>
+            </div>
+          </div>
           <ComplianceAlertsPanel
             onOpenOperator={handleOpenOperator}
             onOpenOperatorWithFocus={async (operatorId, focusField) => {
