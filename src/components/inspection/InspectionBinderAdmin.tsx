@@ -956,7 +956,9 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 </div>
               </div>
               {COMPANY_WIDE_DOCS.map(({ key, hasExpiry }) => (
-                <AdminDocRow key={key} docName={key} scope="company_wide" hasExpiry={hasExpiry} />
+                <div key={key} ref={el => { companyDocRowRefs.current[key] = el; }}>
+                  <AdminDocRow docName={key} scope="company_wide" hasExpiry={hasExpiry} />
+                </div>
               ))}
             </div>
           )}
