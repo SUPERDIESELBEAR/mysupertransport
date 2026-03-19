@@ -738,6 +738,62 @@ export default function StaffDirectory() {
                 )}
               </div>
 
+              {/* Email address */}
+              <div className="pt-1 border-t border-border">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email Address</p>
+                </div>
+                {emailEditActive ? (
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                      <input
+                        type="email"
+                        value={editingEmail}
+                        onChange={e => setEditingEmail(e.target.value)}
+                        placeholder="email@example.com"
+                        maxLength={254}
+                        autoFocus
+                        className="w-full pl-8 pr-3 py-1.5 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      disabled={emailSaving}
+                      onClick={handleEmailUpdate}
+                      className="h-8 px-3 text-xs bg-surface-dark text-surface-dark-foreground hover:bg-surface-dark/90 gap-1"
+                    >
+                      {emailSaving ? <RefreshCcw className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={emailSaving}
+                      onClick={() => { setEmailEditActive(false); setEditingEmail(managingMember.email ?? ''); }}
+                      className="h-8 px-3 text-xs"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div
+                    className="flex items-center justify-between px-3 py-2 rounded-lg border border-dashed border-border bg-secondary/30 cursor-pointer hover:bg-secondary/50 transition-colors group"
+                    onClick={() => setEmailEditActive(true)}
+                  >
+                    <div className="flex items-center gap-2 text-sm min-w-0">
+                      <Mail className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                      {managingMember.email ? (
+                        <span className="text-foreground truncate">{managingMember.email}</span>
+                      ) : (
+                        <span className="text-muted-foreground/60 italic">No email on file</span>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground/50 group-hover:text-muted-foreground transition-colors shrink-0 ml-2">Edit</span>
+                  </div>
+                )}
+              </div>
+
               {/* Account status summary */}
               <div className="pt-1 border-t border-border">
                 <div className="flex items-center justify-between text-xs">
