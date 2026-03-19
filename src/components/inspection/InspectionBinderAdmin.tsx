@@ -92,6 +92,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const urlTab = searchParams.get('tab') as 'company' | 'driver' | 'uploads' | 'staging' | null;
 
   const [companyDocs, setCompanyDocs] = useState<InspectionDocument[]>([]);
+  const [perDriverShareCounts, setPerDriverShareCounts] = useState<Record<string, number>>({});
   const [perDriverDocs, setPerDriverDocs] = useState<InspectionDocument[]>([]);
   const [driverUploads, setDriverUploads] = useState<DriverUpload[]>([]);
   const [stagedDocs, setStagedDocs] = useState<StagedDoc[]>([]);
