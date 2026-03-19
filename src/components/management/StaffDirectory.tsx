@@ -92,6 +92,8 @@ export default function StaffDirectory() {
   const [emailEditActive, setEmailEditActive] = useState(false);
   const [emailSaving, setEmailSaving] = useState(false);
   const [emailConfirmPending, setEmailConfirmPending] = useState(false);
+  const [deleteConfirmPending, setDeleteConfirmPending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
