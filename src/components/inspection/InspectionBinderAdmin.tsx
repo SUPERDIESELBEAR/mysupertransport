@@ -610,9 +610,9 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       : perDriverDocs.find(d => d.name === docName);
     const rowKey = `${scope}-${docName}`;
 
-    // Badge: per-driver docs whose name matches a company-wide slot were shared from the company library
+    // Badge: per-driver docs whose file was copied from a company doc are managed at the company level
     const isSharedFromCompany = scope === 'per_driver' && doc?.file_url
-      && COMPANY_WIDE_DOCS.some(c => c.key === docName);
+      && companyDocs.some(c => c.name === docName && c.file_url);
     const isShareOpen = shareToDriverOpen === (doc?.id ?? `new-${docName}`);
 
     return (
