@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2, Bell,
-  Inbox, UserCheck, X, Pencil,
+  Inbox, UserCheck, X, Pencil, ArrowRight,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -133,6 +133,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const [deleteStagedTarget, setDeleteStagedTarget] = useState<StagedDoc | null>(null);
 
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const companyDocRowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Fetch operator list (for non-scoped admin)
   useEffect(() => {
@@ -955,7 +956,9 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 </div>
               </div>
               {COMPANY_WIDE_DOCS.map(({ key, hasExpiry }) => (
-                <AdminDocRow key={key} docName={key} scope="company_wide" hasExpiry={hasExpiry} />
+                <div key={key} ref={el => { companyDocRowRefs.current[key] = el; }}>
+                  <AdminDocRow docName={key} scope="company_wide" hasExpiry={hasExpiry} />
+                </div>
               ))}
             </div>
           )}
@@ -1045,12 +1048,32 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                           <div className="flex-1 h-px bg-border/60" />
                         </div>
                         {sharedFromCompany.map(doc => (
-                          <AdminDocRow
-                            key={doc.id}
-                            docName={doc.name}
-                            scope="per_driver"
-                            hasExpiry={COMPANY_WIDE_DOCS.find(c => c.key === doc.name)?.hasExpiry ?? false}
-                          />
+                          <div key={doc.id} className="space-y-1">
+                            <AdminDocRow
+                              docName={doc.name}
+                              scope="per_driver"
+                              hasExpiry={COMPANY_WIDE_DOCS.find(c => c.key === doc.name)?.hasExpiry ?? false}
+                            />
+                            {/* Go to Company Docs link */}
+                            <button
+                              className="flex items-center gap-1 text-[11px] text-info hover:text-info/70 transition-colors pl-1"
+                              onClick={() => {
+                                setActiveTab('company');
+                                setTimeout(() => {
+                                  const el = companyDocRowRefs.current[doc.name];
+                                  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                  if (el) {
+                                    el.style.transition = 'box-shadow 0.2s';
+                                    el.style.boxShadow = '0 0 0 2px hsl(var(--info))';
+                                    setTimeout(() => { el.style.boxShadow = ''; }, 1800);
+                                  }
+                                }, 80);
+                              }}
+                            >
+                              <ArrowRight className="h-3 w-3" />
+                              Go to Company Docs
+                            </button>
+                          </div>
                         ))}
                       </>
                     );
