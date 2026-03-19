@@ -50,6 +50,8 @@ export default function StaffPortal() {
   const [bulkMessagePreselected, setBulkMessagePreselected] = useState<string[]>([]);
   const [scrollToInspectionBinder, setScrollToInspectionBinder] = useState(false);
   const viewRef = useRef(currentView);
+  const alertsPanelRef = useRef<HTMLDivElement>(null);
+  const [alertsPanelHighlight, setAlertsPanelHighlight] = useState(false);
 
   // Deep-link: ?tab=notifications or ?operator=... or ?view=inspection-binder
   useEffect(() => {
@@ -572,17 +574,25 @@ export default function StaffPortal() {
           </div>
           {/* Stat cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
-            <div className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm">
+            {/* Expiring Within 30 Days — clickable, scrolls to alerts panel */}
+            <button
+              onClick={() => {
+                alertsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                setAlertsPanelHighlight(true);
+                setTimeout(() => setAlertsPanelHighlight(false), 1800);
+              }}
+              className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm text-left hover:border-warning/50 hover:bg-warning/5 transition-colors group cursor-pointer"
+            >
               <div className="flex items-center gap-2 sm:gap-3">
-                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-warning/10 flex items-center justify-center shrink-0">
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-warning/10 flex items-center justify-center shrink-0 group-hover:bg-warning/20 transition-colors">
                   <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
                 </div>
                 <div>
                   <p className="text-xl sm:text-2xl font-bold text-foreground">{criticalExpiryCount - expiredCount}</p>
-                  <p className="text-xs text-muted-foreground">Expiring Within 30 Days</p>
+                  <p className="text-xs text-muted-foreground group-hover:text-warning/80 transition-colors">Expiring Within 30 Days ↓</p>
                 </div>
               </div>
-            </div>
+            </button>
             <div className={`border rounded-xl p-3 sm:p-4 shadow-sm ${expiredCount > 0 ? 'bg-destructive/5 border-destructive/30' : 'bg-white border-border'}`}>
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
@@ -606,21 +616,27 @@ export default function StaffPortal() {
               </div>
             </div>
           </div>
-          <ComplianceAlertsPanel
-            onOpenOperator={handleOpenOperator}
-            onOpenOperatorWithFocus={async (operatorId, focusField) => {
-              handleOpenOperator(operatorId);
-              const { data: op } = await supabase
-                .from('operators')
-                .select('application_id, applications(*)')
-                .eq('id', operatorId)
-                .single();
-              if (op?.applications) {
-                setReviewApp(op.applications as FullApplication);
-                setReviewFocusField(focusField);
-              }
-            }}
-          />
+          {/* Alerts panel — ref target for scroll-into-view from stat card */}
+          <div
+            ref={alertsPanelRef}
+            className={`rounded-xl transition-all duration-300 ${alertsPanelHighlight ? 'ring-2 ring-warning/60 ring-offset-2' : ''}`}
+          >
+            <ComplianceAlertsPanel
+              onOpenOperator={handleOpenOperator}
+              onOpenOperatorWithFocus={async (operatorId, focusField) => {
+                handleOpenOperator(operatorId);
+                const { data: op } = await supabase
+                  .from('operators')
+                  .select('application_id, applications(*)')
+                  .eq('id', operatorId)
+                  .single();
+                if (op?.applications) {
+                  setReviewApp(op.applications as FullApplication);
+                  setReviewFocusField(focusField);
+                }
+              }}
+            />
+          </div>
           <InspectionComplianceSummary
             defaultExpanded={true}
             onOpenOperator={handleOpenOperator}
