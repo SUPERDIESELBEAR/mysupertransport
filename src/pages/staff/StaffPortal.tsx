@@ -574,11 +574,11 @@ export default function StaffPortal() {
           </div>
           {/* Stat cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
-            {/* Expiring Within 30 Days — clickable, scrolls to alerts panel */}
+            {/* Expiring Within 30 Days — clickable */}
             <button
               onClick={() => {
                 alertsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                setAlertsPanelHighlight(true);
+                setAlertsPanelHighlight('warning');
                 setTimeout(() => setAlertsPanelHighlight(false), 1800);
               }}
               className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm text-left hover:border-warning/50 hover:bg-warning/5 transition-colors group cursor-pointer"
@@ -593,17 +593,29 @@ export default function StaffPortal() {
                 </div>
               </div>
             </button>
-            <div className={`border rounded-xl p-3 sm:p-4 shadow-sm ${expiredCount > 0 ? 'bg-destructive/5 border-destructive/30' : 'bg-white border-border'}`}>
+            {/* Already Expired — clickable */}
+            <button
+              onClick={() => {
+                alertsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                setAlertsPanelHighlight('destructive');
+                setTimeout(() => setAlertsPanelHighlight(false), 1800);
+              }}
+              className={`border rounded-xl p-3 sm:p-4 shadow-sm text-left transition-colors group cursor-pointer ${
+                expiredCount > 0
+                  ? 'bg-destructive/5 border-destructive/30 hover:bg-destructive/10 hover:border-destructive/50'
+                  : 'bg-white border-border hover:border-destructive/30 hover:bg-destructive/5'
+              }`}
+            >
               <div className="flex items-center gap-2 sm:gap-3">
-                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0 group-hover:bg-destructive/20 transition-colors">
                   <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
                 </div>
                 <div>
                   <p className={`text-xl sm:text-2xl font-bold ${expiredCount > 0 ? 'text-destructive' : 'text-foreground'}`}>{expiredCount}</p>
-                  <p className="text-xs text-muted-foreground">Already Expired</p>
+                  <p className="text-xs text-muted-foreground group-hover:text-destructive/80 transition-colors">Already Expired ↓</p>
                 </div>
               </div>
-            </div>
+            </button>
             <div className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm">
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
@@ -616,10 +628,13 @@ export default function StaffPortal() {
               </div>
             </div>
           </div>
-          {/* Alerts panel — ref target for scroll-into-view from stat card */}
+          {/* Alerts panel — ref target for scroll-into-view from stat cards */}
           <div
             ref={alertsPanelRef}
-            className={`rounded-xl transition-all duration-300 ${alertsPanelHighlight ? 'ring-2 ring-warning/60 ring-offset-2' : ''}`}
+            className={`rounded-xl transition-all duration-300 ${
+              alertsPanelHighlight === 'warning' ? 'ring-2 ring-warning/60 ring-offset-2' :
+              alertsPanelHighlight === 'destructive' ? 'ring-2 ring-destructive/60 ring-offset-2' : ''
+            }`}
           >
             <ComplianceAlertsPanel
               onOpenOperator={handleOpenOperator}
