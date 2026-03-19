@@ -573,10 +573,10 @@ export default function StaffDirectory() {
       {/* ── Manage Access Modal ── */}
       {managingMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setManagingMember(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md animate-scale-in">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); }} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md animate-scale-in max-h-[90vh] overflow-y-auto">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-border">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-border sticky top-0 bg-white z-10 rounded-t-2xl">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-surface-dark flex items-center justify-center shrink-0">
                   <span className="text-base font-bold text-gold">
@@ -590,7 +590,7 @@ export default function StaffDirectory() {
                   <p className="text-xs text-muted-foreground">{managingMember.email ?? 'No email'}</p>
                 </div>
               </div>
-              <button onClick={() => setManagingMember(null)} className="text-muted-foreground hover:text-foreground transition-colors">
+              <button onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); }} className="text-muted-foreground hover:text-foreground transition-colors">
                 <X className="h-5 w-5" />
               </button>
             </div>
