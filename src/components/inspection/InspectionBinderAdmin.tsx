@@ -194,7 +194,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       resolvedOperatorId = opRow?.id ?? null;
     }
 
-    const [cRes, pdRes, duRes, remRes, stagRes] = await Promise.all([
+    const [cRes, pdRes, duRes, remRes, stagRes, shareCountsRes] = await Promise.all([
       supabase.from('inspection_documents').select('*').eq('scope', 'company_wide').order('name'),
       selectedDriverId
         ? supabase.from('inspection_documents').select('*').eq('scope', 'per_driver').eq('driver_id', selectedDriverId).order('name')
@@ -216,9 +216,26 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         .eq('scope', 'per_driver')
         .is('driver_id', null)
         .order('uploaded_at', { ascending: false }),
+      // Per-driver share counts: all per_driver docs with a non-null driver_id
+      supabase
+        .from('inspection_documents')
+        .select('name, driver_id')
+        .eq('scope', 'per_driver')
+        .not('driver_id', 'is', null),
     ]);
 
     setCompanyDocs((cRes.data ?? []) as InspectionDocument[]);
+
+    // Build docName → unique driver count map
+    const shareRows = (shareCountsRes.data ?? []) as { name: string; driver_id: string }[];
+    const countMap: Record<string, Set<string>> = {};
+    for (const row of shareRows) {
+      if (!countMap[row.name]) countMap[row.name] = new Set();
+      countMap[row.name].add(row.driver_id);
+    }
+    setPerDriverShareCounts(Object.fromEntries(
+      Object.entries(countMap).map(([name, set]) => [name, set.size])
+    ));
     setPerDriverDocs((pdRes.data ?? []) as InspectionDocument[]);
     setDriverUploads((duRes.data ?? []) as DriverUpload[]);
     setStagedDocs((stagRes.data ?? []) as StagedDoc[]);
