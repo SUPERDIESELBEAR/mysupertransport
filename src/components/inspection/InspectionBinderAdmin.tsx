@@ -755,10 +755,29 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     const isSharedFromCompany = scope === 'per_driver' && doc?.file_url
       && companyDocs.some(c => c.name === docName && c.file_url);
     const isShareOpen = shareToDriverOpen === (doc?.id ?? `new-${docName}`);
+    const isSelected = doc?.id ? bulkSelected.has(doc.id) : false;
 
     return (
-      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+      <div className={`bg-card border rounded-xl p-4 space-y-3 transition-colors ${isSelected ? 'border-info/60 bg-info/5' : 'border-border'}`}>
         <div className="flex items-start gap-3">
+          {/* Bulk-select checkbox — only for company docs that have a file */}
+          {scope === 'company_wide' && doc?.id && doc?.file_url && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={(checked) => {
+                setBulkSelected(prev => {
+                  const next = new Set(prev);
+                  checked ? next.add(doc.id) : next.delete(doc.id);
+                  return next;
+                });
+              }}
+              className="mt-1 shrink-0"
+            />
+          )}
+          {/* Spacer to keep alignment for rows without checkbox */}
+          {scope === 'company_wide' && doc?.id && !doc?.file_url && (
+            <div className="w-4 shrink-0 mt-1" />
+          )}
           <div className={`h-9 w-9 rounded-lg shrink-0 flex items-center justify-center ${doc?.file_url ? 'bg-gold/10' : 'bg-secondary'}`}>
             <FileText className={`h-4 w-4 ${doc?.file_url ? 'text-gold-muted' : 'text-muted-foreground'}`} />
           </div>
