@@ -17,6 +17,8 @@ interface DocRowProps {
   onUpload?: (file: File) => Promise<void>;
   isUploading?: boolean;
   canUpload?: boolean;
+  /** When true, the Upload/Replace button is disabled with a tooltip explaining it's managed from Company Docs */
+  isManagedByCompany?: boolean;
 }
 
 export function ExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
