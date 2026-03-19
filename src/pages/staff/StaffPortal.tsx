@@ -578,6 +578,7 @@ export default function StaffPortal() {
             {/* Expiring Within 30 Days — clickable */}
             <button
               onClick={() => {
+                setAlertsPanelNoAction(false);
                 alertsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 setAlertsPanelHighlight('warning');
                 setTimeout(() => setAlertsPanelHighlight(false), 1800);
@@ -597,6 +598,7 @@ export default function StaffPortal() {
             {/* Already Expired — clickable */}
             <button
               onClick={() => {
+                setAlertsPanelNoAction(false);
                 alertsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 setAlertsPanelHighlight('destructive');
                 setTimeout(() => setAlertsPanelHighlight(false), 1800);
