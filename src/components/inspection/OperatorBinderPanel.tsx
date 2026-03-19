@@ -313,11 +313,14 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
                             <div className="flex items-center gap-1.5 shrink-0">
                               <UploadStatusBadge status={upload.status} />
                               {upload.file_url && (
-                                <a href={upload.file_url} target="_blank" rel="noopener noreferrer">
-                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
-                                    <Eye className="h-3.5 w-3.5" />
-                                  </Button>
-                                </a>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                                  onClick={() => { setPreviewUrl(upload.file_url!); setPreviewName(upload.file_name ?? 'Document'); }}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
                               )}
                             </div>
                           </div>
