@@ -1811,6 +1811,59 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* ── Bulk Share to Driver Dialog ── */}
+      <AlertDialog open={bulkShareDialogOpen} onOpenChange={setBulkShareDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Share {bulkSelected.size} Document{bulkSelected.size > 1 ? 's' : ''} to a Driver</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Select a driver to add these documents to their Inspection Binder. An in-app notification will be sent.
+                </p>
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-foreground">Selected documents:</p>
+                  <ul className="text-xs text-muted-foreground space-y-0.5 max-h-36 overflow-y-auto">
+                    {companyDocs
+                      .filter(d => bulkSelected.has(d.id))
+                      .map(d => (
+                        <li key={d.id} className="flex items-center gap-1.5">
+                          <FileText className="h-3 w-3 shrink-0" />
+                          {d.name}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-foreground">Choose driver:</p>
+                  <Select value={bulkShareTarget} onValueChange={setBulkShareTarget}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a driver…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {operators.map(op => (
+                        <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkSharing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!bulkShareTarget || bulkSharing}
+              onClick={(e) => { e.preventDefault(); handleBulkShareToDriver(); }}
+              className="bg-info text-info-foreground hover:bg-info/90"
+            >
+              {bulkSharing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <UserCheck className="h-3.5 w-3.5 mr-1.5" />}
+              Share to Driver
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {previewUrl && (
         <FilePreviewModal url={previewUrl} name={previewName} onClose={() => setPreviewUrl(null)} />
       )}
