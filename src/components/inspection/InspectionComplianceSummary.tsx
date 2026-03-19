@@ -70,17 +70,18 @@ interface Props {
   onOpenOperator?: (operatorId: string) => void;
   onOpenOperatorAtBinder?: (operatorId: string) => void;
   onOpenInspectionBinder?: () => void;
+  defaultExpanded?: boolean;
 }
 
 type FilterStatus = 'all' | 'expired' | 'critical' | 'warning' | 'valid';
 type FilterDoc   = 'all' | DocKey;
 
-export default function InspectionComplianceSummary({ onOpenOperator, onOpenOperatorAtBinder, onOpenInspectionBinder }: Props) {
+export default function InspectionComplianceSummary({ onOpenOperator, onOpenOperatorAtBinder, onOpenInspectionBinder, defaultExpanded = false }: Props) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const [entries, setEntries] = useState<DocEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [filterDoc, setFilterDoc]     = useState<FilterDoc>('all');
   // Per fleet-row save state: key = inspectionDocId
