@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2, Bell,
+  Inbox, UserCheck, X,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -48,6 +49,10 @@ interface OperatorOption {
   name: string;
 }
 
+interface StagedDoc extends InspectionDocument {
+  // driver_id is null for staged docs
+}
+
 interface Props {
   operatorUserId?: string;
   operatorName?: string;
@@ -84,18 +89,19 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
   // Support deep-link: ?driver=<userId>&tab=driver|company|uploads
   const urlDriver = searchParams.get('driver') ?? '';
-  const urlTab = searchParams.get('tab') as 'company' | 'driver' | 'uploads' | null;
+  const urlTab = searchParams.get('tab') as 'company' | 'driver' | 'uploads' | 'staging' | null;
 
   const [companyDocs, setCompanyDocs] = useState<InspectionDocument[]>([]);
   const [perDriverDocs, setPerDriverDocs] = useState<InspectionDocument[]>([]);
   const [driverUploads, setDriverUploads] = useState<DriverUpload[]>([]);
+  const [stagedDocs, setStagedDocs] = useState<StagedDoc[]>([]);
   const [operators, setOperators] = useState<OperatorOption[]>([]);
   const [selectedDriverId, setSelectedDriverId] = useState<string>(operatorUserId ?? urlDriver);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<InspectionDocument | null>(null);
-  const [activeTab, setActiveTab] = useState<'company' | 'driver' | 'uploads'>(
-    urlTab && ['company', 'driver', 'uploads'].includes(urlTab) ? urlTab : 'company'
+  const [activeTab, setActiveTab] = useState<'company' | 'driver' | 'uploads' | 'staging'>(
+    urlTab && ['company', 'driver', 'uploads', 'staging'].includes(urlTab) ? urlTab : 'company'
   );
   const [expiryEditing, setExpiryEditing] = useState<string | null>(null);
   const [expiryValue, setExpiryValue] = useState('');
@@ -106,6 +112,21 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const [unshareAllDialogOpen, setUnshareAllDialogOpen] = useState(false);
   const [sendingReminder, setSendingReminder] = useState<string | null>(null);
   const [reminderDialogDoc, setReminderDialogDoc] = useState<string | null>(null);
+
+  // Share to specific driver state (per company doc)
+  const [shareToDriverOpen, setShareToDriverOpen] = useState<string | null>(null); // doc id
+  const [shareToDriverTarget, setShareToDriverTarget] = useState<string>('');
+  const [sharingToDriver, setSharingToDriver] = useState(false);
+
+  // Staging state
+  const [stagingLabelMap, setStagingLabelMap] = useState<Record<string, string>>({});
+  const [stagingAssignMap, setStagingAssignMap] = useState<Record<string, string>>({});
+  const [assigningStaged, setAssigningStaged] = useState<string | null>(null);
+  const [uploadingStaged, setUploadingStaged] = useState(false);
+  const [newStagedLabel, setNewStagedLabel] = useState('');
+  const stagingUploadRef = useRef<HTMLInputElement | null>(null);
+  const [pendingStagedFile, setPendingStagedFile] = useState<File | null>(null);
+  const [deleteStagedTarget, setDeleteStagedTarget] = useState<StagedDoc | null>(null);
 
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -147,7 +168,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       resolvedOperatorId = opRow?.id ?? null;
     }
 
-    const [cRes, pdRes, duRes, remRes] = await Promise.all([
+    const [cRes, pdRes, duRes, remRes, stagRes] = await Promise.all([
       supabase.from('inspection_documents').select('*').eq('scope', 'company_wide').order('name'),
       selectedDriverId
         ? supabase.from('inspection_documents').select('*').eq('scope', 'per_driver').eq('driver_id', selectedDriverId).order('name')
@@ -162,11 +183,19 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             .eq('operator_id', resolvedOperatorId)
             .order('sent_at', { ascending: false })
         : Promise.resolve({ data: [] as ReminderRecord[] }),
+      // Staged: per_driver with null driver_id
+      supabase
+        .from('inspection_documents')
+        .select('*')
+        .eq('scope', 'per_driver')
+        .is('driver_id', null)
+        .order('uploaded_at', { ascending: false }),
     ]);
 
     setCompanyDocs((cRes.data ?? []) as InspectionDocument[]);
     setPerDriverDocs((pdRes.data ?? []) as InspectionDocument[]);
     setDriverUploads((duRes.data ?? []) as DriverUpload[]);
+    setStagedDocs((stagRes.data ?? []) as StagedDoc[]);
 
     // Build map: docName → most-recent reminder (results are DESC ordered so first wins)
     const recs = (remRes.data ?? []) as ReminderRecord[];
@@ -224,6 +253,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     setDeleteTarget(null);
   };
 
+  const handleDeleteStaged = async (doc: StagedDoc) => {
+    await supabase.from('inspection_documents').delete().eq('id', doc.id);
+    if (doc.file_path) await supabase.storage.from('inspection-documents').remove([doc.file_path]);
+    toast({ title: 'Deleted', description: `${doc.name} removed from staging.` });
+    fetchDocs();
+    setDeleteStagedTarget(null);
+  };
+
   const saveExpiry = async (id: string) => {
     await supabase.from('inspection_documents').update({ expires_at: expiryValue || null }).eq('id', id);
     toast({ title: 'Expiry updated' });
@@ -235,6 +272,112 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     await supabase.from('driver_uploads').update({ status, reviewed_at: new Date().toISOString(), reviewed_by: user?.id }).eq('id', uploadId);
     toast({ title: 'Status updated', description: `Upload marked as ${UPLOAD_STATUS_LABELS[status]}.` });
     fetchDocs();
+  };
+
+  // ── Share company doc to a specific driver ──
+  const handleShareToDriver = async (doc: InspectionDocument) => {
+    if (!shareToDriverTarget || !user) return;
+    setSharingToDriver(true);
+    try {
+      const driverName = operators.find(o => o.userId === shareToDriverTarget)?.name ?? 'Driver';
+      // Check if already shared with this driver
+      const { data: existing } = await supabase
+        .from('inspection_documents')
+        .select('id')
+        .eq('scope', 'per_driver')
+        .eq('driver_id', shareToDriverTarget)
+        .eq('name', doc.name)
+        .maybeSingle();
+
+      if (existing) {
+        toast({ title: 'Already shared', description: `${doc.name} is already in ${driverName}'s binder.` });
+        setShareToDriverOpen(null);
+        setShareToDriverTarget('');
+        return;
+      }
+
+      await supabase.from('inspection_documents').insert({
+        name: doc.name,
+        scope: 'per_driver',
+        driver_id: shareToDriverTarget,
+        file_url: doc.file_url,
+        file_path: doc.file_path,
+        expires_at: doc.expires_at,
+        uploaded_by: user.id,
+        shared_with_fleet: false,
+      });
+
+      toast({
+        title: `${doc.name} shared`,
+        description: `Document added to ${driverName}'s binder.`,
+      });
+      setShareToDriverOpen(null);
+      setShareToDriverTarget('');
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: 'Share failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setSharingToDriver(false);
+    }
+  };
+
+  // ── Staging: upload new unassigned doc ──
+  const handleStagedUpload = async (file: File, label: string) => {
+    if (!user) return;
+    if (!label.trim()) {
+      toast({ title: 'Label required', description: 'Enter a name for this document.', variant: 'destructive' });
+      return;
+    }
+    setUploadingStaged(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `staging/${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
+      const { error: storageErr } = await supabase.storage.from('inspection-documents').upload(path, file, { upsert: false });
+      if (storageErr) throw storageErr;
+
+      const { data: urlData } = await supabase.storage.from('inspection-documents').createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+      const fileUrl = urlData?.signedUrl ?? null;
+
+      await supabase.from('inspection_documents').insert({
+        name: label.trim(),
+        scope: 'per_driver',
+        driver_id: null,
+        file_url: fileUrl,
+        file_path: path,
+        uploaded_by: user.id,
+        shared_with_fleet: false,
+      });
+
+      toast({ title: 'Document staged', description: `${label} is ready to assign to a driver.` });
+      setNewStagedLabel('');
+      setPendingStagedFile(null);
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setUploadingStaged(false);
+    }
+  };
+
+  // ── Staging: assign staged doc to driver ──
+  const handleAssignStaged = async (doc: StagedDoc) => {
+    const driverUserId = stagingAssignMap[doc.id];
+    if (!driverUserId) {
+      toast({ title: 'Select a driver', description: 'Choose a driver to assign this document to.', variant: 'destructive' });
+      return;
+    }
+    setAssigningStaged(doc.id);
+    try {
+      const driverName = operators.find(o => o.userId === driverUserId)?.name ?? 'Driver';
+      await supabase.from('inspection_documents').update({ driver_id: driverUserId }).eq('id', doc.id);
+      toast({ title: 'Document assigned', description: `${doc.name} has been added to ${driverName}'s binder.` });
+      setStagingAssignMap(prev => { const n = { ...prev }; delete n[doc.id]; return n; });
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: 'Assignment failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setAssigningStaged(null);
+    }
   };
 
   const selectedDriverName = operatorName ?? operators.find(o => o.userId === selectedDriverId)?.name ?? '';
@@ -397,6 +540,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       ? companyDocs.find(d => d.name === docName)
       : perDriverDocs.find(d => d.name === docName);
     const rowKey = `${scope}-${docName}`;
+    const isShareOpen = shareToDriverOpen === (doc?.id ?? `new-${docName}`);
 
     return (
       <div className="bg-card border border-border rounded-xl p-4 space-y-3">
@@ -493,16 +637,61 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
             {/* Fleet share toggle — company-wide docs with a file only */}
             {scope === 'company_wide' && doc?.file_url && (
-              <div className="flex items-center justify-between pt-2 border-t border-border/50 mt-2">
-                <div className="flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Share with all fleet drivers</span>
+              <>
+                <div className="flex items-center justify-between pt-2 border-t border-border/50 mt-2">
+                  <div className="flex items-center gap-1.5">
+                    <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Share with all fleet drivers</span>
+                  </div>
+                  <Switch
+                    checked={doc.shared_with_fleet}
+                    onCheckedChange={() => toggleFleetShare(doc)}
+                  />
                 </div>
-                <Switch
-                  checked={doc.shared_with_fleet}
-                  onCheckedChange={() => toggleFleetShare(doc)}
-                />
-              </div>
+
+                {/* Share to specific driver */}
+                <div className="pt-1.5">
+                  {!isShareOpen ? (
+                    <button
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => { setShareToDriverOpen(doc.id); setShareToDriverTarget(''); }}
+                    >
+                      <UserCheck className="h-3.5 w-3.5" />
+                      Share to specific driver…
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Select value={shareToDriverTarget} onValueChange={setShareToDriverTarget}>
+                        <SelectTrigger className="h-8 text-xs flex-1">
+                          <SelectValue placeholder="Select driver…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {operators.map(op => (
+                            <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="sm"
+                        className="h-8 gap-1 text-xs bg-info text-white hover:bg-info/90 shrink-0"
+                        disabled={!shareToDriverTarget || sharingToDriver}
+                        onClick={() => handleShareToDriver(doc)}
+                      >
+                        {sharingToDriver ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserCheck className="h-3 w-3" />}
+                        Send
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-muted-foreground"
+                        onClick={() => { setShareToDriverOpen(null); setShareToDriverTarget(''); }}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
 
             {/* Expiry editor */}
@@ -567,6 +756,13 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     },
     { key: 'driver' as const, label: 'Driver Docs', icon: <User className="h-3.5 w-3.5" /> },
     { key: 'uploads' as const, label: 'Driver Uploads', icon: <Upload className="h-3.5 w-3.5" /> },
+    {
+      key: 'staging' as const,
+      label: 'Staging',
+      icon: <Inbox className="h-3.5 w-3.5" />,
+      badge: stagedDocs.length > 0 ? `${stagedDocs.length} unassigned` : undefined,
+      badgeActive: stagedDocs.length > 0,
+    },
   ];
 
   return (
@@ -597,17 +793,17 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-secondary rounded-xl p-1">
+      <div className="grid grid-cols-4 gap-1 bg-secondary rounded-xl p-1">
         {tabs.map(t => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium py-2 rounded-lg transition-colors ${
+            className={`flex flex-col items-center justify-center gap-0.5 text-xs font-medium py-2 rounded-lg transition-colors ${
               activeTab === t.key ? 'bg-card text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            <span className="flex items-center gap-1.5">{t.icon}{t.label}</span>
-            {'badge' in t && (
+            <span className="flex items-center gap-1">{t.icon}{t.label}</span>
+            {'badge' in t && t.badge && (
               <span className={`text-[10px] font-semibold px-1.5 py-0 rounded-full leading-tight ${
                 t.badgeActive ? 'bg-info/15 text-info' : 'bg-muted text-muted-foreground'
               }`}>
@@ -629,7 +825,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs text-muted-foreground">
-                  These documents apply to all drivers. Uploading here updates every driver's binder.
+                  These documents apply to all drivers. Upload here, then share fleet-wide or to a specific driver.
                 </p>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {sharedDocs.length > 0 && (
@@ -837,6 +1033,192 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
               ))}
             </div>
           )}
+
+          {/* ── Staging ── */}
+          {activeTab === 'staging' && (
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Upload documents here before assigning them to a specific driver. Useful for cleaning up files received by email before placing them in a driver's binder.
+                  </p>
+                </div>
+              </div>
+
+              {/* Upload new staged doc */}
+              <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                    <Inbox className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground">Upload to Staging</p>
+                </div>
+
+                {!pendingStagedFile ? (
+                  <>
+                    <input
+                      ref={stagingUploadRef}
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      className="hidden"
+                      onChange={e => {
+                        const f = e.target.files?.[0];
+                        if (f) {
+                          setPendingStagedFile(f);
+                          setNewStagedLabel(f.name.replace(/\.[^/.]+$/, ''));
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full h-9 gap-2 text-xs border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground/40"
+                      onClick={() => stagingUploadRef.current?.click()}
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      Choose file to stage…
+                    </Button>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-secondary rounded-lg">
+                      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-xs text-foreground truncate flex-1">{pendingStagedFile.name}</span>
+                      <button onClick={() => setPendingStagedFile(null)} className="text-muted-foreground hover:text-foreground">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <Input
+                      placeholder="Document label (e.g. CDL, Insurance renewal…)"
+                      value={newStagedLabel}
+                      onChange={e => setNewStagedLabel(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 h-8 gap-1.5 text-xs bg-gold text-surface-dark hover:bg-gold-light"
+                        disabled={uploadingStaged || !newStagedLabel.trim()}
+                        onClick={() => handleStagedUpload(pendingStagedFile, newStagedLabel)}
+                      >
+                        {uploadingStaged ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                        Upload to Staging
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setPendingStagedFile(null); setNewStagedLabel(''); }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Staged doc list */}
+              {stagedDocs.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm border border-dashed border-border rounded-xl">
+                  No staged documents. Upload a file above to get started.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {stagedDocs.length} Unassigned Document{stagedDocs.length !== 1 ? 's' : ''}
+                  </p>
+                  {stagedDocs.map(doc => (
+                    <div key={doc.id} className="bg-card border border-border rounded-xl p-4 space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="h-9 w-9 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              {stagingLabelMap[doc.id] !== undefined ? (
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    value={stagingLabelMap[doc.id]}
+                                    onChange={e => setStagingLabelMap(prev => ({ ...prev, [doc.id]: e.target.value }))}
+                                    className="h-7 text-xs"
+                                    onBlur={async () => {
+                                      const newName = stagingLabelMap[doc.id].trim();
+                                      if (newName && newName !== doc.name) {
+                                        await supabase.from('inspection_documents').update({ name: newName }).eq('id', doc.id);
+                                        fetchDocs();
+                                      }
+                                      setStagingLabelMap(prev => { const n = { ...prev }; delete n[doc.id]; return n; });
+                                    }}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                      if (e.key === 'Escape') setStagingLabelMap(prev => { const n = { ...prev }; delete n[doc.id]; return n; });
+                                    }}
+                                    autoFocus
+                                  />
+                                </div>
+                              ) : (
+                                <button
+                                  className="text-sm font-medium text-foreground hover:text-muted-foreground text-left"
+                                  onClick={() => setStagingLabelMap(prev => ({ ...prev, [doc.id]: doc.name }))}
+                                  title="Click to rename"
+                                >
+                                  {doc.name}
+                                </button>
+                              )}
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Staged {new Date(doc.uploaded_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {doc.file_url && (
+                                <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground">
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </Button>
+                                </a>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                onClick={() => setDeleteStagedTarget(doc)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Assign to driver */}
+                          <div className="flex items-center gap-2 pt-3 border-t border-border/50 mt-2">
+                            <UserCheck className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <Select
+                              value={stagingAssignMap[doc.id] ?? ''}
+                              onValueChange={val => setStagingAssignMap(prev => ({ ...prev, [doc.id]: val }))}
+                            >
+                              <SelectTrigger className="h-8 text-xs flex-1">
+                                <SelectValue placeholder="Select driver to assign…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {operators.map(op => (
+                                  <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              size="sm"
+                              className="h-8 gap-1 text-xs bg-info text-white hover:bg-info/90 shrink-0"
+                              disabled={!stagingAssignMap[doc.id] || assigningStaged === doc.id}
+                              onClick={() => handleAssignStaged(doc)}
+                            >
+                              {assigningStaged === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserCheck className="h-3 w-3" />}
+                              Assign
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -854,6 +1236,27 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteTarget && handleDelete(deleteTarget)}
+              className="bg-destructive text-destructive-foreground"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Delete Staged confirm ── */}
+      <AlertDialog open={!!deleteStagedTarget} onOpenChange={open => !open && setDeleteStagedTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Staged Document?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove <strong>{deleteStagedTarget?.name}</strong> from staging. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteStagedTarget && handleDeleteStaged(deleteStagedTarget)}
               className="bg-destructive text-destructive-foreground"
             >
               Delete
