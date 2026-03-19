@@ -382,6 +382,10 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {previewUrl && (
+        <FilePreviewModal url={previewUrl} name={previewName} onClose={() => setPreviewUrl(null)} />
+      )}
     </div>
   );
 }
