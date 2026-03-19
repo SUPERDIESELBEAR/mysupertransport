@@ -432,6 +432,32 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     }
   };
 
+  // ── Load diff: check which selected docs are already in driver's binder ──
+  const loadBulkDiff = async (driverUserId: string) => {
+    setBulkPreviewLoading(true);
+    try {
+      const docsToCheck = companyDocs.filter(d => bulkSelected.has(d.id) && d.file_url);
+      const results = await Promise.all(
+        docsToCheck.map(async doc => {
+          const { data: existing } = await supabase
+            .from('inspection_documents')
+            .select('id')
+            .eq('scope', 'per_driver')
+            .eq('driver_id', driverUserId)
+            .eq('name', doc.name)
+            .maybeSingle();
+          return { id: doc.id, status: existing ? 'skip' as const : 'new' as const };
+        })
+      );
+      const diff: Record<string, 'new' | 'skip'> = {};
+      for (const r of results) diff[r.id] = r.status;
+      setBulkDiff(diff);
+      setBulkShareStep('preview');
+    } finally {
+      setBulkPreviewLoading(false);
+    }
+  };
+
   // ── Bulk-share selected company docs to a specific driver ──
   const handleBulkShareToDriver = async () => {
     if (!bulkShareTarget || bulkSelected.size === 0 || !user) return;
