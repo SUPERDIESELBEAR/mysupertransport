@@ -68,6 +68,10 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
   const [expiryEditing, setExpiryEditing] = useState<string | null>(null);
   const [expiryValue, setExpiryValue] = useState('');
 
+  // In-app file preview
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState<string>('');
+
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const fetchDocs = useCallback(async () => {
