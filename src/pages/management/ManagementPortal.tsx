@@ -330,10 +330,42 @@ export default function ManagementPortal() {
     return () => { supabase.removeChannel(channel); };
   }, [fetchCriticalExpiries]);
 
-  // Clear badge when visiting notifications view
+  // Clear badge when visiting notifications/messages view
   useEffect(() => {
+    viewRef.current = view;
     if (view === 'notifications') setUnreadNotifCount(0);
+    if (view === 'messages') setUnreadMsgCount(0);
   }, [view]);
+
+  // Fetch initial unread message count
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('recipient_id', session.user.id)
+      .is('read_at', null)
+      .then(({ count }) => setUnreadMsgCount(count ?? 0));
+  }, [session?.user?.id]);
+
+  // Realtime: increment message badge
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const channel = supabase
+      .channel('mgmt-unread-msg-badge')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `recipient_id=eq.${session.user.id}`,
+      }, () => {
+        if (viewRef.current !== 'messages') {
+          setUnreadMsgCount(prev => prev + 1);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [session?.user?.id]);
 
   const fetchStaffWorkload = useCallback(async () => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
