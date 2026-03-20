@@ -320,6 +320,120 @@ const STAGES = [
   'Stage 6 — Insurance',
 ];
 
+// ─── MultiBlockedCallout ─────────────────────────────────────────────────────
+
+function MultiBlockedCallout({
+  operators,
+  stageConfigs,
+  stageNodeFilters,
+  setStageNodeFilters,
+  onOpenOperator,
+}: {
+  operators: OperatorRow[];
+  stageConfigs: PipelineStageConfig[];
+  stageNodeFilters: Set<string>;
+  setStageNodeFilters: React.Dispatch<React.SetStateAction<Set<string>>>;
+  onOpenOperator: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const activeStages = stageConfigs.filter(c => c.is_active && c.items.length > 0);
+  if (activeStages.length < 2) return null;
+
+  const blockedOps = operators
+    .filter(op => {
+      const incompleteStages = activeStages.filter(cfg =>
+        !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
+      );
+      return incompleteStages.length >= 2;
+    })
+    .map(op => ({
+      op,
+      incompleteStages: activeStages
+        .filter(cfg => !cfg.items.every(item => evalItem(op, item.field, item.complete_value)))
+        .sort((a, b) => a.stage_order - b.stage_order),
+    }))
+    // Sort by most blocked first
+    .sort((a, b) => b.incompleteStages.length - a.incompleteStages.length);
+
+  if (blockedOps.length === 0) return null;
+
+  const isFiltering = stageNodeFilters.size > 0;
+
+  return (
+    <div className={`rounded-lg border border-warning/30 bg-warning/10 text-warning-foreground text-xs overflow-hidden transition-all`}>
+      {/* Header row */}
+      <div className="flex items-center gap-3 px-3 py-2">
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" />
+        <span>
+          <span className="font-semibold">{blockedOps.length} operator{blockedOps.length !== 1 ? 's' : ''}</span>
+          {' '}blocked at <span className="font-semibold">2+ stages simultaneously</span>
+          {' '}— highest priority for follow-up
+        </span>
+        <div className="ml-auto flex items-center gap-3 shrink-0">
+          {!isFiltering && (
+            <button
+              onClick={() => {
+                const stageCounts = activeStages.map(cfg => ({
+                  key: cfg.stage_key,
+                  count: operators.filter(op =>
+                    !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
+                  ).length,
+                })).sort((a, b) => b.count - a.count);
+                const top2 = stageCounts.slice(0, 2).map(s => s.key);
+                setStageNodeFilters(new Set(top2));
+              }}
+              className="font-medium text-warning hover:opacity-80 underline underline-offset-2 transition-opacity"
+            >
+              Show top 2 stages
+            </button>
+          )}
+          <button
+            onClick={() => setExpanded(p => !p)}
+            className="flex items-center gap-1 font-medium text-warning hover:opacity-80 transition-opacity"
+            aria-expanded={expanded}
+          >
+            {expanded ? 'Hide' : 'View all'}
+            {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Expanded per-operator breakdown */}
+      {expanded && (
+        <div className="border-t border-warning/20 divide-y divide-warning/10">
+          {blockedOps.map(({ op, incompleteStages }) => {
+            const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Unknown';
+            return (
+              <div key={op.id} className="flex items-center gap-3 px-3 py-2">
+                <button
+                  onClick={() => onOpenOperator(op.id)}
+                  className="font-semibold text-warning hover:opacity-70 transition-opacity underline underline-offset-2 shrink-0 text-left"
+                >
+                  {name}
+                </button>
+                <div className="flex flex-wrap gap-1">
+                  {incompleteStages.map(cfg => (
+                    <span
+                      key={cfg.stage_key}
+                      className="inline-flex items-center px-1.5 py-0.5 rounded font-medium bg-warning/20 text-warning-foreground leading-none"
+                    >
+                      {cfg.label}
+                    </span>
+                  ))}
+                </div>
+                <span className="ml-auto shrink-0 tabular-nums text-warning/70">
+                  {incompleteStages.length} stage{incompleteStages.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, onOpenOperatorAtBinder, onOpenOperatorAtStage, onOpenInspectionBinder, initialDispatchFilter, initialCoordinatorFilter, initialCoordinatorName, initialStageFilter, initialIdleFilter, complianceRefreshKey, onBulkMessage }: PipelineDashboardProps) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
