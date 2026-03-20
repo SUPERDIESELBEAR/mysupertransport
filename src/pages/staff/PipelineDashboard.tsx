@@ -102,7 +102,25 @@ function computeProgressFromConfig(
   return Math.round((doneCount / activeConfigs.length) * 100);
 }
 
-function StageTrack({ op, stageConfigs }: { op: OperatorRow; stageConfigs: PipelineStageConfig[] }) {
+// Stage key → OperatorDetailPanel stageRefs key mapping
+const STAGE_KEY_TO_DETAIL: Record<string, string> = {
+  bg:    'stage1',
+  docs:  'stage2',
+  ica:   'stage3',
+  mo:    'stage4',
+  equip: 'stage5',
+  ins:   'stage6',
+};
+
+function StageTrack({
+  op,
+  stageConfigs,
+  onNodeClick,
+}: {
+  op: OperatorRow;
+  stageConfigs: PipelineStageConfig[];
+  onNodeClick?: (operatorId: string, stageKey: string) => void;
+}) {
   const nodes = computeStageNodesFromConfig(op, stageConfigs);
   const pct = computeProgressFromConfig(op, stageConfigs);
   return (
