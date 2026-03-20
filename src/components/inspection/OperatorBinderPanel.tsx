@@ -18,11 +18,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS } from './InspectionBinderTypes';
+import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS } from './InspectionBinderTypes';
 import { ExpiryBadge, FilePreviewModal } from './DocRow';
 
 interface Props {
@@ -89,6 +92,11 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
 
   // Pending upload count for badge
   const pendingCount = driverUploads.filter(u => u.status === 'pending_review').length;
+
+  // Company-wide docs shared to this driver (company doc names present in per_driver scope)
+  const companyDocNames = new Set(COMPANY_WIDE_DOCS.map(d => d.key));
+  const sharedFromCompanyDocs = perDriverDocs.filter(d => companyDocNames.has(d.name as any) && d.file_url);
+  const sharedFromCompanyCount = sharedFromCompanyDocs.length;
 
   const handleUpload = async (docName: string, file: File, existingId?: string) => {
     if (!user) return;
@@ -209,16 +217,6 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
     );
   };
 
-  const tabs = [
-    { key: 'driver' as const, label: 'Driver Docs', icon: <User className="h-3.5 w-3.5" /> },
-    {
-      key: 'uploads' as const,
-      label: 'Driver Uploads',
-      icon: <Upload className="h-3.5 w-3.5" />,
-      badge: pendingCount > 0 ? pendingCount : undefined,
-    },
-  ];
-
   return (
     <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
       {/* Header */}
@@ -234,25 +232,55 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
 
       <div className="p-5 space-y-4">
         {/* Tabs */}
-        <div className="flex gap-1 bg-secondary rounded-xl p-1">
-          {tabs.map(t => (
+        <TooltipProvider>
+          <div className="flex gap-1 bg-secondary rounded-xl p-1">
+            {/* Driver Docs tab */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setActiveTab('driver')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-lg transition-colors ${
+                    activeTab === 'driver' ? 'bg-card text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <User className="h-3.5 w-3.5" />
+                  Driver Docs
+                  {sharedFromCompanyCount > 0 && (
+                    <span className="ml-0.5 inline-flex items-center justify-center h-4 min-w-[1rem] px-1 rounded-full text-[10px] font-bold bg-info/15 text-info border border-info/30">
+                      {sharedFromCompanyCount} from company
+                    </span>
+                  )}
+                </button>
+              </TooltipTrigger>
+              {sharedFromCompanyCount > 0 && (
+                <TooltipContent side="bottom" className="text-left space-y-1 max-w-[200px]">
+                  <p className="font-bold text-xs">Shared from company:</p>
+                  <ul className="space-y-0.5">
+                    {sharedFromCompanyDocs.map(d => (
+                      <li key={d.id} className="text-xs text-muted-foreground leading-tight">• {d.name}</li>
+                    ))}
+                  </ul>
+                </TooltipContent>
+              )}
+            </Tooltip>
+
+            {/* Driver Uploads tab */}
             <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key)}
+              onClick={() => setActiveTab('uploads')}
               className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-lg transition-colors ${
-                activeTab === t.key ? 'bg-card text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'
+                activeTab === 'uploads' ? 'bg-card text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              {t.icon}
-              {t.label}
-              {t.badge && (
+              <Upload className="h-3.5 w-3.5" />
+              Driver Uploads
+              {pendingCount > 0 && (
                 <span className="ml-0.5 inline-flex items-center justify-center h-4 min-w-[1rem] px-1 rounded-full text-[10px] font-bold bg-destructive text-destructive-foreground">
-                  {t.badge}
+                  {pendingCount}
                 </span>
               )}
             </button>
-          ))}
-        </div>
+          </div>
+        </TooltipProvider>
 
         {loading ? (
           <div className="space-y-2">
