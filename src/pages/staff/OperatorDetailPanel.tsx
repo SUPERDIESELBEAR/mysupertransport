@@ -1022,12 +1022,33 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
       {(() => {
         const stages = [
-          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' },
-          { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received' },
-          { label: 'ICA',        key: 'stage3', complete: status.ica_status === 'complete' },
-          { label: 'MO Reg',     key: 'stage4', complete: status.mo_reg_received === 'yes' },
-          { label: 'Equipment',  key: 'stage5', complete: status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' },
-          { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date },
+          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved', fullName: 'Background Check', items: [
+              { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
+              { label: 'Clearinghouse Requested', done: status.ch_status === 'requested' || status.ch_status === 'received' },
+              { label: 'MVR & CH Approved',       done: status.mvr_ch_approval === 'approved' },
+            ]},
+          { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received', fullName: 'Documents', items: [
+              { label: 'Form 2290',      done: status.form_2290 === 'received' },
+              { label: 'Truck Title',    done: status.truck_title === 'received' },
+              { label: 'Truck Photos',   done: status.truck_photos === 'received' },
+              { label: 'Truck Inspection', done: status.truck_inspection === 'received' },
+            ]},
+          { label: 'ICA',        key: 'stage3', complete: status.ica_status === 'complete', fullName: 'ICA Contract', items: [
+              { label: 'ICA Issued',        done: status.ica_status !== 'not_issued' },
+              { label: 'ICA Signed',        done: status.ica_status === 'complete' },
+            ]},
+          { label: 'MO Reg',     key: 'stage4', complete: status.mo_reg_received === 'yes', fullName: 'MO Registration', items: [
+              { label: 'MO Docs Submitted',      done: status.mo_docs_submitted === 'submitted' },
+              { label: 'MO Registration Received', done: status.mo_reg_received === 'yes' },
+            ]},
+          { label: 'Equipment',  key: 'stage5', complete: status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes', fullName: 'Equipment', items: [
+              { label: 'Decal Applied',    done: status.decal_applied === 'yes' },
+              { label: 'ELD Installed',    done: status.eld_installed === 'yes' },
+              { label: 'Fuel Card Issued', done: status.fuel_card_issued === 'yes' },
+            ]},
+          { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date, fullName: 'Insurance', items: [
+              { label: 'Insurance Added', done: !!status.insurance_added_date },
+            ]},
         ];
         const completedCount = stages.filter(s => s.complete).length;
         const pct = Math.round((completedCount / stages.length) * 100);
@@ -1103,12 +1124,37 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                             {s.complete ? '✓' : i + 1}
                           </button>
                         </TooltipTrigger>
-                        <TooltipContent side="bottom" className="text-xs">
-                          <span className="font-semibold">{s.label}</span>
-                          <span className={`ml-1.5 ${s.complete ? 'text-status-complete' : 'text-muted-foreground'}`}>
-                            — {s.complete ? '✓ Complete' : 'Pending'}
-                          </span>
-                        </TooltipContent>
+                         <TooltipContent side="bottom" className="text-left min-w-[160px] max-w-[220px] p-2.5 space-y-2">
+                           <p className="font-semibold text-xs">{s.fullName ?? s.label}</p>
+                           {s.complete ? (
+                             <p className="text-xs" style={{ color: 'hsl(var(--status-complete))' }}>All items complete ✓</p>
+                           ) : (
+                             <div className="space-y-1">
+                               <p className="text-[10px] font-semibold uppercase tracking-wide text-destructive/80">Still needed</p>
+                               <ul className="space-y-1">
+                                 {s.items.filter(it => !it.done).map(it => (
+                                   <li key={it.label} className="flex items-start gap-1.5 text-xs">
+                                     <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                                     <span className="text-foreground">{it.label}</span>
+                                   </li>
+                                 ))}
+                               </ul>
+                               {s.items.filter(it => it.done).length > 0 && (
+                                 <div className="space-y-1 pt-1 border-t border-border">
+                                   <ul className="space-y-1">
+                                     {s.items.filter(it => it.done).map(it => (
+                                       <li key={it.label} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                                         <span className="mt-0.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'hsl(var(--status-complete))' }} />
+                                         <span>{it.label}</span>
+                                       </li>
+                                     ))}
+                                   </ul>
+                                 </div>
+                               )}
+                             </div>
+                           )}
+                           <p className="text-[10px] text-muted-foreground italic">Click to jump to section</p>
+                         </TooltipContent>
                       </Tooltip>
                     ))}
                   </div>
@@ -1724,12 +1770,33 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {(() => {
         const stages = [
-          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' },
-          { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received' },
-          { label: 'ICA',        key: 'stage3', complete: status.ica_status === 'complete' },
-          { label: 'MO Reg',     key: 'stage4', complete: status.mo_reg_received === 'yes' },
-          { label: 'Equipment',  key: 'stage5', complete: status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' },
-          { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date },
+          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved', fullName: 'Background Check', items: [
+              { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
+              { label: 'Clearinghouse Requested', done: status.ch_status === 'requested' || status.ch_status === 'received' },
+              { label: 'MVR & CH Approved',       done: status.mvr_ch_approval === 'approved' },
+            ]},
+          { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received', fullName: 'Documents', items: [
+              { label: 'Form 2290',      done: status.form_2290 === 'received' },
+              { label: 'Truck Title',    done: status.truck_title === 'received' },
+              { label: 'Truck Photos',   done: status.truck_photos === 'received' },
+              { label: 'Truck Inspection', done: status.truck_inspection === 'received' },
+            ]},
+          { label: 'ICA',        key: 'stage3', complete: status.ica_status === 'complete', fullName: 'ICA Contract', items: [
+              { label: 'ICA Issued',  done: status.ica_status !== 'not_issued' },
+              { label: 'ICA Signed',  done: status.ica_status === 'complete' },
+            ]},
+          { label: 'MO Reg',     key: 'stage4', complete: status.mo_reg_received === 'yes', fullName: 'MO Registration', items: [
+              { label: 'MO Docs Submitted',        done: status.mo_docs_submitted === 'submitted' },
+              { label: 'MO Registration Received', done: status.mo_reg_received === 'yes' },
+            ]},
+          { label: 'Equipment',  key: 'stage5', complete: status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes', fullName: 'Equipment', items: [
+              { label: 'Decal Applied',    done: status.decal_applied === 'yes' },
+              { label: 'ELD Installed',    done: status.eld_installed === 'yes' },
+              { label: 'Fuel Card Issued', done: status.fuel_card_issued === 'yes' },
+            ]},
+          { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date, fullName: 'Insurance', items: [
+              { label: 'Insurance Added', done: !!status.insurance_added_date },
+            ]},
         ];
         const completedCount = stages.filter(s => s.complete).length;
         const pct = Math.round((completedCount / stages.length) * 100);
@@ -1751,25 +1818,60 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               />
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-1">
+              <TooltipProvider delayDuration={150}>
               {stages.map((s, i) => (
-                <button
-                  key={s.label}
-                  onClick={() => scrollToStage(s.key)}
-                  title={`Jump to ${s.label}`}
-                  className="flex flex-col items-center gap-1 group focus:outline-none"
-                >
-                  <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors group-hover:scale-110 group-hover:shadow-sm ${
-                    s.complete
-                      ? 'bg-status-complete border-status-complete text-white'
-                      : 'bg-background border-border text-muted-foreground group-hover:border-gold group-hover:text-gold'
-                  }`}>
-                    {s.complete ? '✓' : i + 1}
-                  </div>
-                  <span className={`text-[10px] text-center leading-tight transition-colors ${s.complete ? 'text-status-complete font-medium' : 'text-muted-foreground group-hover:text-foreground'}`}>
-                    {s.label}
-                  </span>
-                </button>
+                <Tooltip key={s.key}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => scrollToStage(s.key)}
+                      className="flex flex-col items-center gap-1 group focus:outline-none"
+                    >
+                      <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors group-hover:scale-110 group-hover:shadow-sm ${
+                        s.complete
+                          ? 'bg-status-complete border-status-complete text-white'
+                          : 'bg-background border-border text-muted-foreground group-hover:border-gold group-hover:text-gold'
+                      }`}>
+                        {s.complete ? '✓' : i + 1}
+                      </div>
+                      <span className={`text-[10px] text-center leading-tight transition-colors ${s.complete ? 'text-status-complete font-medium' : 'text-muted-foreground group-hover:text-foreground'}`}>
+                        {s.label}
+                      </span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-left min-w-[160px] max-w-[220px] p-2.5 space-y-2">
+                    <p className="font-semibold text-xs">{s.fullName ?? s.label}</p>
+                    {s.complete ? (
+                      <p className="text-xs" style={{ color: 'hsl(var(--status-complete))' }}>All items complete ✓</p>
+                    ) : (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-destructive/80">Still needed</p>
+                        <ul className="space-y-1">
+                          {s.items.filter(it => !it.done).map(it => (
+                            <li key={it.label} className="flex items-start gap-1.5 text-xs">
+                              <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                              <span className="text-foreground">{it.label}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        {s.items.filter(it => it.done).length > 0 && (
+                          <div className="space-y-1 pt-1 border-t border-border">
+                            <ul className="space-y-1">
+                              {s.items.filter(it => it.done).map(it => (
+                                <li key={it.label} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                                  <span className="mt-0.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'hsl(var(--status-complete))' }} />
+                                  <span>{it.label}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <p className="text-[10px] text-muted-foreground italic">Click to jump to section</p>
+                  </TooltipContent>
+                </Tooltip>
               ))}
+              </TooltipProvider>
             </div>
           </div>
         );
