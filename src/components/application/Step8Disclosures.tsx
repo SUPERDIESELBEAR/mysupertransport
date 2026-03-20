@@ -67,7 +67,7 @@ export default function Step8Disclosures({ data, onChange, errors }: Props) {
             id="auth_employers"
             checked={data.auth_previous_employers}
             onChange={v => onChange('auth_previous_employers', v)}
-            label="I authorize the release of employment records, performance information, and other relevant data from previous employers and government agencies to SUPERTRANSPORT LLC."
+            label="I authorize the release of employment records, performance information, and other relevant data from previous employers and government agencies to SUPERTRANSPORT."
             error={errors.auth_previous_employers}
           />
         </div>
