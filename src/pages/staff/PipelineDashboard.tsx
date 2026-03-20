@@ -248,6 +248,8 @@ interface OperatorRow {
   invited_at: string | null;
   current_stage: string;
   fully_onboarded: boolean;
+  mvr_status: string;
+  ch_status: string;
   mvr_ch_approval: string;
   pe_screening_result: string;
   ica_status: string;
@@ -693,6 +695,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         assigned_onboarding_staff,
         applications ( email ),
         onboarding_status (
+          mvr_status,
+          ch_status,
           mvr_ch_approval,
           pe_screening_result,
           ica_status,
@@ -816,6 +820,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         invited_at: op.created_at ?? null,
         current_stage: computeStage(os),
         fully_onboarded: os.fully_onboarded ?? false,
+        mvr_status: os.mvr_status ?? 'not_started',
+        ch_status: os.ch_status ?? 'not_started',
         mvr_ch_approval: os.mvr_ch_approval ?? 'pending',
         pe_screening_result: os.pe_screening_result ?? 'pending',
         ica_status: icaStatus,
