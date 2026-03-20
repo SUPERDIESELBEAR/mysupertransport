@@ -16,112 +16,75 @@ import { differenceInDays, parseISO, format, formatDistanceToNowStrict } from 'd
 import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
 
 // ─── StageTrack ──────────────────────────────────────────────────────────────
-// Parallel 6-node progress track for each operator row.
-// Each node is computed independently — no sequential dependency.
+// Parallel 6-node progress track — driven by pipeline_config DB records.
 
 type NodeState = 'complete' | 'partial' | 'none';
 
 interface StageNode {
   key: string;
   label: string;
+  fullName: string;
   state: NodeState;
   items: { label: string; done: boolean }[];
 }
 
-function computeStageNodes(op: OperatorRow): StageNode[] {
-  // BG
-  const bgComplete = op.mvr_ch_approval === 'approved';
-  const bgPartial = !bgComplete && (
-    op.mvr_ch_approval === 'received' ||
-    (op as any).mvr_status === 'requested' ||
-    (op as any).mvr_status === 'received' ||
-    (op as any).ch_status === 'requested' ||
-    (op as any).ch_status === 'received'
-  );
-
-  // Docs
-  const docsFields = [
-    { label: 'Form 2290', done: op.form_2290 === 'received' },
-    { label: 'Truck Title', done: op.truck_title === 'received' },
-    { label: 'Truck Photos', done: op.truck_photos === 'received' },
-    { label: 'Truck Inspection', done: op.truck_inspection === 'received' },
-  ];
-  const docsComplete = docsFields.every(f => f.done);
-  const docsPartial = !docsComplete && docsFields.some(f => f.done);
-
-  // ICA
-  const icaComplete = op.ica_status === 'complete';
-  const icaPartial = !icaComplete && (op.ica_status === 'in_progress' || op.ica_status === 'sent_for_signature');
-
-  // MO
-  const moComplete = op.mo_reg_received === 'yes';
-  const moPartial = !moComplete && (op as any).mo_docs_submitted === 'submitted';
-
-  // Equip
-  const equipFields = [
-    { label: 'Decal Applied', done: op.decal_applied === 'yes' },
-    { label: 'ELD Installed', done: op.eld_installed === 'yes' },
-    { label: 'Fuel Card Issued', done: op.fuel_card_issued === 'yes' },
-  ];
-  const equipComplete = equipFields.every(f => f.done);
-  const equipPartial = !equipComplete && equipFields.some(f => f.done);
-
-  // Insurance
-  const insComplete = !!op.insurance_added_date;
-
-  return [
-    {
-      key: 'bg',
-      label: 'BG',
-      state: bgComplete ? 'complete' : bgPartial ? 'partial' : 'none',
-      items: [
-        { label: 'MVR & CH Approval', done: bgComplete },
-      ],
-    },
-    {
-      key: 'docs',
-      label: 'Docs',
-      state: docsComplete ? 'complete' : docsPartial ? 'partial' : 'none',
-      items: docsFields,
-    },
-    {
-      key: 'ica',
-      label: 'ICA',
-      state: icaComplete ? 'complete' : icaPartial ? 'partial' : 'none',
-      items: [
-        { label: 'Contract Issued', done: op.ica_status !== 'not_issued' },
-        { label: 'Sent for Signature', done: op.ica_status === 'sent_for_signature' || op.ica_status === 'complete' },
-        { label: 'Fully Signed', done: icaComplete },
-      ],
-    },
-    {
-      key: 'mo',
-      label: 'MO',
-      state: moComplete ? 'complete' : moPartial ? 'partial' : 'none',
-      items: [
-        { label: 'Docs Submitted', done: (op as any).mo_docs_submitted === 'submitted' || moComplete },
-        { label: 'Registration Received', done: moComplete },
-      ],
-    },
-    {
-      key: 'equip',
-      label: 'Equip',
-      state: equipComplete ? 'complete' : equipPartial ? 'partial' : 'none',
-      items: equipFields,
-    },
-    {
-      key: 'ins',
-      label: 'Ins',
-      state: insComplete ? 'complete' : 'none',
-      items: [
-        { label: 'Added to Policy', done: insComplete },
-      ],
-    },
-  ];
+// Shared type for pipeline config items (mirrors PipelineConfigEditor)
+interface PipelineStageItem {
+  key: string;
+  label: string;
+  field: string;
+  complete_value: string;
+  note?: string;
 }
 
-function StageTrack({ op }: { op: OperatorRow }) {
-  const nodes = computeStageNodes(op);
+interface PipelineStageConfig {
+  id: string;
+  stage_key: string;
+  stage_order: number;
+  label: string;
+  full_name: string;
+  description: string | null;
+  items: PipelineStageItem[];
+  is_active: boolean;
+}
+
+/**
+ * Evaluate a single item against the operator row.
+ * complete_value "present" means "any non-null / non-empty value".
+ */
+function evalItem(op: OperatorRow, field: string, completeValue: string): boolean {
+  const raw = (op as Record<string, unknown>)[field];
+  if (completeValue === 'present') return raw != null && raw !== '';
+  return raw === completeValue;
+}
+
+function computeStageNodesFromConfig(
+  op: OperatorRow,
+  configs: PipelineStageConfig[],
+): StageNode[] {
+  return configs
+    .filter(c => c.is_active)
+    .sort((a, b) => a.stage_order - b.stage_order)
+    .map(cfg => {
+      const itemResults = cfg.items.map(item => ({
+        label: item.label,
+        done: evalItem(op, item.field, item.complete_value),
+      }));
+      const allDone = itemResults.length > 0 && itemResults.every(i => i.done);
+      const anyDone = itemResults.some(i => i.done);
+      const state: NodeState = allDone ? 'complete' : anyDone ? 'partial' : 'none';
+      return {
+        key: cfg.stage_key,
+        label: cfg.label,
+        fullName: cfg.full_name,
+        state,
+        items: itemResults,
+      };
+    });
+}
+
+function StageTrack({ op, stageConfigs }: { op: OperatorRow; stageConfigs: PipelineStageConfig[] }) {
+  const nodes = computeStageNodesFromConfig(op, stageConfigs);
   return (
     <div className="flex items-center gap-0 min-w-[200px]">
       {nodes.map((node, i) => (
@@ -177,14 +140,7 @@ function StageTrack({ op }: { op: OperatorRow }) {
                 </div>
               </TooltipTrigger>
               <TooltipContent side="top" className="text-left space-y-1.5 min-w-[160px]">
-                <p className="font-semibold text-xs">
-                  {node.key === 'bg' && 'Background Check'}
-                  {node.key === 'docs' && 'Documents'}
-                  {node.key === 'ica' && 'ICA Contract'}
-                  {node.key === 'mo' && 'MO Registration'}
-                  {node.key === 'equip' && 'Equipment'}
-                  {node.key === 'ins' && 'Insurance'}
-                </p>
+                <p className="font-semibold text-xs">{node.fullName}</p>
                 <ul className="space-y-0.5">
                   {node.items.map(item => (
                     <li key={item.label} className="flex items-center gap-1.5 text-xs">
