@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import NotificationPreferencesModal from '@/components/management/NotificationPreferencesModal';
 import InviteApplicantModal from '@/components/management/InviteApplicantModal';
 import { useSearchParams } from 'react-router-dom';
@@ -16,11 +16,16 @@ import PipelineConfigEditor from '@/components/management/PipelineConfigEditor';
 import ActivityLog from '@/components/management/ActivityLog';
 import NotificationHistory from '@/components/management/NotificationHistory';
 import DispatchPortal from '../dispatch/DispatchPortal';
+import MessagesView from '@/components/staff/MessagesView';
+import BulkMessageModal from '@/components/staff/BulkMessageModal';
+import ComplianceAlertsPanel from '@/components/inspection/ComplianceAlertsPanel';
+import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Layers, Shield, Users2, AlertCircle, FileX,
   MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2,
+  MessageSquare, ShieldCheck, XCircle, BellOff,
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
@@ -56,7 +61,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers' | 'pipeline-config';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance';
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -86,7 +91,7 @@ export default function ManagementPortal() {
   const [searchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const v = searchParams.get('view') as ManagementView | null;
-    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers','pipeline-config'].includes(v)) ? v : 'overview';
+    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers','pipeline-config','messages','compliance'].includes(v)) ? v : 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [scrollToStageKeyMgmt, setScrollToStageKeyMgmt] = useState<string | undefined>(undefined);
@@ -134,11 +139,25 @@ export default function ManagementPortal() {
   const [pipelineCoordinatorName, setPipelineCoordinatorName] = useState<string | null>(null);
   const [pipelineStageFilter, setPipelineStageFilter] = useState<string>('all');
 
+  // Messages state
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+  const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
+  const [bulkMessageOpen, setBulkMessageOpen] = useState(false);
+  const [bulkMessagePreselected, setBulkMessagePreselected] = useState<string[]>([]);
+  const viewRef = useRef(view);
+
+  // Compliance panel state
+  const alertsPanelRef = useRef<HTMLDivElement>(null);
+  const [alertsPanelHighlight, setAlertsPanelHighlight] = useState<'warning' | 'destructive' | 'muted' | false>(false);
+  const [alertsPanelNoAction, setAlertsPanelNoAction] = useState(false);
+  const [expiredCount, setExpiredCount] = useState(0);
+  const [noReminderCount, setNoReminderCount] = useState(0);
+
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
   useEffect(() => {
     const v = searchParams.get('view') as ManagementView | null;
     const s = searchParams.get('status') as StatusFilter | null;
-    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers','pipeline-config'].includes(v)) {
+    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers','pipeline-config','messages','compliance'].includes(v)) {
       setView(v);
     }
     if (s && ['pending','approved','denied','all'].includes(s)) {
@@ -227,13 +246,20 @@ export default function ManagementPortal() {
   }, [session?.user?.id]);
 
   const fetchCriticalExpiries = useCallback(async () => {
-    const { data } = await supabase
-      .from('operators')
-      .select('id, onboarding_status(fully_onboarded), applications(first_name, last_name, cdl_expiration, medical_cert_expiration)')
-      .not('application_id', 'is', null);
+    const [{ data }, { data: reminders }] = await Promise.all([
+      supabase
+        .from('operators')
+        .select('id, onboarding_status(fully_onboarded), applications(first_name, last_name, cdl_expiration, medical_cert_expiration)')
+        .not('application_id', 'is', null),
+      supabase.from('cert_reminders').select('operator_id, doc_type'),
+    ]);
     if (!data) return;
     const today = startOfDay(new Date());
     let count = 0;
+    let expired = 0;
+    let noReminder = 0;
+    const remindedKeys = new Set<string>();
+    (reminders ?? []).forEach((r: any) => remindedKeys.add(`${r.operator_id}|${r.doc_type}`));
     const rows: ComplianceRow[] = [];
     const driverCounts: ComplianceCounts = { expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0 };
 
@@ -243,21 +269,24 @@ export default function ManagementPortal() {
       const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
       const isFullyOnboarded = os?.fully_onboarded === true;
       const name = [app.first_name, app.last_name].filter(Boolean).join(' ') || 'Unknown';
-      const docs: { field: string; label: 'CDL' | 'Med Cert' }[] = [
-        { field: 'cdl_expiration', label: 'CDL' },
-        { field: 'medical_cert_expiration', label: 'Med Cert' },
+      const docs: { field: string; label: 'CDL' | 'Med Cert'; docType: string }[] = [
+        { field: 'cdl_expiration', label: 'CDL', docType: 'CDL' },
+        { field: 'medical_cert_expiration', label: 'Med Cert', docType: 'Medical Cert' },
       ];
-      docs.forEach(({ field, label }) => {
+      docs.forEach(({ field, label, docType }) => {
         const dateStr: string | null = app[field];
         if (!dateStr) {
           if (isFullyOnboarded) driverCounts.neverRenewed++;
           return;
         }
         const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
+        if (days < 0) expired++;
         if (days <= 30) count++;
         if (days <= 90) {
           rows.push({ operatorId: op.id, name, daysUntil: days, docType: label, expiryDate: dateStr });
         }
+        const key = `${op.id}|${docType}`;
+        if (days <= 30 && !remindedKeys.has(key)) noReminder++;
         if (isFullyOnboarded) {
           if (days < 0) driverCounts.expired++;
           else if (days <= 30) driverCounts.critical++;
@@ -267,6 +296,8 @@ export default function ManagementPortal() {
     });
     rows.sort((a, b) => a.daysUntil - b.daysUntil);
     setCriticalExpiryCount(count);
+    setExpiredCount(expired);
+    setNoReminderCount(noReminder);
     setComplianceSummary(rows.slice(0, 5));
     setDriverComplianceCounts(driverCounts);
   }, []);
@@ -302,19 +333,57 @@ export default function ManagementPortal() {
   // Fetch + subscribe to critical expiry count
   useEffect(() => {
     fetchCriticalExpiries();
-    const channel = supabase
+    const ch1 = supabase
       .channel('mgmt-critical-expiry-badge')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, () => {
         fetchCriticalExpiries();
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const ch2 = supabase
+      .channel('mgmt-critical-expiry-reminders')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cert_reminders' }, () => {
+        fetchCriticalExpiries();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
   }, [fetchCriticalExpiries]);
 
-  // Clear badge when visiting notifications view
+  // Clear badge when visiting notifications/messages view
   useEffect(() => {
+    viewRef.current = view;
     if (view === 'notifications') setUnreadNotifCount(0);
+    if (view === 'messages') setUnreadMsgCount(0);
   }, [view]);
+
+  // Fetch initial unread message count
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('recipient_id', session.user.id)
+      .is('read_at', null)
+      .then(({ count }) => setUnreadMsgCount(count ?? 0));
+  }, [session?.user?.id]);
+
+  // Realtime: increment message badge
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const channel = supabase
+      .channel('mgmt-unread-msg-badge')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `recipient_id=eq.${session.user.id}`,
+      }, () => {
+        if (viewRef.current !== 'messages') {
+          setUnreadMsgCount(prev => prev + 1);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [session?.user?.id]);
 
   const fetchStaffWorkload = useCallback(async () => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -593,34 +662,40 @@ export default function ManagementPortal() {
   };
 
   const navItems = [
-    { label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
-    { label: 'Applications', icon: <ClipboardList className="h-4 w-4" />, path: 'applications' },
-    { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
-    { label: 'Drivers', icon: <Users2 className="h-4 w-4" />, path: 'drivers' },
-    { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
-    { label: 'Staff', icon: <UserPlus className="h-4 w-4" />, path: 'staff' },
-    { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />, path: 'inspection-binder' },
-    { label: 'Activity', icon: <ScrollText className="h-4 w-4" />, path: 'activity' },
-    { label: 'Notifications', icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
-    { label: 'Doc Hub', icon: <Library className="h-4 w-4" />, path: 'docs-hub' },
-    { label: 'Service Library', icon: <Layers className="h-4 w-4" />, path: 'service-library' },
-    { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
-    { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
-    { label: 'Pipeline Config', icon: <Settings2 className="h-4 w-4" />, path: 'pipeline-config' },
+    { label: 'Overview',          icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
+    { label: 'Applications',      icon: <ClipboardList className="h-4 w-4" />,   path: 'applications' },
+    { label: 'Pipeline',          icon: <Users className="h-4 w-4" />,           path: 'pipeline', badge: criticalExpiryCount || undefined },
+    { label: 'Messages',          icon: <MessageSquare className="h-4 w-4" />,   path: 'messages', badge: unreadMsgCount },
+    { label: 'Notifications',     icon: <BellRing className="h-4 w-4" />,        path: 'notifications', badge: unreadNotifCount },
+    { label: 'Compliance',        icon: <ShieldCheck className="h-4 w-4" />,     path: 'compliance', badge: criticalExpiryCount || undefined },
+    { label: 'Drivers',           icon: <Users2 className="h-4 w-4" />,          path: 'drivers' },
+    { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />,          path: 'inspection-binder' },
+    { label: 'Doc Hub',           icon: <Library className="h-4 w-4" />,         path: 'docs-hub' },
+    { label: 'Service Library',   icon: <Layers className="h-4 w-4" />,          path: 'service-library' },
+    { label: 'Resources',         icon: <BookOpen className="h-4 w-4" />,        path: 'resources' },
+    { label: 'Staff',             icon: <UserPlus className="h-4 w-4" />,        path: 'staff' },
+    { label: 'FAQ Manager',       icon: <HelpCircle className="h-4 w-4" />,      path: 'faq' },
+    { label: 'Pipeline Config',   icon: <Settings2 className="h-4 w-4" />,       path: 'pipeline-config' },
+    { label: 'Activity',          icon: <ScrollText className="h-4 w-4" />,      path: 'activity' },
   ];
 
   // Bottom nav on mobile: 5 priority items that fit cleanly at 375px
   const mobileNavItems = [
-    { label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
-    { label: 'Drivers', icon: <Users2 className="h-4 w-4" />, path: 'drivers' },
-    { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
-    { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
-    { label: 'Notifs', icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
+    { label: 'Overview',      icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
+    { label: 'Pipeline',      icon: <Users className="h-4 w-4" />,           path: 'pipeline', badge: criticalExpiryCount || undefined },
+    { label: 'Messages',      icon: <MessageSquare className="h-4 w-4" />,   path: 'messages', badge: unreadMsgCount },
+    { label: 'Compliance',    icon: <ShieldCheck className="h-4 w-4" />,     path: 'compliance', badge: criticalExpiryCount || undefined },
+    { label: 'Notifs',        icon: <BellRing className="h-4 w-4" />,        path: 'notifications', badge: unreadNotifCount },
   ];
 
   return (
     <>
       <NotificationPreferencesModal open={notifPrefsOpen} onClose={() => setNotifPrefsOpen(false)} />
+      <BulkMessageModal
+        open={bulkMessageOpen}
+        onClose={() => { setBulkMessageOpen(false); setBulkMessagePreselected([]); }}
+        preselectedIds={bulkMessagePreselected}
+      />
       <StaffLayout
         navItems={navItems}
         mobileNavItems={mobileNavItems}
@@ -1663,6 +1738,133 @@ export default function ManagementPortal() {
 
         {view === 'pipeline-config' && (
           <PipelineConfigEditor />
+        )}
+
+        {view === 'messages' && (
+          <div className="flex flex-col gap-0" style={{ height: 'calc(100vh - 160px - 64px)' }}>
+            <div className="flex items-center justify-between mb-3 shrink-0">
+              <p className="text-xs text-muted-foreground">
+                Send individual 1-on-1 messages, or use Bulk Message to contact multiple operators at once.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setBulkMessageOpen(true)}
+                className="text-xs gap-2 shrink-0 ml-3"
+              >
+                <Users className="h-3.5 w-3.5" />
+                Bulk Message
+              </Button>
+            </div>
+            <div className="flex-1 min-h-0">
+              <MessagesView initialUserId={messageInitialUserId} />
+            </div>
+          </div>
+        )}
+
+        {view === 'compliance' && (
+          <div className="flex flex-col gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Fleet Compliance</h1>
+              <p className="text-muted-foreground text-sm mt-1">Monitor CDL, Medical Cert, and fleet document expiries</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
+              <button
+                onClick={() => {
+                  setAlertsPanelNoAction(false);
+                  alertsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  setAlertsPanelHighlight('warning');
+                  setTimeout(() => setAlertsPanelHighlight(false), 1800);
+                }}
+                className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm text-left hover:border-warning/50 hover:bg-warning/5 transition-colors group cursor-pointer"
+              >
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-warning/10 flex items-center justify-center shrink-0 group-hover:bg-warning/20 transition-colors">
+                    <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
+                  </div>
+                  <div>
+                    <p className="text-xl sm:text-2xl font-bold text-foreground">{criticalExpiryCount - expiredCount}</p>
+                    <p className="text-xs text-muted-foreground group-hover:text-warning/80 transition-colors">Expiring Within 30 Days ↓</p>
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  setAlertsPanelNoAction(false);
+                  alertsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  setAlertsPanelHighlight('destructive');
+                  setTimeout(() => setAlertsPanelHighlight(false), 1800);
+                }}
+                className={`border rounded-xl p-3 sm:p-4 shadow-sm text-left transition-colors group cursor-pointer ${
+                  expiredCount > 0
+                    ? 'bg-destructive/5 border-destructive/30 hover:bg-destructive/10 hover:border-destructive/50'
+                    : 'bg-white border-border hover:border-destructive/30 hover:bg-destructive/5'
+                }`}
+              >
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0 group-hover:bg-destructive/20 transition-colors">
+                    <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
+                  </div>
+                  <div>
+                    <p className={`text-xl sm:text-2xl font-bold ${expiredCount > 0 ? 'text-destructive' : 'text-foreground'}`}>{expiredCount}</p>
+                    <p className="text-xs text-muted-foreground group-hover:text-destructive/80 transition-colors">Already Expired ↓</p>
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  alertsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  setAlertsPanelNoAction(true);
+                  setAlertsPanelHighlight('muted');
+                  setTimeout(() => setAlertsPanelHighlight(false), 1800);
+                }}
+                className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm text-left hover:border-primary/30 hover:bg-primary/5 transition-colors group cursor-pointer"
+              >
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+                    <BellOff className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                  <div>
+                    <p className="text-xl sm:text-2xl font-bold text-foreground">{noReminderCount}</p>
+                    <p className="text-xs text-muted-foreground group-hover:text-primary/80 transition-colors">No Reminder Sent ↓</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+            <div
+              ref={alertsPanelRef}
+              className={`rounded-xl transition-all duration-300 ${
+                alertsPanelHighlight === 'warning' ? 'ring-2 ring-warning/60 ring-offset-2' :
+                alertsPanelHighlight === 'destructive' ? 'ring-2 ring-destructive/60 ring-offset-2' :
+                alertsPanelHighlight === 'muted' ? 'ring-2 ring-primary/40 ring-offset-2' : ''
+              }`}
+            >
+              <ComplianceAlertsPanel
+                key={alertsPanelNoAction ? 'no-action' : 'default'}
+                defaultNoActionOnly={alertsPanelNoAction}
+                onOpenOperator={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
+                onOpenOperatorWithFocus={async (operatorId, focusField) => {
+                  setSelectedOperatorId(operatorId);
+                  setView('operator-detail');
+                  const { data: op } = await supabase
+                    .from('operators')
+                    .select('application_id, applications(*)')
+                    .eq('id', operatorId)
+                    .single();
+                  if (op?.applications) {
+                    setSelectedApp(op.applications as FullApplication);
+                    setDrawerFocusField(focusField);
+                  }
+                }}
+              />
+            </div>
+            <InspectionComplianceSummary
+              defaultExpanded={true}
+              onOpenOperator={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
+              onOpenOperatorAtBinder={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
+              onOpenInspectionBinder={() => setView('inspection-binder')}
+            />
+          </div>
         )}
       </StaffLayout>
 
