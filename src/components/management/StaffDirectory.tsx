@@ -623,10 +623,14 @@ export default function StaffDirectory() {
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-border sticky top-0 bg-white z-10 rounded-t-2xl">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-surface-dark flex items-center justify-center shrink-0">
-                  <span className="text-base font-bold text-gold">
-                    {(managingMember.first_name?.[0] ?? managingMember.last_name?.[0] ?? '?').toUpperCase()}
-                  </span>
+                <div className="h-10 w-10 rounded-full overflow-hidden border border-border/60 shrink-0 flex items-center justify-center bg-surface-dark">
+                  {managingMember.avatar_url ? (
+                    <img src={managingMember.avatar_url} alt={[managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || 'Staff'} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-base font-bold text-gold">
+                      {(managingMember.first_name?.[0] ?? managingMember.last_name?.[0] ?? '?').toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-foreground">
