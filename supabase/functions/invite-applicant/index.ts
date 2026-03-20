@@ -78,31 +78,44 @@ Deno.serve(async (req) => {
 
     // Auth guard — requires staff/management JWT
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user: callerUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    if (authError || !callerUser) {
+    if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const { data: roleCheck } = await supabaseAdmin
+    // Use user-context client with getClaims() for signing-keys compatibility
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const callerId = claimsData.claims.sub as string;
+
+    const { data: roleRows } = await supabaseAdmin
       .from('user_roles')
       .select('role')
-      .eq('user_id', callerUser.id)
-      .in('role', ['management', 'onboarding_staff'])
-      .maybeSingle();
+      .eq('user_id', callerId)
+      .in('role', ['management', 'onboarding_staff']);
 
-    if (!roleCheck) {
+    if (!roleRows || roleRows.length === 0) {
       return new Response(JSON.stringify({ error: 'Forbidden: insufficient role' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    // Fetch full user for email fallback
+    const { data: { user: callerUser } } = await supabaseAdmin.auth.admin.getUserById(callerId);
+    const callerEmail = callerUser?.email ?? 'staff';
 
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     if (!RESEND_API_KEY) {
@@ -124,11 +137,11 @@ Deno.serve(async (req) => {
     const { data: callerProfile } = await supabaseAdmin
       .from('profiles')
       .select('first_name, last_name')
-      .eq('user_id', callerUser.id)
+      .eq('user_id', callerId)
       .maybeSingle();
     const callerName = callerProfile
-      ? `${callerProfile.first_name ?? ''} ${callerProfile.last_name ?? ''}`.trim() || callerUser.email
-      : callerUser.email ?? 'Staff';
+      ? `${callerProfile.first_name ?? ''} ${callerProfile.last_name ?? ''}`.trim() || callerEmail
+      : callerEmail;
 
     const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
     const html = buildInviteEmail(first_name, note ?? null, appUrl);
@@ -180,7 +193,7 @@ Deno.serve(async (req) => {
           email,
           phone: phone ?? null,
           note: note ?? null,
-          invited_by: callerUser.id,
+          invited_by: callerId,
           invited_by_name: callerName,
           email_sent: emailSent,
           email_error: emailError,
@@ -194,7 +207,7 @@ Deno.serve(async (req) => {
 
       // Audit log
       supabaseAdmin.from('audit_log').insert({
-        actor_id: callerUser.id,
+        actor_id: callerId,
         actor_name: callerName as string,
         action: 'applicant_invited',
         entity_type: 'application_invite',
