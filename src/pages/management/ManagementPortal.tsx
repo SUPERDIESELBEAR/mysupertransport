@@ -455,6 +455,56 @@ export default function ManagementPortal() {
     }
   }, [view, fetchApplications]);
 
+  const fetchInvites = useCallback(async () => {
+    setLoadingInvites(true);
+    const { data } = await supabase
+      .from('application_invites')
+      .select('*')
+      .order('created_at', { ascending: false });
+    setInvites((data as ApplicationInvite[]) ?? []);
+    setLoadingInvites(false);
+  }, []);
+
+  useEffect(() => {
+    if (view === 'applications' && statusFilter === 'invited') {
+      fetchInvites();
+    }
+  }, [view, statusFilter, fetchInvites]);
+
+  const handleResendInvite = async (invite: ApplicationInvite) => {
+    setResendingId(invite.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('invite-applicant', {
+        body: {
+          first_name: invite.first_name,
+          last_name: invite.last_name,
+          email: invite.email,
+          phone: invite.phone,
+          note: invite.note,
+          invite_id: invite.id,
+        },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: '✅ Invite Resent', description: `Invite email resent to ${invite.email}.` });
+      fetchInvites();
+    } catch (err: unknown) {
+      toast({ title: 'Resend Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setResendingId(null);
+    }
+  };
+
+  const handleDeleteInvite = async (id: string) => {
+    await supabase.from('application_invites').delete().eq('id', id);
+    setDeleteInviteId(null);
+    fetchInvites();
+    toast({ title: 'Invite deleted' });
+  };
+
+
+
   const handleApprove = async (appId: string, notes: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('invite-operator', {
