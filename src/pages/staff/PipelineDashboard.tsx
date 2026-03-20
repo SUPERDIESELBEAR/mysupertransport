@@ -2243,7 +2243,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                               cfg.items.length > 0 &&
                               !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
                             ).length;
-                            const isFiltered = stageNodeFilter === cfg.stage_key;
+                            const isFiltered = stageNodeFilters.has(cfg.stage_key);
                             return (
                               <div key={cfg.stage_key} className="flex items-center">
                                 {/* Spacer connector matching the track connector width */}
@@ -2253,7 +2253,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                                     <TooltipTrigger asChild>
                                       <button
                                         type="button"
-                                        onClick={() => setStageNodeFilter(isFiltered ? 'all' : cfg.stage_key)}
+                                        onClick={() => toggleStageNodeFilter(cfg.stage_key)}
                                         className={[
                                           'flex flex-col items-center gap-0.5 w-5 rounded transition-all duration-150 outline-none focus-visible:ring-1 focus-visible:ring-gold/60',
                                           incompleteCount > 0 ? 'cursor-pointer' : 'cursor-default pointer-events-none',
