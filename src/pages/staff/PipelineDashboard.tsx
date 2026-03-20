@@ -519,26 +519,40 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setNoActionBulkSentCount(null);
   }, []);
 
+  const fetchStageConfigs = useCallback(async () => {
+    const { data } = await supabase
+      .from('pipeline_config')
+      .select('*')
+      .order('stage_order', { ascending: true });
+    if (data) {
+      setStageConfigs(
+        data.map(row => ({
+          ...row,
+          items: (row.items as unknown as PipelineStageItem[]) ?? [],
+          description: row.description ?? null,
+        }))
+      );
+    }
+  }, []);
+
   useEffect(() => {
     fetchOperators();
     fetchComplianceAlerts();
-    // Fetch pipeline config (drives StageTrack nodes)
-    supabase
-      .from('pipeline_config')
-      .select('*')
-      .order('stage_order', { ascending: true })
-      .then(({ data }) => {
-        if (data) {
-          setStageConfigs(
-            data.map(row => ({
-              ...row,
-              items: (row.items as unknown as PipelineStageItem[]) ?? [],
-              description: row.description ?? null,
-            }))
-          );
-        }
-      });
-  }, [fetchComplianceAlerts]);
+    fetchStageConfigs();
+  }, [fetchComplianceAlerts, fetchStageConfigs]);
+
+  // Realtime: re-fetch pipeline_config whenever a stage is saved in the editor
+  useEffect(() => {
+    const channel = supabase
+      .channel('pipeline-config-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'pipeline_config' },
+        () => { fetchStageConfigs(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchStageConfigs]);
 
   // Re-fetch compliance alerts when parent signals an expiry date was updated
   useEffect(() => {
