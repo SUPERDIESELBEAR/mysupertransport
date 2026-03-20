@@ -2031,7 +2031,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       onClick={() => handleSort('stage')}
                       className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
                     >
-                      Current Stage
+                      Progress Track
                       {sortKey === 'stage'
                         ? sortDir === 'asc'
                           ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
@@ -2043,70 +2043,18 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         <TooltipTrigger asChild>
                           <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
                         </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[280px] text-left space-y-1">
-                          <p className="font-semibold text-xs">6 onboarding stages — operator moves forward as each is completed:</p>
+                        <TooltipContent side="top" className="max-w-[300px] text-left space-y-1.5">
+                          <p className="font-semibold text-xs">6-stage parallel progress track — hover any node for sub-item detail:</p>
                           <ol className="text-xs space-y-0.5 list-decimal list-inside text-muted-foreground">
-                            <li><span className="text-foreground font-medium">Background</span> — MVR &amp; CH approved</li>
-                            <li><span className="text-foreground font-medium">Documents</span> — Form 2290, title, photos &amp; inspection received</li>
-                            <li><span className="text-foreground font-medium">ICA</span> — Contract fully signed by both parties</li>
-                            <li><span className="text-foreground font-medium">MO Registration</span> — Missouri registration received</li>
-                            <li><span className="text-foreground font-medium">Equipment</span> — Decal, ELD &amp; fuel card issued</li>
-                            <li><span className="text-foreground font-medium">Insurance</span> — Added to policy</li>
+                            <li><span className="text-foreground font-medium">BG</span> — MVR &amp; CH approved</li>
+                            <li><span className="text-foreground font-medium">Docs</span> — Form 2290, title, photos &amp; inspection</li>
+                            <li><span className="text-foreground font-medium">ICA</span> — Contract fully signed</li>
+                            <li><span className="text-foreground font-medium">MO</span> — Missouri registration received</li>
+                            <li><span className="text-foreground font-medium">Equip</span> — Decal, ELD &amp; fuel card</li>
+                            <li><span className="text-foreground font-medium">Ins</span> — Added to insurance policy</li>
                           </ol>
+                          <p className="text-xs text-muted-foreground pt-0.5">🟢 Complete &nbsp;🟠 In progress &nbsp;⬜ Not started</p>
                         </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">
-                  <div className="inline-flex items-center gap-1">
-                    <span>Status</span>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[260px] text-left space-y-1.5">
-                          <p className="font-semibold text-xs">Onboarding status for each operator:</p>
-                          <ul className="text-xs space-y-1 text-muted-foreground">
-                            <li><span className="text-foreground font-medium">In Progress</span> — Actively moving through onboarding stages</li>
-                            <li><span className="text-foreground font-medium">Fully Onboarded</span> — All 6 stages complete and marked as fully onboarded</li>
-                            <li><span className="text-foreground font-medium">Alert / Denied</span> — Application denied or account flagged as inactive</li>
-                          </ul>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
-                  <div className="inline-flex items-center gap-1">
-                    <button
-                      onClick={() => handleSort('progress')}
-                      className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
-                    >
-                      Progress
-                      {sortKey === 'progress'
-                        ? sortDir === 'asc'
-                          ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
-                          : <ArrowDown className="h-3.5 w-3.5 text-gold" />
-                        : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
-                    </button>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
-                        </TooltipTrigger>
-                         <TooltipContent side="top" className="max-w-[260px] text-left space-y-1">
-                           <p className="font-semibold text-xs">6 onboarding stages, each worth ~17%:</p>
-                           <ol className="text-xs space-y-0.5 list-decimal list-inside text-muted-foreground">
-                             <li><span className="text-foreground font-medium">Background</span> — MVR &amp; CH approved</li>
-                             <li><span className="text-foreground font-medium">Documents</span> — Form 2290, title, photos &amp; inspection received</li>
-                             <li><span className="text-foreground font-medium">ICA</span> — Contract fully signed</li>
-                             <li><span className="text-foreground font-medium">MO Registration</span> — Received</li>
-                             <li><span className="text-foreground font-medium">Equipment</span> — Decal, ELD &amp; fuel card issued</li>
-                             <li><span className="text-foreground font-medium">Insurance</span> — Added to policy</li>
-                           </ol>
-                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </div>
