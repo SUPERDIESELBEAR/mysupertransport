@@ -137,11 +137,11 @@ Deno.serve(async (req) => {
     const { data: callerProfile } = await supabaseAdmin
       .from('profiles')
       .select('first_name, last_name')
-      .eq('user_id', callerUser.id)
+      .eq('user_id', callerId)
       .maybeSingle();
     const callerName = callerProfile
-      ? `${callerProfile.first_name ?? ''} ${callerProfile.last_name ?? ''}`.trim() || callerUser.email
-      : callerUser.email ?? 'Staff';
+      ? `${callerProfile.first_name ?? ''} ${callerProfile.last_name ?? ''}`.trim() || callerEmail
+      : callerEmail;
 
     const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
     const html = buildInviteEmail(first_name, note ?? null, appUrl);
