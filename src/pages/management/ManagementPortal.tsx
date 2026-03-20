@@ -673,6 +673,11 @@ export default function ManagementPortal() {
   return (
     <>
       <NotificationPreferencesModal open={notifPrefsOpen} onClose={() => setNotifPrefsOpen(false)} />
+      <BulkMessageModal
+        open={bulkMessageOpen}
+        onClose={() => { setBulkMessageOpen(false); setBulkMessagePreselected([]); }}
+        preselectedIds={bulkMessagePreselected}
+      />
       <StaffLayout
         navItems={navItems}
         mobileNavItems={mobileNavItems}
