@@ -2157,60 +2157,120 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Phone</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">State</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground">
-                  <div className="inline-flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleSort('stage')}
-                      className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
-                    >
-                      Progress Track
-                      {sortKey === 'stage'
-                        ? sortDir === 'asc'
-                          ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
-                          : <ArrowDown className="h-3.5 w-3.5 text-gold" />
-                        : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
-                    </button>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            onClick={() => handleSort('progress')}
-                            className={[
-                              'inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none transition-colors border',
-                              sortKey === 'progress'
-                                ? 'bg-gold/15 border-gold/40 text-gold'
-                                : 'bg-muted/50 border-border/50 text-muted-foreground hover:text-gold hover:border-gold/40 hover:bg-gold/10',
-                            ].join(' ')}
-                          >
-                            %
-                            {sortKey === 'progress'
-                              ? sortDir === 'desc'
-                                ? <ArrowDown className="h-2.5 w-2.5" />
-                                : <ArrowUp className="h-2.5 w-2.5" />
-                              : <ArrowUpDown className="h-2.5 w-2.5 opacity-60" />}
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">Sort by completion % (highest first)</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px]">?</span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[300px] text-left space-y-1.5">
-                          <p className="font-semibold text-xs">6-stage parallel progress track — hover any node for sub-item detail:</p>
-                          <ol className="text-xs space-y-0.5 list-decimal list-inside text-muted-foreground">
-                            <li><span className="text-foreground font-medium">BG</span> — MVR &amp; CH approved</li>
-                            <li><span className="text-foreground font-medium">Docs</span> — Form 2290, title, photos &amp; inspection</li>
-                            <li><span className="text-foreground font-medium">ICA</span> — Contract fully signed</li>
-                            <li><span className="text-foreground font-medium">MO</span> — Missouri registration received</li>
-                            <li><span className="text-foreground font-medium">Equip</span> — Decal, ELD &amp; fuel card</li>
-                            <li><span className="text-foreground font-medium">Ins</span> — Added to insurance policy</li>
-                          </ol>
-                          <p className="text-xs text-muted-foreground pt-0.5">🟢 Complete &nbsp;🟠 In progress &nbsp;⬜ Not started</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                  <div className="flex flex-col gap-1.5">
+                    {/* Row 1 — label + sort controls */}
+                    <div className="inline-flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleSort('stage')}
+                        className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
+                      >
+                        Progress Track
+                        {sortKey === 'stage'
+                          ? sortDir === 'asc'
+                            ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                            : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                          : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                      </button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => handleSort('progress')}
+                              className={[
+                                'inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none transition-colors border',
+                                sortKey === 'progress'
+                                  ? 'bg-gold/15 border-gold/40 text-gold'
+                                  : 'bg-muted/50 border-border/50 text-muted-foreground hover:text-gold hover:border-gold/40 hover:bg-gold/10',
+                              ].join(' ')}
+                            >
+                              %
+                              {sortKey === 'progress'
+                                ? sortDir === 'desc'
+                                  ? <ArrowDown className="h-2.5 w-2.5" />
+                                  : <ArrowUp className="h-2.5 w-2.5" />
+                                : <ArrowUpDown className="h-2.5 w-2.5 opacity-60" />}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">Sort by completion % (highest first)</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px]">?</span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[300px] text-left space-y-1.5">
+                            <p className="font-semibold text-xs">6-stage parallel progress track — hover any node for sub-item detail:</p>
+                            <ol className="text-xs space-y-0.5 list-decimal list-inside text-muted-foreground">
+                              <li><span className="text-foreground font-medium">BG</span> — MVR &amp; CH approved</li>
+                              <li><span className="text-foreground font-medium">Docs</span> — Form 2290, title, photos &amp; inspection</li>
+                              <li><span className="text-foreground font-medium">ICA</span> — Contract fully signed</li>
+                              <li><span className="text-foreground font-medium">MO</span> — Missouri registration received</li>
+                              <li><span className="text-foreground font-medium">Equip</span> — Decal, ELD &amp; fuel card</li>
+                              <li><span className="text-foreground font-medium">Ins</span> — Added to insurance policy</li>
+                            </ol>
+                            <p className="text-xs text-muted-foreground pt-0.5">🟢 Complete &nbsp;🟠 In progress &nbsp;⬜ Not started</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    {/* Row 2 — per-stage incomplete count badges, aligned to node positions */}
+                    {stageConfigs.filter(c => c.is_active).length > 0 && (
+                      <div className="flex items-center gap-0 min-w-[200px]">
+                        {stageConfigs
+                          .filter(c => c.is_active)
+                          .sort((a, b) => a.stage_order - b.stage_order)
+                          .map((cfg, i, arr) => {
+                            const incompleteCount = operators.filter(op =>
+                              cfg.items.length > 0 &&
+                              !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
+                            ).length;
+                            const isFiltered = stageNodeFilter === cfg.stage_key;
+                            return (
+                              <div key={cfg.stage_key} className="flex items-center">
+                                {/* Spacer connector matching the track connector width */}
+                                {i > 0 && <div className="w-3 shrink-0" />}
+                                <TooltipProvider delayDuration={100}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        onClick={() => setStageNodeFilter(isFiltered ? 'all' : cfg.stage_key)}
+                                        className={[
+                                          'flex flex-col items-center gap-0.5 w-5 rounded transition-all duration-150 outline-none focus-visible:ring-1 focus-visible:ring-gold/60',
+                                          incompleteCount > 0 ? 'cursor-pointer' : 'cursor-default pointer-events-none',
+                                        ].join(' ')}
+                                      >
+                                        {incompleteCount > 0 ? (
+                                          <span
+                                            className={[
+                                              'inline-flex items-center justify-center min-w-[18px] h-[14px] rounded-full text-[9px] font-bold leading-none px-1 transition-colors',
+                                              isFiltered
+                                                ? 'bg-gold text-white'
+                                                : 'bg-destructive/15 text-destructive border border-destructive/25 hover:bg-destructive/25',
+                                            ].join(' ')}
+                                          >
+                                            {incompleteCount}
+                                          </span>
+                                        ) : (
+                                          <span className="inline-flex items-center justify-center w-[18px] h-[14px] rounded-full text-[9px] leading-none text-muted-foreground/30">
+                                            —
+                                          </span>
+                                        )}
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-xs">
+                                      {incompleteCount > 0
+                                        ? `${incompleteCount} operator${incompleteCount !== 1 ? 's' : ''} with ${cfg.full_name} incomplete — click to filter`
+                                        : `${cfg.full_name}: all complete`}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
                   </div>
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
