@@ -1558,11 +1558,11 @@ export default function ManagementPortal() {
         {/* ── PIPELINE ── */}
         {view === 'pipeline' && (
           <PipelineDashboard
-            onOpenOperator={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
+            onOpenOperator={(id) => { setSelectedOperatorId(id); setScrollToStageKeyMgmt(undefined); setView('operator-detail'); }}
             onOpenOperatorWithFocus={async (operatorId, focusField) => {
               setSelectedOperatorId(operatorId);
+              setScrollToStageKeyMgmt(undefined);
               setView('operator-detail');
-              // Fetch the application and open the review drawer focused on the expiry field
               const { data: op } = await supabase
                 .from('operators')
                 .select('application_id, applications(*)')
@@ -1572,6 +1572,11 @@ export default function ManagementPortal() {
                 setSelectedApp(op.applications as FullApplication);
                 setDrawerFocusField(focusField);
               }
+            }}
+            onOpenOperatorAtStage={(operatorId, stageKey) => {
+              setSelectedOperatorId(operatorId);
+              setScrollToStageKeyMgmt(stageKey);
+              setView('operator-detail');
             }}
             complianceRefreshKey={complianceRefreshKey}
             initialCoordinatorFilter={pipelineCoordinatorFilter}
@@ -1584,9 +1589,10 @@ export default function ManagementPortal() {
         {view === 'operator-detail' && selectedOperatorId && (
           <OperatorDetailPanel
             operatorId={selectedOperatorId}
-            onBack={() => { setOperatorHasUnsavedChanges(false); setView('pipeline'); }}
+            onBack={() => { setOperatorHasUnsavedChanges(false); setScrollToStageKeyMgmt(undefined); setView('pipeline'); }}
             onUnsavedChangesChange={setOperatorHasUnsavedChanges}
             expiryOverride={panelExpiryOverride}
+            scrollToStageKey={scrollToStageKeyMgmt}
             onOpenAppReview={async (focusField) => {
               const { data: op } = await supabase
                 .from('operators')
