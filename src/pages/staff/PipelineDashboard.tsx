@@ -445,7 +445,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortKey(key);
-      setSortDir('asc');
+      // Progress sort defaults to descending (highest completion first)
+      setSortDir(key === 'progress' ? 'desc' : 'asc');
     }
   };
 
@@ -1317,7 +1318,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         return sortDir === 'asc' ? cmp : -cmp;
       }
       if (sortKey === 'progress') {
-        const cmp = a.progress_pct - b.progress_pct;
+        const cmp = computeProgressFromConfig(a, stageConfigs) - computeProgressFromConfig(b, stageConfigs);
         return sortDir === 'asc' ? cmp : -cmp;
       }
       if (sortKey === 'last_activity') {
@@ -2063,7 +2064,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Phone</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">State</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground">
-                  <div className="inline-flex items-center gap-1">
+                  <div className="inline-flex items-center gap-1.5">
                     <button
                       onClick={() => handleSort('stage')}
                       className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
@@ -2078,7 +2079,30 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
+                          <button
+                            onClick={() => handleSort('progress')}
+                            className={[
+                              'inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none transition-colors border',
+                              sortKey === 'progress'
+                                ? 'bg-gold/15 border-gold/40 text-gold'
+                                : 'bg-muted/50 border-border/50 text-muted-foreground hover:text-gold hover:border-gold/40 hover:bg-gold/10',
+                            ].join(' ')}
+                          >
+                            %
+                            {sortKey === 'progress'
+                              ? sortDir === 'desc'
+                                ? <ArrowDown className="h-2.5 w-2.5" />
+                                : <ArrowUp className="h-2.5 w-2.5" />
+                              : <ArrowUpDown className="h-2.5 w-2.5 opacity-60" />}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">Sort by completion % (highest first)</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px]">?</span>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-[300px] text-left space-y-1.5">
                           <p className="font-semibold text-xs">6-stage parallel progress track — hover any node for sub-item detail:</p>
