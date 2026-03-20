@@ -105,9 +105,10 @@ const STATUS_CONFIG: Record<DispatchStatusType, {
 
 interface DispatchPortalProps {
   embedded?: boolean;
+  defaultFilter?: FilterTab;
 }
 
-export default function DispatchPortal({ embedded = false }: DispatchPortalProps) {
+export default function DispatchPortal({ embedded = false, defaultFilter }: DispatchPortalProps) {
   const { toast } = useToast();
   const { session } = useAuth();
   const navigate = useNavigate();
