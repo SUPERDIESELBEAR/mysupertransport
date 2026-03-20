@@ -1365,6 +1365,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     dispatchFilter !== 'all',
     progressFilter !== 'all',
     complianceFilter !== 'all',
+    stageNodeFilter !== 'all',
     idleFilter,
     unreadFilter,
     invitePendingFilter,
@@ -1377,6 +1378,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setDispatchFilter('all');
     setProgressFilter('all');
     setComplianceFilter('all');
+    setStageNodeFilter('all');
     setIdleFilter(false);
     setUnreadFilter(false);
     setUnreadHighPriority(false);
