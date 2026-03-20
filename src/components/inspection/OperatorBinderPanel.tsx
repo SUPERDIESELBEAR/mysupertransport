@@ -93,6 +93,11 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
   // Pending upload count for badge
   const pendingCount = driverUploads.filter(u => u.status === 'pending_review').length;
 
+  // Company-wide docs shared to this driver (company doc names present in per_driver scope)
+  const companyDocNames = new Set(COMPANY_WIDE_DOCS.map(d => d.key));
+  const sharedFromCompanyDocs = perDriverDocs.filter(d => companyDocNames.has(d.name as any) && d.file_url);
+  const sharedFromCompanyCount = sharedFromCompanyDocs.length;
+
   const handleUpload = async (docName: string, file: File, existingId?: string) => {
     if (!user) return;
     setUploading(docName);
