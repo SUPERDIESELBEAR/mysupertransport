@@ -31,7 +31,7 @@ function buildInviteEmail(firstName: string, note: string | null, appUrl: string
           <td style="padding:40px;">
             <h1 style="margin:0 0 16px;font-size:22px;color:#0f1117;font-weight:700;">You're Invited to Join Our Team, ${firstName}!</h1>
             <div style="color:#444;font-size:15px;line-height:1.7;">
-              <p>We'd love for you to apply to become an owner-operator with <strong>SUPERTRANSPORT LLC</strong>.</p>
+              <p>We'd love for you to apply to become an owner-operator with <strong>SUPERTRANSPORT</strong>.</p>
               <p>We work with independent trucking professionals who value flexibility, competitive pay, and real support on the road. If you're interested in partnering with us, click below to start your application — it only takes a few minutes.</p>
               ${noteHtml}
               <p style="margin-top:20px;"><strong>What to expect:</strong></p>
