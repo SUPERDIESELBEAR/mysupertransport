@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import NotificationPreferencesModal from '@/components/management/NotificationPreferencesModal';
 import InviteApplicantModal from '@/components/management/InviteApplicantModal';
 import { useSearchParams } from 'react-router-dom';
@@ -16,11 +16,16 @@ import PipelineConfigEditor from '@/components/management/PipelineConfigEditor';
 import ActivityLog from '@/components/management/ActivityLog';
 import NotificationHistory from '@/components/management/NotificationHistory';
 import DispatchPortal from '../dispatch/DispatchPortal';
+import MessagesView from '@/components/staff/MessagesView';
+import BulkMessageModal from '@/components/staff/BulkMessageModal';
+import ComplianceAlertsPanel from '@/components/inspection/ComplianceAlertsPanel';
+import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Layers, Shield, Users2, AlertCircle, FileX,
   MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2,
+  MessageSquare, ShieldCheck, XCircle, BellOff,
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
