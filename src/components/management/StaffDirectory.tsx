@@ -506,8 +506,12 @@ export default function StaffDirectory() {
                     {/* Name + avatar */}
                     <div className="col-span-3">
                       <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-surface-dark flex items-center justify-center shrink-0">
-                          <span className="text-sm font-semibold text-gold">{initial}</span>
+                        <div className="h-9 w-9 rounded-full overflow-hidden border border-border/60 shrink-0 flex items-center justify-center bg-surface-dark">
+                          {member.avatar_url ? (
+                            <img src={member.avatar_url} alt={name} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-semibold text-gold">{initial}</span>
+                          )}
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{name}</p>
