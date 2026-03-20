@@ -119,7 +119,7 @@ const MILESTONE_OPERATOR_COPY: Record<string, { heading: string; body: (name: st
   ica_complete: {
     heading: '✅ Your ICA Agreement is Complete',
     body: (name) => `<p>Hi ${name},</p>
-      <p>Great news — your <strong>Independent Contractor Agreement (ICA)</strong> has been signed and is now on file. This is a major step in your onboarding with SUPERTRANSPORT LLC.</p>
+      <p>Great news — your <strong>Independent Contractor Agreement (ICA)</strong> has been signed and is now on file. This is a major step in your onboarding with SUPERTRANSPORT.</p>
       <p>Our team will be in touch shortly with the next steps. You can log in to your portal at any time to check your onboarding progress.</p>`,
   },
   mvr_approved: {
