@@ -111,6 +111,7 @@ export default function ManagementPortal() {
   const [dispatchLastChangedAt, setDispatchLastChangedAt] = useState<Record<string, string | null>>({ not_dispatched: null, dispatched: null, home: null, truck_down: null });
   const [complianceRefreshKey, setComplianceRefreshKey] = useState(0);
   const [truckDownCount, setTruckDownCount] = useState(0);
+  const [dispatchDefaultFilter, setDispatchDefaultFilter] = useState<'all' | 'dispatched' | 'not_dispatched' | 'home' | 'truck_down'>('all');
   const [dispatchLiveFlash, setDispatchLiveFlash] = useState(false);
   const [panelExpiryOverride, setPanelExpiryOverride] = useState<{ cdl: string | null; medcert: string | null } | undefined>(undefined);
 
