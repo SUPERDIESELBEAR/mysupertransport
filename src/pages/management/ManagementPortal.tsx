@@ -93,7 +93,7 @@ export default function ManagementPortal() {
   const [applications, setApplications] = useState<FullApplication[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
     const s = searchParams.get('status') as StatusFilter | null;
-    return (s && ['pending','approved','denied','all'].includes(s)) ? s : 'pending';
+    return (s && ['pending','approved','denied','all','invited'].includes(s)) ? s : 'pending';
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingApps, setLoadingApps] = useState(false);
@@ -106,6 +106,13 @@ export default function ManagementPortal() {
   const [truckDownCount, setTruckDownCount] = useState(0);
   const [dispatchLiveFlash, setDispatchLiveFlash] = useState(false);
   const [panelExpiryOverride, setPanelExpiryOverride] = useState<{ cdl: string | null; medcert: string | null } | undefined>(undefined);
+
+  // Invite state
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [invites, setInvites] = useState<ApplicationInvite[]>([]);
+  const [loadingInvites, setLoadingInvites] = useState(false);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [deleteInviteId, setDeleteInviteId] = useState<string | null>(null);
 
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
