@@ -165,6 +165,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }, 100);
   }, [scrollToInspectionBinder, loading]);
 
+  // Scroll to a specific stage section when requested via deep-link from StageTrack
+  useEffect(() => {
+    if (!scrollToStageKey || loading) return;
+    setTimeout(() => {
+      scrollToStage(scrollToStageKey);
+    }, 150);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollToStageKey, loading]);
+
+
+
   const toggleStage = (stageKey: string) => {
     setCollapsedStages(prev => {
       const next = new Set(prev);
