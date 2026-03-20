@@ -58,6 +58,51 @@ export type Database = {
           },
         ]
       }
+      application_invites: {
+        Row: {
+          created_at: string
+          email: string
+          email_error: string | null
+          email_sent: boolean
+          first_name: string
+          id: string
+          invited_by: string
+          invited_by_name: string | null
+          last_name: string
+          note: string | null
+          phone: string | null
+          resent_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          email_error?: string | null
+          email_sent?: boolean
+          first_name: string
+          id?: string
+          invited_by: string
+          invited_by_name?: string | null
+          last_name: string
+          note?: string | null
+          phone?: string | null
+          resent_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          email_error?: string | null
+          email_sent?: boolean
+          first_name?: string
+          id?: string
+          invited_by?: string
+          invited_by_name?: string | null
+          last_name?: string
+          note?: string | null
+          phone?: string | null
+          resent_at?: string | null
+        }
+        Relationships: []
+      }
       applications: {
         Row: {
           additional_employers: string | null
