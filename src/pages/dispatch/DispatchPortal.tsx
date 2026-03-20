@@ -105,9 +105,10 @@ const STATUS_CONFIG: Record<DispatchStatusType, {
 
 interface DispatchPortalProps {
   embedded?: boolean;
+  defaultFilter?: FilterTab;
 }
 
-export default function DispatchPortal({ embedded = false }: DispatchPortalProps) {
+export default function DispatchPortal({ embedded = false, defaultFilter }: DispatchPortalProps) {
   const { toast } = useToast();
   const { session } = useAuth();
   const navigate = useNavigate();
@@ -125,7 +126,7 @@ export default function DispatchPortal({ embedded = false }: DispatchPortalProps
   const [editRow, setEditRow] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<DispatchRow>>({});
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<FilterTab>('all');
+  const [activeTab, setActiveTab] = useState<FilterTab>(defaultFilter ?? 'all');
   const [search, setSearch] = useState('');
   const [liveIndicator, setLiveIndicator] = useState(false);
   const [chimeMuted, setChimeMuted] = useState(() => localStorage.getItem('dispatch_chime_muted') === 'true');

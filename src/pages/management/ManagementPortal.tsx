@@ -111,6 +111,7 @@ export default function ManagementPortal() {
   const [dispatchLastChangedAt, setDispatchLastChangedAt] = useState<Record<string, string | null>>({ not_dispatched: null, dispatched: null, home: null, truck_down: null });
   const [complianceRefreshKey, setComplianceRefreshKey] = useState(0);
   const [truckDownCount, setTruckDownCount] = useState(0);
+  const [dispatchDefaultFilter, setDispatchDefaultFilter] = useState<'all' | 'dispatched' | 'not_dispatched' | 'home' | 'truck_down'>('all');
   const [dispatchLiveFlash, setDispatchLiveFlash] = useState(false);
   const [panelExpiryOverride, setPanelExpiryOverride] = useState<{ cdl: string | null; medcert: string | null } | undefined>(undefined);
 
@@ -1032,7 +1033,15 @@ export default function ManagementPortal() {
                   const hasTooltipData = !!(changedByName || tooltipLabel);
                   const triggerText = changedByName ?? (tooltipLabel ? 'Updated' : null);
                   return (
-                    <div key={s.label} className={`flex flex-col items-center justify-center py-4 sm:py-5 gap-1 ${s.bg} transition-colors duration-300`}>
+                    <button
+                      key={s.label}
+                      onClick={() => {
+                        setDispatchDefaultFilter(s.key as 'dispatched' | 'not_dispatched' | 'home' | 'truck_down');
+                        setView('dispatch');
+                      }}
+                      className={`flex flex-col items-center justify-center py-4 sm:py-5 gap-1 ${s.bg} transition-colors duration-200 w-full cursor-pointer hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset`}
+                      title={`View ${s.label} operators on the Dispatch Board`}
+                    >
                       <span className={`text-2xl sm:text-3xl font-bold tabular-nums transition-all duration-300 ${s.color}`}>{s.value}</span>
                       <span className="text-xs text-muted-foreground font-medium text-center leading-tight">{s.label}</span>
                       {s.label === 'Truck Down' && s.value > 0 && (
@@ -1056,7 +1065,7 @@ export default function ManagementPortal() {
                           </TooltipContent>
                         </Tooltip>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -1685,7 +1694,7 @@ export default function ManagementPortal() {
         )}
 
         {view === 'dispatch' && (
-          <DispatchPortal embedded />
+          <DispatchPortal embedded defaultFilter={dispatchDefaultFilter} />
         )}
 
         {view === 'staff' && (
