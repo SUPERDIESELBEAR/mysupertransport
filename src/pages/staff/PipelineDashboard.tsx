@@ -820,6 +820,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         invited_at: op.created_at ?? null,
         current_stage: computeStage(os),
         fully_onboarded: os.fully_onboarded ?? false,
+        mvr_status: os.mvr_status ?? 'not_started',
+        ch_status: os.ch_status ?? 'not_started',
         mvr_ch_approval: os.mvr_ch_approval ?? 'pending',
         pe_screening_result: os.pe_screening_result ?? 'pending',
         ica_status: icaStatus,
