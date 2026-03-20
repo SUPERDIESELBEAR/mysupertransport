@@ -1036,10 +1036,14 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
 
                     {/* Card body */}
                     <div className="p-4 space-y-3">
-                      {/* Operator identity */}
+                       {/* Operator identity */}
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-surface-dark flex items-center justify-center shrink-0">
-                          <span className="text-sm font-bold text-gold">{initials}</span>
+                        <div className="h-10 w-10 rounded-full overflow-hidden border border-border/60 shrink-0 flex items-center justify-center bg-surface-dark">
+                          {row.avatar_url ? (
+                            <img src={row.avatar_url} alt={fullName} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-bold text-gold">{initials}</span>
+                          )}
                         </div>
                         <div className="min-w-0">
                           <p className="font-semibold text-foreground text-sm truncate">{fullName}</p>
