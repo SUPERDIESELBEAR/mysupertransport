@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserRound, CheckCircle2 } from 'lucide-react';
+import { UserRound, CheckCircle2, Camera, Loader2 } from 'lucide-react';
 
 const US_STATES = [
   'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',
@@ -31,7 +31,7 @@ interface EditProfileModalProps {
 }
 
 export default function EditProfileModal({ open, onClose, onSaved, variant = 'default' }: EditProfileModalProps) {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
 
   const [firstName, setFirstName]   = useState('');
   const [lastName, setLastName]     = useState('');
@@ -40,6 +40,12 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState<string | null>(null);
   const [success, setSuccess]       = useState(false);
+
+  // Avatar state
+  const [avatarUrl, setAvatarUrl]         = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError]     = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isDark = variant === 'dark';
 
@@ -50,19 +56,21 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
       setLastName(profile.last_name ?? '');
       setPhone(profile.phone ?? '');
       setHomeState(profile.home_state ?? '');
+      setAvatarUrl(profile.avatar_url ?? null);
       setError(null);
+      setAvatarError(null);
       setSuccess(false);
     }
   }, [open, profile]);
 
   const handleClose = () => {
     setError(null);
+    setAvatarError(null);
     setSuccess(false);
     onClose();
   };
 
   const formatPhone = (val: string) => {
-    // Strip everything except digits
     const digits = val.replace(/\D/g, '').slice(0, 10);
     if (digits.length <= 3) return digits;
     if (digits.length <= 6) return `(${digits.slice(0,3)}) ${digits.slice(3)}`;
@@ -71,6 +79,57 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPhone(formatPhone(e.target.value));
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setAvatarError(null);
+
+    // Validate type
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setAvatarError('Please upload a JPEG, PNG, or WebP image.');
+      return;
+    }
+
+    // Validate size (5 MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError('Image must be under 5 MB.');
+      return;
+    }
+
+    setAvatarUploading(true);
+    try {
+      const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+      const path = `${user.id}/avatar.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true, contentType: file.type });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+      // Persist to profiles table immediately
+      const { error: dbError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('user_id', user.id);
+
+      if (dbError) throw dbError;
+
+      setAvatarUrl(publicUrl);
+      await refreshProfile();
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : 'Upload failed.');
+    } finally {
+      setAvatarUploading(false);
+      // Reset input so same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -114,6 +173,9 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
     : '';
   const labelClass = isDark ? 'text-surface-dark-foreground' : 'text-foreground';
 
+  const displayName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'User';
+  const initials = displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '?';
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
       <DialogContent className={`sm:max-w-md ${isDark ? 'bg-surface-dark border-surface-dark-border' : ''}`}>
@@ -127,7 +189,7 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
             </DialogTitle>
           </div>
           <DialogDescription className={isDark ? 'text-surface-dark-muted' : ''}>
-            Update your display name, phone number, and home state.
+            Update your photo, display name, phone number, and home state.
           </DialogDescription>
         </DialogHeader>
 
@@ -142,6 +204,56 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+            {/* Avatar picker */}
+            <div className="flex flex-col items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={avatarUploading}
+                className="relative group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded-full"
+                title="Change profile photo"
+              >
+                <div className={`h-20 w-20 rounded-full overflow-hidden border-2 transition-all ${
+                  isDark ? 'border-surface-dark-border group-hover:border-gold/60' : 'border-border group-hover:border-primary/50'
+                }`}>
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt="Profile photo"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className={`h-full w-full flex items-center justify-center ${isDark ? 'bg-surface-dark-card' : 'bg-muted'}`}>
+                      <span className={`text-2xl font-bold ${isDark ? 'text-gold' : 'text-muted-foreground'}`}>{initials}</span>
+                    </div>
+                  )}
+                </div>
+                {/* Camera overlay */}
+                <div className={`absolute inset-0 rounded-full flex items-center justify-center transition-opacity ${
+                  avatarUploading ? 'opacity-100 bg-black/40' : 'opacity-0 group-hover:opacity-100 bg-black/40'
+                }`}>
+                  {avatarUploading ? (
+                    <Loader2 className="h-6 w-6 text-white animate-spin" />
+                  ) : (
+                    <Camera className="h-6 w-6 text-white" />
+                  )}
+                </div>
+              </button>
+              <p className={`text-xs ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`}>
+                Click to {avatarUrl ? 'change' : 'add'} photo · JPEG, PNG, WebP · max 5 MB
+              </p>
+              {avatarError && (
+                <p className="text-xs text-destructive">{avatarError}</p>
+              )}
+            </div>
+
             {/* Name row */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
