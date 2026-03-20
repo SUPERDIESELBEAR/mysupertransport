@@ -17,6 +17,7 @@ interface DispatcherInfo {
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
+  avatar_url: string | null;
 }
 
 interface Props {
@@ -76,7 +77,7 @@ export default function OperatorDispatchStatus({ operatorId, onMessageDispatcher
   const fetchDispatcherInfo = async (dispatcherUserId: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('first_name, last_name, phone')
+      .select('first_name, last_name, phone, avatar_url')
       .eq('user_id', dispatcherUserId)
       .maybeSingle();
     setDispatcher(data as DispatcherInfo | null);
@@ -191,9 +192,13 @@ export default function OperatorDispatchStatus({ operatorId, onMessageDispatcher
           <div className="mt-5 pt-5 border-t border-border/60">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Your Dispatcher</p>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-surface-dark flex items-center justify-center shrink-0">
-                  <span className="text-sm font-bold text-gold">{dispatcherInitial}</span>
+            <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-full overflow-hidden border border-border/60 shrink-0 flex items-center justify-center bg-surface-dark">
+                  {dispatcher?.avatar_url ? (
+                    <img src={dispatcher.avatar_url} alt={dispatcherName ?? 'Dispatcher'} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-sm font-bold text-gold">{dispatcherInitial}</span>
+                  )}
                 </div>
                 <div>
                   {dispatcherName ? (

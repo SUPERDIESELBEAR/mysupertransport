@@ -45,6 +45,7 @@ interface DispatchRow {
   phone: string | null;
   home_state: string | null;
   unit_number: string | null;
+  avatar_url: string | null;
   dispatch_status: DispatchStatusType;
   assigned_dispatcher: string | null;
   current_load_lane: string | null;
@@ -497,7 +498,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
       if (userIds.length > 0) {
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('user_id, first_name, last_name, phone, home_state')
+          .select('user_id, first_name, last_name, phone, home_state, avatar_url')
           .in('user_id', userIds);
         (profileData ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
       }
@@ -516,6 +517,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
             phone: p.phone ?? null,
             home_state: p.home_state ?? null,
             unit_number: os.unit_number ?? op.unit_number ?? null,
+            avatar_url: p.avatar_url ?? null,
             dispatch_status: (d.dispatch_status ?? 'not_dispatched') as DispatchStatusType,
             assigned_dispatcher: d.assigned_dispatcher ?? null,
             current_load_lane: d.current_load_lane ?? null,
@@ -1034,10 +1036,14 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
 
                     {/* Card body */}
                     <div className="p-4 space-y-3">
-                      {/* Operator identity */}
+                       {/* Operator identity */}
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-surface-dark flex items-center justify-center shrink-0">
-                          <span className="text-sm font-bold text-gold">{initials}</span>
+                        <div className="h-10 w-10 rounded-full overflow-hidden border border-border/60 shrink-0 flex items-center justify-center bg-surface-dark">
+                          {row.avatar_url ? (
+                            <img src={row.avatar_url} alt={fullName} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-bold text-gold">{initials}</span>
+                          )}
                         </div>
                         <div className="min-w-0">
                           <p className="font-semibold text-foreground text-sm truncate">{fullName}</p>
