@@ -205,16 +205,20 @@ Deno.serve(async (req) => {
         console.error('Insert invite error:', insertError.message);
       }
 
-      // Audit log
-      supabaseAdmin.from('audit_log').insert({
-        actor_id: callerId,
-        actor_name: callerName as string,
-        action: 'applicant_invited',
-        entity_type: 'application_invite',
-        entity_id: newInvite?.id ?? null,
-        entity_label: `${first_name} ${last_name}`,
-        metadata: { email, phone: phone ?? null },
-      }).catch(e => console.error('Audit log error:', e));
+      // Audit log (fire-and-forget via awaited try/catch)
+      try {
+        await supabaseAdmin.from('audit_log').insert({
+          actor_id: callerId,
+          actor_name: callerName as string,
+          action: 'applicant_invited',
+          entity_type: 'application_invite',
+          entity_id: newInvite?.id ?? null,
+          entity_label: `${first_name} ${last_name}`,
+          metadata: { email, phone: phone ?? null },
+        });
+      } catch (e) {
+        console.error('Audit log error:', e);
+      }
     }
 
     return new Response(JSON.stringify({ success: true, email_sent: emailSent, email_error: emailError }), {
