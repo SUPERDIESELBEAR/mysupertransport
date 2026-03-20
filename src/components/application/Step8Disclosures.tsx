@@ -41,7 +41,7 @@ export default function Step8Disclosures({ data, onChange, errors }: Props) {
       <section className="space-y-3">
         <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Fair Credit Reporting Act Authorization</h3>
         <div className="p-4 bg-secondary border border-border rounded-xl text-xs text-muted-foreground leading-relaxed max-h-36 overflow-y-auto">
-          I hereby authorize SUPERTRANSPORT LLC to conduct a background investigation through a consumer reporting agency as permitted by the Fair Credit Reporting Act. This investigation may include, but is not limited to: Social Security Number verification, residential history, employment history, education verification, personal and professional references, credit history, criminal records, motor vehicle records (MVR), and any other public records deemed relevant. I understand that this investigation is a condition of my application and continued employment, and that I have the right to request disclosure of the nature and scope of any investigation.
+          I hereby authorize SUPERTRANSPORT to conduct a background investigation through a consumer reporting agency as permitted by the Fair Credit Reporting Act. This investigation may include, but is not limited to: Social Security Number verification, residential history, employment history, education verification, personal and professional references, credit history, criminal records, motor vehicle records (MVR), and any other public records deemed relevant. I understand that this investigation is a condition of my application and continued employment, and that I have the right to request disclosure of the nature and scope of any investigation.
         </div>
       </section>
 
