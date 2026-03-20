@@ -2143,8 +2143,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         if (blockedOps.length === 0) return null;
         const isFiltering = stageNodeFilters.size > 0;
         return (
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-xs">
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg border border-warning/30 bg-warning/10 text-warning-foreground text-xs">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" />
             <span>
               <span className="font-semibold">{blockedOps.length} operator{blockedOps.length !== 1 ? 's' : ''}</span>
               {' '}blocked at <span className="font-semibold">2+ stages simultaneously</span>
@@ -2153,7 +2153,6 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             {!isFiltering && (
               <button
                 onClick={() => {
-                  // Auto-select the two most-blocked stages to surface these operators
                   const stageCounts = activeStages.map(cfg => ({
                     key: cfg.stage_key,
                     count: operators.filter(op =>
@@ -2163,7 +2162,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   const top2 = stageCounts.slice(0, 2).map(s => s.key);
                   setStageNodeFilters(new Set(top2));
                 }}
-                className="ml-auto shrink-0 text-xs font-medium text-amber-700 hover:text-amber-900 underline underline-offset-2 transition-colors"
+                className="ml-auto shrink-0 text-xs font-medium text-warning hover:opacity-80 underline underline-offset-2 transition-opacity"
               >
                 Show top 2 stages
               </button>
