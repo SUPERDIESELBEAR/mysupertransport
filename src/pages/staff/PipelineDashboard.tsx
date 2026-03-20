@@ -413,14 +413,29 @@ function MultiBlockedCallout({
                   {name}
                 </button>
                 <div className="flex flex-wrap gap-1">
-                  {incompleteStages.map(cfg => (
-                    <span
-                      key={cfg.stage_key}
-                      className="inline-flex items-center px-1.5 py-0.5 rounded font-medium bg-warning/20 text-warning-foreground leading-none"
-                    >
-                      {cfg.label}
-                    </span>
-                  ))}
+                  {incompleteStages.map(cfg => {
+                    const pendingItems = cfg.items.filter(item => !evalItem(op, item.field, item.complete_value));
+                    return (
+                      <Tooltip key={cfg.stage_key}>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded font-medium bg-warning/20 text-warning-foreground leading-none cursor-default">
+                            {cfg.label}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[220px] p-2.5">
+                          <p className="font-semibold text-xs mb-1.5">{cfg.full_name} — incomplete</p>
+                          <ul className="space-y-1">
+                            {pendingItems.map(item => (
+                              <li key={item.key} className="flex items-start gap-1.5 text-xs">
+                                <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                                <span>{item.label}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
                 </div>
                 <span className="ml-auto shrink-0 tabular-nums text-warning/70">
                   {incompleteStages.length} stage{incompleteStages.length !== 1 ? 's' : ''}
