@@ -705,6 +705,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           truck_title,
           truck_photos,
           truck_inspection,
+          mo_docs_submitted,
           mo_reg_received,
           updated_at
         )
