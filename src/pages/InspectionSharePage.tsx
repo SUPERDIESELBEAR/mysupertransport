@@ -111,7 +111,7 @@ export default function InspectionSharePage() {
             )}
 
             <p className="text-center text-xs text-gray-400 pb-4">
-              USDOT No. 2309365 · MC No. 788425 · SuperTransport LLC
+              USDOT No. 2309365 · MC No. 788425 · SUPERTRANSPORT
             </p>
           </div>
         )}

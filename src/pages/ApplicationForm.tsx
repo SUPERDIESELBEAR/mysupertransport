@@ -356,7 +356,7 @@ export default function ApplicationForm() {
             </div>
             <h1 className="text-xl font-bold text-foreground mb-2">Application Submitted!</h1>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Thank you for applying to drive with SUPERTRANSPORT LLC. Your application has been received and will be reviewed within <strong>1–3 business days</strong>. You'll receive an email notification once a decision has been made.
+              Thank you for applying to drive with SUPERTRANSPORT. Your application has been received and will be reviewed within <strong>1–3 business days</strong>. You'll receive an email notification once a decision has been made.
             </p>
             <div className="mt-6 pt-5 border-t border-border">
               <p className="text-xs text-muted-foreground">
