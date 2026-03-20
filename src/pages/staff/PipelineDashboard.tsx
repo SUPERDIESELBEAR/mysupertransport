@@ -261,6 +261,7 @@ interface OperatorRow {
   truck_title: string;
   truck_photos: string;
   truck_inspection: string;
+  mo_docs_submitted: string;
   mo_reg_received: string;
   decal_applied: string;
   eld_installed: string;
