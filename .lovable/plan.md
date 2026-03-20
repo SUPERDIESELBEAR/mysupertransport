@@ -1,59 +1,60 @@
 
-## Understanding current state
-The Pipeline Dashboard currently shows per row:
-- A "Current Stage" text badge (e.g. "Stage 3 — ICA") + % number
-- A thin progress bar below it
-- A separate "Progress" column (duplicate bar)
+## Reorder Management Portal Sidebar + Add Missing Nav Items
 
-All the raw data needed for per-item visibility is already in the `OperatorRow` interface — `mvr_ch_approval`, `pe_screening_result`, `form_2290`, `truck_title`, `truck_photos`, `truck_inspection`, `ica_status`, `mo_reg_received`, `decal_applied`, `eld_installed`, `fuel_card_issued`, `insurance_added_date`.
+The user provided this exact order for the Management Portal's left nav:
+1. Overview
+2. Applications
+3. Pipeline
+4. Messages
+5. Notifications
+6. Compliance
+7. Drivers
+8. Inspection Binder
+9. Doc Hub
+10. Service Library
+11. Resources
+12. Staff
+13. FAQ Manager
+14. Pipeline Config
+15. Activity
 
-## The answer to "best way to see sub-items"
+**Current state:**
+- Current Management Portal navItems has 14 items in a different order
+- "Messages" and "Compliance" are **missing** from Management Portal entirely — they exist only in `StaffPortal.tsx` with full working components (`MessagesView`, `ComplianceAlertsPanel`, etc.)
+- "Dispatch" is currently in Management Portal but NOT in the user's requested list — it will be removed from the nav (the view code can remain in case it's referenced elsewhere)
 
-The cleanest approach is **hover tooltips on each stage node** in the mini progress track. No extra clicks, no expanded rows, no additional columns. Each node shows a compact breakdown of its constituent items when hovered:
+**Changes needed — one file only: `src/pages/management/ManagementPortal.tsx`**
 
-```text
-  BG ─── Docs ─── ICA ─── MO ─── Equip ─── Ins
-  ✓       ◑        ●       ○        ○         ○
+### 1. Add "messages" and "compliance" to the `ManagementView` type (line 59)
+Add `'messages'` and `'compliance'` to the union type string.
 
-Hover "Docs" node:
-┌─────────────────────────┐
-│ Documents               │
-│ ✓ Form 2290 — received  │
-│ ✓ Truck Title — received│
-│ ✗ Truck Photos          │
-│ ✗ Truck Inspection      │
-└─────────────────────────┘
+### 2. Add missing imports
+- `MessagesView` from `@/components/staff/MessagesView`
+- `ComplianceAlertsPanel` from `@/components/inspection/ComplianceAlertsPanel`
+- `InspectionComplianceSummary` from `@/components/inspection/InspectionComplianceSummary`
+- `BulkMessageModal` from `@/components/staff/BulkMessageModal`
+- Icons: `MessageSquare`, `ShieldCheck` (already partially imported — verify)
+
+### 3. Add state variables for messages + compliance
+- `unreadCount` for messages badge (with realtime subscription, same pattern as StaffPortal)
+- `criticalExpiryCount` already exists for compliance badge
+
+### 4. Reorder `navItems` array (lines 595–610)
+Replace with the exact user-specified order, adding Messages and Compliance entries, removing Dispatch:
+
+```
+Overview, Applications, Pipeline, Messages, Notifications,
+Compliance, Drivers, Inspection Binder, Doc Hub, Service Library,
+Resources, Staff, FAQ Manager, Pipeline Config, Activity
 ```
 
-This is better than expandable rows (too much space), inline sub-columns (too wide), or a click-through panel (too many clicks).
+### 5. Add view render blocks for `messages` and `compliance`
+Mirror the same JSX patterns from `StaffPortal.tsx`:
+- `view === 'messages'` → renders `<MessagesView>` with BulkMessageModal toolbar
+- `view === 'compliance'` → renders the compliance stat cards + `<ComplianceAlertsPanel>` (same JSX that already exists in StaffPortal)
 
-## What I'll build
-
-### 1. Replace the stage column content
-The "Current Stage" cell currently shows a badge + bar. Replace it with the 6-node horizontal track:
-- Each node = small circle (20×20px) with label underneath (BG, Docs, ICA, MO, Equip, Ins)
-- Connector lines between nodes, turning green when the left node is complete
-- State coloring: green fill + check = complete, amber ring + dot = partial/in-progress, gray = not started
-
-### 2. Per-stage completion logic (parallel, not waterfall)
-Each node is computed independently from its own fields — no sequential dependency:
-
-| Node | Complete when | Partial when |
-|------|--------------|--------------|
-| BG | `mvr_ch_approval === 'approved'` | `mvr_status` or `ch_status` is in-progress |
-| Docs | all 4 received | any 1+ received |
-| ICA | `ica_status === 'complete'` | `ica_status` is `in_progress` or `sent_for_signature` |
-| MO | `mo_reg_received === 'yes'` | `mo_docs_submitted !== 'not_submitted'` |
-| Equip | all 3 `yes` | any 1+ `yes` |
-| Ins | `insurance_added_date` present | never partial |
-
-### 3. Tooltip with sub-item checklist
-Each node wraps in a `TooltipProvider`. Hovering shows a small card listing every field in that stage with a ✓ (green) or ✗ (muted) prefix and its human-readable value.
-
-### 4. Remove the duplicate "Progress" column
-The separate Progress column (currently hidden on smaller screens anyway) will be removed — the track replaces it. The % number moves to a small label at the end of the track row.
-
-### Files to change
-- `src/pages/staff/PipelineDashboard.tsx` — replace stage cell content, add `StageTrack` sub-component, remove/reduce Progress column, update column headers
-
-No database changes needed. No new files needed.
+### Technical details
+- The `ManagementView` type string union and the `searchParams` validator on line 89 both need `'messages'` and `'compliance'` added
+- Dispatch nav entry removed but `'dispatch'` view logic stays intact (it may be referenced by deep links)
+- No database changes needed — this is purely a UI wiring change
+- The compliance state variables (`criticalExpiryCount`, `complianceSummary`, etc.) already exist in ManagementPortal — only the nav entry and render block are missing
