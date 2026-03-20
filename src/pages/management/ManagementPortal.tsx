@@ -1721,6 +1721,133 @@ export default function ManagementPortal() {
         {view === 'pipeline-config' && (
           <PipelineConfigEditor />
         )}
+
+        {view === 'messages' && (
+          <div className="flex flex-col gap-0" style={{ height: 'calc(100vh - 160px - 64px)' }}>
+            <div className="flex items-center justify-between mb-3 shrink-0">
+              <p className="text-xs text-muted-foreground">
+                Send individual 1-on-1 messages, or use Bulk Message to contact multiple operators at once.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setBulkMessageOpen(true)}
+                className="text-xs gap-2 shrink-0 ml-3"
+              >
+                <Users className="h-3.5 w-3.5" />
+                Bulk Message
+              </Button>
+            </div>
+            <div className="flex-1 min-h-0">
+              <MessagesView initialUserId={messageInitialUserId} />
+            </div>
+          </div>
+        )}
+
+        {view === 'compliance' && (
+          <div className="flex flex-col gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Fleet Compliance</h1>
+              <p className="text-muted-foreground text-sm mt-1">Monitor CDL, Medical Cert, and fleet document expiries</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
+              <button
+                onClick={() => {
+                  setAlertsPanelNoAction(false);
+                  alertsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  setAlertsPanelHighlight('warning');
+                  setTimeout(() => setAlertsPanelHighlight(false), 1800);
+                }}
+                className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm text-left hover:border-warning/50 hover:bg-warning/5 transition-colors group cursor-pointer"
+              >
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-warning/10 flex items-center justify-center shrink-0 group-hover:bg-warning/20 transition-colors">
+                    <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
+                  </div>
+                  <div>
+                    <p className="text-xl sm:text-2xl font-bold text-foreground">{criticalExpiryCount - expiredCount}</p>
+                    <p className="text-xs text-muted-foreground group-hover:text-warning/80 transition-colors">Expiring Within 30 Days ↓</p>
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  setAlertsPanelNoAction(false);
+                  alertsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  setAlertsPanelHighlight('destructive');
+                  setTimeout(() => setAlertsPanelHighlight(false), 1800);
+                }}
+                className={`border rounded-xl p-3 sm:p-4 shadow-sm text-left transition-colors group cursor-pointer ${
+                  expiredCount > 0
+                    ? 'bg-destructive/5 border-destructive/30 hover:bg-destructive/10 hover:border-destructive/50'
+                    : 'bg-white border-border hover:border-destructive/30 hover:bg-destructive/5'
+                }`}
+              >
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0 group-hover:bg-destructive/20 transition-colors">
+                    <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
+                  </div>
+                  <div>
+                    <p className={`text-xl sm:text-2xl font-bold ${expiredCount > 0 ? 'text-destructive' : 'text-foreground'}`}>{expiredCount}</p>
+                    <p className="text-xs text-muted-foreground group-hover:text-destructive/80 transition-colors">Already Expired ↓</p>
+                  </div>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  alertsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  setAlertsPanelNoAction(true);
+                  setAlertsPanelHighlight('muted');
+                  setTimeout(() => setAlertsPanelHighlight(false), 1800);
+                }}
+                className="bg-white border border-border rounded-xl p-3 sm:p-4 shadow-sm text-left hover:border-primary/30 hover:bg-primary/5 transition-colors group cursor-pointer"
+              >
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-muted flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+                    <BellOff className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                  <div>
+                    <p className="text-xl sm:text-2xl font-bold text-foreground">{noReminderCount}</p>
+                    <p className="text-xs text-muted-foreground group-hover:text-primary/80 transition-colors">No Reminder Sent ↓</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+            <div
+              ref={alertsPanelRef}
+              className={`rounded-xl transition-all duration-300 ${
+                alertsPanelHighlight === 'warning' ? 'ring-2 ring-warning/60 ring-offset-2' :
+                alertsPanelHighlight === 'destructive' ? 'ring-2 ring-destructive/60 ring-offset-2' :
+                alertsPanelHighlight === 'muted' ? 'ring-2 ring-primary/40 ring-offset-2' : ''
+              }`}
+            >
+              <ComplianceAlertsPanel
+                key={alertsPanelNoAction ? 'no-action' : 'default'}
+                defaultNoActionOnly={alertsPanelNoAction}
+                onOpenOperator={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
+                onOpenOperatorWithFocus={async (operatorId, focusField) => {
+                  setSelectedOperatorId(operatorId);
+                  setView('operator-detail');
+                  const { data: op } = await supabase
+                    .from('operators')
+                    .select('application_id, applications(*)')
+                    .eq('id', operatorId)
+                    .single();
+                  if (op?.applications) {
+                    setSelectedApp(op.applications as FullApplication);
+                    setDrawerFocusField(focusField);
+                  }
+                }}
+              />
+            </div>
+            <InspectionComplianceSummary
+              defaultExpanded={true}
+              onOpenOperator={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
+              onOpenOperatorAtBinder={(id) => { setSelectedOperatorId(id); setView('operator-detail'); }}
+              onOpenInspectionBinder={() => setView('inspection-binder')}
+            />
+          </div>
+        )}
       </StaffLayout>
 
       {/* Application Review Drawer (rendered outside layout to overlay correctly) */}
