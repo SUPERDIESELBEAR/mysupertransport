@@ -49,6 +49,7 @@ export default function StaffPortal() {
   const [bulkMessageOpen, setBulkMessageOpen] = useState(false);
   const [bulkMessagePreselected, setBulkMessagePreselected] = useState<string[]>([]);
   const [scrollToInspectionBinder, setScrollToInspectionBinder] = useState(false);
+  const [scrollToStageKey, setScrollToStageKey] = useState<string | undefined>(undefined);
   const viewRef = useRef(currentView);
   const alertsPanelRef = useRef<HTMLDivElement>(null);
   const [alertsPanelHighlight, setAlertsPanelHighlight] = useState<'warning' | 'destructive' | 'muted' | false>(false);
@@ -158,6 +159,7 @@ export default function StaffPortal() {
     setSelectedOperatorId(operatorId);
     setOperatorHasUnsavedChanges(false);
     setScrollToInspectionBinder(false);
+    setScrollToStageKey(undefined);
     setCurrentView('operator-detail');
   };
 
@@ -165,8 +167,19 @@ export default function StaffPortal() {
     setSelectedOperatorId(operatorId);
     setOperatorHasUnsavedChanges(false);
     setScrollToInspectionBinder(true);
+    setScrollToStageKey(undefined);
     setCurrentView('operator-detail');
   };
+
+  const handleOpenOperatorAtStage = (operatorId: string, stageKey: string) => {
+    setSelectedOperatorId(operatorId);
+    setOperatorHasUnsavedChanges(false);
+    setScrollToInspectionBinder(false);
+    setScrollToStageKey(stageKey);
+    setCurrentView('operator-detail');
+  };
+
+
 
   const handleBackToPipeline = () => {
     setSelectedOperatorId(null);
@@ -505,6 +518,7 @@ export default function StaffPortal() {
             }
           }}
           onOpenOperatorAtBinder={op => { setPipelineDispatchFilter('all'); setPipelineICAFilter(false); handleOpenOperatorAtBinder(op); }}
+          onOpenOperatorAtStage={(operatorId, stageKey) => { setPipelineDispatchFilter('all'); setPipelineICAFilter(false); handleOpenOperatorAtStage(operatorId, stageKey); }}
           onOpenInspectionBinder={() => setCurrentView('inspection-binder')}
           initialDispatchFilter={pipelineDispatchFilter}
           initialStageFilter={pipelineICAFilter ? 'Stage 3 — ICA' : undefined}
@@ -519,6 +533,7 @@ export default function StaffPortal() {
           onUnsavedChangesChange={setOperatorHasUnsavedChanges}
           expiryOverride={panelExpiryOverride}
           scrollToInspectionBinder={scrollToInspectionBinder}
+          scrollToStageKey={scrollToStageKey}
           onOpenAppReview={async (focusField) => {
             const { data: op } = await supabase
               .from('operators')

@@ -102,7 +102,25 @@ function computeProgressFromConfig(
   return Math.round((doneCount / activeConfigs.length) * 100);
 }
 
-function StageTrack({ op, stageConfigs }: { op: OperatorRow; stageConfigs: PipelineStageConfig[] }) {
+// Stage key → OperatorDetailPanel stageRefs key mapping
+const STAGE_KEY_TO_DETAIL: Record<string, string> = {
+  bg:    'stage1',
+  docs:  'stage2',
+  ica:   'stage3',
+  mo:    'stage4',
+  equip: 'stage5',
+  ins:   'stage6',
+};
+
+function StageTrack({
+  op,
+  stageConfigs,
+  onNodeClick,
+}: {
+  op: OperatorRow;
+  stageConfigs: PipelineStageConfig[];
+  onNodeClick?: (operatorId: string, stageKey: string) => void;
+}) {
   const nodes = computeStageNodesFromConfig(op, stageConfigs);
   const pct = computeProgressFromConfig(op, stageConfigs);
   return (
@@ -124,9 +142,16 @@ function StageTrack({ op, stageConfigs }: { op: OperatorRow; stageConfigs: Pipel
           <TooltipProvider delayDuration={150}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex flex-col items-center gap-0.5 cursor-default">
+                <div
+                  className="flex flex-col items-center gap-0.5 cursor-pointer group/node"
+                  onClick={e => {
+                    e.stopPropagation();
+                    const detailKey = STAGE_KEY_TO_DETAIL[node.key] ?? node.key;
+                    onNodeClick?.(op.id, detailKey);
+                  }}
+                >
                   <div
-                    className="h-5 w-5 rounded-full flex items-center justify-center transition-all duration-300 shrink-0"
+                    className="h-5 w-5 rounded-full flex items-center justify-center transition-all duration-200 shrink-0 group-hover/node:scale-110 group-hover/node:ring-2 group-hover/node:ring-offset-1"
                     style={
                       node.state === 'complete'
                         ? { background: 'hsl(var(--status-complete))', border: '1.5px solid hsl(var(--status-complete))' }
@@ -161,6 +186,7 @@ function StageTrack({ op, stageConfigs }: { op: OperatorRow; stageConfigs: Pipel
               </TooltipTrigger>
               <TooltipContent side="top" className="text-left space-y-1.5 min-w-[160px]">
                 <p className="font-semibold text-xs">{node.fullName}</p>
+                <p className="text-[10px] text-muted-foreground italic">Click to open this section</p>
                 <ul className="space-y-0.5">
                   {node.items.map(item => (
                     <li key={item.label} className="flex items-center gap-1.5 text-xs">
@@ -179,6 +205,7 @@ function StageTrack({ op, stageConfigs }: { op: OperatorRow; stageConfigs: Pipel
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+
         </div>
       ))}
       {/* Overall % — always in sync with node states */}
@@ -257,6 +284,8 @@ interface PipelineDashboardProps {
   onOpenOperator: (operatorId: string) => void;
   onOpenOperatorWithFocus?: (operatorId: string, focusField: 'cdl' | 'medcert') => void;
   onOpenOperatorAtBinder?: (operatorId: string) => void;
+  /** Opens the operator detail panel scrolled to a specific stage section */
+  onOpenOperatorAtStage?: (operatorId: string, stageKey: string) => void;
   onOpenInspectionBinder?: () => void;
   initialDispatchFilter?: DispatchStatus | 'all';
   initialCoordinatorFilter?: string;
@@ -286,7 +315,7 @@ const STAGES = [
   'Stage 6 — Insurance',
 ];
 
-export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, onOpenOperatorAtBinder, onOpenInspectionBinder, initialDispatchFilter, initialCoordinatorFilter, initialCoordinatorName, initialStageFilter, initialIdleFilter, complianceRefreshKey, onBulkMessage }: PipelineDashboardProps) {
+export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFocus, onOpenOperatorAtBinder, onOpenOperatorAtStage, onOpenInspectionBinder, initialDispatchFilter, initialCoordinatorFilter, initialCoordinatorName, initialStageFilter, initialIdleFilter, complianceRefreshKey, onBulkMessage }: PipelineDashboardProps) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const [complianceAlerts, setComplianceAlerts] = useState<ComplianceAlert[]>([]);
@@ -2329,7 +2358,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
                      <td className="px-4 py-3">
                        <div className="flex flex-col gap-1.5">
-                         <StageTrack op={op} stageConfigs={stageConfigs} />
+                         <StageTrack
+                           op={op}
+                           stageConfigs={stageConfigs}
+                           onNodeClick={onOpenOperatorAtStage}
+                         />
                          {/* Days in Draft chip — shown when ICA is in-progress */}
                          {op.ica_status === 'in_progress' && op.ica_draft_since && (() => {
                            const daysInDraft = differenceInDays(new Date(), parseISO(op.ica_draft_since));

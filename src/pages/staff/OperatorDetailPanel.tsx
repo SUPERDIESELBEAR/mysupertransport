@@ -30,6 +30,8 @@ interface OperatorDetailPanelProps {
   expiryOverride?: { cdl: string | null; medcert: string | null };
   /** If true, scroll to the Inspection Binder section after load */
   scrollToInspectionBinder?: boolean;
+  /** If set, scroll to this stage section after load (e.g. 'stage1', 'stage3') */
+  scrollToStageKey?: string;
 }
 
 type OnboardingStatus = {
@@ -75,7 +77,7 @@ const DISPATCH_STATUS_CONFIG: Record<string, { label: string; dotClass: string; 
   truck_down:     { label: 'Truck Down',     dotClass: 'bg-destructive',       badgeClass: 'bg-destructive/10 text-destructive border-destructive/30', emoji: '🔴' },
 };
 
-export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator, onUnsavedChangesChange, onOpenAppReview, expiryOverride, scrollToInspectionBinder }: OperatorDetailPanelProps) {
+export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator, onUnsavedChangesChange, onOpenAppReview, expiryOverride, scrollToInspectionBinder, scrollToStageKey }: OperatorDetailPanelProps) {
   const { toast } = useToast();
   const { session } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -162,6 +164,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
   }, [scrollToInspectionBinder, loading]);
+
+  // Scroll to a specific stage section when requested via deep-link from StageTrack
+  useEffect(() => {
+    if (!scrollToStageKey || loading) return;
+    setTimeout(() => {
+      scrollToStage(scrollToStageKey);
+    }, 150);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollToStageKey, loading]);
+
+
 
   const toggleStage = (stageKey: string) => {
     setCollapsedStages(prev => {
