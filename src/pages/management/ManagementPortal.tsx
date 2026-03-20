@@ -56,7 +56,22 @@ type StaffWorkload = {
 };
 
 type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers';
-type StatusFilter = 'pending' | 'approved' | 'denied' | 'all';
+type StatusFilter = 'pending' | 'approved' | 'denied' | 'all' | 'invited';
+
+type ApplicationInvite = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string | null;
+  note: string | null;
+  invited_by: string;
+  invited_by_name: string | null;
+  email_sent: boolean;
+  email_error: string | null;
+  resent_at: string | null;
+  created_at: string;
+};
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-status-progress/15 text-status-progress border-status-progress/30',
