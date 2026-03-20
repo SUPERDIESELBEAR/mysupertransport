@@ -1674,6 +1674,32 @@ export default function ManagementPortal() {
         />
       )}
 
+      <InviteApplicantModal
+        open={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        onInviteSent={() => { if (statusFilter === 'invited') fetchInvites(); }}
+      />
+
+      <AlertDialog open={!!deleteInviteId} onOpenChange={(open) => { if (!open) setDeleteInviteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Invite?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the invite record. The person won't be notified.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteInviteId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteInviteId && handleDeleteInvite(deleteInviteId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={!!pendingNavPath} onOpenChange={(open) => { if (!open) setPendingNavPath(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
