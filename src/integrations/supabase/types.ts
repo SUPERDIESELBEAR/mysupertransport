@@ -1200,6 +1200,45 @@ export type Database = {
           },
         ]
       }
+      pipeline_config: {
+        Row: {
+          description: string | null
+          full_name: string
+          id: string
+          is_active: boolean
+          items: Json
+          label: string
+          stage_key: string
+          stage_order: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          description?: string | null
+          full_name: string
+          id?: string
+          is_active?: boolean
+          items?: Json
+          label: string
+          stage_key: string
+          stage_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          description?: string | null
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          items?: Json
+          label?: string
+          stage_key?: string
+          stage_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           account_status: Database["public"]["Enums"]["account_status"]
