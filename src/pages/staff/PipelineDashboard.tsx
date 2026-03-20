@@ -83,8 +83,28 @@ function computeStageNodesFromConfig(
     });
 }
 
+/**
+ * Compute progress % from DB-driven stage configs.
+ * A stage counts as "done" only when ALL its items are complete.
+ * Falls back to the stored progress_pct when configs haven't loaded yet.
+ */
+function computeProgressFromConfig(
+  op: OperatorRow,
+  configs: PipelineStageConfig[],
+): number {
+  if (!configs || configs.length === 0) return op.progress_pct;
+  const activeConfigs = configs.filter(c => c.is_active);
+  if (activeConfigs.length === 0) return op.progress_pct;
+  const doneCount = activeConfigs.filter(cfg => {
+    if (cfg.items.length === 0) return false;
+    return cfg.items.every(item => evalItem(op, item.field, item.complete_value));
+  }).length;
+  return Math.round((doneCount / activeConfigs.length) * 100);
+}
+
 function StageTrack({ op, stageConfigs }: { op: OperatorRow; stageConfigs: PipelineStageConfig[] }) {
   const nodes = computeStageNodesFromConfig(op, stageConfigs);
+  const pct = computeProgressFromConfig(op, stageConfigs);
   return (
     <div className="flex items-center gap-0 min-w-[200px]">
       {nodes.map((node, i) => (
@@ -161,16 +181,16 @@ function StageTrack({ op, stageConfigs }: { op: OperatorRow; stageConfigs: Pipel
           </TooltipProvider>
         </div>
       ))}
-      {/* Overall % at the end */}
+      {/* Overall % — always in sync with node states */}
       <span
         className="ml-2 text-[11px] font-bold tabular-nums shrink-0"
         style={{
-          color: op.progress_pct === 100
+          color: pct === 100
             ? 'hsl(var(--status-complete))'
             : 'hsl(var(--muted-foreground))',
         }}
       >
-        {op.progress_pct}%
+        {pct}%
       </span>
     </div>
   );
