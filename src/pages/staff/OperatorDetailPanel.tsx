@@ -1818,25 +1818,60 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               />
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-1">
+              <TooltipProvider delayDuration={150}>
               {stages.map((s, i) => (
-                <button
-                  key={s.label}
-                  onClick={() => scrollToStage(s.key)}
-                  title={`Jump to ${s.label}`}
-                  className="flex flex-col items-center gap-1 group focus:outline-none"
-                >
-                  <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors group-hover:scale-110 group-hover:shadow-sm ${
-                    s.complete
-                      ? 'bg-status-complete border-status-complete text-white'
-                      : 'bg-background border-border text-muted-foreground group-hover:border-gold group-hover:text-gold'
-                  }`}>
-                    {s.complete ? '✓' : i + 1}
-                  </div>
-                  <span className={`text-[10px] text-center leading-tight transition-colors ${s.complete ? 'text-status-complete font-medium' : 'text-muted-foreground group-hover:text-foreground'}`}>
-                    {s.label}
-                  </span>
-                </button>
+                <Tooltip key={s.key}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => scrollToStage(s.key)}
+                      className="flex flex-col items-center gap-1 group focus:outline-none"
+                    >
+                      <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-colors group-hover:scale-110 group-hover:shadow-sm ${
+                        s.complete
+                          ? 'bg-status-complete border-status-complete text-white'
+                          : 'bg-background border-border text-muted-foreground group-hover:border-gold group-hover:text-gold'
+                      }`}>
+                        {s.complete ? '✓' : i + 1}
+                      </div>
+                      <span className={`text-[10px] text-center leading-tight transition-colors ${s.complete ? 'text-status-complete font-medium' : 'text-muted-foreground group-hover:text-foreground'}`}>
+                        {s.label}
+                      </span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-left min-w-[160px] max-w-[220px] p-2.5 space-y-2">
+                    <p className="font-semibold text-xs">{s.fullName ?? s.label}</p>
+                    {s.complete ? (
+                      <p className="text-xs" style={{ color: 'hsl(var(--status-complete))' }}>All items complete ✓</p>
+                    ) : (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-destructive/80">Still needed</p>
+                        <ul className="space-y-1">
+                          {s.items.filter(it => !it.done).map(it => (
+                            <li key={it.label} className="flex items-start gap-1.5 text-xs">
+                              <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                              <span className="text-foreground">{it.label}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        {s.items.filter(it => it.done).length > 0 && (
+                          <div className="space-y-1 pt-1 border-t border-border">
+                            <ul className="space-y-1">
+                              {s.items.filter(it => it.done).map(it => (
+                                <li key={it.label} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                                  <span className="mt-0.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'hsl(var(--status-complete))' }} />
+                                  <span>{it.label}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <p className="text-[10px] text-muted-foreground italic">Click to jump to section</p>
+                  </TooltipContent>
+                </Tooltip>
               ))}
+              </TooltipProvider>
             </div>
           </div>
         );
