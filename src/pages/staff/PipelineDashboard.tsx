@@ -381,6 +381,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [unreadFilter, setUnreadFilter] = useState(false);
   const [unreadHighPriority, setUnreadHighPriority] = useState(false);
   const [invitePendingFilter, setInvitePendingFilter] = useState(false);
+  // Stage node filter: filter to operators who have a specific stage NOT complete
+  const [stageNodeFilter, setStageNodeFilter] = useState<'all' | string>('all');
 
   // Sync when the parent changes the initial filter (e.g. banner → View Pipeline)
   useEffect(() => {
@@ -1296,7 +1298,15 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       );
       const matchUnread = !unreadFilter || (unreadHighPriority ? op.unread_count >= 3 : op.unread_count > 0);
       const matchInvitePending = !invitePendingFilter || op.never_logged_in;
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending;
+      // Stage node filter: show only operators where the selected stage node is NOT complete
+      const matchStageNode = stageNodeFilter === 'all' || (() => {
+        const cfg = stageConfigs.find(c => c.stage_key === stageNodeFilter);
+        if (!cfg) return true;
+        if (cfg.items.length === 0) return true;
+        // Show operator if at least one item in this stage is NOT done
+        return !cfg.items.every(item => evalItem(op, item.field, item.complete_value));
+      })();
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchStageNode;
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
@@ -1355,6 +1365,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     dispatchFilter !== 'all',
     progressFilter !== 'all',
     complianceFilter !== 'all',
+    stageNodeFilter !== 'all',
     idleFilter,
     unreadFilter,
     invitePendingFilter,
@@ -1367,6 +1378,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setDispatchFilter('all');
     setProgressFilter('all');
     setComplianceFilter('all');
+    setStageNodeFilter('all');
     setIdleFilter(false);
     setUnreadFilter(false);
     setUnreadHighPriority(false);
@@ -1770,7 +1782,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
         {/* Expandable filter panel */}
         {showFilters && (
-          <div className="bg-muted/40 border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4 animate-fade-in">
+          <div className="bg-muted/40 border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-fade-in">
             {/* Stage filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stage</label>
@@ -1783,6 +1795,36 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   {STAGES.map(s => (
                     <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Stage Incomplete filter — driven by pipeline_config */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stage Incomplete</label>
+              <Select value={stageNodeFilter} onValueChange={setStageNodeFilter}>
+                <SelectTrigger className={`h-9 bg-white ${stageNodeFilter !== 'all' ? 'border-gold text-gold' : ''}`}>
+                  <SelectValue placeholder="Any stage" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Any stage</SelectItem>
+                  {stageConfigs
+                    .filter(c => c.is_active)
+                    .sort((a, b) => a.stage_order - b.stage_order)
+                    .map(cfg => {
+                      const incompleteCount = operators.filter(op =>
+                        cfg.items.length > 0 &&
+                        !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
+                      ).length;
+                      return (
+                        <SelectItem key={cfg.stage_key} value={cfg.stage_key}>
+                          {cfg.full_name}
+                          {incompleteCount > 0 && (
+                            <span className="ml-1.5 text-muted-foreground">({incompleteCount})</span>
+                          )}
+                        </SelectItem>
+                      );
+                    })}
                 </SelectContent>
               </Select>
             </div>
@@ -1942,6 +1984,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               <ShieldAlert className="h-3 w-3" />
               {complianceFilter === 'critical' ? 'Critical Expiry' : 'Expiry Warning'}
               <button onClick={() => setComplianceFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+            </span>
+          )}
+          {stageNodeFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 bg-gold/10 text-gold border border-gold/30 text-xs px-2.5 py-1 rounded-full font-medium">
+              Incomplete: {stageConfigs.find(c => c.stage_key === stageNodeFilter)?.full_name ?? stageNodeFilter}
+              <button onClick={() => setStageNodeFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
             </span>
           )}
           {idleFilter && (
