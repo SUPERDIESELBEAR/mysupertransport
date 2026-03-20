@@ -166,18 +166,31 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
 
         {/* User / Sign out */}
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full overflow-hidden border border-gold/30 shrink-0 flex items-center justify-center bg-gold/20">
+          <button
+            type="button"
+            onClick={() => setEditProfileOpen(true)}
+            title="Edit profile"
+            className="h-8 w-8 rounded-full overflow-hidden border border-gold/30 shrink-0 flex items-center justify-center bg-gold/20 hover:border-gold/60 transition-colors"
+          >
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt={displayName} className="h-full w-full object-cover" />
             ) : (
               <span className="text-gold text-xs font-bold">{initials}</span>
             )}
-          </div>
+          </button>
           {(sidebarOpen || isMobileDrawer) && (
             <>
               <div className="flex-1 min-w-0">
                 <p className="text-surface-dark-foreground text-xs font-medium truncate">{displayName}</p>
               </div>
+              <button
+                type="button"
+                onClick={() => setEditProfileOpen(true)}
+                title="Edit profile"
+                className="text-surface-dark-muted hover:text-surface-dark-foreground transition-colors p-1 rounded"
+              >
+                <UserPen className="h-4 w-4" />
+              </button>
               <button
                 type="button"
                 onClick={() => setChangePasswordOpen(true)}
