@@ -34,7 +34,8 @@ interface ProfileData {
   avatar_url: string | null;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Export context so Vite HMR can preserve it across hot reloads
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
