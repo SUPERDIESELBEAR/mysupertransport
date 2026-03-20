@@ -99,6 +99,8 @@ function MilestoneNode({ stage, isLast }: { stage: Stage; isLast: boolean }) {
               <p className="font-semibold text-xs">{stage.title}</p>
               {isComplete ? (
                 <p className="text-xs" style={{ color: 'hsl(var(--status-complete))' }}>All items complete ✓</p>
+              ) : stage.substeps.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Your coordinator handles this stage.</p>
               ) : (
                 <div className="space-y-1">
                   {stage.substeps.filter(it => it.status === 'not_started' || it.status === 'in_progress').length > 0 && (
