@@ -828,6 +828,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         truck_title: os.truck_title ?? 'not_started',
         truck_photos: os.truck_photos ?? 'not_started',
         truck_inspection: os.truck_inspection ?? 'not_started',
+        mo_docs_submitted: os.mo_docs_submitted ?? 'not_submitted',
         mo_reg_received: os.mo_reg_received ?? 'not_yet',
         decal_applied: os.decal_applied ?? 'no',
         eld_installed: os.eld_installed ?? 'no',
