@@ -45,7 +45,6 @@ export default function InviteApplicantModal({ open, onClose, onInviteSent }: In
           phone: form.phone.trim() || null,
           note: form.note.trim() || null,
         },
-        headers: { Authorization: `Bearer ${session?.access_token}` },
       });
 
       if (error) throw error;
