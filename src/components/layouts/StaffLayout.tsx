@@ -54,11 +54,12 @@ const roleLabels: Record<AppRole, string> = {
 };
 
 export default function StaffLayout({ children, navItems, mobileNavItems, currentPath, onNavigate, title, headerActions, notificationsPath = '/staff?tab=notifications' }: StaffLayoutProps) {
-  const { profile, roles, activeRole, setActiveRole, signOut } = useAuth();
+  const { profile, roles, activeRole, setActiveRole, signOut, refreshProfile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false); // default closed on mobile
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [roleSwitchOpen, setRoleSwitchOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
 
   const displayName = profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() : 'User';
