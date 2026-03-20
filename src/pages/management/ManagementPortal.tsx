@@ -420,6 +420,8 @@ export default function ManagementPortal() {
   }, []);
 
   const fetchApplications = useCallback(async () => {
+    // 'invited' tab is handled separately — don't query applications table
+    if (statusFilter === 'invited') return;
     setLoadingApps(true);
     let query = supabase
       .from('applications')
@@ -428,7 +430,7 @@ export default function ManagementPortal() {
       .order('submitted_at', { ascending: false });
 
     if (statusFilter !== 'all') {
-      query = query.eq('review_status', statusFilter);
+      query = query.eq('review_status', statusFilter as 'pending' | 'approved' | 'denied');
     }
 
     const { data } = await query;
