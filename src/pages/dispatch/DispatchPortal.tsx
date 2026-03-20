@@ -498,7 +498,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
       if (userIds.length > 0) {
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('user_id, first_name, last_name, phone, home_state')
+          .select('user_id, first_name, last_name, phone, home_state, avatar_url')
           .in('user_id', userIds);
         (profileData ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
       }
