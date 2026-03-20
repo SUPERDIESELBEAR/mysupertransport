@@ -248,6 +248,8 @@ interface OperatorRow {
   invited_at: string | null;
   current_stage: string;
   fully_onboarded: boolean;
+  mvr_status: string;
+  ch_status: string;
   mvr_ch_approval: string;
   pe_screening_result: string;
   ica_status: string;
