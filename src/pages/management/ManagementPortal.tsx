@@ -56,7 +56,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers' | 'pipeline-config';
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
