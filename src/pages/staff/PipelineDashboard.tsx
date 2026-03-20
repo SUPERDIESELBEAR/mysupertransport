@@ -381,6 +381,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [unreadFilter, setUnreadFilter] = useState(false);
   const [unreadHighPriority, setUnreadHighPriority] = useState(false);
   const [invitePendingFilter, setInvitePendingFilter] = useState(false);
+  // Stage node filter: filter to operators who have a specific stage NOT complete
+  const [stageNodeFilter, setStageNodeFilter] = useState<'all' | string>('all');
 
   // Sync when the parent changes the initial filter (e.g. banner → View Pipeline)
   useEffect(() => {
