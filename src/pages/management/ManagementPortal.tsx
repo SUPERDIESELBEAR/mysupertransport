@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import NotificationPreferencesModal from '@/components/management/NotificationPreferencesModal';
+import InviteApplicantModal from '@/components/management/InviteApplicantModal';
 import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +19,7 @@ import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Layers, Shield, Users2, AlertCircle, FileX,
+  MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2,
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
@@ -54,7 +56,22 @@ type StaffWorkload = {
 };
 
 type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers';
-type StatusFilter = 'pending' | 'approved' | 'denied' | 'all';
+type StatusFilter = 'pending' | 'approved' | 'denied' | 'all' | 'invited';
+
+type ApplicationInvite = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string | null;
+  note: string | null;
+  invited_by: string;
+  invited_by_name: string | null;
+  email_sent: boolean;
+  email_error: string | null;
+  resent_at: string | null;
+  created_at: string;
+};
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-status-progress/15 text-status-progress border-status-progress/30',
@@ -76,7 +93,7 @@ export default function ManagementPortal() {
   const [applications, setApplications] = useState<FullApplication[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
     const s = searchParams.get('status') as StatusFilter | null;
-    return (s && ['pending','approved','denied','all'].includes(s)) ? s : 'pending';
+    return (s && ['pending','approved','denied','all','invited'].includes(s)) ? s : 'pending';
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingApps, setLoadingApps] = useState(false);
@@ -89,6 +106,13 @@ export default function ManagementPortal() {
   const [truckDownCount, setTruckDownCount] = useState(0);
   const [dispatchLiveFlash, setDispatchLiveFlash] = useState(false);
   const [panelExpiryOverride, setPanelExpiryOverride] = useState<{ cdl: string | null; medcert: string | null } | undefined>(undefined);
+
+  // Invite state
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [invites, setInvites] = useState<ApplicationInvite[]>([]);
+  const [loadingInvites, setLoadingInvites] = useState(false);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [deleteInviteId, setDeleteInviteId] = useState<string | null>(null);
 
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
@@ -403,6 +427,8 @@ export default function ManagementPortal() {
   }, []);
 
   const fetchApplications = useCallback(async () => {
+    // 'invited' tab is handled separately — don't query applications table
+    if (statusFilter === 'invited') return;
     setLoadingApps(true);
     let query = supabase
       .from('applications')
@@ -411,7 +437,7 @@ export default function ManagementPortal() {
       .order('submitted_at', { ascending: false });
 
     if (statusFilter !== 'all') {
-      query = query.eq('review_status', statusFilter);
+      query = query.eq('review_status', statusFilter as 'pending' | 'approved' | 'denied');
     }
 
     const { data } = await query;
@@ -428,6 +454,56 @@ export default function ManagementPortal() {
       fetchApplications();
     }
   }, [view, fetchApplications]);
+
+  const fetchInvites = useCallback(async () => {
+    setLoadingInvites(true);
+    const { data } = await supabase
+      .from('application_invites')
+      .select('*')
+      .order('created_at', { ascending: false });
+    setInvites((data as ApplicationInvite[]) ?? []);
+    setLoadingInvites(false);
+  }, []);
+
+  useEffect(() => {
+    if (view === 'applications' && statusFilter === 'invited') {
+      fetchInvites();
+    }
+  }, [view, statusFilter, fetchInvites]);
+
+  const handleResendInvite = async (invite: ApplicationInvite) => {
+    setResendingId(invite.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('invite-applicant', {
+        body: {
+          first_name: invite.first_name,
+          last_name: invite.last_name,
+          email: invite.email,
+          phone: invite.phone,
+          note: invite.note,
+          invite_id: invite.id,
+        },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: '✅ Invite Resent', description: `Invite email resent to ${invite.email}.` });
+      fetchInvites();
+    } catch (err: unknown) {
+      toast({ title: 'Resend Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setResendingId(null);
+    }
+  };
+
+  const handleDeleteInvite = async (id: string) => {
+    await supabase.from('application_invites').delete().eq('id', id);
+    setDeleteInviteId(null);
+    fetchInvites();
+    toast({ title: 'Invite deleted' });
+  };
+
+
 
   const handleApprove = async (appId: string, notes: string) => {
     try {
@@ -1242,31 +1318,44 @@ export default function ManagementPortal() {
           <div className="space-y-5 animate-fade-in">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Application Reviews</h1>
-                <p className="text-sm text-muted-foreground mt-1">Review, approve, or deny driver applications</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Applications</h1>
+                <p className="text-sm text-muted-foreground mt-1">Review applications and manage outreach invites</p>
               </div>
-              <Button variant="outline" size="sm" onClick={fetchApplications} className="gap-1.5 shrink-0" disabled={loadingApps}>
-                <RefreshCcw className={`h-3.5 w-3.5 ${loadingApps ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  onClick={() => setInviteModalOpen(true)}
+                  className="gap-1.5"
+                >
+                  <MailPlus className="h-3.5 w-3.5" />
+                  Invite Someone
+                </Button>
+                {statusFilter !== 'invited' && (
+                  <Button variant="outline" size="sm" onClick={fetchApplications} className="gap-1.5" disabled={loadingApps}>
+                    <RefreshCcw className={`h-3.5 w-3.5 ${loadingApps ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-3">
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search by name, email, or phone..."
-                  className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
-                />
-              </div>
+              {statusFilter !== 'invited' && (
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Search by name, email, or phone..."
+                    className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  />
+                </div>
+              )}
               {/* Status tabs */}
               <div className="flex rounded-lg border border-border bg-white overflow-hidden shrink-0">
-                {(['pending', 'approved', 'denied', 'all'] as StatusFilter[]).map(s => (
+                {(['pending', 'approved', 'denied', 'all', 'invited'] as StatusFilter[]).map(s => (
                   <button
                     key={s}
                     onClick={() => setStatusFilter(s)}
@@ -1280,94 +1369,180 @@ export default function ManagementPortal() {
                     {s === 'pending' && metrics.pending > 0 && (
                       <span className="ml-1 bg-status-progress text-white text-[10px] px-1.5 py-0.5 rounded-full">{metrics.pending}</span>
                     )}
+                    {s === 'invited' && invites.length > 0 && (
+                      <span className="ml-1 bg-gold text-surface-dark text-[10px] px-1.5 py-0.5 rounded-full">{invites.length}</span>
+                    )}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Applications list */}
-            <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
-              {loadingApps ? (
-                <div className="py-16 text-center text-muted-foreground text-sm">Loading applications…</div>
-              ) : filteredApps.length === 0 ? (
-                <div className="py-16 text-center">
-                  <ClipboardList className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="text-muted-foreground text-sm">No {statusFilter !== 'all' ? statusFilter : ''} applications found</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {/* Table header — hidden on mobile */}
-                  <div className="hidden sm:grid grid-cols-12 px-5 py-3 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    <span className="col-span-4">Applicant</span>
-                    <span className="col-span-3">Contact</span>
-                    <span className="col-span-2">Submitted</span>
-                    <span className="col-span-2">Status</span>
-                    <span className="col-span-1 text-right">Action</span>
+            {/* ── Invited list ── */}
+            {statusFilter === 'invited' ? (
+              <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+                {loadingInvites ? (
+                  <div className="py-16 text-center text-muted-foreground text-sm">Loading invites…</div>
+                ) : invites.length === 0 ? (
+                  <div className="py-16 text-center">
+                    <Mail className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                    <p className="font-medium text-foreground">No invites sent yet</p>
+                    <p className="text-sm text-muted-foreground mt-1 mb-4">Use "Invite Someone" to reach out to a prospective driver.</p>
+                    <Button size="sm" onClick={() => setInviteModalOpen(true)} className="gap-1.5">
+                      <MailPlus className="h-3.5 w-3.5" /> Send First Invite
+                    </Button>
                   </div>
-
-                  {filteredApps.map(app => {
-                    const name = [app.first_name, app.last_name].filter(Boolean).join(' ') || '—';
-                    return (
-                      <div
-                        key={app.id}
-                        className="cursor-pointer group hover:bg-secondary/20 transition-colors"
-                        onClick={() => setSelectedApp(app)}
-                      >
-                        {/* Desktop row */}
-                        <div className="hidden sm:grid grid-cols-12 items-center px-5 py-4">
-                          <div className="col-span-4">
-                            <p className="text-sm font-medium text-foreground group-hover:text-gold transition-colors">{name}</p>
-                            {(app.cdl_state || app.cdl_class) && (
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                CDL {app.cdl_class ?? '?'} · {app.cdl_state ?? '?'}
-                              </p>
-                            )}
+                ) : (
+                  <div className="divide-y divide-border">
+                    <div className="hidden sm:grid grid-cols-12 px-5 py-3 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      <span className="col-span-4">Person</span>
+                      <span className="col-span-3">Contact</span>
+                      <span className="col-span-2">Sent By</span>
+                      <span className="col-span-2">Date</span>
+                      <span className="col-span-1 text-right">Actions</span>
+                    </div>
+                    {invites.map(inv => {
+                      const name = `${inv.first_name} ${inv.last_name}`;
+                      return (
+                        <div key={inv.id} className="hidden sm:grid grid-cols-12 items-center px-5 py-4 hover:bg-secondary/20 transition-colors">
+                          <div className="col-span-4 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-foreground truncate">{name}</p>
+                              {!inv.email_sent && (
+                                <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-destructive/10 text-destructive border-destructive/20">Failed</span>
+                              )}
+                            </div>
+                            {inv.note && <p className="text-xs text-muted-foreground truncate mt-0.5 italic">"{inv.note}"</p>}
                           </div>
-                          <div className="col-span-3">
-                            <p className="text-xs text-foreground truncate">{app.email}</p>
-                            <p className="text-xs text-muted-foreground">{app.phone ?? '—'}</p>
-                          </div>
-                          <div className="col-span-2">
-                            <p className="text-xs text-foreground">
-                              {app.submitted_at ? new Date(app.submitted_at).toLocaleDateString() : '—'}
-                            </p>
+                          <div className="col-span-3 min-w-0">
+                            <p className="text-xs text-foreground truncate flex items-center gap-1"><Mail className="h-3 w-3 text-muted-foreground shrink-0" />{inv.email}</p>
+                            {inv.phone && <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5"><Phone className="h-3 w-3 shrink-0" />{inv.phone}</p>}
                           </div>
                           <div className="col-span-2">
-                            <Badge className={`text-xs border ${STATUS_COLORS[app.review_status] ?? ''}`}>
-                              {app.review_status}
-                            </Badge>
+                            <p className="text-xs text-foreground truncate">{inv.invited_by_name ?? '—'}</p>
                           </div>
-                          <div className="col-span-1 flex justify-end">
-                            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-gold transition-colors" />
+                          <div className="col-span-2">
+                            <p className="text-xs text-foreground">{new Date(inv.resent_at ?? inv.created_at).toLocaleDateString()}</p>
+                            {inv.resent_at && <p className="text-[10px] text-muted-foreground">Resent</p>}
+                          </div>
+                          <div className="col-span-1 flex items-center justify-end gap-1">
+                            <TooltipProvider delayDuration={300}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={() => handleResendInvite(inv)}
+                                    disabled={resendingId === inv.id}
+                                    className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                                  >
+                                    {resendingId === inv.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="text-xs">Resend invite</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={() => setDeleteInviteId(inv.id)}
+                                    className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="text-xs">Delete invite</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </div>
                         </div>
-                        {/* Mobile card */}
-                        <div className="sm:hidden px-4 py-3 flex items-center justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-sm font-medium text-foreground group-hover:text-gold transition-colors truncate">{name}</p>
-                              <Badge className={`text-[10px] border px-1.5 py-0 shrink-0 ${STATUS_COLORS[app.review_status] ?? ''}`}>
-                                {app.review_status}
-                              </Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground truncate mt-0.5">{app.email}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {app.phone ?? 'No phone'}{app.submitted_at ? ` · ${new Date(app.submitted_at).toLocaleDateString()}` : ''}
-                            </p>
+                      );
+                    })}
+                    {/* Mobile cards */}
+                    {invites.map(inv => (
+                      <div key={`m-${inv.id}`} className="sm:hidden px-4 py-3 flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-medium text-foreground">{inv.first_name} {inv.last_name}</p>
+                            {!inv.email_sent && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-destructive/10 text-destructive border-destructive/20">Failed</span>}
                           </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-gold transition-colors shrink-0" />
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{inv.email}</p>
+                          {inv.phone && <p className="text-xs text-muted-foreground">{inv.phone}</p>}
+                          <p className="text-xs text-muted-foreground mt-0.5">{new Date(inv.created_at).toLocaleDateString()} · {inv.invited_by_name}</p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button onClick={() => handleResendInvite(inv)} disabled={resendingId === inv.id} className="p-1.5 rounded hover:bg-secondary text-muted-foreground disabled:opacity-50">
+                            {resendingId === inv.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                          </button>
+                          <button onClick={() => setDeleteInviteId(inv.id)} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* Applications list */}
+                <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+                  {loadingApps ? (
+                    <div className="py-16 text-center text-muted-foreground text-sm">Loading applications…</div>
+                  ) : filteredApps.length === 0 ? (
+                    <div className="py-16 text-center">
+                      <ClipboardList className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                      <p className="text-muted-foreground text-sm">No {statusFilter !== 'all' ? statusFilter : ''} applications found</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      <div className="hidden sm:grid grid-cols-12 px-5 py-3 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        <span className="col-span-4">Applicant</span>
+                        <span className="col-span-3">Contact</span>
+                        <span className="col-span-2">Submitted</span>
+                        <span className="col-span-2">Status</span>
+                        <span className="col-span-1 text-right">Action</span>
+                      </div>
+                      {filteredApps.map(app => {
+                        const name = [app.first_name, app.last_name].filter(Boolean).join(' ') || '—';
+                        return (
+                          <div key={app.id} className="cursor-pointer group hover:bg-secondary/20 transition-colors" onClick={() => setSelectedApp(app)}>
+                            <div className="hidden sm:grid grid-cols-12 items-center px-5 py-4">
+                              <div className="col-span-4">
+                                <p className="text-sm font-medium text-foreground group-hover:text-gold transition-colors">{name}</p>
+                                {(app.cdl_state || app.cdl_class) && <p className="text-xs text-muted-foreground mt-0.5">CDL {app.cdl_class ?? '?'} · {app.cdl_state ?? '?'}</p>}
+                              </div>
+                              <div className="col-span-3">
+                                <p className="text-xs text-foreground truncate">{app.email}</p>
+                                <p className="text-xs text-muted-foreground">{app.phone ?? '—'}</p>
+                              </div>
+                              <div className="col-span-2">
+                                <p className="text-xs text-foreground">{app.submitted_at ? new Date(app.submitted_at).toLocaleDateString() : '—'}</p>
+                              </div>
+                              <div className="col-span-2">
+                                <Badge className={`text-xs border ${STATUS_COLORS[app.review_status] ?? ''}`}>{app.review_status}</Badge>
+                              </div>
+                              <div className="col-span-1 flex justify-end">
+                                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-gold transition-colors" />
+                              </div>
+                            </div>
+                            <div className="sm:hidden px-4 py-3 flex items-center justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-medium text-foreground group-hover:text-gold transition-colors truncate">{name}</p>
+                                  <Badge className={`text-[10px] border px-1.5 py-0 shrink-0 ${STATUS_COLORS[app.review_status] ?? ''}`}>{app.review_status}</Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground truncate mt-0.5">{app.email}</p>
+                                <p className="text-xs text-muted-foreground">{app.phone ?? 'No phone'}{app.submitted_at ? ` · ${new Date(app.submitted_at).toLocaleDateString()}` : ''}</p>
+                              </div>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-gold transition-colors shrink-0" />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-
-            {filteredApps.length > 0 && (
-              <p className="text-xs text-muted-foreground text-right">
-                Showing {filteredApps.length} application{filteredApps.length !== 1 ? 's' : ''}
-              </p>
+                {filteredApps.length > 0 && (
+                  <p className="text-xs text-muted-foreground text-right">Showing {filteredApps.length} application{filteredApps.length !== 1 ? 's' : ''}</p>
+                )}
+              </>
             )}
           </div>
         )}
@@ -1498,6 +1673,32 @@ export default function ManagementPortal() {
           focusField={drawerFocusField}
         />
       )}
+
+      <InviteApplicantModal
+        open={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        onInviteSent={() => { if (statusFilter === 'invited') fetchInvites(); }}
+      />
+
+      <AlertDialog open={!!deleteInviteId} onOpenChange={(open) => { if (!open) setDeleteInviteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Invite?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the invite record. The person won't be notified.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteInviteId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteInviteId && handleDeleteInvite(deleteInviteId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!pendingNavPath} onOpenChange={(open) => { if (!open) setPendingNavPath(null); }}>
         <AlertDialogContent>
