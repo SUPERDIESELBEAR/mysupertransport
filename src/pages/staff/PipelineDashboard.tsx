@@ -2067,6 +2067,51 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         </div>
       )}
 
+      {/* Stage incomplete quick-filter chip row — one chip per active stage from pipeline_config */}
+      {stageConfigs.filter(c => c.is_active).length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide shrink-0">Incomplete:</span>
+          {stageConfigs
+            .filter(c => c.is_active)
+            .sort((a, b) => a.stage_order - b.stage_order)
+            .map(cfg => {
+              const incompleteCount = operators.filter(op =>
+                cfg.items.length > 0 &&
+                !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
+              ).length;
+              if (incompleteCount === 0) return null;
+              const isActive = stageNodeFilter === cfg.stage_key;
+              return (
+                <button
+                  key={cfg.stage_key}
+                  onClick={() => setStageNodeFilter(isActive ? 'all' : cfg.stage_key)}
+                  className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-all active:scale-95 ${
+                    isActive
+                      ? 'bg-gold text-white border-gold shadow-sm'
+                      : 'bg-background text-muted-foreground border-border hover:border-gold/50 hover:text-gold'
+                  }`}
+                >
+                  {cfg.label}
+                  <span className={`text-[10px] font-bold px-1 py-0.5 rounded-full leading-none ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {incompleteCount}
+                  </span>
+                  {isActive && <X className="h-3 w-3 shrink-0" />}
+                </button>
+              );
+            })}
+          {stageNodeFilter !== 'all' && (
+            <button
+              onClick={() => setStageNodeFilter('all')}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+            >
+              clear
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Operator table */}
       <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
