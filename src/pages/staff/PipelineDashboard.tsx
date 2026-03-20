@@ -142,9 +142,16 @@ function StageTrack({
           <TooltipProvider delayDuration={150}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex flex-col items-center gap-0.5 cursor-default">
+                <div
+                  className="flex flex-col items-center gap-0.5 cursor-pointer group/node"
+                  onClick={e => {
+                    e.stopPropagation();
+                    const detailKey = STAGE_KEY_TO_DETAIL[node.key] ?? node.key;
+                    onNodeClick?.(op.id, detailKey);
+                  }}
+                >
                   <div
-                    className="h-5 w-5 rounded-full flex items-center justify-center transition-all duration-300 shrink-0"
+                    className="h-5 w-5 rounded-full flex items-center justify-center transition-all duration-200 shrink-0 group-hover/node:scale-110 group-hover/node:ring-2 group-hover/node:ring-offset-1"
                     style={
                       node.state === 'complete'
                         ? { background: 'hsl(var(--status-complete))', border: '1.5px solid hsl(var(--status-complete))' }
@@ -179,6 +186,7 @@ function StageTrack({
               </TooltipTrigger>
               <TooltipContent side="top" className="text-left space-y-1.5 min-w-[160px]">
                 <p className="font-semibold text-xs">{node.fullName}</p>
+                <p className="text-[10px] text-muted-foreground italic">Click to open this section</p>
                 <ul className="space-y-0.5">
                   {node.items.map(item => (
                     <li key={item.label} className="flex items-center gap-1.5 text-xs">
@@ -197,6 +205,7 @@ function StageTrack({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+
         </div>
       ))}
       {/* Overall % — always in sync with node states */}
