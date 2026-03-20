@@ -142,8 +142,10 @@ function StageTrack({
           <TooltipProvider delayDuration={150}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div
-                  className="flex flex-col items-center gap-0.5 cursor-pointer group/node"
+                <button
+                  type="button"
+                  data-stage-node={node.key}
+                  className="flex flex-col items-center gap-0.5 cursor-pointer group/node bg-transparent border-0 p-0 outline-none focus-visible:outline-none"
                   onClick={e => {
                     e.stopPropagation();
                     const detailKey = STAGE_KEY_TO_DETAIL[node.key] ?? node.key;
@@ -151,7 +153,7 @@ function StageTrack({
                   }}
                 >
                   <div
-                    className="h-5 w-5 rounded-full flex items-center justify-center transition-all duration-200 shrink-0 group-hover/node:scale-110 group-hover/node:ring-2 group-hover/node:ring-offset-1"
+                    className="h-5 w-5 rounded-full flex items-center justify-center transition-all duration-200 shrink-0 group-hover/node:scale-110 group-hover/node:ring-2 group-hover/node:ring-offset-1 pointer-events-none"
                     style={
                       node.state === 'complete'
                         ? { background: 'hsl(var(--status-complete))', border: '1.5px solid hsl(var(--status-complete))' }
@@ -161,17 +163,17 @@ function StageTrack({
                     }
                   >
                     {node.state === 'complete' && (
-                      <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+                      <Check className="h-2.5 w-2.5 text-white pointer-events-none" strokeWidth={3} />
                     )}
                     {node.state === 'partial' && (
                       <div
-                        className="h-2 w-2 rounded-full"
+                        className="h-2 w-2 rounded-full pointer-events-none"
                         style={{ background: 'hsl(var(--status-progress))' }}
                       />
                     )}
                   </div>
                   <span
-                    className="text-[9px] font-semibold leading-none tracking-wide"
+                    className="text-[9px] font-semibold leading-none tracking-wide pointer-events-none"
                     style={{
                       color: node.state === 'complete'
                         ? 'hsl(var(--status-complete))'
@@ -182,7 +184,7 @@ function StageTrack({
                   >
                     {node.label}
                   </span>
-                </div>
+                </button>
               </TooltipTrigger>
               <TooltipContent side="top" className="text-left space-y-1.5 min-w-[160px]">
                 <p className="font-semibold text-xs">{node.fullName}</p>
