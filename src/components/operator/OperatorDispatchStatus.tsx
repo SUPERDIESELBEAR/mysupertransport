@@ -77,7 +77,7 @@ export default function OperatorDispatchStatus({ operatorId, onMessageDispatcher
   const fetchDispatcherInfo = async (dispatcherUserId: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('first_name, last_name, phone')
+      .select('first_name, last_name, phone, avatar_url')
       .eq('user_id', dispatcherUserId)
       .maybeSingle();
     setDispatcher(data as DispatcherInfo | null);
