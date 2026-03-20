@@ -158,7 +158,7 @@ function StageTrack({
                       node.state === 'complete'
                         ? { background: 'hsl(var(--status-complete))', border: '1.5px solid hsl(var(--status-complete))' }
                         : node.state === 'partial'
-                        ? { background: 'transparent', border: '2px solid hsl(var(--status-progress))' }
+                        ? { background: 'transparent', border: '2px solid hsl(var(--status-in-progress))' }
                         : { background: 'hsl(var(--muted))', border: '1.5px solid hsl(var(--border))' }
                     }
                   >
@@ -168,7 +168,7 @@ function StageTrack({
                     {node.state === 'partial' && (
                       <div
                         className="h-2 w-2 rounded-full pointer-events-none"
-                        style={{ background: 'hsl(var(--status-progress))' }}
+                        style={{ background: 'hsl(var(--status-in-progress))' }}
                       />
                     )}
                   </div>
@@ -178,7 +178,7 @@ function StageTrack({
                       color: node.state === 'complete'
                         ? 'hsl(var(--status-complete))'
                         : node.state === 'partial'
-                        ? 'hsl(var(--status-progress))'
+                        ? 'hsl(var(--status-in-progress))'
                         : 'hsl(var(--muted-foreground))',
                     }}
                   >
