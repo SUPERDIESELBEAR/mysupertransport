@@ -2331,18 +2331,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{op.phone ?? '—'}</td>
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
                      <td className="px-4 py-3">
-                       <div className="space-y-1 min-w-[140px]">
-                         <div className="flex items-center justify-between gap-2">
-                           <Badge variant="outline" className="text-xs border-gold/40 text-gold bg-gold/5 truncate max-w-[120px]">
-                             {op.current_stage}
-                           </Badge>
-                           <span className={`text-[11px] font-bold tabular-nums shrink-0 ${
-                             op.progress_pct === 100 ? 'text-status-complete' : 'text-muted-foreground'
-                           }`}>
-                             {op.progress_pct}%
-                           </span>
-                         </div>
-                         {/* Days in Draft chip — shown only for Stage 3 ICA operators with an in_progress draft */}
+                       <div className="flex flex-col gap-1.5">
+                         <StageTrack op={op} />
+                         {/* Days in Draft chip — shown when ICA is in-progress */}
                          {op.ica_status === 'in_progress' && op.ica_draft_since && (() => {
                            const daysInDraft = differenceInDays(new Date(), parseISO(op.ica_draft_since));
                            const isStale = daysInDraft >= 7;
@@ -2370,17 +2361,6 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                              </TooltipProvider>
                            );
                          })()}
-                         <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                           <div
-                             className="h-full rounded-full transition-all duration-500"
-                             style={{
-                               width: `${op.progress_pct}%`,
-                               background: op.progress_pct === 100
-                                 ? 'hsl(var(--status-complete))'
-                                 : 'hsl(var(--gold-main))',
-                             }}
-                           />
-                         </div>
                        </div>
                      </td>
                     <td className="px-4 py-3 hidden md:table-cell">
@@ -2391,26 +2371,6 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       ) : (
                         <Badge className="status-progress border text-xs">In Progress</Badge>
                       )}
-                    </td>
-                    <td className="px-4 py-3 hidden lg:table-cell">
-                      <div className="flex items-center gap-2 min-w-[100px]">
-                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-500"
-                            style={{
-                              width: `${op.progress_pct}%`,
-                              background: op.progress_pct === 100
-                                ? 'hsl(var(--status-complete))'
-                                : 'hsl(var(--gold-main))',
-                            }}
-                          />
-                        </div>
-                        <span className={`text-[11px] font-bold tabular-nums shrink-0 ${
-                          op.progress_pct === 100 ? 'text-status-complete' : 'text-muted-foreground'
-                        }`}>
-                          {op.progress_pct}%
-                        </span>
-                      </div>
                     </td>
                     {/* Dispatch status badge — only shown for fully onboarded operators */}
                     <td className="px-4 py-3 hidden lg:table-cell">
