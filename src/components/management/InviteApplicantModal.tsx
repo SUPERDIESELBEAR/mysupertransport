@@ -37,6 +37,7 @@ export default function InviteApplicantModal({ open, onClose, onInviteSent }: In
     setLoading(true);
 
     try {
+      const { data: { session: s } } = await supabase.auth.getSession();
       const { data, error } = await supabase.functions.invoke('invite-applicant', {
         body: {
           first_name: form.first_name.trim(),
@@ -45,6 +46,7 @@ export default function InviteApplicantModal({ open, onClose, onInviteSent }: In
           phone: form.phone.trim() || null,
           note: form.note.trim() || null,
         },
+        headers: { Authorization: `Bearer ${s?.access_token}` },
       });
 
       if (error) throw error;
