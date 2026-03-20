@@ -533,6 +533,7 @@ export default function StaffPortal() {
           onUnsavedChangesChange={setOperatorHasUnsavedChanges}
           expiryOverride={panelExpiryOverride}
           scrollToInspectionBinder={scrollToInspectionBinder}
+          scrollToStageKey={scrollToStageKey}
           onOpenAppReview={async (focusField) => {
             const { data: op } = await supabase
               .from('operators')
