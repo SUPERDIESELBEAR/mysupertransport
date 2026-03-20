@@ -1124,12 +1124,37 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                             {s.complete ? '✓' : i + 1}
                           </button>
                         </TooltipTrigger>
-                        <TooltipContent side="bottom" className="text-xs">
-                          <span className="font-semibold">{s.label}</span>
-                          <span className={`ml-1.5 ${s.complete ? 'text-status-complete' : 'text-muted-foreground'}`}>
-                            — {s.complete ? '✓ Complete' : 'Pending'}
-                          </span>
-                        </TooltipContent>
+                         <TooltipContent side="bottom" className="text-left min-w-[160px] max-w-[220px] p-2.5 space-y-2">
+                           <p className="font-semibold text-xs">{s.fullName ?? s.label}</p>
+                           {s.complete ? (
+                             <p className="text-xs" style={{ color: 'hsl(var(--status-complete))' }}>All items complete ✓</p>
+                           ) : (
+                             <div className="space-y-1">
+                               <p className="text-[10px] font-semibold uppercase tracking-wide text-destructive/80">Still needed</p>
+                               <ul className="space-y-1">
+                                 {s.items.filter(it => !it.done).map(it => (
+                                   <li key={it.label} className="flex items-start gap-1.5 text-xs">
+                                     <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                                     <span className="text-foreground">{it.label}</span>
+                                   </li>
+                                 ))}
+                               </ul>
+                               {s.items.filter(it => it.done).length > 0 && (
+                                 <div className="space-y-1 pt-1 border-t border-border">
+                                   <ul className="space-y-1">
+                                     {s.items.filter(it => it.done).map(it => (
+                                       <li key={it.label} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                                         <span className="mt-0.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'hsl(var(--status-complete))' }} />
+                                         <span>{it.label}</span>
+                                       </li>
+                                     ))}
+                                   </ul>
+                                 </div>
+                               )}
+                             </div>
+                           )}
+                           <p className="text-[10px] text-muted-foreground italic">Click to jump to section</p>
+                         </TooltipContent>
                       </Tooltip>
                     ))}
                   </div>
