@@ -1317,7 +1317,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         return sortDir === 'asc' ? cmp : -cmp;
       }
       if (sortKey === 'progress') {
-        const cmp = a.progress_pct - b.progress_pct;
+        const cmp = computeProgressFromConfig(a, stageConfigs) - computeProgressFromConfig(b, stageConfigs);
         return sortDir === 'asc' ? cmp : -cmp;
       }
       if (sortKey === 'last_activity') {
