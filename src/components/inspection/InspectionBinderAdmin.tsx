@@ -1057,9 +1057,10 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
   // Count per-driver docs that were shared from company docs for the selected driver
   const companyDocNames = new Set(COMPANY_WIDE_DOCS.map(d => d.key));
-  const sharedFromCompanyCount = selectedDriverId
-    ? perDriverDocs.filter(d => companyDocNames.has(d.name as any) && d.file_url).length
-    : 0;
+  const sharedFromCompanyDocs = selectedDriverId
+    ? perDriverDocs.filter(d => companyDocNames.has(d.name as any) && d.file_url)
+    : [];
+  const sharedFromCompanyCount = sharedFromCompanyDocs.length;
 
   const tabs = [
     {
