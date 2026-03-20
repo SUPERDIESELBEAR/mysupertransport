@@ -895,9 +895,30 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     variant="ghost"
                     className="h-8 w-8 p-0"
                     onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(docName); }}
+                    title="Preview"
                   >
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
+                )}
+                {doc?.file_url && doc?.public_share_token && (
+                  <Tooltip delayDuration={150}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={handleCopyLink}
+                      >
+                        {linkCopied
+                          ? <Check className="h-3.5 w-3.5 text-status-complete" />
+                          : <Copy className="h-3.5 w-3.5" />
+                        }
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      {linkCopied ? 'Copied!' : 'Copy share link'}
+                    </TooltipContent>
+                  </Tooltip>
                 )}
                 {doc && (
                   <Button
