@@ -2,12 +2,13 @@ import { ReactNode, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import {
-  LogOut, Menu, X, ChevronDown, KeyRound,
+  LogOut, Menu, X, ChevronDown, KeyRound, UserPen,
 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import type { Database } from '@/integrations/supabase/types';
 import NotificationBell from '@/components/NotificationBell';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
+import EditProfileModal from '@/components/EditProfileModal';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
