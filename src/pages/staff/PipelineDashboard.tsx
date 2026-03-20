@@ -445,7 +445,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortKey(key);
-      setSortDir('asc');
+      // Progress sort defaults to descending (highest completion first)
+      setSortDir(key === 'progress' ? 'desc' : 'asc');
     }
   };
 
