@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2, Bell,
-  Inbox, UserCheck, X, Pencil, ArrowRight, CheckSquare,
+  Inbox, UserCheck, X, Pencil, ArrowRight, CheckSquare, Copy, Check,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
