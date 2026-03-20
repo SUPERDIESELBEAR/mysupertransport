@@ -74,7 +74,7 @@ function buildEmail(subject: string, heading: string, body: string, cta?: { labe
         <!-- Footer -->
         <tr>
           <td style="background:#f9f9f9;padding:24px 40px;border-top:1px solid #eee;">
-            <p style="margin:0;color:#999;font-size:12px;">SUPERTRANSPORT LLC &nbsp;·&nbsp; Questions? <a href="mailto:support@mysupertransport.com" style="color:#C9A84C;">support@mysupertransport.com</a></p>
+            <p style="margin:0;color:#999;font-size:12px;">SUPERTRANSPORT &nbsp;·&nbsp; Questions? <a href="mailto:support@mysupertransport.com" style="color:#C9A84C;">support@mysupertransport.com</a></p>
             <p style="margin:6px 0 0;color:#bbb;font-size:11px;">This is an automated notification. Please do not reply to this email.</p>
           </td>
         </tr>
@@ -119,7 +119,7 @@ const MILESTONE_OPERATOR_COPY: Record<string, { heading: string; body: (name: st
   ica_complete: {
     heading: '✅ Your ICA Agreement is Complete',
     body: (name) => `<p>Hi ${name},</p>
-      <p>Great news — your <strong>Independent Contractor Agreement (ICA)</strong> has been signed and is now on file. This is a major step in your onboarding with SUPERTRANSPORT LLC.</p>
+      <p>Great news — your <strong>Independent Contractor Agreement (ICA)</strong> has been signed and is now on file. This is a major step in your onboarding with SUPERTRANSPORT.</p>
       <p>Our team will be in touch shortly with the next steps. You can log in to your portal at any time to check your onboarding progress.</p>`,
   },
   mvr_approved: {
@@ -173,7 +173,7 @@ const MILESTONE_OPERATOR_COPY: Record<string, { heading: string; body: (name: st
   fully_onboarded: {
     heading: '🎉 Welcome to SUPERTRANSPORT — You\'re Fully Onboarded!',
     body: (name) => `<p>Hi ${name},</p>
-      <p>Congratulations — you have officially completed the onboarding process and are now a <strong>fully active owner-operator</strong> with SUPERTRANSPORT LLC!</p>
+      <p>Congratulations — you have officially completed the onboarding process and are now a <strong>fully active owner-operator</strong> with SUPERTRANSPORT!</p>
       <p>Here's what happens next:</p>
       <ul style="padding-left:20px;line-height:2;">
         <li>Your dispatcher will be in touch to get you set up with your first load.</li>

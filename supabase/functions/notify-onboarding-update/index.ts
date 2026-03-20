@@ -37,7 +37,7 @@ function buildEmail(subject: string, heading: string, body: string, cta?: { labe
         </tr>
         <tr>
           <td style="background:#f9f9f9;padding:24px 40px;border-top:1px solid #eee;">
-            <p style="margin:0;color:#999;font-size:12px;">SUPERTRANSPORT LLC &nbsp;·&nbsp; Questions? <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a></p>
+            <p style="margin:0;color:#999;font-size:12px;">SUPERTRANSPORT &nbsp;·&nbsp; Questions? <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a></p>
             <p style="margin:6px 0 0;color:#bbb;font-size:11px;">This is an automated notification. Please do not reply directly to this email.</p>
           </td>
         </tr>
@@ -103,7 +103,7 @@ const MILESTONE_COPY: Record<string, {
     subject: 'ICA Agreement Signed & Complete — SUPERTRANSPORT',
     heading: '✅ ICA Agreement Complete',
     body: (name) => `<p>Hi ${name},</p>
-      <p>Your <strong>Independent Contractor Agreement (ICA)</strong> is now fully signed and on file with SUPERTRANSPORT LLC.</p>
+      <p>Your <strong>Independent Contractor Agreement (ICA)</strong> is now fully signed and on file with SUPERTRANSPORT.</p>
       <p>This is a major milestone in your onboarding journey. Our team will now proceed with Missouri registration and equipment setup.</p>`,
     cta: (appUrl) => ({ label: 'View My Onboarding Progress', url: `${appUrl}/dashboard` }),
   },
@@ -137,7 +137,7 @@ const MILESTONE_COPY: Record<string, {
     subject: "🎉 You're Fully Onboarded — Welcome to SUPERTRANSPORT!",
     heading: "🎉 Welcome to SUPERTRANSPORT — You're Ready to Roll!",
     body: (name) => `<p>Hi ${name},</p>
-      <p>Congratulations! You have officially completed the entire onboarding process and are now a <strong>fully active owner-operator</strong> with SUPERTRANSPORT LLC.</p>
+      <p>Congratulations! You have officially completed the entire onboarding process and are now a <strong>fully active owner-operator</strong> with SUPERTRANSPORT.</p>
       <p>Here's what comes next:</p>
       <ul style="padding-left:20px;line-height:2.2;">
         <li>Your dispatcher will be reaching out to get you set up with your first load.</li>

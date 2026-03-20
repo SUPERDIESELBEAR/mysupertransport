@@ -31,7 +31,7 @@ function buildInviteEmail(firstName: string, note: string | null, appUrl: string
           <td style="padding:40px;">
             <h1 style="margin:0 0 16px;font-size:22px;color:#0f1117;font-weight:700;">You're Invited to Join Our Team, ${firstName}!</h1>
             <div style="color:#444;font-size:15px;line-height:1.7;">
-              <p>We'd love for you to apply to become an owner-operator with <strong>SUPERTRANSPORT LLC</strong>.</p>
+              <p>We'd love for you to apply to become an owner-operator with <strong>SUPERTRANSPORT</strong>.</p>
               <p>We work with independent trucking professionals who value flexibility, competitive pay, and real support on the road. If you're interested in partnering with us, click below to start your application — it only takes a few minutes.</p>
               ${noteHtml}
               <p style="margin-top:20px;"><strong>What to expect:</strong></p>
@@ -53,7 +53,7 @@ function buildInviteEmail(firstName: string, note: string | null, appUrl: string
         <!-- Footer -->
         <tr>
           <td style="background:#f9f9f9;padding:24px 40px;border-top:1px solid #eee;">
-            <p style="margin:0;color:#999;font-size:12px;">SUPERTRANSPORT LLC &nbsp;·&nbsp; Questions? <a href="mailto:recruiting@mysupertransport.com" style="color:#C9A84C;">recruiting@mysupertransport.com</a></p>
+            <p style="margin:0;color:#999;font-size:12px;">SUPERTRANSPORT &nbsp;·&nbsp; Questions? <a href="mailto:recruiting@mysupertransport.com" style="color:#C9A84C;">recruiting@mysupertransport.com</a></p>
             <p style="margin:6px 0 0;color:#bbb;font-size:11px;">You received this email because a SUPERTRANSPORT team member personally invited you to apply.</p>
           </td>
         </tr>
