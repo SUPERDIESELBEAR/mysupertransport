@@ -289,6 +289,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [operators, setOperators] = useState<OperatorRow[]>([]);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stageConfigs, setStageConfigs] = useState<PipelineStageConfig[]>([]);
   // Track which operator rows are currently saving a coordinator assignment
   const [assigningMap, setAssigningMap] = useState<Record<string, boolean>>({});
   const [showFilters, setShowFilters] = useState(false);
