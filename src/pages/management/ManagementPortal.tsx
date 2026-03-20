@@ -139,6 +139,20 @@ export default function ManagementPortal() {
   const [pipelineCoordinatorName, setPipelineCoordinatorName] = useState<string | null>(null);
   const [pipelineStageFilter, setPipelineStageFilter] = useState<string>('all');
 
+  // Messages state
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+  const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
+  const [bulkMessageOpen, setBulkMessageOpen] = useState(false);
+  const [bulkMessagePreselected, setBulkMessagePreselected] = useState<string[]>([]);
+  const viewRef = useRef(view);
+
+  // Compliance panel state
+  const alertsPanelRef = useRef<HTMLDivElement>(null);
+  const [alertsPanelHighlight, setAlertsPanelHighlight] = useState<'warning' | 'destructive' | 'muted' | false>(false);
+  const [alertsPanelNoAction, setAlertsPanelNoAction] = useState(false);
+  const [expiredCount, setExpiredCount] = useState(0);
+  const [noReminderCount, setNoReminderCount] = useState(0);
+
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
   useEffect(() => {
     const v = searchParams.get('view') as ManagementView | null;
