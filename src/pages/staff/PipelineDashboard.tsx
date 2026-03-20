@@ -695,6 +695,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         assigned_onboarding_staff,
         applications ( email ),
         onboarding_status (
+          mvr_status,
+          ch_status,
           mvr_ch_approval,
           pe_screening_result,
           ica_status,
