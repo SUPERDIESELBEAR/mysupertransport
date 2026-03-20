@@ -333,13 +333,19 @@ export default function ManagementPortal() {
   // Fetch + subscribe to critical expiry count
   useEffect(() => {
     fetchCriticalExpiries();
-    const channel = supabase
+    const ch1 = supabase
       .channel('mgmt-critical-expiry-badge')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, () => {
         fetchCriticalExpiries();
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const ch2 = supabase
+      .channel('mgmt-critical-expiry-reminders')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cert_reminders' }, () => {
+        fetchCriticalExpiries();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
   }, [fetchCriticalExpiries]);
 
   // Clear badge when visiting notifications/messages view
