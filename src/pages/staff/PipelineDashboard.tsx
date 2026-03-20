@@ -9,11 +9,216 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw, FileClock } from 'lucide-react';
+import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw, FileClock, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { differenceInDays, parseISO, format, formatDistanceToNowStrict } from 'date-fns';
 import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
+
+// ─── StageTrack ──────────────────────────────────────────────────────────────
+// Parallel 6-node progress track for each operator row.
+// Each node is computed independently — no sequential dependency.
+
+type NodeState = 'complete' | 'partial' | 'none';
+
+interface StageNode {
+  key: string;
+  label: string;
+  state: NodeState;
+  items: { label: string; done: boolean }[];
+}
+
+function computeStageNodes(op: OperatorRow): StageNode[] {
+  // BG
+  const bgComplete = op.mvr_ch_approval === 'approved';
+  const bgPartial = !bgComplete && (
+    op.mvr_ch_approval === 'received' ||
+    (op as any).mvr_status === 'requested' ||
+    (op as any).mvr_status === 'received' ||
+    (op as any).ch_status === 'requested' ||
+    (op as any).ch_status === 'received'
+  );
+
+  // Docs
+  const docsFields = [
+    { label: 'Form 2290', done: op.form_2290 === 'received' },
+    { label: 'Truck Title', done: op.truck_title === 'received' },
+    { label: 'Truck Photos', done: op.truck_photos === 'received' },
+    { label: 'Truck Inspection', done: op.truck_inspection === 'received' },
+  ];
+  const docsComplete = docsFields.every(f => f.done);
+  const docsPartial = !docsComplete && docsFields.some(f => f.done);
+
+  // ICA
+  const icaComplete = op.ica_status === 'complete';
+  const icaPartial = !icaComplete && (op.ica_status === 'in_progress' || op.ica_status === 'sent_for_signature');
+
+  // MO
+  const moComplete = op.mo_reg_received === 'yes';
+  const moPartial = !moComplete && (op as any).mo_docs_submitted === 'submitted';
+
+  // Equip
+  const equipFields = [
+    { label: 'Decal Applied', done: op.decal_applied === 'yes' },
+    { label: 'ELD Installed', done: op.eld_installed === 'yes' },
+    { label: 'Fuel Card Issued', done: op.fuel_card_issued === 'yes' },
+  ];
+  const equipComplete = equipFields.every(f => f.done);
+  const equipPartial = !equipComplete && equipFields.some(f => f.done);
+
+  // Insurance
+  const insComplete = !!op.insurance_added_date;
+
+  return [
+    {
+      key: 'bg',
+      label: 'BG',
+      state: bgComplete ? 'complete' : bgPartial ? 'partial' : 'none',
+      items: [
+        { label: 'MVR & CH Approval', done: bgComplete },
+      ],
+    },
+    {
+      key: 'docs',
+      label: 'Docs',
+      state: docsComplete ? 'complete' : docsPartial ? 'partial' : 'none',
+      items: docsFields,
+    },
+    {
+      key: 'ica',
+      label: 'ICA',
+      state: icaComplete ? 'complete' : icaPartial ? 'partial' : 'none',
+      items: [
+        { label: 'Contract Issued', done: op.ica_status !== 'not_issued' },
+        { label: 'Sent for Signature', done: op.ica_status === 'sent_for_signature' || op.ica_status === 'complete' },
+        { label: 'Fully Signed', done: icaComplete },
+      ],
+    },
+    {
+      key: 'mo',
+      label: 'MO',
+      state: moComplete ? 'complete' : moPartial ? 'partial' : 'none',
+      items: [
+        { label: 'Docs Submitted', done: (op as any).mo_docs_submitted === 'submitted' || moComplete },
+        { label: 'Registration Received', done: moComplete },
+      ],
+    },
+    {
+      key: 'equip',
+      label: 'Equip',
+      state: equipComplete ? 'complete' : equipPartial ? 'partial' : 'none',
+      items: equipFields,
+    },
+    {
+      key: 'ins',
+      label: 'Ins',
+      state: insComplete ? 'complete' : 'none',
+      items: [
+        { label: 'Added to Policy', done: insComplete },
+      ],
+    },
+  ];
+}
+
+function StageTrack({ op }: { op: OperatorRow }) {
+  const nodes = computeStageNodes(op);
+  return (
+    <div className="flex items-center gap-0 min-w-[200px]">
+      {nodes.map((node, i) => (
+        <div key={node.key} className="flex items-center">
+          {/* Connector line before (skip first) */}
+          {i > 0 && (
+            <div
+              className="h-px w-3 shrink-0 transition-colors duration-300"
+              style={{
+                background: nodes[i - 1].state === 'complete'
+                  ? 'hsl(var(--status-complete))'
+                  : 'hsl(var(--border))',
+              }}
+            />
+          )}
+          {/* Node */}
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex flex-col items-center gap-0.5 cursor-default">
+                  <div
+                    className="h-5 w-5 rounded-full flex items-center justify-center transition-all duration-300 shrink-0"
+                    style={
+                      node.state === 'complete'
+                        ? { background: 'hsl(var(--status-complete))', border: '1.5px solid hsl(var(--status-complete))' }
+                        : node.state === 'partial'
+                        ? { background: 'transparent', border: '2px solid hsl(var(--status-progress))' }
+                        : { background: 'hsl(var(--muted))', border: '1.5px solid hsl(var(--border))' }
+                    }
+                  >
+                    {node.state === 'complete' && (
+                      <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+                    )}
+                    {node.state === 'partial' && (
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ background: 'hsl(var(--status-progress))' }}
+                      />
+                    )}
+                  </div>
+                  <span
+                    className="text-[9px] font-semibold leading-none tracking-wide"
+                    style={{
+                      color: node.state === 'complete'
+                        ? 'hsl(var(--status-complete))'
+                        : node.state === 'partial'
+                        ? 'hsl(var(--status-progress))'
+                        : 'hsl(var(--muted-foreground))',
+                    }}
+                  >
+                    {node.label}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-left space-y-1.5 min-w-[160px]">
+                <p className="font-semibold text-xs">
+                  {node.key === 'bg' && 'Background Check'}
+                  {node.key === 'docs' && 'Documents'}
+                  {node.key === 'ica' && 'ICA Contract'}
+                  {node.key === 'mo' && 'MO Registration'}
+                  {node.key === 'equip' && 'Equipment'}
+                  {node.key === 'ins' && 'Insurance'}
+                </p>
+                <ul className="space-y-0.5">
+                  {node.items.map(item => (
+                    <li key={item.label} className="flex items-center gap-1.5 text-xs">
+                      <span
+                        className="shrink-0 font-bold"
+                        style={{ color: item.done ? 'hsl(var(--status-complete))' : 'hsl(var(--muted-foreground))' }}
+                      >
+                        {item.done ? '✓' : '✗'}
+                      </span>
+                      <span style={{ color: item.done ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>
+                        {item.label}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      ))}
+      {/* Overall % at the end */}
+      <span
+        className="ml-2 text-[11px] font-bold tabular-nums shrink-0"
+        style={{
+          color: op.progress_pct === 100
+            ? 'hsl(var(--status-complete))'
+            : 'hsl(var(--muted-foreground))',
+        }}
+      >
+        {op.progress_pct}%
+      </span>
+    </div>
+  );
+}
 
 type DispatchStatus = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
 
@@ -1826,7 +2031,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       onClick={() => handleSort('stage')}
                       className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
                     >
-                      Current Stage
+                      Progress Track
                       {sortKey === 'stage'
                         ? sortDir === 'asc'
                           ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
@@ -1838,70 +2043,18 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         <TooltipTrigger asChild>
                           <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
                         </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[280px] text-left space-y-1">
-                          <p className="font-semibold text-xs">6 onboarding stages — operator moves forward as each is completed:</p>
+                        <TooltipContent side="top" className="max-w-[300px] text-left space-y-1.5">
+                          <p className="font-semibold text-xs">6-stage parallel progress track — hover any node for sub-item detail:</p>
                           <ol className="text-xs space-y-0.5 list-decimal list-inside text-muted-foreground">
-                            <li><span className="text-foreground font-medium">Background</span> — MVR &amp; CH approved</li>
-                            <li><span className="text-foreground font-medium">Documents</span> — Form 2290, title, photos &amp; inspection received</li>
-                            <li><span className="text-foreground font-medium">ICA</span> — Contract fully signed by both parties</li>
-                            <li><span className="text-foreground font-medium">MO Registration</span> — Missouri registration received</li>
-                            <li><span className="text-foreground font-medium">Equipment</span> — Decal, ELD &amp; fuel card issued</li>
-                            <li><span className="text-foreground font-medium">Insurance</span> — Added to policy</li>
+                            <li><span className="text-foreground font-medium">BG</span> — MVR &amp; CH approved</li>
+                            <li><span className="text-foreground font-medium">Docs</span> — Form 2290, title, photos &amp; inspection</li>
+                            <li><span className="text-foreground font-medium">ICA</span> — Contract fully signed</li>
+                            <li><span className="text-foreground font-medium">MO</span> — Missouri registration received</li>
+                            <li><span className="text-foreground font-medium">Equip</span> — Decal, ELD &amp; fuel card</li>
+                            <li><span className="text-foreground font-medium">Ins</span> — Added to insurance policy</li>
                           </ol>
+                          <p className="text-xs text-muted-foreground pt-0.5">🟢 Complete &nbsp;🟠 In progress &nbsp;⬜ Not started</p>
                         </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">
-                  <div className="inline-flex items-center gap-1">
-                    <span>Status</span>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[260px] text-left space-y-1.5">
-                          <p className="font-semibold text-xs">Onboarding status for each operator:</p>
-                          <ul className="text-xs space-y-1 text-muted-foreground">
-                            <li><span className="text-foreground font-medium">In Progress</span> — Actively moving through onboarding stages</li>
-                            <li><span className="text-foreground font-medium">Fully Onboarded</span> — All 6 stages complete and marked as fully onboarded</li>
-                            <li><span className="text-foreground font-medium">Alert / Denied</span> — Application denied or account flagged as inactive</li>
-                          </ul>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
-                  <div className="inline-flex items-center gap-1">
-                    <button
-                      onClick={() => handleSort('progress')}
-                      className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
-                    >
-                      Progress
-                      {sortKey === 'progress'
-                        ? sortDir === 'asc'
-                          ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
-                          : <ArrowDown className="h-3.5 w-3.5 text-gold" />
-                        : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
-                    </button>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
-                        </TooltipTrigger>
-                         <TooltipContent side="top" className="max-w-[260px] text-left space-y-1">
-                           <p className="font-semibold text-xs">6 onboarding stages, each worth ~17%:</p>
-                           <ol className="text-xs space-y-0.5 list-decimal list-inside text-muted-foreground">
-                             <li><span className="text-foreground font-medium">Background</span> — MVR &amp; CH approved</li>
-                             <li><span className="text-foreground font-medium">Documents</span> — Form 2290, title, photos &amp; inspection received</li>
-                             <li><span className="text-foreground font-medium">ICA</span> — Contract fully signed</li>
-                             <li><span className="text-foreground font-medium">MO Registration</span> — Received</li>
-                             <li><span className="text-foreground font-medium">Equipment</span> — Decal, ELD &amp; fuel card issued</li>
-                             <li><span className="text-foreground font-medium">Insurance</span> — Added to policy</li>
-                           </ol>
-                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </div>
@@ -2178,18 +2331,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{op.phone ?? '—'}</td>
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
                      <td className="px-4 py-3">
-                       <div className="space-y-1 min-w-[140px]">
-                         <div className="flex items-center justify-between gap-2">
-                           <Badge variant="outline" className="text-xs border-gold/40 text-gold bg-gold/5 truncate max-w-[120px]">
-                             {op.current_stage}
-                           </Badge>
-                           <span className={`text-[11px] font-bold tabular-nums shrink-0 ${
-                             op.progress_pct === 100 ? 'text-status-complete' : 'text-muted-foreground'
-                           }`}>
-                             {op.progress_pct}%
-                           </span>
-                         </div>
-                         {/* Days in Draft chip — shown only for Stage 3 ICA operators with an in_progress draft */}
+                       <div className="flex flex-col gap-1.5">
+                         <StageTrack op={op} />
+                         {/* Days in Draft chip — shown when ICA is in-progress */}
                          {op.ica_status === 'in_progress' && op.ica_draft_since && (() => {
                            const daysInDraft = differenceInDays(new Date(), parseISO(op.ica_draft_since));
                            const isStale = daysInDraft >= 7;
@@ -2217,17 +2361,6 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                              </TooltipProvider>
                            );
                          })()}
-                         <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                           <div
-                             className="h-full rounded-full transition-all duration-500"
-                             style={{
-                               width: `${op.progress_pct}%`,
-                               background: op.progress_pct === 100
-                                 ? 'hsl(var(--status-complete))'
-                                 : 'hsl(var(--gold-main))',
-                             }}
-                           />
-                         </div>
                        </div>
                      </td>
                     <td className="px-4 py-3 hidden md:table-cell">
@@ -2238,26 +2371,6 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       ) : (
                         <Badge className="status-progress border text-xs">In Progress</Badge>
                       )}
-                    </td>
-                    <td className="px-4 py-3 hidden lg:table-cell">
-                      <div className="flex items-center gap-2 min-w-[100px]">
-                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-500"
-                            style={{
-                              width: `${op.progress_pct}%`,
-                              background: op.progress_pct === 100
-                                ? 'hsl(var(--status-complete))'
-                                : 'hsl(var(--gold-main))',
-                            }}
-                          />
-                        </div>
-                        <span className={`text-[11px] font-bold tabular-nums shrink-0 ${
-                          op.progress_pct === 100 ? 'text-status-complete' : 'text-muted-foreground'
-                        }`}>
-                          {op.progress_pct}%
-                        </span>
-                      </div>
                     </td>
                     {/* Dispatch status badge — only shown for fully onboarded operators */}
                     <td className="px-4 py-3 hidden lg:table-cell">
