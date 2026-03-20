@@ -677,6 +677,7 @@ export default function ManagementPortal() {
     { label: 'FAQ Manager',       icon: <HelpCircle className="h-4 w-4" />,      path: 'faq' },
     { label: 'Pipeline Config',   icon: <Settings2 className="h-4 w-4" />,       path: 'pipeline-config' },
     { label: 'Activity',          icon: <ScrollText className="h-4 w-4" />,      path: 'activity' },
+    { label: 'Dispatch',          icon: <Truck className="h-4 w-4" />,           path: 'dispatch', badge: truckDownCount || undefined },
   ];
 
   // Bottom nav on mobile: 5 priority items that fit cleanly at 375px
