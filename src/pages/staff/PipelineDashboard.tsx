@@ -9,11 +9,216 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw, FileClock } from 'lucide-react';
+import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw, FileClock, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { differenceInDays, parseISO, format, formatDistanceToNowStrict } from 'date-fns';
 import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
+
+// ─── StageTrack ──────────────────────────────────────────────────────────────
+// Parallel 6-node progress track for each operator row.
+// Each node is computed independently — no sequential dependency.
+
+type NodeState = 'complete' | 'partial' | 'none';
+
+interface StageNode {
+  key: string;
+  label: string;
+  state: NodeState;
+  items: { label: string; done: boolean }[];
+}
+
+function computeStageNodes(op: OperatorRow): StageNode[] {
+  // BG
+  const bgComplete = op.mvr_ch_approval === 'approved';
+  const bgPartial = !bgComplete && (
+    op.mvr_ch_approval === 'received' ||
+    (op as any).mvr_status === 'requested' ||
+    (op as any).mvr_status === 'received' ||
+    (op as any).ch_status === 'requested' ||
+    (op as any).ch_status === 'received'
+  );
+
+  // Docs
+  const docsFields = [
+    { label: 'Form 2290', done: op.form_2290 === 'received' },
+    { label: 'Truck Title', done: op.truck_title === 'received' },
+    { label: 'Truck Photos', done: op.truck_photos === 'received' },
+    { label: 'Truck Inspection', done: op.truck_inspection === 'received' },
+  ];
+  const docsComplete = docsFields.every(f => f.done);
+  const docsPartial = !docsComplete && docsFields.some(f => f.done);
+
+  // ICA
+  const icaComplete = op.ica_status === 'complete';
+  const icaPartial = !icaComplete && (op.ica_status === 'in_progress' || op.ica_status === 'sent_for_signature');
+
+  // MO
+  const moComplete = op.mo_reg_received === 'yes';
+  const moPartial = !moComplete && (op as any).mo_docs_submitted === 'submitted';
+
+  // Equip
+  const equipFields = [
+    { label: 'Decal Applied', done: op.decal_applied === 'yes' },
+    { label: 'ELD Installed', done: op.eld_installed === 'yes' },
+    { label: 'Fuel Card Issued', done: op.fuel_card_issued === 'yes' },
+  ];
+  const equipComplete = equipFields.every(f => f.done);
+  const equipPartial = !equipComplete && equipFields.some(f => f.done);
+
+  // Insurance
+  const insComplete = !!op.insurance_added_date;
+
+  return [
+    {
+      key: 'bg',
+      label: 'BG',
+      state: bgComplete ? 'complete' : bgPartial ? 'partial' : 'none',
+      items: [
+        { label: 'MVR & CH Approval', done: bgComplete },
+      ],
+    },
+    {
+      key: 'docs',
+      label: 'Docs',
+      state: docsComplete ? 'complete' : docsPartial ? 'partial' : 'none',
+      items: docsFields,
+    },
+    {
+      key: 'ica',
+      label: 'ICA',
+      state: icaComplete ? 'complete' : icaPartial ? 'partial' : 'none',
+      items: [
+        { label: 'Contract Issued', done: op.ica_status !== 'not_issued' },
+        { label: 'Sent for Signature', done: op.ica_status === 'sent_for_signature' || op.ica_status === 'complete' },
+        { label: 'Fully Signed', done: icaComplete },
+      ],
+    },
+    {
+      key: 'mo',
+      label: 'MO',
+      state: moComplete ? 'complete' : moPartial ? 'partial' : 'none',
+      items: [
+        { label: 'Docs Submitted', done: (op as any).mo_docs_submitted === 'submitted' || moComplete },
+        { label: 'Registration Received', done: moComplete },
+      ],
+    },
+    {
+      key: 'equip',
+      label: 'Equip',
+      state: equipComplete ? 'complete' : equipPartial ? 'partial' : 'none',
+      items: equipFields,
+    },
+    {
+      key: 'ins',
+      label: 'Ins',
+      state: insComplete ? 'complete' : 'none',
+      items: [
+        { label: 'Added to Policy', done: insComplete },
+      ],
+    },
+  ];
+}
+
+function StageTrack({ op }: { op: OperatorRow }) {
+  const nodes = computeStageNodes(op);
+  return (
+    <div className="flex items-center gap-0 min-w-[200px]">
+      {nodes.map((node, i) => (
+        <div key={node.key} className="flex items-center">
+          {/* Connector line before (skip first) */}
+          {i > 0 && (
+            <div
+              className="h-px w-3 shrink-0 transition-colors duration-300"
+              style={{
+                background: nodes[i - 1].state === 'complete'
+                  ? 'hsl(var(--status-complete))'
+                  : 'hsl(var(--border))',
+              }}
+            />
+          )}
+          {/* Node */}
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex flex-col items-center gap-0.5 cursor-default">
+                  <div
+                    className="h-5 w-5 rounded-full flex items-center justify-center transition-all duration-300 shrink-0"
+                    style={
+                      node.state === 'complete'
+                        ? { background: 'hsl(var(--status-complete))', border: '1.5px solid hsl(var(--status-complete))' }
+                        : node.state === 'partial'
+                        ? { background: 'transparent', border: '2px solid hsl(var(--status-progress))' }
+                        : { background: 'hsl(var(--muted))', border: '1.5px solid hsl(var(--border))' }
+                    }
+                  >
+                    {node.state === 'complete' && (
+                      <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+                    )}
+                    {node.state === 'partial' && (
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ background: 'hsl(var(--status-progress))' }}
+                      />
+                    )}
+                  </div>
+                  <span
+                    className="text-[9px] font-semibold leading-none tracking-wide"
+                    style={{
+                      color: node.state === 'complete'
+                        ? 'hsl(var(--status-complete))'
+                        : node.state === 'partial'
+                        ? 'hsl(var(--status-progress))'
+                        : 'hsl(var(--muted-foreground))',
+                    }}
+                  >
+                    {node.label}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-left space-y-1.5 min-w-[160px]">
+                <p className="font-semibold text-xs">
+                  {node.key === 'bg' && 'Background Check'}
+                  {node.key === 'docs' && 'Documents'}
+                  {node.key === 'ica' && 'ICA Contract'}
+                  {node.key === 'mo' && 'MO Registration'}
+                  {node.key === 'equip' && 'Equipment'}
+                  {node.key === 'ins' && 'Insurance'}
+                </p>
+                <ul className="space-y-0.5">
+                  {node.items.map(item => (
+                    <li key={item.label} className="flex items-center gap-1.5 text-xs">
+                      <span
+                        className="shrink-0 font-bold"
+                        style={{ color: item.done ? 'hsl(var(--status-complete))' : 'hsl(var(--muted-foreground))' }}
+                      >
+                        {item.done ? '✓' : '✗'}
+                      </span>
+                      <span style={{ color: item.done ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>
+                        {item.label}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      ))}
+      {/* Overall % at the end */}
+      <span
+        className="ml-2 text-[11px] font-bold tabular-nums shrink-0"
+        style={{
+          color: op.progress_pct === 100
+            ? 'hsl(var(--status-complete))'
+            : 'hsl(var(--muted-foreground))',
+        }}
+      >
+        {op.progress_pct}%
+      </span>
+    </div>
+  );
+}
 
 type DispatchStatus = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
 
