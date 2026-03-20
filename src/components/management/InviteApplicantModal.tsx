@@ -37,17 +37,24 @@ export default function InviteApplicantModal({ open, onClose, onInviteSent }: In
     setLoading(true);
 
     try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const { data: { session: s } } = await supabase.auth.getSession();
-      const { data, error } = await supabase.functions.invoke('invite-applicant', {
-        body: {
+      const authToken = s?.access_token ?? anonKey;
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/invite-applicant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}`, 'apikey': anonKey },
+        body: JSON.stringify({
           first_name: form.first_name.trim(),
           last_name: form.last_name.trim(),
           email: form.email.trim().toLowerCase(),
           phone: form.phone.trim() || null,
           note: form.note.trim() || null,
-        },
-        headers: { Authorization: `Bearer ${s?.access_token}` },
+        }),
       });
+      const data = await res.json();
+      const error = res.ok ? null : new Error(data?.error ?? `HTTP ${res.status}`);
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
