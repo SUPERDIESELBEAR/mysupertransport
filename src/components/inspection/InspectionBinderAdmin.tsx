@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2, Bell,
-  Inbox, UserCheck, X, Pencil, ArrowRight, CheckSquare,
+  Inbox, UserCheck, X, Pencil, ArrowRight, CheckSquare, Copy, Check,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -786,6 +786,16 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       && companyDocs.some(c => c.name === docName && c.file_url);
     const isShareOpen = shareToDriverOpen === (doc?.id ?? `new-${docName}`);
     const isSelected = doc?.id ? bulkSelected.has(doc.id) : false;
+    const [linkCopied, setLinkCopied] = useState(false);
+
+    const handleCopyLink = async () => {
+      if (!doc?.public_share_token) return;
+      const shareUrl = `${window.location.origin}/inspect/${doc.public_share_token}`;
+      await navigator.clipboard.writeText(shareUrl);
+      setLinkCopied(true);
+      toast({ title: 'Share link copied!', description: docName });
+      setTimeout(() => setLinkCopied(false), 2000);
+    };
 
     return (
       <div className={`bg-card border rounded-xl p-4 space-y-3 transition-colors ${isSelected ? 'border-info/60 bg-info/5' : 'border-border'}`}>
@@ -885,9 +895,30 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     variant="ghost"
                     className="h-8 w-8 p-0"
                     onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(docName); }}
+                    title="Preview"
                   >
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
+                )}
+                {doc?.file_url && doc?.public_share_token && (
+                  <Tooltip delayDuration={150}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={handleCopyLink}
+                      >
+                        {linkCopied
+                          ? <Check className="h-3.5 w-3.5 text-status-complete" />
+                          : <Copy className="h-3.5 w-3.5" />
+                        }
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      {linkCopied ? 'Copied!' : 'Copy share link'}
+                    </TooltipContent>
+                  </Tooltip>
                 )}
                 {doc && (
                   <Button
