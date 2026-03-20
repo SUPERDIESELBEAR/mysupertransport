@@ -83,8 +83,28 @@ function computeStageNodesFromConfig(
     });
 }
 
+/**
+ * Compute progress % from DB-driven stage configs.
+ * A stage counts as "done" only when ALL its items are complete.
+ * Falls back to the stored progress_pct when configs haven't loaded yet.
+ */
+function computeProgressFromConfig(
+  op: OperatorRow,
+  configs: PipelineStageConfig[],
+): number {
+  if (!configs || configs.length === 0) return op.progress_pct;
+  const activeConfigs = configs.filter(c => c.is_active);
+  if (activeConfigs.length === 0) return op.progress_pct;
+  const doneCount = activeConfigs.filter(cfg => {
+    if (cfg.items.length === 0) return false;
+    return cfg.items.every(item => evalItem(op, item.field, item.complete_value));
+  }).length;
+  return Math.round((doneCount / activeConfigs.length) * 100);
+}
+
 function StageTrack({ op, stageConfigs }: { op: OperatorRow; stageConfigs: PipelineStageConfig[] }) {
   const nodes = computeStageNodesFromConfig(op, stageConfigs);
+  const pct = computeProgressFromConfig(op, stageConfigs);
   return (
     <div className="flex items-center gap-0 min-w-[200px]">
       {nodes.map((node, i) => (
@@ -161,16 +181,16 @@ function StageTrack({ op, stageConfigs }: { op: OperatorRow; stageConfigs: Pipel
           </TooltipProvider>
         </div>
       ))}
-      {/* Overall % at the end */}
+      {/* Overall % — always in sync with node states */}
       <span
         className="ml-2 text-[11px] font-bold tabular-nums shrink-0"
         style={{
-          color: op.progress_pct === 100
+          color: pct === 100
             ? 'hsl(var(--status-complete))'
             : 'hsl(var(--muted-foreground))',
         }}
       >
-        {op.progress_pct}%
+        {pct}%
       </span>
     </div>
   );
@@ -247,16 +267,6 @@ interface PipelineDashboardProps {
   onBulkMessage?: (operatorIds: string[]) => void;
 }
 
-function computeProgress(os: Record<string, string | boolean | null>): number {
-  let done = 0;
-  if (os.mvr_ch_approval === 'approved') done++;
-  if (os.form_2290 === 'received' && os.truck_title === 'received' && os.truck_photos === 'received' && os.truck_inspection === 'received') done++;
-  if (os.ica_status === 'complete') done++;
-  if (os.mo_reg_received === 'yes') done++;
-  if (os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes') done++;
-  if (os.insurance_added_date) done++;
-  return Math.round((done / 6) * 100);
-}
 
 function computeStage(os: Record<string, string | boolean | null>): string {
   if (os.insurance_added_date) return 'Stage 6 — Insurance';
@@ -775,7 +785,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         decal_applied: os.decal_applied ?? 'no',
         eld_installed: os.eld_installed ?? 'no',
         fuel_card_issued: os.fuel_card_issued ?? 'no',
-        progress_pct: computeProgress(os),
+        progress_pct: 0, // placeholder; real % computed in StageTrack from pipeline_config
         onboarding_updated_at: os.updated_at ?? null,
       };
     });
