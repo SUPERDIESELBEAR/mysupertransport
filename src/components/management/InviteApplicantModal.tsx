@@ -15,7 +15,6 @@ interface InviteApplicantModalProps {
 }
 
 export default function InviteApplicantModal({ open, onClose, onInviteSent }: InviteApplicantModalProps) {
-  const { session } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ first_name: '', last_name: '', email: '', phone: '', note: '' });
