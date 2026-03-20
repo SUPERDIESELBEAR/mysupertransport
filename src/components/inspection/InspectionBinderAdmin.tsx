@@ -1115,26 +1115,49 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       )}
 
       {/* Tabs */}
-      <div className="grid grid-cols-4 gap-1 bg-secondary rounded-xl p-1">
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={`flex flex-col items-center justify-center gap-0.5 text-xs font-medium py-2 rounded-lg transition-colors ${
-              activeTab === t.key ? 'bg-card text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <span className="flex items-center gap-1">{t.icon}{t.label}</span>
-            {'badge' in t && t.badge && (
-              <span className={`text-[10px] font-semibold px-1.5 py-0 rounded-full leading-tight ${
-                t.badgeActive ? 'bg-info/15 text-info' : 'bg-muted text-muted-foreground'
-              }`}>
-                {t.badge}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      <TooltipProvider>
+        <div className="grid grid-cols-4 gap-1 bg-secondary rounded-xl p-1">
+          {tabs.map(t => {
+            const isDriverTab = t.key === 'driver' && sharedFromCompanyCount > 0;
+            const btn = (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                className={`flex flex-col items-center justify-center gap-0.5 text-xs font-medium py-2 rounded-lg transition-colors w-full ${
+                  activeTab === t.key ? 'bg-card text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <span className="flex items-center gap-1">{t.icon}{t.label}</span>
+                {'badge' in t && t.badge && (
+                  <span className={`text-[10px] font-semibold px-1.5 py-0 rounded-full leading-tight ${
+                    t.badgeActive ? 'bg-info/15 text-info' : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {t.badge}
+                  </span>
+                )}
+              </button>
+            );
+
+            if (isDriverTab) {
+              return (
+                <Tooltip key={t.key}>
+                  <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-left space-y-1 max-w-[200px]">
+                    <p className="font-bold text-xs">Shared from company:</p>
+                    <ul className="space-y-0.5">
+                      {sharedFromCompanyDocs.map(d => (
+                        <li key={d.id} className="text-xs text-muted-foreground leading-tight">• {d.name}</li>
+                      ))}
+                    </ul>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            }
+
+            return btn;
+          })}
+        </div>
+      </TooltipProvider>
 
       {loading ? (
         <div className="space-y-2">
