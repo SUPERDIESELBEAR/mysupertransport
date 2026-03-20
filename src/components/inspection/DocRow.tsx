@@ -398,8 +398,20 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const { toast } = useToast();
 
   const hasFile = !!doc?.file_url;
+
+  const handleCopyLink = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!doc) return;
+    const shareUrl = `${window.location.origin}/inspect/${doc.public_share_token}`;
+    await navigator.clipboard.writeText(shareUrl);
+    setLinkCopied(true);
+    toast({ title: 'Share link copied!', description: doc.name });
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
 
   return (
     <>
@@ -460,15 +472,41 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
                 >
                   Open
                 </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 w-8 p-0"
-                  title="Share / QR"
-                  onClick={() => setShareOpen(true)}
-                >
-                  <QrCode className="h-4 w-4" />
-                </Button>
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={handleCopyLink}
+                      >
+                        {linkCopied
+                          ? <Check className="h-4 w-4 text-status-complete" />
+                          : <Copy className="h-4 w-4" />
+                        }
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      {linkCopied ? 'Copied!' : 'Copy share link'}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setShareOpen(true)}
+                      >
+                        <QrCode className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">Share / QR code</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </>
             )}
             {canUpload && onUpload && (
