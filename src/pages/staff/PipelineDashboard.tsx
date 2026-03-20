@@ -381,8 +381,16 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [unreadFilter, setUnreadFilter] = useState(false);
   const [unreadHighPriority, setUnreadHighPriority] = useState(false);
   const [invitePendingFilter, setInvitePendingFilter] = useState(false);
-  // Stage node filter: filter to operators who have a specific stage NOT complete
-  const [stageNodeFilter, setStageNodeFilter] = useState<'all' | string>('all');
+  // Stage node filter: filter to operators who have specific stage(s) NOT complete (multi-select)
+  const [stageNodeFilters, setStageNodeFilters] = useState<Set<string>>(new Set());
+
+  const toggleStageNodeFilter = (key: string) => {
+    setStageNodeFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) { next.delete(key); } else { next.add(key); }
+      return next;
+    });
+  };
 
   // Sync when the parent changes the initial filter (e.g. banner → View Pipeline)
   useEffect(() => {
