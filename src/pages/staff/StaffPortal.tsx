@@ -159,6 +159,7 @@ export default function StaffPortal() {
     setSelectedOperatorId(operatorId);
     setOperatorHasUnsavedChanges(false);
     setScrollToInspectionBinder(false);
+    setScrollToStageKey(undefined);
     setCurrentView('operator-detail');
   };
 
@@ -166,8 +167,19 @@ export default function StaffPortal() {
     setSelectedOperatorId(operatorId);
     setOperatorHasUnsavedChanges(false);
     setScrollToInspectionBinder(true);
+    setScrollToStageKey(undefined);
     setCurrentView('operator-detail');
   };
+
+  const handleOpenOperatorAtStage = (operatorId: string, stageKey: string) => {
+    setSelectedOperatorId(operatorId);
+    setOperatorHasUnsavedChanges(false);
+    setScrollToInspectionBinder(false);
+    setScrollToStageKey(stageKey);
+    setCurrentView('operator-detail');
+  };
+
+
 
   const handleBackToPipeline = () => {
     setSelectedOperatorId(null);
