@@ -1022,12 +1022,33 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
       {(() => {
         const stages = [
-          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' },
-          { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received' },
-          { label: 'ICA',        key: 'stage3', complete: status.ica_status === 'complete' },
-          { label: 'MO Reg',     key: 'stage4', complete: status.mo_reg_received === 'yes' },
-          { label: 'Equipment',  key: 'stage5', complete: status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' },
-          { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date },
+          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved', fullName: 'Background Check', items: [
+              { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
+              { label: 'Clearinghouse Requested', done: status.ch_status === 'requested' || status.ch_status === 'received' },
+              { label: 'MVR & CH Approved',       done: status.mvr_ch_approval === 'approved' },
+            ]},
+          { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received', fullName: 'Documents', items: [
+              { label: 'Form 2290',      done: status.form_2290 === 'received' },
+              { label: 'Truck Title',    done: status.truck_title === 'received' },
+              { label: 'Truck Photos',   done: status.truck_photos === 'received' },
+              { label: 'Truck Inspection', done: status.truck_inspection === 'received' },
+            ]},
+          { label: 'ICA',        key: 'stage3', complete: status.ica_status === 'complete', fullName: 'ICA Contract', items: [
+              { label: 'ICA Issued',        done: status.ica_status !== 'not_issued' },
+              { label: 'ICA Signed',        done: status.ica_status === 'complete' },
+            ]},
+          { label: 'MO Reg',     key: 'stage4', complete: status.mo_reg_received === 'yes', fullName: 'MO Registration', items: [
+              { label: 'MO Docs Submitted',      done: status.mo_docs_submitted === 'submitted' },
+              { label: 'MO Registration Received', done: status.mo_reg_received === 'yes' },
+            ]},
+          { label: 'Equipment',  key: 'stage5', complete: status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes', fullName: 'Equipment', items: [
+              { label: 'Decal Applied',    done: status.decal_applied === 'yes' },
+              { label: 'ELD Installed',    done: status.eld_installed === 'yes' },
+              { label: 'Fuel Card Issued', done: status.fuel_card_issued === 'yes' },
+            ]},
+          { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date, fullName: 'Insurance', items: [
+              { label: 'Insurance Added', done: !!status.insurance_added_date },
+            ]},
         ];
         const completedCount = stages.filter(s => s.complete).length;
         const pct = Math.round((completedCount / stages.length) * 100);
