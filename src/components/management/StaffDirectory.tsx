@@ -25,6 +25,7 @@ interface StaffMember {
   updated_at: string;
   roles: AppRole[];
   assigned_operator_count: number;
+  avatar_url?: string | null;
 }
 
 const ROLE_CONFIG: Record<StaffRole, { label: string; icon: React.ReactNode; color: string; desc: string }> = {

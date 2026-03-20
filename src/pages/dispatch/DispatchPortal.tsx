@@ -45,6 +45,7 @@ interface DispatchRow {
   phone: string | null;
   home_state: string | null;
   unit_number: string | null;
+  avatar_url: string | null;
   dispatch_status: DispatchStatusType;
   assigned_dispatcher: string | null;
   current_load_lane: string | null;
