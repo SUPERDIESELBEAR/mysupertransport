@@ -49,6 +49,7 @@ export default function StaffPortal() {
   const [bulkMessageOpen, setBulkMessageOpen] = useState(false);
   const [bulkMessagePreselected, setBulkMessagePreselected] = useState<string[]>([]);
   const [scrollToInspectionBinder, setScrollToInspectionBinder] = useState(false);
+  const [scrollToStageKey, setScrollToStageKey] = useState<string | undefined>(undefined);
   const viewRef = useRef(currentView);
   const alertsPanelRef = useRef<HTMLDivElement>(null);
   const [alertsPanelHighlight, setAlertsPanelHighlight] = useState<'warning' | 'destructive' | 'muted' | false>(false);
