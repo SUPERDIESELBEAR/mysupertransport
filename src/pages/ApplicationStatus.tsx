@@ -26,7 +26,7 @@ export default function ApplicationStatus() {
               </div>
               <h2 className="text-xl font-semibold text-surface-dark-foreground mb-3">Application Under Review</h2>
               <p className="text-surface-dark-muted text-sm leading-relaxed">
-                Thank you for applying with SuperTransport LLC. Your application has been received and is currently being reviewed by our team.
+                Thank you for applying with SUPERTRANSPORT. Your application has been received and is currently being reviewed by our team.
                 Most applications are reviewed within 1–3 business days. You will receive an email notification once a decision has been made.
               </p>
             </>
