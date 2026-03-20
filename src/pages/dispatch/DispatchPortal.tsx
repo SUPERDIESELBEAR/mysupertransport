@@ -517,6 +517,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
             phone: p.phone ?? null,
             home_state: p.home_state ?? null,
             unit_number: os.unit_number ?? op.unit_number ?? null,
+            avatar_url: p.avatar_url ?? null,
             dispatch_status: (d.dispatch_status ?? 'not_dispatched') as DispatchStatusType,
             assigned_dispatcher: d.assigned_dispatcher ?? null,
             current_load_lane: d.current_load_lane ?? null,
