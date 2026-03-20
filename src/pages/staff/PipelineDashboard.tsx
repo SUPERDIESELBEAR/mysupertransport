@@ -381,8 +381,16 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [unreadFilter, setUnreadFilter] = useState(false);
   const [unreadHighPriority, setUnreadHighPriority] = useState(false);
   const [invitePendingFilter, setInvitePendingFilter] = useState(false);
-  // Stage node filter: filter to operators who have a specific stage NOT complete
-  const [stageNodeFilter, setStageNodeFilter] = useState<'all' | string>('all');
+  // Stage node filter: filter to operators who have specific stage(s) NOT complete (multi-select)
+  const [stageNodeFilters, setStageNodeFilters] = useState<Set<string>>(new Set());
+
+  const toggleStageNodeFilter = (key: string) => {
+    setStageNodeFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) { next.delete(key); } else { next.add(key); }
+      return next;
+    });
+  };
 
   // Sync when the parent changes the initial filter (e.g. banner → View Pipeline)
   useEffect(() => {
@@ -1298,13 +1306,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       );
       const matchUnread = !unreadFilter || (unreadHighPriority ? op.unread_count >= 3 : op.unread_count > 0);
       const matchInvitePending = !invitePendingFilter || op.never_logged_in;
-      // Stage node filter: show only operators where the selected stage node is NOT complete
-      const matchStageNode = stageNodeFilter === 'all' || (() => {
-        const cfg = stageConfigs.find(c => c.stage_key === stageNodeFilter);
-        if (!cfg) return true;
-        if (cfg.items.length === 0) return true;
-        // Show operator if at least one item in this stage is NOT done
-        return !cfg.items.every(item => evalItem(op, item.field, item.complete_value));
+      // Stage node filter (multi-select): show operators who are incomplete in ANY of the selected stages
+      const matchStageNode = stageNodeFilters.size === 0 || (() => {
+        // Operator must be incomplete in ALL selected stages (AND logic: show operators missing both BG AND ICA)
+        return Array.from(stageNodeFilters).every(key => {
+          const cfg = stageConfigs.find(c => c.stage_key === key);
+          if (!cfg || cfg.items.length === 0) return true;
+          return !cfg.items.every(item => evalItem(op, item.field, item.complete_value));
+        });
       })();
       return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchStageNode;
     })
@@ -1365,7 +1374,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     dispatchFilter !== 'all',
     progressFilter !== 'all',
     complianceFilter !== 'all',
-    stageNodeFilter !== 'all',
+    stageNodeFilters.size > 0,
     idleFilter,
     unreadFilter,
     invitePendingFilter,
@@ -1378,7 +1387,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setDispatchFilter('all');
     setProgressFilter('all');
     setComplianceFilter('all');
-    setStageNodeFilter('all');
+    setStageNodeFilters(new Set());
     setIdleFilter(false);
     setUnreadFilter(false);
     setUnreadHighPriority(false);
@@ -1799,34 +1808,40 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               </Select>
             </div>
 
-            {/* Stage Incomplete filter — driven by pipeline_config */}
+
+            {/* Stage Incomplete filter — the chips above the table are the primary multi-select UI; this is a single-select fallback in the panel */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stage Incomplete</label>
-              <Select value={stageNodeFilter} onValueChange={setStageNodeFilter}>
-                <SelectTrigger className={`h-9 bg-white ${stageNodeFilter !== 'all' ? 'border-gold text-gold' : ''}`}>
-                  <SelectValue placeholder="Any stage" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Any stage</SelectItem>
-                  {stageConfigs
-                    .filter(c => c.is_active)
-                    .sort((a, b) => a.stage_order - b.stage_order)
-                    .map(cfg => {
-                      const incompleteCount = operators.filter(op =>
-                        cfg.items.length > 0 &&
-                        !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
-                      ).length;
-                      return (
-                        <SelectItem key={cfg.stage_key} value={cfg.stage_key}>
-                          {cfg.full_name}
-                          {incompleteCount > 0 && (
-                            <span className="ml-1.5 text-muted-foreground">({incompleteCount})</span>
-                          )}
-                        </SelectItem>
-                      );
-                    })}
-                </SelectContent>
-              </Select>
+              <div className="flex flex-wrap gap-1.5">
+                {stageConfigs
+                  .filter(c => c.is_active)
+                  .sort((a, b) => a.stage_order - b.stage_order)
+                  .map(cfg => {
+                    const incompleteCount = operators.filter(op =>
+                      cfg.items.length > 0 &&
+                      !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
+                    ).length;
+                    if (incompleteCount === 0) return null;
+                    const isActive = stageNodeFilters.has(cfg.stage_key);
+                    return (
+                      <button
+                        key={cfg.stage_key}
+                        type="button"
+                        onClick={() => toggleStageNodeFilter(cfg.stage_key)}
+                        className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border font-medium transition-all active:scale-95 ${
+                          isActive
+                            ? 'bg-gold text-white border-gold'
+                            : 'bg-background text-muted-foreground border-border hover:border-gold/50 hover:text-gold'
+                        }`}
+                      >
+                        {cfg.label}
+                        <span className={`text-[10px] font-bold leading-none ${isActive ? 'text-white/80' : 'text-muted-foreground'}`}>
+                          {incompleteCount}
+                        </span>
+                      </button>
+                    );
+                  })}
+              </div>
             </div>
 
             {/* Status filter */}
@@ -1986,12 +2001,15 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               <button onClick={() => setComplianceFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
             </span>
           )}
-          {stageNodeFilter !== 'all' && (
-            <span className="inline-flex items-center gap-1 bg-gold/10 text-gold border border-gold/30 text-xs px-2.5 py-1 rounded-full font-medium">
-              Incomplete: {stageConfigs.find(c => c.stage_key === stageNodeFilter)?.full_name ?? stageNodeFilter}
-              <button onClick={() => setStageNodeFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
-            </span>
-          )}
+          {stageNodeFilters.size > 0 && Array.from(stageNodeFilters).map(key => {
+            const cfg = stageConfigs.find(c => c.stage_key === key);
+            return (
+              <span key={key} className="inline-flex items-center gap-1 bg-gold/10 text-gold border border-gold/30 text-xs px-2.5 py-1 rounded-full font-medium">
+                Incomplete: {cfg?.full_name ?? key}
+                <button onClick={() => toggleStageNodeFilter(key)} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+              </span>
+            );
+          })}
           {idleFilter && (
             <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium border bg-warning/10 border-warning/30" style={{ color: 'hsl(var(--warning))' }}>
               <Clock className="h-3 w-3" />
@@ -2080,11 +2098,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
               ).length;
               if (incompleteCount === 0) return null;
-              const isActive = stageNodeFilter === cfg.stage_key;
+              const isActive = stageNodeFilters.has(cfg.stage_key);
               return (
                 <button
                   key={cfg.stage_key}
-                  onClick={() => setStageNodeFilter(isActive ? 'all' : cfg.stage_key)}
+                  onClick={() => toggleStageNodeFilter(cfg.stage_key)}
                   className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-all active:scale-95 ${
                     isActive
                       ? 'bg-gold text-white border-gold shadow-sm'
@@ -2101,9 +2119,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </button>
               );
             })}
-          {stageNodeFilter !== 'all' && (
+          {stageNodeFilters.size > 0 && (
             <button
-              onClick={() => setStageNodeFilter('all')}
+              onClick={() => setStageNodeFilters(new Set())}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
             >
               clear
@@ -2225,7 +2243,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                               cfg.items.length > 0 &&
                               !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
                             ).length;
-                            const isFiltered = stageNodeFilter === cfg.stage_key;
+                            const isFiltered = stageNodeFilters.has(cfg.stage_key);
                             return (
                               <div key={cfg.stage_key} className="flex items-center">
                                 {/* Spacer connector matching the track connector width */}
@@ -2235,7 +2253,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                                     <TooltipTrigger asChild>
                                       <button
                                         type="button"
-                                        onClick={() => setStageNodeFilter(isFiltered ? 'all' : cfg.stage_key)}
+                                        onClick={() => toggleStageNodeFilter(cfg.stage_key)}
                                         className={[
                                           'flex flex-col items-center gap-0.5 w-5 rounded transition-all duration-150 outline-none focus-visible:ring-1 focus-visible:ring-gold/60',
                                           incompleteCount > 0 ? 'cursor-pointer' : 'cursor-default pointer-events-none',
