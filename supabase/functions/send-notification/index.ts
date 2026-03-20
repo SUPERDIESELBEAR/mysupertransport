@@ -335,7 +335,7 @@ Deno.serve(async (req) => {
           subject,
           'Application Status Update',
           `<p>Dear ${name},</p>
-           <p>Thank you for taking the time to apply with <strong>SUPERTRANSPORT LLC</strong>. After careful review, we are unable to move forward with your application at this time.</p>
+           <p>Thank you for taking the time to apply with <strong>SUPERTRANSPORT</strong>. After careful review, we are unable to move forward with your application at this time.</p>
            ${payload.reviewer_notes ? `<p style="background:#fff5f5;border-left:4px solid #e53e3e;padding:12px 16px;border-radius:4px;"><strong>Reason:</strong> ${payload.reviewer_notes}</p>` : ''}
            <p>We appreciate your interest in SUPERTRANSPORT and wish you the best in your search.</p>
            <p>If you have questions, please reach out to us directly at <a href="mailto:recruiting@mysupertransport.com" style="color:#C9A84C;">recruiting@mysupertransport.com</a>.</p>`
