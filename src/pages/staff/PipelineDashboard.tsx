@@ -1808,34 +1808,40 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               </Select>
             </div>
 
-            {/* Stage Incomplete filter — driven by pipeline_config */}
+
+            {/* Stage Incomplete filter — the chips above the table are the primary multi-select UI; this is a single-select fallback in the panel */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stage Incomplete</label>
-              <Select value={stageNodeFilter} onValueChange={setStageNodeFilter}>
-                <SelectTrigger className={`h-9 bg-white ${stageNodeFilter !== 'all' ? 'border-gold text-gold' : ''}`}>
-                  <SelectValue placeholder="Any stage" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Any stage</SelectItem>
-                  {stageConfigs
-                    .filter(c => c.is_active)
-                    .sort((a, b) => a.stage_order - b.stage_order)
-                    .map(cfg => {
-                      const incompleteCount = operators.filter(op =>
-                        cfg.items.length > 0 &&
-                        !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
-                      ).length;
-                      return (
-                        <SelectItem key={cfg.stage_key} value={cfg.stage_key}>
-                          {cfg.full_name}
-                          {incompleteCount > 0 && (
-                            <span className="ml-1.5 text-muted-foreground">({incompleteCount})</span>
-                          )}
-                        </SelectItem>
-                      );
-                    })}
-                </SelectContent>
-              </Select>
+              <div className="flex flex-wrap gap-1.5">
+                {stageConfigs
+                  .filter(c => c.is_active)
+                  .sort((a, b) => a.stage_order - b.stage_order)
+                  .map(cfg => {
+                    const incompleteCount = operators.filter(op =>
+                      cfg.items.length > 0 &&
+                      !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
+                    ).length;
+                    if (incompleteCount === 0) return null;
+                    const isActive = stageNodeFilters.has(cfg.stage_key);
+                    return (
+                      <button
+                        key={cfg.stage_key}
+                        type="button"
+                        onClick={() => toggleStageNodeFilter(cfg.stage_key)}
+                        className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full border font-medium transition-all active:scale-95 ${
+                          isActive
+                            ? 'bg-gold text-white border-gold'
+                            : 'bg-background text-muted-foreground border-border hover:border-gold/50 hover:text-gold'
+                        }`}
+                      >
+                        {cfg.label}
+                        <span className={`text-[10px] font-bold leading-none ${isActive ? 'text-white/80' : 'text-muted-foreground'}`}>
+                          {incompleteCount}
+                        </span>
+                      </button>
+                    );
+                  })}
+              </div>
             </div>
 
             {/* Status filter */}
