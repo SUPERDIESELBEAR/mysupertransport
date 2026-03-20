@@ -474,19 +474,24 @@ export default function ManagementPortal() {
   const handleResendInvite = async (invite: ApplicationInvite) => {
     setResendingId(invite.id);
     try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const { data: { session: s } } = await supabase.auth.getSession();
-      const { data, error } = await supabase.functions.invoke('invite-applicant', {
-        body: {
+      const authToken = s?.access_token ?? anonKey;
+      const res = await fetch(`${supabaseUrl}/functions/v1/invite-applicant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}`, 'apikey': anonKey },
+        body: JSON.stringify({
           first_name: invite.first_name,
           last_name: invite.last_name,
           email: invite.email,
           phone: invite.phone,
           note: invite.note,
           invite_id: invite.id,
-        },
-        headers: { Authorization: `Bearer ${s?.access_token}` },
+        }),
       });
-      if (error) throw error;
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
       if (data?.error) throw new Error(data.error);
       toast({ title: '✅ Invite Resent', description: `Invite email resent to ${invite.email}.` });
       fetchInvites();
