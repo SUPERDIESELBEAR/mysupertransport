@@ -605,6 +605,7 @@ export default function ManagementPortal() {
     { label: 'Service Library', icon: <Layers className="h-4 w-4" />, path: 'service-library' },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
     { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
+    { label: 'Pipeline Config', icon: <Settings2 className="h-4 w-4" />, path: 'pipeline-config' },
   ];
 
   // Bottom nav on mobile: 5 priority items that fit cleanly at 375px
