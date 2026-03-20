@@ -1782,7 +1782,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
         {/* Expandable filter panel */}
         {showFilters && (
-          <div className="bg-muted/40 border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4 animate-fade-in">
+          <div className="bg-muted/40 border border-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-fade-in">
             {/* Stage filter */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stage</label>
@@ -1795,6 +1795,36 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   {STAGES.map(s => (
                     <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Stage Incomplete filter — driven by pipeline_config */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stage Incomplete</label>
+              <Select value={stageNodeFilter} onValueChange={setStageNodeFilter}>
+                <SelectTrigger className={`h-9 bg-white ${stageNodeFilter !== 'all' ? 'border-gold text-gold' : ''}`}>
+                  <SelectValue placeholder="Any stage" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Any stage</SelectItem>
+                  {stageConfigs
+                    .filter(c => c.is_active)
+                    .sort((a, b) => a.stage_order - b.stage_order)
+                    .map(cfg => {
+                      const incompleteCount = operators.filter(op =>
+                        cfg.items.length > 0 &&
+                        !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
+                      ).length;
+                      return (
+                        <SelectItem key={cfg.stage_key} value={cfg.stage_key}>
+                          {cfg.full_name}
+                          {incompleteCount > 0 && (
+                            <span className="ml-1.5 text-muted-foreground">({incompleteCount})</span>
+                          )}
+                        </SelectItem>
+                      );
+                    })}
                 </SelectContent>
               </Select>
             </div>
