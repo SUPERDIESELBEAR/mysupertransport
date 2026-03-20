@@ -518,6 +518,7 @@ export default function StaffPortal() {
             }
           }}
           onOpenOperatorAtBinder={op => { setPipelineDispatchFilter('all'); setPipelineICAFilter(false); handleOpenOperatorAtBinder(op); }}
+          onOpenOperatorAtStage={(operatorId, stageKey) => { setPipelineDispatchFilter('all'); setPipelineICAFilter(false); handleOpenOperatorAtStage(operatorId, stageKey); }}
           onOpenInspectionBinder={() => setCurrentView('inspection-binder')}
           initialDispatchFilter={pipelineDispatchFilter}
           initialStageFilter={pipelineICAFilter ? 'Stage 3 — ICA' : undefined}
