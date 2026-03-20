@@ -69,28 +69,68 @@ function MilestoneNode({ stage, isLast }: { stage: Stage; isLast: boolean }) {
     <div className="flex gap-4">
       {/* Timeline spine */}
       <div className="flex flex-col items-center shrink-0">
-        {/* Node */}
-        <div
-          className={`relative h-10 w-10 rounded-full flex items-center justify-center shrink-0 border-2 transition-all duration-300 ${
-            isComplete
-              ? 'bg-status-complete/10 border-status-complete shadow-sm shadow-status-complete/20'
-              : isActionRequired
-              ? 'bg-destructive/10 border-destructive shadow-sm shadow-destructive/20 animate-pulse'
-              : isInProgress
-              ? 'bg-gold/10 border-gold shadow-sm shadow-gold/20'
-              : 'bg-muted border-border'
-          }`}
-        >
-          {isComplete ? (
-            <CheckCircle2 className="h-5 w-5 text-status-complete" />
-          ) : isActionRequired ? (
-            <AlertTriangle className="h-5 w-5 text-destructive" />
-          ) : isInProgress ? (
-            <Clock className="h-5 w-5 text-gold" />
-          ) : (
-            <span className="text-sm font-bold text-muted-foreground/60">{stage.number}</span>
-          )}
-        </div>
+        {/* Node — wrapped in tooltip showing stage sub-item status */}
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                className={`relative h-10 w-10 rounded-full flex items-center justify-center shrink-0 border-2 transition-all duration-300 cursor-default ${
+                  isComplete
+                    ? 'bg-status-complete/10 border-status-complete shadow-sm shadow-status-complete/20'
+                    : isActionRequired
+                    ? 'bg-destructive/10 border-destructive shadow-sm shadow-destructive/20 animate-pulse'
+                    : isInProgress
+                    ? 'bg-gold/10 border-gold shadow-sm shadow-gold/20'
+                    : 'bg-muted border-border'
+                }`}
+              >
+                {isComplete ? (
+                  <CheckCircle2 className="h-5 w-5 text-status-complete" />
+                ) : isActionRequired ? (
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                ) : isInProgress ? (
+                  <Clock className="h-5 w-5 text-gold" />
+                ) : (
+                  <span className="text-sm font-bold text-muted-foreground/60">{stage.number}</span>
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-left min-w-[160px] max-w-[220px] p-2.5 space-y-2">
+              <p className="font-semibold text-xs">{stage.title}</p>
+              {isComplete ? (
+                <p className="text-xs" style={{ color: 'hsl(var(--status-complete))' }}>All items complete ✓</p>
+              ) : (
+                <div className="space-y-1">
+                  {stage.substeps.filter(it => it.status === 'not_started' || it.status === 'in_progress').length > 0 && (
+                    <>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-destructive/80">Still needed</p>
+                      <ul className="space-y-1">
+                        {stage.substeps.filter(it => it.status === 'not_started' || it.status === 'in_progress').map(it => (
+                          <li key={it.label} className="flex items-start gap-1.5 text-xs">
+                            <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                            <span className="text-foreground">{it.label}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  {stage.substeps.filter(it => it.status === 'complete').length > 0 && (
+                    <div className="space-y-1 pt-1 border-t border-border">
+                      <ul className="space-y-1">
+                        {stage.substeps.filter(it => it.status === 'complete').map(it => (
+                          <li key={it.label} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                            <span className="mt-0.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'hsl(var(--status-complete))' }} />
+                            <span>{it.label}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         {/* Connector line */}
         {!isLast && (
           <div
