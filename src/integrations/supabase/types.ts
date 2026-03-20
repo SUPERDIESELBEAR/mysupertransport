@@ -1242,6 +1242,7 @@ export type Database = {
       profiles: {
         Row: {
           account_status: Database["public"]["Enums"]["account_status"]
+          avatar_url: string | null
           created_at: string
           first_name: string | null
           home_state: string | null
@@ -1254,6 +1255,7 @@ export type Database = {
         }
         Insert: {
           account_status?: Database["public"]["Enums"]["account_status"]
+          avatar_url?: string | null
           created_at?: string
           first_name?: string | null
           home_state?: string | null
@@ -1266,6 +1268,7 @@ export type Database = {
         }
         Update: {
           account_status?: Database["public"]["Enums"]["account_status"]
+          avatar_url?: string | null
           created_at?: string
           first_name?: string | null
           home_state?: string | null
