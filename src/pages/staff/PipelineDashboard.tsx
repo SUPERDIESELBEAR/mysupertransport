@@ -284,6 +284,8 @@ interface PipelineDashboardProps {
   onOpenOperator: (operatorId: string) => void;
   onOpenOperatorWithFocus?: (operatorId: string, focusField: 'cdl' | 'medcert') => void;
   onOpenOperatorAtBinder?: (operatorId: string) => void;
+  /** Opens the operator detail panel scrolled to a specific stage section */
+  onOpenOperatorAtStage?: (operatorId: string, stageKey: string) => void;
   onOpenInspectionBinder?: () => void;
   initialDispatchFilter?: DispatchStatus | 'all';
   initialCoordinatorFilter?: string;
