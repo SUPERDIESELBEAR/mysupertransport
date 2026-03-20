@@ -1653,6 +1653,10 @@ export default function ManagementPortal() {
         {view === 'notifications' && (
           <NotificationHistory />
         )}
+
+        {view === 'pipeline-config' && (
+          <PipelineConfigEditor />
+        )}
       </StaffLayout>
 
       {/* Application Review Drawer (rendered outside layout to overlay correctly) */}
