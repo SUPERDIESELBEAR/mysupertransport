@@ -785,7 +785,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         decal_applied: os.decal_applied ?? 'no',
         eld_installed: os.eld_installed ?? 'no',
         fuel_card_issued: os.fuel_card_issued ?? 'no',
-        progress_pct: computeProgress(os),
+        progress_pct: 0, // placeholder; real % computed in StageTrack from pipeline_config
         onboarding_updated_at: os.updated_at ?? null,
       };
     });
