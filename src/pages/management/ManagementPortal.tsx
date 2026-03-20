@@ -246,13 +246,20 @@ export default function ManagementPortal() {
   }, [session?.user?.id]);
 
   const fetchCriticalExpiries = useCallback(async () => {
-    const { data } = await supabase
-      .from('operators')
-      .select('id, onboarding_status(fully_onboarded), applications(first_name, last_name, cdl_expiration, medical_cert_expiration)')
-      .not('application_id', 'is', null);
+    const [{ data }, { data: reminders }] = await Promise.all([
+      supabase
+        .from('operators')
+        .select('id, onboarding_status(fully_onboarded), applications(first_name, last_name, cdl_expiration, medical_cert_expiration)')
+        .not('application_id', 'is', null),
+      supabase.from('cert_reminders').select('operator_id, doc_type'),
+    ]);
     if (!data) return;
     const today = startOfDay(new Date());
     let count = 0;
+    let expired = 0;
+    let noReminder = 0;
+    const remindedKeys = new Set<string>();
+    (reminders ?? []).forEach((r: any) => remindedKeys.add(`${r.operator_id}|${r.doc_type}`));
     const rows: ComplianceRow[] = [];
     const driverCounts: ComplianceCounts = { expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0 };
 
@@ -262,21 +269,24 @@ export default function ManagementPortal() {
       const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
       const isFullyOnboarded = os?.fully_onboarded === true;
       const name = [app.first_name, app.last_name].filter(Boolean).join(' ') || 'Unknown';
-      const docs: { field: string; label: 'CDL' | 'Med Cert' }[] = [
-        { field: 'cdl_expiration', label: 'CDL' },
-        { field: 'medical_cert_expiration', label: 'Med Cert' },
+      const docs: { field: string; label: 'CDL' | 'Med Cert'; docType: string }[] = [
+        { field: 'cdl_expiration', label: 'CDL', docType: 'CDL' },
+        { field: 'medical_cert_expiration', label: 'Med Cert', docType: 'Medical Cert' },
       ];
-      docs.forEach(({ field, label }) => {
+      docs.forEach(({ field, label, docType }) => {
         const dateStr: string | null = app[field];
         if (!dateStr) {
           if (isFullyOnboarded) driverCounts.neverRenewed++;
           return;
         }
         const days = differenceInDays(startOfDay(parseISO(dateStr)), today);
+        if (days < 0) expired++;
         if (days <= 30) count++;
         if (days <= 90) {
           rows.push({ operatorId: op.id, name, daysUntil: days, docType: label, expiryDate: dateStr });
         }
+        const key = `${op.id}|${docType}`;
+        if (days <= 30 && !remindedKeys.has(key)) noReminder++;
         if (isFullyOnboarded) {
           if (days < 0) driverCounts.expired++;
           else if (days <= 30) driverCounts.critical++;
@@ -286,6 +296,8 @@ export default function ManagementPortal() {
     });
     rows.sort((a, b) => a.daysUntil - b.daysUntil);
     setCriticalExpiryCount(count);
+    setExpiredCount(expired);
+    setNoReminderCount(noReminder);
     setComplianceSummary(rows.slice(0, 5));
     setDriverComplianceCounts(driverCounts);
   }, []);
