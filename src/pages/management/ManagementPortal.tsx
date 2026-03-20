@@ -474,6 +474,7 @@ export default function ManagementPortal() {
   const handleResendInvite = async (invite: ApplicationInvite) => {
     setResendingId(invite.id);
     try {
+      const { data: { session: s } } = await supabase.auth.getSession();
       const { data, error } = await supabase.functions.invoke('invite-applicant', {
         body: {
           first_name: invite.first_name,
@@ -483,7 +484,7 @@ export default function ManagementPortal() {
           note: invite.note,
           invite_id: invite.id,
         },
-        headers: { Authorization: `Bearer ${session?.access_token}` },
+        headers: { Authorization: `Bearer ${s?.access_token}` },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
