@@ -53,7 +53,7 @@ interface PipelineStageConfig {
  * complete_value "present" means "any non-null / non-empty value".
  */
 function evalItem(op: OperatorRow, field: string, completeValue: string): boolean {
-  const raw = (op as Record<string, unknown>)[field];
+  const raw = (op as unknown as Record<string, unknown>)[field];
   if (completeValue === 'present') return raw != null && raw !== '';
   return raw === completeValue;
 }
