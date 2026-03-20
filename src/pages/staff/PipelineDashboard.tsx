@@ -1298,7 +1298,15 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       );
       const matchUnread = !unreadFilter || (unreadHighPriority ? op.unread_count >= 3 : op.unread_count > 0);
       const matchInvitePending = !invitePendingFilter || op.never_logged_in;
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending;
+      // Stage node filter: show only operators where the selected stage node is NOT complete
+      const matchStageNode = stageNodeFilter === 'all' || (() => {
+        const cfg = stageConfigs.find(c => c.stage_key === stageNodeFilter);
+        if (!cfg) return true;
+        if (cfg.items.length === 0) return true;
+        // Show operator if at least one item in this stage is NOT done
+        return !cfg.items.every(item => evalItem(op, item.field, item.complete_value));
+      })();
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchStageNode;
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
