@@ -311,9 +311,9 @@ Deno.serve(async (req) => {
         const subject = 'Your SUPERTRANSPORT Application Has Been Approved!';
         const html = buildEmail(
           subject,
-          '🎉 Congratulations — You\'ve Been Approved!',
+          '👍 Congratulations — You\'ve Been Approved!',
           `<p>Dear ${name},</p>
-           <p>We are thrilled to let you know that your driver application with <strong>SUPERTRANSPORT LLC</strong> has been <strong>approved</strong>.</p>
+           <p>We are thrilled to let you know that your driver application with <strong>SUPERTRANSPORT</strong> has been <strong>approved</strong>.</p>
            <p>You should receive a separate email shortly with a link to set up your SUPERTRANSPORT account. Once you log in, you'll be able to track your onboarding progress.</p>
            <p>Welcome to the SUPERTRANSPORT family — we're excited to have you on board!</p>
            ${payload.reviewer_notes ? `<p style="background:#f9f5e9;border-left:4px solid #C9A84C;padding:12px 16px;border-radius:4px;margin-top:16px;"><strong>Note from our team:</strong> ${payload.reviewer_notes}</p>` : ''}`,
