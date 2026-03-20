@@ -173,7 +173,7 @@ const MILESTONE_OPERATOR_COPY: Record<string, { heading: string; body: (name: st
   fully_onboarded: {
     heading: '🎉 Welcome to SUPERTRANSPORT — You\'re Fully Onboarded!',
     body: (name) => `<p>Hi ${name},</p>
-      <p>Congratulations — you have officially completed the onboarding process and are now a <strong>fully active owner-operator</strong> with SUPERTRANSPORT LLC!</p>
+      <p>Congratulations — you have officially completed the onboarding process and are now a <strong>fully active owner-operator</strong> with SUPERTRANSPORT!</p>
       <p>Here's what happens next:</p>
       <ul style="padding-left:20px;line-height:2;">
         <li>Your dispatcher will be in touch to get you set up with your first load.</li>
