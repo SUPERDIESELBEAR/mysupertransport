@@ -30,6 +30,8 @@ interface OperatorDetailPanelProps {
   expiryOverride?: { cdl: string | null; medcert: string | null };
   /** If true, scroll to the Inspection Binder section after load */
   scrollToInspectionBinder?: boolean;
+  /** If set, scroll to this stage section after load (e.g. 'stage1', 'stage3') */
+  scrollToStageKey?: string;
 }
 
 type OnboardingStatus = {
