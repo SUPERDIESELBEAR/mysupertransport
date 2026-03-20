@@ -12,6 +12,7 @@ import ApplicationReviewDrawer, { type FullApplication } from '@/components/mana
 import StaffDirectory from '@/components/management/StaffDirectory';
 import FaqManager from '@/components/management/FaqManager';
 import ResourceLibraryManager from '@/components/management/ResourceLibraryManager';
+import PipelineConfigEditor from '@/components/management/PipelineConfigEditor';
 import ActivityLog from '@/components/management/ActivityLog';
 import NotificationHistory from '@/components/management/NotificationHistory';
 import DispatchPortal from '../dispatch/DispatchPortal';
@@ -55,7 +56,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers' | 'pipeline-config';
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -85,7 +86,7 @@ export default function ManagementPortal() {
   const [searchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const v = searchParams.get('view') as ManagementView | null;
-    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications'].includes(v)) ? v : 'overview';
+    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers','pipeline-config'].includes(v)) ? v : 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
@@ -136,7 +137,7 @@ export default function ManagementPortal() {
   useEffect(() => {
     const v = searchParams.get('view') as ManagementView | null;
     const s = searchParams.get('status') as StatusFilter | null;
-    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers'].includes(v)) {
+    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers','pipeline-config'].includes(v)) {
       setView(v);
     }
     if (s && ['pending','approved','denied','all'].includes(s)) {
@@ -604,6 +605,7 @@ export default function ManagementPortal() {
     { label: 'Service Library', icon: <Layers className="h-4 w-4" />, path: 'service-library' },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
     { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
+    { label: 'Pipeline Config', icon: <Settings2 className="h-4 w-4" />, path: 'pipeline-config' },
   ];
 
   // Bottom nav on mobile: 5 priority items that fit cleanly at 375px
@@ -1650,6 +1652,10 @@ export default function ManagementPortal() {
 
         {view === 'notifications' && (
           <NotificationHistory />
+        )}
+
+        {view === 'pipeline-config' && (
+          <PipelineConfigEditor />
         )}
       </StaffLayout>
 
