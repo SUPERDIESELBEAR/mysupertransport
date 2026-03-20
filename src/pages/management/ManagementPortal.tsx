@@ -644,29 +644,30 @@ export default function ManagementPortal() {
   };
 
   const navItems = [
-    { label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
-    { label: 'Applications', icon: <ClipboardList className="h-4 w-4" />, path: 'applications' },
-    { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
-    { label: 'Drivers', icon: <Users2 className="h-4 w-4" />, path: 'drivers' },
-    { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
-    { label: 'Staff', icon: <UserPlus className="h-4 w-4" />, path: 'staff' },
-    { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />, path: 'inspection-binder' },
-    { label: 'Activity', icon: <ScrollText className="h-4 w-4" />, path: 'activity' },
-    { label: 'Notifications', icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
-    { label: 'Doc Hub', icon: <Library className="h-4 w-4" />, path: 'docs-hub' },
-    { label: 'Service Library', icon: <Layers className="h-4 w-4" />, path: 'service-library' },
-    { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
-    { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
-    { label: 'Pipeline Config', icon: <Settings2 className="h-4 w-4" />, path: 'pipeline-config' },
+    { label: 'Overview',          icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
+    { label: 'Applications',      icon: <ClipboardList className="h-4 w-4" />,   path: 'applications' },
+    { label: 'Pipeline',          icon: <Users className="h-4 w-4" />,           path: 'pipeline', badge: criticalExpiryCount || undefined },
+    { label: 'Messages',          icon: <MessageSquare className="h-4 w-4" />,   path: 'messages', badge: unreadMsgCount },
+    { label: 'Notifications',     icon: <BellRing className="h-4 w-4" />,        path: 'notifications', badge: unreadNotifCount },
+    { label: 'Compliance',        icon: <ShieldCheck className="h-4 w-4" />,     path: 'compliance', badge: criticalExpiryCount || undefined },
+    { label: 'Drivers',           icon: <Users2 className="h-4 w-4" />,          path: 'drivers' },
+    { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />,          path: 'inspection-binder' },
+    { label: 'Doc Hub',           icon: <Library className="h-4 w-4" />,         path: 'docs-hub' },
+    { label: 'Service Library',   icon: <Layers className="h-4 w-4" />,          path: 'service-library' },
+    { label: 'Resources',         icon: <BookOpen className="h-4 w-4" />,        path: 'resources' },
+    { label: 'Staff',             icon: <UserPlus className="h-4 w-4" />,        path: 'staff' },
+    { label: 'FAQ Manager',       icon: <HelpCircle className="h-4 w-4" />,      path: 'faq' },
+    { label: 'Pipeline Config',   icon: <Settings2 className="h-4 w-4" />,       path: 'pipeline-config' },
+    { label: 'Activity',          icon: <ScrollText className="h-4 w-4" />,      path: 'activity' },
   ];
 
   // Bottom nav on mobile: 5 priority items that fit cleanly at 375px
   const mobileNavItems = [
-    { label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
-    { label: 'Drivers', icon: <Users2 className="h-4 w-4" />, path: 'drivers' },
-    { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
-    { label: 'Dispatch', icon: <Truck className="h-4 w-4" />, path: 'dispatch' },
-    { label: 'Notifs', icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
+    { label: 'Overview',      icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
+    { label: 'Pipeline',      icon: <Users className="h-4 w-4" />,           path: 'pipeline', badge: criticalExpiryCount || undefined },
+    { label: 'Messages',      icon: <MessageSquare className="h-4 w-4" />,   path: 'messages', badge: unreadMsgCount },
+    { label: 'Compliance',    icon: <ShieldCheck className="h-4 w-4" />,     path: 'compliance', badge: criticalExpiryCount || undefined },
+    { label: 'Notifs',        icon: <BellRing className="h-4 w-4" />,        path: 'notifications', badge: unreadNotifCount },
   ];
 
   return (
