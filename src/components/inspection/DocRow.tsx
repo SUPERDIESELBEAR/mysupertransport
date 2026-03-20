@@ -398,8 +398,20 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const { toast } = useToast();
 
   const hasFile = !!doc?.file_url;
+
+  const handleCopyLink = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!doc) return;
+    const shareUrl = `${window.location.origin}/inspect/${doc.public_share_token}`;
+    await navigator.clipboard.writeText(shareUrl);
+    setLinkCopied(true);
+    toast({ title: 'Share link copied!', description: doc.name });
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
 
   return (
     <>
