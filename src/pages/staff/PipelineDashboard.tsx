@@ -2098,11 +2098,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
               ).length;
               if (incompleteCount === 0) return null;
-              const isActive = stageNodeFilter === cfg.stage_key;
+              const isActive = stageNodeFilters.has(cfg.stage_key);
               return (
                 <button
                   key={cfg.stage_key}
-                  onClick={() => setStageNodeFilter(isActive ? 'all' : cfg.stage_key)}
+                  onClick={() => toggleStageNodeFilter(cfg.stage_key)}
                   className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-all active:scale-95 ${
                     isActive
                       ? 'bg-gold text-white border-gold shadow-sm'
@@ -2119,9 +2119,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </button>
               );
             })}
-          {stageNodeFilter !== 'all' && (
+          {stageNodeFilters.size > 0 && (
             <button
-              onClick={() => setStageNodeFilter('all')}
+              onClick={() => setStageNodeFilters(new Set())}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
             >
               clear
