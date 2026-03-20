@@ -103,7 +103,7 @@ const MILESTONE_COPY: Record<string, {
     subject: 'ICA Agreement Signed & Complete — SUPERTRANSPORT',
     heading: '✅ ICA Agreement Complete',
     body: (name) => `<p>Hi ${name},</p>
-      <p>Your <strong>Independent Contractor Agreement (ICA)</strong> is now fully signed and on file with SUPERTRANSPORT LLC.</p>
+      <p>Your <strong>Independent Contractor Agreement (ICA)</strong> is now fully signed and on file with SUPERTRANSPORT.</p>
       <p>This is a major milestone in your onboarding journey. Our team will now proceed with Missouri registration and equipment setup.</p>`,
     cta: (appUrl) => ({ label: 'View My Onboarding Progress', url: `${appUrl}/dashboard` }),
   },
