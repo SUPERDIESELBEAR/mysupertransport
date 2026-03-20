@@ -186,24 +186,36 @@ function StageTrack({
                   </span>
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="top" className="text-left space-y-1.5 min-w-[160px]">
+              <TooltipContent side="top" className="text-left min-w-[180px] max-w-[240px] p-2.5 space-y-2">
                 <p className="font-semibold text-xs">{node.fullName}</p>
-                <p className="text-[10px] text-muted-foreground italic">Click to open this section</p>
-                <ul className="space-y-0.5">
-                  {node.items.map(item => (
-                    <li key={item.label} className="flex items-center gap-1.5 text-xs">
-                      <span
-                        className="shrink-0 font-bold"
-                        style={{ color: item.done ? 'hsl(var(--status-complete))' : 'hsl(var(--muted-foreground))' }}
-                      >
-                        {item.done ? '✓' : '✗'}
-                      </span>
-                      <span style={{ color: item.done ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>
-                        {item.label}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                {node.items.filter(i => !i.done).length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-destructive/80">Still needed</p>
+                    <ul className="space-y-1">
+                      {node.items.filter(i => !i.done).map(item => (
+                        <li key={item.label} className="flex items-start gap-1.5 text-xs">
+                          <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                          <span className="text-foreground">{item.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="text-xs" style={{ color: 'hsl(var(--status-complete))' }}>All items complete ✓</p>
+                )}
+                {node.items.filter(i => i.done).length > 0 && node.items.filter(i => !i.done).length > 0 && (
+                  <div className="space-y-1 pt-1 border-t border-border">
+                    <ul className="space-y-1">
+                      {node.items.filter(i => i.done).map(item => (
+                        <li key={item.label} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                          <span className="mt-0.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'hsl(var(--status-complete))' }} />
+                          <span>{item.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <p className="text-[10px] text-muted-foreground italic pt-0.5">Click to open this section</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
