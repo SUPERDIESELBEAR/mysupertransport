@@ -1686,7 +1686,7 @@ export default function ManagementPortal() {
         )}
 
         {view === 'dispatch' && (
-          <DispatchPortal embedded />
+          <DispatchPortal embedded defaultFilter={dispatchDefaultFilter} />
         )}
 
         {view === 'staff' && (
