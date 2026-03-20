@@ -2358,7 +2358,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
                      <td className="px-4 py-3">
                        <div className="flex flex-col gap-1.5">
-                         <StageTrack op={op} stageConfigs={stageConfigs} />
+                         <StageTrack
+                           op={op}
+                           stageConfigs={stageConfigs}
+                           onNodeClick={onOpenOperatorAtStage}
+                         />
                          {/* Days in Draft chip — shown when ICA is in-progress */}
                          {op.ica_status === 'in_progress' && op.ica_draft_since && (() => {
                            const daysInDraft = differenceInDays(new Date(), parseISO(op.ica_draft_since));
