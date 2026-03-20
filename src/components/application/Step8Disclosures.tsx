@@ -115,8 +115,8 @@ export default function Step8Disclosures({ data, onChange, errors }: Props) {
       <section className="space-y-3">
         <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Certificate of Receipt — Company Testing Policy</h3>
         <div className="p-4 bg-secondary border border-border rounded-xl text-xs text-muted-foreground leading-relaxed max-h-48 overflow-y-auto">
-          <p className="font-semibold text-foreground mb-2">SUPERTRANSPORT LLC — Federal Motor Carrier Safety Compliance Notice</p>
-          <p className="mb-2">By accepting these terms, you acknowledge that you have received, read, and understand SUPERTRANSPORT LLC's Drug and Alcohol Policy as required by 49 CFR §382.601. You certify that you are familiar with the requirements of 49 CFR Parts 40, 382, and 391, and you agree to comply with all applicable FMCSA regulations while operating under SUPERTRANSPORT LLC's authority.</p>
+          <p className="font-semibold text-foreground mb-2">SUPERTRANSPORT — Federal Motor Carrier Safety Compliance Notice</p>
+          <p className="mb-2">By accepting these terms, you acknowledge that you have received, read, and understand SUPERTRANSPORT's Drug and Alcohol Policy as required by 49 CFR §382.601. You certify that you are familiar with the requirements of 49 CFR Parts 40, 382, and 391, and you agree to comply with all applicable FMCSA regulations while operating under SUPERTRANSPORT's authority.</p>
           <p className="mb-2">You acknowledge that: (1) you are subject to controlled substance and alcohol testing as a condition of employment; (2) a positive test result or refusal to test will result in immediate removal from safety-sensitive duties; (3) you understand the consequences of violations and your rights as described in the policy.</p>
           <p>You certify that all information provided in this application is accurate and complete to the best of your knowledge, and that providing false information may result in disqualification from consideration or termination of employment.</p>
         </div>
