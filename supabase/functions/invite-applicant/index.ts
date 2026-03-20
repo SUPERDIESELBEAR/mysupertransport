@@ -193,7 +193,7 @@ Deno.serve(async (req) => {
           email,
           phone: phone ?? null,
           note: note ?? null,
-          invited_by: callerUser.id,
+          invited_by: callerId,
           invited_by_name: callerName,
           email_sent: emailSent,
           email_error: emailError,
