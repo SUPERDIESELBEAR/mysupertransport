@@ -2001,12 +2001,15 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               <button onClick={() => setComplianceFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
             </span>
           )}
-          {stageNodeFilter !== 'all' && (
-            <span className="inline-flex items-center gap-1 bg-gold/10 text-gold border border-gold/30 text-xs px-2.5 py-1 rounded-full font-medium">
-              Incomplete: {stageConfigs.find(c => c.stage_key === stageNodeFilter)?.full_name ?? stageNodeFilter}
-              <button onClick={() => setStageNodeFilter('all')} className="hover:opacity-70"><X className="h-3 w-3" /></button>
-            </span>
-          )}
+          {stageNodeFilters.size > 0 && Array.from(stageNodeFilters).map(key => {
+            const cfg = stageConfigs.find(c => c.stage_key === key);
+            return (
+              <span key={key} className="inline-flex items-center gap-1 bg-gold/10 text-gold border border-gold/30 text-xs px-2.5 py-1 rounded-full font-medium">
+                Incomplete: {cfg?.full_name ?? key}
+                <button onClick={() => toggleStageNodeFilter(key)} className="hover:opacity-70"><X className="h-3 w-3" /></button>
+              </span>
+            );
+          })}
           {idleFilter && (
             <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium border bg-warning/10 border-warning/30" style={{ color: 'hsl(var(--warning))' }}>
               <Clock className="h-3 w-3" />
