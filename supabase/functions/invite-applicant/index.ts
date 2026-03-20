@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
 
       // Audit log
       supabaseAdmin.from('audit_log').insert({
-        actor_id: callerUser.id,
+        actor_id: callerId,
         actor_name: callerName as string,
         action: 'applicant_invited',
         entity_type: 'application_invite',
