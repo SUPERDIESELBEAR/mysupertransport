@@ -929,6 +929,7 @@ export default function OperatorPortal() {
               onNavigateTo={(v) => setView(v as OperatorView)}
               displayName={displayName}
               assignedDispatcher={assignedDispatcher}
+              assignedCoordinator={assignedCoordinator}
               dispatchStatus={dispatchStatus}
               cdlExpiration={cdlExpiration}
               medicalCertExpiration={medicalCertExpiration}
@@ -939,6 +940,12 @@ export default function OperatorPortal() {
               onMessageDispatcher={() => {
                 if (assignedDispatcher?.userId) {
                   setMessageInitialUserId(assignedDispatcher.userId);
+                }
+                setView('messages');
+              }}
+              onMessageCoordinator={() => {
+                if (assignedCoordinator?.userId) {
+                  setMessageInitialUserId(assignedCoordinator.userId);
                 }
                 setView('messages');
               }}
