@@ -13,6 +13,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UserRound, CheckCircle2, Camera, Loader2, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 const US_STATES = [
   'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',
@@ -269,19 +280,39 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
                 Click to {avatarUrl ? 'change' : 'add'} photo · JPEG, PNG, WebP · max 5 MB
               </p>
               {avatarUrl && (
-                <button
-                  type="button"
-                  onClick={handleRemoveAvatar}
-                  disabled={avatarUploading}
-                  className={`flex items-center gap-1 text-xs transition-colors ${
-                    isDark
-                      ? 'text-surface-dark-muted hover:text-destructive'
-                      : 'text-muted-foreground hover:text-destructive'
-                  }`}
-                >
-                  <Trash2 className="h-3 w-3" />
-                  Remove photo
-                </button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={avatarUploading}
+                      className={`flex items-center gap-1 text-xs transition-colors ${
+                        isDark
+                          ? 'text-surface-dark-muted hover:text-destructive'
+                          : 'text-muted-foreground hover:text-destructive'
+                      }`}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Remove photo
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Remove profile photo?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Your photo will be removed and replaced with your initials. You can upload a new one any time.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleRemoveAvatar}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Remove photo
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               )}
               {avatarError && (
                 <p className="text-xs text-destructive">{avatarError}</p>
