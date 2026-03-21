@@ -14,7 +14,38 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserRound, CheckCircle2, Camera, Loader2, Trash2 } from 'lucide-react';
+import { UserRound, CheckCircle2, Camera, Loader2, Trash2, ZoomIn, RotateCcw } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+
+/** Canvas-based crop helper — returns a Blob of the cropped circle area */
+async function getCroppedBlob(imageSrc: string, pixelCrop: Area, mimeType: string): Promise<Blob> {
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = imageSrc;
+  });
+  const canvas = document.createElement('canvas');
+  const size = Math.min(pixelCrop.width, pixelCrop.height);
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  // Clip to circle
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.drawImage(
+    image,
+    pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height,
+    0, 0, size, size,
+  );
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('Canvas toBlob failed'));
+    }, mimeType, 0.92);
+  });
+}
 import {
   AlertDialog,
   AlertDialogAction,
