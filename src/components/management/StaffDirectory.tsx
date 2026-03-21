@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   UserPlus, RefreshCcw, Mail, Shield, Truck, Users,
   Search, X, ChevronDown, Clock, Settings2, Plus, Minus,
-  AlertTriangle, CheckCircle2, Phone, Trash2
+  AlertTriangle, CheckCircle2, Phone, Trash2, Camera, Loader2
 } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -96,6 +96,10 @@ export default function StaffDirectory() {
   const [deleteConfirmPending, setDeleteConfirmPending] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
+  // Avatar upload for managed staff member
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
@@ -645,6 +649,109 @@ export default function StaffDirectory() {
             </div>
 
             <div className="px-6 py-5 space-y-4">
+
+              {/* ── Profile Photo ── */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Profile Photo</p>
+                <input
+                  ref={avatarFileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setAvatarError(null);
+                    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+                      setAvatarError('Please upload a JPEG, PNG, or WebP image.');
+                      return;
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                      setAvatarError('Image must be under 5 MB.');
+                      return;
+                    }
+                    setAvatarUploading(true);
+                    try {
+                      const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+                      const path = `${managingMember.user_id}/avatar.${ext}`;
+                      const { error: uploadError } = await supabase.storage
+                        .from('avatars')
+                        .upload(path, file, { upsert: true, contentType: file.type });
+                      if (uploadError) throw uploadError;
+                      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+                      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+                      const { error: dbError } = await supabase
+                        .from('profiles')
+                        .update({ avatar_url: publicUrl })
+                        .eq('user_id', managingMember.user_id);
+                      if (dbError) throw dbError;
+                      setManagingMember(prev => prev ? { ...prev, avatar_url: publicUrl } : prev);
+                      setStaff(prev => prev.map(m => m.user_id === managingMember.user_id ? { ...m, avatar_url: publicUrl } : m));
+                      toast({ title: 'Photo updated', description: 'Staff member photo has been saved.' });
+                    } catch (err) {
+                      setAvatarError(err instanceof Error ? err.message : 'Upload failed.');
+                    } finally {
+                      setAvatarUploading(false);
+                      if (avatarFileInputRef.current) avatarFileInputRef.current.value = '';
+                    }
+                  }}
+                />
+                <div className="flex items-center gap-4">
+                  {/* Avatar preview */}
+                  <div className="h-16 w-16 rounded-full overflow-hidden border-2 border-border shrink-0 flex items-center justify-center bg-surface-dark">
+                    {managingMember.avatar_url ? (
+                      <img src={managingMember.avatar_url} alt="Staff photo" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-xl font-bold text-gold">
+                        {(managingMember.first_name?.[0] ?? managingMember.last_name?.[0] ?? '?').toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={avatarUploading}
+                      onClick={() => avatarFileInputRef.current?.click()}
+                      className="h-8 px-3 text-xs gap-1.5"
+                    >
+                      {avatarUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                      {managingMember.avatar_url ? 'Change Photo' : 'Upload Photo'}
+                    </Button>
+                    {managingMember.avatar_url && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={avatarUploading}
+                        onClick={async () => {
+                          setAvatarUploading(true);
+                          setAvatarError(null);
+                          try {
+                            const { error: dbError } = await supabase
+                              .from('profiles')
+                              .update({ avatar_url: null })
+                              .eq('user_id', managingMember.user_id);
+                            if (dbError) throw dbError;
+                            setManagingMember(prev => prev ? { ...prev, avatar_url: null } : prev);
+                            setStaff(prev => prev.map(m => m.user_id === managingMember.user_id ? { ...m, avatar_url: null } : m));
+                            toast({ title: 'Photo removed' });
+                          } catch (err) {
+                            setAvatarError(err instanceof Error ? err.message : 'Remove failed.');
+                          } finally {
+                            setAvatarUploading(false);
+                          }
+                        }}
+                        className="h-8 px-3 text-xs gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Remove Photo
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {avatarError && <p className="text-xs text-destructive mt-2">{avatarError}</p>}
+              </div>
+
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Role Access</p>
                 <div className="space-y-2">
