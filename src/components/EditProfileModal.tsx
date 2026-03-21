@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserRound, CheckCircle2, Camera, Loader2 } from 'lucide-react';
+import { UserRound, CheckCircle2, Camera, Loader2, Trash2 } from 'lucide-react';
 
 const US_STATES = [
   'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA',
@@ -129,6 +129,25 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
       setAvatarUploading(false);
       // Reset input so same file can be re-selected
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user) return;
+    setAvatarError(null);
+    setAvatarUploading(true);
+    try {
+      const { error: dbError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: null })
+        .eq('user_id', user.id);
+      if (dbError) throw dbError;
+      setAvatarUrl(null);
+      await refreshProfile();
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : 'Failed to remove photo.');
+    } finally {
+      setAvatarUploading(false);
     }
   };
 
@@ -249,6 +268,21 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
               <p className={`text-xs ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`}>
                 Click to {avatarUrl ? 'change' : 'add'} photo · JPEG, PNG, WebP · max 5 MB
               </p>
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAvatar}
+                  disabled={avatarUploading}
+                  className={`flex items-center gap-1 text-xs transition-colors ${
+                    isDark
+                      ? 'text-surface-dark-muted hover:text-destructive'
+                      : 'text-muted-foreground hover:text-destructive'
+                  }`}
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Remove photo
+                </button>
+              )}
               {avatarError && (
                 <p className="text-xs text-destructive">{avatarError}</p>
               )}
