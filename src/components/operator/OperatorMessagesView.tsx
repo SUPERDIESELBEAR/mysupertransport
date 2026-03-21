@@ -436,10 +436,14 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
                   >
                     <ArrowLeft className="h-4 w-4 text-muted-foreground" />
                   </button>
-                  <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                    <span className="text-primary text-xs font-bold">
-                      {selectedThread ? initials(selectedThread.name) : '?'}
-                    </span>
+                  <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
+                    {selectedThread?.avatarUrl ? (
+                      <img src={selectedThread.avatarUrl} alt={selectedThread.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-primary text-xs font-bold">
+                        {selectedThread ? initials(selectedThread.name) : '?'}
+                      </span>
+                    )}
                   </div>
                   <div>
                     <p className="font-semibold text-sm text-foreground">{selectedThread?.name ?? 'Your Coordinator'}</p>
