@@ -14,38 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserRound, CheckCircle2, Camera, Loader2, Trash2, ZoomIn, RotateCcw } from 'lucide-react';
+import { UserRound, CheckCircle2, Camera, Loader2, Trash2, ZoomIn } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
-
-/** Canvas-based crop helper — returns a Blob of the cropped circle area */
-async function getCroppedBlob(imageSrc: string, pixelCrop: Area, mimeType: string): Promise<Blob> {
-  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = imageSrc;
-  });
-  const canvas = document.createElement('canvas');
-  const size = Math.min(pixelCrop.width, pixelCrop.height);
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d')!;
-  // Clip to circle
-  ctx.beginPath();
-  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-  ctx.clip();
-  ctx.drawImage(
-    image,
-    pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height,
-    0, 0, size, size,
-  );
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error('Canvas toBlob failed'));
-    }, mimeType, 0.92);
-  });
-}
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,6 +35,35 @@ const US_STATES = [
   'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
   'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
 ];
+
+/** Canvas helper — draws the cropped area into a square canvas clipped to a circle, returns a Blob */
+async function getCroppedBlob(imageSrc: string, pixelCrop: Area, mimeType: string): Promise<Blob> {
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = imageSrc;
+  });
+  const size = Math.min(pixelCrop.width, pixelCrop.height);
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.drawImage(
+    image,
+    pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height,
+    0, 0, size, size,
+  );
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('Canvas toBlob failed'));
+    }, mimeType, 0.92);
+  });
+}
 
 interface EditProfileModalProps {
   open: boolean;
@@ -92,6 +91,13 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
   const [avatarError, setAvatarError]     = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Crop step state
+  const [cropSrc, setCropSrc]               = useState<string | null>(null);   // object URL of selected image
+  const [cropMime, setCropMime]             = useState<string>('image/jpeg');
+  const [crop, setCrop]                     = useState({ x: 0, y: 0 });
+  const [zoom, setZoom]                     = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+
   const isDark = variant === 'dark';
 
   // Re-seed whenever the modal opens (handles profile updates between opens)
@@ -108,7 +114,14 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
     }
   }, [open, profile]);
 
+  // Clean up object URL when crop step is dismissed
+  useEffect(() => {
+    if (!cropSrc) return;
+    return () => URL.revokeObjectURL(cropSrc);
+  }, [cropSrc]);
+
   const handleClose = () => {
+    setCropSrc(null);
     setError(null);
     setAvatarError(null);
     setSuccess(false);
@@ -126,55 +139,72 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
     setPhone(formatPhone(e.target.value));
   };
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  /** File selected → open the crop step instead of uploading immediately */
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
-
+    if (!file) return;
     setAvatarError(null);
 
-    // Validate type
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
       setAvatarError('Please upload a JPEG, PNG, or WebP image.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-
-    // Validate size (5 MB)
     if (file.size > 5 * 1024 * 1024) {
       setAvatarError('Image must be under 5 MB.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
+    // Open crop UI
+    setCropMime(file.type);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setCroppedAreaPixels(null);
+    setCropSrc(URL.createObjectURL(file));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const onCropComplete = useCallback((_: Area, pixels: Area) => {
+    setCroppedAreaPixels(pixels);
+  }, []);
+
+  /** Confirm crop → generate blob → upload */
+  const handleCropConfirm = async () => {
+    if (!cropSrc || !croppedAreaPixels || !user) return;
+    setAvatarError(null);
     setAvatarUploading(true);
     try {
-      const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+      const blob = await getCroppedBlob(cropSrc, croppedAreaPixels, cropMime);
+      const ext = cropMime === 'image/png' ? 'png' : cropMime === 'image/webp' ? 'webp' : 'jpg';
       const path = `${user.id}/avatar.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(path, file, { upsert: true, contentType: file.type });
-
+        .upload(path, blob, { upsert: true, contentType: cropMime });
       if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
       const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
-      // Persist to profiles table immediately
       const { error: dbError } = await supabase
         .from('profiles')
         .update({ avatar_url: publicUrl })
         .eq('user_id', user.id);
-
       if (dbError) throw dbError;
 
       setAvatarUrl(publicUrl);
       await refreshProfile();
+      setCropSrc(null);
     } catch (err) {
       setAvatarError(err instanceof Error ? err.message : 'Upload failed.');
     } finally {
       setAvatarUploading(false);
-      // Reset input so same file can be re-selected
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleCropCancel = () => {
+    setCropSrc(null);
   };
 
   const handleRemoveAvatar = async () => {
@@ -243,201 +273,293 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
       <DialogContent className={`sm:max-w-md ${isDark ? 'bg-surface-dark border-surface-dark-border' : ''}`}>
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${isDark ? 'bg-gold/15' : 'bg-primary/10'}`}>
-              <UserRound className={`h-4 w-4 ${isDark ? 'text-gold' : 'text-primary'}`} />
-            </div>
-            <DialogTitle className={isDark ? 'text-surface-dark-foreground' : ''}>
-              Edit Profile
-            </DialogTitle>
-          </div>
-          <DialogDescription className={isDark ? 'text-surface-dark-muted' : ''}>
-            Update your photo, display name, phone number, and home state.
-          </DialogDescription>
-        </DialogHeader>
 
-        {success ? (
-          <div className="flex flex-col items-center gap-3 py-6">
-            <div className="h-12 w-12 rounded-full bg-status-complete/15 flex items-center justify-center">
-              <CheckCircle2 className="h-6 w-6 text-status-complete" />
-            </div>
-            <p className={`text-sm font-medium ${isDark ? 'text-surface-dark-foreground' : 'text-foreground'}`}>
-              Profile updated!
-            </p>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-            {/* Avatar picker */}
-            <div className="flex flex-col items-center gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={handleAvatarChange}
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={avatarUploading}
-                className="relative group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded-full"
-                title="Change profile photo"
-              >
-                <div className={`h-20 w-20 rounded-full overflow-hidden border-2 transition-all ${
-                  isDark ? 'border-surface-dark-border group-hover:border-gold/60' : 'border-border group-hover:border-primary/50'
-                }`}>
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt="Profile photo"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className={`h-full w-full flex items-center justify-center ${isDark ? 'bg-surface-dark-card' : 'bg-muted'}`}>
-                      <span className={`text-2xl font-bold ${isDark ? 'text-gold' : 'text-muted-foreground'}`}>{initials}</span>
-                    </div>
-                  )}
+        {/* ── Crop step ── */}
+        {cropSrc ? (
+          <>
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${isDark ? 'bg-gold/15' : 'bg-primary/10'}`}>
+                  <Camera className={`h-4 w-4 ${isDark ? 'text-gold' : 'text-primary'}`} />
                 </div>
-                {/* Camera overlay */}
-                <div className={`absolute inset-0 rounded-full flex items-center justify-center transition-opacity ${
-                  avatarUploading ? 'opacity-100 bg-black/40' : 'opacity-0 group-hover:opacity-100 bg-black/40'
-                }`}>
-                  {avatarUploading ? (
-                    <Loader2 className="h-6 w-6 text-white animate-spin" />
-                  ) : (
-                    <Camera className="h-6 w-6 text-white" />
-                  )}
-                </div>
-              </button>
-              <p className={`text-xs ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`}>
-                Click to {avatarUrl ? 'change' : 'add'} photo · JPEG, PNG, WebP · max 5 MB
-              </p>
-              {avatarUrl && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <button
-                      type="button"
-                      disabled={avatarUploading}
-                      className={`flex items-center gap-1 text-xs transition-colors ${
-                        isDark
-                          ? 'text-surface-dark-muted hover:text-destructive'
-                          : 'text-muted-foreground hover:text-destructive'
-                      }`}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                      Remove photo
-                    </button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Remove profile photo?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Your photo will be removed and replaced with your initials. You can upload a new one any time.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleRemoveAvatar}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        Remove photo
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-              {avatarError && (
-                <p className="text-xs text-destructive">{avatarError}</p>
-              )}
-            </div>
-
-            {/* Name row */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="ep-first" className={labelClass}>First Name</Label>
-                <Input
-                  id="ep-first"
-                  value={firstName}
-                  onChange={e => setFirstName(e.target.value)}
-                  placeholder="Jane"
-                  maxLength={50}
-                  className={inputClass}
-                  required
-                  autoComplete="given-name"
-                />
+                <DialogTitle className={isDark ? 'text-surface-dark-foreground' : ''}>
+                  Crop Your Photo
+                </DialogTitle>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="ep-last" className={labelClass}>Last Name</Label>
-                <Input
-                  id="ep-last"
-                  value={lastName}
-                  onChange={e => setLastName(e.target.value)}
-                  placeholder="Smith"
-                  maxLength={50}
-                  className={inputClass}
-                  required
-                  autoComplete="family-name"
-                />
-              </div>
-            </div>
+              <DialogDescription className={isDark ? 'text-surface-dark-muted' : ''}>
+                Drag to reposition · pinch or scroll to zoom
+              </DialogDescription>
+            </DialogHeader>
 
-            {/* Phone */}
-            <div className="space-y-1.5">
-              <Label htmlFor="ep-phone" className={labelClass}>Phone Number</Label>
-              <Input
-                id="ep-phone"
-                type="tel"
-                value={phone}
-                onChange={handlePhoneChange}
-                placeholder="(555) 000-0000"
-                className={inputClass}
-                autoComplete="tel"
-                inputMode="numeric"
+            {/* Cropper canvas */}
+            <div className="relative w-full rounded-xl overflow-hidden" style={{ height: 280 }}>
+              <Cropper
+                image={cropSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+                style={{
+                  containerStyle: {
+                    background: isDark ? '#1a1a1a' : '#111',
+                    borderRadius: '0.75rem',
+                  },
+                  cropAreaStyle: {
+                    border: '2px solid hsl(var(--gold-main))',
+                    boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
+                  },
+                }}
               />
             </div>
 
-            {/* Home state */}
-            <div className="space-y-1.5">
-              <Label className={labelClass}>Home State</Label>
-              <Select value={homeState} onValueChange={setHomeState}>
-                <SelectTrigger className={inputClass}>
-                  <SelectValue placeholder="Select state…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {US_STATES.map(s => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Zoom slider */}
+            <div className="flex items-center gap-3 px-1">
+              <ZoomIn className={`h-4 w-4 shrink-0 ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`} />
+              <Slider
+                min={1}
+                max={3}
+                step={0.01}
+                value={[zoom]}
+                onValueChange={([v]) => setZoom(v)}
+                className="flex-1"
+              />
+              <span className={`text-xs tabular-nums w-8 text-right ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`}>
+                {zoom.toFixed(1)}×
+              </span>
             </div>
 
-            {error && (
-              <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
-                {error}
-              </p>
+            {avatarError && (
+              <p className="text-xs text-destructive">{avatarError}</p>
             )}
 
             <div className="flex gap-2 pt-1">
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleClose}
+                onClick={handleCropCancel}
+                disabled={avatarUploading}
                 className={`flex-1 ${isDark ? 'border-surface-dark-border text-surface-dark-muted hover:text-surface-dark-foreground hover:bg-surface-dark-card' : ''}`}
               >
-                Cancel
+                Back
               </Button>
               <Button
-                type="submit"
-                onClick={handleSubmit}
-                disabled={loading || !firstName.trim() || !lastName.trim()}
+                type="button"
+                onClick={handleCropConfirm}
+                disabled={avatarUploading}
                 className="flex-1 bg-gold text-surface-dark hover:bg-gold-light font-semibold"
               >
-                {loading ? 'Saving…' : 'Save Changes'}
+                {avatarUploading ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</>
+                ) : (
+                  'Apply Photo'
+                )}
               </Button>
             </div>
-          </form>
+          </>
+        ) : (
+          /* ── Normal edit form ── */
+          <>
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${isDark ? 'bg-gold/15' : 'bg-primary/10'}`}>
+                  <UserRound className={`h-4 w-4 ${isDark ? 'text-gold' : 'text-primary'}`} />
+                </div>
+                <DialogTitle className={isDark ? 'text-surface-dark-foreground' : ''}>
+                  Edit Profile
+                </DialogTitle>
+              </div>
+              <DialogDescription className={isDark ? 'text-surface-dark-muted' : ''}>
+                Update your photo, display name, phone number, and home state.
+              </DialogDescription>
+            </DialogHeader>
+
+            {success ? (
+              <div className="flex flex-col items-center gap-3 py-6">
+                <div className="h-12 w-12 rounded-full bg-status-complete/15 flex items-center justify-center">
+                  <CheckCircle2 className="h-6 w-6 text-status-complete" />
+                </div>
+                <p className={`text-sm font-medium ${isDark ? 'text-surface-dark-foreground' : 'text-foreground'}`}>
+                  Profile updated!
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+                {/* Avatar picker */}
+                <div className="flex flex-col items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleFileSelected}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={avatarUploading}
+                    className="relative group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold rounded-full"
+                    title="Change profile photo"
+                  >
+                    <div className={`h-20 w-20 rounded-full overflow-hidden border-2 transition-all ${
+                      isDark ? 'border-surface-dark-border group-hover:border-gold/60' : 'border-border group-hover:border-primary/50'
+                    }`}>
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt="Profile photo"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className={`h-full w-full flex items-center justify-center ${isDark ? 'bg-surface-dark-card' : 'bg-muted'}`}>
+                          <span className={`text-2xl font-bold ${isDark ? 'text-gold' : 'text-muted-foreground'}`}>{initials}</span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Camera overlay */}
+                    <div className={`absolute inset-0 rounded-full flex items-center justify-center transition-opacity ${
+                      avatarUploading ? 'opacity-100 bg-black/40' : 'opacity-0 group-hover:opacity-100 bg-black/40'
+                    }`}>
+                      {avatarUploading ? (
+                        <Loader2 className="h-6 w-6 text-white animate-spin" />
+                      ) : (
+                        <Camera className="h-6 w-6 text-white" />
+                      )}
+                    </div>
+                  </button>
+                  <p className={`text-xs ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`}>
+                    Click to {avatarUrl ? 'change' : 'add'} photo · JPEG, PNG, WebP · max 5 MB
+                  </p>
+                  {avatarUrl && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button
+                          type="button"
+                          disabled={avatarUploading}
+                          className={`flex items-center gap-1 text-xs transition-colors ${
+                            isDark
+                              ? 'text-surface-dark-muted hover:text-destructive'
+                              : 'text-muted-foreground hover:text-destructive'
+                          }`}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Remove photo
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Remove profile photo?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Your photo will be removed and replaced with your initials. You can upload a new one any time.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={handleRemoveAvatar}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Remove photo
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                  {avatarError && (
+                    <p className="text-xs text-destructive">{avatarError}</p>
+                  )}
+                </div>
+
+                {/* Name row */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ep-first" className={labelClass}>First Name</Label>
+                    <Input
+                      id="ep-first"
+                      value={firstName}
+                      onChange={e => setFirstName(e.target.value)}
+                      placeholder="Jane"
+                      maxLength={50}
+                      className={inputClass}
+                      required
+                      autoComplete="given-name"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ep-last" className={labelClass}>Last Name</Label>
+                    <Input
+                      id="ep-last"
+                      value={lastName}
+                      onChange={e => setLastName(e.target.value)}
+                      placeholder="Smith"
+                      maxLength={50}
+                      className={inputClass}
+                      required
+                      autoComplete="family-name"
+                    />
+                  </div>
+                </div>
+
+                {/* Phone */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="ep-phone" className={labelClass}>Phone Number</Label>
+                  <Input
+                    id="ep-phone"
+                    type="tel"
+                    value={phone}
+                    onChange={handlePhoneChange}
+                    placeholder="(555) 000-0000"
+                    className={inputClass}
+                    autoComplete="tel"
+                    inputMode="numeric"
+                  />
+                </div>
+
+                {/* Home state */}
+                <div className="space-y-1.5">
+                  <Label className={labelClass}>Home State</Label>
+                  <Select value={homeState} onValueChange={setHomeState}>
+                    <SelectTrigger className={inputClass}>
+                      <SelectValue placeholder="Select state…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {US_STATES.map(s => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {error && (
+                  <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                    {error}
+                  </p>
+                )}
+
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleClose}
+                    className={`flex-1 ${isDark ? 'border-surface-dark-border text-surface-dark-muted hover:text-surface-dark-foreground hover:bg-surface-dark-card' : ''}`}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    onClick={handleSubmit}
+                    disabled={loading || !firstName.trim() || !lastName.trim()}
+                    className="flex-1 bg-gold text-surface-dark hover:bg-gold-light font-semibold"
+                  >
+                    {loading ? 'Saving…' : 'Save Changes'}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </>
         )}
       </DialogContent>
     </Dialog>
