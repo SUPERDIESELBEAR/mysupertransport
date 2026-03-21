@@ -132,6 +132,25 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
     }
   };
 
+  const handleRemoveAvatar = async () => {
+    if (!user) return;
+    setAvatarError(null);
+    setAvatarUploading(true);
+    try {
+      const { error: dbError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: null })
+        .eq('user_id', user.id);
+      if (dbError) throw dbError;
+      setAvatarUrl(null);
+      await refreshProfile();
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : 'Failed to remove photo.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
