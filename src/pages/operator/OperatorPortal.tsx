@@ -651,13 +651,15 @@ export default function OperatorPortal() {
               title="Edit profile"
               className="p-0.5 rounded-full hover:ring-2 hover:ring-gold/50 transition-all"
             >
-              <div className="h-8 w-8 rounded-full overflow-hidden border-2 border-surface-dark-border flex items-center justify-center bg-gold/20 shrink-0">
+              <div className="h-8 w-8 rounded-full overflow-hidden border-2 border-surface-dark-border shrink-0">
                 {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt={displayName} className="h-full w-full object-cover" />
+                  <img src={profile.avatar_url} alt={displayName} className="block h-full w-full object-cover" />
                 ) : (
-                  <span className="text-xs font-bold text-gold leading-none">
-                    {(profile?.first_name?.[0] ?? profile?.last_name?.[0] ?? '?').toUpperCase()}
-                  </span>
+                  <div className="h-full w-full flex items-center justify-center bg-gold/20">
+                    <span className="text-xs font-bold text-gold leading-none">
+                      {(profile?.first_name?.[0] ?? profile?.last_name?.[0] ?? '?').toUpperCase()}
+                    </span>
+                  </div>
                 )}
               </div>
             </button>

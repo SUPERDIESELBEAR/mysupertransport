@@ -398,7 +398,7 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
                 type="submit"
                 onClick={handleSubmit}
                 disabled={loading || !firstName.trim() || !lastName.trim()}
-                className={`flex-1 ${isDark ? 'bg-gold text-surface-dark hover:bg-gold-light font-semibold' : ''}`}
+                className="flex-1 bg-gold text-surface-dark hover:bg-gold-light font-semibold"
               >
                 {loading ? 'Saving…' : 'Save Changes'}
               </Button>
