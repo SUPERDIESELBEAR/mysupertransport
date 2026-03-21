@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
-  LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound, UserRound,
+  LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound,
   ArrowRight, Library,
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
@@ -627,13 +627,15 @@ export default function OperatorPortal() {
             <button
               onClick={() => setEditProfileOpen(true)}
               title="Edit profile"
-              className="text-surface-dark-muted hover:text-surface-dark-foreground p-1 rounded-full hover:bg-surface-dark-card transition-colors"
+              className="p-0.5 rounded-full hover:ring-2 hover:ring-gold/50 transition-all"
             >
-              <div className="h-8 w-8 rounded-full overflow-hidden border border-surface-dark-border flex items-center justify-center bg-surface-dark-card">
+              <div className="h-8 w-8 rounded-full overflow-hidden border-2 border-surface-dark-border flex items-center justify-center bg-gold/20 shrink-0">
                 {profile?.avatar_url ? (
                   <img src={profile.avatar_url} alt={displayName} className="h-full w-full object-cover" />
                 ) : (
-                  <UserRound className="h-4 w-4 text-surface-dark-muted" />
+                  <span className="text-xs font-bold text-gold leading-none">
+                    {(profile?.first_name?.[0] ?? profile?.last_name?.[0] ?? '?').toUpperCase()}
+                  </span>
                 )}
               </div>
             </button>
@@ -708,11 +710,13 @@ export default function OperatorPortal() {
                 onClick={() => { setEditProfileOpen(true); setMobileMenuOpen(false); }}
                 className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-surface-dark-foreground"
               >
-                <div className="h-5 w-5 rounded-full overflow-hidden border border-surface-dark-border flex items-center justify-center bg-surface-dark-card shrink-0">
+                <div className="h-5 w-5 rounded-full overflow-hidden border border-surface-dark-border flex items-center justify-center bg-gold/20 shrink-0">
                   {profile?.avatar_url ? (
                     <img src={profile.avatar_url} alt={displayName} className="h-full w-full object-cover" />
                   ) : (
-                    <UserRound className="h-3 w-3 text-surface-dark-muted" />
+                    <span className="text-[8px] font-bold text-gold leading-none">
+                      {(profile?.first_name?.[0] ?? profile?.last_name?.[0] ?? '?').toUpperCase()}
+                    </span>
                   )}
                 </div>
                 Edit Profile
