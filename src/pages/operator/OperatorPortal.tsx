@@ -196,7 +196,7 @@ export default function OperatorPortal() {
       }
       fetchDispatcherInfo((dispatch as any)?.assigned_dispatcher ?? null);
     }
-  }, [user, fetchDispatcherInfo]);
+  }, [user, fetchDispatcherInfo, fetchCoordinatorInfo]);
 
   const fetchUnreadCount = useCallback(async () => {
     if (!user) return;
