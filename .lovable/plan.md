@@ -1,47 +1,35 @@
 
-## Two fixes in EditProfileModal and nav avatar circles
+## Root cause
 
-### Bug 1 — Save button looks disabled after photo upload (gold color missing)
+The Save button has `className="flex-1 bg-gold ..."` on top of the shadcn `Button` default variant. The `Button` component applies `bg-primary` via `cva`. The `cn()` helper uses `tailwind-merge`, which merges class lists intelligently — but `bg-gold` is a **hand-written CSS utility** defined in `index.css`, not a standard Tailwind `bg-*` class. `tailwind-merge` does not recognize `bg-gold` as a background color utility, so it does NOT remove `bg-primary`. Both classes are present in the DOM, and `bg-primary` wins (it appears later in the compiled stylesheet).
 
-**Root cause:** The Save button's gold styling is gated behind `isDark ? 'bg-gold ...' : ''`. When `EditProfileModal` is opened from `StaffLayout` with no `variant` prop, `isDark` is `false` and the button gets zero custom class — it renders as the default shadcn primary style, which looks inactive/grey.
+This is why the button always shows the muted gold/grey `--primary` color instead of the rich `--gold-main` color.
 
-The button IS actually enabled (firstName/lastName are already seeded from the profile), but visually it never shows gold in the default variant.
+### Fix — two-part
 
-**Fix:** Always apply gold styling to the Save button regardless of variant — remove the `isDark` gate on the submit button's className.
+**Part 1 — Use a Tailwind-native gold token** so `tailwind-merge` can properly strip `bg-primary`.
 
-**File:** `src/components/EditProfileModal.tsx` — line ~401, change:
-```
-className={`flex-1 ${isDark ? 'bg-gold text-surface-dark hover:bg-gold-light font-semibold' : ''}`}
-```
-to:
-```
-className="flex-1 bg-gold text-surface-dark hover:bg-gold-light font-semibold"
-```
+Change the button's className to use `bg-[hsl(var(--gold-main))]` and `hover:bg-[hsl(var(--gold-light))]` — these are standard Tailwind arbitrary-value classes that `tailwind-merge` recognizes as background utilities and will correctly override `bg-primary`.
 
----
+**Part 2 — Add `isDirty` tracking** so the button also gives a visual feedback signal after a photo upload.
 
-### Bug 2 — Uploaded photo doesn't fill the circle
+Right now the photo uploads and saves instantly (directly to the DB in `handleAvatarChange`), so the form isn't "dirty" — but the user still expects the Save button to look active/gold after uploading. The simplest fix is to track an `isDirty` state that gets set to `true` whenever any field changes (including after a photo upload). This makes the button look fully active and branded while the user is in an editing session.
 
-**Root cause:** Both the nav avatar button (`StaffLayout` line 173) and the operator portal button use `flex items-center justify-center` on the button element itself, which is also the `overflow-hidden` container. Inside a flex container, an `img` with `h-full w-full` won't stretch to fill unless the flex item is also set to `self-stretch`. The image renders at its natural size constrained by the flex alignment instead of filling the circle.
+Actually the simplest and correct fix is just Part 1 — fix the CSS class conflict so `bg-gold` properly renders. The `--primary` and `--gold-main` are very close in hue (both 41°) but differ slightly in saturation: `--primary: 41 47% 54%` vs `--gold-main: 41 47% 54%` — wait, they're **identical**! So the color itself is the same. The visual difference the user sees must be the `disabled:opacity-50` from the `Button` CVA base class.
 
-**Fix:** Wrap the `img` (and fallback span) inside an inner `div` that is the `h-full w-full` fill layer, or add `self-stretch` to the img. The simplest clean fix is to add a full-size inner wrapper div inside each avatar button so the img has a properly sized block parent.
+Re-reading the disabled condition: `disabled={loading || !firstName.trim() || !lastName.trim()}`. When the modal opens, firstName and lastName ARE populated, so this is false and the button is enabled. But wait — when does the modal first mount? The `useEffect` seeds the names on `open && profile`. If `profile` is null on first render or lags, firstName and lastName start as `''`, making `!firstName.trim()` true → button is disabled with opacity-50.
 
-**Files:** 
-- `src/components/layouts/StaffLayout.tsx` — the `h-8 w-8` avatar button at line ~173
-- `src/pages/operator/OperatorPortal.tsx` — the `h-8 w-8` avatar button at line ~654 and the `h-5 w-5` button at line ~735
-- `src/components/EditProfileModal.tsx` — the `h-20 w-20` preview circle at line ~253 (already has inner div, but verify `object-cover` is effective)
+The real bug: **profile may not be available on the first render tick** after `open` becomes true. The `useEffect` fires asynchronously after mount, so for one render cycle `firstName = ''` and `lastName = ''` → button shows as disabled (opacity-50). After the effect runs and names are populated, React re-renders and the button becomes enabled — but the user may have already seen the grey/faded state and assumes it stays disabled.
 
-**Change pattern for each button:**  
-Remove `flex items-center justify-center` from the outer button/container (those are only needed for the fallback initials span), and instead put them on the fallback span's parent div. The img itself gets `block h-full w-full object-cover`.
+**The actual fix**: Seed the initial state directly from props rather than waiting for the effect, OR derive the disabled condition differently — don't disable just because firstName/lastName are empty on mount; instead track whether there are actual unsaved changes.
 
----
+Cleanest approach: initialize `firstName` and `lastName` state from `profile` at declaration time (using the profile from useAuth directly), so the button is never momentarily disabled on open. Also add `isDirty` tracking so the button visually highlights when something has changed.
 
-### Summary
+### Changes — `src/components/EditProfileModal.tsx` only
 
-| File | Change |
-|---|---|
-| `EditProfileModal.tsx` | Save button always gold |
-| `StaffLayout.tsx` | Fix avatar circle fill |
-| `OperatorPortal.tsx` | Fix avatar circle fill (2 spots) |
+1. Initialize `firstName`/`lastName`/`phone`/`homeState` state from `profile` directly (so they're populated on first render, not after effect)
+2. Track `isDirty` — set true when any field changes or after avatar upload
+3. The `disabled` condition changes to `loading` only (names are always valid since they're pre-populated; validation happens on submit)
+4. Add a visual "pulse" or brightness change to the button only when `isDirty` — or simply ensure the button is always visibly gold (enabled) since names are always pre-seeded
 
-3 files · visual-only fixes · no logic or data changes.
+This is a single-file fix, no DB/backend/schema changes.
