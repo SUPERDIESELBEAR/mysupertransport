@@ -416,6 +416,8 @@ export default function OperatorStatusPage({
         uploadedDocs={uploadedDocs}
         onUploadComplete={onUploadComplete}
         unackedRequiredDocs={unackedRequiredDocs}
+        assignedCoordinator={assignedCoordinator}
+        onMessageCoordinator={onMessageCoordinator}
       />
     </div>
 
