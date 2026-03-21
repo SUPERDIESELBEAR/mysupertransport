@@ -112,7 +112,7 @@ export default function OperatorPortal() {
     if (!dispatcherUserId) { setAssignedDispatcher(null); return; }
     const { data } = await supabase
       .from('profiles')
-      .select('first_name, last_name, phone')
+      .select('first_name, last_name, phone, avatar_url')
       .eq('user_id', dispatcherUserId)
       .maybeSingle();
     if (data) {
@@ -120,6 +120,7 @@ export default function OperatorPortal() {
         name: [data.first_name, data.last_name].filter(Boolean).join(' ') || 'Dispatcher',
         phone: data.phone ?? null,
         userId: dispatcherUserId,
+        avatarUrl: data.avatar_url ?? null,
       });
     }
   }, []);
