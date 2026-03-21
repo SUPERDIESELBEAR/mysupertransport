@@ -13,12 +13,14 @@ interface Profile {
   user_id: string;
   first_name: string | null;
   last_name: string | null;
+  avatar_url: string | null;
 }
 
 interface StaffMember {
   user_id: string;
   first_name: string | null;
   last_name: string | null;
+  avatar_url: string | null;
 }
 
 interface Message {
@@ -34,6 +36,7 @@ interface Message {
 interface Thread {
   staffUserId: string;
   name: string;
+  avatarUrl: string | null;
   lastMessage: string;
   lastAt: string;
   unreadCount: number;
@@ -94,16 +97,16 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
 
     if (staffUserIds.length === 0) { setLoadingThreads(false); return; }
 
-    // Fetch their profiles
+    // Fetch their profiles (including avatar_url)
     const { data: profs } = await supabase
       .from('profiles')
-      .select('user_id, first_name, last_name')
+      .select('user_id, first_name, last_name, avatar_url')
       .in('user_id', staffUserIds);
 
     setStaffList(
       staffUserIds.map(uid => {
         const p = profs?.find(x => x.user_id === uid);
-        return { user_id: uid, first_name: p?.first_name ?? null, last_name: p?.last_name ?? null };
+        return { user_id: uid, first_name: p?.first_name ?? null, last_name: p?.last_name ?? null, avatar_url: p?.avatar_url ?? null };
       })
     );
   }, [user?.id, initialUserId]);
@@ -139,6 +142,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
       return {
         staffUserId: s.user_id,
         name,
+        avatarUrl: s.avatar_url ?? null,
         lastMessage: latest?.body ?? 'No messages yet',
         lastAt: latest?.sent_at ?? '',
         unreadCount: unread,
@@ -373,8 +377,12 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
                   >
                     <div className="flex items-start gap-3">
                       <div className="relative shrink-0">
-                        <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
-                          <span className="text-primary text-xs font-bold">{initials(t.name)}</span>
+                        <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
+                          {t.avatarUrl ? (
+                            <img src={t.avatarUrl} alt={t.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="text-primary text-xs font-bold">{initials(t.name)}</span>
+                          )}
                         </div>
                         {t.unreadCount > 0 && (
                           <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center">
@@ -428,10 +436,14 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
                   >
                     <ArrowLeft className="h-4 w-4 text-muted-foreground" />
                   </button>
-                  <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                    <span className="text-primary text-xs font-bold">
-                      {selectedThread ? initials(selectedThread.name) : '?'}
-                    </span>
+                  <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
+                    {selectedThread?.avatarUrl ? (
+                      <img src={selectedThread.avatarUrl} alt={selectedThread.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-primary text-xs font-bold">
+                        {selectedThread ? initials(selectedThread.name) : '?'}
+                      </span>
+                    )}
                   </div>
                   <div>
                     <p className="font-semibold text-sm text-foreground">{selectedThread?.name ?? 'Your Coordinator'}</p>
