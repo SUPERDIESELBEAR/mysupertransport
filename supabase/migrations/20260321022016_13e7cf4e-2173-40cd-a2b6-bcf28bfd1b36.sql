@@ -1,0 +1,1 @@
+UPDATE public.operators SET assigned_onboarding_staff = '5cca4f77-c4a9-4c4d-bcf7-f950965c1ffe' WHERE id = 'ec79e22f-3001-4e5b-b8d1-7347e7a4c718';
