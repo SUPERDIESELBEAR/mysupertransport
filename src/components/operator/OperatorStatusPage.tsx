@@ -32,7 +32,7 @@ interface OperatorStatusPageProps {
   onboardingStatus: Record<string, string | null>;
   onNavigateTo: (view: string) => void;
   displayName: string;
-  assignedDispatcher?: { name: string; phone: string | null; userId?: string | null } | null;
+  assignedDispatcher?: { name: string; phone: string | null; userId?: string | null; avatarUrl?: string | null } | null;
   dispatchStatus?: string | null;
   onMessageDispatcher?: () => void;
   cdlExpiration?: string | null;
@@ -529,28 +529,39 @@ export default function OperatorStatusPage({
             {/* Dispatcher cell */}
             {hasDispatcher && assignedDispatcher && (
               <div className="px-4 py-3.5 flex flex-col gap-0.5">
-                <div className="flex items-center gap-1.5 mb-1">
+                <div className="flex items-center gap-1.5 mb-1.5">
                   <Truck className="h-3 w-3 text-surface-dark-muted" />
                   <span className="text-[10px] font-semibold uppercase tracking-widest text-surface-dark-muted">Dispatcher</span>
                 </div>
-                <p className="text-sm font-bold text-white leading-tight">{assignedDispatcher.name}</p>
-                {assignedDispatcher.phone ? (
-                  <a
-                    href={`tel:${assignedDispatcher.phone}`}
-                    className="flex items-center gap-1 text-xs text-gold hover:text-gold-light transition-colors mt-0.5 font-medium w-fit"
-                  >
-                    <Phone className="h-3 w-3" />
-                    {assignedDispatcher.phone}
-                  </a>
-                ) : (
-                  <button
-                    onClick={onMessageDispatcher}
-                    className="flex items-center gap-1 text-xs text-gold hover:text-gold-light transition-colors mt-0.5 font-medium w-fit"
-                  >
-                    <Mail className="h-3 w-3" />
-                    Send Message
-                  </button>
-                )}
+                <div className="flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-full overflow-hidden border border-white/10 shrink-0 flex items-center justify-center bg-surface-dark-card">
+                    {assignedDispatcher.avatarUrl ? (
+                      <img src={assignedDispatcher.avatarUrl} alt={assignedDispatcher.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-sm font-bold text-gold">{assignedDispatcher.name.charAt(0).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <p className="text-sm font-bold text-white leading-tight">{assignedDispatcher.name}</p>
+                    {assignedDispatcher.phone ? (
+                      <a
+                        href={`tel:${assignedDispatcher.phone}`}
+                        className="flex items-center gap-1 text-xs text-gold hover:text-gold-light transition-colors font-medium w-fit"
+                      >
+                        <Phone className="h-3 w-3" />
+                        {assignedDispatcher.phone}
+                      </a>
+                    ) : (
+                      <button
+                        onClick={onMessageDispatcher}
+                        className="flex items-center gap-1 text-xs text-gold hover:text-gold-light transition-colors font-medium w-fit"
+                      >
+                        <Mail className="h-3 w-3" />
+                        Send Message
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
