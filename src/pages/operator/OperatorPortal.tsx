@@ -801,10 +801,14 @@ export default function OperatorPortal() {
             {/* Dispatcher contact info */}
             {assignedDispatcher && (
               <div className={`flex items-center gap-3 border-t pt-2.5 ${truckDownAcked ? 'border-border' : 'border-destructive/20'}`}>
-                <div className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${truckDownAcked ? 'bg-muted' : 'bg-destructive/15'}`}>
-                  <span className={`text-xs font-bold ${truckDownAcked ? 'text-muted-foreground' : 'text-destructive'}`}>
-                    {assignedDispatcher.name.charAt(0).toUpperCase()}
-                  </span>
+                <div className={`h-7 w-7 rounded-full overflow-hidden flex items-center justify-center shrink-0 ${truckDownAcked ? 'bg-muted' : 'bg-destructive/15'}`}>
+                  {assignedDispatcher.avatarUrl ? (
+                    <img src={assignedDispatcher.avatarUrl} alt={assignedDispatcher.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className={`text-xs font-bold ${truckDownAcked ? 'text-muted-foreground' : 'text-destructive'}`}>
+                      {assignedDispatcher.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-3 min-w-0">
                   <span className="text-xs font-semibold text-foreground">{assignedDispatcher.name}</span>
