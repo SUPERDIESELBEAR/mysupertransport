@@ -348,7 +348,7 @@ export default function ApplicationForm() {
       <div className="min-h-screen bg-secondary flex items-center justify-center p-4">
         <div className="w-full max-w-md text-center">
           <div className="flex justify-center mb-6">
-            <img src={logo} alt="SUPERTRANSPORT" className="h-16 w-auto max-w-[240px] object-contain" />
+            <img src={logo} alt="SUPERTRANSPORT" className="h-28 w-auto max-w-[400px] object-contain" />
           </div>
           <div className="bg-white border border-border rounded-2xl p-8 shadow-sm">
             <div className="h-16 w-16 rounded-full bg-status-complete/15 flex items-center justify-center mx-auto mb-4">

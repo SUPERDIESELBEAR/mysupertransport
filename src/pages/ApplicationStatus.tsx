@@ -13,7 +13,7 @@ export default function ApplicationStatus() {
       <div className="w-full max-w-lg">
         {/* Header */}
         <div className="text-center mb-8">
-          <img src={logo} alt="SuperTransport" className="h-20 max-w-[320px] object-contain mx-auto" />
+          <img src={logo} alt="SuperTransport" className="h-28 max-w-[400px] object-contain mx-auto" />
         </div>
 
         <div className="bg-surface-dark-card border border-surface-dark-border rounded-xl p-8 shadow-2xl text-center">
