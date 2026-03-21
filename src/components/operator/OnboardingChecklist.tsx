@@ -242,6 +242,8 @@ export default function OnboardingChecklist({
   uploadedDocs,
   onUploadComplete,
   unackedRequiredDocs = 0,
+  assignedCoordinator,
+  onMessageCoordinator,
 }: OnboardingChecklistProps) {
   // Animate the progress bar in on mount
   const [barWidth, setBarWidth] = useState(0);
