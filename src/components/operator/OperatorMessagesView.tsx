@@ -13,12 +13,14 @@ interface Profile {
   user_id: string;
   first_name: string | null;
   last_name: string | null;
+  avatar_url: string | null;
 }
 
 interface StaffMember {
   user_id: string;
   first_name: string | null;
   last_name: string | null;
+  avatar_url: string | null;
 }
 
 interface Message {
@@ -34,6 +36,7 @@ interface Message {
 interface Thread {
   staffUserId: string;
   name: string;
+  avatarUrl: string | null;
   lastMessage: string;
   lastAt: string;
   unreadCount: number;
