@@ -79,6 +79,7 @@ export default function OperatorPortal() {
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
   const [dispatchUpdatedAt, setDispatchUpdatedAt] = useState<string | null>(null);
   const [assignedDispatcher, setAssignedDispatcher] = useState<{ name: string; phone: string | null; userId: string | null; avatarUrl: string | null } | null>(null);
+  const [assignedCoordinator, setAssignedCoordinator] = useState<{ name: string; phone: string | null; userId: string | null; avatarUrl: string | null } | null>(null);
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [notifPrefOpen, setNotifPrefOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -125,11 +126,28 @@ export default function OperatorPortal() {
     }
   }, []);
 
+  const fetchCoordinatorInfo = useCallback(async (coordinatorUserId: string | null) => {
+    if (!coordinatorUserId) { setAssignedCoordinator(null); return; }
+    const { data } = await supabase
+      .from('profiles')
+      .select('first_name, last_name, phone, avatar_url')
+      .eq('user_id', coordinatorUserId)
+      .maybeSingle();
+    if (data) {
+      setAssignedCoordinator({
+        name: [data.first_name, data.last_name].filter(Boolean).join(' ') || 'Coordinator',
+        phone: data.phone ?? null,
+        userId: coordinatorUserId,
+        avatarUrl: data.avatar_url ?? null,
+      });
+    }
+  }, []);
+
   const fetchData = useCallback(async () => {
     if (!user) return;
     const { data: op } = await supabase
       .from('operators')
-      .select('id, application_id, onboarding_status(*), operator_documents(*)')
+      .select('id, application_id, assigned_onboarding_staff, onboarding_status(*), operator_documents(*)')
       .eq('user_id', user.id)
       .single();
 
@@ -140,6 +158,9 @@ export default function OperatorPortal() {
       const os = (op as any).onboarding_status ?? {};
       setOnboardingStatus(os);
       setUploadedDocs((op as any).operator_documents ?? []);
+
+      // Fetch coordinator info
+      fetchCoordinatorInfo((op as any).assigned_onboarding_staff ?? null);
 
       // Fetch application for CDL + medical cert expiry dates
       const appId = (op as any).application_id;
@@ -175,7 +196,7 @@ export default function OperatorPortal() {
       }
       fetchDispatcherInfo((dispatch as any)?.assigned_dispatcher ?? null);
     }
-  }, [user, fetchDispatcherInfo]);
+  }, [user, fetchDispatcherInfo, fetchCoordinatorInfo]);
 
   const fetchUnreadCount = useCallback(async () => {
     if (!user) return;
@@ -908,6 +929,7 @@ export default function OperatorPortal() {
               onNavigateTo={(v) => setView(v as OperatorView)}
               displayName={displayName}
               assignedDispatcher={assignedDispatcher}
+              assignedCoordinator={assignedCoordinator}
               dispatchStatus={dispatchStatus}
               cdlExpiration={cdlExpiration}
               medicalCertExpiration={medicalCertExpiration}
@@ -918,6 +940,12 @@ export default function OperatorPortal() {
               onMessageDispatcher={() => {
                 if (assignedDispatcher?.userId) {
                   setMessageInitialUserId(assignedDispatcher.userId);
+                }
+                setView('messages');
+              }}
+              onMessageCoordinator={() => {
+                if (assignedCoordinator?.userId) {
+                  setMessageInitialUserId(assignedCoordinator.userId);
                 }
                 setView('messages');
               }}

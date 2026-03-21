@@ -41,6 +41,8 @@ interface OperatorStatusPageProps {
   uploadedDocs?: { id: string; document_type: string; file_name: string | null; file_url: string | null; uploaded_at: string }[];
   onUploadComplete?: () => void;
   unackedRequiredDocs?: number;
+  assignedCoordinator?: { name: string; phone: string | null; userId?: string | null; avatarUrl?: string | null } | null;
+  onMessageCoordinator?: () => void;
 }
 
 const STAGE_ICONS: Record<number, React.ReactNode> = {
@@ -261,6 +263,8 @@ export default function OperatorStatusPage({
   uploadedDocs,
   onUploadComplete,
   unackedRequiredDocs = 0,
+  assignedCoordinator,
+  onMessageCoordinator,
 }: OperatorStatusPageProps) {
   const [bannerDismissed, setBannerDismissed] = useState(() => {
     return sessionStorage.getItem('cert_expiry_banner_dismissed') === 'true';
@@ -412,6 +416,8 @@ export default function OperatorStatusPage({
         uploadedDocs={uploadedDocs}
         onUploadComplete={onUploadComplete}
         unackedRequiredDocs={unackedRequiredDocs}
+        assignedCoordinator={assignedCoordinator}
+        onMessageCoordinator={onMessageCoordinator}
       />
     </div>
 

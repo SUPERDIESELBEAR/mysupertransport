@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   Shield, FileCheck, FileText, Truck,
-  Upload, ArrowRight, ChevronDown, ChevronUp,
+  Upload, ArrowRight, ChevronDown, ChevronUp, Phone, MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import SmartProgressWidget from '@/components/operator/SmartProgressWidget';
@@ -37,6 +37,8 @@ interface OnboardingChecklistProps {
   uploadedDocs?: { id: string; document_type: string; file_name: string | null; file_url: string | null; uploaded_at: string }[];
   onUploadComplete?: () => void;
   unackedRequiredDocs?: number;
+  assignedCoordinator?: { name: string; phone: string | null; userId?: string | null; avatarUrl?: string | null } | null;
+  onMessageCoordinator?: () => void;
 }
 
 const STAGE_COLORS: Record<StageStatus, {
@@ -240,6 +242,8 @@ export default function OnboardingChecklist({
   uploadedDocs,
   onUploadComplete,
   unackedRequiredDocs = 0,
+  assignedCoordinator,
+  onMessageCoordinator,
 }: OnboardingChecklistProps) {
   // Animate the progress bar in on mount
   const [barWidth, setBarWidth] = useState(0);
@@ -337,6 +341,50 @@ export default function OnboardingChecklist({
             onUploadComplete={onUploadComplete}
             unackedRequiredDocs={unackedRequiredDocs}
           />
+        </div>
+      )}
+
+      {/* ── COORDINATOR CARD ── */}
+      {assignedCoordinator && (
+        <div className="mx-4 mt-3 rounded-xl bg-surface-dark border border-surface-dark-border overflow-hidden">
+          <div className="px-3 pt-2.5 pb-2 border-b border-surface-dark-border flex items-center gap-1.5">
+            <Truck className="h-3 w-3 text-gold" />
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gold">Your Coordinator</p>
+          </div>
+          <div className="px-3 py-2.5 flex items-center gap-3">
+            {/* Avatar */}
+            <div className="h-9 w-9 rounded-full overflow-hidden border border-white/10 shrink-0 flex items-center justify-center bg-surface-dark-card">
+              {assignedCoordinator.avatarUrl ? (
+                <img src={assignedCoordinator.avatarUrl} alt={assignedCoordinator.name} className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-sm font-bold text-gold">{assignedCoordinator.name.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+            {/* Name + contact */}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-white leading-tight truncate">{assignedCoordinator.name}</p>
+              <p className="text-[11px] text-surface-dark-muted mt-0.5">Onboarding Coordinator</p>
+            </div>
+            {/* Action buttons */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {assignedCoordinator.phone && (
+                <a
+                  href={`tel:${assignedCoordinator.phone}`}
+                  className="flex items-center justify-center h-8 w-8 rounded-lg bg-surface-dark-card border border-surface-dark-border text-gold hover:bg-surface-dark-border transition-colors"
+                  title={`Call ${assignedCoordinator.name}`}
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                </a>
+              )}
+              <button
+                onClick={onMessageCoordinator}
+                className="flex items-center justify-center h-8 w-8 rounded-lg bg-gold/15 border border-gold/30 text-gold hover:bg-gold/25 transition-colors"
+                title={`Message ${assignedCoordinator.name}`}
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
