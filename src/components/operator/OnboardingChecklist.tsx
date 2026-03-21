@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   Shield, FileCheck, FileText, Truck,
-  Upload, ArrowRight, ChevronDown, ChevronUp,
+  Upload, ArrowRight, ChevronDown, ChevronUp, Phone, MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import SmartProgressWidget from '@/components/operator/SmartProgressWidget';
