@@ -1,0 +1,1 @@
+UPDATE public.operators SET assigned_onboarding_staff = NULL WHERE id = 'ec79e22f-3001-4e5b-b8d1-7347e7a4c718';
