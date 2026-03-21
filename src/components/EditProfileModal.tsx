@@ -44,23 +44,24 @@ interface EditProfileModalProps {
 export default function EditProfileModal({ open, onClose, onSaved, variant = 'default' }: EditProfileModalProps) {
   const { user, profile, refreshProfile } = useAuth();
 
-  const [firstName, setFirstName]   = useState('');
-  const [lastName, setLastName]     = useState('');
-  const [phone, setPhone]           = useState('');
-  const [homeState, setHomeState]   = useState('');
+  // Initialize directly from profile so the Save button is never momentarily disabled
+  const [firstName, setFirstName]   = useState(() => profile?.first_name ?? '');
+  const [lastName, setLastName]     = useState(() => profile?.last_name ?? '');
+  const [phone, setPhone]           = useState(() => profile?.phone ?? '');
+  const [homeState, setHomeState]   = useState(() => profile?.home_state ?? '');
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState<string | null>(null);
   const [success, setSuccess]       = useState(false);
 
   // Avatar state
-  const [avatarUrl, setAvatarUrl]         = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl]         = useState<string | null>(() => profile?.avatar_url ?? null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError]     = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isDark = variant === 'dark';
 
-  // Seed from current profile whenever the modal opens
+  // Re-seed whenever the modal opens (handles profile updates between opens)
   useEffect(() => {
     if (open && profile) {
       setFirstName(profile.first_name ?? '');
