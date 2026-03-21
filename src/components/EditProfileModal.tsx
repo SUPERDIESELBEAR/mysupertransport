@@ -268,6 +268,21 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
               <p className={`text-xs ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`}>
                 Click to {avatarUrl ? 'change' : 'add'} photo · JPEG, PNG, WebP · max 5 MB
               </p>
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAvatar}
+                  disabled={avatarUploading}
+                  className={`flex items-center gap-1 text-xs transition-colors ${
+                    isDark
+                      ? 'text-surface-dark-muted hover:text-destructive'
+                      : 'text-muted-foreground hover:text-destructive'
+                  }`}
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Remove photo
+                </button>
+              )}
               {avatarError && (
                 <p className="text-xs text-destructive">{avatarError}</p>
               )}
