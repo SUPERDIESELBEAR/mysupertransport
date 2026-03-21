@@ -377,8 +377,12 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
                   >
                     <div className="flex items-start gap-3">
                       <div className="relative shrink-0">
-                        <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
-                          <span className="text-primary text-xs font-bold">{initials(t.name)}</span>
+                        <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
+                          {t.avatarUrl ? (
+                            <img src={t.avatarUrl} alt={t.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="text-primary text-xs font-bold">{initials(t.name)}</span>
+                          )}
                         </div>
                         {t.unreadCount > 0 && (
                           <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center">
