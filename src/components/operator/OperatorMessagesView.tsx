@@ -97,16 +97,16 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
 
     if (staffUserIds.length === 0) { setLoadingThreads(false); return; }
 
-    // Fetch their profiles
+    // Fetch their profiles (including avatar_url)
     const { data: profs } = await supabase
       .from('profiles')
-      .select('user_id, first_name, last_name')
+      .select('user_id, first_name, last_name, avatar_url')
       .in('user_id', staffUserIds);
 
     setStaffList(
       staffUserIds.map(uid => {
         const p = profs?.find(x => x.user_id === uid);
-        return { user_id: uid, first_name: p?.first_name ?? null, last_name: p?.last_name ?? null };
+        return { user_id: uid, first_name: p?.first_name ?? null, last_name: p?.last_name ?? null, avatar_url: p?.avatar_url ?? null };
       })
     );
   }, [user?.id, initialUserId]);
@@ -142,6 +142,7 @@ export default function OperatorMessagesView({ initialUserId, onThreadSelected }
       return {
         staffUserId: s.user_id,
         name,
+        avatarUrl: s.avatar_url ?? null,
         lastMessage: latest?.body ?? 'No messages yet',
         lastAt: latest?.sent_at ?? '',
         unreadCount: unread,
