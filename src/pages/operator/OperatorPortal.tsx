@@ -79,6 +79,7 @@ export default function OperatorPortal() {
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
   const [dispatchUpdatedAt, setDispatchUpdatedAt] = useState<string | null>(null);
   const [assignedDispatcher, setAssignedDispatcher] = useState<{ name: string; phone: string | null; userId: string | null; avatarUrl: string | null } | null>(null);
+  const [assignedCoordinator, setAssignedCoordinator] = useState<{ name: string; phone: string | null; userId: string | null; avatarUrl: string | null } | null>(null);
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [notifPrefOpen, setNotifPrefOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
