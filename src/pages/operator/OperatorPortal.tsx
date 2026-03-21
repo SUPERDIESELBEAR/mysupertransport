@@ -147,7 +147,7 @@ export default function OperatorPortal() {
     if (!user) return;
     const { data: op } = await supabase
       .from('operators')
-      .select('id, application_id, onboarding_status(*), operator_documents(*)')
+      .select('id, application_id, assigned_onboarding_staff, onboarding_status(*), operator_documents(*)')
       .eq('user_id', user.id)
       .single();
 
@@ -158,6 +158,9 @@ export default function OperatorPortal() {
       const os = (op as any).onboarding_status ?? {};
       setOnboardingStatus(os);
       setUploadedDocs((op as any).operator_documents ?? []);
+
+      // Fetch coordinator info
+      fetchCoordinatorInfo((op as any).assigned_onboarding_staff ?? null);
 
       // Fetch application for CDL + medical cert expiry dates
       const appId = (op as any).application_id;
