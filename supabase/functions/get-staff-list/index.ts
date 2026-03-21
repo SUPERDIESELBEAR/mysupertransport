@@ -384,6 +384,7 @@ Deno.serve(async (req) => {
       account_status: p.account_status,
       created_at: p.created_at,
       updated_at: p.updated_at,
+      avatar_url: p.avatar_url ?? null,
       roles: roleRows.filter((r) => r.user_id === p.user_id).map((r) => r.role),
       assigned_operator_count: operatorCountMap[p.user_id] ?? 0,
     }));
