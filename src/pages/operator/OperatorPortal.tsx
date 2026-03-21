@@ -627,13 +627,15 @@ export default function OperatorPortal() {
             <button
               onClick={() => setEditProfileOpen(true)}
               title="Edit profile"
-              className="text-surface-dark-muted hover:text-surface-dark-foreground p-1 rounded-full hover:bg-surface-dark-card transition-colors"
+              className="p-0.5 rounded-full hover:ring-2 hover:ring-gold/50 transition-all"
             >
-              <div className="h-8 w-8 rounded-full overflow-hidden border border-surface-dark-border flex items-center justify-center bg-surface-dark-card">
+              <div className="h-8 w-8 rounded-full overflow-hidden border-2 border-surface-dark-border flex items-center justify-center bg-gold/20 shrink-0">
                 {profile?.avatar_url ? (
                   <img src={profile.avatar_url} alt={displayName} className="h-full w-full object-cover" />
                 ) : (
-                  <UserRound className="h-4 w-4 text-surface-dark-muted" />
+                  <span className="text-xs font-bold text-gold leading-none">
+                    {(profile?.first_name?.[0] ?? profile?.last_name?.[0] ?? '?').toUpperCase()}
+                  </span>
                 )}
               </div>
             </button>
