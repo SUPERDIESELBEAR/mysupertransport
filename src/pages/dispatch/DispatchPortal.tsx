@@ -1366,27 +1366,41 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                         </td>
                       )}
                       <td className="px-4 py-3">
-                        <p className="font-semibold text-foreground text-sm">{fullName}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {row.phone && <span className="text-xs text-muted-foreground">{row.phone}</span>}
-                          {row.home_state && (
-                            <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
-                              <MapPin className="h-2.5 w-2.5" />{row.home_state}
-                            </span>
-                          )}
+                        <div className="flex items-center gap-2.5">
+                          {/* Avatar */}
+                          <div className="h-8 w-8 rounded-full overflow-hidden border border-border/60 shrink-0 flex items-center justify-center bg-surface-dark">
+                            {row.avatar_url ? (
+                              <img src={row.avatar_url} alt={fullName} className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="text-xs font-bold text-gold">
+                                {[row.first_name?.[0], row.last_name?.[0]].filter(Boolean).join('').toUpperCase() || '?'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-foreground text-sm">{fullName}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {row.phone && <span className="text-xs text-muted-foreground">{row.phone}</span>}
+                              {row.home_state && (
+                                <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                                  <MapPin className="h-2.5 w-2.5" />{row.home_state}
+                                </span>
+                              )}
+                            </div>
+                            {/* History toggle */}
+                            <button
+                              onClick={e => { e.stopPropagation(); toggleHistory(row.operator_id); }}
+                              className="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground hover:text-gold transition-colors"
+                            >
+                              <Clock className="h-3 w-3" />
+                              History
+                              {isHistoryExpanded
+                                ? <ChevronUp className="h-3 w-3" />
+                                : <ChevronDown className="h-3 w-3" />
+                              }
+                            </button>
+                          </div>
                         </div>
-                        {/* History toggle */}
-                        <button
-                          onClick={e => { e.stopPropagation(); toggleHistory(row.operator_id); }}
-                          className="flex items-center gap-1 mt-1.5 text-[11px] text-muted-foreground hover:text-gold transition-colors"
-                        >
-                          <Clock className="h-3 w-3" />
-                          History
-                          {isHistoryExpanded
-                            ? <ChevronUp className="h-3 w-3" />
-                            : <ChevronDown className="h-3 w-3" />
-                          }
-                        </button>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
                         <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded text-foreground">{row.unit_number ?? '—'}</span>
