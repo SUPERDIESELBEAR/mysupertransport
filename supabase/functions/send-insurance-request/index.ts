@@ -5,6 +5,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface AddressBlock {
+  company: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  email: string | null;
+}
+
+function formatAddressBlock(block: AddressBlock): string {
+  const lines: string[] = [];
+  if (block.company) lines.push(`<strong>${block.company}</strong>`);
+  if (block.address) lines.push(block.address);
+  const cityLine = [block.city, block.state, block.zip].filter(Boolean).join(', ');
+  if (cityLine) lines.push(cityLine);
+  if (block.email) lines.push(`<a href="mailto:${block.email}" style="color:#C9A84C;">${block.email}</a> <em style="color:#999;font-size:12px;">(cert copy)</em>`);
+  return lines.length ? lines.join('<br/>') : '<em style="color:#999;">Not provided</em>';
+}
+
 function buildInsuranceEmail(data: {
   driverName: string;
   dlUrl: string | null;
@@ -15,8 +34,8 @@ function buildInsuranceEmail(data: {
   truckModel: string | null;
   policyType: string;
   statedValue: number | null;
-  additionalInsured: string | null;
-  certHolder: string | null;
+  ai: AddressBlock;
+  ch: AddressBlock;
   operatorEmail: string;
   notes: string | null;
 }): string {
@@ -26,12 +45,15 @@ function buildInsuranceEmail(data: {
     ? `<tr><td style="padding:8px 12px;background:#f9f9f9;border-bottom:1px solid #eee;font-weight:600;width:40%;">Stated Value</td><td style="padding:8px 12px;border-bottom:1px solid #eee;">$${data.statedValue.toLocaleString()}</td></tr>`
     : '';
 
-  const addlInsuredRow = data.additionalInsured
-    ? `<tr><td style="padding:8px 12px;background:#f9f9f9;border-bottom:1px solid #eee;font-weight:600;">Additional Insured</td><td style="padding:8px 12px;border-bottom:1px solid #eee;">${data.additionalInsured}</td></tr>`
+  const aiHasData = Object.values(data.ai).some(v => v);
+  const chHasData = Object.values(data.ch).some(v => v);
+
+  const addlInsuredRow = aiHasData
+    ? `<tr><td style="padding:8px 12px;background:#f9f9f9;border-bottom:1px solid #eee;font-weight:600;vertical-align:top;">Additional Insured</td><td style="padding:8px 12px;border-bottom:1px solid #eee;line-height:1.6;">${formatAddressBlock(data.ai)}</td></tr>`
     : '';
 
-  const certHolderRow = data.certHolder
-    ? `<tr><td style="padding:8px 12px;background:#f9f9f9;border-bottom:1px solid #eee;font-weight:600;">Certificate Holder</td><td style="padding:8px 12px;border-bottom:1px solid #eee;">${data.certHolder}</td></tr>`
+  const certHolderRow = chHasData
+    ? `<tr><td style="padding:8px 12px;background:#f9f9f9;border-bottom:1px solid #eee;font-weight:600;vertical-align:top;">Certificate Holder</td><td style="padding:8px 12px;border-bottom:1px solid #eee;line-height:1.6;">${formatAddressBlock(data.ch)}</td></tr>`
     : '';
 
   const dlSection = data.dlUrl
@@ -159,7 +181,11 @@ Deno.serve(async (req) => {
     const ica = Array.isArray(op.ica_contracts) ? op.ica_contracts[0] : op.ica_contracts;
 
     // Fetch onboarding_status for insurance fields
-    const { data: os } = await supabase.from('onboarding_status').select('insurance_policy_type, insurance_stated_value, insurance_additional_insured, insurance_cert_holder, insurance_notes').eq('operator_id', operator_id).single();
+    const { data: os } = await supabase.from('onboarding_status').select(
+      'insurance_policy_type, insurance_stated_value, insurance_notes, ' +
+      'insurance_ai_company, insurance_ai_address, insurance_ai_city, insurance_ai_state, insurance_ai_zip, insurance_ai_email, ' +
+      'insurance_ch_company, insurance_ch_address, insurance_ch_city, insurance_ch_state, insurance_ch_zip, insurance_ch_email'
+    ).eq('operator_id', operator_id).single();
 
     // Get operator email
     const { data: { user: opUser } } = await supabase.auth.admin.getUserById(op.user_id);
@@ -175,6 +201,24 @@ Deno.serve(async (req) => {
     }
 
     const policyType = os?.insurance_policy_type ?? 'add_to_supertransport';
+
+    const ai: AddressBlock = {
+      company: os?.insurance_ai_company ?? null,
+      address: os?.insurance_ai_address ?? null,
+      city:    os?.insurance_ai_city    ?? null,
+      state:   os?.insurance_ai_state   ?? null,
+      zip:     os?.insurance_ai_zip     ?? null,
+      email:   os?.insurance_ai_email   ?? null,
+    };
+    const ch: AddressBlock = {
+      company: os?.insurance_ch_company ?? null,
+      address: os?.insurance_ch_address ?? null,
+      city:    os?.insurance_ch_city    ?? null,
+      state:   os?.insurance_ch_state   ?? null,
+      zip:     os?.insurance_ch_zip     ?? null,
+      email:   os?.insurance_ch_email   ?? null,
+    };
+
     const html = buildInsuranceEmail({
       driverName,
       dlUrl: app?.dl_front_url ?? null,
@@ -185,8 +229,8 @@ Deno.serve(async (req) => {
       truckModel: ica?.truck_model ?? null,
       policyType,
       statedValue: os?.insurance_stated_value ?? null,
-      additionalInsured: os?.insurance_additional_insured ?? null,
-      certHolder: os?.insurance_cert_holder ?? null,
+      ai,
+      ch,
       operatorEmail: opUser?.email ?? '',
       notes: os?.insurance_notes ?? null,
     });
