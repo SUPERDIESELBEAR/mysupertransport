@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UserRound, CheckCircle2, Camera, Loader2, Trash2, ZoomIn, RotateCw } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -350,18 +351,24 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
               <span className={`text-xs tabular-nums w-8 text-right ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`}>
                 {zoom.toFixed(1)}×
               </span>
-              <button
-                type="button"
-                onClick={() => setRotation(r => (r + 90) % 360)}
-                title="Rotate 90°"
-                className={`shrink-0 rounded-md p-1.5 transition-colors ${
-                  isDark
-                    ? 'text-surface-dark-muted hover:text-gold hover:bg-gold/10'
-                    : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
-                }`}
-              >
-                <RotateCw className="h-4 w-4" />
-              </button>
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => setRotation(r => (r + 90) % 360)}
+                      className={`shrink-0 rounded-md p-1.5 transition-colors ${
+                        isDark
+                          ? 'text-surface-dark-muted hover:text-gold hover:bg-gold/10'
+                          : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
+                      }`}
+                    >
+                      <RotateCw className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Rotate 90°</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
 
             {avatarError && (
