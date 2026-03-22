@@ -1025,8 +1025,18 @@ export type Database = {
           ica_status: Database["public"]["Enums"]["ica_status"]
           id: string
           insurance_added_date: string | null
-          insurance_additional_insured: string | null
-          insurance_cert_holder: string | null
+          insurance_ai_address: string | null
+          insurance_ai_city: string | null
+          insurance_ai_company: string | null
+          insurance_ai_email: string | null
+          insurance_ai_state: string | null
+          insurance_ai_zip: string | null
+          insurance_ch_address: string | null
+          insurance_ch_city: string | null
+          insurance_ch_company: string | null
+          insurance_ch_email: string | null
+          insurance_ch_state: string | null
+          insurance_ch_zip: string | null
           insurance_notes: string | null
           insurance_policy_type: string | null
           insurance_stated_value: number | null
@@ -1075,8 +1085,18 @@ export type Database = {
           ica_status?: Database["public"]["Enums"]["ica_status"]
           id?: string
           insurance_added_date?: string | null
-          insurance_additional_insured?: string | null
-          insurance_cert_holder?: string | null
+          insurance_ai_address?: string | null
+          insurance_ai_city?: string | null
+          insurance_ai_company?: string | null
+          insurance_ai_email?: string | null
+          insurance_ai_state?: string | null
+          insurance_ai_zip?: string | null
+          insurance_ch_address?: string | null
+          insurance_ch_city?: string | null
+          insurance_ch_company?: string | null
+          insurance_ch_email?: string | null
+          insurance_ch_state?: string | null
+          insurance_ch_zip?: string | null
           insurance_notes?: string | null
           insurance_policy_type?: string | null
           insurance_stated_value?: number | null
@@ -1125,8 +1145,18 @@ export type Database = {
           ica_status?: Database["public"]["Enums"]["ica_status"]
           id?: string
           insurance_added_date?: string | null
-          insurance_additional_insured?: string | null
-          insurance_cert_holder?: string | null
+          insurance_ai_address?: string | null
+          insurance_ai_city?: string | null
+          insurance_ai_company?: string | null
+          insurance_ai_email?: string | null
+          insurance_ai_state?: string | null
+          insurance_ai_zip?: string | null
+          insurance_ch_address?: string | null
+          insurance_ch_city?: string | null
+          insurance_ch_company?: string | null
+          insurance_ch_email?: string | null
+          insurance_ch_state?: string | null
+          insurance_ch_zip?: string | null
           insurance_notes?: string | null
           insurance_policy_type?: string | null
           insurance_stated_value?: number | null
