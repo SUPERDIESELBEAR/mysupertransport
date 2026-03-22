@@ -63,6 +63,11 @@ type OnboardingStatus = {
   eld_installed: string;
   fuel_card_issued: string;
   insurance_added_date: string | null;
+  insurance_policy_type: string | null;
+  insurance_stated_value: number | null;
+  insurance_additional_insured: string | null;
+  insurance_cert_holder: string | null;
+  insurance_notes: string | null;
   unit_number: string | null;
   fully_onboarded: boolean | null;
   bg_check_notes: string | null;
