@@ -148,6 +148,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [savingInsuranceEmails, setSavingInsuranceEmails] = useState(false);
   const [sendingInsuranceEmail, setSendingInsuranceEmail] = useState(false);
   const [chSameAsAI, setChSameAsAI] = useState(false);
+  const [aiExpanded, setAiExpanded] = useState(false);
+  const [chExpanded, setChExpanded] = useState(false);
   const [insuranceEmailSent, setInsuranceEmailSent] = useState(false);
 
   // Cert history timeline
@@ -2981,87 +2983,126 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
                     {/* Additional Insured / Certificate Holder */}
                     {/* ─── ADDITIONAL INSURED ───────────────────────────── */}
-                    <div className="space-y-2 p-3 rounded-lg border border-border bg-muted/30">
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Additional Insured <span className="normal-case font-normal">(if truck is financed)</span></p>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Company Name</Label>
-                        <Input value={status.insurance_ai_company ?? ''} onChange={e => updateStatus('insurance_ai_company', e.target.value || null)} placeholder="Lender / lienholder name" className="h-9 text-sm" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Address</Label>
-                        <Input value={status.insurance_ai_address ?? ''} onChange={e => updateStatus('insurance_ai_address', e.target.value || null)} placeholder="Street address" className="h-9 text-sm" />
-                      </div>
-                      <div className="grid grid-cols-5 gap-2">
-                        <div className="col-span-3 space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">City</Label>
-                          <Input value={status.insurance_ai_city ?? ''} onChange={e => updateStatus('insurance_ai_city', e.target.value || null)} placeholder="City" className="h-9 text-sm" />
+                    <div className="rounded-lg border border-border bg-muted/30">
+                      <button
+                        type="button"
+                        onClick={() => setAiExpanded(p => !p)}
+                        className="w-full flex items-center justify-between px-3 py-2 text-left"
+                      >
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          Additional Insured <span className="normal-case font-normal">(if truck is financed)</span>
+                          {status.insurance_ai_company && (
+                            <span className="ml-1.5 normal-case font-normal text-foreground/70">— {status.insurance_ai_company}</span>
+                          )}
+                        </p>
+                        <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform', aiExpanded && 'rotate-180')} />
+                      </button>
+                      {aiExpanded && (
+                        <div className="px-3 pb-3 space-y-2 border-t border-border pt-2">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">Company Name</Label>
+                            <Input value={status.insurance_ai_company ?? ''} onChange={e => updateStatus('insurance_ai_company', e.target.value || null)} placeholder="Lender / lienholder name" className="h-9 text-sm" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">Address</Label>
+                            <Input value={status.insurance_ai_address ?? ''} onChange={e => updateStatus('insurance_ai_address', e.target.value || null)} placeholder="Street address" className="h-9 text-sm" />
+                          </div>
+                          <div className="grid grid-cols-5 gap-2">
+                            <div className="col-span-3 space-y-1.5">
+                              <Label className="text-xs text-muted-foreground">City</Label>
+                              <Input value={status.insurance_ai_city ?? ''} onChange={e => updateStatus('insurance_ai_city', e.target.value || null)} placeholder="City" className="h-9 text-sm" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs text-muted-foreground">State</Label>
+                              <Input value={status.insurance_ai_state ?? ''} onChange={e => updateStatus('insurance_ai_state', e.target.value || null)} placeholder="ST" maxLength={2} className="h-9 text-sm uppercase" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs text-muted-foreground">ZIP</Label>
+                              <Input value={status.insurance_ai_zip ?? ''} onChange={e => updateStatus('insurance_ai_zip', e.target.value || null)} placeholder="ZIP" className="h-9 text-sm" />
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">Email <span className="font-normal normal-case">(so insurance co. can send them a copy)</span></Label>
+                            <Input type="email" value={status.insurance_ai_email ?? ''} onChange={e => updateStatus('insurance_ai_email', e.target.value || null)} placeholder="lender@example.com" className="h-9 text-sm" />
+                          </div>
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">State</Label>
-                          <Input value={status.insurance_ai_state ?? ''} onChange={e => updateStatus('insurance_ai_state', e.target.value || null)} placeholder="MO" maxLength={2} className="h-9 text-sm uppercase" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">ZIP</Label>
-                          <Input value={status.insurance_ai_zip ?? ''} onChange={e => updateStatus('insurance_ai_zip', e.target.value || null)} placeholder="63101" className="h-9 text-sm" />
-                        </div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Email <span className="font-normal normal-case">(so insurance co. can send them a copy)</span></Label>
-                        <Input type="email" value={status.insurance_ai_email ?? ''} onChange={e => updateStatus('insurance_ai_email', e.target.value || null)} placeholder="lender@example.com" className="h-9 text-sm" />
-                      </div>
+                      )}
                     </div>
 
                     {/* ─── CERTIFICATE HOLDER ───────────────────────────── */}
-                    <div className="space-y-2 p-3 rounded-lg border border-border bg-muted/30">
-                      <div className="flex items-center justify-between">
-                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Certificate Holder</p>
-                        <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={chSameAsAI}
-                            onChange={e => {
-                              const checked = e.target.checked;
-                              setChSameAsAI(checked);
-                              if (checked) {
-                                updateStatus('insurance_ch_company', status.insurance_ai_company ?? null);
-                                updateStatus('insurance_ch_address', status.insurance_ai_address ?? null);
-                                updateStatus('insurance_ch_city',    status.insurance_ai_city    ?? null);
-                                updateStatus('insurance_ch_state',   status.insurance_ai_state   ?? null);
-                                updateStatus('insurance_ch_zip',     status.insurance_ai_zip     ?? null);
-                                updateStatus('insurance_ch_email',   status.insurance_ai_email   ?? null);
-                              }
-                            }}
-                            className="rounded border-border"
-                          />
-                          <span className="text-[11px] text-muted-foreground">Same as Additional Insured</span>
-                        </label>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Company Name</Label>
-                        <Input disabled={chSameAsAI} value={chSameAsAI ? (status.insurance_ai_company ?? '') : (status.insurance_ch_company ?? '')} onChange={e => updateStatus('insurance_ch_company', e.target.value || null)} placeholder="Certificate holder name" className="h-9 text-sm disabled:opacity-60" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Address</Label>
-                        <Input disabled={chSameAsAI} value={chSameAsAI ? (status.insurance_ai_address ?? '') : (status.insurance_ch_address ?? '')} onChange={e => updateStatus('insurance_ch_address', e.target.value || null)} placeholder="Street address" className="h-9 text-sm disabled:opacity-60" />
-                      </div>
-                      <div className="grid grid-cols-5 gap-2">
-                        <div className="col-span-3 space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">City</Label>
-                          <Input disabled={chSameAsAI} value={chSameAsAI ? (status.insurance_ai_city ?? '') : (status.insurance_ch_city ?? '')} onChange={e => updateStatus('insurance_ch_city', e.target.value || null)} placeholder="City" className="h-9 text-sm disabled:opacity-60" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">State</Label>
-                          <Input disabled={chSameAsAI} value={chSameAsAI ? (status.insurance_ai_state ?? '') : (status.insurance_ch_state ?? '')} onChange={e => updateStatus('insurance_ch_state', e.target.value || null)} placeholder="MO" maxLength={2} className="h-9 text-sm uppercase disabled:opacity-60" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-muted-foreground">ZIP</Label>
-                          <Input disabled={chSameAsAI} value={chSameAsAI ? (status.insurance_ai_zip ?? '') : (status.insurance_ch_zip ?? '')} onChange={e => updateStatus('insurance_ch_zip', e.target.value || null)} placeholder="63101" className="h-9 text-sm disabled:opacity-60" />
+                    <div className="rounded-lg border border-border bg-muted/30">
+                      <div className="flex items-center justify-between px-3 py-2">
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          Certificate Holder
+                          {(chSameAsAI ? status.insurance_ai_company : status.insurance_ch_company) && (
+                            <span className="ml-1.5 normal-case font-normal text-foreground/70">— {chSameAsAI ? status.insurance_ai_company : status.insurance_ch_company}</span>
+                          )}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={chSameAsAI}
+                              onChange={e => {
+                                const checked = e.target.checked;
+                                setChSameAsAI(checked);
+                                if (checked) {
+                                  updateStatus('insurance_ch_company', status.insurance_ai_company ?? null);
+                                  updateStatus('insurance_ch_address', status.insurance_ai_address ?? null);
+                                  updateStatus('insurance_ch_city',    status.insurance_ai_city    ?? null);
+                                  updateStatus('insurance_ch_state',   status.insurance_ai_state   ?? null);
+                                  updateStatus('insurance_ch_zip',     status.insurance_ai_zip     ?? null);
+                                  updateStatus('insurance_ch_email',   status.insurance_ai_email   ?? null);
+                                }
+                              }}
+                              className="rounded border-border"
+                            />
+                            <span className="text-[11px] text-muted-foreground">Same as AI</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setChExpanded(p => !p)}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 transition-transform', chExpanded && 'rotate-180')} />
+                          </button>
                         </div>
                       </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Email <span className="font-normal normal-case">(so insurance co. can send them a copy)</span></Label>
-                        <Input disabled={chSameAsAI} type="email" value={chSameAsAI ? (status.insurance_ai_email ?? '') : (status.insurance_ch_email ?? '')} onChange={e => updateStatus('insurance_ch_email', e.target.value || null)} placeholder="cert-holder@example.com" className="h-9 text-sm disabled:opacity-60" />
-                      </div>
+                      {chExpanded && !chSameAsAI && (
+                        <div className="px-3 pb-3 space-y-2 border-t border-border pt-2">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">Company Name</Label>
+                            <Input value={status.insurance_ch_company ?? ''} onChange={e => updateStatus('insurance_ch_company', e.target.value || null)} placeholder="Certificate holder name" className="h-9 text-sm" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">Address</Label>
+                            <Input value={status.insurance_ch_address ?? ''} onChange={e => updateStatus('insurance_ch_address', e.target.value || null)} placeholder="Street address" className="h-9 text-sm" />
+                          </div>
+                          <div className="grid grid-cols-5 gap-2">
+                            <div className="col-span-3 space-y-1.5">
+                              <Label className="text-xs text-muted-foreground">City</Label>
+                              <Input value={status.insurance_ch_city ?? ''} onChange={e => updateStatus('insurance_ch_city', e.target.value || null)} placeholder="City" className="h-9 text-sm" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs text-muted-foreground">State</Label>
+                              <Input value={status.insurance_ch_state ?? ''} onChange={e => updateStatus('insurance_ch_state', e.target.value || null)} placeholder="ST" maxLength={2} className="h-9 text-sm uppercase" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs text-muted-foreground">ZIP</Label>
+                              <Input value={status.insurance_ch_zip ?? ''} onChange={e => updateStatus('insurance_ch_zip', e.target.value || null)} placeholder="ZIP" className="h-9 text-sm" />
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">Email <span className="font-normal normal-case">(so insurance co. can send them a copy)</span></Label>
+                            <Input type="email" value={status.insurance_ch_email ?? ''} onChange={e => updateStatus('insurance_ch_email', e.target.value || null)} placeholder="cert-holder@example.com" className="h-9 text-sm" />
+                          </div>
+                        </div>
+                      )}
+                      {chExpanded && chSameAsAI && (
+                        <div className="px-3 pb-3 border-t border-border pt-2">
+                          <p className="text-[11px] text-muted-foreground italic">Same as Additional Insured — no separate entry needed.</p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
