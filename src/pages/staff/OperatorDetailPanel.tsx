@@ -1037,7 +1037,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const screeningOptions = [{ value: 'not_started', label: 'Not Started' }, { value: 'scheduled', label: 'Scheduled' }, { value: 'results_in', label: 'Results In' }];
   const resultOptions = [{ value: 'pending', label: 'Pending' }, { value: 'clear', label: 'Clear' }, { value: 'non_clear', label: 'Non-Clear' }];
   const docOptions = [{ value: 'not_started', label: 'Not Started' }, { value: 'requested', label: 'Requested' }, { value: 'received', label: 'Received' }];
-  const regOptions = [{ value: 'own_registration', label: 'Own Registration' }, { value: 'needs_mo_reg', label: 'Needs MO Reg' }];
+  const regOptions = [{ value: 'own_registration', label: 'O/O Has Own Registration' }, { value: 'needs_mo_reg', label: 'Needs MO Reg' }];
   const icaOptions = [{ value: 'not_issued', label: 'Not Issued' }, { value: 'in_progress', label: 'In Progress (Draft)' }, { value: 'sent_for_signature', label: 'Sent for Signature' }, { value: 'complete', label: 'Complete' }];
   const moDocsOptions = [{ value: 'not_submitted', label: 'Not Submitted' }, { value: 'submitted', label: 'Submitted' }];
   const moRegOptions = [{ value: 'not_yet', label: 'Not Yet' }, { value: 'yes', label: 'Yes' }];
