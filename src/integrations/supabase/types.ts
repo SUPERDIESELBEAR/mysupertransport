@@ -990,6 +990,8 @@ export type Database = {
           ch_status: Database["public"]["Enums"]["mvr_status"]
           decal_applied: Database["public"]["Enums"]["yes_no"]
           decal_method: Database["public"]["Enums"]["install_method"] | null
+          decal_photo_ds_url: string | null
+          decal_photo_ps_url: string | null
           doc_notes: string | null
           eld_installed: Database["public"]["Enums"]["yes_no"]
           eld_method: Database["public"]["Enums"]["install_method"] | null
@@ -1033,6 +1035,8 @@ export type Database = {
           ch_status?: Database["public"]["Enums"]["mvr_status"]
           decal_applied?: Database["public"]["Enums"]["yes_no"]
           decal_method?: Database["public"]["Enums"]["install_method"] | null
+          decal_photo_ds_url?: string | null
+          decal_photo_ps_url?: string | null
           doc_notes?: string | null
           eld_installed?: Database["public"]["Enums"]["yes_no"]
           eld_method?: Database["public"]["Enums"]["install_method"] | null
@@ -1076,6 +1080,8 @@ export type Database = {
           ch_status?: Database["public"]["Enums"]["mvr_status"]
           decal_applied?: Database["public"]["Enums"]["yes_no"]
           decal_method?: Database["public"]["Enums"]["install_method"] | null
+          decal_photo_ds_url?: string | null
+          decal_photo_ps_url?: string | null
           doc_notes?: string | null
           eld_installed?: Database["public"]["Enums"]["yes_no"]
           eld_method?: Database["public"]["Enums"]["install_method"] | null
@@ -1752,7 +1758,11 @@ export type Database = {
         | "sent_for_signature"
         | "complete"
       inspection_doc_scope: "company_wide" | "per_driver"
-      install_method: "ar_shop_install" | "ups_self_install"
+      install_method:
+        | "ar_shop_install"
+        | "ups_self_install"
+        | "owner_operator_install"
+        | "supertransport_shop"
       mo_docs_status: "not_submitted" | "submitted"
       mo_reg_status: "not_yet" | "yes"
       mvr_status: "not_started" | "requested" | "received"
@@ -1939,7 +1949,12 @@ export const Constants = {
         "complete",
       ],
       inspection_doc_scope: ["company_wide", "per_driver"],
-      install_method: ["ar_shop_install", "ups_self_install"],
+      install_method: [
+        "ar_shop_install",
+        "ups_self_install",
+        "owner_operator_install",
+        "supertransport_shop",
+      ],
       mo_docs_status: ["not_submitted", "submitted"],
       mo_reg_status: ["not_yet", "yes"],
       mvr_status: ["not_started", "requested", "received"],
