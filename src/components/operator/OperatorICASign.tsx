@@ -210,7 +210,11 @@ export default function OperatorICASign() {
       )}
 
       <ICADocumentView
-        data={contract}
+        data={{
+          ...contract,
+          equipment_location_city: contract.equipment_location_city ?? '',
+          equipment_location_state: contract.equipment_location_state ?? '',
+        }}
         operatorName={operatorName}
         previewMode={isFullyExecuted}
         carrierSignatureUrl={contract.carrier_signature_url}
