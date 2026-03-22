@@ -1921,6 +1921,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <SelectField label="MVR/CH Approval" field="mvr_ch_approval" options={approvalOptions} />
                   <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
                   <SelectField label="PE Screening Result" field="pe_screening_result" options={resultOptions} />
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground">Background Check Notes</Label>
+                    <Textarea
+                      value={status.bg_check_notes ?? ''}
+                      onChange={e => setStatus(prev => ({ ...prev, bg_check_notes: e.target.value || null }))}
+                      placeholder="e.g. vendor name, order date, any issues…"
+                      className="text-sm min-h-[72px] resize-none"
+                    />
+                  </div>
                 </div>
               )}
             </div>
