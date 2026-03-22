@@ -134,7 +134,8 @@ export default function ICABuilderModal({
         linehaul_split_pct: row.linehaul_split_pct ?? 72,
         lease_effective_date: row.lease_effective_date ?? new Date().toISOString().split('T')[0],
         lease_termination_date: row.lease_termination_date ?? '',
-        equipment_location: row.equipment_location ?? 'Pleasant Hill, MO',
+        equipment_location_city: row.equipment_location ? row.equipment_location.split(',')[0].trim() : 'Pleasant Hill',
+        equipment_location_state: row.equipment_location ? (row.equipment_location.split(',')[1] ?? '').trim() : 'MO',
       });
 
       if (row.carrier_typed_name) setCarrierTypedName(row.carrier_typed_name);
