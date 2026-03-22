@@ -2627,7 +2627,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <h3 className="font-semibold text-foreground text-sm">Stage 5 — Equipment Setup</h3>
                 </div>
                 <div className="flex items-center gap-2">
-                  {allEquipmentReady && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />All Equipment Ready</span>}
+                  {allEquipmentReady
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />All Equipment Ready</span>
+                    : (() => {
+                        const done = [
+                          status.decal_applied === 'yes',
+                          status.eld_installed === 'yes',
+                          status.fuel_card_issued === 'yes',
+                        ].filter(Boolean).length;
+                        return done > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{done}/3 done</span>
+                        ) : null;
+                      })()
+                  }
                   {s5Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
                 </div>
               </button>
