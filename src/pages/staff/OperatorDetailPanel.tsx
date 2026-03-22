@@ -148,6 +148,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [savingInsuranceEmails, setSavingInsuranceEmails] = useState(false);
   const [sendingInsuranceEmail, setSendingInsuranceEmail] = useState(false);
   const [chSameAsAI, setChSameAsAI] = useState(false);
+  const [aiExpanded, setAiExpanded] = useState(false);
+  const [chExpanded, setChExpanded] = useState(false);
   const [insuranceEmailSent, setInsuranceEmailSent] = useState(false);
 
   // Cert history timeline
