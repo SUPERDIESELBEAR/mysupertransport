@@ -2734,13 +2734,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <h3 className="font-semibold text-foreground text-sm">Stage 6 — Insurance</h3>
                 </div>
                 <div className="flex items-center gap-2">
-                  {!addToPolicy && (() => {
-                    const certOnFile = (docFiles['insurance_cert'] ?? []).length > 0;
-                    return certOnFile
-                      ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Cert on File</span>
-                      : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><AlertTriangle className="h-3 w-3" />Cert Needed</span>;
-                  })()}
-                  {s6Complete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Fully Onboarded</span>}
+                  {s6Complete
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>
+                    : !addToPolicy
+                    ? (() => {
+                        const certOnFile = (docFiles['insurance_cert'] ?? []).length > 0;
+                        return certOnFile
+                          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><CheckCircle2 className="h-3 w-3" />Cert on File</span>
+                          : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><AlertTriangle className="h-3 w-3" />Cert Needed</span>;
+                      })()
+                    : status.insurance_policy_type === 'add_to_supertransport' && status.insurance_stated_value
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />Value on File</span>
+                    : null
+                  }
                   {s6Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
                 </div>
               </button>
