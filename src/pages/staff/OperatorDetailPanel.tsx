@@ -707,6 +707,40 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     truck_inspection: 'Truck Inspection Report',
   };
 
+  const handleSaveInsuranceEmails = async () => {
+    setSavingInsuranceEmails(true);
+    try {
+      const { error } = await supabase
+        .from('insurance_email_settings' as any)
+        .update({ recipient_emails: insuranceEmailRecipients, updated_at: new Date().toISOString(), updated_by: session?.user?.id ?? null })
+        .eq('id', '00000000-0000-0000-0000-000000000001');
+      if (error) throw error;
+      toast({ title: 'Insurance email recipients saved', description: `${insuranceEmailRecipients.length} recipient(s) saved.` });
+    } catch (err: any) {
+      toast({ title: 'Failed to save recipients', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingInsuranceEmails(false);
+    }
+  };
+
+  const handleSendInsuranceEmail = async () => {
+    setSendingInsuranceEmail(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-insurance-request', {
+        body: { operator_id: operatorId },
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+      });
+      if (error || !data?.success) throw new Error(data?.error ?? error?.message ?? 'Unknown error');
+      setInsuranceEmailSent(true);
+      toast({ title: 'Insurance email sent', description: `Sent to ${(data.sent_to as string[]).join(', ')}` });
+      setTimeout(() => setInsuranceEmailSent(false), 5000);
+    } catch (err: any) {
+      toast({ title: 'Failed to send insurance email', description: err.message, variant: 'destructive' });
+    } finally {
+      setSendingInsuranceEmail(false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
 
