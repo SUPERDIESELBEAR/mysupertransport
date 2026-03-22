@@ -1023,10 +1023,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
       {(() => {
         const stages = [
-          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved', fullName: 'Background Check', items: [
+          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear', fullName: 'Background Check', items: [
               { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
               { label: 'Clearinghouse Requested', done: status.ch_status === 'requested' || status.ch_status === 'received' },
               { label: 'MVR & CH Approved',       done: status.mvr_ch_approval === 'approved' },
+              { label: 'PE Screening Clear',      done: status.pe_screening_result === 'clear' },
             ]},
           { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received', fullName: 'Documents', items: [
               { label: 'Form 2290',      done: status.form_2290 === 'received' },
