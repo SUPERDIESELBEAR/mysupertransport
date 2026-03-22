@@ -2144,7 +2144,26 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               <h3 className="font-semibold text-foreground text-sm">Stage 2 — Documents</h3>
             </div>
             <div className="flex items-center gap-2">
-              {allDocsComplete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />All Docs Complete</span>}
+              {allDocsComplete
+                ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />All Docs Complete</span>
+                : (() => {
+                    const done = [
+                      status.form_2290 === 'received',
+                      status.truck_title === 'received',
+                      status.truck_photos === 'received',
+                      status.truck_inspection === 'received',
+                    ].filter(Boolean).length;
+                    const requested = [
+                      status.form_2290 === 'requested',
+                      status.truck_title === 'requested',
+                      status.truck_photos === 'requested',
+                      status.truck_inspection === 'requested',
+                    ].filter(Boolean).length;
+                    return (done > 0 || requested > 0) ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{done}/4 received</span>
+                    ) : null;
+                  })()
+              }
               {s2Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
             </div>
           </button>
