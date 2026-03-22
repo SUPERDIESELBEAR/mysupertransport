@@ -1,0 +1,15 @@
+ALTER TABLE public.onboarding_status
+  DROP COLUMN IF EXISTS insurance_additional_insured,
+  DROP COLUMN IF EXISTS insurance_cert_holder,
+  ADD COLUMN IF NOT EXISTS insurance_ai_company TEXT,
+  ADD COLUMN IF NOT EXISTS insurance_ai_address TEXT,
+  ADD COLUMN IF NOT EXISTS insurance_ai_city    TEXT,
+  ADD COLUMN IF NOT EXISTS insurance_ai_state   TEXT,
+  ADD COLUMN IF NOT EXISTS insurance_ai_zip     TEXT,
+  ADD COLUMN IF NOT EXISTS insurance_ai_email   TEXT,
+  ADD COLUMN IF NOT EXISTS insurance_ch_company TEXT,
+  ADD COLUMN IF NOT EXISTS insurance_ch_address TEXT,
+  ADD COLUMN IF NOT EXISTS insurance_ch_city    TEXT,
+  ADD COLUMN IF NOT EXISTS insurance_ch_state   TEXT,
+  ADD COLUMN IF NOT EXISTS insurance_ch_zip     TEXT,
+  ADD COLUMN IF NOT EXISTS insurance_ch_email   TEXT;
