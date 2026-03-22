@@ -1,56 +1,66 @@
 
-## Three Stage 1 improvements
+## Structured Additional Insured & Certificate Holder Fields
 
-### Answer to question 3 — Date fields
-There are currently **no** date fields for any Stage 1 items in the database. The `onboarding_status` table tracks only status values (not_started / requested / received / etc.) — no dates are stored for when things were requested or received. We can add them, but that is a separate task. For now, this plan covers only the three items you asked about.
+### What the user clarified
+The AI and CH email address fields are informational only — they appear in the insurance request email sent to the insurance company so they know where to send copies. The app itself never emails the AI or CH directly.
 
----
+### Current state
+The database and code still use the original single-text columns (`insurance_additional_insured`, `insurance_cert_holder`). The structured-field migration from the previous plan conversation was designed but never executed.
 
-### Change 1 — PE Screening blocks Stage 1 completion
+### Changes needed
 
-**Two places to fix:**
-
-**A. `OperatorDetailPanel.tsx` — the hardcoded stage array (3 spots)**
-- Line 1900: `s1Complete` — change from `mvr_ch_approval === 'approved'` to also require `pe_screening_result === 'clear'`
-- Line 1773: same fix in the sticky-bar stage array
-- Line 1025: same fix in the mini-bar stage array
-- Add "PE Screening Clear" as a 4th item in all three stage item lists
-
-**B. `pipeline_config` database record for the `bg` stage**
-- Insert a new item into the `items` JSON array: `{ key: "pe_clear", label: "PE Screening Clear", field: "pe_screening_result", complete_value: "clear" }`
-- This keeps the Pipeline Dashboard's BG node in sync with the detail panel
-
----
-
-### Change 2 — Background Check notes field
-
-**A. Database migration**
-Add a nullable text column to `onboarding_status`:
+**1. Database migration**
+Replace the two old text columns with 12 structured columns:
 ```sql
-ALTER TABLE public.onboarding_status ADD COLUMN IF NOT EXISTS bg_check_notes TEXT;
+ALTER TABLE public.onboarding_status
+  DROP COLUMN IF EXISTS insurance_additional_insured,
+  DROP COLUMN IF EXISTS insurance_cert_holder,
+  ADD COLUMN insurance_ai_company TEXT,
+  ADD COLUMN insurance_ai_address TEXT,
+  ADD COLUMN insurance_ai_city    TEXT,
+  ADD COLUMN insurance_ai_state   TEXT,
+  ADD COLUMN insurance_ai_zip     TEXT,
+  ADD COLUMN insurance_ai_email   TEXT,
+  ADD COLUMN insurance_ch_company TEXT,
+  ADD COLUMN insurance_ch_address TEXT,
+  ADD COLUMN insurance_ch_city    TEXT,
+  ADD COLUMN insurance_ch_state   TEXT,
+  ADD COLUMN insurance_ch_zip     TEXT,
+  ADD COLUMN insurance_ch_email   TEXT;
 ```
 
-**B. `OperatorDetailPanel.tsx` TypeScript type**
-Add `bg_check_notes: string | null` to the `OnboardingStatus` type.
+**2. `OperatorDetailPanel.tsx` — Type + UI**
+- Remove the two old fields from `OnboardingStatus` type; add 12 new fields
+- Replace the two flat `Input` fields in Stage 6 with two structured cards:
 
-**C. Stage 1 UI**
-Add a `Textarea` below the existing 5 dropdowns in Stage 1:
-- Label: "Background Check Notes"
-- Placeholder: "e.g. vendor name, order date, any issues…"
-- Bound to `status.bg_check_notes`
-- Included in the save payload (already handled by the generic `status` object spread in `handleSave`)
+```
+┌─ ADDITIONAL INSURED (if truck is financed) ──────────────────┐
+│  Company Name      [_________________________________]        │
+│  Address           [_________________________________]        │
+│  City / State / ZIP [____________] [__] [_______]            │
+│  Email (for cert copy) [__________________________]          │
+└──────────────────────────────────────────────────────────────┘
 
-**D. Fetch query**
-The `fetchOperatorDetail` query uses `onboarding_status (*)` which will automatically include the new column — no query change needed.
+┌─ CERTIFICATE HOLDER ────────────────────────────────────────┐
+│  [✓ Same as Additional Insured]  (checkbox shortcut)         │
+│  Company Name / Address / City / State / ZIP / Email         │
+└─────────────────────────────────────────────────────────────┘
+```
 
----
+- "Same as Additional Insured" checkbox copies all 6 AI fields into CH fields instantly and disables the CH inputs while checked
+- A small note under each email field: *"Included in email to insurance company so they can send a copy"*
+- Save payload uses existing `status` spread — all 12 columns included automatically
+
+**3. `send-insurance-request` Edge Function**
+- Update the `select` query to fetch the 12 new columns
+- Update `buildInsuranceEmail` to format structured address blocks:
+  - Additional Insured section: Company, full address line, email as a mailto link
+  - Certificate Holder section: same format (or "Same as Additional Insured" label if identical)
+- Remove the old `additionalInsured`/`certHolder` string params; replace with structured objects
 
 ### Files changed
-
 | File | Change |
 |---|---|
-| DB migration | Add `bg_check_notes` column to `onboarding_status` |
-| DB data update | Add PE screening item to `pipeline_config` BG stage items |
-| `OperatorDetailPanel.tsx` | Fix `s1Complete` in 3 places, add PE item to 3 stage arrays, add notes textarea |
-
-No other files need changes. The save flow, RLS, and notification logic are unaffected.
+| DB migration | Replace 2 old text cols with 12 structured cols |
+| `OperatorDetailPanel.tsx` | Update type + replace flat inputs with structured cards + "Same as AI" checkbox |
+| `send-insurance-request/index.ts` | Update select + email HTML to use structured address blocks |
