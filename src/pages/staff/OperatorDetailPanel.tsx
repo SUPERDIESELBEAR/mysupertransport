@@ -2036,7 +2036,20 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <h3 className="font-semibold text-foreground text-sm">Stage 1 — Background Check</h3>
                 </div>
                 <div className="flex items-center gap-2">
-                  {s1Complete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>}
+                  {s1Complete
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>
+                    : (() => {
+                        const done = [
+                          status.mvr_status === 'requested' || status.mvr_status === 'received',
+                          status.ch_status === 'requested' || status.ch_status === 'received',
+                          status.mvr_ch_approval === 'approved',
+                          status.pe_screening_result === 'clear',
+                        ].filter(Boolean).length;
+                        return done > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{done}/4 done</span>
+                        ) : null;
+                      })()
+                  }
                   {s1Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
                 </div>
               </button>
@@ -2131,7 +2144,26 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               <h3 className="font-semibold text-foreground text-sm">Stage 2 — Documents</h3>
             </div>
             <div className="flex items-center gap-2">
-              {allDocsComplete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />All Docs Complete</span>}
+              {allDocsComplete
+                ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />All Docs Complete</span>
+                : (() => {
+                    const done = [
+                      status.form_2290 === 'received',
+                      status.truck_title === 'received',
+                      status.truck_photos === 'received',
+                      status.truck_inspection === 'received',
+                    ].filter(Boolean).length;
+                    const requested = [
+                      status.form_2290 === 'requested',
+                      status.truck_title === 'requested',
+                      status.truck_photos === 'requested',
+                      status.truck_inspection === 'requested',
+                    ].filter(Boolean).length;
+                    return (done > 0 || requested > 0) ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{done}/4 received</span>
+                    ) : null;
+                  })()
+              }
               {s2Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
             </div>
           </button>
@@ -2357,7 +2389,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <h3 className="font-semibold text-foreground text-sm">Stage 3 — ICA</h3>
                 </div>
                 <div className="flex items-center gap-2">
-                  {s3Complete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>}
+                  {s3Complete
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>
+                    : status.ica_status === 'sent_for_signature'
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />Awaiting Signature</span>
+                    : status.ica_status === 'in_progress'
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />Draft In Progress</span>
+                    : null
+                  }
                   {s3Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
                 </div>
               </button>
@@ -2528,7 +2567,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
                 <div className="flex items-center gap-2">
                   {isNa && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground border border-border">N/A — O/O Has Own Registration</span>}
-                  {!isNa && s4Complete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>}
+                  {!isNa && (s4Complete
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>
+                    : status.mo_docs_submitted === 'submitted'
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />Docs Submitted</span>
+                    : null
+                  )}
                   {s4Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
                 </div>
               </button>
@@ -2583,7 +2627,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <h3 className="font-semibold text-foreground text-sm">Stage 5 — Equipment Setup</h3>
                 </div>
                 <div className="flex items-center gap-2">
-                  {allEquipmentReady && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />All Equipment Ready</span>}
+                  {allEquipmentReady
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />All Equipment Ready</span>
+                    : (() => {
+                        const done = [
+                          status.decal_applied === 'yes',
+                          status.eld_installed === 'yes',
+                          status.fuel_card_issued === 'yes',
+                        ].filter(Boolean).length;
+                        return done > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{done}/3 done</span>
+                        ) : null;
+                      })()
+                  }
                   {s5Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
                 </div>
               </button>
@@ -2678,13 +2734,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <h3 className="font-semibold text-foreground text-sm">Stage 6 — Insurance</h3>
                 </div>
                 <div className="flex items-center gap-2">
-                  {!addToPolicy && (() => {
-                    const certOnFile = (docFiles['insurance_cert'] ?? []).length > 0;
-                    return certOnFile
-                      ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Cert on File</span>
-                      : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><AlertTriangle className="h-3 w-3" />Cert Needed</span>;
-                  })()}
-                  {s6Complete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Fully Onboarded</span>}
+                  {s6Complete
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>
+                    : !addToPolicy
+                    ? (() => {
+                        const certOnFile = (docFiles['insurance_cert'] ?? []).length > 0;
+                        return certOnFile
+                          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><CheckCircle2 className="h-3 w-3" />Cert on File</span>
+                          : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><AlertTriangle className="h-3 w-3" />Cert Needed</span>;
+                      })()
+                    : status.insurance_policy_type === 'add_to_supertransport' && status.insurance_stated_value
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />Value on File</span>
+                    : null
+                  }
                   {s6Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
                 </div>
               </button>
