@@ -1,35 +1,56 @@
 
-## Root cause
+## Three Stage 1 improvements
 
-The Save button has `className="flex-1 bg-gold ..."` on top of the shadcn `Button` default variant. The `Button` component applies `bg-primary` via `cva`. The `cn()` helper uses `tailwind-merge`, which merges class lists intelligently — but `bg-gold` is a **hand-written CSS utility** defined in `index.css`, not a standard Tailwind `bg-*` class. `tailwind-merge` does not recognize `bg-gold` as a background color utility, so it does NOT remove `bg-primary`. Both classes are present in the DOM, and `bg-primary` wins (it appears later in the compiled stylesheet).
+### Answer to question 3 — Date fields
+There are currently **no** date fields for any Stage 1 items in the database. The `onboarding_status` table tracks only status values (not_started / requested / received / etc.) — no dates are stored for when things were requested or received. We can add them, but that is a separate task. For now, this plan covers only the three items you asked about.
 
-This is why the button always shows the muted gold/grey `--primary` color instead of the rich `--gold-main` color.
+---
 
-### Fix — two-part
+### Change 1 — PE Screening blocks Stage 1 completion
 
-**Part 1 — Use a Tailwind-native gold token** so `tailwind-merge` can properly strip `bg-primary`.
+**Two places to fix:**
 
-Change the button's className to use `bg-[hsl(var(--gold-main))]` and `hover:bg-[hsl(var(--gold-light))]` — these are standard Tailwind arbitrary-value classes that `tailwind-merge` recognizes as background utilities and will correctly override `bg-primary`.
+**A. `OperatorDetailPanel.tsx` — the hardcoded stage array (3 spots)**
+- Line 1900: `s1Complete` — change from `mvr_ch_approval === 'approved'` to also require `pe_screening_result === 'clear'`
+- Line 1773: same fix in the sticky-bar stage array
+- Line 1025: same fix in the mini-bar stage array
+- Add "PE Screening Clear" as a 4th item in all three stage item lists
 
-**Part 2 — Add `isDirty` tracking** so the button also gives a visual feedback signal after a photo upload.
+**B. `pipeline_config` database record for the `bg` stage**
+- Insert a new item into the `items` JSON array: `{ key: "pe_clear", label: "PE Screening Clear", field: "pe_screening_result", complete_value: "clear" }`
+- This keeps the Pipeline Dashboard's BG node in sync with the detail panel
 
-Right now the photo uploads and saves instantly (directly to the DB in `handleAvatarChange`), so the form isn't "dirty" — but the user still expects the Save button to look active/gold after uploading. The simplest fix is to track an `isDirty` state that gets set to `true` whenever any field changes (including after a photo upload). This makes the button look fully active and branded while the user is in an editing session.
+---
 
-Actually the simplest and correct fix is just Part 1 — fix the CSS class conflict so `bg-gold` properly renders. The `--primary` and `--gold-main` are very close in hue (both 41°) but differ slightly in saturation: `--primary: 41 47% 54%` vs `--gold-main: 41 47% 54%` — wait, they're **identical**! So the color itself is the same. The visual difference the user sees must be the `disabled:opacity-50` from the `Button` CVA base class.
+### Change 2 — Background Check notes field
 
-Re-reading the disabled condition: `disabled={loading || !firstName.trim() || !lastName.trim()}`. When the modal opens, firstName and lastName ARE populated, so this is false and the button is enabled. But wait — when does the modal first mount? The `useEffect` seeds the names on `open && profile`. If `profile` is null on first render or lags, firstName and lastName start as `''`, making `!firstName.trim()` true → button is disabled with opacity-50.
+**A. Database migration**
+Add a nullable text column to `onboarding_status`:
+```sql
+ALTER TABLE public.onboarding_status ADD COLUMN IF NOT EXISTS bg_check_notes TEXT;
+```
 
-The real bug: **profile may not be available on the first render tick** after `open` becomes true. The `useEffect` fires asynchronously after mount, so for one render cycle `firstName = ''` and `lastName = ''` → button shows as disabled (opacity-50). After the effect runs and names are populated, React re-renders and the button becomes enabled — but the user may have already seen the grey/faded state and assumes it stays disabled.
+**B. `OperatorDetailPanel.tsx` TypeScript type**
+Add `bg_check_notes: string | null` to the `OnboardingStatus` type.
 
-**The actual fix**: Seed the initial state directly from props rather than waiting for the effect, OR derive the disabled condition differently — don't disable just because firstName/lastName are empty on mount; instead track whether there are actual unsaved changes.
+**C. Stage 1 UI**
+Add a `Textarea` below the existing 5 dropdowns in Stage 1:
+- Label: "Background Check Notes"
+- Placeholder: "e.g. vendor name, order date, any issues…"
+- Bound to `status.bg_check_notes`
+- Included in the save payload (already handled by the generic `status` object spread in `handleSave`)
 
-Cleanest approach: initialize `firstName` and `lastName` state from `profile` at declaration time (using the profile from useAuth directly), so the button is never momentarily disabled on open. Also add `isDirty` tracking so the button visually highlights when something has changed.
+**D. Fetch query**
+The `fetchOperatorDetail` query uses `onboarding_status (*)` which will automatically include the new column — no query change needed.
 
-### Changes — `src/components/EditProfileModal.tsx` only
+---
 
-1. Initialize `firstName`/`lastName`/`phone`/`homeState` state from `profile` directly (so they're populated on first render, not after effect)
-2. Track `isDirty` — set true when any field changes or after avatar upload
-3. The `disabled` condition changes to `loading` only (names are always valid since they're pre-populated; validation happens on submit)
-4. Add a visual "pulse" or brightness change to the button only when `isDirty` — or simply ensure the button is always visibly gold (enabled) since names are always pre-seeded
+### Files changed
 
-This is a single-file fix, no DB/backend/schema changes.
+| File | Change |
+|---|---|
+| DB migration | Add `bg_check_notes` column to `onboarding_status` |
+| DB data update | Add PE screening item to `pipeline_config` BG stage items |
+| `OperatorDetailPanel.tsx` | Fix `s1Complete` in 3 places, add PE item to 3 stage arrays, add notes textarea |
+
+No other files need changes. The save flow, RLS, and notification logic are unaffected.
