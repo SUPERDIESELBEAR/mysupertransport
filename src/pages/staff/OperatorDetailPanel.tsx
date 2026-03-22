@@ -19,6 +19,7 @@ import { useAuth } from '@/hooks/useAuth';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
 import ICAViewModal from '@/components/ica/ICAViewModal';
 import OperatorBinderPanel from '@/components/inspection/OperatorBinderPanel';
+import TruckPhotoGridModal from '@/components/staff/TruckPhotoGridModal';
 import { formatDistanceToNow, format, differenceInDays, parseISO, startOfDay } from 'date-fns';
 
 interface OperatorDetailPanelProps {
@@ -119,6 +120,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
+  const [truckPhotoGridOpen, setTruckPhotoGridOpen] = useState(false);
+
 
   // Cert history timeline
   type CertHistoryEntry = {
@@ -2070,96 +2073,109 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               const received = current === 'received';
               const files = docFiles[field as string] ?? [];
               const fileCount = files.length;
+              const isTruckPhotos = field === 'truck_photos';
+
+              const markReceivedHandler = async () => {
+                if (!statusId) return;
+                setMarkingReceived(field as string);
+                try {
+                  await supabase.from('onboarding_status').update({ [field]: 'received' }).eq('id', statusId);
+                  setStatus(prev => ({ ...prev, [field]: 'received' }));
+                  savedMilestones.current = { ...savedMilestones.current, [field as string]: 'received' };
+                  if (operatorUserId) {
+                    await supabase.from('notifications').insert({
+                      user_id: operatorUserId,
+                      type: 'doc_received',
+                      title: `Your ${DOC_LABELS[field as string] ?? label} has been received`,
+                      body: `Your ${DOC_LABELS[field as string] ?? label} has been reviewed and received by your onboarding coordinator.`,
+                      channel: 'in_app',
+                      link: '/operator?tab=documents',
+                    });
+                  }
+                  toast({ title: `✅ ${label} marked received`, description: `${operatorName} has been notified.` });
+                } catch (err: any) {
+                  toast({ title: 'Error', description: err.message, variant: 'destructive' });
+                } finally {
+                  setMarkingReceived(null);
+                }
+              };
+
               return (
                 <div key={field as string} className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
                     {fileCount > 0 && (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="flex items-center gap-1 text-[11px] font-medium text-info hover:text-info/80 transition-colors cursor-pointer leading-none">
-                            <Paperclip className="h-3 w-3" />
-                            {fileCount} {fileCount === 1 ? 'file' : 'files'} uploaded
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent side="top" align="start" className="w-72 p-0">
-                          <div className="p-3 border-b border-border">
-                            <p className="text-xs font-semibold text-foreground">{label} — Uploaded Files</p>
-                          </div>
-                          <ul className="divide-y divide-border max-h-48 overflow-y-auto">
-                            {files.map(f => (
-                              <li key={f.id} className="flex items-center justify-between gap-2 px-3 py-2">
-                                <div className="min-w-0">
-                                  <p className="text-xs font-medium text-foreground truncate max-w-[160px]">
-                                    {f.file_name ?? 'Unnamed file'}
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground">
-                                    {format(new Date(f.uploaded_at), 'MMM d, yyyy')}
-                                  </p>
-                                </div>
-                                {f.file_url ? (
-                                  <a
-                                    href={f.file_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-1 text-[11px] text-gold hover:text-gold-light font-medium shrink-0"
-                                  >
-                                    View <ExternalLink className="h-3 w-3" />
-                                  </a>
-                                ) : (
-                                  <span className="text-[11px] text-muted-foreground shrink-0">No URL</span>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                          {/* Mark as Received shortcut */}
-                          {!received && (
-                            <div className="p-2 border-t border-border">
-                              <button
-                                className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold text-status-complete bg-status-complete/10 hover:bg-status-complete/20 border border-status-complete/30 rounded-md py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                disabled={markingReceived === (field as string)}
-                                onClick={async () => {
-                                  if (!statusId) return;
-                                  setMarkingReceived(field as string);
-                                  try {
-                                    await supabase.from('onboarding_status').update({ [field]: 'received' }).eq('id', statusId);
-                                    // Update local state & snapshot
-                                    setStatus(prev => ({ ...prev, [field]: 'received' }));
-                                    savedMilestones.current = { ...savedMilestones.current, [field as string]: 'received' };
-                                    // Notify operator
-                                    if (operatorUserId) {
-                                      await supabase.from('notifications').insert({
-                                        user_id: operatorUserId,
-                                        type: 'doc_received',
-                                        title: `Your ${DOC_LABELS[field as string] ?? label} has been received`,
-                                        body: `Your ${DOC_LABELS[field as string] ?? label} has been reviewed and received by your onboarding coordinator.`,
-                                        channel: 'in_app',
-                                        link: '/operator?tab=documents',
-                                      });
-                                    }
-                                    toast({ title: `✅ ${label} marked received`, description: `${operatorName} has been notified.` });
-                                  } catch (err: any) {
-                                    toast({ title: 'Error', description: err.message, variant: 'destructive' });
-                                  } finally {
-                                    setMarkingReceived(null);
+                      isTruckPhotos ? (
+                        /* Truck photos → open visual grid */
+                        <button
+                          onClick={() => setTruckPhotoGridOpen(true)}
+                          className="flex items-center gap-1 text-[11px] font-medium text-info hover:text-info/80 transition-colors cursor-pointer leading-none"
+                        >
+                          <Paperclip className="h-3 w-3" />
+                          {fileCount} {fileCount === 1 ? 'photo' : 'photos'} — View Grid
+                        </button>
+                      ) : (
+                        /* Other docs → generic popover */
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="flex items-center gap-1 text-[11px] font-medium text-info hover:text-info/80 transition-colors cursor-pointer leading-none">
+                              <Paperclip className="h-3 w-3" />
+                              {fileCount} {fileCount === 1 ? 'file' : 'files'} uploaded
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent side="top" align="start" className="w-72 p-0">
+                            <div className="p-3 border-b border-border">
+                              <p className="text-xs font-semibold text-foreground">{label} — Uploaded Files</p>
+                            </div>
+                            <ul className="divide-y divide-border max-h-48 overflow-y-auto">
+                              {files.map(f => (
+                                <li key={f.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-foreground truncate max-w-[160px]">
+                                      {f.file_name ?? 'Unnamed file'}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">
+                                      {format(new Date(f.uploaded_at), 'MMM d, yyyy')}
+                                    </p>
+                                  </div>
+                                  {f.file_url ? (
+                                    <a
+                                      href={f.file_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1 text-[11px] text-gold hover:text-gold-light font-medium shrink-0"
+                                    >
+                                      View <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  ) : (
+                                    <span className="text-[11px] text-muted-foreground shrink-0">No URL</span>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                            {!received && (
+                              <div className="p-2 border-t border-border">
+                                <button
+                                  className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold text-status-complete bg-status-complete/10 hover:bg-status-complete/20 border border-status-complete/30 rounded-md py-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  disabled={markingReceived === (field as string)}
+                                  onClick={markReceivedHandler}
+                                >
+                                  {markingReceived === (field as string)
+                                    ? <span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
+                                    : <CheckCircle2 className="h-3 w-3" />
                                   }
-                                }}
-                              >
-                                {markingReceived === (field as string)
-                                  ? <span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
-                                  : <CheckCircle2 className="h-3 w-3" />
-                                }
-                                {markingReceived === (field as string) ? 'Saving…' : 'Mark as Received'}
-                              </button>
-                            </div>
-                          )}
-                          {received && (
-                            <div className="p-2 border-t border-border flex items-center justify-center gap-1.5 text-[11px] font-semibold text-status-complete">
-                              <CheckCircle2 className="h-3 w-3" /> Already marked received
-                            </div>
-                          )}
-                        </PopoverContent>
-                      </Popover>
+                                  {markingReceived === (field as string) ? 'Saving…' : 'Mark as Received'}
+                                </button>
+                              </div>
+                            )}
+                            {received && (
+                              <div className="p-2 border-t border-border flex items-center justify-center gap-1.5 text-[11px] font-semibold text-status-complete">
+                                <CheckCircle2 className="h-3 w-3" /> Already marked received
+                              </div>
+                            )}
+                          </PopoverContent>
+                        </Popover>
+                      )
                     )}
                   </div>
                   <div className="flex gap-1.5">
@@ -2200,6 +2216,40 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               );
             })}
+
+            {/* Truck Photo Grid Modal */}
+            <TruckPhotoGridModal
+              open={truckPhotoGridOpen}
+              onClose={() => setTruckPhotoGridOpen(false)}
+              files={docFiles['truck_photos'] ?? []}
+              alreadyReceived={status.truck_photos === 'received'}
+              isMarkingReceived={markingReceived === 'truck_photos'}
+              onMarkReceived={async () => {
+                if (!statusId) return;
+                setMarkingReceived('truck_photos');
+                try {
+                  await supabase.from('onboarding_status').update({ truck_photos: 'received' }).eq('id', statusId);
+                  setStatus(prev => ({ ...prev, truck_photos: 'received' }));
+                  savedMilestones.current = { ...savedMilestones.current, truck_photos: 'received' };
+                  if (operatorUserId) {
+                    await supabase.from('notifications').insert({
+                      user_id: operatorUserId,
+                      type: 'doc_received',
+                      title: 'Your Truck Photos have been received',
+                      body: 'Your truck photos have been reviewed and received by your onboarding coordinator.',
+                      channel: 'in_app',
+                      link: '/operator?tab=documents',
+                    });
+                  }
+                  toast({ title: '✅ Truck Photos marked received', description: `${operatorName} has been notified.` });
+                  setTruckPhotoGridOpen(false);
+                } catch (err: any) {
+                  toast({ title: 'Error', description: err.message, variant: 'destructive' });
+                } finally {
+                  setMarkingReceived(null);
+                }
+              }}
+            />
           </div>
           )}
         </div>
