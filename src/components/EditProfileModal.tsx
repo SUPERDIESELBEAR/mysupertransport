@@ -112,6 +112,7 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
   const [cropMime, setCropMime]             = useState<string>('image/jpeg');
   const [crop, setCrop]                     = useState({ x: 0, y: 0 });
   const [zoom, setZoom]                     = useState(1);
+  const [rotation, setRotation]             = useState(0);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
   const isDark = variant === 'dark';
