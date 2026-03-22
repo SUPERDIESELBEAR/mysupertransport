@@ -2231,6 +2231,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               </div>
             )}
 
+            {/* Date fields */}
+            {(status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
+              <div className="pl-3 border-l-2 border-gold/30 space-y-2">
+                <StageDatePicker
+                  label="ICA Sent Date"
+                  value={status.ica_sent_date}
+                  onChange={v => updateStatus('ica_sent_date', v)}
+                />
+                {status.ica_status === 'complete' && (
+                  <StageDatePicker
+                    label="ICA Signed Date"
+                    value={status.ica_signed_date}
+                    onChange={v => updateStatus('ica_signed_date', v)}
+                  />
+                )}
+              </div>
+            )}
+
             {/* In-progress draft banner */}
             {status.ica_status === 'in_progress' && (
               <div className="flex items-start gap-2 p-3 rounded-lg bg-status-progress/10 border border-status-progress/30">
@@ -2294,6 +2312,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 View Sent ICA
               </Button>
             )}
+
+            {/* ICA Notes */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ICA Notes</Label>
+              <Textarea
+                value={status.ica_notes ?? ''}
+                onChange={e => updateStatus('ica_notes', e.target.value || null)}
+                placeholder="e.g. negotiated terms, signing issues, follow-up needed…"
+                className="text-sm min-h-[72px] resize-none"
+              />
+            </div>
 
             {/* Void ICA — available when a contract has been issued or is in-progress draft */}
             {(status.ica_status === 'in_progress' || status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
