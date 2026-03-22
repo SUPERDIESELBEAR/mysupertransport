@@ -2989,12 +2989,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         onClick={() => setAiExpanded(p => !p)}
                         className="w-full flex items-center justify-between px-3 py-2 text-left"
                       >
-                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                          Additional Insured <span className="normal-case font-normal">(if truck is financed)</span>
+                        <span className="flex items-center gap-1.5">
                           {status.insurance_ai_company && (
-                            <span className="ml-1.5 normal-case font-normal text-foreground/70">— {status.insurance_ai_company}</span>
+                            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Additional Insured on file" />
                           )}
-                        </p>
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                            Additional Insured <span className="normal-case font-normal">(if truck is financed)</span>
+                            {status.insurance_ai_company && (
+                              <span className="ml-1.5 normal-case font-normal text-foreground/70">— {status.insurance_ai_company}</span>
+                            )}
+                          </p>
+                        </span>
                         <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform', aiExpanded && 'rotate-180')} />
                       </button>
                       {aiExpanded && (
@@ -3032,12 +3037,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     {/* ─── CERTIFICATE HOLDER ───────────────────────────── */}
                     <div className="rounded-lg border border-border bg-muted/30">
                       <div className="flex items-center justify-between px-3 py-2">
-                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                          Certificate Holder
+                        <span className="flex items-center gap-1.5">
                           {(chSameAsAI ? status.insurance_ai_company : status.insurance_ch_company) && (
-                            <span className="ml-1.5 normal-case font-normal text-foreground/70">— {chSameAsAI ? status.insurance_ai_company : status.insurance_ch_company}</span>
+                            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Certificate Holder on file" />
                           )}
-                        </p>
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                            Certificate Holder
+                            {(chSameAsAI ? status.insurance_ai_company : status.insurance_ch_company) && (
+                              <span className="ml-1.5 normal-case font-normal text-foreground/70">— {chSameAsAI ? status.insurance_ai_company : status.insurance_ch_company}</span>
+                            )}
+                          </p>
+                        </span>
                         <div className="flex items-center gap-2">
                           <label className="flex items-center gap-1.5 cursor-pointer select-none">
                             <input
