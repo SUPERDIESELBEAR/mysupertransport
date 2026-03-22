@@ -1003,7 +1003,9 @@ export type Database = {
           id: string
           insurance_added_date: string | null
           mo_docs_submitted: Database["public"]["Enums"]["mo_docs_status"]
+          mo_docs_submitted_date: string | null
           mo_expected_approval_date: string | null
+          mo_notes: string | null
           mo_reg_received: Database["public"]["Enums"]["mo_reg_status"]
           mvr_ch_approval: Database["public"]["Enums"]["approval_status"]
           mvr_received_date: string | null
@@ -1044,7 +1046,9 @@ export type Database = {
           id?: string
           insurance_added_date?: string | null
           mo_docs_submitted?: Database["public"]["Enums"]["mo_docs_status"]
+          mo_docs_submitted_date?: string | null
           mo_expected_approval_date?: string | null
+          mo_notes?: string | null
           mo_reg_received?: Database["public"]["Enums"]["mo_reg_status"]
           mvr_ch_approval?: Database["public"]["Enums"]["approval_status"]
           mvr_received_date?: string | null
@@ -1085,7 +1089,9 @@ export type Database = {
           id?: string
           insurance_added_date?: string | null
           mo_docs_submitted?: Database["public"]["Enums"]["mo_docs_status"]
+          mo_docs_submitted_date?: string | null
           mo_expected_approval_date?: string | null
+          mo_notes?: string | null
           mo_reg_received?: Database["public"]["Enums"]["mo_reg_status"]
           mvr_ch_approval?: Database["public"]["Enums"]["approval_status"]
           mvr_received_date?: string | null
