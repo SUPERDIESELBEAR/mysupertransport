@@ -205,7 +205,18 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                       </div>
                     </div>
 
-                    <p className="text-xs text-muted-foreground mt-0.5">{slot.description}</p>
+                     <p className="text-xs text-muted-foreground mt-0.5">{slot.description}</p>
+
+                    {/* Truck Photos: show guide button */}
+                    {slot.key === 'truck_photos' && (
+                      <button
+                        className="mt-2 flex items-center gap-1.5 text-xs font-medium text-gold hover:text-gold-light transition-colors"
+                        onClick={() => setShowPhotoGuide(true)}
+                      >
+                        <Camera className="h-3.5 w-3.5" />
+                        Use step-by-step photo guide (6 required shots)
+                      </button>
+                    )}
 
                     {/* Uploaded files */}
                     {uploaded.length > 0 && (
