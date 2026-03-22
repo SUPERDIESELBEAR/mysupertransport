@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserRound, CheckCircle2, Camera, Loader2, Trash2, ZoomIn } from 'lucide-react';
+import { UserRound, CheckCircle2, Camera, Loader2, Trash2, ZoomIn, RotateCw } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import {
   AlertDialog,
@@ -36,14 +36,30 @@ const US_STATES = [
   'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
 ];
 
-/** Canvas helper — draws the cropped area into a square canvas clipped to a circle, returns a Blob */
-async function getCroppedBlob(imageSrc: string, pixelCrop: Area, mimeType: string): Promise<Blob> {
+/** Canvas helper — draws the cropped area (with rotation) into a square canvas clipped to a circle, returns a Blob */
+async function getCroppedBlob(imageSrc: string, pixelCrop: Area, mimeType: string, rotation = 0): Promise<Blob> {
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
     img.onerror = reject;
     img.src = imageSrc;
   });
+
+  // First render the full image rotated onto an intermediate canvas
+  const radians = (rotation * Math.PI) / 180;
+  const sin = Math.abs(Math.sin(radians));
+  const cos = Math.abs(Math.cos(radians));
+  const rotW = Math.round(image.width * cos + image.height * sin);
+  const rotH = Math.round(image.width * sin + image.height * cos);
+  const rotCanvas = document.createElement('canvas');
+  rotCanvas.width = rotW;
+  rotCanvas.height = rotH;
+  const rotCtx = rotCanvas.getContext('2d')!;
+  rotCtx.translate(rotW / 2, rotH / 2);
+  rotCtx.rotate(radians);
+  rotCtx.drawImage(image, -image.width / 2, -image.height / 2);
+
+  // Then crop the circular region from the rotated canvas
   const size = Math.min(pixelCrop.width, pixelCrop.height);
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -53,7 +69,7 @@ async function getCroppedBlob(imageSrc: string, pixelCrop: Area, mimeType: strin
   ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
   ctx.clip();
   ctx.drawImage(
-    image,
+    rotCanvas,
     pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height,
     0, 0, size, size,
   );
@@ -96,6 +112,7 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
   const [cropMime, setCropMime]             = useState<string>('image/jpeg');
   const [crop, setCrop]                     = useState({ x: 0, y: 0 });
   const [zoom, setZoom]                     = useState(1);
+  const [rotation, setRotation]             = useState(0);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
   const isDark = variant === 'dark';
@@ -160,6 +177,7 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
     setCropMime(file.type);
     setCrop({ x: 0, y: 0 });
     setZoom(1);
+    setRotation(0);
     setCroppedAreaPixels(null);
     setCropSrc(URL.createObjectURL(file));
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -175,7 +193,7 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
     setAvatarError(null);
     setAvatarUploading(true);
     try {
-      const blob = await getCroppedBlob(cropSrc, croppedAreaPixels, cropMime);
+      const blob = await getCroppedBlob(cropSrc, croppedAreaPixels, cropMime, rotation);
       const ext = cropMime === 'image/png' ? 'png' : cropMime === 'image/webp' ? 'webp' : 'jpg';
       const path = `${user.id}/avatar.${ext}`;
 
@@ -297,11 +315,13 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
                 image={cropSrc}
                 crop={crop}
                 zoom={zoom}
+                rotation={rotation}
                 aspect={1}
                 cropShape="round"
                 showGrid={false}
                 onCropChange={setCrop}
                 onZoomChange={setZoom}
+                onRotationChange={setRotation}
                 onCropComplete={onCropComplete}
                 style={{
                   containerStyle: {
@@ -316,7 +336,7 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
               />
             </div>
 
-            {/* Zoom slider */}
+            {/* Zoom slider + rotate button */}
             <div className="flex items-center gap-3 px-1">
               <ZoomIn className={`h-4 w-4 shrink-0 ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`} />
               <Slider
@@ -330,6 +350,18 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
               <span className={`text-xs tabular-nums w-8 text-right ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`}>
                 {zoom.toFixed(1)}×
               </span>
+              <button
+                type="button"
+                onClick={() => setRotation(r => (r + 90) % 360)}
+                title="Rotate 90°"
+                className={`shrink-0 rounded-md p-1.5 transition-colors ${
+                  isDark
+                    ? 'text-surface-dark-muted hover:text-gold hover:bg-gold/10'
+                    : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
+                }`}
+              >
+                <RotateCw className="h-4 w-4" />
+              </button>
             </div>
 
             {avatarError && (
