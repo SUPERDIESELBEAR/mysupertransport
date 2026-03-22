@@ -990,6 +990,7 @@ export type Database = {
           ch_status: Database["public"]["Enums"]["mvr_status"]
           decal_applied: Database["public"]["Enums"]["yes_no"]
           decal_method: Database["public"]["Enums"]["install_method"] | null
+          doc_notes: string | null
           eld_installed: Database["public"]["Enums"]["yes_no"]
           eld_method: Database["public"]["Enums"]["install_method"] | null
           form_2290: Database["public"]["Enums"]["document_status"]
@@ -1030,6 +1031,7 @@ export type Database = {
           ch_status?: Database["public"]["Enums"]["mvr_status"]
           decal_applied?: Database["public"]["Enums"]["yes_no"]
           decal_method?: Database["public"]["Enums"]["install_method"] | null
+          doc_notes?: string | null
           eld_installed?: Database["public"]["Enums"]["yes_no"]
           eld_method?: Database["public"]["Enums"]["install_method"] | null
           form_2290?: Database["public"]["Enums"]["document_status"]
@@ -1070,6 +1072,7 @@ export type Database = {
           ch_status?: Database["public"]["Enums"]["mvr_status"]
           decal_applied?: Database["public"]["Enums"]["yes_no"]
           decal_method?: Database["public"]["Enums"]["install_method"] | null
+          doc_notes?: string | null
           eld_installed?: Database["public"]["Enums"]["yes_no"]
           eld_method?: Database["public"]["Enums"]["install_method"] | null
           form_2290?: Database["public"]["Enums"]["document_status"]
