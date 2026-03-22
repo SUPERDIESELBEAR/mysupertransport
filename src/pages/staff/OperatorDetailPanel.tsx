@@ -58,6 +58,7 @@ type OnboardingStatus = {
   insurance_added_date: string | null;
   unit_number: string | null;
   fully_onboarded: boolean | null;
+  bg_check_notes: string | null;
 };
 
 type DispatchHistoryEntry = {
