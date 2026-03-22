@@ -2724,11 +2724,31 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       </div>
                     )}
 
-                    {/* Own policy — upload link reminder */}
+                    {/* Own policy — show uploaded cert if present, else prompt */}
                     {!addToPolicy && (
-                      <div className="p-3 rounded-lg bg-muted/50 border border-border text-xs text-muted-foreground space-y-1">
+                      <div className="p-3 rounded-lg bg-muted/50 border border-border text-xs text-muted-foreground space-y-2">
                         <p className="font-medium text-foreground">O/O Submitting Own Policy</p>
-                        <p>The operator should upload a copy of their Physical Damage policy via the Documents section. Verify the certificate is on file before marking insurance complete.</p>
+                        {(docFiles['insurance_cert'] ?? []).length > 0 ? (
+                          <div className="space-y-1.5">
+                            <p className="text-status-complete font-medium flex items-center gap-1">
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Certificate uploaded — verify before marking insurance complete.
+                            </p>
+                            {(docFiles['insurance_cert'] ?? []).map(f => (
+                              <div key={f.id} className="flex items-center gap-1.5 flex-wrap">
+                                <FileText className="h-3.5 w-3.5 shrink-0" />
+                                <span className="truncate flex-1">{f.file_name ?? 'certificate'}</span>
+                                <span className="text-muted-foreground/70">{new Date(f.uploaded_at).toLocaleDateString()}</span>
+                                {f.file_url && (
+                                  <a href={f.file_url} target="_blank" rel="noopener noreferrer" className="text-gold hover:underline flex items-center gap-0.5 shrink-0">
+                                    View <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p>The operator should upload a copy of their Physical Damage policy via the Documents section. Verify the certificate is on file before marking insurance complete.</p>
+                        )}
                       </div>
                     )}
 
