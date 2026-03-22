@@ -315,11 +315,13 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
                 image={cropSrc}
                 crop={crop}
                 zoom={zoom}
+                rotation={rotation}
                 aspect={1}
                 cropShape="round"
                 showGrid={false}
                 onCropChange={setCrop}
                 onZoomChange={setZoom}
+                onRotationChange={setRotation}
                 onCropComplete={onCropComplete}
                 style={{
                   containerStyle: {
@@ -334,7 +336,7 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
               />
             </div>
 
-            {/* Zoom slider */}
+            {/* Zoom slider + rotate button */}
             <div className="flex items-center gap-3 px-1">
               <ZoomIn className={`h-4 w-4 shrink-0 ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`} />
               <Slider
@@ -348,6 +350,18 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
               <span className={`text-xs tabular-nums w-8 text-right ${isDark ? 'text-surface-dark-muted' : 'text-muted-foreground'}`}>
                 {zoom.toFixed(1)}×
               </span>
+              <button
+                type="button"
+                onClick={() => setRotation(r => (r + 90) % 360)}
+                title="Rotate 90°"
+                className={`shrink-0 rounded-md p-1.5 transition-colors ${
+                  isDark
+                    ? 'text-surface-dark-muted hover:text-gold hover:bg-gold/10'
+                    : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
+                }`}
+              >
+                <RotateCw className="h-4 w-4" />
+              </button>
             </div>
 
             {avatarError && (
