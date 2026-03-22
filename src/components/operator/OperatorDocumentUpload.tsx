@@ -20,9 +20,16 @@ const DOCUMENT_SLOTS: DocumentSlot[] = [
   { key: 'truck_photos', label: 'Truck Photos', description: 'Clear exterior photos of the truck', required: true, accept: '.jpg,.jpeg,.png,.heic' },
   { key: 'truck_inspection', label: 'Truck Inspection Report', description: 'DOT vehicle inspection certificate', required: true, accept: '.pdf,.jpg,.jpeg,.png' },
   { key: 'registration', label: 'Vehicle Registration', description: 'Current registration document', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
-  { key: 'insurance_cert', label: 'Insurance Certificate', description: 'Proof of commercial insurance', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
   { key: 'other', label: 'Other Document', description: 'Any other requested document', required: false, accept: '.pdf,.jpg,.jpeg,.png,.doc,.docx' },
 ];
+
+const PHYSICAL_DAMAGE_SLOT: DocumentSlot = {
+  key: 'insurance_cert',
+  label: 'Physical Damage Insurance Certificate',
+  description: 'Copy of your own Physical Damage insurance policy certificate',
+  required: true,
+  accept: '.pdf,.jpg,.jpeg,.png',
+};
 
 interface UploadedDoc {
   id: string;
