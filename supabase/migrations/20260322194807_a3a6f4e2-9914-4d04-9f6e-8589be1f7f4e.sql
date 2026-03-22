@@ -1,0 +1,1 @@
+ALTER TABLE public.onboarding_status ADD COLUMN IF NOT EXISTS doc_notes TEXT;

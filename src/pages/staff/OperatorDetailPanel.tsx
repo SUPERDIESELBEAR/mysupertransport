@@ -71,6 +71,7 @@ type OnboardingStatus = {
   ica_sent_date: string | null;
   ica_signed_date: string | null;
   ica_notes: string | null;
+  doc_notes: string | null;
 };
 
 type DispatchHistoryEntry = {
@@ -2250,6 +2251,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 }
               }}
             />
+
+            {/* Documents Notes */}
+            <div className="space-y-1.5 pt-1">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Documents Notes</Label>
+              <Textarea
+                value={status.doc_notes ?? ''}
+                onChange={e => setStatus(prev => ({ ...prev, doc_notes: e.target.value || null }))}
+                placeholder="e.g. registration type clarification, inspection notes, any follow-up…"
+                className="text-sm min-h-[72px] resize-none"
+              />
+            </div>
           </div>
           )}
         </div>
