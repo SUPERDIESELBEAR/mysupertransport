@@ -685,6 +685,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         if (autoCollapse.size > 0) setCollapsedStages(autoCollapse);
       }
     }
+
+    // Load persistent insurance email recipients
+    const { data: insSettings } = await supabase
+      .from('insurance_email_settings' as any)
+      .select('recipient_emails')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .maybeSingle();
+    if (insSettings) {
+      setInsuranceEmailRecipients((insSettings as any).recipient_emails ?? []);
+    }
+
     setLoading(false);
   };
 
