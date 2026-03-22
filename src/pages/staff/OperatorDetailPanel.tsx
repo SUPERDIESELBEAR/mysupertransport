@@ -2816,6 +2816,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         <Input disabled={chSameAsAI} type="email" value={chSameAsAI ? (status.insurance_ai_email ?? '') : (status.insurance_ch_email ?? '')} onChange={e => updateStatus('insurance_ch_email', e.target.value || null)} placeholder="cert-holder@example.com" className="h-9 text-sm disabled:opacity-60" />
                       </div>
                     </div>
+                  </div>
 
                   {/* Send to Insurance Company */}
                   <div className="space-y-3 pt-1">
