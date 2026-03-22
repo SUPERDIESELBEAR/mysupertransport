@@ -1922,12 +1922,65 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s1Collapsed && (
-                <div className="px-5 pb-5 space-y-3">
-                  <SelectField label="MVR Status" field="mvr_status" options={mvrOptions} />
-                  <SelectField label="Clearinghouse (CH) Status" field="ch_status" options={mvrOptions} />
+                <div className="px-5 pb-5 space-y-4">
+                  {/* MVR */}
+                  <div className="space-y-2">
+                    <SelectField label="MVR Status" field="mvr_status" options={mvrOptions} />
+                    {(status.mvr_status === 'requested' || status.mvr_status === 'received') && (
+                      <StageDatePicker
+                        label="MVR Requested Date"
+                        value={status.mvr_requested_date ?? null}
+                        onChange={v => setStatus(prev => ({ ...prev, mvr_requested_date: v }))}
+                      />
+                    )}
+                    {status.mvr_status === 'received' && (
+                      <StageDatePicker
+                        label="MVR Received Date"
+                        value={status.mvr_received_date ?? null}
+                        onChange={v => setStatus(prev => ({ ...prev, mvr_received_date: v }))}
+                      />
+                    )}
+                  </div>
+                  {/* Clearinghouse */}
+                  <div className="space-y-2">
+                    <SelectField label="Clearinghouse (CH) Status" field="ch_status" options={mvrOptions} />
+                    {(status.ch_status === 'requested' || status.ch_status === 'received') && (
+                      <StageDatePicker
+                        label="CH Requested Date"
+                        value={status.ch_requested_date ?? null}
+                        onChange={v => setStatus(prev => ({ ...prev, ch_requested_date: v }))}
+                      />
+                    )}
+                    {status.ch_status === 'received' && (
+                      <StageDatePicker
+                        label="CH Received Date"
+                        value={status.ch_received_date ?? null}
+                        onChange={v => setStatus(prev => ({ ...prev, ch_received_date: v }))}
+                      />
+                    )}
+                  </div>
+                  {/* MVR/CH Approval */}
                   <SelectField label="MVR/CH Approval" field="mvr_ch_approval" options={approvalOptions} />
-                  <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
+                  {/* PE Screening */}
+                  <div className="space-y-2">
+                    <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
+                    {(status.pe_screening === 'scheduled' || status.pe_screening === 'results_in') && (
+                      <StageDatePicker
+                        label="PE Scheduled Date"
+                        value={status.pe_scheduled_date ?? null}
+                        onChange={v => setStatus(prev => ({ ...prev, pe_scheduled_date: v }))}
+                      />
+                    )}
+                    {status.pe_screening === 'results_in' && (
+                      <StageDatePicker
+                        label="PE Results Date"
+                        value={status.pe_results_date ?? null}
+                        onChange={v => setStatus(prev => ({ ...prev, pe_results_date: v }))}
+                      />
+                    )}
+                  </div>
                   <SelectField label="PE Screening Result" field="pe_screening_result" options={resultOptions} />
+                  {/* Notes */}
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-muted-foreground">Background Check Notes</Label>
                     <Textarea
