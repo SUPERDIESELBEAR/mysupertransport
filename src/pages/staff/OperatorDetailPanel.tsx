@@ -51,8 +51,10 @@ type OnboardingStatus = {
   truck_inspection: string;
   ica_status: string;
   mo_docs_submitted: string;
+  mo_docs_submitted_date: string | null;
   mo_expected_approval_date: string | null;
   mo_reg_received: string;
+  mo_notes: string | null;
   decal_method: string | null;
   decal_applied: string;
   eld_method: string | null;
