@@ -997,6 +997,40 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     </div>
   );
 
+  const StageDatePicker = ({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string | null) => void }) => {
+    const [open, setOpen] = useState(false);
+    const parsed = value ? new Date(value + 'T12:00:00') : undefined;
+    return (
+      <div className="space-y-1.5 pl-2 border-l-2 border-muted">
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
+        <div className="flex gap-2 items-center">
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn('h-8 text-xs justify-start font-normal flex-1', !value && 'text-muted-foreground')}>
+                <CalendarIcon className="h-3.5 w-3.5 mr-1.5 shrink-0" />
+                {parsed ? format(parsed, 'MMM d, yyyy') : 'Pick a date'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={parsed}
+                onSelect={d => { onChange(d ? format(d, 'yyyy-MM-dd') : null); setOpen(false); }}
+                initialFocus
+                className={cn('p-3 pointer-events-auto')}
+              />
+            </PopoverContent>
+          </Popover>
+          {value && (
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" onClick={() => onChange(null)}>
+              ×
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const mvrOptions = [{ value: 'not_started', label: 'Not Started' }, { value: 'requested', label: 'Requested' }, { value: 'received', label: 'Received' }];
   const approvalOptions = [{ value: 'pending', label: 'Pending' }, { value: 'approved', label: 'Approved' }, { value: 'denied', label: 'Denied' }];
   const screeningOptions = [{ value: 'not_started', label: 'Not Started' }, { value: 'scheduled', label: 'Scheduled' }, { value: 'results_in', label: 'Results In' }];
