@@ -167,6 +167,7 @@ export default function ICABuilderModal({
       const payload = {
         operator_id: operatorId,
         ...data,
+        equipment_location: [data.equipment_location_city, data.equipment_location_state].filter(Boolean).join(', ') || null,
         lease_effective_date: data.lease_effective_date || null,
         lease_termination_date: data.lease_termination_date || null,
         carrier_typed_name: carrierTypedName || null,
