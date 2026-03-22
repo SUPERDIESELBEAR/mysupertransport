@@ -2036,7 +2036,20 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <h3 className="font-semibold text-foreground text-sm">Stage 1 — Background Check</h3>
                 </div>
                 <div className="flex items-center gap-2">
-                  {s1Complete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>}
+                  {s1Complete
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>
+                    : (() => {
+                        const done = [
+                          status.mvr_status === 'requested' || status.mvr_status === 'received',
+                          status.ch_status === 'requested' || status.ch_status === 'received',
+                          status.mvr_ch_approval === 'approved',
+                          status.pe_screening_result === 'clear',
+                        ].filter(Boolean).length;
+                        return done > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{done}/4 done</span>
+                        ) : null;
+                      })()
+                  }
                   {s1Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
                 </div>
               </button>
