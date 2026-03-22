@@ -132,6 +132,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [truckPhotoGridOpen, setTruckPhotoGridOpen] = useState(false);
 
+  // Stage 6 Insurance email settings
+  const [insuranceEmailRecipients, setInsuranceEmailRecipients] = useState<string[]>([]);
+  const [insuranceEmailInput, setInsuranceEmailInput] = useState('');
+  const [savingInsuranceEmails, setSavingInsuranceEmails] = useState(false);
+  const [sendingInsuranceEmail, setSendingInsuranceEmail] = useState(false);
+  const [insuranceEmailSent, setInsuranceEmailSent] = useState(false);
 
   // Cert history timeline
   type CertHistoryEntry = {
