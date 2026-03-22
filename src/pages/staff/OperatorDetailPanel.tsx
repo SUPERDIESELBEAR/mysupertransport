@@ -67,6 +67,9 @@ type OnboardingStatus = {
   ch_received_date: string | null;
   pe_scheduled_date: string | null;
   pe_results_date: string | null;
+  ica_sent_date: string | null;
+  ica_signed_date: string | null;
+  ica_notes: string | null;
 };
 
 type DispatchHistoryEntry = {
