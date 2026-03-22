@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 import { sanitizeText } from '@/lib/sanitize';
 import { reminderErrorToast } from '@/lib/reminderError';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,8 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
@@ -59,6 +61,12 @@ type OnboardingStatus = {
   unit_number: string | null;
   fully_onboarded: boolean | null;
   bg_check_notes: string | null;
+  mvr_requested_date: string | null;
+  mvr_received_date: string | null;
+  ch_requested_date: string | null;
+  ch_received_date: string | null;
+  pe_scheduled_date: string | null;
+  pe_results_date: string | null;
 };
 
 type DispatchHistoryEntry = {
@@ -990,6 +998,40 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     </div>
   );
 
+  const StageDatePicker = ({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string | null) => void }) => {
+    const [open, setOpen] = useState(false);
+    const parsed = value ? new Date(value + 'T12:00:00') : undefined;
+    return (
+      <div className="space-y-1.5 pl-2 border-l-2 border-muted">
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
+        <div className="flex gap-2 items-center">
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn('h-8 text-xs justify-start font-normal flex-1', !value && 'text-muted-foreground')}>
+                <CalendarIcon className="h-3.5 w-3.5 mr-1.5 shrink-0" />
+                {parsed ? format(parsed, 'MMM d, yyyy') : 'Pick a date'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={parsed}
+                onSelect={d => { onChange(d ? format(d, 'yyyy-MM-dd') : null); setOpen(false); }}
+                initialFocus
+                className={cn('p-3 pointer-events-auto')}
+              />
+            </PopoverContent>
+          </Popover>
+          {value && (
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" onClick={() => onChange(null)}>
+              ×
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const mvrOptions = [{ value: 'not_started', label: 'Not Started' }, { value: 'requested', label: 'Requested' }, { value: 'received', label: 'Received' }];
   const approvalOptions = [{ value: 'pending', label: 'Pending' }, { value: 'approved', label: 'Approved' }, { value: 'denied', label: 'Denied' }];
   const screeningOptions = [{ value: 'not_started', label: 'Not Started' }, { value: 'scheduled', label: 'Scheduled' }, { value: 'results_in', label: 'Results In' }];
@@ -1915,12 +1957,65 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s1Collapsed && (
-                <div className="px-5 pb-5 space-y-3">
-                  <SelectField label="MVR Status" field="mvr_status" options={mvrOptions} />
-                  <SelectField label="Clearinghouse (CH) Status" field="ch_status" options={mvrOptions} />
+                <div className="px-5 pb-5 space-y-4">
+                  {/* MVR */}
+                  <div className="space-y-2">
+                    <SelectField label="MVR Status" field="mvr_status" options={mvrOptions} />
+                    {(status.mvr_status === 'requested' || status.mvr_status === 'received') && (
+                      <StageDatePicker
+                        label="MVR Requested Date"
+                        value={status.mvr_requested_date ?? null}
+                        onChange={v => setStatus(prev => ({ ...prev, mvr_requested_date: v }))}
+                      />
+                    )}
+                    {status.mvr_status === 'received' && (
+                      <StageDatePicker
+                        label="MVR Received Date"
+                        value={status.mvr_received_date ?? null}
+                        onChange={v => setStatus(prev => ({ ...prev, mvr_received_date: v }))}
+                      />
+                    )}
+                  </div>
+                  {/* Clearinghouse */}
+                  <div className="space-y-2">
+                    <SelectField label="Clearinghouse (CH) Status" field="ch_status" options={mvrOptions} />
+                    {(status.ch_status === 'requested' || status.ch_status === 'received') && (
+                      <StageDatePicker
+                        label="CH Requested Date"
+                        value={status.ch_requested_date ?? null}
+                        onChange={v => setStatus(prev => ({ ...prev, ch_requested_date: v }))}
+                      />
+                    )}
+                    {status.ch_status === 'received' && (
+                      <StageDatePicker
+                        label="CH Received Date"
+                        value={status.ch_received_date ?? null}
+                        onChange={v => setStatus(prev => ({ ...prev, ch_received_date: v }))}
+                      />
+                    )}
+                  </div>
+                  {/* MVR/CH Approval */}
                   <SelectField label="MVR/CH Approval" field="mvr_ch_approval" options={approvalOptions} />
-                  <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
+                  {/* PE Screening */}
+                  <div className="space-y-2">
+                    <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
+                    {(status.pe_screening === 'scheduled' || status.pe_screening === 'results_in') && (
+                      <StageDatePicker
+                        label="PE Scheduled Date"
+                        value={status.pe_scheduled_date ?? null}
+                        onChange={v => setStatus(prev => ({ ...prev, pe_scheduled_date: v }))}
+                      />
+                    )}
+                    {status.pe_screening === 'results_in' && (
+                      <StageDatePicker
+                        label="PE Results Date"
+                        value={status.pe_results_date ?? null}
+                        onChange={v => setStatus(prev => ({ ...prev, pe_results_date: v }))}
+                      />
+                    )}
+                  </div>
                   <SelectField label="PE Screening Result" field="pe_screening_result" options={resultOptions} />
+                  {/* Notes */}
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-muted-foreground">Background Check Notes</Label>
                     <Textarea

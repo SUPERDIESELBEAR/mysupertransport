@@ -985,6 +985,8 @@ export type Database = {
       onboarding_status: {
         Row: {
           bg_check_notes: string | null
+          ch_received_date: string | null
+          ch_requested_date: string | null
           ch_status: Database["public"]["Enums"]["mvr_status"]
           decal_applied: Database["public"]["Enums"]["yes_no"]
           decal_method: Database["public"]["Enums"]["install_method"] | null
@@ -1000,8 +1002,12 @@ export type Database = {
           mo_expected_approval_date: string | null
           mo_reg_received: Database["public"]["Enums"]["mo_reg_status"]
           mvr_ch_approval: Database["public"]["Enums"]["approval_status"]
+          mvr_received_date: string | null
+          mvr_requested_date: string | null
           mvr_status: Database["public"]["Enums"]["mvr_status"]
           operator_id: string
+          pe_results_date: string | null
+          pe_scheduled_date: string | null
           pe_screening: Database["public"]["Enums"]["screening_status"]
           pe_screening_result: Database["public"]["Enums"]["screening_result"]
           registration_status:
@@ -1016,6 +1022,8 @@ export type Database = {
         }
         Insert: {
           bg_check_notes?: string | null
+          ch_received_date?: string | null
+          ch_requested_date?: string | null
           ch_status?: Database["public"]["Enums"]["mvr_status"]
           decal_applied?: Database["public"]["Enums"]["yes_no"]
           decal_method?: Database["public"]["Enums"]["install_method"] | null
@@ -1031,8 +1039,12 @@ export type Database = {
           mo_expected_approval_date?: string | null
           mo_reg_received?: Database["public"]["Enums"]["mo_reg_status"]
           mvr_ch_approval?: Database["public"]["Enums"]["approval_status"]
+          mvr_received_date?: string | null
+          mvr_requested_date?: string | null
           mvr_status?: Database["public"]["Enums"]["mvr_status"]
           operator_id: string
+          pe_results_date?: string | null
+          pe_scheduled_date?: string | null
           pe_screening?: Database["public"]["Enums"]["screening_status"]
           pe_screening_result?: Database["public"]["Enums"]["screening_result"]
           registration_status?:
@@ -1047,6 +1059,8 @@ export type Database = {
         }
         Update: {
           bg_check_notes?: string | null
+          ch_received_date?: string | null
+          ch_requested_date?: string | null
           ch_status?: Database["public"]["Enums"]["mvr_status"]
           decal_applied?: Database["public"]["Enums"]["yes_no"]
           decal_method?: Database["public"]["Enums"]["install_method"] | null
@@ -1062,8 +1076,12 @@ export type Database = {
           mo_expected_approval_date?: string | null
           mo_reg_received?: Database["public"]["Enums"]["mo_reg_status"]
           mvr_ch_approval?: Database["public"]["Enums"]["approval_status"]
+          mvr_received_date?: string | null
+          mvr_requested_date?: string | null
           mvr_status?: Database["public"]["Enums"]["mvr_status"]
           operator_id?: string
+          pe_results_date?: string | null
+          pe_scheduled_date?: string | null
           pe_screening?: Database["public"]["Enums"]["screening_status"]
           pe_screening_result?: Database["public"]["Enums"]["screening_result"]
           registration_status?:
