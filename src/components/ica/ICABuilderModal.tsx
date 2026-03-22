@@ -49,7 +49,8 @@ type ICAData = {
   // Appendix C
   lease_effective_date: string;
   lease_termination_date: string;
-  equipment_location: string;
+  equipment_location_city: string;
+  equipment_location_state: string;
 };
 
 const STEPS = ['Equipment Info', 'Review ICA', 'Carrier Signature', 'Send to Operator'];
@@ -88,7 +89,8 @@ export default function ICABuilderModal({
     linehaul_split_pct: 72,
     lease_effective_date: new Date().toISOString().split('T')[0],
     lease_termination_date: '',
-    equipment_location: 'Pleasant Hill, MO',
+    equipment_location_city: 'Pleasant Hill',
+    equipment_location_state: 'MO',
   });
 
   const set = (field: keyof ICAData, value: string | number) =>
@@ -132,7 +134,8 @@ export default function ICABuilderModal({
         linehaul_split_pct: row.linehaul_split_pct ?? 72,
         lease_effective_date: row.lease_effective_date ?? new Date().toISOString().split('T')[0],
         lease_termination_date: row.lease_termination_date ?? '',
-        equipment_location: row.equipment_location ?? 'Pleasant Hill, MO',
+        equipment_location_city: row.equipment_location ? row.equipment_location.split(',')[0].trim() : 'Pleasant Hill',
+        equipment_location_state: row.equipment_location ? (row.equipment_location.split(',')[1] ?? '').trim() : 'MO',
       });
 
       if (row.carrier_typed_name) setCarrierTypedName(row.carrier_typed_name);
@@ -164,6 +167,7 @@ export default function ICABuilderModal({
       const payload = {
         operator_id: operatorId,
         ...data,
+        equipment_location: [data.equipment_location_city, data.equipment_location_state].filter(Boolean).join(', ') || null,
         lease_effective_date: data.lease_effective_date || null,
         lease_termination_date: data.lease_termination_date || null,
         carrier_typed_name: carrierTypedName || null,
@@ -211,6 +215,7 @@ export default function ICABuilderModal({
       const payload = {
         operator_id: operatorId,
         ...data,
+        equipment_location: [data.equipment_location_city, data.equipment_location_state].filter(Boolean).join(', ') || null,
         lease_effective_date: data.lease_effective_date || null,
         lease_termination_date: data.lease_termination_date || null,
         carrier_typed_name: carrierTypedName,
@@ -300,7 +305,7 @@ export default function ICABuilderModal({
   const handleSaveDraft = async () => {
     setSaving(true);
     try {
-      const payload = { operator_id: operatorId, ...data, lease_effective_date: data.lease_effective_date || null, lease_termination_date: data.lease_termination_date || null, status: 'draft' };
+      const payload = { operator_id: operatorId, ...data, equipment_location: [data.equipment_location_city, data.equipment_location_state].filter(Boolean).join(', ') || null, lease_effective_date: data.lease_effective_date || null, lease_termination_date: data.lease_termination_date || null, status: 'draft' };
       let result;
       if (contractId) {
         result = await supabase.from('ica_contracts' as any).update(payload).eq('id', contractId).select().single();
@@ -431,8 +436,9 @@ export default function ICABuilderModal({
                 <h3 className="text-sm font-semibold text-foreground mb-4">Appendix C — Equipment Receipt</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <FormField label="Lease Effective Date" value={data.lease_effective_date} onChange={v => set('lease_effective_date', v)} type="date" />
-                  <FormField label="Lease Termination Date" value={data.lease_termination_date} onChange={v => set('lease_termination_date', v)} type="date" />
-                  <FormField label="Equipment Location" value={data.equipment_location} onChange={v => set('equipment_location', v)} placeholder="Pleasant Hill, MO" span={2} />
+                  <FormField label="Lease Termination Date (optional)" value={data.lease_termination_date} onChange={v => set('lease_termination_date', v)} type="date" />
+                  <FormField label="Equipment Location — City" value={data.equipment_location_city} onChange={v => set('equipment_location_city', v)} placeholder="Pleasant Hill" />
+                  <FormField label="Equipment Location — State" value={data.equipment_location_state} onChange={v => set('equipment_location_state', v)} placeholder="MO" />
                 </div>
               </div>
             </div>
