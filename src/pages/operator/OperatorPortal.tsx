@@ -412,7 +412,7 @@ export default function OperatorPortal() {
     {
       number: 4,
       title: 'Missouri Registration',
-      description: onboardingStatus.registration_status === 'own_registration' ? 'Using own registration — no action needed' : onboardingStatus.mo_docs_submitted === 'submitted' ? 'Documents submitted, awaiting state approval' : 'Requires Form 2290, truck title + signed ICA',
+      description: onboardingStatus.registration_status === 'own_registration' ? 'O/O has own registration — no action needed' : onboardingStatus.mo_docs_submitted === 'submitted' ? 'Documents submitted, awaiting state approval' : 'Requires Form 2290, truck title + signed ICA',
       icon: <FileCheck className="h-4 w-4" />,
       status: getStageStatus(4),
       substeps: onboardingStatus.registration_status === 'needs_mo_reg' ? [
