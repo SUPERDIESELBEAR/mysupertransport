@@ -63,6 +63,11 @@ type OnboardingStatus = {
   eld_installed: string;
   fuel_card_issued: string;
   insurance_added_date: string | null;
+  insurance_policy_type: string | null;
+  insurance_stated_value: number | null;
+  insurance_additional_insured: string | null;
+  insurance_cert_holder: string | null;
+  insurance_notes: string | null;
   unit_number: string | null;
   fully_onboarded: boolean | null;
   bg_check_notes: string | null;
@@ -127,6 +132,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [truckPhotoGridOpen, setTruckPhotoGridOpen] = useState(false);
 
+  // Stage 6 Insurance email settings
+  const [insuranceEmailRecipients, setInsuranceEmailRecipients] = useState<string[]>([]);
+  const [insuranceEmailInput, setInsuranceEmailInput] = useState('');
+  const [savingInsuranceEmails, setSavingInsuranceEmails] = useState(false);
+  const [sendingInsuranceEmail, setSendingInsuranceEmail] = useState(false);
+  const [insuranceEmailSent, setInsuranceEmailSent] = useState(false);
 
   // Cert history timeline
   type CertHistoryEntry = {
@@ -674,6 +685,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         if (autoCollapse.size > 0) setCollapsedStages(autoCollapse);
       }
     }
+
+    // Load persistent insurance email recipients
+    const { data: insSettings } = await supabase
+      .from('insurance_email_settings' as any)
+      .select('recipient_emails')
+      .eq('id', '00000000-0000-0000-0000-000000000001')
+      .maybeSingle();
+    if (insSettings) {
+      setInsuranceEmailRecipients((insSettings as any).recipient_emails ?? []);
+    }
+
     setLoading(false);
   };
 
@@ -683,6 +705,40 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     truck_title: 'Truck Title',
     truck_photos: 'Truck Photos',
     truck_inspection: 'Truck Inspection Report',
+  };
+
+  const handleSaveInsuranceEmails = async () => {
+    setSavingInsuranceEmails(true);
+    try {
+      const { error } = await supabase
+        .from('insurance_email_settings' as any)
+        .update({ recipient_emails: insuranceEmailRecipients, updated_at: new Date().toISOString(), updated_by: session?.user?.id ?? null })
+        .eq('id', '00000000-0000-0000-0000-000000000001');
+      if (error) throw error;
+      toast({ title: 'Insurance email recipients saved', description: `${insuranceEmailRecipients.length} recipient(s) saved.` });
+    } catch (err: any) {
+      toast({ title: 'Failed to save recipients', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingInsuranceEmails(false);
+    }
+  };
+
+  const handleSendInsuranceEmail = async () => {
+    setSendingInsuranceEmail(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-insurance-request', {
+        body: { operator_id: operatorId },
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+      });
+      if (error || !data?.success) throw new Error(data?.error ?? error?.message ?? 'Unknown error');
+      setInsuranceEmailSent(true);
+      toast({ title: 'Insurance email sent', description: `Sent to ${(data.sent_to as string[]).join(', ')}` });
+      setTimeout(() => setInsuranceEmailSent(false), 5000);
+    } catch (err: any) {
+      toast({ title: 'Failed to send insurance email', description: err.message, variant: 'destructive' });
+    } finally {
+      setSendingInsuranceEmail(false);
+    }
   };
 
   const handleSave = async () => {
@@ -2523,6 +2579,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               {!s5Collapsed && (
                 <div className="px-5 pb-5 space-y-4">
 
+                  {/* Assigned Unit Number — placed above Truck Decals */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assigned Unit Number</Label>
+                    <Input
+                      value={status.unit_number ?? ''}
+                      onChange={e => updateStatus('unit_number', e.target.value || null)}
+                      placeholder="e.g. ST-042"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+
                   {/* Truck Decals section */}
                   <div className="space-y-3">
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Truck Decals</p>
@@ -2591,6 +2658,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         {(() => {
           const s6Complete = !!status.insurance_added_date;
           const s6Collapsed = collapsedStages.has('stage6');
+          const addToPolicy = status.insurance_policy_type === 'add_to_supertransport' || !status.insurance_policy_type;
           return (
             <div ref={el => { stageRefs.current['stage6'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s6Complete ? 'border-status-complete' : 'border-border'}`}>
               <button onClick={() => toggleStage('stage6')} className="w-full flex items-center justify-between px-5 py-4 text-left">
@@ -2604,25 +2672,192 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s6Collapsed && (
-                <div className="px-5 pb-5 space-y-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Added to Insurance Date</Label>
-                    <Input
-                      type="date"
-                      value={status.insurance_added_date ?? ''}
-                      onChange={e => updateStatus('insurance_added_date', e.target.value || null)}
-                      className="h-9 text-sm"
-                    />
+                <div className="px-5 pb-5 space-y-4">
+
+                  {/* Physical Damage Insurance */}
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Physical Damage Insurance</p>
+
+                    {/* Policy type selector */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Coverage Type</Label>
+                      <Select
+                        value={status.insurance_policy_type ?? 'add_to_supertransport'}
+                        onValueChange={v => updateStatus('insurance_policy_type', v)}
+                      >
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder="—" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="add_to_supertransport">Add to SUPERTRANSPORT Policy</SelectItem>
+                          <SelectItem value="own_policy">O/O Has Own Policy</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Add to SUPERTRANSPORT policy — stated value */}
+                    {addToPolicy && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Stated Value of Truck (USD)</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={status.insurance_stated_value ?? ''}
+                            onChange={e => updateStatus('insurance_stated_value' as any, e.target.value ? Number(e.target.value) : null as any)}
+                            placeholder="e.g. 75000"
+                            className="h-9 text-sm pl-6"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Own policy — upload link reminder */}
+                    {!addToPolicy && (
+                      <div className="p-3 rounded-lg bg-muted/50 border border-border text-xs text-muted-foreground space-y-1">
+                        <p className="font-medium text-foreground">O/O Submitting Own Policy</p>
+                        <p>The operator should upload a copy of their Physical Damage policy via the Documents section. Verify the certificate is on file before marking insurance complete.</p>
+                      </div>
+                    )}
+
+                    {/* Additional Insured / Certificate Holder */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Additional Insured <span className="normal-case font-normal text-muted-foreground">(if truck is financed)</span></Label>
+                      <Input
+                        value={status.insurance_additional_insured ?? ''}
+                        onChange={e => updateStatus('insurance_additional_insured', e.target.value || null)}
+                        placeholder="Lender / lienholder company name and address"
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Certificate Holder <span className="normal-case font-normal text-muted-foreground">(if different from above)</span></Label>
+                      <Input
+                        value={status.insurance_cert_holder ?? ''}
+                        onChange={e => updateStatus('insurance_cert_holder', e.target.value || null)}
+                        placeholder="Certificate holder name and address"
+                        className="h-9 text-sm"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assigned Unit Number</Label>
-                    <Input
-                      value={status.unit_number ?? ''}
-                      onChange={e => updateStatus('unit_number', e.target.value || null)}
-                      placeholder="e.g. ST-042"
-                      className="h-9 text-sm"
-                    />
+
+                  {/* Send to Insurance Company */}
+                  <div className="space-y-3 pt-1">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Email Insurance Company</p>
+
+                    {/* Recipient email management */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Insurance Company Recipients</Label>
+                      <p className="text-[11px] text-muted-foreground">These addresses are saved globally and used for all insurance requests.</p>
+                      <div className="flex gap-2">
+                        <Input
+                          type="email"
+                          value={insuranceEmailInput}
+                          onChange={e => setInsuranceEmailInput(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && insuranceEmailInput.trim()) {
+                              e.preventDefault();
+                              const email = insuranceEmailInput.trim().toLowerCase();
+                              if (!insuranceEmailRecipients.includes(email)) {
+                                setInsuranceEmailRecipients(prev => [...prev, email]);
+                              }
+                              setInsuranceEmailInput('');
+                            }
+                          }}
+                          placeholder="insurance@example.com"
+                          className="h-8 text-xs flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs px-3"
+                          onClick={() => {
+                            const email = insuranceEmailInput.trim().toLowerCase();
+                            if (email && !insuranceEmailRecipients.includes(email)) {
+                              setInsuranceEmailRecipients(prev => [...prev, email]);
+                            }
+                            setInsuranceEmailInput('');
+                          }}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                      {insuranceEmailRecipients.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {insuranceEmailRecipients.map(email => (
+                            <span key={email} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-muted border border-border text-foreground">
+                              {email}
+                              <button
+                                onClick={() => setInsuranceEmailRecipients(prev => prev.filter(e => e !== email))}
+                                className="text-muted-foreground hover:text-destructive ml-0.5 leading-none"
+                              >×</button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs gap-1.5"
+                        onClick={handleSaveInsuranceEmails}
+                        disabled={savingInsuranceEmails}
+                      >
+                        {savingInsuranceEmails ? <><div className="h-3 w-3 rounded-full border border-current border-t-transparent animate-spin" /> Saving…</> : <><Check className="h-3.5 w-3.5" /> Save Recipients</>}
+                      </Button>
+                    </div>
+
+                    {/* Insurance notes */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Insurance Notes</Label>
+                      <Textarea
+                        value={status.insurance_notes ?? ''}
+                        onChange={e => updateStatus('insurance_notes', e.target.value || null)}
+                        placeholder="e.g. policy number, agent contact, additional instructions…"
+                        className="text-sm min-h-[72px] resize-none"
+                      />
+                    </div>
+
+                    {/* Send email button */}
+                    <div className="p-3 rounded-lg bg-muted/40 border border-border space-y-2">
+                      <p className="text-xs font-medium text-foreground">Email Request to Insurer</p>
+                      <p className="text-[11px] text-muted-foreground">Sends driver name, DL copy, CMV experience, truck VIN/year/make/model, stated value, and additional insured/certificate holder info to the insurance company.</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={`w-full text-xs gap-1.5 ${insuranceEmailSent ? 'border-status-complete text-status-complete' : 'border-gold text-gold hover:bg-gold/10'}`}
+                        onClick={handleSendInsuranceEmail}
+                        disabled={sendingInsuranceEmail || insuranceEmailSent || insuranceEmailRecipients.length === 0}
+                      >
+                        {sendingInsuranceEmail ? (
+                          <><div className="h-3.5 w-3.5 rounded-full border border-current border-t-transparent animate-spin" /> Sending…</>
+                        ) : insuranceEmailSent ? (
+                          <><CheckCircle2 className="h-3.5 w-3.5" /> Sent!</>
+                        ) : (
+                          <><Mail className="h-3.5 w-3.5" /> Send to Insurance Company</>
+                        )}
+                      </Button>
+                      {insuranceEmailRecipients.length === 0 && (
+                        <p className="text-[11px] text-destructive">Add and save at least one recipient email above before sending.</p>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Added to insurance date */}
+                  <div className="space-y-3 pt-1">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Confirmation</p>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Added to Insurance Date</Label>
+                      <Input
+                        type="date"
+                        value={status.insurance_added_date ?? ''}
+                        onChange={e => updateStatus('insurance_added_date', e.target.value || null)}
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                  </div>
+
                   {s6Complete && (
                     <Badge className="status-complete border text-xs w-full justify-center">
                       ✓ FULLY ONBOARDED
@@ -2633,6 +2868,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
           );
         })()}
+
       </div>
 
       {/* Dispatch Status History */}

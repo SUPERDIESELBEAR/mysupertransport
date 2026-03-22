@@ -862,6 +862,27 @@ export type Database = {
         }
         Relationships: []
       }
+      insurance_email_settings: {
+        Row: {
+          id: string
+          recipient_emails: string[]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          recipient_emails?: string[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          recipient_emails?: string[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       message_templates: {
         Row: {
           body: string
@@ -1004,6 +1025,11 @@ export type Database = {
           ica_status: Database["public"]["Enums"]["ica_status"]
           id: string
           insurance_added_date: string | null
+          insurance_additional_insured: string | null
+          insurance_cert_holder: string | null
+          insurance_notes: string | null
+          insurance_policy_type: string | null
+          insurance_stated_value: number | null
           mo_docs_submitted: Database["public"]["Enums"]["mo_docs_status"]
           mo_docs_submitted_date: string | null
           mo_expected_approval_date: string | null
@@ -1049,6 +1075,11 @@ export type Database = {
           ica_status?: Database["public"]["Enums"]["ica_status"]
           id?: string
           insurance_added_date?: string | null
+          insurance_additional_insured?: string | null
+          insurance_cert_holder?: string | null
+          insurance_notes?: string | null
+          insurance_policy_type?: string | null
+          insurance_stated_value?: number | null
           mo_docs_submitted?: Database["public"]["Enums"]["mo_docs_status"]
           mo_docs_submitted_date?: string | null
           mo_expected_approval_date?: string | null
@@ -1094,6 +1125,11 @@ export type Database = {
           ica_status?: Database["public"]["Enums"]["ica_status"]
           id?: string
           insurance_added_date?: string | null
+          insurance_additional_insured?: string | null
+          insurance_cert_holder?: string | null
+          insurance_notes?: string | null
+          insurance_policy_type?: string | null
+          insurance_stated_value?: number | null
           mo_docs_submitted?: Database["public"]["Enums"]["mo_docs_status"]
           mo_docs_submitted_date?: string | null
           mo_expected_approval_date?: string | null
