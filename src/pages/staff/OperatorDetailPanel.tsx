@@ -71,6 +71,7 @@ type OnboardingStatus = {
   ica_sent_date: string | null;
   ica_signed_date: string | null;
   ica_notes: string | null;
+  doc_notes: string | null;
 };
 
 type DispatchHistoryEntry = {
