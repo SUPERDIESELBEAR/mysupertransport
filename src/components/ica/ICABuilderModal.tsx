@@ -305,7 +305,7 @@ export default function ICABuilderModal({
   const handleSaveDraft = async () => {
     setSaving(true);
     try {
-      const payload = { operator_id: operatorId, ...data, lease_effective_date: data.lease_effective_date || null, lease_termination_date: data.lease_termination_date || null, status: 'draft' };
+      const payload = { operator_id: operatorId, ...data, equipment_location: [data.equipment_location_city, data.equipment_location_state].filter(Boolean).join(', ') || null, lease_effective_date: data.lease_effective_date || null, lease_termination_date: data.lease_termination_date || null, status: 'draft' };
       let result;
       if (contractId) {
         result = await supabase.from('ica_contracts' as any).update(payload).eq('id', contractId).select().single();
