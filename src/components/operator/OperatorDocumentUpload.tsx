@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileText, CheckCircle2, Loader2, ExternalLink, AlertCircle, Clock } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, Loader2, ExternalLink, AlertCircle, Clock, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { validateFile } from '@/lib/validateFile';
+import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
 
 interface DocumentSlot {
   key: string;
@@ -41,6 +42,7 @@ interface Props {
 export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboardingStatus, onUploadComplete }: Props) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState<string | null>(null);
+  const [showPhotoGuide, setShowPhotoGuide] = useState(false);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const getUploaded = (key: string) => uploadedDocs.filter(d => d.document_type === key);
@@ -203,7 +205,18 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                       </div>
                     </div>
 
-                    <p className="text-xs text-muted-foreground mt-0.5">{slot.description}</p>
+                     <p className="text-xs text-muted-foreground mt-0.5">{slot.description}</p>
+
+                    {/* Truck Photos: show guide button */}
+                    {slot.key === 'truck_photos' && (
+                      <button
+                        className="mt-2 flex items-center gap-1.5 text-xs font-medium text-gold hover:text-gold-light transition-colors"
+                        onClick={() => setShowPhotoGuide(true)}
+                      >
+                        <Camera className="h-3.5 w-3.5" />
+                        Use step-by-step photo guide (6 required shots)
+                      </button>
+                    )}
 
                     {/* Uploaded files */}
                     {uploaded.length > 0 && (
@@ -234,6 +247,13 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       <p className="text-xs text-muted-foreground text-center">
         Accepted formats: PDF, JPG, PNG · Max 10 MB per file
       </p>
+
+      <TruckPhotoGuideModal
+        open={showPhotoGuide}
+        onClose={() => setShowPhotoGuide(false)}
+        operatorId={operatorId}
+        onComplete={onUploadComplete}
+      />
     </div>
   );
 }

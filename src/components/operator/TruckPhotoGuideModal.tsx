@@ -1,0 +1,402 @@
+import { useState, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { validateFile } from '@/lib/validateFile';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import {
+  Upload,
+  CheckCircle2,
+  Camera,
+  ChevronRight,
+  ChevronLeft,
+  Loader2,
+  ExternalLink,
+  X,
+} from 'lucide-react';
+
+interface PhotoSlot {
+  key: string;
+  label: string;
+  hint: string;
+  icon: string;
+  example: string;
+}
+
+const PHOTO_SLOTS: PhotoSlot[] = [
+  {
+    key: 'truck_photos_front',
+    label: 'Front of Truck',
+    hint: 'Face the truck straight-on. Make sure the full front bumper, grille, and both headlights are visible.',
+    icon: '🚛',
+    example: 'Stand ~20 ft in front, centered',
+  },
+  {
+    key: 'truck_photos_rear',
+    label: 'Rear of Truck',
+    hint: 'Capture the full rear — tailgate/doors, rear lights, mud flaps, and fifth wheel if visible.',
+    icon: '🔙',
+    example: 'Stand ~20 ft behind, centered',
+  },
+  {
+    key: 'truck_photos_driver_side',
+    label: "Driver Side (Left)",
+    hint: "Full profile from driver side. Capture the entire truck length — cab to frame.",
+    icon: '⬅️',
+    example: 'Stand perpendicular, ~30 ft away',
+  },
+  {
+    key: 'truck_photos_passenger_side',
+    label: 'Passenger Side (Right)',
+    hint: 'Full profile from passenger side. Capture the entire truck length — cab to frame.',
+    icon: '➡️',
+    example: 'Stand perpendicular, ~30 ft away',
+  },
+  {
+    key: 'truck_photos_odometer',
+    label: 'Odometer / Dashboard',
+    hint: 'Engine on, dashboard lit. Odometer reading must be clearly legible. VIN plate if visible.',
+    icon: '🔢',
+    example: 'No glare, close-up, well-lit',
+  },
+  {
+    key: 'truck_photos_cab_interior',
+    label: 'Cab Interior',
+    hint: 'Wide view of the full cab interior — driver seat, passenger area, and sleeping area if applicable.',
+    icon: '🪑',
+    example: 'Shoot from open passenger door',
+  },
+];
+
+interface UploadedPhoto {
+  slotKey: string;
+  fileName: string;
+  fileUrl: string;
+}
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  operatorId: string;
+  onComplete: () => void;
+}
+
+export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComplete }: Props) {
+  const { toast } = useToast();
+  const [step, setStep] = useState(0); // 0 = intro, 1-6 = photo slots, 7 = done
+  const [uploaded, setUploaded] = useState<Record<string, UploadedPhoto>>({});
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const totalPhotoSteps = PHOTO_SLOTS.length;
+  const currentSlot = step > 0 && step <= totalPhotoSteps ? PHOTO_SLOTS[step - 1] : null;
+  const uploadedCount = Object.keys(uploaded).length;
+  const allDone = step > totalPhotoSteps;
+
+  const handleFileSelect = async (file: File) => {
+    if (!currentSlot) return;
+
+    const { valid, error: validationError } = validateFile(file, false);
+    if (!valid) {
+      toast({ title: 'Invalid file', description: validationError, variant: 'destructive' });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${operatorId}/truck_photos/${currentSlot.key}_${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('operator-documents')
+        .upload(path, file, { upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data: signedData } = await supabase.storage
+        .from('operator-documents')
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+
+      const fileUrl = signedData?.signedUrl ?? '';
+
+      // Insert into operator_documents
+      await supabase.from('operator_documents').insert({
+        operator_id: operatorId,
+        document_type: 'truck_photos' as any,
+        file_name: `${currentSlot.label} — ${file.name}`,
+        file_url: fileUrl,
+      });
+
+      setUploaded(prev => ({
+        ...prev,
+        [currentSlot.key]: {
+          slotKey: currentSlot.key,
+          fileName: file.name,
+          fileUrl,
+        },
+      }));
+
+      toast({ title: `${currentSlot.label} uploaded ✓`, description: 'Photo saved. Move to the next shot.' });
+    } catch (err: unknown) {
+      toast({
+        title: 'Upload failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleComplete = () => {
+    onComplete();
+    onClose();
+    // Reset for next time
+    setTimeout(() => { setStep(0); setUploaded({}); }, 300);
+  };
+
+  const handleClose = () => {
+    onClose();
+    setTimeout(() => { setStep(0); setUploaded({}); }, 300);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
+      <DialogContent className="max-w-md w-full p-0 overflow-hidden [&>button:first-of-type]:hidden">
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".jpg,.jpeg,.png,.heic"
+          className="hidden"
+          onChange={e => {
+            const file = e.target.files?.[0];
+            if (file) handleFileSelect(file);
+          }}
+        />
+
+        {/* Progress bar */}
+        {step > 0 && !allDone && (
+          <div className="px-6 pt-5 pb-0">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs text-muted-foreground font-medium">
+                Photo {step} of {totalPhotoSteps}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {uploadedCount} uploaded
+              </span>
+            </div>
+            <Progress value={(step / totalPhotoSteps) * 100} className="h-1.5" />
+          </div>
+        )}
+
+        {/* ── Intro step ── */}
+        {step === 0 && (
+          <div className="p-6 space-y-5">
+            <DialogHeader>
+              <DialogTitle className="text-lg flex items-center gap-2">
+                <Camera className="h-5 w-5 text-gold" />
+                Truck Photo Guide
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed">
+                We need <strong>6 specific photos</strong> of your truck for your onboarding file. We'll walk you through each shot one at a time.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2">
+              {PHOTO_SLOTS.map((slot, i) => (
+                <div key={slot.key} className="flex items-center gap-3 p-2.5 rounded-lg bg-secondary/40">
+                  <span className="text-base shrink-0">{slot.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">{slot.label}</p>
+                    <p className="text-[11px] text-muted-foreground">{slot.example}</p>
+                  </div>
+                  {uploaded[slot.key] ? (
+                    <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground shrink-0">Step {i + 1}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" className="flex-1 text-sm" onClick={handleClose}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 text-sm bg-[hsl(var(--gold-main))] text-surface-dark hover:bg-[hsl(var(--gold-light))] gap-1.5"
+                onClick={() => setStep(1)}
+              >
+                Start Guide <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Photo step ── */}
+        {currentSlot && (
+          <div className="p-6 space-y-4">
+            <DialogHeader>
+              <div className="flex items-start justify-between gap-2">
+                <DialogTitle className="text-base flex items-center gap-2">
+                  <span className="text-xl">{currentSlot.icon}</span>
+                  {currentSlot.label}
+                </DialogTitle>
+                <button
+                  onClick={handleClose}
+                  className="text-muted-foreground hover:text-foreground transition-colors mt-0.5 shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </DialogHeader>
+
+            {/* Instruction box */}
+            <div className="p-3.5 rounded-xl bg-info/8 border border-info/25 space-y-1.5">
+              <p className="text-xs font-semibold text-info uppercase tracking-wide">How to take this shot</p>
+              <p className="text-sm text-foreground/80 leading-relaxed">{currentSlot.hint}</p>
+              <p className="text-[11px] text-muted-foreground italic">{currentSlot.example}</p>
+            </div>
+
+            {/* Upload area */}
+            {uploaded[currentSlot.key] ? (
+              <div className="p-4 rounded-xl bg-status-complete/8 border border-status-complete/30 space-y-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-status-complete" />
+                  <p className="text-sm font-medium text-status-complete">Photo uploaded!</p>
+                </div>
+                <p className="text-xs text-muted-foreground truncate">{uploaded[currentSlot.key].fileName}</p>
+                {uploaded[currentSlot.key].fileUrl && (
+                  <a
+                    href={uploaded[currentSlot.key].fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-gold hover:text-gold-light font-medium"
+                  >
+                    View photo <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs gap-1.5 mt-1 border-muted-foreground/30 text-muted-foreground"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  <Upload className="h-3.5 w-3.5" /> Replace Photo
+                </Button>
+              </div>
+            ) : (
+              <button
+                className="w-full border-2 border-dashed border-border hover:border-gold/50 rounded-xl p-6 flex flex-col items-center gap-2.5 transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2 className="h-7 w-7 text-gold animate-spin" />
+                ) : (
+                  <Camera className="h-7 w-7 text-muted-foreground group-hover:text-gold transition-colors" />
+                )}
+                <div className="text-center">
+                  <p className="text-sm font-medium text-foreground">
+                    {uploading ? 'Uploading…' : 'Tap to choose photo'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">JPG, PNG, HEIC · Max 10 MB</p>
+                </div>
+              </button>
+            )}
+
+            {/* Nav buttons */}
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 text-xs"
+                onClick={() => setStep(s => Math.max(0, s - 1))}
+                disabled={uploading}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Back
+              </Button>
+              <Button
+                size="sm"
+                className={`flex-1 text-xs gap-1.5 ${
+                  uploaded[currentSlot.key]
+                    ? 'bg-[hsl(var(--gold-main))] text-surface-dark hover:bg-[hsl(var(--gold-light))]'
+                    : 'bg-secondary text-muted-foreground'
+                }`}
+                onClick={() => {
+                  if (step >= totalPhotoSteps) setStep(totalPhotoSteps + 1);
+                  else setStep(s => s + 1);
+                }}
+                disabled={uploading}
+              >
+                {step >= totalPhotoSteps ? 'Finish' : 'Next Photo'}
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            {/* Skip link */}
+            {!uploaded[currentSlot.key] && (
+              <button
+                className="w-full text-center text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => {
+                  if (step >= totalPhotoSteps) setStep(totalPhotoSteps + 1);
+                  else setStep(s => s + 1);
+                }}
+                disabled={uploading}
+              >
+                Skip this photo for now
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── Done step ── */}
+        {allDone && (
+          <div className="p-6 space-y-5">
+            <DialogHeader>
+              <DialogTitle className="text-lg flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-status-complete" />
+                Photos Submitted!
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed">
+                You uploaded <strong>{uploadedCount} of {totalPhotoSteps}</strong> required photos.{' '}
+                {uploadedCount < totalPhotoSteps && 'You can come back to upload any missed shots from the Documents tab.'}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2">
+              {PHOTO_SLOTS.map(slot => (
+                <div key={slot.key} className={`flex items-center gap-3 p-2.5 rounded-lg ${uploaded[slot.key] ? 'bg-status-complete/8 border border-status-complete/20' : 'bg-secondary/40'}`}>
+                  <span className="text-base shrink-0">{slot.icon}</span>
+                  <p className="text-sm font-medium text-foreground flex-1">{slot.label}</p>
+                  {uploaded[slot.key] ? (
+                    <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground shrink-0">Not uploaded</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <Button
+              className="w-full bg-[hsl(var(--gold-main))] text-surface-dark hover:bg-[hsl(var(--gold-light))] gap-1.5"
+              onClick={handleComplete}
+            >
+              <CheckCircle2 className="h-4 w-4" /> Done
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}

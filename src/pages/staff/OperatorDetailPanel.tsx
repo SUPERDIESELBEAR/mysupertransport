@@ -67,6 +67,9 @@ type OnboardingStatus = {
   ch_received_date: string | null;
   pe_scheduled_date: string | null;
   pe_results_date: string | null;
+  ica_sent_date: string | null;
+  ica_signed_date: string | null;
+  ica_notes: string | null;
 };
 
 type DispatchHistoryEntry = {
@@ -1037,7 +1040,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const screeningOptions = [{ value: 'not_started', label: 'Not Started' }, { value: 'scheduled', label: 'Scheduled' }, { value: 'results_in', label: 'Results In' }];
   const resultOptions = [{ value: 'pending', label: 'Pending' }, { value: 'clear', label: 'Clear' }, { value: 'non_clear', label: 'Non-Clear' }];
   const docOptions = [{ value: 'not_started', label: 'Not Started' }, { value: 'requested', label: 'Requested' }, { value: 'received', label: 'Received' }];
-  const regOptions = [{ value: 'own_registration', label: 'Own Registration' }, { value: 'needs_mo_reg', label: 'Needs MO Reg' }];
+  const regOptions = [{ value: 'own_registration', label: 'O/O Has Own Registration' }, { value: 'needs_mo_reg', label: 'Needs MO Reg' }];
   const icaOptions = [{ value: 'not_issued', label: 'Not Issued' }, { value: 'in_progress', label: 'In Progress (Draft)' }, { value: 'sent_for_signature', label: 'Sent for Signature' }, { value: 'complete', label: 'Complete' }];
   const moDocsOptions = [{ value: 'not_submitted', label: 'Not Submitted' }, { value: 'submitted', label: 'Submitted' }];
   const moRegOptions = [{ value: 'not_yet', label: 'Not Yet' }, { value: 'yes', label: 'Yes' }];
@@ -2228,6 +2231,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               </div>
             )}
 
+            {/* Date fields */}
+            {(status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
+              <div className="pl-3 border-l-2 border-gold/30 space-y-2">
+                <StageDatePicker
+                  label="ICA Sent Date"
+                  value={status.ica_sent_date}
+                  onChange={v => updateStatus('ica_sent_date', v)}
+                />
+                {status.ica_status === 'complete' && (
+                  <StageDatePicker
+                    label="ICA Signed Date"
+                    value={status.ica_signed_date}
+                    onChange={v => updateStatus('ica_signed_date', v)}
+                  />
+                )}
+              </div>
+            )}
+
             {/* In-progress draft banner */}
             {status.ica_status === 'in_progress' && (
               <div className="flex items-start gap-2 p-3 rounded-lg bg-status-progress/10 border border-status-progress/30">
@@ -2291,6 +2312,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 View Sent ICA
               </Button>
             )}
+
+            {/* ICA Notes */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ICA Notes</Label>
+              <Textarea
+                value={status.ica_notes ?? ''}
+                onChange={e => updateStatus('ica_notes', e.target.value || null)}
+                placeholder="e.g. negotiated terms, signing issues, follow-up needed…"
+                className="text-sm min-h-[72px] resize-none"
+              />
+            </div>
 
             {/* Void ICA — available when a contract has been issued or is in-progress draft */}
             {(status.ica_status === 'in_progress' || status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
