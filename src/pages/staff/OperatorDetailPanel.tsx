@@ -60,6 +60,12 @@ type OnboardingStatus = {
   unit_number: string | null;
   fully_onboarded: boolean | null;
   bg_check_notes: string | null;
+  mvr_requested_date: string | null;
+  mvr_received_date: string | null;
+  ch_requested_date: string | null;
+  ch_received_date: string | null;
+  pe_scheduled_date: string | null;
+  pe_results_date: string | null;
 };
 
 type DispatchHistoryEntry = {
