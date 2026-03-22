@@ -1237,54 +1237,111 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   />
                 </div>
                 <TooltipProvider delayDuration={150}>
-                <div className="flex flex-wrap items-center gap-1 shrink-0">
-                    {stages.map((s, i) => (
-                      <Tooltip key={s.key}>
-                        <TooltipTrigger asChild>
-                          <button
-                            onClick={() => scrollToStage(s.key)}
-                            className={`h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-bold border-2 transition-all hover:scale-110 ${
-                              s.complete
-                                ? 'bg-status-complete border-status-complete text-white'
-                                : 'bg-background border-border text-muted-foreground hover:border-gold hover:text-gold'
-                            }`}
-                          >
-                            {s.complete ? '✓' : i + 1}
-                          </button>
-                        </TooltipTrigger>
-                         <TooltipContent side="bottom" className="text-left min-w-[160px] max-w-[220px] p-2.5 space-y-2">
-                           <p className="font-semibold text-xs">{s.fullName ?? s.label}</p>
-                           {s.complete ? (
-                             <p className="text-xs" style={{ color: 'hsl(var(--status-complete))' }}>All items complete ✓</p>
-                           ) : (
-                             <div className="space-y-1">
-                               <p className="text-[10px] font-semibold uppercase tracking-wide text-destructive/80">Still needed</p>
-                               <ul className="space-y-1">
-                                 {s.items.filter(it => !it.done).map(it => (
-                                   <li key={it.label} className="flex items-start gap-1.5 text-xs">
-                                     <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
-                                     <span className="text-foreground">{it.label}</span>
-                                   </li>
-                                 ))}
-                               </ul>
-                               {s.items.filter(it => it.done).length > 0 && (
-                                 <div className="space-y-1 pt-1 border-t border-border">
-                                   <ul className="space-y-1">
-                                     {s.items.filter(it => it.done).map(it => (
-                                       <li key={it.label} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                                         <span className="mt-0.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'hsl(var(--status-complete))' }} />
-                                         <span>{it.label}</span>
-                                       </li>
-                                     ))}
-                                   </ul>
-                                 </div>
-                               )}
-                             </div>
-                           )}
-                           <p className="text-[10px] text-muted-foreground italic">Click to jump to section</p>
-                         </TooltipContent>
-                      </Tooltip>
-                    ))}
+                {/* Colored dot strip — matches the summary row below */}
+                <div className="flex items-center gap-px bg-muted/40 rounded-lg px-2 py-1.5 border border-border/50 shrink-0">
+                    {(() => {
+                      type StickyDotState = 'complete' | 'progress' | 'na' | 'none';
+                      const stickyDots: { key: string; shortLabel: string; state: StickyDotState; tooltip: string; items: { label: string; done: boolean }[] }[] = [
+                        {
+                          key: 'stage1', shortLabel: 'BG',
+                          state: (status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear') ? 'complete'
+                            : ([status.mvr_status, status.ch_status].some(v => v === 'requested' || v === 'received') || status.mvr_ch_approval === 'approved' || status.pe_screening_result === 'clear') ? 'progress'
+                            : 'none',
+                          tooltip: (status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear') ? 'Complete' : 'In Progress',
+                          items: stages.find(s => s.key === 'stage1')?.items ?? [],
+                        },
+                        {
+                          key: 'stage2', shortLabel: 'Docs',
+                          state: (status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received') ? 'complete'
+                            : ([status.form_2290, status.truck_title, status.truck_photos, status.truck_inspection].some(v => v === 'requested' || v === 'received')) ? 'progress'
+                            : 'none',
+                          tooltip: (() => { const n = [status.form_2290, status.truck_title, status.truck_photos, status.truck_inspection].filter(v => v === 'received').length; return n === 4 ? 'Complete' : n > 0 ? `${n}/4 received` : 'Not started'; })(),
+                          items: stages.find(s => s.key === 'stage2')?.items ?? [],
+                        },
+                        {
+                          key: 'stage3', shortLabel: 'ICA',
+                          state: status.ica_status === 'complete' ? 'complete' : (status.ica_status === 'in_progress' || status.ica_status === 'sent_for_signature') ? 'progress' : 'none',
+                          tooltip: status.ica_status === 'complete' ? 'Complete' : status.ica_status === 'sent_for_signature' ? 'Awaiting Signature' : status.ica_status === 'in_progress' ? 'Draft In Progress' : 'Not started',
+                          items: stages.find(s => s.key === 'stage3')?.items ?? [],
+                        },
+                        {
+                          key: 'stage4', shortLabel: 'MO',
+                          state: status.registration_status === 'own_registration' ? 'na' : status.mo_reg_received === 'yes' ? 'complete' : status.mo_docs_submitted === 'submitted' ? 'progress' : 'none',
+                          tooltip: status.registration_status === 'own_registration' ? 'N/A — O/O Has Own Reg' : status.mo_reg_received === 'yes' ? 'Complete' : status.mo_docs_submitted === 'submitted' ? 'Docs Submitted' : 'Not started',
+                          items: stages.find(s => s.key === 'stage4')?.items ?? [],
+                        },
+                        {
+                          key: 'stage5', shortLabel: 'Equip',
+                          state: (status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes') ? 'complete' : ([status.decal_applied, status.eld_installed, status.fuel_card_issued].some(v => v === 'yes')) ? 'progress' : 'none',
+                          tooltip: (() => { const n = [status.decal_applied, status.eld_installed, status.fuel_card_issued].filter(v => v === 'yes').length; return n === 3 ? 'Complete' : n > 0 ? `${n}/3 done` : 'Not started'; })(),
+                          items: stages.find(s => s.key === 'stage5')?.items ?? [],
+                        },
+                        {
+                          key: 'stage6', shortLabel: 'Ins',
+                          state: status.insurance_added_date ? 'complete' : (status.insurance_policy_type || (docFiles['insurance_cert'] ?? []).length > 0) ? 'progress' : 'none',
+                          tooltip: status.insurance_added_date ? 'Complete' : (docFiles['insurance_cert'] ?? []).length > 0 ? 'Cert on File' : status.insurance_policy_type ? 'In Progress' : 'Not started',
+                          items: stages.find(s => s.key === 'stage6')?.items ?? [],
+                        },
+                      ];
+                      const dotCls: Record<StickyDotState, string> = {
+                        complete: 'bg-status-complete border-status-complete/40',
+                        progress: 'bg-gold border-gold/40',
+                        na:       'bg-muted-foreground/30 border-muted-foreground/20',
+                        none:     'bg-muted border-border',
+                      };
+                      const labelCls: Record<StickyDotState, string> = {
+                        complete: 'text-status-complete',
+                        progress: 'text-gold-muted',
+                        na:       'text-muted-foreground/50',
+                        none:     'text-muted-foreground/60',
+                      };
+                      return stickyDots.map(dot => (
+                        <Tooltip key={dot.key}>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => scrollToStage(dot.key)}
+                              className="flex flex-col items-center gap-0.5 group focus:outline-none px-1.5 py-0.5"
+                            >
+                              <div className={`h-2.5 w-2.5 rounded-full border transition-all group-hover:scale-125 group-hover:shadow-md ${dotCls[dot.state]}`} />
+                              <span className={`text-[9px] font-semibold leading-none transition-colors ${labelCls[dot.state]}`}>{dot.shortLabel}</span>
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="text-left min-w-[160px] max-w-[220px] p-2.5 space-y-2">
+                            <p className="font-semibold text-xs">{dot.shortLabel} · {dot.tooltip}</p>
+                            {dot.items.length > 0 && (
+                              <div className="space-y-1">
+                                {dot.items.filter(it => !it.done).length > 0 && (
+                                  <>
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-destructive/80">Still needed</p>
+                                    <ul className="space-y-1">
+                                      {dot.items.filter(it => !it.done).map(it => (
+                                        <li key={it.label} className="flex items-start gap-1.5 text-xs">
+                                          <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                                          <span className="text-foreground">{it.label}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </>
+                                )}
+                                {dot.items.filter(it => it.done).length > 0 && (
+                                  <div className={`space-y-1 ${dot.items.filter(it => !it.done).length > 0 ? 'pt-1 border-t border-border' : ''}`}>
+                                    <ul className="space-y-1">
+                                      {dot.items.filter(it => it.done).map(it => (
+                                        <li key={it.label} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                                          <span className="mt-0.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'hsl(var(--status-complete))' }} />
+                                          <span>{it.label}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            <p className="text-[10px] text-muted-foreground italic">Click to jump to section</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ));
+                    })()}
                   </div>
                   {/* Copy email quick-action */}
                   {operatorEmail && (
