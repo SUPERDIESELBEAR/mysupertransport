@@ -2239,25 +2239,68 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
               ).length;
               if (incompleteCount === 0) return null;
+              // Partial = at least one item done but not all (in-progress)
+              const partialCount = operators.filter(op =>
+                cfg.items.length > 0 &&
+                cfg.items.some(item => evalItem(op, item.field, item.complete_value)) &&
+                !cfg.items.every(item => evalItem(op, item.field, item.complete_value))
+              ).length;
+              // Not-started = none done
+              const notStartedCount = incompleteCount - partialCount;
               const isActive = stageNodeFilters.has(cfg.stage_key);
               return (
-                <button
-                  key={cfg.stage_key}
-                  onClick={() => toggleStageNodeFilter(cfg.stage_key)}
-                  className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-all active:scale-95 ${
-                    isActive
-                      ? 'bg-gold text-white border-gold shadow-sm'
-                      : 'bg-background text-muted-foreground border-border hover:border-gold/50 hover:text-gold'
-                  }`}
-                >
-                  {cfg.label}
-                  <span className={`text-[10px] font-bold px-1 py-0.5 rounded-full leading-none ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'
-                  }`}>
-                    {incompleteCount}
-                  </span>
-                  {isActive && <X className="h-3 w-3 shrink-0" />}
-                </button>
+                <TooltipProvider key={cfg.stage_key} delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => toggleStageNodeFilter(cfg.stage_key)}
+                        className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-all active:scale-95 ${
+                          isActive
+                            ? 'bg-gold text-white border-gold shadow-sm'
+                            : 'bg-background text-muted-foreground border-border hover:border-gold/50 hover:text-gold'
+                        }`}
+                      >
+                        {cfg.label}
+                        {/* Total incomplete count */}
+                        <span className={`text-[10px] font-bold px-1 py-0.5 rounded-full leading-none ${
+                          isActive ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {incompleteCount}
+                        </span>
+                        {/* In-progress sub-count — amber dot + number */}
+                        {partialCount > 0 && (
+                          <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold leading-none ${
+                            isActive ? 'text-white/80' : 'text-gold'
+                          }`}>
+                            <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${isActive ? 'bg-white/70' : 'bg-gold'}`} />
+                            {partialCount}
+                          </span>
+                        )}
+                        {isActive && <X className="h-3 w-3 shrink-0" />}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs space-y-1 p-2.5">
+                      <p className="font-semibold">{cfg.full_name ?? cfg.label}</p>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-muted-foreground/40 border border-border shrink-0" />
+                          <span><span className="font-semibold">{notStartedCount}</span> not started</span>
+                        </div>
+                        {partialCount > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full bg-gold shrink-0" />
+                            <span><span className="font-semibold">{partialCount}</span> in progress</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1.5 pt-0.5 border-t border-border mt-1">
+                          <span className="h-2 w-2 rounded-full bg-destructive/60 shrink-0" />
+                          <span><span className="font-semibold">{incompleteCount}</span> total incomplete</span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground italic pt-0.5">Click to filter the list</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               );
             })}
           {stageNodeFilters.size > 0 && (
