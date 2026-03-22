@@ -57,6 +57,8 @@ type OnboardingStatus = {
   mo_notes: string | null;
   decal_method: string | null;
   decal_applied: string;
+  decal_photo_ds_url: string | null;
+  decal_photo_ps_url: string | null;
   eld_method: string | null;
   eld_installed: string;
   fuel_card_issued: string;
