@@ -177,6 +177,7 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
     setCropMime(file.type);
     setCrop({ x: 0, y: 0 });
     setZoom(1);
+    setRotation(0);
     setCroppedAreaPixels(null);
     setCropSrc(URL.createObjectURL(file));
     if (fileInputRef.current) fileInputRef.current.value = '';
