@@ -214,7 +214,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                         onClick={() => setShowPhotoGuide(true)}
                       >
                         <Camera className="h-3.5 w-3.5" />
-                        Use step-by-step photo guide (6 required shots)
+                        Use step-by-step photo guide (10 required shots)
                       </button>
                     )}
 
