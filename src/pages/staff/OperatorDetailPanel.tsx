@@ -2705,7 +2705,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                             type="number"
                             min={0}
                             value={status.insurance_stated_value ?? ''}
-                            onChange={e => updateStatus('insurance_stated_value', e.target.value ? Number(e.target.value) : null)}
+                            onChange={e => updateStatus('insurance_stated_value' as any, e.target.value ? Number(e.target.value) : null as any)}
                             placeholder="e.g. 75000"
                             className="h-9 text-sm pl-6"
                           />
