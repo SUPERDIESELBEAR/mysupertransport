@@ -193,7 +193,7 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
     setAvatarError(null);
     setAvatarUploading(true);
     try {
-      const blob = await getCroppedBlob(cropSrc, croppedAreaPixels, cropMime);
+      const blob = await getCroppedBlob(cropSrc, croppedAreaPixels, cropMime, rotation);
       const ext = cropMime === 'image/png' ? 'png' : cropMime === 'image/webp' ? 'webp' : 'jpg';
       const path = `${user.id}/avatar.${ext}`;
 
