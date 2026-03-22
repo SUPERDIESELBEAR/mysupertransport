@@ -33,45 +33,73 @@ interface PhotoSlot {
 const PHOTO_SLOTS: PhotoSlot[] = [
   {
     key: 'truck_photos_front',
-    label: 'Front of Truck',
-    hint: 'Face the truck straight-on. Make sure the full front bumper, grille, and both headlights are visible.',
+    label: 'Front',
+    hint: 'Face the truck straight-on. Full front bumper, grille, and both headlights must be clearly visible.',
     icon: '🚛',
     example: 'Stand ~20 ft in front, centered',
   },
   {
-    key: 'truck_photos_rear',
-    label: 'Rear of Truck',
-    hint: 'Capture the full rear — tailgate/doors, rear lights, mud flaps, and fifth wheel if visible.',
-    icon: '🔙',
-    example: 'Stand ~20 ft behind, centered',
-  },
-  {
     key: 'truck_photos_driver_side',
-    label: "Driver Side (Left)",
-    hint: "Full profile from driver side. Capture the entire truck length — cab to frame.",
+    label: 'Driver Side',
+    hint: 'Full profile from the driver (left) side. Capture the entire truck length — cab to rear axle.',
     icon: '⬅️',
     example: 'Stand perpendicular, ~30 ft away',
   },
   {
+    key: 'truck_photos_rear',
+    label: 'Rear',
+    hint: 'Capture the full rear — doors, rear lights, mud flaps, and any visible frame/hitch.',
+    icon: '🔙',
+    example: 'Stand ~20 ft behind, centered',
+  },
+  {
     key: 'truck_photos_passenger_side',
-    label: 'Passenger Side (Right)',
-    hint: 'Full profile from passenger side. Capture the entire truck length — cab to frame.',
+    label: 'Passenger Side',
+    hint: 'Full profile from the passenger (right) side. Capture the entire truck length — cab to rear axle.',
     icon: '➡️',
     example: 'Stand perpendicular, ~30 ft away',
   },
   {
-    key: 'truck_photos_odometer',
-    label: 'Odometer / Dashboard',
-    hint: 'Engine on, dashboard lit. Odometer reading must be clearly legible. VIN plate if visible.',
-    icon: '🔢',
-    example: 'No glare, close-up, well-lit',
+    key: 'truck_photos_ps_steer_tire',
+    label: 'PS Steer Tire',
+    hint: 'Passenger-side front steer tire. Capture the full tire and wheel — tread depth and sidewall must be visible.',
+    icon: '🛞',
+    example: 'Crouch to tire level, ~3 ft away',
   },
   {
-    key: 'truck_photos_cab_interior',
-    label: 'Cab Interior',
-    hint: 'Wide view of the full cab interior — driver seat, passenger area, and sleeping area if applicable.',
-    icon: '🪑',
-    example: 'Shoot from open passenger door',
+    key: 'truck_photos_ds_steer_tire',
+    label: 'DS Steer Tire',
+    hint: 'Driver-side front steer tire. Capture the full tire and wheel — tread depth and sidewall must be visible.',
+    icon: '🛞',
+    example: 'Crouch to tire level, ~3 ft away',
+  },
+  {
+    key: 'truck_photos_ds_front_drive',
+    label: 'DS Front Drive Tires',
+    hint: 'Driver-side front drive axle tires (inner & outer). Both tires and the full wheel assembly should be visible.',
+    icon: '🛞',
+    example: 'Stand back slightly to capture both tires',
+  },
+  {
+    key: 'truck_photos_ds_rear_drive',
+    label: 'DS Rear Drive Tires',
+    hint: 'Driver-side rear drive axle tires (inner & outer). Both tires and the full wheel assembly should be visible.',
+    icon: '🛞',
+    example: 'Stand back slightly to capture both tires',
+  },
+  {
+    key: 'truck_photos_ps_front_drive',
+    label: 'PS Front Drive Tires',
+    hint: 'Passenger-side front drive axle tires (inner & outer). Both tires and the full wheel assembly should be visible.',
+    icon: '🛞',
+    example: 'Stand back slightly to capture both tires',
+  },
+  {
+    key: 'truck_photos_ps_rear_drive',
+    label: 'PS Rear Drive Tires',
+    hint: 'Passenger-side rear drive axle tires (inner & outer). Both tires and the full wheel assembly should be visible.',
+    icon: '🛞',
+    example: 'Stand back slightly to capture both tires',
   },
 ];
 
@@ -207,7 +235,7 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
                 Truck Photo Guide
               </DialogTitle>
               <DialogDescription className="text-sm leading-relaxed">
-                We need <strong>6 specific photos</strong> of your truck for your onboarding file. We'll walk you through each shot one at a time.
+                We need <strong>10 specific photos</strong> of your truck for your onboarding file. We'll walk you through each shot one at a time.
               </DialogDescription>
             </DialogHeader>
 
