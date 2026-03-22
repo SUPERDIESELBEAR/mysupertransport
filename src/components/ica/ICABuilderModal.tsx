@@ -49,7 +49,8 @@ type ICAData = {
   // Appendix C
   lease_effective_date: string;
   lease_termination_date: string;
-  equipment_location: string;
+  equipment_location_city: string;
+  equipment_location_state: string;
 };
 
 const STEPS = ['Equipment Info', 'Review ICA', 'Carrier Signature', 'Send to Operator'];
