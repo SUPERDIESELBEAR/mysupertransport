@@ -235,7 +235,7 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
                 Truck Photo Guide
               </DialogTitle>
               <DialogDescription className="text-sm leading-relaxed">
-                We need <strong>6 specific photos</strong> of your truck for your onboarding file. We'll walk you through each shot one at a time.
+                We need <strong>10 specific photos</strong> of your truck for your onboarding file. We'll walk you through each shot one at a time.
               </DialogDescription>
             </DialogHeader>
 
