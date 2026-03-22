@@ -247,6 +247,13 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       <p className="text-xs text-muted-foreground text-center">
         Accepted formats: PDF, JPG, PNG · Max 10 MB per file
       </p>
+
+      <TruckPhotoGuideModal
+        open={showPhotoGuide}
+        onClose={() => setShowPhotoGuide(false)}
+        operatorId={operatorId}
+        onComplete={onUploadComplete}
+      />
     </div>
   );
 }
