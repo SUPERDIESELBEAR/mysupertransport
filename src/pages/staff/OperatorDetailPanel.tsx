@@ -1900,7 +1900,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Stage 1 — Background */}
         {(() => {
-          const s1Complete = status.mvr_ch_approval === 'approved';
+          const s1Complete = status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear';
           const s1Collapsed = collapsedStages.has('stage1');
           return (
             <div ref={el => { stageRefs.current['stage1'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s1Complete ? 'border-status-complete' : 'border-border'}`}>
