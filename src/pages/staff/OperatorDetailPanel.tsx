@@ -2006,15 +2006,117 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         );
       })()}
 
-      {/* Collapse All / Expand All */}
+      {/* Stage Summary Dot Row + Collapse All */}
       {(() => {
         const allStageKeys = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6'];
         const allCollapsed = allStageKeys.every(k => collapsedStages.has(k));
+
+        type DotState = 'complete' | 'progress' | 'na' | 'none';
+        const stageDots: { key: string; label: string; shortLabel: string; state: DotState; tooltip: string }[] = [
+          {
+            key: 'stage1', label: 'Background', shortLabel: 'BG',
+            state: (status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear')
+              ? 'complete'
+              : ([status.mvr_status, status.ch_status].some(s => s === 'requested' || s === 'received') ||
+                 status.mvr_ch_approval === 'approved' || status.pe_screening_result === 'clear')
+              ? 'progress' : 'none',
+            tooltip: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear'
+              ? 'Complete' : 'In Progress',
+          },
+          {
+            key: 'stage2', label: 'Documents', shortLabel: 'Docs',
+            state: (status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received')
+              ? 'complete'
+              : ([status.form_2290, status.truck_title, status.truck_photos, status.truck_inspection].some(s => s === 'requested' || s === 'received'))
+              ? 'progress' : 'none',
+            tooltip: (() => {
+              const done = [status.form_2290, status.truck_title, status.truck_photos, status.truck_inspection].filter(s => s === 'received').length;
+              return done === 4 ? 'Complete' : done > 0 ? `${done}/4 received` : 'Not started';
+            })(),
+          },
+          {
+            key: 'stage3', label: 'ICA', shortLabel: 'ICA',
+            state: status.ica_status === 'complete' ? 'complete'
+              : (status.ica_status === 'in_progress' || status.ica_status === 'sent_for_signature') ? 'progress'
+              : 'none',
+            tooltip: status.ica_status === 'complete' ? 'Complete'
+              : status.ica_status === 'sent_for_signature' ? 'Awaiting Signature'
+              : status.ica_status === 'in_progress' ? 'Draft In Progress'
+              : 'Not started',
+          },
+          {
+            key: 'stage4', label: 'MO Reg', shortLabel: 'MO',
+            state: status.registration_status === 'own_registration' ? 'na'
+              : status.mo_reg_received === 'yes' ? 'complete'
+              : status.mo_docs_submitted === 'submitted' ? 'progress'
+              : 'none',
+            tooltip: status.registration_status === 'own_registration' ? 'N/A — O/O Has Own Reg'
+              : status.mo_reg_received === 'yes' ? 'Complete'
+              : status.mo_docs_submitted === 'submitted' ? 'Docs Submitted'
+              : 'Not started',
+          },
+          {
+            key: 'stage5', label: 'Equipment', shortLabel: 'Equip',
+            state: (status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes') ? 'complete'
+              : ([status.decal_applied, status.eld_installed, status.fuel_card_issued].some(s => s === 'yes')) ? 'progress'
+              : 'none',
+            tooltip: (() => {
+              const done = [status.decal_applied, status.eld_installed, status.fuel_card_issued].filter(s => s === 'yes').length;
+              return done === 3 ? 'Complete' : done > 0 ? `${done}/3 done` : 'Not started';
+            })(),
+          },
+          {
+            key: 'stage6', label: 'Insurance', shortLabel: 'Ins',
+            state: status.insurance_added_date ? 'complete'
+              : (status.insurance_policy_type || (docFiles['insurance_cert'] ?? []).length > 0) ? 'progress'
+              : 'none',
+            tooltip: status.insurance_added_date ? 'Complete'
+              : (docFiles['insurance_cert'] ?? []).length > 0 ? 'Cert on File'
+              : status.insurance_policy_type ? 'In Progress'
+              : 'Not started',
+          },
+        ];
+
+        const dotClasses: Record<DotState, string> = {
+          complete: 'bg-status-complete border-status-complete/40 shadow-sm',
+          progress: 'bg-gold border-gold/40',
+          na:       'bg-muted-foreground/30 border-muted-foreground/20',
+          none:     'bg-muted border-border',
+        };
+
         return (
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-3">
+            {/* Dot summary strip */}
+            <TooltipProvider delayDuration={100}>
+              <div className="flex items-center gap-1 bg-muted/40 rounded-lg px-3 py-2 border border-border/50">
+                {stageDots.map((dot, i) => (
+                  <Tooltip key={dot.key}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => scrollToStage(dot.key)}
+                        className="flex flex-col items-center gap-1 group focus:outline-none px-1.5"
+                      >
+                        <div className={`h-2.5 w-2.5 rounded-full border transition-all group-hover:scale-125 group-hover:shadow-md ${dotClasses[dot.state]}`} />
+                        <span className={`text-[9px] font-semibold leading-none transition-colors ${
+                          dot.state === 'complete' ? 'text-status-complete' :
+                          dot.state === 'progress' ? 'text-gold-muted' :
+                          dot.state === 'na' ? 'text-muted-foreground/50' :
+                          'text-muted-foreground/60'
+                        }`}>{dot.shortLabel}</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      <span className="font-semibold">{dot.label}</span> · {dot.tooltip}
+                      <span className="block text-[10px] text-muted-foreground mt-0.5 italic">Click to jump</span>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            </TooltipProvider>
+            {/* Collapse All / Expand All */}
             <button
               onClick={() => setCollapsedStages(allCollapsed ? new Set() : new Set(allStageKeys))}
-              className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-muted"
+              className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-muted shrink-0"
             >
               {allCollapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
               {allCollapsed ? 'Expand All' : 'Collapse All'}
