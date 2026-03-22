@@ -2437,33 +2437,41 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           );
         })()}
 
-        {/* Stage 4 — Missouri Registration (conditional) */}
-        {status.registration_status === 'needs_mo_reg' && (() => {
+        {/* Stage 4 — Missouri Registration (always visible) */}
+        {(() => {
+          const isNa = status.registration_status === 'own_registration';
           const s4Complete = status.mo_reg_received === 'yes';
           const s4Collapsed = collapsedStages.has('stage4');
           return (
-            <div ref={el => { stageRefs.current['stage4'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s4Complete ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stage4'] = el; }} className={`border rounded-xl shadow-sm transition-colors ${isNa ? 'bg-muted/40 border-border opacity-60' : s4Complete ? 'bg-white border-status-complete' : 'bg-white border-border'}`}>
               <button onClick={() => toggleStage('stage4')} className="w-full flex items-center justify-between px-5 py-4 text-left">
                 <div className="flex items-center gap-2">
-                  <FileCheck className={`h-4 w-4 ${s4Complete ? 'text-status-complete' : 'text-gold'}`} />
-                  <h3 className="font-semibold text-foreground text-sm">Stage 4 — Missouri Registration</h3>
+                  <FileCheck className={`h-4 w-4 ${isNa ? 'text-muted-foreground' : s4Complete ? 'text-status-complete' : 'text-gold'}`} />
+                  <h3 className={`font-semibold text-sm ${isNa ? 'text-muted-foreground' : 'text-foreground'}`}>Stage 4 — Missouri Registration</h3>
                 </div>
                 <div className="flex items-center gap-2">
-                  {s4Complete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>}
+                  {isNa && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground border border-border">N/A — O/O Has Own Registration</span>}
+                  {!isNa && s4Complete && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Complete</span>}
                   {s4Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
                 </div>
               </button>
               {!s4Collapsed && (
                 <div className="px-5 pb-5 space-y-3">
-                  <div className="p-3 rounded-lg bg-status-progress/10 border border-status-progress/30 text-xs text-status-progress">
-                    ⚠ Missouri requires Title + Form 2290 + signed ICA submitted together. Partial submissions are not accepted. ICA must be Complete before submitting.
-                  </div>
-                  <SelectField label="MO Docs Submitted" field="mo_docs_submitted" options={moDocsOptions} />
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Expected Approval Date</Label>
-                    <Input type="date" value={status.mo_expected_approval_date ?? ''} onChange={e => updateStatus('mo_expected_approval_date', e.target.value || null)} className="h-9 text-sm" />
-                  </div>
-                  <SelectField label="MO Registration Received" field="mo_reg_received" options={moRegOptions} />
+                  {isNa ? (
+                    <p className="text-xs text-muted-foreground italic">This operator uses their own registration — Missouri registration is not required.</p>
+                  ) : (
+                    <>
+                      <div className="p-3 rounded-lg bg-status-progress/10 border border-status-progress/30 text-xs text-status-progress">
+                        ⚠ Missouri requires Title + Form 2290 + signed ICA submitted together. Partial submissions are not accepted. ICA must be Complete before submitting.
+                      </div>
+                      <SelectField label="MO Docs Submitted" field="mo_docs_submitted" options={moDocsOptions} />
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Expected Approval Date</Label>
+                        <Input type="date" value={status.mo_expected_approval_date ?? ''} onChange={e => updateStatus('mo_expected_approval_date', e.target.value || null)} className="h-9 text-sm" />
+                      </div>
+                      <SelectField label="MO Registration Received" field="mo_reg_received" options={moRegOptions} />
+                    </>
+                  )}
                 </div>
               )}
             </div>
