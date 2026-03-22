@@ -36,14 +36,30 @@ const US_STATES = [
   'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
 ];
 
-/** Canvas helper — draws the cropped area into a square canvas clipped to a circle, returns a Blob */
-async function getCroppedBlob(imageSrc: string, pixelCrop: Area, mimeType: string): Promise<Blob> {
+/** Canvas helper — draws the cropped area (with rotation) into a square canvas clipped to a circle, returns a Blob */
+async function getCroppedBlob(imageSrc: string, pixelCrop: Area, mimeType: string, rotation = 0): Promise<Blob> {
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
     img.onerror = reject;
     img.src = imageSrc;
   });
+
+  // First render the full image rotated onto an intermediate canvas
+  const radians = (rotation * Math.PI) / 180;
+  const sin = Math.abs(Math.sin(radians));
+  const cos = Math.abs(Math.cos(radians));
+  const rotW = Math.round(image.width * cos + image.height * sin);
+  const rotH = Math.round(image.width * sin + image.height * cos);
+  const rotCanvas = document.createElement('canvas');
+  rotCanvas.width = rotW;
+  rotCanvas.height = rotH;
+  const rotCtx = rotCanvas.getContext('2d')!;
+  rotCtx.translate(rotW / 2, rotH / 2);
+  rotCtx.rotate(radians);
+  rotCtx.drawImage(image, -image.width / 2, -image.height / 2);
+
+  // Then crop the circular region from the rotated canvas
   const size = Math.min(pixelCrop.width, pixelCrop.height);
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -53,7 +69,7 @@ async function getCroppedBlob(imageSrc: string, pixelCrop: Area, mimeType: strin
   ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
   ctx.clip();
   ctx.drawImage(
-    image,
+    rotCanvas,
     pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height,
     0, 0, size, size,
   );
