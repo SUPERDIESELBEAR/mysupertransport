@@ -42,6 +42,7 @@ interface Props {
 export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboardingStatus, onUploadComplete }: Props) {
   const { toast } = useToast();
   const [uploading, setUploading] = useState<string | null>(null);
+  const [showPhotoGuide, setShowPhotoGuide] = useState(false);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const getUploaded = (key: string) => uploadedDocs.filter(d => d.document_type === key);
