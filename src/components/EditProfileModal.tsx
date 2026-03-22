@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserRound, CheckCircle2, Camera, Loader2, Trash2, ZoomIn } from 'lucide-react';
+import { UserRound, CheckCircle2, Camera, Loader2, Trash2, ZoomIn, RotateCw } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import {
   AlertDialog,
