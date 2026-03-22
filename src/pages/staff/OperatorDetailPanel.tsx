@@ -57,6 +57,8 @@ type OnboardingStatus = {
   mo_notes: string | null;
   decal_method: string | null;
   decal_applied: string;
+  decal_photo_ds_url: string | null;
+  decal_photo_ps_url: string | null;
   eld_method: string | null;
   eld_installed: string;
   fuel_card_issued: string;
@@ -1050,7 +1052,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const icaOptions = [{ value: 'not_issued', label: 'Not Issued' }, { value: 'in_progress', label: 'In Progress (Draft)' }, { value: 'sent_for_signature', label: 'Sent for Signature' }, { value: 'complete', label: 'Complete' }];
   const moDocsOptions = [{ value: 'not_submitted', label: 'Not Submitted' }, { value: 'submitted', label: 'Submitted' }];
   const moRegOptions = [{ value: 'not_yet', label: 'Not Yet' }, { value: 'yes', label: 'Yes' }];
-  const methodOptions = [{ value: 'ar_shop_install', label: 'AR Shop Install' }, { value: 'ups_self_install', label: 'UPS Self-Install' }];
+  const methodOptions = [
+    { value: 'owner_operator_install', label: 'Owner-Operator Install' },
+    { value: 'supertransport_shop',    label: 'SUPERTRANSPORT Shop' },
+    // legacy values kept for existing records
+    { value: 'ar_shop_install', label: 'AR Shop Install (legacy)' },
+    { value: 'ups_self_install', label: 'UPS Self-Install (legacy)' },
+  ];
   const yesNoOptions = [{ value: 'no', label: 'No' }, { value: 'yes', label: 'Yes' }];
 
   const isAlert = status.mvr_ch_approval === 'denied' || status.pe_screening_result === 'non_clear';
@@ -2513,12 +2521,66 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
               </button>
               {!s5Collapsed && (
-                <div className="px-5 pb-5 space-y-3">
-                  <SelectField label="Decal Method" field="decal_method" options={methodOptions} />
-                  <SelectField label="Decal Applied" field="decal_applied" options={yesNoOptions} />
-                  <SelectField label="ELD Method" field="eld_method" options={methodOptions} />
-                  <SelectField label="ELD Installed" field="eld_installed" options={yesNoOptions} />
-                  <SelectField label="Fuel Card Issued" field="fuel_card_issued" options={yesNoOptions} />
+                <div className="px-5 pb-5 space-y-4">
+
+                  {/* Truck Decals section */}
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Truck Decals</p>
+                    <SelectField label="Truck Decals — Install Method" field="decal_method" options={methodOptions} />
+                    <SelectField label="Decal Applied" field="decal_applied" options={yesNoOptions} />
+
+                    {/* Decal photo thumbnails — shown once decal is applied */}
+                    {status.decal_applied === 'yes' && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Decal Install Photos</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          {/* Driver Side */}
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground font-medium">Driver Side</p>
+                            {status.decal_photo_ds_url ? (
+                              <a href={status.decal_photo_ds_url} target="_blank" rel="noopener noreferrer" className="block">
+                                <img src={status.decal_photo_ds_url} alt="Decal — Driver Side" className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
+                              </a>
+                            ) : (
+                              <div className="w-full aspect-video rounded-lg border border-dashed border-border bg-muted/40 flex items-center justify-center">
+                                <span className="text-[11px] text-muted-foreground">No photo yet</span>
+                              </div>
+                            )}
+                          </div>
+                          {/* Passenger Side */}
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground font-medium">Passenger Side</p>
+                            {status.decal_photo_ps_url ? (
+                              <a href={status.decal_photo_ps_url} target="_blank" rel="noopener noreferrer" className="block">
+                                <img src={status.decal_photo_ps_url} alt="Decal — Passenger Side" className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
+                              </a>
+                            ) : (
+                              <div className="w-full aspect-video rounded-lg border border-dashed border-border bg-muted/40 flex items-center justify-center">
+                                <span className="text-[11px] text-muted-foreground">No photo yet</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {(!status.decal_photo_ds_url || !status.decal_photo_ps_url) && (
+                          <p className="text-[11px] text-muted-foreground italic">Operator uploads decal photos from their portal after installation.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ELD section */}
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">ELD</p>
+                    <SelectField label="ELD Install Method" field="eld_method" options={methodOptions} />
+                    <SelectField label="ELD Installed" field="eld_installed" options={yesNoOptions} />
+                  </div>
+
+                  {/* Fuel Card */}
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Fuel Card</p>
+                    <SelectField label="Fuel Card Issued" field="fuel_card_issued" options={yesNoOptions} />
+                  </div>
+
                 </div>
               )}
             </div>

@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileText, CheckCircle2, Loader2, ExternalLink, AlertCircle, Clock, Camera } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, Loader2, ExternalLink, AlertCircle, Clock, Camera, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { validateFile } from '@/lib/validateFile';
 import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
@@ -43,7 +43,11 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
   const { toast } = useToast();
   const [uploading, setUploading] = useState<string | null>(null);
   const [showPhotoGuide, setShowPhotoGuide] = useState(false);
+  const [decalPhotoDs, setDecalPhotoDs] = useState<string | null>(onboardingStatus.decal_photo_ds_url ?? null);
+  const [decalPhotoPs, setDecalPhotoPs] = useState<string | null>(onboardingStatus.decal_photo_ps_url ?? null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const decalDsRef = useRef<HTMLInputElement | null>(null);
+  const decalPsRef = useRef<HTMLInputElement | null>(null);
 
   const getUploaded = (key: string) => uploadedDocs.filter(d => d.document_type === key);
 
@@ -59,7 +63,6 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
   const handleUpload = async (slot: DocumentSlot, file: File) => {
     if (!file) return;
 
-    // ── Validate before uploading ───────────────────────────────────────────
     const allowDocs = slot.key === 'other';
     const { valid, error: validationError } = validateFile(file, allowDocs);
     if (!valid) {
@@ -79,15 +82,11 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
-        .from('operator-documents')
-        .getPublicUrl(path);
-
-      // Use signed URL approach since bucket is private
       const { data: signedData } = await supabase.storage
         .from('operator-documents')
-        .createSignedUrl(path, 60 * 60 * 24 * 365); // 1 year
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
 
+      const { data: urlData } = supabase.storage.from('operator-documents').getPublicUrl(path);
       const fileUrl = signedData?.signedUrl ?? urlData?.publicUrl;
 
       await supabase.from('operator_documents').insert({
@@ -96,8 +95,6 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
         file_name: file.name,
         file_url: fileUrl,
       });
-
-      // Notification to staff is handled server-side via DB trigger
 
       toast({ title: 'Document uploaded', description: `${slot.label} has been submitted for review.` });
       onUploadComplete();
@@ -111,6 +108,60 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       setUploading(null);
     }
   };
+
+  const handleDecalPhoto = async (side: 'ds' | 'ps', file: File) => {
+    const { valid, error: validationError } = validateFile(file, false);
+    if (!valid) {
+      toast({ title: 'Invalid file', description: validationError, variant: 'destructive' });
+      return;
+    }
+
+    const key = `decal_photo_${side}`;
+    setUploading(key);
+
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${operatorId}/decal_photos/${side}_${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('operator-documents')
+        .upload(path, file, { upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data: signedData } = await supabase.storage
+        .from('operator-documents')
+        .createSignedUrl(path, 60 * 60 * 24 * 365 * 5); // 5-year URL
+
+      const { data: urlData } = supabase.storage.from('operator-documents').getPublicUrl(path);
+      const fileUrl = signedData?.signedUrl ?? urlData?.publicUrl;
+
+      // Update onboarding_status with the photo URL
+      const column = side === 'ds' ? 'decal_photo_ds_url' : 'decal_photo_ps_url';
+      const { error: updateError } = await supabase
+        .from('onboarding_status')
+        .update({ [column]: fileUrl })
+        .eq('operator_id', operatorId);
+
+      if (updateError) throw updateError;
+
+      if (side === 'ds') setDecalPhotoDs(fileUrl ?? null);
+      else setDecalPhotoPs(fileUrl ?? null);
+
+      const sideLabel = side === 'ds' ? 'Driver Side' : 'Passenger Side';
+      toast({ title: 'Photo uploaded', description: `Decal ${sideLabel} photo submitted.` });
+    } catch (err: unknown) {
+      toast({
+        title: 'Upload failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const decalApplied = onboardingStatus.decal_applied === 'yes';
 
   return (
     <div className="space-y-6">
@@ -140,7 +191,6 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
             <div key={slot.key} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
               <div className="p-4">
                 <div className="flex items-start gap-3">
-                  {/* Icon */}
                   <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
                     reviewStatus === 'received' ? 'bg-status-complete/10' :
                     reviewStatus === 'pending' ? 'bg-info/10' :
@@ -156,9 +206,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                     }
                   </div>
 
-                  {/* Info + upload button stacked on mobile */}
                   <div className="flex-1 min-w-0">
-                    {/* Top row: label + badges + upload button */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                         <p className="font-medium text-foreground text-sm leading-tight">{slot.label}</p>
@@ -177,7 +225,6 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                           <span className="text-[10px] bg-status-complete/15 text-status-complete px-1.5 py-0.5 rounded font-medium">Submitted</span>
                         )}
                       </div>
-                      {/* Upload button — sits top-right on all screen sizes */}
                       <div className="shrink-0">
                         <input
                           ref={el => { fileInputRefs.current[slot.key] = el; }}
@@ -205,9 +252,8 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                       </div>
                     </div>
 
-                     <p className="text-xs text-muted-foreground mt-0.5">{slot.description}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{slot.description}</p>
 
-                    {/* Truck Photos: show guide button */}
                     {slot.key === 'truck_photos' && (
                       <button
                         className="mt-2 flex items-center gap-1.5 text-xs font-medium text-gold hover:text-gold-light transition-colors"
@@ -218,7 +264,6 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                       </button>
                     )}
 
-                    {/* Uploaded files */}
                     {uploaded.length > 0 && (
                       <div className="mt-2 space-y-1.5">
                         {uploaded.map(doc => (
@@ -243,6 +288,102 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
           );
         })}
       </div>
+
+      {/* ── Decal Install Photos ─────────────────────────────────────── */}
+      {decalApplied && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Image className="h-4 w-4 text-gold" />
+            <h3 className="font-semibold text-foreground text-sm">Decal Install Photos</h3>
+            <span className="text-[10px] bg-gold/15 text-gold-muted px-1.5 py-0.5 rounded font-medium">Required</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Now that your decal has been applied, please upload a photo of each side of the truck showing the installed decal.
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            {/* Driver Side */}
+            <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-foreground">Driver Side</p>
+                {decalPhotoDs && <CheckCircle2 className="h-4 w-4 text-status-complete" />}
+              </div>
+              {decalPhotoDs ? (
+                <a href={decalPhotoDs} target="_blank" rel="noopener noreferrer">
+                  <img src={decalPhotoDs} alt="Decal Driver Side" className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
+                </a>
+              ) : (
+                <div className="w-full aspect-video rounded-lg border border-dashed border-border bg-muted/30 flex items-center justify-center">
+                  <Camera className="h-6 w-6 text-muted-foreground/50" />
+                </div>
+              )}
+              <input
+                ref={decalDsRef}
+                type="file"
+                accept=".jpg,.jpeg,.png,.heic"
+                className="hidden"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) handleDecalPhoto('ds', file);
+                  e.target.value = '';
+                }}
+              />
+              <Button
+                size="sm"
+                variant={decalPhotoDs ? 'outline' : 'default'}
+                disabled={uploading === 'decal_photo_ds'}
+                onClick={() => decalDsRef.current?.click()}
+                className={`w-full text-xs gap-1.5 ${!decalPhotoDs ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
+              >
+                {uploading === 'decal_photo_ds'
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading…</>
+                  : <><Upload className="h-3.5 w-3.5" /> {decalPhotoDs ? 'Replace Photo' : 'Upload Photo'}</>
+                }
+              </Button>
+            </div>
+
+            {/* Passenger Side */}
+            <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-foreground">Passenger Side</p>
+                {decalPhotoPs && <CheckCircle2 className="h-4 w-4 text-status-complete" />}
+              </div>
+              {decalPhotoPs ? (
+                <a href={decalPhotoPs} target="_blank" rel="noopener noreferrer">
+                  <img src={decalPhotoPs} alt="Decal Passenger Side" className="w-full aspect-video object-cover rounded-lg border border-border hover:opacity-90 transition-opacity" />
+                </a>
+              ) : (
+                <div className="w-full aspect-video rounded-lg border border-dashed border-border bg-muted/30 flex items-center justify-center">
+                  <Camera className="h-6 w-6 text-muted-foreground/50" />
+                </div>
+              )}
+              <input
+                ref={decalPsRef}
+                type="file"
+                accept=".jpg,.jpeg,.png,.heic"
+                className="hidden"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) handleDecalPhoto('ps', file);
+                  e.target.value = '';
+                }}
+              />
+              <Button
+                size="sm"
+                variant={decalPhotoPs ? 'outline' : 'default'}
+                disabled={uploading === 'decal_photo_ps'}
+                onClick={() => decalPsRef.current?.click()}
+                className={`w-full text-xs gap-1.5 ${!decalPhotoPs ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
+              >
+                {uploading === 'decal_photo_ps'
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading…</>
+                  : <><Upload className="h-3.5 w-3.5" /> {decalPhotoPs ? 'Replace Photo' : 'Upload Photo'}</>
+                }
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <p className="text-xs text-muted-foreground text-center">
         Accepted formats: PDF, JPG, PNG · Max 10 MB per file
