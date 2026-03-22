@@ -51,8 +51,10 @@ type OnboardingStatus = {
   truck_inspection: string;
   ica_status: string;
   mo_docs_submitted: string;
+  mo_docs_submitted_date: string | null;
   mo_expected_approval_date: string | null;
   mo_reg_received: string;
+  mo_notes: string | null;
   decal_method: string | null;
   decal_applied: string;
   eld_method: string | null;
@@ -2465,11 +2467,27 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         ⚠ Missouri requires Title + Form 2290 + signed ICA submitted together. Partial submissions are not accepted. ICA must be Complete before submitting.
                       </div>
                       <SelectField label="MO Docs Submitted" field="mo_docs_submitted" options={moDocsOptions} />
+                      {status.mo_docs_submitted === 'submitted' && (
+                        <StageDatePicker
+                          label="MO Docs Submitted Date"
+                          value={status.mo_docs_submitted_date ?? null}
+                          onChange={v => updateStatus('mo_docs_submitted_date', v)}
+                        />
+                      )}
                       <div className="space-y-1.5">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Expected Approval Date</Label>
                         <Input type="date" value={status.mo_expected_approval_date ?? ''} onChange={e => updateStatus('mo_expected_approval_date', e.target.value || null)} className="h-9 text-sm" />
                       </div>
                       <SelectField label="MO Registration Received" field="mo_reg_received" options={moRegOptions} />
+                      <div className="space-y-1.5 pt-1">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">MO Registration Notes</Label>
+                        <Textarea
+                          value={status.mo_notes ?? ''}
+                          onChange={e => updateStatus('mo_notes', e.target.value || null)}
+                          placeholder="e.g. submission date, vendor, tracking number, any issues…"
+                          className="text-sm min-h-[80px] resize-none"
+                        />
+                      </div>
                     </>
                   )}
                 </div>
