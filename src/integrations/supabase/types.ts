@@ -984,6 +984,7 @@ export type Database = {
       }
       onboarding_status: {
         Row: {
+          bg_check_notes: string | null
           ch_status: Database["public"]["Enums"]["mvr_status"]
           decal_applied: Database["public"]["Enums"]["yes_no"]
           decal_method: Database["public"]["Enums"]["install_method"] | null
@@ -1014,6 +1015,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          bg_check_notes?: string | null
           ch_status?: Database["public"]["Enums"]["mvr_status"]
           decal_applied?: Database["public"]["Enums"]["yes_no"]
           decal_method?: Database["public"]["Enums"]["install_method"] | null
@@ -1044,6 +1046,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          bg_check_notes?: string | null
           ch_status?: Database["public"]["Enums"]["mvr_status"]
           decal_applied?: Database["public"]["Enums"]["yes_no"]
           decal_method?: Database["public"]["Enums"]["install_method"] | null
