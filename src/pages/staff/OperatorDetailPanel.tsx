@@ -58,6 +58,7 @@ type OnboardingStatus = {
   insurance_added_date: string | null;
   unit_number: string | null;
   fully_onboarded: boolean | null;
+  bg_check_notes: string | null;
 };
 
 type DispatchHistoryEntry = {
@@ -1022,10 +1023,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
       {(() => {
         const stages = [
-          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved', fullName: 'Background Check', items: [
+          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear', fullName: 'Background Check', items: [
               { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
               { label: 'Clearinghouse Requested', done: status.ch_status === 'requested' || status.ch_status === 'received' },
               { label: 'MVR & CH Approved',       done: status.mvr_ch_approval === 'approved' },
+              { label: 'PE Screening Clear',      done: status.pe_screening_result === 'clear' },
             ]},
           { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received', fullName: 'Documents', items: [
               { label: 'Form 2290',      done: status.form_2290 === 'received' },
@@ -1770,10 +1772,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {(() => {
         const stages = [
-          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved', fullName: 'Background Check', items: [
+          { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear', fullName: 'Background Check', items: [
               { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
               { label: 'Clearinghouse Requested', done: status.ch_status === 'requested' || status.ch_status === 'received' },
               { label: 'MVR & CH Approved',       done: status.mvr_ch_approval === 'approved' },
+              { label: 'PE Screening Clear',      done: status.pe_screening_result === 'clear' },
             ]},
           { label: 'Documents',  key: 'stage2', complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received', fullName: 'Documents', items: [
               { label: 'Form 2290',      done: status.form_2290 === 'received' },
@@ -1897,7 +1900,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Stage 1 — Background */}
         {(() => {
-          const s1Complete = status.mvr_ch_approval === 'approved';
+          const s1Complete = status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear';
           const s1Collapsed = collapsedStages.has('stage1');
           return (
             <div ref={el => { stageRefs.current['stage1'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s1Complete ? 'border-status-complete' : 'border-border'}`}>
@@ -1918,6 +1921,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <SelectField label="MVR/CH Approval" field="mvr_ch_approval" options={approvalOptions} />
                   <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
                   <SelectField label="PE Screening Result" field="pe_screening_result" options={resultOptions} />
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground">Background Check Notes</Label>
+                    <Textarea
+                      value={status.bg_check_notes ?? ''}
+                      onChange={e => setStatus(prev => ({ ...prev, bg_check_notes: e.target.value || null }))}
+                      placeholder="e.g. vendor name, order date, any issues…"
+                      className="text-sm min-h-[72px] resize-none"
+                    />
+                  </div>
                 </div>
               )}
             </div>
