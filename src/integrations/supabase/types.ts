@@ -995,6 +995,9 @@ export type Database = {
           form_2290: Database["public"]["Enums"]["document_status"]
           fuel_card_issued: Database["public"]["Enums"]["yes_no"]
           fully_onboarded: boolean | null
+          ica_notes: string | null
+          ica_sent_date: string | null
+          ica_signed_date: string | null
           ica_status: Database["public"]["Enums"]["ica_status"]
           id: string
           insurance_added_date: string | null
@@ -1032,6 +1035,9 @@ export type Database = {
           form_2290?: Database["public"]["Enums"]["document_status"]
           fuel_card_issued?: Database["public"]["Enums"]["yes_no"]
           fully_onboarded?: boolean | null
+          ica_notes?: string | null
+          ica_sent_date?: string | null
+          ica_signed_date?: string | null
           ica_status?: Database["public"]["Enums"]["ica_status"]
           id?: string
           insurance_added_date?: string | null
@@ -1069,6 +1075,9 @@ export type Database = {
           form_2290?: Database["public"]["Enums"]["document_status"]
           fuel_card_issued?: Database["public"]["Enums"]["yes_no"]
           fully_onboarded?: boolean | null
+          ica_notes?: string | null
+          ica_sent_date?: string | null
+          ica_signed_date?: string | null
           ica_status?: Database["public"]["Enums"]["ica_status"]
           id?: string
           insurance_added_date?: string | null
