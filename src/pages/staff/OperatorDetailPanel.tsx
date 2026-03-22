@@ -1052,7 +1052,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const icaOptions = [{ value: 'not_issued', label: 'Not Issued' }, { value: 'in_progress', label: 'In Progress (Draft)' }, { value: 'sent_for_signature', label: 'Sent for Signature' }, { value: 'complete', label: 'Complete' }];
   const moDocsOptions = [{ value: 'not_submitted', label: 'Not Submitted' }, { value: 'submitted', label: 'Submitted' }];
   const moRegOptions = [{ value: 'not_yet', label: 'Not Yet' }, { value: 'yes', label: 'Yes' }];
-  const methodOptions = [{ value: 'ar_shop_install', label: 'AR Shop Install' }, { value: 'ups_self_install', label: 'UPS Self-Install' }];
+  const methodOptions = [
+    { value: 'owner_operator_install', label: 'Owner-Operator Install' },
+    { value: 'supertransport_shop',    label: 'SUPERTRANSPORT Shop' },
+    // legacy values kept for existing records
+    { value: 'ar_shop_install', label: 'AR Shop Install (legacy)' },
+    { value: 'ups_self_install', label: 'UPS Self-Install (legacy)' },
+  ];
   const yesNoOptions = [{ value: 'no', label: 'No' }, { value: 'yes', label: 'Yes' }];
 
   const isAlert = status.mvr_ch_approval === 'denied' || status.pe_screening_result === 'non_clear';
