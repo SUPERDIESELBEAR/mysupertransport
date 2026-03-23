@@ -25,7 +25,7 @@ interface Props {
 
 const CONDITION_COLORS: Record<string, string> = {
   available: 'bg-status-complete/15 text-status-complete border-status-complete/30',
-  damaged:   'bg-amber-500/15 text-amber-700 border-amber-400/30',
+  damaged:   'bg-warning/15 text-warning border-warning/30',
   lost:      'bg-destructive/15 text-destructive border-destructive/30',
 };
 
