@@ -42,7 +42,7 @@ const DEVICE_CONFIG: Record<DeviceType, { label: string; icon: React.ReactNode; 
 const STATUS_CONFIG: Record<EquipmentStatus, { label: string; color: string; icon: React.ReactNode }> = {
   available: { label: 'Available',      color: 'bg-status-complete/15 text-status-complete border-status-complete/30', icon: <CheckCircle2 className="h-3 w-3" /> },
   assigned:  { label: 'Assigned',       color: 'bg-primary/15 text-primary border-primary/30',                        icon: <UserCheck className="h-3 w-3" /> },
-  damaged:   { label: 'Damaged',        color: 'bg-amber-500/15 text-amber-700 border-amber-400/30',                  icon: <AlertTriangle className="h-3 w-3" /> },
+  damaged:   { label: 'Damaged / Needs Repair', color: 'bg-warning/15 text-warning border-warning/30',              icon: <AlertTriangle className="h-3 w-3" /> },
   lost:      { label: 'Lost/Missing',   color: 'bg-destructive/15 text-destructive border-destructive/30',            icon: <XCircle className="h-3 w-3" /> },
 };
 
