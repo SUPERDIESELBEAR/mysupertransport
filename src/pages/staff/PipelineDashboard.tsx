@@ -281,6 +281,8 @@ interface OperatorRow {
   decal_applied: string;
   eld_installed: string;
   fuel_card_issued: string;
+  paper_logbook_approved: boolean;
+  temp_decal_approved: boolean;
   progress_pct: number;
   onboarding_updated_at: string | null;
 }
