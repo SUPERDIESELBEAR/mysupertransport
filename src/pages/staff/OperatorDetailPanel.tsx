@@ -2719,7 +2719,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               </button>
               {!s3Collapsed && (
                 <div className="px-5 pb-5 space-y-3">
-            <SelectField label="ICA Status" field="ica_status" options={icaOptions} />
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ICA Status</Label>
+              <Select
+                value={(status.ica_status as string) || undefined}
+                onValueChange={v => {
+                  updateStatus('ica_status', v);
+                  if (v === 'complete') {
+                    setCollapsedStages(prev => { const next = new Set(prev); next.add('stage3'); return next; });
+                  }
+                }}
+              >
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  {icaOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             {status.pe_screening_result !== 'clear' && (
               <div className="p-3 rounded-lg bg-status-action/10 border border-status-action/30 text-xs text-status-action">
                 PE Screening must be Clear before sending ICA. You can still prepare a draft.
