@@ -2961,7 +2961,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <Input
                       value={status.unit_number ?? ''}
                       onChange={e => updateStatus('unit_number', e.target.value || null)}
-                      placeholder="e.g. ST-042"
+                      placeholder="e.g. 301"
                       className="h-9 text-sm"
                     />
                   </div>
