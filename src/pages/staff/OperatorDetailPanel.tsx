@@ -2971,7 +2971,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Expected Approval Date</Label>
                         <Input type="date" value={status.mo_expected_approval_date ?? ''} onChange={e => updateStatus('mo_expected_approval_date', e.target.value || null)} className="h-9 text-sm" />
                       </div>
-                      <SelectField label="MO Registration Received" field="mo_reg_received" options={moRegOptions} />
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">MO Registration Received</Label>
+                        <Select value={status.mo_reg_received ?? ''} onValueChange={v => {
+                          updateStatus('mo_reg_received', v);
+                          if (v === 'yes') {
+                            setCollapsedStages(prev => { const next = new Set(prev); next.add('stage4'); return next; });
+                          }
+                        }}>
+                          <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>{moRegOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
                       <div className="space-y-1.5 pt-1">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">MO Registration Notes</Label>
                         <Textarea
