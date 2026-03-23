@@ -36,7 +36,7 @@ const DEVICE_CONFIG: Record<DeviceType, { label: string; icon: React.ReactNode; 
   eld:       { label: 'ELD',        icon: <Cpu className="h-4 w-4" />,        color: 'text-primary' },
   dash_cam:  { label: 'Dash Cam',   icon: <Camera className="h-4 w-4" />,     color: 'text-status-progress' },
   bestpass:  { label: 'BestPass',   icon: <Tag className="h-4 w-4" />,        color: 'text-status-complete' },
-  fuel_card: { label: 'Fuel Card',  icon: <CreditCard className="h-4 w-4" />, color: 'text-amber-600' },
+  fuel_card: { label: 'Fuel Card',  icon: <CreditCard className="h-4 w-4" />, color: 'text-warning' },
 };
 
 const STATUS_CONFIG: Record<EquipmentStatus, { label: string; color: string; icon: React.ReactNode }> = {
