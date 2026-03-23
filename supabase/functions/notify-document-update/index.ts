@@ -140,10 +140,10 @@ Deno.serve(async (req) => {
     let sent = 0;
     let failed = 0;
     for (const u of recipients) {
-      const ok = await sendEmail(u.email!, subject, html, RESEND_API_KEY);
-      if (ok) {
+      try {
+        await sendEmail(u.email!, subject, html, RESEND_API_KEY);
         sent++;
-      } else {
+      } catch {
         failed++;
       }
       // Throttle: stay safely under Resend's 2 requests/second limit
