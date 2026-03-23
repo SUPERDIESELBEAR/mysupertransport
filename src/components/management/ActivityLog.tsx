@@ -119,6 +119,12 @@ const ACTION_CONFIG: Record<string, {
     color: 'text-sky-600',
     bg: 'bg-sky-50 border-sky-200',
   },
+  insurance_fields_updated: {
+    label: 'Insurance Updated',
+    icon: <Shield className="h-4 w-4" />,
+    color: 'text-amber-600',
+    bg: 'bg-amber-50 border-amber-200',
+  },
 };
 
 const FILTER_OPTIONS = [
