@@ -1043,6 +1043,45 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           metadata: { changes: insuranceChanges },
         }).then(({ error }) => { if (error) console.error('[audit] insurance_fields_updated:', error); });
       }
+
+      // ── Write audit log when exceptions are first approved ────────────
+      if (!wasExceptionActive && isExceptionNowActive) {
+        void supabase.from('audit_log' as any).insert({
+          actor_id: session?.user?.id ?? null,
+          actor_name: operatorName,
+          action: 'exception_approved',
+          entity_type: 'operator',
+          entity_id: operatorId,
+          entity_label: operatorName,
+          metadata: {
+            paper_logbook: status.paper_logbook_approved ?? false,
+            temp_decal: status.temp_decal_approved ?? false,
+            exception_notes: status.exception_notes ?? null,
+            approved_at: new Date().toISOString(),
+          },
+        }).then(({ error }) => { if (error) console.error('[audit] exception_approved:', error); });
+      }
+
+      // ── Write audit log when go-live date is set or changed ───────────
+      if (goLiveDateChanged) {
+        void supabase.from('audit_log' as any).insert({
+          actor_id: session?.user?.id ?? null,
+          actor_name: operatorName,
+          action: 'go_live_updated',
+          entity_type: 'operator',
+          entity_id: operatorId,
+          entity_label: operatorName,
+          metadata: {
+            go_live_date: newGoLive,
+            operator_type: status.operator_type ?? null,
+            dispatch_ready_orientation: status.dispatch_ready_orientation ?? false,
+            dispatch_ready_consortium: status.dispatch_ready_consortium ?? false,
+            dispatch_ready_first_assigned: status.dispatch_ready_first_assigned ?? false,
+            is_first_go_live: isNewlyGoLive,
+            previous_go_live_date: prevGoLive,
+          },
+        }).then(({ error }) => { if (error) console.error('[audit] go_live_updated:', error); });
+      }
     }
 
     savedSnapshot.current = { status, notes };
