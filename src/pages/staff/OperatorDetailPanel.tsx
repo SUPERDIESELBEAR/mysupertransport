@@ -3091,7 +3091,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <div className="space-y-3">
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">ELD</p>
                     <SelectField label="ELD Install Method" field="eld_method" options={methodOptions} />
-                    <SelectField label="ELD Installed" field="eld_installed" options={yesNoOptions} />
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ELD Installed</Label>
+                      <Select value={(status.eld_installed as string) || undefined} onValueChange={v => { updateStatus('eld_installed', v); if (v === 'yes' && status.decal_applied === 'yes' && status.fuel_card_issued === 'yes') { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
+                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                        <SelectContent>{yesNoOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   {/* Shop Visit Exceptions — shown when either method is supertransport_shop */}
