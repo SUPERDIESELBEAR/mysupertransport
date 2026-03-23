@@ -2313,6 +2313,29 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         </div>
       )}
 
+      {/* Exception Active filter banner — shown when the quick-filter chip is active */}
+      {exceptionFilter && (() => {
+        const exCount = filtered.filter(o => o.paper_logbook_approved || o.temp_decal_approved).length;
+        return (
+          <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border bg-warning/8 border-warning/25">
+            <span className="text-sm font-black leading-none shrink-0" style={{ color: 'hsl(var(--warning))' }}>E</span>
+            <p className="text-sm font-medium flex-1" style={{ color: 'hsl(var(--warning))' }}>
+              <span className="font-semibold">{exCount} operator{exCount !== 1 ? 's' : ''}</span>
+              {' '}running under an approved exception — en route to the SUPERTRANSPORT shop for installation
+            </p>
+            <button
+              onClick={() => setExceptionFilter(false)}
+              className="flex items-center gap-1 text-xs font-medium opacity-70 hover:opacity-100 transition-opacity"
+              style={{ color: 'hsl(var(--warning))' }}
+              title="Clear exception filter"
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear
+            </button>
+          </div>
+        );
+      })()}
+
       {/* Stage incomplete quick-filter chip row — one chip per active stage from pipeline_config */}
       {stageConfigs.filter(c => c.is_active).length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
