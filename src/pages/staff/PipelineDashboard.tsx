@@ -544,6 +544,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [unreadFilter, setUnreadFilter] = useState(false);
   const [unreadHighPriority, setUnreadHighPriority] = useState(false);
   const [invitePendingFilter, setInvitePendingFilter] = useState(false);
+  const [exceptionFilter, setExceptionFilter] = useState(false);
   // Stage node filter: filter to operators who have specific stage(s) NOT complete (multi-select)
   const [stageNodeFilters, setStageNodeFilters] = useState<Set<string>>(new Set());
 
