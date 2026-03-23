@@ -3643,7 +3643,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   {/* Go-Live Date & Operator Type */}
                   <div className="space-y-3">
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Go-Live</p>
-                    <StageDatePicker label="Go-Live Date" value={status.go_live_date ?? null} onChange={v => updateStatus('go_live_date', v)} />
+                    <StageDatePicker label="Go-Live Date" value={status.go_live_date ?? null} onChange={v => { updateStatus('go_live_date', v); if (v) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage7'); return next; }); } }} />
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Operator Type</Label>
                       <Select value={status.operator_type ?? ''} onValueChange={v => updateStatus('operator_type', v || null)}>
