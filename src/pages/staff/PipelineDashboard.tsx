@@ -544,6 +544,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [unreadFilter, setUnreadFilter] = useState(false);
   const [unreadHighPriority, setUnreadHighPriority] = useState(false);
   const [invitePendingFilter, setInvitePendingFilter] = useState(false);
+  const [exceptionFilter, setExceptionFilter] = useState(false);
   // Stage node filter: filter to operators who have specific stage(s) NOT complete (multi-select)
   const [stageNodeFilters, setStageNodeFilters] = useState<Set<string>>(new Set());
 
@@ -1473,6 +1474,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       );
       const matchUnread = !unreadFilter || (unreadHighPriority ? op.unread_count >= 3 : op.unread_count > 0);
       const matchInvitePending = !invitePendingFilter || op.never_logged_in;
+      const matchException = !exceptionFilter || (op.paper_logbook_approved || op.temp_decal_approved);
       // Stage node filter (multi-select): show operators who are incomplete in ANY of the selected stages
       const matchStageNode = stageNodeFilters.size === 0 || (() => {
         // Operator must be incomplete in ALL selected stages (AND logic: show operators missing both BG AND ICA)
@@ -1482,7 +1484,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           return !cfg.items.every(item => evalItem(op, item.field, item.complete_value));
         });
       })();
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchStageNode;
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchException && matchStageNode;
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
@@ -1545,6 +1547,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     idleFilter,
     unreadFilter,
     invitePendingFilter,
+    exceptionFilter,
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
@@ -1559,6 +1562,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setUnreadFilter(false);
     setUnreadHighPriority(false);
     setInvitePendingFilter(false);
+    setExceptionFilter(false);
     setSearch('');
   };
 
@@ -1866,6 +1870,40 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="text-xs max-w-[200px] text-center">
                       Show only operators who haven't logged in yet
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })()}
+            {/* Exception Active quick-filter chip */}
+            {(() => {
+              const exceptionCount = operators.filter(o => o.paper_logbook_approved || o.temp_decal_approved).length;
+              if (exceptionCount === 0) return null;
+              return (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => setExceptionFilter(v => !v)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
+                          exceptionFilter
+                            ? 'border-warning text-warning-foreground'
+                            : 'bg-background border-border hover:border-warning/60'
+                        }`}
+                        style={
+                          exceptionFilter
+                            ? { background: 'hsl(var(--warning))', color: 'hsl(var(--warning-foreground))' }
+                            : { color: 'hsl(var(--warning))' }
+                        }
+                      >
+                        <span className="text-[10px] font-black leading-none">E</span>
+                        <span className="hidden sm:inline">Exception Active</span>
+                        <span className="font-bold">{exceptionCount}</span>
+                        {exceptionFilter && <X className="h-3 w-3" />}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-[220px] text-center">
+                      Show only operators running under an exception (paper logbook or temporary decals approved)
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
