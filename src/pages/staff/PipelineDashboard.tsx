@@ -1547,6 +1547,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     idleFilter,
     unreadFilter,
     invitePendingFilter,
+    exceptionFilter,
   ].filter(Boolean).length;
 
   const clearAllFilters = () => {
@@ -1561,6 +1562,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setUnreadFilter(false);
     setUnreadHighPriority(false);
     setInvitePendingFilter(false);
+    setExceptionFilter(false);
     setSearch('');
   };
 
