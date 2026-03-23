@@ -198,10 +198,25 @@ Deno.serve(async (req) => {
     const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
     const ctaConfig = copy.cta(appUrl);
 
+    // ── Fetch extra context for specific milestones ───────────────────────
+    let extraContext: string | undefined;
+    if (milestone_key === 'go_live_set') {
+      const { data: osRow } = await supabaseAdmin
+        .from('onboarding_status')
+        .select('go_live_date')
+        .eq('operator_id', operator_id)
+        .maybeSingle();
+      if (osRow?.go_live_date) {
+        // Format as "January 15, 2025"
+        const d = new Date(osRow.go_live_date + 'T00:00:00');
+        extraContext = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      }
+    }
+
     const html = buildEmail(
       copy.subject,
       copy.heading,
-      copy.body(operatorName),
+      copy.body(operatorName, extraContext),
       ctaConfig,
       ONBOARDING_EMAIL   // footer shows onboarding@ for this function
     );
