@@ -1,101 +1,130 @@
 
-## What We're Building
+## Full Template Audit — Side-by-Side Comparison
 
-This feature handles a real operational scenario: when an operator choosing SUPERTRANSPORT Shop install for decals/ELD lives far away, it makes no sense to deadhead hundreds of miles before earning revenue. Staff can approve two exceptions — **Paper Logbook** (in place of ELD) and **Temporary Decals** — so the operator can run loads while en route to the shop. This creates a new "approved with exceptions" state that sits between Stage 5 incomplete and Stage 7 fully go-live.
-
-The feature touches Stage 5 (where exceptions originate), introduces Stage 7 (Go Live & Dispatch Readiness), and adds a clear visual indicator on both the Pipeline Dashboard and operator panel that this operator is "dispatched with exceptions."
+After reading all 7 functions in full, here is the exact state of every HTML shell, with every difference highlighted.
 
 ---
 
-## Technical Plan
+### The 5 functions that use `buildEmail()` — Layout comparison
 
-### 1. Database Migration ✅ COMPLETE
-
-Added columns to `public.onboarding_status`: ✅
-- `paper_logbook_approved`, `temp_decal_approved`, `exception_notes`, `exception_approved_by`, `exception_approved_at` (Stage 5 exceptions)
-- `dispatch_ready_orientation`, `dispatch_ready_consortium`, `dispatch_ready_first_assigned`, `go_live_date`, `operator_type` (Stage 7)
-- `supertransport_shop` and `owner_operator_install` confirmed present in `install_method` enum ✅
-
----
-
-### 2. Stage 5 — Exception Block in `OperatorDetailPanel.tsx` ✅ COMPLETE
-
-- **Shop Visit Exceptions** subsection with Paper Logbook and Temporary Decals toggles ✅
-- **"Exception Active"** amber badge in Stage 5 header when exceptions are on ✅
-- Auto-stamps `exception_approved_by` and `exception_approved_at` on first toggle ✅
-- Dot strip shows amber **"E"** node for Stage 5 when exceptions are active ✅
-- Tooltip items show "Pending shop visit (exception approved)" instead of blocking red ✅
-
----
-
-### 3. Stage 7 — New Stage Block in `OperatorDetailPanel.tsx` ✅ COMPLETE
-
-- Dispatch Readiness Checklist (Orientation, Consortium, First Dispatch) ✅
-- Go-Live Date picker — green "Go Live Set" badge when set ✅
-- Operator Type (Solo / Team) dropdown ✅
-- 7-node dot strip and stage refs ✅
-- Audit log entry written on go-live save ✅
-
----
-
-### 4. Stage 5 Completion Logic Update ✅ COMPLETE
-
-- Exception bypass condition: `paper_logbook_approved || temp_decal_approved` renders Stage 5 amber but non-blocking ✅
-- Dot strip "Still needed" tooltip shows "pending shop visit" context when exception is active ✅
-
----
-
-### 5. Pipeline Dashboard Updates ✅ COMPLETE
-
-- `dispatch: 'stage7'` added to `STAGE_KEY_TO_DETAIL` map ✅
-- Stage 7 `pipeline_config` row inserted ✅
-- Amber **"E"** circle on equip node with "Exception active — en route to shop" tooltip ✅
-- **Exception Active** filter chip with live operator count ✅
-- **Exception Active guidance banner** below filter toolbar — "X operators running under an approved exception — en route to the SUPERTRANSPORT shop for installation" ✅
-
----
-
-### 6. Operator Portal — Stage 7 Visibility ✅ COMPLETE
-
-- Stage 7 milestone node added to `OperatorPortal.tsx` ✅
-- Substeps: Orientation Call, Consortium Enrollment, First Dispatch, Go-Live Date ✅
-- Exception note banner in Stage 5 substeps when `paper_logbook_approved` or `temp_decal_approved` are set ✅
-
----
-
-### 7. Notifications ✅ COMPLETE
-
-All operator notifications implemented via `notify_operator_on_status_change` DB trigger:
-
-- **⚠️ Exception approved — Paper Logbook** — fires when `paper_logbook_approved` flips to `true` ✅ (verified)
-- **⚠️ Exception approved — Temporary Decals** — fires when `temp_decal_approved` flips to `true` ✅ (verified)
-- **🚛 Go-live date confirmed!** — fires when `go_live_date` is set, includes formatted date in body ✅
-
----
-
-### Files Changed
-
-| File | What changed |
-|---|---|
-| `supabase/migrations/[new].sql` | 9 new columns on `onboarding_status`; Stage 7 `pipeline_config` row |
-| `src/pages/staff/OperatorDetailPanel.tsx` | Exception block (Stage 5); Stage 7 section; 7-node dot strip; completion logic; audit log on save |
-| `src/pages/staff/PipelineDashboard.tsx` | `dispatch: 'stage7'` mapping; exception E-node; Exception Active chip; guidance banner |
-| `src/pages/operator/OperatorPortal.tsx` | Stage 7 milestone; exception note banner in Stage 5 |
-| `src/components/management/ActivityLog.tsx` | `go_live_updated` and `exception_approved` action configs |
-
----
-
-### Summary of States
+All 5 share the same outer scaffold. Here are the **exact differences** between each copy:
 
 ```
-Stage 5 states:
-  ✓ green  = decal + ELD + fuel card all done
-  ~ amber  = "Exception Active" (shop install pending, exceptions granted)
-  ~ amber  = partial (some done, no exception)
-  - gray   = nothing started
+SECTION            send-notification   notify-onboarding   send-cert-reminder   notify-upload-attention   (shared target)
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+DOCTYPE + head     ✓ identical         ✓ identical          ✓ identical          ✓ identical
+Body bg            #f5f5f5             #f5f5f5              #f5f5f5              #f5f5f5
+Outer table        width="100%"        width="100%"         width="100%"         width="100%"
+Inner table        width="600"         width="600"          width="600"          width="600"
+Header bg          #0f1117             #0f1117              #0f1117              #0f1117
+Header border      3px solid #C9A84C   3px solid #C9A84C    3px solid #C9A84C    3px solid #C9A84C
+Brand text         SUPERTRANSPORT      SUPERTRANSPORT       SUPERTRANSPORT       SUPERTRANSPORT
+Subtitle           DRIVER OPERATIONS   DRIVER OPERATIONS    DRIVER OPERATIONS    DRIVER OPERATIONS
+Body padding       padding:40px        padding:40px         padding:40px         padding:40px
+H1 style           ✓ identical         ✓ identical          ✓ identical          ✓ identical
+Body div style     ✓ identical         ✓ identical          ✓ identical          ✓ identical
+CTA button style   ✓ identical         ✓ identical          ✓ identical          ✓ identical (hardcoded, not optional)
+Footer bg          #f9f9f9             #f9f9f9              #f9f9f9              #f9f9f9
+Footer border-top  1px solid #eee      1px solid #eee       1px solid #eee       1px solid #eee
 
-Stage 7 states:
-  ✓ green  = go_live_date set
-  ~ amber  = checklist items started
-  - gray   = not started
+DIFFERENCES ↓
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Footer email       support@...         onboarding@...       support@...          (no sendEmail helper — raw fetch)
+Footer text line2  "do not reply"      "do not reply"       "do not reply"       "do not reply"
+cta param          optional (cta?)     optional (cta?)      optional (cta?)      REQUIRED (not optional)
+HTML comments      YES (<!-- Header-->) NO                  NO                   YES (<!-- Header --> etc.)
 ```
+
+**Summary of real differences across the 5 standard `buildEmail()` copies:**
+
+1. **Footer support email**: `send-notification` and `send-cert-reminder` use `support@mysupertransport.com`. `notify-onboarding-update` uses `onboarding@mysupertransport.com`. `notify-upload-attention` uses `support@` in the footer but sends `from: support@` as well.
+
+2. **CTA optional vs required**: `notify-upload-attention`'s `buildEmail` signature requires CTA (non-optional). The other three make it optional with `cta?`. The shared helper will keep it optional — `notify-upload-attention` always passes one anyway.
+
+3. **HTML comments**: Two functions include `<!-- Header -->` / `<!-- Body -->` / `<!-- Footer -->` inline comments. Two don't. The shared version will include them (no functional impact, only aids readability).
+
+4. **`sendEmail` helper**: `notify-upload-attention` does NOT use a `sendEmail()` helper — it calls `fetch` directly with `from: support@mysupertransport.com`. This is the only one with a different from-address at send time. The shared `sendEmail(from?)` will accept an optional `from` override to handle this.
+
+---
+
+### The 2 invite functions — `buildInviteEmail()` — Layout comparison
+
+```
+SECTION                    invite-applicant                invite-staff
+────────────────────────────────────────────────────────────────────────
+Outer scaffold             ✓ identical to standard shell  ✓ identical to standard shell
+Header                     ✓ identical                    ✓ identical
+Subtitle                   DRIVER OPERATIONS              DRIVER OPERATIONS
+Footer email               recruiting@...                 support@...
+Footer line 2              "personally invited you"       "automated notification"
+
+BODY DIFFERENCES:
+invite-applicant           Custom h1 with firstName baked in, bullet list of "what to expect",
+                           optional note block (gold left-border), plain-text URL fallback line
+invite-staff               Standard h1, role label, role badge block (gold border), 
+                           expiry warning paragraph, no URL fallback line
+```
+
+These two bodies are **too structurally different to use the standard `buildEmail(body)`** signature cleanly — the heading content is dynamic and baked into the outer `h1`, not a generic heading string. The plan is to extract just the `emailHeader()` + `emailFooter()` from a shared helper so the outer shell is consistent, while each invite function assembles its own body. This is identical to the plan for `send-insurance-request`.
+
+---
+
+### `send-insurance-request` — `buildInsuranceEmail()` — Layout comparison
+
+```
+SECTION               send-insurance-request         Standard buildEmail()
+──────────────────────────────────────────────────────────────────────────
+Outer scaffold        ✓ identical                    ✓ identical
+Inner table width     620 (vs 600)                   600
+Header                ✓ identical                    ✓ identical
+Subtitle              "INSURANCE REQUEST"            "DRIVER OPERATIONS"
+Body padding          padding:36px 40px              padding:40px
+Footer text           "business request sent by..."  "do not reply..."
+Footer no email link  no email link in footer        has email link
+```
+
+Differences here are **intentional** — different subtitle, slightly different padding, different footer copy. This one keeps `buildInsuranceEmail()` but will import `emailHeader()` / `emailFooter()` helpers for its header and footer rows.
+
+---
+
+### Conclusion: Plan is sound with one refinement
+
+The plan is confirmed safe. Here is the single refinement the audit reveals:
+
+**The shared `sendEmail()` helper needs an optional `from` parameter** because:
+- `notify-upload-attention` sends from `support@mysupertransport.com`
+- All others send from `onboarding@mysupertransport.com`
+- The default will be `onboarding@mysupertransport.com`
+
+**The shared `buildEmail()` footer needs a configurable support email** because:
+- `send-notification`, `send-cert-reminder`, `notify-upload-attention` → `support@`  
+- `notify-onboarding-update` → `onboarding@`
+- Default will be `support@mysupertransport.com`; `notify-onboarding-update` will pass an override
+
+Everything else in the layout is byte-for-byte identical across the 5 standard functions. The unification will produce identical HTML output for every existing email.
+
+---
+
+### What the shared helper will export
+
+```
+_shared/email-layout.ts exports:
+  BRAND_COLOR    = '#C9A84C'
+  BRAND_DARK     = '#0f1117'
+  BRAND_NAME     = 'SUPERTRANSPORT'
+  SUPPORT_EMAIL  = 'support@mysupertransport.com'
+
+  buildEmail(subject, heading, body, cta?, footerEmail?)
+    → full HTML string, footerEmail defaults to SUPPORT_EMAIL
+
+  emailHeader(subtitle?)
+    → the <tr> header row HTML, subtitle defaults to 'DRIVER OPERATIONS'
+
+  emailFooter(footerEmail?, footerNote?)
+    → the <tr> footer row HTML
+
+  sendEmail(to, subject, html, resendKey, from?)
+    → calls Resend, from defaults to 'SUPERTRANSPORT <onboarding@mysupertransport.com>'
+```
+
+This covers every variation found in the audit without changing any email's visual output.
