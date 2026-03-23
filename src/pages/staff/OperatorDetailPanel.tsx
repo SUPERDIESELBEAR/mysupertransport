@@ -2428,7 +2428,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       />
                     )}
                   </div>
-                  <SelectField label="PE Screening Result" field="pe_screening_result" options={resultOptions} />
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Screening Result</Label>
+                    <Select
+                      value={(status.pe_screening_result as string) || undefined}
+                      onValueChange={v => {
+                        updateStatus('pe_screening_result', v);
+                        if (v === 'clear' && status.mvr_ch_approval === 'approved') {
+                          setCollapsedStages(prev => { const next = new Set(prev); next.add('stage1'); return next; });
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        {resultOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   {/* Notes */}
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-muted-foreground">Background Check Notes</Label>
