@@ -439,6 +439,10 @@ export default function OperatorPortal() {
         ...((onboardingStatus.paper_logbook_approved || onboardingStatus.temp_decal_approved) && (onboardingStatus.decal_method === 'supertransport_shop' || onboardingStatus.eld_method === 'supertransport_shop') ? [
           { label: 'Exception Status', value: 'Approved — En Route to Shop', status: 'in_progress' as StageStatus },
         ] : []),
+        ...(onboardingStatus.eld_serial_number ? [{ label: 'ELD Serial #', value: onboardingStatus.eld_serial_number as string, status: 'complete' as StageStatus }] : []),
+        ...(onboardingStatus.dash_cam_number ? [{ label: 'Dash Cam #', value: onboardingStatus.dash_cam_number as string, status: 'complete' as StageStatus }] : []),
+        ...(onboardingStatus.bestpass_number ? [{ label: 'BestPass #', value: onboardingStatus.bestpass_number as string, status: 'complete' as StageStatus }] : []),
+        ...(onboardingStatus.fuel_card_number ? [{ label: 'Fuel Card #', value: onboardingStatus.fuel_card_number as string, status: 'complete' as StageStatus }] : []),
       ],
       hint: onboardingStatus.paper_logbook_approved || onboardingStatus.temp_decal_approved
         ? '⚠️ You have been approved to operate with temporary exceptions while traveling to the SUPERTRANSPORT shop for final equipment installation. This is a temporary approval — please arrive at the shop as soon as possible.'

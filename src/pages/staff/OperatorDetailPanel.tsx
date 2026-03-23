@@ -98,6 +98,11 @@ type OnboardingStatus = {
   ica_signed_date: string | null;
   ica_notes: string | null;
   doc_notes: string | null;
+  // Stage 5 — Device Numbers
+  eld_serial_number: string | null;
+  dash_cam_number: string | null;
+  bestpass_number: string | null;
+  fuel_card_number: string | null;
   // Stage 7 — Go Live & Dispatch Readiness
   dispatch_ready_orientation: boolean;
   dispatch_ready_consortium: boolean;
@@ -3246,6 +3251,53 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
                         <SelectContent>{yesNoOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                       </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fuel Card Number</Label>
+                      <Input
+                        value={status.fuel_card_number ?? ''}
+                        onChange={e => updateStatus('fuel_card_number' as any, e.target.value || null)}
+                        placeholder="e.g. 301"
+                        maxLength={3}
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Device Numbers */}
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Assigned Device Numbers</p>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ELD Serial Number</Label>
+                        <Input
+                          value={status.eld_serial_number ?? ''}
+                          onChange={e => updateStatus('eld_serial_number' as any, e.target.value || null)}
+                          placeholder="e.g. ELD-12345678"
+                          maxLength={15}
+                          className="h-9 text-sm font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Dash Camera Number</Label>
+                        <Input
+                          value={status.dash_cam_number ?? ''}
+                          onChange={e => updateStatus('dash_cam_number' as any, e.target.value || null)}
+                          placeholder="e.g. CAM-98765432"
+                          maxLength={15}
+                          className="h-9 text-sm font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">BestPass Number</Label>
+                        <Input
+                          value={status.bestpass_number ?? ''}
+                          onChange={e => updateStatus('bestpass_number' as any, e.target.value || null)}
+                          placeholder="e.g. BP-00112233"
+                          maxLength={15}
+                          className="h-9 text-sm font-mono"
+                        />
+                      </div>
                     </div>
                   </div>
 
