@@ -2393,7 +2393,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     )}
                   </div>
                   {/* MVR/CH Approval */}
-                  <SelectField label="MVR/CH Approval" field="mvr_ch_approval" options={approvalOptions} />
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">MVR/CH Approval</Label>
+                    <Select
+                      value={(status.mvr_ch_approval as string) || undefined}
+                      onValueChange={v => {
+                        updateStatus('mvr_ch_approval', v);
+                        if (v === 'approved' && status.pe_screening_result === 'clear') {
+                          setCollapsedStages(prev => { const next = new Set(prev); next.add('stage1'); return next; });
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        {approvalOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   {/* PE Screening */}
                   <div className="space-y-2">
                     <SelectField label="PE Screening" field="pe_screening" options={screeningOptions} />
