@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
 import DocumentHub from '@/components/documents/DocumentHub';
+import EmailCatalog from '@/components/management/EmailCatalog';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
 import DriverHubView from '@/components/drivers/DriverHubView';
@@ -62,7 +63,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'email-catalog';
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -92,7 +93,7 @@ export default function ManagementPortal() {
   const [searchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const v = searchParams.get('view') as ManagementView | null;
-    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers','pipeline-config','messages','compliance','equipment'].includes(v)) ? v : 'overview';
+    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog'].includes(v)) ? v : 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [scrollToStageKeyMgmt, setScrollToStageKeyMgmt] = useState<string | undefined>(undefined);
@@ -159,7 +160,7 @@ export default function ManagementPortal() {
   useEffect(() => {
     const v = searchParams.get('view') as ManagementView | null;
     const s = searchParams.get('status') as StatusFilter | null;
-    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers','pipeline-config','messages','compliance','equipment'].includes(v)) {
+    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog'].includes(v)) {
       setView(v);
     }
     if (s && ['pending','approved','denied','all'].includes(s)) {
@@ -681,6 +682,7 @@ export default function ManagementPortal() {
     { label: 'Activity',          icon: <ScrollText className="h-4 w-4" />,      path: 'activity' },
     { label: 'Dispatch',          icon: <Truck className="h-4 w-4" />,           path: 'dispatch', badge: truckDownCount || undefined },
     { label: 'Equipment',         icon: <HardDrive className="h-4 w-4" />,       path: 'equipment' },
+    { label: 'Email Catalog',     icon: <Mail className="h-4 w-4" />,            path: 'email-catalog' },
   ];
 
   // Bottom nav on mobile: 5 priority items that fit cleanly at 375px
@@ -1754,6 +1756,10 @@ export default function ManagementPortal() {
 
         {view === 'equipment' && (
           <EquipmentInventory isManagement={true} />
+        )}
+
+        {view === 'email-catalog' && (
+          <EmailCatalog />
         )}
 
 
