@@ -1406,8 +1406,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         },
                         {
                           key: 'stage6', shortLabel: 'Ins',
-                          state: status.insurance_added_date ? 'complete' : (status.insurance_policy_type || (docFiles['insurance_cert'] ?? []).length > 0) ? 'progress' : 'none',
-                          tooltip: status.insurance_added_date ? 'Complete' : (docFiles['insurance_cert'] ?? []).length > 0 ? 'Cert on File' : status.insurance_policy_type ? 'In Progress' : 'Not started',
+                          state: status.insurance_added_date ? 'complete' : (docFiles['insurance_cert'] ?? []).length > 0 || status.insurance_ai_company || status.insurance_ch_company ? 'progress' : 'none',
+                          tooltip: status.insurance_added_date ? 'Complete' : (docFiles['insurance_cert'] ?? []).length > 0 ? 'Cert on File' : (status.insurance_ai_company || status.insurance_ch_company) ? 'In Progress' : 'Not started',
                           items: stages.find(s => s.key === 'stage6')?.items ?? [],
                         },
                         {
