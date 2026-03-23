@@ -709,6 +709,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         if (os.mo_reg_received === 'yes' || os.registration_status === 'own_registration') autoCollapse.add('stage4');
         if (os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes') autoCollapse.add('stage5');
         if (os.insurance_added_date) autoCollapse.add('stage6');
+        if (os.go_live_date) autoCollapse.add('stage7');
         if (autoCollapse.size > 0) setCollapsedStages(autoCollapse);
       }
     }
