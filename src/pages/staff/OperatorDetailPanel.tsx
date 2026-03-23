@@ -673,6 +673,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       if (os) {
         setStatus(os);
         setStatusId(os.id);
+        setChSameAsAI(os.insurance_ch_same_as_ai ?? false);
         savedSnapshot.current = { status: os, notes: (op as any).notes ?? '' };
         savedMilestones.current = {
           ica_status: os.ica_status ?? '',
