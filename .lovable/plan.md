@@ -82,11 +82,11 @@ In the dot strip tooltip ("Still needed"), when exceptions are active, incomplet
 
 ---
 
-### 5. Pipeline Dashboard Updates
+### 5. Pipeline Dashboard Updates ✅ COMPLETE
 
-**`STAGE_KEY_TO_DETAIL` map** gains `dispatch: 'stage7'`.
+**`STAGE_KEY_TO_DETAIL` map** gains `dispatch: 'stage7'`. ✅
 
-**`pipeline_config` migration** inserts a new Stage 7 row:
+**`pipeline_config` migration** inserts a new Stage 7 row: ✅
 ```sql
 INSERT INTO pipeline_config (stage_key, label, full_name, stage_order, items, description)
 VALUES (
@@ -96,9 +96,11 @@ VALUES (
 );
 ```
 
-The existing `evalItem` function handles `complete_value: "present"` already, so no logic changes needed in the dashboard.
+The existing `evalItem` function handles `complete_value: "present"` already, so no logic changes needed in the dashboard. ✅
 
-**Exception indicator on operator rows:** When `paper_logbook_approved = true` or `temp_decal_approved = true`, the operator row in the Pipeline Dashboard gets a small amber **"Exc"** badge in the Stage 5 node tooltip explaining "Exception active — en route to shop."
+**Exception indicator on operator rows:** Amber **"E"** circle on the Stage 5 equip node in the Pipeline Dashboard when `paper_logbook_approved = true` or `temp_decal_approved = true`, with tooltip showing "Exception active — en route to shop." ✅
+
+**Exception Active filter chip:** Amber quick-filter chip in the Pipeline Dashboard toolbar showing a live count of operators under exception; filters the roster to show only those operators. ✅
 
 ---
 
