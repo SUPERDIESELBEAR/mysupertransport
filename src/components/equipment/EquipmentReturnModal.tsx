@@ -129,7 +129,7 @@ export default function EquipmentReturnModal({ open, item, isManagement, onClose
                   <p className={`text-sm font-medium ${
                     condition === c.value
                       ? c.value === 'available' ? 'text-status-complete' :
-                        c.value === 'damaged' ? 'text-amber-700' : 'text-destructive'
+                        c.value === 'damaged' ? 'text-warning' : 'text-destructive'
                       : 'text-foreground'
                   }`}>{c.label}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{c.description}</p>
