@@ -154,6 +154,7 @@ export default function StaffPortal() {
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
     { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
     { label: 'Notifications', icon: <Bell className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
+    { label: 'Equipment',     icon: <HardDrive className="h-4 w-4" />, path: 'equipment' },
   ];
 
   const handleOpenOperator = (operatorId: string) => {
