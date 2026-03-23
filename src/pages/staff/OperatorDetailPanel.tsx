@@ -1540,6 +1540,26 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       ));
                     })()}
                   </div>
+                  {/* Collapse All / Expand All quick-action */}
+                  {(() => {
+                    const stickyAllKeys = ['stage1','stage2','stage3','stage4','stage5','stage6','stage7'];
+                    const stickyAllCollapsed = stickyAllKeys.every(k => collapsedStages.has(k));
+                    return (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => setCollapsedStages(stickyAllCollapsed ? new Set() : new Set(stickyAllKeys))}
+                            className="ml-1 h-6 w-6 rounded flex items-center justify-center border border-border text-muted-foreground hover:text-foreground hover:border-gold transition-all"
+                          >
+                            {stickyAllCollapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">
+                          {stickyAllCollapsed ? 'Expand all stages' : 'Collapse all stages'}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })()}
                   {/* Copy email quick-action */}
                   {operatorEmail && (
                     <Tooltip>
@@ -2268,7 +2288,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Stage Summary Dot Row + Collapse All */}
       {(() => {
-        const allStageKeys = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6'];
+        const allStageKeys = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7'];
         const allCollapsed = allStageKeys.every(k => collapsedStages.has(k));
 
         type DotState = 'complete' | 'progress' | 'na' | 'none';
