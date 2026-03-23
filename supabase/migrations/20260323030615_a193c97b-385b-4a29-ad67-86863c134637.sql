@@ -1,0 +1,1 @@
+UPDATE public.onboarding_status SET decal_method = 'supertransport_shop', temp_decal_approved = true, updated_at = now() WHERE operator_id = 'ec79e22f-3001-4e5b-b8d1-7347e7a4c718'
