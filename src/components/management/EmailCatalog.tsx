@@ -677,12 +677,61 @@ const CATEGORY_COUNT = (cat: Category) => TEMPLATES.filter(t => t.category === c
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function EmailCatalog() {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [activeCategory, setActiveCategory] = useState<Category | 'all'>('all');
   const [previewTemplate, setPreviewTemplate] = useState<EmailTemplate | null>(null);
+  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [sentIds, setSentIds] = useState<Set<string>>(new Set());
 
   const filtered = activeCategory === 'all'
     ? TEMPLATES
     : TEMPLATES.filter(t => t.category === activeCategory);
+
+  const handleSendTest = async (template: EmailTemplate) => {
+    if (!user) return;
+    setSendingId(template.id);
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/send-test-email`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            subject: template.subject,
+            html: template.renderHtml(),
+          }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Send failed');
+      setSentIds(prev => new Set([...prev, template.id]));
+      toast({
+        title: 'Test email sent',
+        description: `Sent to ${data.sentTo}`,
+      });
+      // Reset checkmark after 5 s
+      setTimeout(() => setSentIds(prev => {
+        const next = new Set(prev);
+        next.delete(template.id);
+        return next;
+      }), 5000);
+    } catch (err) {
+      toast({
+        title: 'Failed to send test email',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingId(null);
+    }
+  };
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -718,6 +767,8 @@ export default function EmailCatalog() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
         {filtered.map(template => {
           const recipientStyle = RECIPIENT_STYLES[template.recipient];
+          const isSending = sendingId === template.id;
+          const isSent = sentIds.has(template.id);
           return (
             <div
               key={template.id}
@@ -751,16 +802,33 @@ export default function EmailCatalog() {
                 <p className="text-xs text-muted-foreground leading-snug truncate">{template.sender}</p>
               </div>
 
-              {/* Preview button */}
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full mt-auto gap-2 text-xs"
-                onClick={() => setPreviewTemplate(template)}
-              >
-                <Eye className="h-3.5 w-3.5" />
-                Preview Email
-              </Button>
+              {/* Action buttons */}
+              <div className="mt-auto flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 gap-2 text-xs"
+                  onClick={() => setPreviewTemplate(template)}
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Preview
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={`flex-1 gap-2 text-xs transition-colors ${isSent ? 'border-green-500 text-green-600 hover:bg-green-50' : ''}`}
+                  disabled={isSending || !!sendingId}
+                  onClick={() => handleSendTest(template)}
+                >
+                  {isSending ? (
+                    <><Loader2 className="h-3.5 w-3.5 animate-spin" />Sending…</>
+                  ) : isSent ? (
+                    <><CheckCircle2 className="h-3.5 w-3.5" />Sent!</>
+                  ) : (
+                    <><Send className="h-3.5 w-3.5" />Send Test</>
+                  )}
+                </Button>
+              </div>
             </div>
           );
         })}
@@ -773,7 +841,7 @@ export default function EmailCatalog() {
             <DialogTitle className="text-base font-semibold leading-tight">
               {previewTemplate?.title}
             </DialogTitle>
-            <div className="flex flex-wrap gap-2 mt-2">
+            <div className="flex flex-wrap items-center gap-2 mt-2">
               {previewTemplate && (
                 <>
                   <Badge variant="outline" className={`text-[10px] font-semibold border ${RECIPIENT_STYLES[previewTemplate.recipient].className}`}>
@@ -785,6 +853,21 @@ export default function EmailCatalog() {
                   <Badge variant="outline" className="text-[10px] font-medium border-border text-muted-foreground max-w-xs truncate">
                     Subject: {previewTemplate.subject}
                   </Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={`ml-auto gap-2 text-xs h-7 px-3 transition-colors ${sentIds.has(previewTemplate.id) ? 'border-green-500 text-green-600 hover:bg-green-50' : ''}`}
+                    disabled={sendingId === previewTemplate.id || (!!sendingId && sendingId !== previewTemplate.id)}
+                    onClick={() => handleSendTest(previewTemplate)}
+                  >
+                    {sendingId === previewTemplate.id ? (
+                      <><Loader2 className="h-3 w-3 animate-spin" />Sending…</>
+                    ) : sentIds.has(previewTemplate.id) ? (
+                      <><CheckCircle2 className="h-3 w-3" />Sent to your inbox!</>
+                    ) : (
+                      <><Send className="h-3 w-3" />Send Test to My Inbox</>
+                    )}
+                  </Button>
                 </>
               )}
             </div>
