@@ -858,6 +858,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           decal_applied,
           eld_installed,
           fuel_card_issued,
+          paper_logbook_approved,
+          temp_decal_approved,
           insurance_added_date,
           fully_onboarded,
           form_2290,
