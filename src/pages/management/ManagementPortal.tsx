@@ -1752,6 +1752,11 @@ export default function ManagementPortal() {
           <PipelineConfigEditor />
         )}
 
+        {view === 'equipment' && (
+          <EquipmentInventory isManagement={true} />
+        )}
+
+
         {view === 'messages' && (
           <div className="flex flex-col gap-0" style={{ height: 'calc(100vh - 160px - 64px)' }}>
             <div className="flex items-center justify-between mb-3 shrink-0">
