@@ -119,6 +119,12 @@ const ACTION_CONFIG: Record<string, {
     color: 'text-sky-600',
     bg: 'bg-sky-50 border-sky-200',
   },
+  insurance_fields_updated: {
+    label: 'Insurance Updated',
+    icon: <Shield className="h-4 w-4" />,
+    color: 'text-amber-600',
+    bg: 'bg-amber-50 border-amber-200',
+  },
 };
 
 const FILTER_OPTIONS = [
@@ -137,6 +143,7 @@ const FILTER_OPTIONS = [
   { value: 'onboarding_completed', label: 'Onboarding Completed' },
   { value: 'cert_renewed', label: 'Cert Renewals' },
   { value: 'expiry_updated', label: 'Fleet Expiry Updates' },
+  { value: 'insurance_fields_updated', label: 'Insurance Updates' },
 ];
 
 const DATE_PRESETS = [
@@ -217,6 +224,17 @@ function EntryDetail({ entry }: { entry: AuditEntry }) {
           <span className="font-medium text-foreground">{meta.new_expiry ? new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString() : ''}</span>
         </span>
       );
+    case 'insurance_fields_updated': {
+      const changes = meta.changes as Record<string, { from: unknown; to: unknown }> | undefined;
+      const fieldNames = changes ? Object.keys(changes) : [];
+      return (
+        <span className="text-xs text-muted-foreground">
+          {fieldNames.length > 0
+            ? <>{fieldNames.length} field{fieldNames.length > 1 ? 's' : ''} updated: <span className="font-medium text-foreground">{fieldNames.slice(0, 3).join(', ')}{fieldNames.length > 3 ? ` +${fieldNames.length - 3} more` : ''}</span></>
+            : 'Insurance fields updated'}
+        </span>
+      );
+    }
     default:
       return null;
   }
@@ -336,10 +354,25 @@ function EntryExpandedPanel({
       if (meta.new_expiry) structuredRows.push({ icon: <CheckCircle2 className="h-3.5 w-3.5" />, label: 'New Expiry', value: new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString() });
       if (meta.urgency) structuredRows.push({ icon: <Info className="h-3.5 w-3.5" />, label: 'Urgency', value: String(meta.urgency) });
       break;
+    case 'insurance_fields_updated': {
+      const changes = meta.changes as Record<string, { from: unknown; to: unknown }> | undefined;
+      if (changes) {
+        Object.entries(changes).forEach(([field, diff]) => {
+          const from = diff.from != null ? String(diff.from) : '—';
+          const to   = diff.to   != null ? String(diff.to)   : '—';
+          structuredRows.push({
+            icon: <Shield className="h-3.5 w-3.5" />,
+            label: field,
+            value: <span>{from} → <span className="font-medium text-foreground">{to}</span></span>,
+          });
+        });
+      }
+      break;
+    }
   }
 
   // Remaining raw metadata keys not already shown
-  const shownKeys = new Set(['applicant_name', 'applicant_email', 'reviewer_notes', 'role', 'target_user', 'milestones', 'changed_fields', 'operator_name', 'document_type', 'old_expiry', 'new_expiry', 'urgency']);
+  const shownKeys = new Set(['applicant_name', 'applicant_email', 'reviewer_notes', 'role', 'target_user', 'milestones', 'changed_fields', 'operator_name', 'document_type', 'old_expiry', 'new_expiry', 'urgency', 'changes']);
   const rawExtras = Object.entries(meta).filter(([k]) => !shownKeys.has(k));
 
   return (
@@ -409,6 +442,11 @@ function buildDetailText(entry: AuditEntry): string {
       return `${meta.document_type as string} renewed · was ${meta.old_expiry ? new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString() : 'unknown'} → ${new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString()}`;
     case 'expiry_updated':
       return `Fleet ${meta.document_type as string} · ${meta.old_expiry ? new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString() + ' → ' : ''}${meta.new_expiry ? new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString() : ''} · ${meta.urgency ?? ''}`;
+    case 'insurance_fields_updated': {
+      const changes = meta.changes as Record<string, unknown> | undefined;
+      const fields = changes ? Object.keys(changes) : [];
+      return fields.length ? `${fields.length} field${fields.length > 1 ? 's' : ''} updated: ${fields.join(', ')}` : 'Insurance fields updated';
+    }
     default:
       return '';
   }
