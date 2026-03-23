@@ -2470,7 +2470,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           </button>
           {!s2Collapsed && (
           <div className="px-5 pb-5 space-y-3">
-            <SelectField label="Registration Status" field="registration_status" options={regOptions} />
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Registration Status</Label>
+              <Select
+                value={(status.registration_status as string) || undefined}
+                onValueChange={v => {
+                  updateStatus('registration_status', v);
+                  if (v === 'own_registration') {
+                    setCollapsedStages(prev => { const next = new Set(prev); next.add('stage4'); return next; });
+                  }
+                }}
+              >
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  {regOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             {/* Doc fields with inline Request buttons */}
             {([
               { field: 'form_2290', label: 'Form 2290' },
