@@ -156,6 +156,8 @@ const FILTER_OPTIONS = [
   { value: 'cert_renewed', label: 'Cert Renewals' },
   { value: 'expiry_updated', label: 'Fleet Expiry Updates' },
   { value: 'insurance_fields_updated', label: 'Insurance Updates' },
+  { value: 'go_live_updated', label: 'Go-Live Set' },
+  { value: 'exception_approved', label: 'Exceptions Approved' },
 ];
 
 const DATE_PRESETS = [
