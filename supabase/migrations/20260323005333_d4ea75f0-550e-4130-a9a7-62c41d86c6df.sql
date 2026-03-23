@@ -1,0 +1,1 @@
+UPDATE public.onboarding_status SET insurance_stated_value = NULL, insurance_notes = NULL WHERE operator_id = 'ec79e22f-3001-4e5b-b8d1-7347e7a4c718'
