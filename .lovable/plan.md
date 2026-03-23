@@ -9,123 +9,83 @@ The feature touches Stage 5 (where exceptions originate), introduces Stage 7 (Go
 
 ## Technical Plan
 
-### 1. Database Migration
-Add columns to `public.onboarding_status`:
+### 1. Database Migration ✅ COMPLETE
 
-```
--- Stage 5 exceptions
-paper_logbook_approved     boolean  default false
-temp_decal_approved        boolean  default false
-exception_notes            text     nullable
-exception_approved_by      uuid     nullable  (staff user_id who granted it)
-exception_approved_at      timestamptz nullable
-
--- Stage 7 — Go Live & Dispatch Readiness
-dispatch_ready_orientation      boolean  default false
-dispatch_ready_consortium       boolean  default false
-dispatch_ready_first_assigned   boolean  default false
-go_live_date                    date     nullable
-operator_type                   text     nullable  ('solo' | 'team')
-equip_notes                     text     nullable
-```
-
-Also add `'supertransport_shop'` and `'owner_operator_install'` to the `install_method` enum — these are already in a previous migration so we only need to confirm they exist (they do from migration `20260322205234`).
+Added columns to `public.onboarding_status`: ✅
+- `paper_logbook_approved`, `temp_decal_approved`, `exception_notes`, `exception_approved_by`, `exception_approved_at` (Stage 5 exceptions)
+- `dispatch_ready_orientation`, `dispatch_ready_consortium`, `dispatch_ready_first_assigned`, `go_live_date`, `operator_type` (Stage 7)
+- `supertransport_shop` and `owner_operator_install` confirmed present in `install_method` enum ✅
 
 ---
 
-### 2. Stage 5 — Exception Block in `OperatorDetailPanel.tsx`
+### 2. Stage 5 — Exception Block in `OperatorDetailPanel.tsx` ✅ COMPLETE
 
-When `decal_method` or `eld_method` is `'supertransport_shop'`, a new collapsible **"Shop Visit Exceptions"** subsection appears inside Stage 5 (below ELD, above Fuel Card). It contains:
-
-- **Paper Logbook Approved** toggle (checkbox/switch) — shown only when `eld_method === 'supertransport_shop'`
-- **Temporary Decals Approved** toggle — shown only when `decal_method === 'supertransport_shop'`
-- **Exception Notes** textarea (free-text for staff to record the approval context, e.g. "Coming from Tennessee, ~800 miles")
-- Auto-stamps `exception_approved_by` and `exception_approved_at` on save when either toggle is turned on for the first time
-
-The Stage 5 **header badge** gets a new state: when one or both exceptions are active (but `eld_installed` or `decal_applied` are still `'no'`), it shows an amber **"Exception Active"** badge instead of the normal in-progress count. When both are fully installed, it reverts to the green "All Equipment Ready" badge.
-
-The Stage 5 **completion logic** gets a new concept: "exception-complete." The stage no longer blocks overall progress if exceptions are approved and the operator is actively running. The dot strip and progress bar will show Stage 5 as amber with a special exception indicator.
+- **Shop Visit Exceptions** subsection with Paper Logbook and Temporary Decals toggles ✅
+- **"Exception Active"** amber badge in Stage 5 header when exceptions are on ✅
+- Auto-stamps `exception_approved_by` and `exception_approved_at` on first toggle ✅
+- Dot strip shows amber **"E"** node for Stage 5 when exceptions are active ✅
+- Tooltip items show "Pending shop visit (exception approved)" instead of blocking red ✅
 
 ---
 
-### 3. Stage 7 — New Stage Block in `OperatorDetailPanel.tsx`
+### 3. Stage 7 — New Stage Block in `OperatorDetailPanel.tsx` ✅ COMPLETE
 
-Add a new `Stage 7 — Go Live & Dispatch Readiness` section after Stage 6. It contains:
-
-**Section: Dispatch Readiness Checklist**
-- Onboarding orientation call completed (toggle)
-- Drug & alcohol consortium enrolled (toggle)
-- First dispatch assigned (toggle)
-
-**Section: Go-Live**
-- Go-Live Date (date picker) — when set, stage is "complete"
-- Operator Type (Solo / Team) dropdown
-
-**Section: Equipment Setup Notes** (moved from the Stage 5 equip_notes field that didn't exist yet, now lives here as a general go-live note)
-
-**Header badge logic:**
-- Complete: `go_live_date` is set → green "Go Live Set"
-- Partial: any checklist item checked → amber with count
-- Empty: no badge
-
-**`OnboardingStatus` type** gains all 9 new fields.
-
-The dot strip and stage refs get a 7th entry.
+- Dispatch Readiness Checklist (Orientation, Consortium, First Dispatch) ✅
+- Go-Live Date picker — green "Go Live Set" badge when set ✅
+- Operator Type (Solo / Team) dropdown ✅
+- 7-node dot strip and stage refs ✅
+- Audit log entry written on go-live save ✅
 
 ---
 
-### 4. Stage 5 Completion Logic Update
+### 4. Stage 5 Completion Logic Update ✅ COMPLETE
 
-The `stages` array used for the dot strip and progress bar currently marks Stage 5 complete only when `decal_applied === 'yes' && eld_installed === 'yes' && fuel_card_issued === 'yes'`. We add a new "exception bypass" condition: if `paper_logbook_approved || temp_decal_approved`, Stage 5 is considered **partial** (amber) but not blocking — and the dot shows a special amber color with a small "E" indicator.
-
-In the dot strip tooltip ("Still needed"), when exceptions are active, incomplete items will show as "Pending shop visit (exception approved)" instead of a red blocking item.
+- Exception bypass condition: `paper_logbook_approved || temp_decal_approved` renders Stage 5 amber but non-blocking ✅
+- Dot strip "Still needed" tooltip shows "pending shop visit" context when exception is active ✅
 
 ---
 
 ### 5. Pipeline Dashboard Updates ✅ COMPLETE
 
-**`STAGE_KEY_TO_DETAIL` map** gains `dispatch: 'stage7'`. ✅
-
-**`pipeline_config` migration** inserts a new Stage 7 row: ✅
-```sql
-INSERT INTO pipeline_config (stage_key, label, full_name, stage_order, items, description)
-VALUES (
-  'dispatch', 'Go Live', 'Go Live & Dispatch Readiness', 7,
-  '[{"key":"go_live_date","label":"Go-Live Date Set","field":"go_live_date","complete_value":"present"}]',
-  'Final go-live confirmation and dispatch readiness checklist'
-);
-```
-
-The existing `evalItem` function handles `complete_value: "present"` already, so no logic changes needed in the dashboard. ✅
-
-**Exception indicator on operator rows:** Amber **"E"** circle on the Stage 5 equip node in the Pipeline Dashboard when `paper_logbook_approved = true` or `temp_decal_approved = true`, with tooltip showing "Exception active — en route to shop." ✅
-
-**Exception Active filter chip:** Amber quick-filter chip in the Pipeline Dashboard toolbar showing a live count of operators under exception; filters the roster to show only those operators. ✅
+- `dispatch: 'stage7'` added to `STAGE_KEY_TO_DETAIL` map ✅
+- Stage 7 `pipeline_config` row inserted ✅
+- Amber **"E"** circle on equip node with "Exception active — en route to shop" tooltip ✅
+- **Exception Active** filter chip with live operator count ✅
+- **Exception Active guidance banner** below filter toolbar — "X operators running under an approved exception — en route to the SUPERTRANSPORT shop for installation" ✅
 
 ---
 
-### 6. Operator Portal — Stage 7 Visibility
+### 6. Operator Portal — Stage 7 Visibility ✅ COMPLETE
 
-In `OperatorPortal.tsx`, add a Stage 7 entry to the stages array passed to `OperatorStatusPage`:
-- Shows as a milestone node titled "Go Live & Dispatch Readiness"
-- Substeps: Orientation Call, Consortium Enrollment, First Dispatch, Go-Live Date
-- If `paper_logbook_approved` or `temp_decal_approved` are set, a small note banner appears in Stage 5's substeps: "You have been approved to operate with a paper logbook / temporary decals while en route to the SUPERTRANSPORT shop."
+- Stage 7 milestone node added to `OperatorPortal.tsx` ✅
+- Substeps: Orientation Call, Consortium Enrollment, First Dispatch, Go-Live Date ✅
+- Exception note banner in Stage 5 substeps when `paper_logbook_approved` or `temp_decal_approved` are set ✅
 
 ---
 
-### Files to Change
+### 7. Notifications ✅ COMPLETE
 
-| File | What changes |
+All operator notifications implemented via `notify_operator_on_status_change` DB trigger:
+
+- **⚠️ Exception approved — Paper Logbook** — fires when `paper_logbook_approved` flips to `true` ✅ (verified)
+- **⚠️ Exception approved — Temporary Decals** — fires when `temp_decal_approved` flips to `true` ✅ (verified)
+- **🚛 Go-live date confirmed!** — fires when `go_live_date` is set, includes formatted date in body ✅
+
+---
+
+### Files Changed
+
+| File | What changed |
 |---|---|
-| `supabase/migrations/[new].sql` | Add 9 new columns to `onboarding_status`; insert Stage 7 pipeline_config row |
-| `src/pages/staff/OperatorDetailPanel.tsx` | Update `OnboardingStatus` type; add exception block to Stage 5; add Stage 7 section; update dot strip to 7 nodes; update stage completion logic |
-| `src/pages/staff/PipelineDashboard.tsx` | Add `dispatch: 'stage7'` to `STAGE_KEY_TO_DETAIL` |
-| `src/pages/operator/OperatorPortal.tsx` | Add Stage 7 to stages array; add exception note to Stage 5 substeps |
-| `src/components/management/ActivityLog.tsx` | Add `go_live_updated` and `exception_approved` action configs |
+| `supabase/migrations/[new].sql` | 9 new columns on `onboarding_status`; Stage 7 `pipeline_config` row |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Exception block (Stage 5); Stage 7 section; 7-node dot strip; completion logic; audit log on save |
+| `src/pages/staff/PipelineDashboard.tsx` | `dispatch: 'stage7'` mapping; exception E-node; Exception Active chip; guidance banner |
+| `src/pages/operator/OperatorPortal.tsx` | Stage 7 milestone; exception note banner in Stage 5 |
+| `src/components/management/ActivityLog.tsx` | `go_live_updated` and `exception_approved` action configs |
 
 ---
 
-### Summary of New States
+### Summary of States
 
 ```
 Stage 5 states:
