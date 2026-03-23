@@ -224,6 +224,17 @@ function EntryDetail({ entry }: { entry: AuditEntry }) {
           <span className="font-medium text-foreground">{meta.new_expiry ? new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString() : ''}</span>
         </span>
       );
+    case 'insurance_fields_updated': {
+      const changes = meta.changes as Record<string, { from: unknown; to: unknown }> | undefined;
+      const fieldNames = changes ? Object.keys(changes) : [];
+      return (
+        <span className="text-xs text-muted-foreground">
+          {fieldNames.length > 0
+            ? <>{fieldNames.length} field{fieldNames.length > 1 ? 's' : ''} updated: <span className="font-medium text-foreground">{fieldNames.slice(0, 3).join(', ')}{fieldNames.length > 3 ? ` +${fieldNames.length - 3} more` : ''}</span></>
+            : 'Insurance fields updated'}
+        </span>
+      );
+    }
     default:
       return null;
   }
