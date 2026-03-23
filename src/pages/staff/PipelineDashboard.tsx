@@ -1875,6 +1875,40 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </TooltipProvider>
               );
             })()}
+            {/* Exception Active quick-filter chip */}
+            {(() => {
+              const exceptionCount = operators.filter(o => o.paper_logbook_approved || o.temp_decal_approved).length;
+              if (exceptionCount === 0) return null;
+              return (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => setExceptionFilter(v => !v)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
+                          exceptionFilter
+                            ? 'border-warning text-warning-foreground'
+                            : 'bg-background border-border hover:border-warning/60'
+                        }`}
+                        style={
+                          exceptionFilter
+                            ? { background: 'hsl(var(--warning))', color: 'hsl(var(--warning-foreground))' }
+                            : { color: 'hsl(var(--warning))' }
+                        }
+                      >
+                        <span className="text-[10px] font-black leading-none">E</span>
+                        <span className="hidden sm:inline">Exception Active</span>
+                        <span className="font-bold">{exceptionCount}</span>
+                        {exceptionFilter && <X className="h-3 w-3" />}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs max-w-[220px] text-center">
+                      Show only operators running under an exception (paper logbook or temporary decals approved)
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })()}
             <div className="inline-flex items-center rounded-full border transition-colors overflow-hidden">
               <button
                 onClick={() => {
