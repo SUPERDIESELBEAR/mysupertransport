@@ -1210,6 +1210,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
       {(() => {
+        const exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
+        const allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
         const stages = [
           { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear', fullName: 'Background Check', items: [
               { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
@@ -1231,13 +1233,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               { label: 'MO Docs Submitted',      done: status.mo_docs_submitted === 'submitted' },
               { label: 'MO Registration Received', done: status.mo_reg_received === 'yes' },
             ]},
-          { label: 'Equipment',  key: 'stage5', complete: status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes', fullName: 'Equipment', items: [
-              { label: 'Decal Applied',    done: status.decal_applied === 'yes' },
-              { label: 'ELD Installed',    done: status.eld_installed === 'yes' },
+          { label: 'Equipment',  key: 'stage5', complete: allEquipFull, fullName: 'Equipment', exception: exceptionActive && !allEquipFull, items: [
+              { label: 'Decal Applied',    done: status.decal_applied === 'yes' || (status.temp_decal_approved && status.decal_method === 'supertransport_shop') },
+              { label: 'ELD Installed',    done: status.eld_installed === 'yes' || (status.paper_logbook_approved && status.eld_method === 'supertransport_shop') },
               { label: 'Fuel Card Issued', done: status.fuel_card_issued === 'yes' },
             ]},
           { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date, fullName: 'Insurance', items: [
               { label: 'Insurance Added', done: !!status.insurance_added_date },
+            ]},
+          { label: 'Go Live',    key: 'stage7', complete: !!status.go_live_date, fullName: 'Go Live & Dispatch Readiness', items: [
+              { label: 'Orientation Call',       done: status.dispatch_ready_orientation },
+              { label: 'Consortium Enrolled',    done: status.dispatch_ready_consortium },
+              { label: 'First Dispatch Assigned',done: status.dispatch_ready_first_assigned },
+              { label: 'Go-Live Date Set',       done: !!status.go_live_date },
             ]},
         ];
         const completedCount = stages.filter(s => s.complete).length;
