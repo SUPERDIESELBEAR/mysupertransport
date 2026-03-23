@@ -764,6 +764,39 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const isNewlyFullyOnboarded =
       !prev.insurance_added_date && !!status.insurance_added_date;
 
+    // ── Capture insurance field changes before writing ────────────────────
+    const INSURANCE_FIELD_LABELS: Record<string, string> = {
+      insurance_policy_type:    'Coverage Type',
+      insurance_stated_value:   'Stated Value',
+      insurance_added_date:     'Added to Policy Date',
+      insurance_ai_company:     'AI — Company',
+      insurance_ai_address:     'AI — Address',
+      insurance_ai_city:        'AI — City',
+      insurance_ai_state:       'AI — State',
+      insurance_ai_zip:         'AI — ZIP',
+      insurance_ai_email:       'AI — Email',
+      insurance_ch_company:     'CH — Company',
+      insurance_ch_address:     'CH — Address',
+      insurance_ch_city:        'CH — City',
+      insurance_ch_state:       'CH — State',
+      insurance_ch_zip:         'CH — ZIP',
+      insurance_ch_email:       'CH — Email',
+      insurance_ch_same_as_ai:  'CH Same as AI',
+      insurance_notes:          'Insurance Notes',
+    };
+    const prevStatus = savedSnapshot.current.status as Partial<OnboardingStatus>;
+    const insuranceChanges: Record<string, { from: unknown; to: unknown }> = {};
+    for (const key of Object.keys(INSURANCE_FIELD_LABELS)) {
+      const k = key as keyof OnboardingStatus;
+      if (prevStatus[k] !== status[k]) {
+        insuranceChanges[INSURANCE_FIELD_LABELS[key]] = {
+          from: prevStatus[k] ?? null,
+          to:   status[k]    ?? null,
+        };
+      }
+    }
+    const hasInsuranceChanges = Object.keys(insuranceChanges).length > 0;
+
     // Check if all docs are now received (all four fields = 'received')
     const allDocsReceived =
       status.form_2290 === 'received' &&
