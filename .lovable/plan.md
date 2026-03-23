@@ -1,24 +1,30 @@
 
-## Migrate 2 remaining edge functions to shared email layout
+## Add RECRUITING_EMAIL constant and update invite-applicant
 
-### What changes
+Small, precise change — two files, three line edits total.
 
-**`check-cert-expiry/index.ts`**
-- Remove lines 8–70 (local `buildEmail` + `sendEmail` functions)
-- Add `import { buildEmail, sendEmail } from '../_shared/email-layout.ts';` at top
-- No call-site changes needed — signatures match exactly (both return `void`)
+### What "hardcoded" means here
 
-**`notify-document-update/index.ts`**
-- Remove lines 8–87 (local `buildEmail` + `sendEmail` functions + `sleep` helper)
-- Add `import { buildEmail, sendEmail } from '../_shared/email-layout.ts';` at top
-- Keep `sleep` as a local helper (it is unrelated to email, used for Resend rate-limit throttling)
-- The local `sendEmail` returned `boolean` and the calling loop uses `ok ? sent++ : failed++`. Replace with a `try/catch` wrapping the shared `sendEmail` (which returns `void`) — same outcome, same counts
+`recruiting@mysupertransport.com` appears **twice** in `invite-applicant/index.ts`:
+- Line 48 — passed to `emailFooter()` as the footer contact address
+- Line 150 — used as the Resend `from:` sender address
 
-### Visual output
-Zero changes. Both functions use `support@mysupertransport.com` in the footer and `onboarding@` as the sender, which are the exact defaults in the shared helper. HTML output is byte-for-byte identical.
+Neither references the shared `_shared/email-layout.ts`. If the recruiting address ever changes, someone would have to hunt through the function file to find both instances rather than changing one line in the shared constants file.
+
+### Changes
+
+**`_shared/email-layout.ts`** — add one line after `ONBOARDING_EMAIL`:
+```ts
+export const RECRUITING_EMAIL = 'recruiting@mysupertransport.com';
+```
+
+**`invite-applicant/index.ts`** — two updates:
+1. Import `RECRUITING_EMAIL` from the shared file (already imports `emailHeader`, `emailFooter` — just add to the import list)
+2. Line 48: replace `'recruiting@mysupertransport.com'` → `RECRUITING_EMAIL`
+3. Line 150: replace `'SUPERTRANSPORT Recruiting <recruiting@mysupertransport.com>'` → `` `SUPERTRANSPORT Recruiting <${RECRUITING_EMAIL}>` ``
 
 ### Files changed
-1. `supabase/functions/check-cert-expiry/index.ts`
-2. `supabase/functions/notify-document-update/index.ts`
+1. `supabase/functions/_shared/email-layout.ts` — add `RECRUITING_EMAIL` constant
+2. `supabase/functions/invite-applicant/index.ts` — import and use it in 2 places
 
-After this, all 9 email-sending edge functions draw from the single `_shared/email-layout.ts` source of truth.
+Zero functional or visual changes. This is purely a maintainability improvement.
