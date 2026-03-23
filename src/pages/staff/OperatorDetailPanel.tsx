@@ -109,6 +109,12 @@ type OnboardingStatus = {
   dispatch_ready_first_assigned: boolean;
   go_live_date: string | null;
   operator_type: string | null;
+  // Upfront Costs
+  cost_mo_registration: number | null;
+  cost_form_2290: number | null;
+  cost_other: number | null;
+  cost_other_description: string | null;
+  cost_notes: string | null;
 };
 
 type DispatchHistoryEntry = {
@@ -1327,6 +1333,104 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   {s.label}
                 </button>
               ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Upfront Costs Card ── staff-only, always visible ── */}
+      {(() => {
+        const moVal   = status.cost_mo_registration ?? null;
+        const f2290   = status.cost_form_2290 ?? null;
+        const other   = status.cost_other ?? null;
+        const total   = (moVal ?? 0) + (f2290 ?? 0) + (other ?? 0);
+        const hasAny  = moVal !== null || f2290 !== null || other !== null;
+        return (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-base leading-none">💰</span>
+              <h3 className="text-sm font-semibold text-amber-900">Upfront Costs Paid by Supertransport</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+              {/* MO Registration */}
+              <div>
+                <Label className="text-xs text-amber-800 mb-1 block">MO Registration</Label>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-semibold text-amber-700">$</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={status.cost_mo_registration ?? ''}
+                    onChange={e => setStatus(prev => ({ ...prev, cost_mo_registration: e.target.value === '' ? null : parseFloat(e.target.value) }))}
+                    className="h-8 text-sm bg-white border-amber-200 focus:border-amber-400"
+                  />
+                </div>
+              </div>
+              {/* Form 2290 */}
+              <div>
+                <Label className="text-xs text-amber-800 mb-1 block">Form 2290</Label>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-semibold text-amber-700">$</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={status.cost_form_2290 ?? ''}
+                    onChange={e => setStatus(prev => ({ ...prev, cost_form_2290: e.target.value === '' ? null : parseFloat(e.target.value) }))}
+                    className="h-8 text-sm bg-white border-amber-200 focus:border-amber-400"
+                  />
+                </div>
+              </div>
+              {/* Other */}
+              <div>
+                <Label className="text-xs text-amber-800 mb-1 block">Other</Label>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-semibold text-amber-700">$</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={status.cost_other ?? ''}
+                    onChange={e => setStatus(prev => ({ ...prev, cost_other: e.target.value === '' ? null : parseFloat(e.target.value) }))}
+                    className="h-8 text-sm bg-white border-amber-200 focus:border-amber-400"
+                  />
+                </div>
+              </div>
+            </div>
+            {/* Other description — only when Other has a value */}
+            {(other !== null && other > 0) && (
+              <div className="mb-3">
+                <Label className="text-xs text-amber-800 mb-1 block">Other — Description</Label>
+                <Input
+                  placeholder="e.g. Permit fee, vendor name…"
+                  value={status.cost_other_description ?? ''}
+                  onChange={e => setStatus(prev => ({ ...prev, cost_other_description: e.target.value }))}
+                  className="h-8 text-sm bg-white border-amber-200 focus:border-amber-400"
+                />
+              </div>
+            )}
+            {/* Running total */}
+            {hasAny && (
+              <div className="flex items-center justify-between mb-3 px-1">
+                <span className="text-xs font-semibold text-amber-800">Total Paid</span>
+                <span className="text-sm font-bold text-amber-900">
+                  ${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
+            {/* Cost notes */}
+            <div>
+              <Label className="text-xs text-amber-800 mb-1 block">Cost Notes</Label>
+              <Textarea
+                placeholder="Vendor details, payment date, receipts reference…"
+                value={status.cost_notes ?? ''}
+                onChange={e => setStatus(prev => ({ ...prev, cost_notes: e.target.value }))}
+                className="text-sm min-h-[60px] bg-white border-amber-200 focus:border-amber-400 resize-none"
+              />
             </div>
           </div>
         );

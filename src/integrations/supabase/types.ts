@@ -1091,6 +1091,11 @@ export type Database = {
           ch_received_date: string | null
           ch_requested_date: string | null
           ch_status: Database["public"]["Enums"]["mvr_status"]
+          cost_form_2290: number | null
+          cost_mo_registration: number | null
+          cost_notes: string | null
+          cost_other: number | null
+          cost_other_description: string | null
           dash_cam_number: string | null
           decal_applied: Database["public"]["Enums"]["yes_no"]
           decal_method: Database["public"]["Enums"]["install_method"] | null
@@ -1166,6 +1171,11 @@ export type Database = {
           ch_received_date?: string | null
           ch_requested_date?: string | null
           ch_status?: Database["public"]["Enums"]["mvr_status"]
+          cost_form_2290?: number | null
+          cost_mo_registration?: number | null
+          cost_notes?: string | null
+          cost_other?: number | null
+          cost_other_description?: string | null
           dash_cam_number?: string | null
           decal_applied?: Database["public"]["Enums"]["yes_no"]
           decal_method?: Database["public"]["Enums"]["install_method"] | null
@@ -1241,6 +1251,11 @@ export type Database = {
           ch_received_date?: string | null
           ch_requested_date?: string | null
           ch_status?: Database["public"]["Enums"]["mvr_status"]
+          cost_form_2290?: number | null
+          cost_mo_registration?: number | null
+          cost_notes?: string | null
+          cost_other?: number | null
+          cost_other_description?: string | null
           dash_cam_number?: string | null
           decal_applied?: Database["public"]["Enums"]["yes_no"]
           decal_method?: Database["public"]["Enums"]["install_method"] | null
