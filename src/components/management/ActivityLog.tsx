@@ -143,6 +143,7 @@ const FILTER_OPTIONS = [
   { value: 'onboarding_completed', label: 'Onboarding Completed' },
   { value: 'cert_renewed', label: 'Cert Renewals' },
   { value: 'expiry_updated', label: 'Fleet Expiry Updates' },
+  { value: 'insurance_fields_updated', label: 'Insurance Updates' },
 ];
 
 const DATE_PRESETS = [
