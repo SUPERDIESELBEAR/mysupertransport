@@ -98,6 +98,11 @@ type OnboardingStatus = {
   ica_signed_date: string | null;
   ica_notes: string | null;
   doc_notes: string | null;
+  // Stage 5 — Device Numbers
+  eld_serial_number: string | null;
+  dash_cam_number: string | null;
+  bestpass_number: string | null;
+  fuel_card_number: string | null;
   // Stage 7 — Go Live & Dispatch Readiness
   dispatch_ready_orientation: boolean;
   dispatch_ready_consortium: boolean;
