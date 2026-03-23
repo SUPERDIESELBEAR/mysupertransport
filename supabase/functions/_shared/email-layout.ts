@@ -3,7 +3,8 @@ export const BRAND_NAME       = 'SUPERTRANSPORT';
 export const BRAND_COLOR      = '#C9A84C';   // restored to original gold
 export const BRAND_DARK       = '#0f1117';
 export const SUPPORT_EMAIL    = 'support@mysupertransport.com';
-export const ONBOARDING_EMAIL = 'onboarding@mysupertransport.com';
+export const ONBOARDING_EMAIL  = 'onboarding@mysupertransport.com';
+export const RECRUITING_EMAIL  = 'recruiting@mysupertransport.com';
 
 // ─── emailHeader ─────────────────────────────────────────────────────────────
 export function emailHeader(subtitle = 'DRIVER OPERATIONS'): string {
