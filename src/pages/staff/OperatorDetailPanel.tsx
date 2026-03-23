@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { sanitizeText } from '@/lib/sanitize';
@@ -12,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -1345,18 +1346,88 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         const other   = status.cost_other ?? null;
         const total   = (moVal ?? 0) + (f2290 ?? 0) + (other ?? 0);
         const hasAny  = moVal !== null || f2290 !== null || other !== null;
+
+        const CostAttachment = ({ slotKey, label }: { slotKey: string; label: string }) => {
+          const [uploading, setUploading] = React.useState(false);
+          const [attachUrl, setAttachUrl] = React.useState<string | null>(null);
+          const [attachName, setAttachName] = React.useState<string | null>(null);
+          const inputRef = React.useRef<HTMLInputElement>(null);
+
+          // Load existing attachment from operator_documents
+          React.useEffect(() => {
+            if (!operatorId) return;
+            supabase
+              .from('operator_documents')
+              .select('file_url, file_name')
+              .eq('operator_id', operatorId)
+              .eq('document_type', slotKey as any)
+              .order('uploaded_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+              .then(({ data }) => {
+                if (data) { setAttachUrl(data.file_url); setAttachName(data.file_name); }
+              });
+          }, [slotKey]);
+
+          const handleFile = async (file: File) => {
+            setUploading(true);
+            try {
+              const ext = file.name.split('.').pop();
+              const path = `${operatorId}/cost-${slotKey}/${Date.now()}.${ext}`;
+              const { error: upErr } = await supabase.storage.from('operator-documents').upload(path, file, { upsert: false });
+              if (upErr) throw upErr;
+              const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+              const fileUrl = sd?.signedUrl ?? '';
+              await supabase.from('operator_documents').insert({ operator_id: operatorId, document_type: slotKey as any, file_name: file.name, file_url: fileUrl });
+              setAttachUrl(fileUrl);
+              setAttachName(file.name);
+              toast({ title: 'Attachment saved', description: `${label} receipt uploaded.` });
+            } catch {
+              toast({ title: 'Upload failed', variant: 'destructive' });
+            } finally {
+              setUploading(false);
+            }
+          };
+
+          return (
+            <div className="mt-1.5">
+              <input ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+              {attachUrl ? (
+                <div className="flex items-center gap-2">
+                  <a href={attachUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-blue-600 hover:underline truncate max-w-[160px]">
+                    <Paperclip className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{attachName ?? 'View receipt'}</span>
+                    <ExternalLink className="h-3 w-3 shrink-0" />
+                  </a>
+                  <button type="button" onClick={() => inputRef.current?.click()} className="text-xs text-gray-500 hover:text-gray-700 underline">Replace</button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 border border-dashed border-gray-300 rounded px-2 py-1 bg-white hover:bg-gray-50 transition-colors"
+                >
+                  {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                  <span>{uploading ? 'Uploading…' : 'Attach receipt'}</span>
+                </button>
+              )}
+            </div>
+          );
+        };
+
         return (
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-base leading-none">💰</span>
-              <h3 className="text-sm font-semibold text-gray-900">Upfront Costs Paid by Supertransport</h3>
+              <h3 className="text-sm font-semibold text-gray-900">Upfront Costs Paid by SUPERTRANSPORT</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
               {/* MO Registration */}
               <div>
-                <Label className="text-xs text-amber-800 mb-1 block">MO Registration</Label>
+                <Label className="text-xs text-gray-700 mb-1 block">MO Registration</Label>
                 <div className="flex items-center gap-1">
-                  <span className="text-xs font-semibold text-amber-700">$</span>
+                  <span className="text-xs font-semibold text-gray-600">$</span>
                   <Input
                     type="number"
                     min="0"
@@ -1367,12 +1438,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     className="h-8 text-sm bg-white border-amber-200 focus:border-amber-400"
                   />
                 </div>
+                <CostAttachment slotKey="registration" label="MO Registration" />
               </div>
               {/* Form 2290 */}
               <div>
-                <Label className="text-xs text-amber-800 mb-1 block">Form 2290</Label>
+                <Label className="text-xs text-gray-700 mb-1 block">Form 2290</Label>
                 <div className="flex items-center gap-1">
-                  <span className="text-xs font-semibold text-amber-700">$</span>
+                  <span className="text-xs font-semibold text-gray-600">$</span>
                   <Input
                     type="number"
                     min="0"
@@ -1383,12 +1455,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     className="h-8 text-sm bg-white border-amber-200 focus:border-amber-400"
                   />
                 </div>
+                <CostAttachment slotKey="form_2290" label="Form 2290" />
               </div>
               {/* Other */}
               <div>
-                <Label className="text-xs text-amber-800 mb-1 block">Other</Label>
+                <Label className="text-xs text-gray-700 mb-1 block">Other</Label>
                 <div className="flex items-center gap-1">
-                  <span className="text-xs font-semibold text-amber-700">$</span>
+                  <span className="text-xs font-semibold text-gray-600">$</span>
                   <Input
                     type="number"
                     min="0"
@@ -1399,12 +1472,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     className="h-8 text-sm bg-white border-amber-200 focus:border-amber-400"
                   />
                 </div>
+                <CostAttachment slotKey="other" label="Other" />
               </div>
             </div>
             {/* Other description — only when Other has a value */}
             {(other !== null && other > 0) && (
               <div className="mb-3">
-                <Label className="text-xs text-amber-800 mb-1 block">Other — Description</Label>
+                <Label className="text-xs text-gray-700 mb-1 block">Other — Description</Label>
                 <Input
                   placeholder="e.g. Permit fee, vendor name…"
                   value={status.cost_other_description ?? ''}
@@ -1416,15 +1490,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             {/* Running total */}
             {hasAny && (
               <div className="flex items-center justify-between mb-3 px-1">
-                <span className="text-xs font-semibold text-amber-800">Total Paid</span>
-                <span className="text-sm font-bold text-amber-900">
+                <span className="text-xs font-semibold text-gray-700">Total Paid</span>
+                <span className="text-sm font-bold text-gray-900">
                   ${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             )}
             {/* Cost notes */}
             <div>
-              <Label className="text-xs text-amber-800 mb-1 block">Cost Notes</Label>
+              <Label className="text-xs text-gray-700 mb-1 block">Cost Notes</Label>
               <Textarea
                 placeholder="Vendor details, payment date, receipts reference…"
                 value={status.cost_notes ?? ''}
