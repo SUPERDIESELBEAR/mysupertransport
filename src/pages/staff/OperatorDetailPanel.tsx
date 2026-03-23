@@ -77,6 +77,7 @@ type OnboardingStatus = {
   insurance_ch_state: string | null;
   insurance_ch_zip: string | null;
   insurance_ch_email: string | null;
+  insurance_ch_same_as_ai: boolean | null;
   insurance_notes: string | null;
   unit_number: string | null;
   fully_onboarded: boolean | null;
@@ -672,6 +673,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       if (os) {
         setStatus(os);
         setStatusId(os.id);
+        setChSameAsAI(os.insurance_ch_same_as_ai ?? false);
         savedSnapshot.current = { status: os, notes: (op as any).notes ?? '' };
         savedMilestones.current = {
           ica_status: os.ica_status ?? '',
@@ -3056,6 +3058,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                               onChange={e => {
                                 const checked = e.target.checked;
                                 setChSameAsAI(checked);
+                                setStatus(prev => ({ ...prev, insurance_ch_same_as_ai: checked }));
                                 if (checked) {
                                   updateStatus('insurance_ch_company', status.insurance_ai_company ?? null);
                                   updateStatus('insurance_ch_address', status.insurance_ai_address ?? null);

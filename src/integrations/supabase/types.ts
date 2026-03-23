@@ -1035,6 +1035,7 @@ export type Database = {
           insurance_ch_city: string | null
           insurance_ch_company: string | null
           insurance_ch_email: string | null
+          insurance_ch_same_as_ai: boolean
           insurance_ch_state: string | null
           insurance_ch_zip: string | null
           insurance_notes: string | null
@@ -1095,6 +1096,7 @@ export type Database = {
           insurance_ch_city?: string | null
           insurance_ch_company?: string | null
           insurance_ch_email?: string | null
+          insurance_ch_same_as_ai?: boolean
           insurance_ch_state?: string | null
           insurance_ch_zip?: string | null
           insurance_notes?: string | null
@@ -1155,6 +1157,7 @@ export type Database = {
           insurance_ch_city?: string | null
           insurance_ch_company?: string | null
           insurance_ch_email?: string | null
+          insurance_ch_same_as_ai?: boolean
           insurance_ch_state?: string | null
           insurance_ch_zip?: string | null
           insurance_notes?: string | null
