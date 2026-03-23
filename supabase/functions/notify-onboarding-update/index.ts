@@ -100,7 +100,7 @@ const MILESTONE_COPY: Record<string, {
     subject: '🚛 Your Go-Live Date is Confirmed — SUPERTRANSPORT',
     heading: '🚛 You\'re Cleared to Start Dispatching!',
     body: (name, goLiveDate) => `<p>Hi ${name},</p>
-      <p>Congratulations — your onboarding is complete and your <strong>go-live date has been officially confirmed${goLiveDate ? ` for <strong>${goLiveDate}</strong>` : ''}</strong>.</p>
+      <p>Congratulations — your onboarding is complete and your <strong>go-live date has been officially confirmed${goLiveDate ? ` for ${goLiveDate}` : ''}</strong>.</p>
       <p>Here's what to expect next:</p>
       <ul style="padding-left:20px;line-height:2.2;">
         <li>Your <strong>dispatcher will reach out</strong> to get you set up with your first load assignment.</li>
