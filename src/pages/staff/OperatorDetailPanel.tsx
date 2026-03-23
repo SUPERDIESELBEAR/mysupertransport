@@ -1266,6 +1266,66 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl w-full">
 
+      {/* ── Top Completion Summary ── */}
+      {(() => {
+        const _exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
+        const _allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
+        const _moNa = status.registration_status === 'own_registration';
+        const _stageStatuses: { key: string; label: string; complete: boolean; exception?: boolean }[] = [
+          { key: 'stage1', label: 'BG',    complete: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear' },
+          { key: 'stage2', label: 'Docs',  complete: status.form_2290 === 'received' && status.truck_title === 'received' && status.truck_photos === 'received' && status.truck_inspection === 'received' },
+          { key: 'stage3', label: 'ICA',   complete: status.ica_status === 'complete' },
+          { key: 'stage4', label: 'MO',    complete: _moNa || status.mo_reg_received === 'yes' },
+          { key: 'stage5', label: 'Equip', complete: _allEquipFull, exception: _exceptionActive && !_allEquipFull },
+          { key: 'stage6', label: 'Ins',   complete: !!status.insurance_added_date },
+          { key: 'stage7', label: 'Live',  complete: !!(status.go_live_date) },
+        ];
+        const _completedCount = _stageStatuses.filter(s => s.complete).length;
+        const _pct = Math.round((_completedCount / _stageStatuses.length) * 100);
+        const _allDone = _completedCount === _stageStatuses.length;
+        return (
+          <div className="bg-white border border-border rounded-xl px-5 py-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-foreground">{_completedCount} of {_stageStatuses.length} stages complete</span>
+                {_allDone && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Fully Onboarded</span>}
+              </div>
+              <span className={`text-sm font-bold tabular-nums ${_allDone ? 'text-status-complete' : 'text-gold'}`}>{_pct}%</span>
+            </div>
+            <div className="h-2 w-full bg-muted rounded-full overflow-hidden mb-3">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${_pct}%`, background: _allDone ? 'hsl(var(--status-complete))' : 'hsl(var(--gold-main))' }}
+              />
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {_stageStatuses.map(s => (
+                <button
+                  key={s.key}
+                  onClick={() => scrollToStage(s.key)}
+                  title={`Jump to ${s.label}`}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border transition-colors cursor-pointer ${
+                    s.complete
+                      ? 'bg-status-complete/10 text-status-complete border-status-complete/30 hover:bg-status-complete/20'
+                      : s.exception
+                        ? 'bg-gold/10 text-gold border-gold/30 hover:bg-gold/20'
+                        : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'
+                  }`}
+                >
+                  {s.complete
+                    ? <CheckCircle2 className="h-2.5 w-2.5" />
+                    : s.exception
+                      ? <span className="font-bold text-[10px] leading-none">E</span>
+                      : <span className="h-2 w-2 rounded-full bg-muted-foreground/30 inline-block" />
+                  }
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
       {(() => {
         const exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
