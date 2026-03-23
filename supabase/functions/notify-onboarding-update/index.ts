@@ -187,7 +187,8 @@ Deno.serve(async (req) => {
       copy.subject,
       copy.heading,
       copy.body(operatorName),
-      ctaConfig
+      ctaConfig,
+      ONBOARDING_EMAIL   // footer shows onboarding@ for this function
     );
 
     await sendEmail(operatorEmail, copy.subject, html, RESEND_API_KEY);
