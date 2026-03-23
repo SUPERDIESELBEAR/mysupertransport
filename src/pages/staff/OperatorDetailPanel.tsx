@@ -3370,6 +3370,82 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           );
         })()}
 
+        {/* Stage 7 — Go Live & Dispatch Readiness */}
+        {(() => {
+          const s7Complete = !!status.go_live_date;
+          const s7Partial = !s7Complete && (status.dispatch_ready_orientation || status.dispatch_ready_consortium || status.dispatch_ready_first_assigned);
+          const s7Collapsed = collapsedStages.has('stage7');
+          const checkedCount = [status.dispatch_ready_orientation, status.dispatch_ready_consortium, status.dispatch_ready_first_assigned].filter(Boolean).length;
+          return (
+            <div ref={el => { stageRefs.current['stage7'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s7Complete ? 'border-status-complete' : 'border-border'}`}>
+              <button onClick={() => toggleStage('stage7')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className={`h-4 w-4 ${s7Complete ? 'text-status-complete' : 'text-gold'}`} />
+                  <h3 className="font-semibold text-foreground text-sm">Stage 7 — Go Live & Dispatch Readiness</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {s7Complete
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Go Live Set</span>
+                    : s7Partial
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{checkedCount}/3 ready</span>
+                    : null
+                  }
+                  {s7Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+              {!s7Collapsed && (
+                <div className="px-5 pb-5 space-y-4">
+
+                  {/* Dispatch Readiness Checklist */}
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Dispatch Readiness Checklist</p>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input type="checkbox" checked={status.dispatch_ready_orientation ?? false} onChange={e => updateStatus('dispatch_ready_orientation', e.target.checked as any)} className="rounded border-border h-4 w-4" />
+                      <span className="text-xs font-medium text-foreground">Onboarding orientation call completed</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input type="checkbox" checked={status.dispatch_ready_consortium ?? false} onChange={e => updateStatus('dispatch_ready_consortium', e.target.checked as any)} className="rounded border-border h-4 w-4" />
+                      <span className="text-xs font-medium text-foreground">Drug & alcohol consortium enrolled</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input type="checkbox" checked={status.dispatch_ready_first_assigned ?? false} onChange={e => updateStatus('dispatch_ready_first_assigned', e.target.checked as any)} className="rounded border-border h-4 w-4" />
+                      <span className="text-xs font-medium text-foreground">First dispatch assigned</span>
+                    </label>
+                  </div>
+
+                  {/* Go-Live Date & Operator Type */}
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Go-Live</p>
+                    <StageDatePicker label="Go-Live Date" value={status.go_live_date ?? null} onChange={v => updateStatus('go_live_date', v)} />
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Operator Type</Label>
+                      <Select value={status.operator_type ?? ''} onValueChange={v => updateStatus('operator_type', v || null)}>
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder="—" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="solo">Solo Driver</SelectItem>
+                          <SelectItem value="team">Team Driver</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {s7Complete && (
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-status-complete/10 border border-status-complete/30">
+                      <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />
+                      <span className="text-xs font-semibold text-status-complete">
+                        🚛 Go-Live confirmed — {format(new Date(status.go_live_date! + 'T12:00:00'), 'MMMM d, yyyy')}
+                        {status.operator_type ? ` · ${status.operator_type === 'solo' ? 'Solo Driver' : 'Team Driver'}` : ''}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
       </div>
 
       {/* Dispatch Status History */}
