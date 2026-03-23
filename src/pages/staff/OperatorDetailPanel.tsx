@@ -3058,6 +3058,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                               onChange={e => {
                                 const checked = e.target.checked;
                                 setChSameAsAI(checked);
+                                updateStatus('insurance_ch_same_as_ai', checked ? 'true' : 'false');
                                 if (checked) {
                                   updateStatus('insurance_ch_company', status.insurance_ai_company ?? null);
                                   updateStatus('insurance_ch_address', status.insurance_ai_address ?? null);
