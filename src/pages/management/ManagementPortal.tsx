@@ -25,8 +25,9 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Layers, Shield, Users2, AlertCircle, FileX,
   MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2,
-  MessageSquare, ShieldCheck, XCircle, BellOff,
+  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive,
 } from 'lucide-react';
+import EquipmentInventory from '@/components/equipment/EquipmentInventory';
 import DocumentHub from '@/components/documents/DocumentHub';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
