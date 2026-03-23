@@ -1,0 +1,1 @@
+ALTER TABLE public.onboarding_status ADD COLUMN IF NOT EXISTS insurance_ch_same_as_ai boolean NOT NULL DEFAULT false;
