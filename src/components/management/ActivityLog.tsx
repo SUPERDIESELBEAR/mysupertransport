@@ -442,6 +442,11 @@ function buildDetailText(entry: AuditEntry): string {
       return `${meta.document_type as string} renewed · was ${meta.old_expiry ? new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString() : 'unknown'} → ${new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString()}`;
     case 'expiry_updated':
       return `Fleet ${meta.document_type as string} · ${meta.old_expiry ? new Date((meta.old_expiry as string) + 'T00:00:00').toLocaleDateString() + ' → ' : ''}${meta.new_expiry ? new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString() : ''} · ${meta.urgency ?? ''}`;
+    case 'insurance_fields_updated': {
+      const changes = meta.changes as Record<string, unknown> | undefined;
+      const fields = changes ? Object.keys(changes) : [];
+      return fields.length ? `${fields.length} field${fields.length > 1 ? 's' : ''} updated: ${fields.join(', ')}` : 'Insurance fields updated';
+    }
     default:
       return '';
   }
