@@ -2122,6 +2122,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date, fullName: 'Insurance', items: [
               { label: 'Insurance Added', done: !!status.insurance_added_date },
             ]},
+          { label: 'Go Live',    key: 'stage7', complete: !!status.go_live_date, fullName: 'Go Live & Dispatch Readiness', items: [
+              { label: 'Orientation Call',        done: !!status.dispatch_ready_orientation },
+              { label: 'Consortium Enrolled',     done: !!status.dispatch_ready_consortium },
+              { label: 'First Dispatch Assigned', done: !!status.dispatch_ready_first_assigned },
+              { label: 'Go-Live Date Set',        done: !!status.go_live_date },
+            ]},
         ];
         const completedCount = stages.filter(s => s.complete).length;
         const pct = Math.round((completedCount / stages.length) * 100);
@@ -2142,7 +2148,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 }}
               />
             </div>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1">
+            <div className="grid grid-cols-4 sm:grid-cols-7 gap-1">
               <TooltipProvider delayDuration={150}>
               {stages.map((s, i) => (
                 <Tooltip key={s.key}>
