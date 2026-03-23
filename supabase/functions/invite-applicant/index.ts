@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { emailHeader, emailFooter } from '../_shared/email-layout.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,13 +20,7 @@ function buildInviteEmail(firstName: string, note: string | null, appUrl: string
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 0;">
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-        <!-- Header -->
-        <tr>
-          <td style="background:#0f1117;padding:24px 40px;border-bottom:3px solid #C9A84C;">
-            <p style="margin:0;color:#C9A84C;font-size:22px;font-weight:800;letter-spacing:2px;">SUPERTRANSPORT</p>
-            <p style="margin:4px 0 0;color:#888;font-size:12px;letter-spacing:1px;">DRIVER OPERATIONS</p>
-          </td>
-        </tr>
+        ${emailHeader()}
         <!-- Body -->
         <tr>
           <td style="padding:40px;">
@@ -50,13 +45,7 @@ function buildInviteEmail(firstName: string, note: string | null, appUrl: string
             <p style="font-size:13px;color:#999;text-align:center;">Or visit: <a href="${appUrl}/apply" style="color:#C9A84C;">${appUrl}/apply</a></p>
           </td>
         </tr>
-        <!-- Footer -->
-        <tr>
-          <td style="background:#f9f9f9;padding:24px 40px;border-top:1px solid #eee;">
-            <p style="margin:0;color:#999;font-size:12px;">SUPERTRANSPORT &nbsp;·&nbsp; Questions? <a href="mailto:recruiting@mysupertransport.com" style="color:#C9A84C;">recruiting@mysupertransport.com</a></p>
-            <p style="margin:6px 0 0;color:#bbb;font-size:11px;">You received this email because a SUPERTRANSPORT team member personally invited you to apply.</p>
-          </td>
-        </tr>
+        ${emailFooter('recruiting@mysupertransport.com', 'You received this email because a SUPERTRANSPORT team member personally invited you to apply.')}
       </table>
     </td></tr>
   </table>

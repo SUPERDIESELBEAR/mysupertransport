@@ -1,50 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { buildEmail, sendEmail } from '../_shared/email-layout.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
-
-function buildEmail(subject: string, heading: string, body: string, cta: { label: string; url: string }): string {
-  return `<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><title>${subject}</title></head>
-<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Helvetica Neue',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 0;">
-    <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-        <!-- Header -->
-        <tr>
-          <td style="background:#0f1117;padding:24px 40px;border-bottom:3px solid #C9A84C;">
-            <p style="margin:0;color:#C9A84C;font-size:22px;font-weight:800;letter-spacing:2px;">SUPERTRANSPORT</p>
-            <p style="margin:4px 0 0;color:#888;font-size:12px;letter-spacing:1px;">DRIVER OPERATIONS</p>
-          </td>
-        </tr>
-        <!-- Body -->
-        <tr>
-          <td style="padding:40px;">
-            <h1 style="margin:0 0 16px;font-size:22px;color:#0f1117;font-weight:700;">${heading}</h1>
-            <div style="color:#444;font-size:15px;line-height:1.7;">${body}</div>
-            <div style="text-align:center;margin:32px 0;">
-              <a href="${cta.url}" style="background:#C9A84C;color:#0f1117;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">
-                ${cta.label}
-              </a>
-            </div>
-          </td>
-        </tr>
-        <!-- Footer -->
-        <tr>
-          <td style="background:#f9f9f9;padding:24px 40px;border-top:1px solid #eee;">
-            <p style="margin:0;color:#999;font-size:12px;">SUPERTRANSPORT &nbsp;·&nbsp; Questions? <a href="mailto:support@mysupertransport.com" style="color:#C9A84C;">support@mysupertransport.com</a></p>
-            <p style="margin:6px 0 0;color:#bbb;font-size:11px;">This is an automated notification. Please do not reply to this email.</p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -144,29 +104,15 @@ Deno.serve(async (req) => {
     });
 
     // ── Send via Resend ───────────────────────────────────────────────────────
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'SUPERTRANSPORT <support@mysupertransport.com>',
-        to: [driverEmail],
-        subject,
-        html,
-      }),
-    });
+    // support@ sender — passes custom from to the shared sendEmail helper
+    await sendEmail(
+      driverEmail,
+      subject,
+      html,
+      RESEND_API_KEY,
+      'SUPERTRANSPORT <support@mysupertransport.com>'
+    );
 
-    if (!res.ok) {
-      const err = await res.text();
-      console.error(`[notify-upload-attention] Resend error [${res.status}] to ${driverEmail}: ${err}`);
-      return new Response(JSON.stringify({ success: false, error: `Resend ${res.status}: ${err}` }), {
-        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    await res.text();
     console.log(`[notify-upload-attention] Email sent to ${driverEmail} for driver ${driver_user_id}`);
 
     return new Response(JSON.stringify({ success: true, to: driverEmail }), {

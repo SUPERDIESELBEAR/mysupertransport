@@ -1,69 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { buildEmail, sendEmail, ONBOARDING_EMAIL } from '../_shared/email-layout.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// ─── Email HTML builder ───────────────────────────────────────────────────────
-function buildEmail(subject: string, heading: string, body: string, cta?: { label: string; url: string }): string {
-  const ctaHtml = cta
-    ? `<div style="text-align:center;margin:32px 0;">
-        <a href="${cta.url}" style="background:#C9A84C;color:#0f1117;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">
-          ${cta.label}
-        </a>
-      </div>`
-    : '';
-
-  return `<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><title>${subject}</title></head>
-<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Helvetica Neue',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 0;">
-    <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-        <tr>
-          <td style="background:#0f1117;padding:24px 40px;border-bottom:3px solid #C9A84C;">
-            <p style="margin:0;color:#C9A84C;font-size:22px;font-weight:800;letter-spacing:2px;">SUPERTRANSPORT</p>
-            <p style="margin:4px 0 0;color:#888;font-size:12px;letter-spacing:1px;">DRIVER OPERATIONS</p>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:40px;">
-            <h1 style="margin:0 0 16px;font-size:22px;color:#0f1117;font-weight:700;">${heading}</h1>
-            <div style="color:#444;font-size:15px;line-height:1.7;">${body}</div>
-            ${ctaHtml}
-          </td>
-        </tr>
-        <tr>
-          <td style="background:#f9f9f9;padding:24px 40px;border-top:1px solid #eee;">
-            <p style="margin:0;color:#999;font-size:12px;">SUPERTRANSPORT &nbsp;·&nbsp; Questions? <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a></p>
-            <p style="margin:6px 0 0;color:#bbb;font-size:11px;">This is an automated notification. Please do not reply directly to this email.</p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
-}
-
-async function sendEmail(to: string, subject: string, html: string, resendKey: string): Promise<void> {
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: 'SUPERTRANSPORT <onboarding@mysupertransport.com>',
-      to: [to],
-      subject,
-      html,
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    console.warn(`Resend warning [${res.status}] to ${to}: ${err}`);
-  }
-}
 
 // ─── Milestone email templates ────────────────────────────────────────────────
 const MILESTONE_COPY: Record<string, {
@@ -246,7 +187,8 @@ Deno.serve(async (req) => {
       copy.subject,
       copy.heading,
       copy.body(operatorName),
-      ctaConfig
+      ctaConfig,
+      ONBOARDING_EMAIL   // footer shows onboarding@ for this function
     );
 
     await sendEmail(operatorEmail, copy.subject, html, RESEND_API_KEY);
