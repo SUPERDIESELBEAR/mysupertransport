@@ -7,7 +7,7 @@ import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound,
-  ArrowRight, Library,
+  ArrowRight, Library, Cpu, Camera, CreditCard, Gauge,
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
 import DriverServiceLibrary from '@/components/service-library/DriverServiceLibrary';
@@ -986,6 +986,75 @@ export default function OperatorPortal() {
                 setView('messages');
               }}
             />
+
+            {/* ── MY EQUIPMENT INFO CARD ── */}
+            {(onboardingStatus.eld_serial_number || onboardingStatus.dash_cam_number || onboardingStatus.bestpass_number || onboardingStatus.fuel_card_number) && (
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border bg-muted/30">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                    <Truck className="h-4 w-4 text-primary" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground leading-none">My Equipment Info</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Your assigned device numbers — save these for reference</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-border">
+                  {onboardingStatus.eld_serial_number && (
+                    <div className="bg-card px-5 py-4 flex items-start gap-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
+                        <Cpu className="h-4 w-4 text-primary" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide leading-none mb-1.5">ELD Serial #</p>
+                        <p className="font-mono text-base font-bold text-foreground tracking-widest break-all leading-tight">
+                          {onboardingStatus.eld_serial_number}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {onboardingStatus.dash_cam_number && (
+                    <div className="bg-card px-5 py-4 flex items-start gap-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
+                        <Camera className="h-4 w-4 text-primary" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide leading-none mb-1.5">Dash Cam #</p>
+                        <p className="font-mono text-base font-bold text-foreground tracking-widest break-all leading-tight">
+                          {onboardingStatus.dash_cam_number}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {onboardingStatus.bestpass_number && (
+                    <div className="bg-card px-5 py-4 flex items-start gap-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
+                        <Gauge className="h-4 w-4 text-primary" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide leading-none mb-1.5">BestPass #</p>
+                        <p className="font-mono text-base font-bold text-foreground tracking-widest break-all leading-tight">
+                          {onboardingStatus.bestpass_number}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {onboardingStatus.fuel_card_number && (
+                    <div className="bg-card px-5 py-4 flex items-start gap-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
+                        <CreditCard className="h-4 w-4 text-primary" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide leading-none mb-1.5">Fuel Card #</p>
+                        <p className="font-mono text-base font-bold text-foreground tracking-widest break-all leading-tight">
+                          {onboardingStatus.fuel_card_number}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* ── CONTACT SECTION ── */}
             <div className="rounded-xl border border-border bg-card p-5 space-y-4">
