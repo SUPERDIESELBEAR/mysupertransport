@@ -704,6 +704,9 @@ export default function StaffPortal() {
       {currentView === 'notifications' && (
         <NotificationHistory />
       )}
+      {currentView === 'equipment' && (
+        <EquipmentInventory isManagement={false} />
+      )}
     </StaffLayout>
 
     {reviewApp && (
