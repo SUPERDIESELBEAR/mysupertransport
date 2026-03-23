@@ -2831,9 +2831,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       <td className="px-4 py-3">
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-1.5 flex-nowrap min-w-0">
-                            <span className="font-medium text-foreground truncate">
-                              {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
-                            </span>
+                            <button
+                               onClick={() => onOpenOperator(op.id)}
+                               className="font-medium text-foreground truncate hover:text-primary hover:underline underline-offset-2 transition-colors text-left"
+                             >
+                               {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
+                             </button>
                             {(() => {
                               const pct = computeProgressFromConfig(op, stageConfigs);
                               const isComplete = pct === 100;
