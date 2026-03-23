@@ -354,10 +354,25 @@ function EntryExpandedPanel({
       if (meta.new_expiry) structuredRows.push({ icon: <CheckCircle2 className="h-3.5 w-3.5" />, label: 'New Expiry', value: new Date((meta.new_expiry as string) + 'T00:00:00').toLocaleDateString() });
       if (meta.urgency) structuredRows.push({ icon: <Info className="h-3.5 w-3.5" />, label: 'Urgency', value: String(meta.urgency) });
       break;
+    case 'insurance_fields_updated': {
+      const changes = meta.changes as Record<string, { from: unknown; to: unknown }> | undefined;
+      if (changes) {
+        Object.entries(changes).forEach(([field, diff]) => {
+          const from = diff.from != null ? String(diff.from) : '—';
+          const to   = diff.to   != null ? String(diff.to)   : '—';
+          structuredRows.push({
+            icon: <Shield className="h-3.5 w-3.5" />,
+            label: field,
+            value: <span>{from} → <span className="font-medium text-foreground">{to}</span></span>,
+          });
+        });
+      }
+      break;
+    }
   }
 
   // Remaining raw metadata keys not already shown
-  const shownKeys = new Set(['applicant_name', 'applicant_email', 'reviewer_notes', 'role', 'target_user', 'milestones', 'changed_fields', 'operator_name', 'document_type', 'old_expiry', 'new_expiry', 'urgency']);
+  const shownKeys = new Set(['applicant_name', 'applicant_email', 'reviewer_notes', 'role', 'target_user', 'milestones', 'changed_fields', 'operator_name', 'document_type', 'old_expiry', 'new_expiry', 'urgency', 'changes']);
   const rawExtras = Object.entries(meta).filter(([k]) => !shownKeys.has(k));
 
   return (
