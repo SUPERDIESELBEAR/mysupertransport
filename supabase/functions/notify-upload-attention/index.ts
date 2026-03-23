@@ -104,7 +104,8 @@ Deno.serve(async (req) => {
     });
 
     // ── Send via Resend ───────────────────────────────────────────────────────
-    const res = await fetch('https://api.resend.com/emails', {
+    const { sendEmail } = await import('../_shared/email-layout.ts');
+    const sendRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${RESEND_API_KEY}`,
@@ -118,15 +119,15 @@ Deno.serve(async (req) => {
       }),
     });
 
-    if (!res.ok) {
-      const err = await res.text();
-      console.error(`[notify-upload-attention] Resend error [${res.status}] to ${driverEmail}: ${err}`);
-      return new Response(JSON.stringify({ success: false, error: `Resend ${res.status}: ${err}` }), {
+    if (!sendRes.ok) {
+      const err = await sendRes.text();
+      console.error(`[notify-upload-attention] Resend error [${sendRes.status}] to ${driverEmail}: ${err}`);
+      return new Response(JSON.stringify({ success: false, error: `Resend ${sendRes.status}: ${err}` }), {
         status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    await res.text();
+    await sendRes.text();
     console.log(`[notify-upload-attention] Email sent to ${driverEmail} for driver ${driver_user_id}`);
 
     return new Response(JSON.stringify({ success: true, to: driverEmail }), {

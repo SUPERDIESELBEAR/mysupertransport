@@ -77,12 +77,7 @@ function buildInsuranceEmail(data: {
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 0;">
     <tr><td align="center">
       <table width="620" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-        <tr>
-          <td style="background:#0f1117;padding:24px 40px;border-bottom:3px solid #C9A84C;">
-            <p style="margin:0;color:#C9A84C;font-size:22px;font-weight:800;letter-spacing:2px;">SUPERTRANSPORT</p>
-            <p style="margin:4px 0 0;color:#888;font-size:12px;letter-spacing:1px;">INSURANCE REQUEST</p>
-          </td>
-        </tr>
+        ${emailHeader('INSURANCE REQUEST')}
         <tr>
           <td style="padding:36px 40px;">
             <h1 style="margin:0 0 6px;font-size:20px;color:#0f1117;font-weight:700;">New Physical Damage Insurance Request</h1>
@@ -117,11 +112,7 @@ function buildInsuranceEmail(data: {
             <p style="margin:28px 0 0;color:#666;font-size:13px;">Questions? Reply to this email or contact <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a></p>
           </td>
         </tr>
-        <tr>
-          <td style="background:#f9f9f9;padding:20px 40px;border-top:1px solid #eee;">
-            <p style="margin:0;color:#999;font-size:12px;">SUPERTRANSPORT &nbsp;·&nbsp; This is a business request sent by your onboarding team.</p>
-          </td>
-        </tr>
+        ${emailFooter('onboarding@mysupertransport.com', 'This is a business request sent by your onboarding team.')}
       </table>
     </td></tr>
   </table>
