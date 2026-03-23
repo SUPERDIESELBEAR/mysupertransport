@@ -1349,7 +1349,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-base leading-none">💰</span>
-              <h3 className="text-sm font-semibold text-amber-900">Upfront Costs Paid by Supertransport</h3>
+              <h3 className="text-sm font-semibold text-gray-900">Upfront Costs Paid by Supertransport</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
               {/* MO Registration */}
