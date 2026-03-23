@@ -682,6 +682,7 @@ export default function ManagementPortal() {
     { label: 'Activity',          icon: <ScrollText className="h-4 w-4" />,      path: 'activity' },
     { label: 'Dispatch',          icon: <Truck className="h-4 w-4" />,           path: 'dispatch', badge: truckDownCount || undefined },
     { label: 'Equipment',         icon: <HardDrive className="h-4 w-4" />,       path: 'equipment' },
+    { label: 'Email Catalog',     icon: <Mail className="h-4 w-4" />,            path: 'email-catalog' },
   ];
 
   // Bottom nav on mobile: 5 priority items that fit cleanly at 375px
