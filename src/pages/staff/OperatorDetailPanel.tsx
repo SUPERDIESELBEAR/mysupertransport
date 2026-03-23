@@ -2268,7 +2268,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Stage Summary Dot Row + Collapse All */}
       {(() => {
-        const allStageKeys = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6'];
+        const allStageKeys = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7'];
         const allCollapsed = allStageKeys.every(k => collapsedStages.has(k));
 
         type DotState = 'complete' | 'progress' | 'na' | 'none';
