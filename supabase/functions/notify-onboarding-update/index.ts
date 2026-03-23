@@ -103,10 +103,10 @@ const MILESTONE_COPY: Record<string, {
       <p>Congratulations — your onboarding is complete and your <strong>go-live date has been officially confirmed${goLiveDate ? ` for ${goLiveDate}` : ''}</strong>.</p>
       <p>Here's what to expect next:</p>
       <ul style="padding-left:20px;line-height:2.2;">
-        <li>Your <strong>dispatcher will reach out</strong> to get you set up with your first load assignment.</li>
+        <li>Expect a call from our dispatch team at <a href="mailto:dispatch@mysupertransport.com" style="color:#C9A84C;">dispatch@mysupertransport.com</a> to get you set up with your first load assignment.</li>
         <li>Log in to your portal to monitor your <strong>dispatch status</strong> and messages.</li>
         <li>Keep your ELD active and your fuel card on hand — you're ready to roll.</li>
-        <li>Questions? Reach your coordinator at <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a>.</li>
+        <li>Questions before your start date? Reach your coordinator at <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a>.</li>
       </ul>
       <p style="margin-top:16px;">We're excited to have you on the road with us. Welcome to the SUPERTRANSPORT family!</p>`,
     cta: (appUrl) => ({ label: 'Go to My Portal', url: `${appUrl}/dashboard` }),
