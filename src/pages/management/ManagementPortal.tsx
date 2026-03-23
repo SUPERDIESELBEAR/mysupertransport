@@ -1758,6 +1758,10 @@ export default function ManagementPortal() {
           <EquipmentInventory isManagement={true} />
         )}
 
+        {view === 'email-catalog' && (
+          <EmailCatalog />
+        )}
+
 
         {view === 'messages' && (
           <div className="flex flex-col gap-0" style={{ height: 'calc(100vh - 160px - 64px)' }}>
