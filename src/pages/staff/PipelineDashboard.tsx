@@ -2463,17 +2463,42 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   </th>
                 )}
                 <th className="text-left px-4 py-3 font-semibold text-foreground">
-                  <button
-                    onClick={() => handleSort('name')}
-                    className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
-                  >
-                    Name
-                    {sortKey === 'name'
-                      ? sortDir === 'asc'
-                        ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
-                        : <ArrowDown className="h-3.5 w-3.5 text-gold" />
-                      : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
-                  </button>
+                  <div className="inline-flex items-center gap-2">
+                    <button
+                      onClick={() => handleSort('name')}
+                      className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
+                    >
+                      Name
+                      {sortKey === 'name'
+                        ? sortDir === 'asc'
+                          ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                          : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                        : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                    </button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => handleSort('progress')}
+                            className={[
+                              'inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none transition-colors border',
+                              sortKey === 'progress'
+                                ? 'bg-gold/15 border-gold/40 text-gold'
+                                : 'bg-muted/50 border-border/50 text-muted-foreground hover:text-gold hover:border-gold/40 hover:bg-gold/10',
+                            ].join(' ')}
+                          >
+                            %
+                            {sortKey === 'progress'
+                              ? sortDir === 'desc'
+                                ? <ArrowDown className="h-2.5 w-2.5" />
+                                : <ArrowUp className="h-2.5 w-2.5" />
+                              : <ArrowUpDown className="h-2.5 w-2.5 opacity-60" />}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">Sort by completion % (highest first)</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden md:table-cell">Phone</th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">State</th>
