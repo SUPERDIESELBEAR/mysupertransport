@@ -62,6 +62,12 @@ type OnboardingStatus = {
   eld_method: string | null;
   eld_installed: string;
   fuel_card_issued: string;
+  // Stage 5 exceptions
+  paper_logbook_approved: boolean;
+  temp_decal_approved: boolean;
+  exception_notes: string | null;
+  exception_approved_by: string | null;
+  exception_approved_at: string | null;
   insurance_added_date: string | null;
   insurance_policy_type: string | null;
   insurance_stated_value: number | null;
@@ -92,6 +98,12 @@ type OnboardingStatus = {
   ica_signed_date: string | null;
   ica_notes: string | null;
   doc_notes: string | null;
+  // Stage 7 — Go Live & Dispatch Readiness
+  dispatch_ready_orientation: boolean;
+  dispatch_ready_consortium: boolean;
+  dispatch_ready_first_assigned: boolean;
+  go_live_date: string | null;
+  operator_type: string | null;
 };
 
 type DispatchHistoryEntry = {
