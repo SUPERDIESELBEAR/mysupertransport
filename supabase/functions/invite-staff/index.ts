@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { emailHeader, emailFooter } from '../_shared/email-layout.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,12 +23,7 @@ function buildInviteEmail(inviteeName: string, role: StaffRole, inviterName: str
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 0;">
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-        <tr>
-          <td style="background:#0f1117;padding:24px 40px;border-bottom:3px solid #C9A84C;">
-            <p style="margin:0;color:#C9A84C;font-size:22px;font-weight:800;letter-spacing:2px;">SUPERTRANSPORT</p>
-            <p style="margin:4px 0 0;color:#888;font-size:12px;letter-spacing:1px;">DRIVER OPERATIONS</p>
-          </td>
-        </tr>
+        ${emailHeader()}
         <tr>
           <td style="padding:40px;">
             <h1 style="margin:0 0 16px;font-size:22px;color:#0f1117;font-weight:700;">You've Been Invited to Join the Team</h1>
@@ -47,12 +43,7 @@ function buildInviteEmail(inviteeName: string, role: StaffRole, inviterName: str
             <p style="color:#999;font-size:13px;">This invitation link expires in 24 hours. If you weren't expecting this, you can ignore this email.</p>
           </td>
         </tr>
-        <tr>
-          <td style="background:#f9f9f9;padding:24px 40px;border-top:1px solid #eee;">
-            <p style="margin:0;color:#999;font-size:12px;">SUPERTRANSPORT &nbsp;·&nbsp; Questions? <a href="mailto:support@mysupertransport.com" style="color:#C9A84C;">support@mysupertransport.com</a></p>
-            <p style="margin:6px 0 0;color:#bbb;font-size:11px;">This is an automated notification. Please do not reply to this email.</p>
-          </td>
-        </tr>
+        ${emailFooter()}
       </table>
     </td></tr>
   </table>
