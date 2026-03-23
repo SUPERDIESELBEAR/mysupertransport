@@ -77,6 +77,7 @@ type OnboardingStatus = {
   insurance_ch_state: string | null;
   insurance_ch_zip: string | null;
   insurance_ch_email: string | null;
+  insurance_ch_same_as_ai: boolean | null;
   insurance_notes: string | null;
   unit_number: string | null;
   fully_onboarded: boolean | null;
