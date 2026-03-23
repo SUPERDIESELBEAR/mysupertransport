@@ -996,6 +996,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           },
         }).then(({ error }) => { if (error) console.error('[audit] onboarding_completed:', error); });
       }
+
+      // ── Write audit log for insurance field changes ───────────────────
+      if (hasInsuranceChanges) {
+        void supabase.from('audit_log' as any).insert({
+          actor_id: session?.user?.id ?? null,
+          actor_name: operatorName,
+          action: 'insurance_fields_updated',
+          entity_type: 'operator',
+          entity_id: operatorId,
+          entity_label: operatorName,
+          metadata: { changes: insuranceChanges },
+        }).then(({ error }) => { if (error) console.error('[audit] insurance_fields_updated:', error); });
+      }
     }
 
     savedSnapshot.current = { status, notes };
