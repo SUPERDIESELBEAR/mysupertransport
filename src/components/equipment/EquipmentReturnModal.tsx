@@ -121,7 +121,7 @@ export default function EquipmentReturnModal({ open, item, isManagement, onClose
                   className={`w-full text-left rounded-lg border px-3 py-2.5 transition-colors ${
                     condition === c.value
                       ? c.value === 'available' ? 'border-status-complete/50 bg-status-complete/10' :
-                        c.value === 'damaged' ? 'border-amber-400/50 bg-amber-50' :
+                        c.value === 'damaged' ? 'border-warning/50 bg-warning/10' :
                         'border-destructive/50 bg-destructive/10'
                       : 'border-border hover:border-primary/30 bg-background'
                   }`}
