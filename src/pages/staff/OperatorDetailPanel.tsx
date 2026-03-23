@@ -1310,7 +1310,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 {/* Colored dot strip — matches the summary row below */}
                 <div className="flex items-center gap-px bg-muted/40 rounded-lg px-2 py-1.5 border border-border/50 shrink-0">
                     {(() => {
-                      type StickyDotState = 'complete' | 'progress' | 'na' | 'none';
+                      type StickyDotState = 'complete' | 'progress' | 'exception' | 'na' | 'none';
                       const stickyDots: { key: string; shortLabel: string; state: StickyDotState; tooltip: string; items: { label: string; done: boolean }[] }[] = [
                         {
                           key: 'stage1', shortLabel: 'BG',
@@ -1342,8 +1342,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         },
                         {
                           key: 'stage5', shortLabel: 'Equip',
-                          state: (status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes') ? 'complete' : ([status.decal_applied, status.eld_installed, status.fuel_card_issued].some(v => v === 'yes')) ? 'progress' : 'none',
-                          tooltip: (() => { const n = [status.decal_applied, status.eld_installed, status.fuel_card_issued].filter(v => v === 'yes').length; return n === 3 ? 'Complete' : n > 0 ? `${n}/3 done` : 'Not started'; })(),
+                          state: allEquipFull ? 'complete' : exceptionActive ? 'exception' : ([status.decal_applied, status.eld_installed, status.fuel_card_issued].some(v => v === 'yes')) ? 'progress' : 'none',
+                          tooltip: allEquipFull ? 'Complete' : exceptionActive ? 'Exception Active — en route to shop' : (() => { const n = [status.decal_applied, status.eld_installed, status.fuel_card_issued].filter(v => v === 'yes').length; return n > 0 ? `${n}/3 done` : 'Not started'; })(),
                           items: stages.find(s => s.key === 'stage5')?.items ?? [],
                         },
                         {
@@ -1351,6 +1351,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           state: status.insurance_added_date ? 'complete' : (status.insurance_policy_type || (docFiles['insurance_cert'] ?? []).length > 0) ? 'progress' : 'none',
                           tooltip: status.insurance_added_date ? 'Complete' : (docFiles['insurance_cert'] ?? []).length > 0 ? 'Cert on File' : status.insurance_policy_type ? 'In Progress' : 'Not started',
                           items: stages.find(s => s.key === 'stage6')?.items ?? [],
+                        },
+                        {
+                          key: 'stage7', shortLabel: 'Go Live',
+                          state: status.go_live_date ? 'complete' : ([status.dispatch_ready_orientation, status.dispatch_ready_consortium, status.dispatch_ready_first_assigned].some(Boolean)) ? 'progress' : 'none',
+                          tooltip: status.go_live_date ? `Go Live: ${format(new Date(status.go_live_date + 'T12:00:00'), 'MMM d, yyyy')}` : 'Not started',
+                          items: stages.find(s => s.key === 'stage7')?.items ?? [],
                         },
                       ];
                       const dotCls: Record<StickyDotState, string> = {
