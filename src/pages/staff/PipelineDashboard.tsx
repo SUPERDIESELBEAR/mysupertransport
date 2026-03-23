@@ -1474,6 +1474,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       );
       const matchUnread = !unreadFilter || (unreadHighPriority ? op.unread_count >= 3 : op.unread_count > 0);
       const matchInvitePending = !invitePendingFilter || op.never_logged_in;
+      const matchException = !exceptionFilter || (op.paper_logbook_approved || op.temp_decal_approved);
       // Stage node filter (multi-select): show operators who are incomplete in ANY of the selected stages
       const matchStageNode = stageNodeFilters.size === 0 || (() => {
         // Operator must be incomplete in ALL selected stages (AND logic: show operators missing both BG AND ICA)
