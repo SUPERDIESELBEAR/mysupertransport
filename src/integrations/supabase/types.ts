@@ -1005,10 +1005,12 @@ export type Database = {
       }
       onboarding_status: {
         Row: {
+          bestpass_number: string | null
           bg_check_notes: string | null
           ch_received_date: string | null
           ch_requested_date: string | null
           ch_status: Database["public"]["Enums"]["mvr_status"]
+          dash_cam_number: string | null
           decal_applied: Database["public"]["Enums"]["yes_no"]
           decal_method: Database["public"]["Enums"]["install_method"] | null
           decal_photo_ds_url: string | null
@@ -1019,11 +1021,13 @@ export type Database = {
           doc_notes: string | null
           eld_installed: Database["public"]["Enums"]["yes_no"]
           eld_method: Database["public"]["Enums"]["install_method"] | null
+          eld_serial_number: string | null
           exception_approved_at: string | null
           exception_approved_by: string | null
           exception_notes: string | null
           form_2290: Database["public"]["Enums"]["document_status"]
           fuel_card_issued: Database["public"]["Enums"]["yes_no"]
+          fuel_card_number: string | null
           fully_onboarded: boolean | null
           go_live_date: string | null
           ica_notes: string | null
@@ -1076,10 +1080,12 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          bestpass_number?: string | null
           bg_check_notes?: string | null
           ch_received_date?: string | null
           ch_requested_date?: string | null
           ch_status?: Database["public"]["Enums"]["mvr_status"]
+          dash_cam_number?: string | null
           decal_applied?: Database["public"]["Enums"]["yes_no"]
           decal_method?: Database["public"]["Enums"]["install_method"] | null
           decal_photo_ds_url?: string | null
@@ -1090,11 +1096,13 @@ export type Database = {
           doc_notes?: string | null
           eld_installed?: Database["public"]["Enums"]["yes_no"]
           eld_method?: Database["public"]["Enums"]["install_method"] | null
+          eld_serial_number?: string | null
           exception_approved_at?: string | null
           exception_approved_by?: string | null
           exception_notes?: string | null
           form_2290?: Database["public"]["Enums"]["document_status"]
           fuel_card_issued?: Database["public"]["Enums"]["yes_no"]
+          fuel_card_number?: string | null
           fully_onboarded?: boolean | null
           go_live_date?: string | null
           ica_notes?: string | null
@@ -1147,10 +1155,12 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          bestpass_number?: string | null
           bg_check_notes?: string | null
           ch_received_date?: string | null
           ch_requested_date?: string | null
           ch_status?: Database["public"]["Enums"]["mvr_status"]
+          dash_cam_number?: string | null
           decal_applied?: Database["public"]["Enums"]["yes_no"]
           decal_method?: Database["public"]["Enums"]["install_method"] | null
           decal_photo_ds_url?: string | null
@@ -1161,11 +1171,13 @@ export type Database = {
           doc_notes?: string | null
           eld_installed?: Database["public"]["Enums"]["yes_no"]
           eld_method?: Database["public"]["Enums"]["install_method"] | null
+          eld_serial_number?: string | null
           exception_approved_at?: string | null
           exception_approved_by?: string | null
           exception_notes?: string | null
           form_2290?: Database["public"]["Enums"]["document_status"]
           fuel_card_issued?: Database["public"]["Enums"]["yes_no"]
+          fuel_card_number?: string | null
           fully_onboarded?: boolean | null
           go_live_date?: string | null
           ica_notes?: string | null
