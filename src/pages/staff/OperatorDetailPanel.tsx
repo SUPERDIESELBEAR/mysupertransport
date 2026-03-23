@@ -2539,8 +2539,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 setMarkingReceived(field as string);
                 try {
                   await supabase.from('onboarding_status').update({ [field]: 'received' }).eq('id', statusId);
+                   const updated = { ...status, [field]: 'received' };
                   setStatus(prev => ({ ...prev, [field]: 'received' }));
                   savedMilestones.current = { ...savedMilestones.current, [field as string]: 'received' };
+                  if (
+                    updated.form_2290 === 'received' &&
+                    updated.truck_title === 'received' &&
+                    updated.truck_photos === 'received' &&
+                    updated.truck_inspection === 'received'
+                  ) {
+                    setCollapsedStages(prev => { const next = new Set(prev); next.add('stage2'); return next; });
+                  }
                   if (operatorUserId) {
                     await supabase.from('notifications').insert({
                       user_id: operatorUserId,
