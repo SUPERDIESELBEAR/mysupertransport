@@ -712,7 +712,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         if (os.form_2290 === 'received' && os.truck_title === 'received' && os.truck_photos === 'received' && os.truck_inspection === 'received') autoCollapse.add('stage2');
         if (os.ica_status === 'complete') autoCollapse.add('stage3');
         if (os.mo_reg_received === 'yes' || os.registration_status === 'own_registration') autoCollapse.add('stage4');
-        if (os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes') autoCollapse.add('stage5');
+        if (os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes' && !!os.eld_serial_number && !!os.dash_cam_number && !!os.bestpass_number && !!os.fuel_card_number) autoCollapse.add('stage5');
         if (os.insurance_added_date) autoCollapse.add('stage6');
         if (os.go_live_date) autoCollapse.add('stage7');
         if (autoCollapse.size > 0) setCollapsedStages(autoCollapse);
@@ -3139,7 +3139,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <SelectField label="Truck Decals — Install Method" field="decal_method" options={methodOptions} />
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Decal Applied</Label>
-                      <Select value={(status.decal_applied as string) || undefined} onValueChange={v => { updateStatus('decal_applied', v); if (v === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes') { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
+                      <Select value={(status.decal_applied as string) || undefined} onValueChange={v => { updateStatus('decal_applied', v); if (v === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
                         <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
                         <SelectContent>{yesNoOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                       </Select>
@@ -3190,7 +3190,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <SelectField label="ELD Install Method" field="eld_method" options={methodOptions} />
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ELD Installed</Label>
-                      <Select value={(status.eld_installed as string) || undefined} onValueChange={v => { updateStatus('eld_installed', v); if (v === 'yes' && status.decal_applied === 'yes' && status.fuel_card_issued === 'yes') { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
+                      <Select value={(status.eld_installed as string) || undefined} onValueChange={v => { updateStatus('eld_installed', v); if (v === 'yes' && status.decal_applied === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
                         <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
                         <SelectContent>{yesNoOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                       </Select>
@@ -3247,7 +3247,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Fuel Card</p>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fuel Card Issued</Label>
-                      <Select value={(status.fuel_card_issued as string) || undefined} onValueChange={v => { updateStatus('fuel_card_issued', v); if (v === 'yes' && status.decal_applied === 'yes' && status.eld_installed === 'yes') { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
+                       <Select value={(status.fuel_card_issued as string) || undefined} onValueChange={v => { updateStatus('fuel_card_issued', v); if (v === 'yes' && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
                         <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
                         <SelectContent>{yesNoOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                       </Select>
@@ -3257,6 +3257,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       <Input
                         value={status.fuel_card_number ?? ''}
                         onChange={e => updateStatus('fuel_card_number' as any, e.target.value || null)}
+                        onBlur={e => { const v = e.target.value; if (v && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}
                         placeholder="e.g. 301"
                         maxLength={3}
                         className="h-9 text-sm"
@@ -3273,6 +3274,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         <Input
                           value={status.eld_serial_number ?? ''}
                           onChange={e => updateStatus('eld_serial_number' as any, e.target.value || null)}
+                          onBlur={e => { const v = e.target.value; if (v && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}
                           placeholder="e.g. ELD-12345678"
                           maxLength={15}
                           className="h-9 text-sm font-mono"
@@ -3283,6 +3285,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         <Input
                           value={status.dash_cam_number ?? ''}
                           onChange={e => updateStatus('dash_cam_number' as any, e.target.value || null)}
+                          onBlur={e => { const v = e.target.value; if (v && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}
                           placeholder="e.g. CAM-98765432"
                           maxLength={15}
                           className="h-9 text-sm font-mono"
@@ -3293,6 +3296,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         <Input
                           value={status.bestpass_number ?? ''}
                           onChange={e => updateStatus('bestpass_number' as any, e.target.value || null)}
+                          onBlur={e => { const v = e.target.value; if (v && status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}
                           placeholder="e.g. BP-00112233"
                           maxLength={15}
                           className="h-9 text-sm font-mono"
