@@ -3148,7 +3148,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   {/* Fuel Card */}
                   <div className="space-y-3">
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Fuel Card</p>
-                    <SelectField label="Fuel Card Issued" field="fuel_card_issued" options={yesNoOptions} />
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fuel Card Issued</Label>
+                      <Select value={(status.fuel_card_issued as string) || undefined} onValueChange={v => { updateStatus('fuel_card_issued', v); if (v === 'yes' && status.decal_applied === 'yes' && status.eld_installed === 'yes') { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
+                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                        <SelectContent>{yesNoOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                 </div>
