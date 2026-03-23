@@ -1013,12 +1013,19 @@ export type Database = {
           decal_method: Database["public"]["Enums"]["install_method"] | null
           decal_photo_ds_url: string | null
           decal_photo_ps_url: string | null
+          dispatch_ready_consortium: boolean
+          dispatch_ready_first_assigned: boolean
+          dispatch_ready_orientation: boolean
           doc_notes: string | null
           eld_installed: Database["public"]["Enums"]["yes_no"]
           eld_method: Database["public"]["Enums"]["install_method"] | null
+          exception_approved_at: string | null
+          exception_approved_by: string | null
+          exception_notes: string | null
           form_2290: Database["public"]["Enums"]["document_status"]
           fuel_card_issued: Database["public"]["Enums"]["yes_no"]
           fully_onboarded: boolean | null
+          go_live_date: string | null
           ica_notes: string | null
           ica_sent_date: string | null
           ica_signed_date: string | null
@@ -1051,6 +1058,8 @@ export type Database = {
           mvr_requested_date: string | null
           mvr_status: Database["public"]["Enums"]["mvr_status"]
           operator_id: string
+          operator_type: string | null
+          paper_logbook_approved: boolean
           pe_results_date: string | null
           pe_scheduled_date: string | null
           pe_screening: Database["public"]["Enums"]["screening_status"]
@@ -1058,6 +1067,7 @@ export type Database = {
           registration_status:
             | Database["public"]["Enums"]["registration_type"]
             | null
+          temp_decal_approved: boolean
           truck_inspection: Database["public"]["Enums"]["document_status"]
           truck_photos: Database["public"]["Enums"]["document_status"]
           truck_title: Database["public"]["Enums"]["document_status"]
@@ -1074,12 +1084,19 @@ export type Database = {
           decal_method?: Database["public"]["Enums"]["install_method"] | null
           decal_photo_ds_url?: string | null
           decal_photo_ps_url?: string | null
+          dispatch_ready_consortium?: boolean
+          dispatch_ready_first_assigned?: boolean
+          dispatch_ready_orientation?: boolean
           doc_notes?: string | null
           eld_installed?: Database["public"]["Enums"]["yes_no"]
           eld_method?: Database["public"]["Enums"]["install_method"] | null
+          exception_approved_at?: string | null
+          exception_approved_by?: string | null
+          exception_notes?: string | null
           form_2290?: Database["public"]["Enums"]["document_status"]
           fuel_card_issued?: Database["public"]["Enums"]["yes_no"]
           fully_onboarded?: boolean | null
+          go_live_date?: string | null
           ica_notes?: string | null
           ica_sent_date?: string | null
           ica_signed_date?: string | null
@@ -1112,6 +1129,8 @@ export type Database = {
           mvr_requested_date?: string | null
           mvr_status?: Database["public"]["Enums"]["mvr_status"]
           operator_id: string
+          operator_type?: string | null
+          paper_logbook_approved?: boolean
           pe_results_date?: string | null
           pe_scheduled_date?: string | null
           pe_screening?: Database["public"]["Enums"]["screening_status"]
@@ -1119,6 +1138,7 @@ export type Database = {
           registration_status?:
             | Database["public"]["Enums"]["registration_type"]
             | null
+          temp_decal_approved?: boolean
           truck_inspection?: Database["public"]["Enums"]["document_status"]
           truck_photos?: Database["public"]["Enums"]["document_status"]
           truck_title?: Database["public"]["Enums"]["document_status"]
@@ -1135,12 +1155,19 @@ export type Database = {
           decal_method?: Database["public"]["Enums"]["install_method"] | null
           decal_photo_ds_url?: string | null
           decal_photo_ps_url?: string | null
+          dispatch_ready_consortium?: boolean
+          dispatch_ready_first_assigned?: boolean
+          dispatch_ready_orientation?: boolean
           doc_notes?: string | null
           eld_installed?: Database["public"]["Enums"]["yes_no"]
           eld_method?: Database["public"]["Enums"]["install_method"] | null
+          exception_approved_at?: string | null
+          exception_approved_by?: string | null
+          exception_notes?: string | null
           form_2290?: Database["public"]["Enums"]["document_status"]
           fuel_card_issued?: Database["public"]["Enums"]["yes_no"]
           fully_onboarded?: boolean | null
+          go_live_date?: string | null
           ica_notes?: string | null
           ica_sent_date?: string | null
           ica_signed_date?: string | null
@@ -1173,6 +1200,8 @@ export type Database = {
           mvr_requested_date?: string | null
           mvr_status?: Database["public"]["Enums"]["mvr_status"]
           operator_id?: string
+          operator_type?: string | null
+          paper_logbook_approved?: boolean
           pe_results_date?: string | null
           pe_scheduled_date?: string | null
           pe_screening?: Database["public"]["Enums"]["screening_status"]
@@ -1180,6 +1209,7 @@ export type Database = {
           registration_status?:
             | Database["public"]["Enums"]["registration_type"]
             | null
+          temp_decal_approved?: boolean
           truck_inspection?: Database["public"]["Enums"]["document_status"]
           truck_photos?: Database["public"]["Enums"]["document_status"]
           truck_title?: Database["public"]["Enums"]["document_status"]
