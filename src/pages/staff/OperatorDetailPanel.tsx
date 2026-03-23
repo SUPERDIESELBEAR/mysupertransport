@@ -109,6 +109,12 @@ type OnboardingStatus = {
   dispatch_ready_first_assigned: boolean;
   go_live_date: string | null;
   operator_type: string | null;
+  // Upfront Costs
+  cost_mo_registration: number | null;
+  cost_form_2290: number | null;
+  cost_other: number | null;
+  cost_other_description: string | null;
+  cost_notes: string | null;
 };
 
 type DispatchHistoryEntry = {
