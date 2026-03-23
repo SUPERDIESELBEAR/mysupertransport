@@ -1245,9 +1245,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const methodOptions = [
     { value: 'owner_operator_install', label: 'Owner-Operator Install' },
     { value: 'supertransport_shop',    label: 'SUPERTRANSPORT Shop' },
-    // legacy values kept for existing records
-    { value: 'ar_shop_install', label: 'AR Shop Install (legacy)' },
-    { value: 'ups_self_install', label: 'UPS Self-Install (legacy)' },
   ];
   const yesNoOptions = [{ value: 'no', label: 'No' }, { value: 'yes', label: 'Yes' }];
 
@@ -2961,7 +2958,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <Input
                       value={status.unit_number ?? ''}
                       onChange={e => updateStatus('unit_number', e.target.value || null)}
-                      placeholder="e.g. ST-042"
+                      placeholder="e.g. 301"
                       className="h-9 text-sm"
                     />
                   </div>
