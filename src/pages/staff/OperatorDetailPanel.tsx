@@ -2855,17 +2855,22 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         {/* Stage 5 — Equipment */}
         {(() => {
           const allEquipmentReady = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
+          const exceptionActiveS5 = (status.paper_logbook_approved || status.temp_decal_approved) && !allEquipmentReady;
+          const showExceptionBlock = status.decal_method === 'supertransport_shop' || status.eld_method === 'supertransport_shop';
           const s5Collapsed = collapsedStages.has('stage5');
+          const borderCls = allEquipmentReady ? 'border-status-complete' : exceptionActiveS5 ? 'border-gold' : 'border-border';
           return (
-            <div ref={el => { stageRefs.current['stage5'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${allEquipmentReady ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stage5'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${borderCls}`}>
               <button onClick={() => toggleStage('stage5')} className="w-full flex items-center justify-between px-5 py-4 text-left">
                 <div className="flex items-center gap-2">
-                  <Truck className={`h-4 w-4 ${allEquipmentReady ? 'text-status-complete' : 'text-gold'}`} />
+                  <Truck className={`h-4 w-4 ${allEquipmentReady ? 'text-status-complete' : exceptionActiveS5 ? 'text-gold' : 'text-gold'}`} />
                   <h3 className="font-semibold text-foreground text-sm">Stage 5 — Equipment Setup</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   {allEquipmentReady
                     ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />All Equipment Ready</span>
+                    : exceptionActiveS5
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><AlertTriangle className="h-3 w-3" />Exception Active</span>
                     : (() => {
                         const done = [
                           status.decal_applied === 'yes',
@@ -2945,6 +2950,51 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <SelectField label="ELD Install Method" field="eld_method" options={methodOptions} />
                     <SelectField label="ELD Installed" field="eld_installed" options={yesNoOptions} />
                   </div>
+
+                  {/* Shop Visit Exceptions — shown when either method is supertransport_shop */}
+                  {showExceptionBlock && (
+                    <div className="space-y-3 rounded-lg border border-gold/40 bg-gold/5 p-3">
+                      <p className="text-[11px] font-semibold text-gold-muted uppercase tracking-wider pb-1 border-b border-gold/30">Shop Visit Exceptions</p>
+                      <p className="text-[11px] text-muted-foreground">Grant dispatch exceptions for operators traveling to the SUPERTRANSPORT shop for installation. The operator may run loads while en route.</p>
+                      {status.eld_method === 'supertransport_shop' && (
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={status.paper_logbook_approved ?? false}
+                            onChange={e => updateStatus('paper_logbook_approved', e.target.checked as any)}
+                            className="rounded border-border h-4 w-4"
+                          />
+                          <span className="text-xs font-medium text-foreground">Paper Logbook Approved <span className="font-normal text-muted-foreground">(ELD pending shop install)</span></span>
+                        </label>
+                      )}
+                      {status.decal_method === 'supertransport_shop' && (
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={status.temp_decal_approved ?? false}
+                            onChange={e => updateStatus('temp_decal_approved', e.target.checked as any)}
+                            className="rounded border-border h-4 w-4"
+                          />
+                          <span className="text-xs font-medium text-foreground">Temporary Decals Approved <span className="font-normal text-muted-foreground">(permanent decal pending shop visit)</span></span>
+                        </label>
+                      )}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Exception Notes</Label>
+                        <Textarea
+                          value={status.exception_notes ?? ''}
+                          onChange={e => updateStatus('exception_notes', e.target.value || null)}
+                          placeholder="e.g. Coming from Tennessee, ~800 miles. Cleared to run 2 loads before arriving at shop."
+                          className="text-sm min-h-[64px] resize-none"
+                        />
+                      </div>
+                      {(status.paper_logbook_approved || status.temp_decal_approved) && (
+                        <div className="flex items-center gap-1.5 p-2 rounded bg-gold/10 border border-gold/30">
+                          <AlertTriangle className="h-3.5 w-3.5 text-gold shrink-0" />
+                          <p className="text-[11px] text-gold-muted font-medium">Exception active — operator is approved with conditions until shop visit is complete.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Fuel Card */}
                   <div className="space-y-3">
