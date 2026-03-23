@@ -3040,7 +3040,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <div className="space-y-3">
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Truck Decals</p>
                     <SelectField label="Truck Decals — Install Method" field="decal_method" options={methodOptions} />
-                    <SelectField label="Decal Applied" field="decal_applied" options={yesNoOptions} />
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Decal Applied</Label>
+                      <Select value={(status.decal_applied as string) || undefined} onValueChange={v => { updateStatus('decal_applied', v); if (v === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes') { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
+                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                        <SelectContent>{yesNoOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
 
                     {/* Decal photo thumbnails — shown once decal is applied */}
                     {status.decal_applied === 'yes' && (
