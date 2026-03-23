@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { emailHeader, emailFooter } from '../_shared/email-layout.ts';
+import { emailHeader, emailFooter, RECRUITING_EMAIL } from '../_shared/email-layout.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -45,7 +45,7 @@ function buildInviteEmail(firstName: string, note: string | null, appUrl: string
             <p style="font-size:13px;color:#999;text-align:center;">Or visit: <a href="${appUrl}/apply" style="color:#C9A84C;">${appUrl}/apply</a></p>
           </td>
         </tr>
-        ${emailFooter('recruiting@mysupertransport.com', 'You received this email because a SUPERTRANSPORT team member personally invited you to apply.')}
+        ${emailFooter(RECRUITING_EMAIL, 'You received this email because a SUPERTRANSPORT team member personally invited you to apply.')}
       </table>
     </td></tr>
   </table>
@@ -147,7 +147,7 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'SUPERTRANSPORT Recruiting <recruiting@mysupertransport.com>',
+        from: `SUPERTRANSPORT Recruiting <${RECRUITING_EMAIL}>`,
         to: [email],
         subject,
         html,
