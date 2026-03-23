@@ -1348,13 +1348,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         const hasAny  = moVal !== null || f2290 !== null || other !== null;
 
         const CostAttachment = ({ slotKey, label }: { slotKey: string; label: string }) => {
-          const [uploading, setUploading] = React.useState(false);
-          const [attachUrl, setAttachUrl] = React.useState<string | null>(null);
-          const [attachName, setAttachName] = React.useState<string | null>(null);
-          const inputRef = React.useRef<HTMLInputElement>(null);
+          const [uploading, setUploading] = useState(false);
+          const [attachUrl, setAttachUrl] = useState<string | null>(null);
+          const [attachName, setAttachName] = useState<string | null>(null);
+          const inputRef = useRef<HTMLInputElement>(null);
 
           // Load existing attachment from operator_documents
-          React.useEffect(() => {
+          useEffect(() => {
             if (!operatorId) return;
             supabase
               .from('operator_documents')
