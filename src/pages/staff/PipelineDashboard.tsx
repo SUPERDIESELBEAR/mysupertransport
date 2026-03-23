@@ -1484,7 +1484,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           return !cfg.items.every(item => evalItem(op, item.field, item.complete_value));
         });
       })();
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchStageNode;
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchException && matchStageNode;
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
