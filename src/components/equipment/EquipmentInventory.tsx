@@ -267,7 +267,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
                     <span>·</span>
                     <span className="text-primary font-medium">{typeItems.filter(i => i.status === 'assigned').length} assigned</span>
                     {typeItems.filter(i => i.status === 'damaged').length > 0 && (
-                      <><span>·</span><span className="text-amber-700 font-medium">{typeItems.filter(i => i.status === 'damaged').length} damaged</span></>
+                      <><span>·</span><span className="text-warning font-medium">{typeItems.filter(i => i.status === 'damaged').length} damaged</span></>
                     )}
                     {typeItems.filter(i => i.status === 'lost').length > 0 && (
                       <><span>·</span><span className="text-destructive font-medium">{typeItems.filter(i => i.status === 'lost').length} lost</span></>
