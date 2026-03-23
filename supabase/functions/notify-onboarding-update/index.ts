@@ -10,7 +10,7 @@ const corsHeaders = {
 const MILESTONE_COPY: Record<string, {
   subject: string;
   heading: string;
-  body: (name: string) => string;
+  body: (name: string, extra?: string) => string;
   cta: (appUrl: string) => { label: string; url: string };
 }> = {
   background_check_cleared: {
@@ -95,6 +95,21 @@ const MILESTONE_COPY: Record<string, {
       <p>Your onboarding coordinator has confirmed receipt of one of your required documents.</p>
       <p>Log in to your portal to see your updated document status and any remaining items.</p>`,
     cta: (appUrl) => ({ label: 'View My Documents', url: `${appUrl}/dashboard?tab=documents` }),
+  },
+  go_live_set: {
+    subject: '🚛 Your Go-Live Date is Confirmed — SUPERTRANSPORT',
+    heading: '🚛 You\'re Cleared to Start Dispatching!',
+    body: (name, goLiveDate) => `<p>Hi ${name},</p>
+      <p>Congratulations — your onboarding is complete and your <strong>go-live date has been officially confirmed${goLiveDate ? ` for <strong>${goLiveDate}</strong>` : ''}</strong>.</p>
+      <p>Here's what to expect next:</p>
+      <ul style="padding-left:20px;line-height:2.2;">
+        <li>Your <strong>dispatcher will reach out</strong> to get you set up with your first load assignment.</li>
+        <li>Log in to your portal to monitor your <strong>dispatch status</strong> and messages.</li>
+        <li>Keep your ELD active and your fuel card on hand — you're ready to roll.</li>
+        <li>Questions? Reach your coordinator at <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a>.</li>
+      </ul>
+      <p style="margin-top:16px;">We're excited to have you on the road with us. Welcome to the SUPERTRANSPORT family!</p>`,
+    cta: (appUrl) => ({ label: 'Go to My Portal', url: `${appUrl}/dashboard` }),
   },
 };
 
@@ -183,10 +198,25 @@ Deno.serve(async (req) => {
     const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
     const ctaConfig = copy.cta(appUrl);
 
+    // ── Fetch extra context for specific milestones ───────────────────────
+    let extraContext: string | undefined;
+    if (milestone_key === 'go_live_set') {
+      const { data: osRow } = await supabaseAdmin
+        .from('onboarding_status')
+        .select('go_live_date')
+        .eq('operator_id', operator_id)
+        .maybeSingle();
+      if (osRow?.go_live_date) {
+        // Format as "January 15, 2025"
+        const d = new Date(osRow.go_live_date + 'T00:00:00');
+        extraContext = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      }
+    }
+
     const html = buildEmail(
       copy.subject,
       copy.heading,
-      copy.body(operatorName),
+      copy.body(operatorName, extraContext),
       ctaConfig,
       ONBOARDING_EMAIL   // footer shows onboarding@ for this function
     );
