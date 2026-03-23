@@ -776,6 +776,28 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const isNewlyFullyOnboarded =
       !prev.insurance_added_date && !!status.insurance_added_date;
 
+    // ── Auto-stamp exception_approved_by/at when exceptions are first toggled ──
+    const prevSnap = savedSnapshot.current?.status as Partial<OnboardingStatus> | undefined;
+    const wasExceptionActive = prevSnap?.paper_logbook_approved || prevSnap?.temp_decal_approved;
+    const isExceptionNowActive = status.paper_logbook_approved || status.temp_decal_approved;
+    if (!wasExceptionActive && isExceptionNowActive && !status.exception_approved_by) {
+      const actorId = session?.user?.id ?? null;
+      setStatus(prev => ({
+        ...prev,
+        exception_approved_by: actorId,
+        exception_approved_at: new Date().toISOString(),
+      }));
+      // Also update the status object used for the DB write below
+      status.exception_approved_by = actorId;
+      status.exception_approved_at = new Date().toISOString();
+    }
+
+    // ── Detect go-live transitions ────────────────────────────────────────
+    const prevGoLive = prevSnap?.go_live_date ?? null;
+    const newGoLive = status.go_live_date ?? null;
+    const isNewlyGoLive = !prevGoLive && !!newGoLive;
+    const goLiveDateChanged = prevGoLive !== newGoLive && !!newGoLive;
+
     // ── Capture insurance field changes before writing ────────────────────
     const INSURANCE_FIELD_LABELS: Record<string, string> = {
       insurance_policy_type:    'Coverage Type',
