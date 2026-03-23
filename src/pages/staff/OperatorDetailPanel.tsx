@@ -3508,7 +3508,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       <Input
                         type="date"
                         value={status.insurance_added_date ?? ''}
-                        onChange={e => updateStatus('insurance_added_date', e.target.value || null)}
+                        onChange={e => { updateStatus('insurance_added_date', e.target.value || null); if (e.target.value) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage6'); return next; }); } }}
                         className="h-9 text-sm"
                       />
                     </div>
