@@ -1360,16 +1360,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         },
                       ];
                       const dotCls: Record<StickyDotState, string> = {
-                        complete: 'bg-status-complete border-status-complete/40',
-                        progress: 'bg-gold border-gold/40',
-                        na:       'bg-muted-foreground/30 border-muted-foreground/20',
-                        none:     'bg-muted border-border',
+                        complete:  'bg-status-complete border-status-complete/40',
+                        progress:  'bg-gold border-gold/40',
+                        exception: 'bg-gold border-gold/60',
+                        na:        'bg-muted-foreground/30 border-muted-foreground/20',
+                        none:      'bg-muted border-border',
                       };
                       const labelCls: Record<StickyDotState, string> = {
-                        complete: 'text-status-complete',
-                        progress: 'text-gold-muted',
-                        na:       'text-muted-foreground/50',
-                        none:     'text-muted-foreground/60',
+                        complete:  'text-status-complete',
+                        progress:  'text-gold-muted',
+                        exception: 'text-gold-muted',
+                        na:        'text-muted-foreground/50',
+                        none:      'text-muted-foreground/60',
                       };
                       return stickyDots.map(dot => (
                         <Tooltip key={dot.key}>
