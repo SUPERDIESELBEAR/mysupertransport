@@ -10,7 +10,7 @@ const corsHeaders = {
 const MILESTONE_COPY: Record<string, {
   subject: string;
   heading: string;
-  body: (name: string) => string;
+  body: (name: string, extra?: string) => string;
   cta: (appUrl: string) => { label: string; url: string };
 }> = {
   background_check_cleared: {
