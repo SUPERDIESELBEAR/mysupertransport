@@ -45,7 +45,7 @@ function buildInviteEmail(firstName: string, note: string | null, appUrl: string
             <p style="font-size:13px;color:#999;text-align:center;">Or visit: <a href="${appUrl}/apply" style="color:#C9A84C;">${appUrl}/apply</a></p>
           </td>
         </tr>
-        ${emailFooter('recruiting@mysupertransport.com', 'You received this email because a SUPERTRANSPORT team member personally invited you to apply.')}
+        ${emailFooter(RECRUITING_EMAIL, 'You received this email because a SUPERTRANSPORT team member personally invited you to apply.')}
       </table>
     </td></tr>
   </table>
