@@ -358,10 +358,16 @@ export default function OperatorPortal() {
         return 'not_started';
       case 5:
         if (s.decal_applied === 'yes' && s.eld_installed === 'yes' && s.fuel_card_issued === 'yes') return 'complete';
+        // Exception active: operator approved to run while en route to shop
+        if ((s.paper_logbook_approved || s.temp_decal_approved) && (s.decal_method === 'supertransport_shop' || s.eld_method === 'supertransport_shop')) return 'in_progress';
         if (s.decal_applied === 'yes' || s.eld_installed === 'yes') return 'in_progress';
         return 'not_started';
       case 6:
         if (s.insurance_added_date) return 'complete';
+        return 'not_started';
+      case 7:
+        if (s.go_live_date) return 'complete';
+        if (s.dispatch_ready_orientation || s.dispatch_ready_consortium || s.dispatch_ready_first_assigned) return 'in_progress';
         return 'not_started';
       default:
         return 'not_started';
@@ -427,11 +433,16 @@ export default function OperatorPortal() {
       icon: <Truck className="h-4 w-4" />,
       status: getStageStatus(5),
       substeps: [
-        { label: 'Decal Applied', value: fmt(onboardingStatus.decal_applied ?? 'no'), status: onboardingStatus.decal_applied === 'yes' ? 'complete' : 'not_started' },
-        { label: 'ELD Installed', value: fmt(onboardingStatus.eld_installed ?? 'no'), status: onboardingStatus.eld_installed === 'yes' ? 'complete' : 'not_started' },
+        { label: 'Decal Applied', value: fmt(onboardingStatus.decal_applied ?? 'no'), status: onboardingStatus.decal_applied === 'yes' ? 'complete' : (onboardingStatus.temp_decal_approved && onboardingStatus.decal_method === 'supertransport_shop') ? 'in_progress' : 'not_started' },
+        { label: 'ELD Installed', value: fmt(onboardingStatus.eld_installed ?? 'no'), status: onboardingStatus.eld_installed === 'yes' ? 'complete' : (onboardingStatus.paper_logbook_approved && onboardingStatus.eld_method === 'supertransport_shop') ? 'in_progress' : 'not_started' },
         { label: 'Fuel Card Issued', value: fmt(onboardingStatus.fuel_card_issued ?? 'no'), status: onboardingStatus.fuel_card_issued === 'yes' ? 'complete' : 'not_started' },
+        ...((onboardingStatus.paper_logbook_approved || onboardingStatus.temp_decal_approved) && (onboardingStatus.decal_method === 'supertransport_shop' || onboardingStatus.eld_method === 'supertransport_shop') ? [
+          { label: 'Exception Status', value: 'Approved — En Route to Shop', status: 'in_progress' as StageStatus },
+        ] : []),
       ],
-      hint: 'Your onboarding coordinator will arrange decal installation, ELD setup, and fuel card issuance.',
+      hint: onboardingStatus.paper_logbook_approved || onboardingStatus.temp_decal_approved
+        ? '⚠️ You have been approved to operate with temporary exceptions while traveling to the SUPERTRANSPORT shop for final equipment installation. This is a temporary approval — please arrive at the shop as soon as possible.'
+        : 'Your onboarding coordinator will arrange decal installation, ELD setup, and fuel card issuance.',
     },
     {
       number: 6,
@@ -443,6 +454,22 @@ export default function OperatorPortal() {
         { label: 'Insurance', value: onboardingStatus.insurance_added_date ? 'Added' : 'Pending', status: onboardingStatus.insurance_added_date ? 'complete' : 'not_started' },
         ...(onboardingStatus.unit_number ? [{ label: 'Unit Number', value: onboardingStatus.unit_number, status: 'complete' as StageStatus }] : []),
       ],
+    },
+    {
+      number: 7,
+      title: 'Go Live & Dispatch Readiness',
+      description: onboardingStatus.go_live_date
+        ? `Go-live confirmed on ${new Date(onboardingStatus.go_live_date + 'T12:00:00').toLocaleDateString()}`
+        : 'Final readiness check before first dispatch',
+      icon: <CheckCircle2 className="h-4 w-4" />,
+      status: getStageStatus(7),
+      substeps: [
+        { label: 'Orientation Call', value: onboardingStatus.dispatch_ready_orientation ? 'Completed' : 'Pending', status: onboardingStatus.dispatch_ready_orientation ? 'complete' : 'not_started' },
+        { label: 'Consortium Enrolled', value: onboardingStatus.dispatch_ready_consortium ? 'Enrolled' : 'Pending', status: onboardingStatus.dispatch_ready_consortium ? 'complete' : 'not_started' },
+        { label: 'First Dispatch Assigned', value: onboardingStatus.dispatch_ready_first_assigned ? 'Assigned' : 'Pending', status: onboardingStatus.dispatch_ready_first_assigned ? 'complete' : 'not_started' },
+        { label: 'Go-Live Date', value: onboardingStatus.go_live_date ? new Date(onboardingStatus.go_live_date + 'T12:00:00').toLocaleDateString() : 'Not set', status: onboardingStatus.go_live_date ? 'complete' : 'not_started' },
+      ],
+      hint: 'Your coordinator will confirm your orientation call, consortium enrollment, and first dispatch assignment before setting your official go-live date.',
     },
   ];
 
