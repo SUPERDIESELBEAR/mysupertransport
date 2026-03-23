@@ -62,6 +62,12 @@ type OnboardingStatus = {
   eld_method: string | null;
   eld_installed: string;
   fuel_card_issued: string;
+  // Stage 5 exceptions
+  paper_logbook_approved: boolean;
+  temp_decal_approved: boolean;
+  exception_notes: string | null;
+  exception_approved_by: string | null;
+  exception_approved_at: string | null;
   insurance_added_date: string | null;
   insurance_policy_type: string | null;
   insurance_stated_value: number | null;
@@ -92,6 +98,12 @@ type OnboardingStatus = {
   ica_signed_date: string | null;
   ica_notes: string | null;
   doc_notes: string | null;
+  // Stage 7 — Go Live & Dispatch Readiness
+  dispatch_ready_orientation: boolean;
+  dispatch_ready_consortium: boolean;
+  dispatch_ready_first_assigned: boolean;
+  go_live_date: string | null;
+  operator_type: string | null;
 };
 
 type DispatchHistoryEntry = {
@@ -1198,6 +1210,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
       {(() => {
+        const exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
+        const allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
         const stages = [
           { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear', fullName: 'Background Check', items: [
               { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
@@ -1219,13 +1233,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               { label: 'MO Docs Submitted',      done: status.mo_docs_submitted === 'submitted' },
               { label: 'MO Registration Received', done: status.mo_reg_received === 'yes' },
             ]},
-          { label: 'Equipment',  key: 'stage5', complete: status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes', fullName: 'Equipment', items: [
-              { label: 'Decal Applied',    done: status.decal_applied === 'yes' },
-              { label: 'ELD Installed',    done: status.eld_installed === 'yes' },
+          { label: 'Equipment',  key: 'stage5', complete: allEquipFull, fullName: 'Equipment', exception: exceptionActive && !allEquipFull, items: [
+              { label: 'Decal Applied',    done: status.decal_applied === 'yes' || (status.temp_decal_approved && status.decal_method === 'supertransport_shop') },
+              { label: 'ELD Installed',    done: status.eld_installed === 'yes' || (status.paper_logbook_approved && status.eld_method === 'supertransport_shop') },
               { label: 'Fuel Card Issued', done: status.fuel_card_issued === 'yes' },
             ]},
           { label: 'Insurance',  key: 'stage6', complete: !!status.insurance_added_date, fullName: 'Insurance', items: [
               { label: 'Insurance Added', done: !!status.insurance_added_date },
+            ]},
+          { label: 'Go Live',    key: 'stage7', complete: !!status.go_live_date, fullName: 'Go Live & Dispatch Readiness', items: [
+              { label: 'Orientation Call',       done: status.dispatch_ready_orientation },
+              { label: 'Consortium Enrolled',    done: status.dispatch_ready_consortium },
+              { label: 'First Dispatch Assigned',done: status.dispatch_ready_first_assigned },
+              { label: 'Go-Live Date Set',       done: !!status.go_live_date },
             ]},
         ];
         const completedCount = stages.filter(s => s.complete).length;
@@ -1290,7 +1310,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 {/* Colored dot strip — matches the summary row below */}
                 <div className="flex items-center gap-px bg-muted/40 rounded-lg px-2 py-1.5 border border-border/50 shrink-0">
                     {(() => {
-                      type StickyDotState = 'complete' | 'progress' | 'na' | 'none';
+                      type StickyDotState = 'complete' | 'progress' | 'exception' | 'na' | 'none';
                       const stickyDots: { key: string; shortLabel: string; state: StickyDotState; tooltip: string; items: { label: string; done: boolean }[] }[] = [
                         {
                           key: 'stage1', shortLabel: 'BG',
@@ -1322,8 +1342,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         },
                         {
                           key: 'stage5', shortLabel: 'Equip',
-                          state: (status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes') ? 'complete' : ([status.decal_applied, status.eld_installed, status.fuel_card_issued].some(v => v === 'yes')) ? 'progress' : 'none',
-                          tooltip: (() => { const n = [status.decal_applied, status.eld_installed, status.fuel_card_issued].filter(v => v === 'yes').length; return n === 3 ? 'Complete' : n > 0 ? `${n}/3 done` : 'Not started'; })(),
+                          state: allEquipFull ? 'complete' : exceptionActive ? 'exception' : ([status.decal_applied, status.eld_installed, status.fuel_card_issued].some(v => v === 'yes')) ? 'progress' : 'none',
+                          tooltip: allEquipFull ? 'Complete' : exceptionActive ? 'Exception Active — en route to shop' : (() => { const n = [status.decal_applied, status.eld_installed, status.fuel_card_issued].filter(v => v === 'yes').length; return n > 0 ? `${n}/3 done` : 'Not started'; })(),
                           items: stages.find(s => s.key === 'stage5')?.items ?? [],
                         },
                         {
@@ -1332,18 +1352,26 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           tooltip: status.insurance_added_date ? 'Complete' : (docFiles['insurance_cert'] ?? []).length > 0 ? 'Cert on File' : status.insurance_policy_type ? 'In Progress' : 'Not started',
                           items: stages.find(s => s.key === 'stage6')?.items ?? [],
                         },
+                        {
+                          key: 'stage7', shortLabel: 'Go Live',
+                          state: status.go_live_date ? 'complete' : ([status.dispatch_ready_orientation, status.dispatch_ready_consortium, status.dispatch_ready_first_assigned].some(Boolean)) ? 'progress' : 'none',
+                          tooltip: status.go_live_date ? `Go Live: ${format(new Date(status.go_live_date + 'T12:00:00'), 'MMM d, yyyy')}` : 'Not started',
+                          items: stages.find(s => s.key === 'stage7')?.items ?? [],
+                        },
                       ];
                       const dotCls: Record<StickyDotState, string> = {
-                        complete: 'bg-status-complete border-status-complete/40',
-                        progress: 'bg-gold border-gold/40',
-                        na:       'bg-muted-foreground/30 border-muted-foreground/20',
-                        none:     'bg-muted border-border',
+                        complete:  'bg-status-complete border-status-complete/40',
+                        progress:  'bg-gold border-gold/40',
+                        exception: 'bg-gold border-gold/60',
+                        na:        'bg-muted-foreground/30 border-muted-foreground/20',
+                        none:      'bg-muted border-border',
                       };
                       const labelCls: Record<StickyDotState, string> = {
-                        complete: 'text-status-complete',
-                        progress: 'text-gold-muted',
-                        na:       'text-muted-foreground/50',
-                        none:     'text-muted-foreground/60',
+                        complete:  'text-status-complete',
+                        progress:  'text-gold-muted',
+                        exception: 'text-gold-muted',
+                        na:        'text-muted-foreground/50',
+                        none:      'text-muted-foreground/60',
                       };
                       return stickyDots.map(dot => (
                         <Tooltip key={dot.key}>
@@ -2827,17 +2855,22 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         {/* Stage 5 — Equipment */}
         {(() => {
           const allEquipmentReady = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
+          const exceptionActiveS5 = (status.paper_logbook_approved || status.temp_decal_approved) && !allEquipmentReady;
+          const showExceptionBlock = status.decal_method === 'supertransport_shop' || status.eld_method === 'supertransport_shop';
           const s5Collapsed = collapsedStages.has('stage5');
+          const borderCls = allEquipmentReady ? 'border-status-complete' : exceptionActiveS5 ? 'border-gold' : 'border-border';
           return (
-            <div ref={el => { stageRefs.current['stage5'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${allEquipmentReady ? 'border-status-complete' : 'border-border'}`}>
+            <div ref={el => { stageRefs.current['stage5'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${borderCls}`}>
               <button onClick={() => toggleStage('stage5')} className="w-full flex items-center justify-between px-5 py-4 text-left">
                 <div className="flex items-center gap-2">
-                  <Truck className={`h-4 w-4 ${allEquipmentReady ? 'text-status-complete' : 'text-gold'}`} />
+                  <Truck className={`h-4 w-4 ${allEquipmentReady ? 'text-status-complete' : exceptionActiveS5 ? 'text-gold' : 'text-gold'}`} />
                   <h3 className="font-semibold text-foreground text-sm">Stage 5 — Equipment Setup</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   {allEquipmentReady
                     ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />All Equipment Ready</span>
+                    : exceptionActiveS5
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><AlertTriangle className="h-3 w-3" />Exception Active</span>
                     : (() => {
                         const done = [
                           status.decal_applied === 'yes',
@@ -2917,6 +2950,51 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <SelectField label="ELD Install Method" field="eld_method" options={methodOptions} />
                     <SelectField label="ELD Installed" field="eld_installed" options={yesNoOptions} />
                   </div>
+
+                  {/* Shop Visit Exceptions — shown when either method is supertransport_shop */}
+                  {showExceptionBlock && (
+                    <div className="space-y-3 rounded-lg border border-gold/40 bg-gold/5 p-3">
+                      <p className="text-[11px] font-semibold text-gold-muted uppercase tracking-wider pb-1 border-b border-gold/30">Shop Visit Exceptions</p>
+                      <p className="text-[11px] text-muted-foreground">Grant dispatch exceptions for operators traveling to the SUPERTRANSPORT shop for installation. The operator may run loads while en route.</p>
+                      {status.eld_method === 'supertransport_shop' && (
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={status.paper_logbook_approved ?? false}
+                            onChange={e => updateStatus('paper_logbook_approved', e.target.checked as any)}
+                            className="rounded border-border h-4 w-4"
+                          />
+                          <span className="text-xs font-medium text-foreground">Paper Logbook Approved <span className="font-normal text-muted-foreground">(ELD pending shop install)</span></span>
+                        </label>
+                      )}
+                      {status.decal_method === 'supertransport_shop' && (
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={status.temp_decal_approved ?? false}
+                            onChange={e => updateStatus('temp_decal_approved', e.target.checked as any)}
+                            className="rounded border-border h-4 w-4"
+                          />
+                          <span className="text-xs font-medium text-foreground">Temporary Decals Approved <span className="font-normal text-muted-foreground">(permanent decal pending shop visit)</span></span>
+                        </label>
+                      )}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Exception Notes</Label>
+                        <Textarea
+                          value={status.exception_notes ?? ''}
+                          onChange={e => updateStatus('exception_notes', e.target.value || null)}
+                          placeholder="e.g. Coming from Tennessee, ~800 miles. Cleared to run 2 loads before arriving at shop."
+                          className="text-sm min-h-[64px] resize-none"
+                        />
+                      </div>
+                      {(status.paper_logbook_approved || status.temp_decal_approved) && (
+                        <div className="flex items-center gap-1.5 p-2 rounded bg-gold/10 border border-gold/30">
+                          <AlertTriangle className="h-3.5 w-3.5 text-gold shrink-0" />
+                          <p className="text-[11px] text-gold-muted font-medium">Exception active — operator is approved with conditions until shop visit is complete.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Fuel Card */}
                   <div className="space-y-3">
@@ -3285,6 +3363,82 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <Badge className="status-complete border text-xs w-full justify-center">
                       ✓ FULLY ONBOARDED
                     </Badge>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Stage 7 — Go Live & Dispatch Readiness */}
+        {(() => {
+          const s7Complete = !!status.go_live_date;
+          const s7Partial = !s7Complete && (status.dispatch_ready_orientation || status.dispatch_ready_consortium || status.dispatch_ready_first_assigned);
+          const s7Collapsed = collapsedStages.has('stage7');
+          const checkedCount = [status.dispatch_ready_orientation, status.dispatch_ready_consortium, status.dispatch_ready_first_assigned].filter(Boolean).length;
+          return (
+            <div ref={el => { stageRefs.current['stage7'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s7Complete ? 'border-status-complete' : 'border-border'}`}>
+              <button onClick={() => toggleStage('stage7')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className={`h-4 w-4 ${s7Complete ? 'text-status-complete' : 'text-gold'}`} />
+                  <h3 className="font-semibold text-foreground text-sm">Stage 7 — Go Live & Dispatch Readiness</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {s7Complete
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Go Live Set</span>
+                    : s7Partial
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{checkedCount}/3 ready</span>
+                    : null
+                  }
+                  {s7Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+              {!s7Collapsed && (
+                <div className="px-5 pb-5 space-y-4">
+
+                  {/* Dispatch Readiness Checklist */}
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Dispatch Readiness Checklist</p>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input type="checkbox" checked={status.dispatch_ready_orientation ?? false} onChange={e => updateStatus('dispatch_ready_orientation', e.target.checked as any)} className="rounded border-border h-4 w-4" />
+                      <span className="text-xs font-medium text-foreground">Onboarding orientation call completed</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input type="checkbox" checked={status.dispatch_ready_consortium ?? false} onChange={e => updateStatus('dispatch_ready_consortium', e.target.checked as any)} className="rounded border-border h-4 w-4" />
+                      <span className="text-xs font-medium text-foreground">Drug & alcohol consortium enrolled</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input type="checkbox" checked={status.dispatch_ready_first_assigned ?? false} onChange={e => updateStatus('dispatch_ready_first_assigned', e.target.checked as any)} className="rounded border-border h-4 w-4" />
+                      <span className="text-xs font-medium text-foreground">First dispatch assigned</span>
+                    </label>
+                  </div>
+
+                  {/* Go-Live Date & Operator Type */}
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Go-Live</p>
+                    <StageDatePicker label="Go-Live Date" value={status.go_live_date ?? null} onChange={v => updateStatus('go_live_date', v)} />
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Operator Type</Label>
+                      <Select value={status.operator_type ?? ''} onValueChange={v => updateStatus('operator_type', v || null)}>
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder="—" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="solo">Solo Driver</SelectItem>
+                          <SelectItem value="team">Team Driver</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {s7Complete && (
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-status-complete/10 border border-status-complete/30">
+                      <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />
+                      <span className="text-xs font-semibold text-status-complete">
+                        🚛 Go-Live confirmed — {format(new Date(status.go_live_date! + 'T12:00:00'), 'MMMM d, yyyy')}
+                        {status.operator_type ? ` · ${status.operator_type === 'solo' ? 'Solo Driver' : 'Team Driver'}` : ''}
+                      </span>
+                    </div>
                   )}
                 </div>
               )}

@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
   Milestone, RefreshCcw, Activity, ChevronDown, ChevronRight, Download, CalendarIcon, X,
-  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus, UserCheck, FilePen, RotateCcw
+  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus, UserCheck, FilePen, RotateCcw, AlertTriangle
 } from 'lucide-react';
 
 interface AuditEntry {
@@ -125,6 +125,18 @@ const ACTION_CONFIG: Record<string, {
     color: 'text-amber-600',
     bg: 'bg-amber-50 border-amber-200',
   },
+  go_live_updated: {
+    label: 'Go-Live Set',
+    icon: <CheckCircle2 className="h-4 w-4" />,
+    color: 'text-emerald-600',
+    bg: 'bg-emerald-50 border-emerald-200',
+  },
+  exception_approved: {
+    label: 'Exception Approved',
+    icon: <AlertTriangle className="h-4 w-4" />,
+    color: 'text-amber-600',
+    bg: 'bg-amber-50 border-amber-200',
+  },
 };
 
 const FILTER_OPTIONS = [
@@ -144,6 +156,8 @@ const FILTER_OPTIONS = [
   { value: 'cert_renewed', label: 'Cert Renewals' },
   { value: 'expiry_updated', label: 'Fleet Expiry Updates' },
   { value: 'insurance_fields_updated', label: 'Insurance Updates' },
+  { value: 'go_live_updated', label: 'Go-Live Set' },
+  { value: 'exception_approved', label: 'Exceptions Approved' },
 ];
 
 const DATE_PRESETS = [
