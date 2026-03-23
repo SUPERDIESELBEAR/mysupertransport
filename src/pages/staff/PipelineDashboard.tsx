@@ -124,9 +124,14 @@ function StageTrack({
 }) {
   const nodes = computeStageNodesFromConfig(op, stageConfigs);
   const pct = computeProgressFromConfig(op, stageConfigs);
+  // Exception state: equip node is amber 'E' when paper logbook or temp decal is approved but not fully installed
+  const equipFull = op.decal_applied === 'yes' && op.eld_installed === 'yes' && op.fuel_card_issued === 'yes';
+  const equipException = !equipFull && (op.paper_logbook_approved || op.temp_decal_approved);
   return (
     <div className="flex items-center gap-0 min-w-[200px]">
-      {nodes.map((node, i) => (
+      {nodes.map((node, i) => {
+        const isEquipException = node.key === 'equip' && equipException;
+        return (
         <div key={node.key} className="flex items-center">
           {/* Connector line before (skip first) */}
           {i > 0 && (
@@ -156,17 +161,22 @@ function StageTrack({
                   <div
                     className="h-5 w-5 rounded-full flex items-center justify-center transition-all duration-200 shrink-0 group-hover/node:scale-110 group-hover/node:ring-2 group-hover/node:ring-offset-1 pointer-events-none"
                     style={
-                      node.state === 'complete'
+                      isEquipException
+                        ? { background: 'hsl(var(--warning) / 0.15)', border: '2px solid hsl(var(--warning))' }
+                        : node.state === 'complete'
                         ? { background: 'hsl(var(--status-complete))', border: '1.5px solid hsl(var(--status-complete))' }
                         : node.state === 'partial'
                         ? { background: 'transparent', border: '2px solid hsl(var(--status-in-progress))' }
                         : { background: 'hsl(var(--muted))', border: '1.5px solid hsl(var(--border))' }
                     }
                   >
-                    {node.state === 'complete' && (
+                    {isEquipException && (
+                      <span className="text-[9px] font-black leading-none pointer-events-none" style={{ color: 'hsl(var(--warning))' }}>E</span>
+                    )}
+                    {!isEquipException && node.state === 'complete' && (
                       <Check className="h-2.5 w-2.5 text-white pointer-events-none" strokeWidth={3} />
                     )}
-                    {node.state === 'partial' && (
+                    {!isEquipException && node.state === 'partial' && (
                       <div
                         className="h-2 w-2 rounded-full pointer-events-none"
                         style={{ background: 'hsl(var(--status-in-progress))' }}
@@ -176,7 +186,9 @@ function StageTrack({
                   <span
                     className="text-[9px] font-semibold leading-none tracking-wide pointer-events-none"
                     style={{
-                      color: node.state === 'complete'
+                      color: isEquipException
+                        ? 'hsl(var(--warning))'
+                        : node.state === 'complete'
                         ? 'hsl(var(--status-complete))'
                         : node.state === 'partial'
                         ? 'hsl(var(--status-in-progress))'
@@ -189,6 +201,12 @@ function StageTrack({
               </TooltipTrigger>
               <TooltipContent side="top" className="text-left min-w-[180px] max-w-[240px] p-2.5 space-y-2">
                 <p className="font-semibold text-xs">{node.fullName}</p>
+                {isEquipException && (
+                  <div className="flex items-center gap-1.5 rounded px-2 py-1" style={{ background: 'hsl(var(--warning) / 0.12)', border: '1px solid hsl(var(--warning) / 0.4)' }}>
+                    <span className="text-[9px] font-black" style={{ color: 'hsl(var(--warning))' }}>E</span>
+                    <span className="text-[10px] font-semibold" style={{ color: 'hsl(var(--warning))' }}>Exception active — en route to shop</span>
+                  </div>
+                )}
                 {node.items.filter(i => !i.done).length > 0 ? (
                   <div className="space-y-1">
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-destructive/80">Still needed</p>
@@ -196,7 +214,7 @@ function StageTrack({
                       {node.items.filter(i => !i.done).map(item => (
                         <li key={item.label} className="flex items-start gap-1.5 text-xs">
                           <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
-                          <span className="text-foreground">{item.label}</span>
+                          <span className="text-foreground">{isEquipException ? `${item.label} (pending shop visit)` : item.label}</span>
                         </li>
                       ))}
                     </ul>
@@ -222,7 +240,8 @@ function StageTrack({
           </TooltipProvider>
 
         </div>
-      ))}
+        );
+      })}
       {/* Overall % — always in sync with node states */}
       <span
         className="ml-2 text-[11px] font-bold tabular-nums shrink-0"
