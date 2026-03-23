@@ -629,6 +629,87 @@ export type Database = {
         }
         Relationships: []
       }
+      equipment_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          created_at: string
+          equipment_id: string
+          id: string
+          notes: string | null
+          operator_id: string
+          return_condition: string | null
+          returned_at: string | null
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          equipment_id: string
+          id?: string
+          notes?: string | null
+          operator_id: string
+          return_condition?: string | null
+          returned_at?: string | null
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          equipment_id?: string
+          id?: string
+          notes?: string | null
+          operator_id?: string
+          return_condition?: string | null
+          returned_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_assignments_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_assignments_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_items: {
+        Row: {
+          created_at: string
+          device_type: string
+          id: string
+          notes: string | null
+          serial_number: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          device_type: string
+          id?: string
+          notes?: string | null
+          serial_number: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          device_type?: string
+          id?: string
+          notes?: string | null
+          serial_number?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       faq: {
         Row: {
           answer: string

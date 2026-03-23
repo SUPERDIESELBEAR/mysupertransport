@@ -13,7 +13,8 @@ import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Wrench, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Wrench, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff, HardDrive } from 'lucide-react';
+import EquipmentInventory from '@/components/equipment/EquipmentInventory';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
 import DriverHubView from '@/components/drivers/DriverHubView';
 import DocumentHub from '@/components/documents/DocumentHub';
@@ -27,7 +28,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers' | 'compliance';
+type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers' | 'compliance' | 'equipment';
 
 export default function StaffPortal() {
   const { user } = useAuth();
@@ -65,7 +66,7 @@ export default function StaffPortal() {
     } else if (operatorId) {
       setSelectedOperatorId(operatorId);
       setCurrentView('operator-detail');
-    } else if (view && ['pipeline','messages','faq','resources','notifications','docs-hub','service-library','inspection-binder','drivers','compliance'].includes(view)) {
+    } else if (view && ['pipeline','messages','faq','resources','notifications','docs-hub','service-library','inspection-binder','drivers','compliance','equipment'].includes(view)) {
       setCurrentView(view);
     }
   }, [searchParams]);
@@ -153,6 +154,7 @@ export default function StaffPortal() {
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
     { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
     { label: 'Notifications', icon: <Bell className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
+    { label: 'Equipment',     icon: <HardDrive className="h-4 w-4" />, path: 'equipment' },
   ];
 
   const handleOpenOperator = (operatorId: string) => {
@@ -701,6 +703,9 @@ export default function StaffPortal() {
       )}
       {currentView === 'notifications' && (
         <NotificationHistory />
+      )}
+      {currentView === 'equipment' && (
+        <EquipmentInventory isManagement={false} />
       )}
     </StaffLayout>
 
