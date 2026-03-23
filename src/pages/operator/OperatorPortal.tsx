@@ -358,10 +358,16 @@ export default function OperatorPortal() {
         return 'not_started';
       case 5:
         if (s.decal_applied === 'yes' && s.eld_installed === 'yes' && s.fuel_card_issued === 'yes') return 'complete';
+        // Exception active: operator approved to run while en route to shop
+        if ((s.paper_logbook_approved || s.temp_decal_approved) && (s.decal_method === 'supertransport_shop' || s.eld_method === 'supertransport_shop')) return 'in_progress';
         if (s.decal_applied === 'yes' || s.eld_installed === 'yes') return 'in_progress';
         return 'not_started';
       case 6:
         if (s.insurance_added_date) return 'complete';
+        return 'not_started';
+      case 7:
+        if (s.go_live_date) return 'complete';
+        if (s.dispatch_ready_orientation || s.dispatch_ready_consortium || s.dispatch_ready_first_assigned) return 'in_progress';
         return 'not_started';
       default:
         return 'not_started';
