@@ -2803,19 +2803,37 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                          />
                        </td>
                      )}
-                     <td className="px-4 py-3">
-                       <div className="flex flex-col gap-1">
-                         <div className="flex items-center gap-2 flex-wrap">
-                           <p className="font-medium text-foreground">
-                             {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
-                           </p>
-                           {op.unread_count > 0 && (
-                              <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none shrink-0 md:hidden ${op.unread_count >= 3 ? 'bg-destructive text-destructive-foreground' : 'bg-primary/15 text-primary'}`}>
-                                <MessageSquare className="h-2.5 w-2.5" />
-                                {op.unread_count}
-                              </span>
-                            )}
-                         </div>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium text-foreground">
+                              {op.first_name || op.last_name ? `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() : '—'}
+                            </p>
+                            {(() => {
+                              const pct = computeProgressFromConfig(op, stageConfigs);
+                              const isComplete = pct === 100;
+                              return (
+                                <span
+                                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold leading-none shrink-0 tabular-nums"
+                                  style={
+                                    isComplete
+                                      ? { background: 'hsl(var(--status-complete) / 0.15)', color: 'hsl(var(--status-complete))' }
+                                      : pct > 0
+                                      ? { background: 'hsl(var(--status-in-progress) / 0.12)', color: 'hsl(var(--status-in-progress))' }
+                                      : { background: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' }
+                                  }
+                                >
+                                  {pct}%
+                                </span>
+                              );
+                            })()}
+                            {op.unread_count > 0 && (
+                               <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold leading-none shrink-0 md:hidden ${op.unread_count >= 3 ? 'bg-destructive text-destructive-foreground' : 'bg-primary/15 text-primary'}`}>
+                                 <MessageSquare className="h-2.5 w-2.5" />
+                                 {op.unread_count}
+                               </span>
+                             )}
+                          </div>
                          {op.never_logged_in && (
                            <div className="flex items-center gap-1.5 flex-wrap">
                              <TooltipProvider delayDuration={100}>
