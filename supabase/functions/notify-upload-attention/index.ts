@@ -104,30 +104,15 @@ Deno.serve(async (req) => {
     });
 
     // ── Send via Resend ───────────────────────────────────────────────────────
-    const { sendEmail } = await import('../_shared/email-layout.ts');
-    const sendRes = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'SUPERTRANSPORT <support@mysupertransport.com>',
-        to: [driverEmail],
-        subject,
-        html,
-      }),
-    });
+    // support@ sender — passes custom from to the shared sendEmail helper
+    await sendEmail(
+      driverEmail,
+      subject,
+      html,
+      RESEND_API_KEY,
+      'SUPERTRANSPORT <support@mysupertransport.com>'
+    );
 
-    if (!sendRes.ok) {
-      const err = await sendRes.text();
-      console.error(`[notify-upload-attention] Resend error [${sendRes.status}] to ${driverEmail}: ${err}`);
-      return new Response(JSON.stringify({ success: false, error: `Resend ${sendRes.status}: ${err}` }), {
-        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    await sendRes.text();
     console.log(`[notify-upload-attention] Email sent to ${driverEmail} for driver ${driver_user_id}`);
 
     return new Response(JSON.stringify({ success: true, to: driverEmail }), {
