@@ -3139,7 +3139,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <SelectField label="Truck Decals — Install Method" field="decal_method" options={methodOptions} />
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Decal Applied</Label>
-                      <Select value={(status.decal_applied as string) || undefined} onValueChange={v => { updateStatus('decal_applied', v); if (v === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes') { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
+                      <Select value={(status.decal_applied as string) || undefined} onValueChange={v => { updateStatus('decal_applied', v); if (v === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes' && status.eld_serial_number && status.dash_cam_number && status.bestpass_number && status.fuel_card_number) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage5'); return next; }); } }}>
                         <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
                         <SelectContent>{yesNoOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                       </Select>
