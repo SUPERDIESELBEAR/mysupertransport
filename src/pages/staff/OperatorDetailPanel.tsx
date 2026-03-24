@@ -217,6 +217,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [deactivateReason, setDeactivateReason] = useState<string>('');
   const { isManagement } = useAuth();
 
+  // Stage 8 — Contractor Pay Setup
+  const [paySetupRecord, setPaySetupRecord] = useState<any>(null);
+  const [paySetupLoaded, setPaySetupLoaded] = useState(false);
+
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
   const inspectionBinderRef = useRef<HTMLDivElement | null>(null);
