@@ -4290,6 +4290,61 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         <span className="text-sm font-medium text-foreground flex-1">{row.value}</span>
                       </div>
                     ))}
+
+                    {/* ── Uploaded Documents ── */}
+                    <div className="px-5 py-4 space-y-3">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Uploaded Documents</p>
+                      {/* W-9 */}
+                      <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
+                        <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${ps.w9_url ? 'bg-primary/10' : 'bg-muted'}`}>
+                          <FileText className={`h-4 w-4 ${ps.w9_url ? 'text-primary' : 'text-muted-foreground'}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-foreground">W-9 Form</p>
+                          {ps.w9_url ? (
+                            <a
+                              href={ps.w9_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline truncate flex items-center gap-1"
+                            >
+                              {ps.w9_file_name ?? 'View file'}
+                              <ExternalLink className="h-3 w-3 shrink-0" />
+                            </a>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">Not uploaded</p>
+                          )}
+                        </div>
+                        {ps.w9_url && (
+                          <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-status-complete/10 text-status-complete border border-status-complete/25 uppercase tracking-wide">Uploaded</span>
+                        )}
+                      </div>
+                      {/* Voided Check */}
+                      <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
+                        <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${ps.void_check_url ? 'bg-primary/10' : 'bg-muted'}`}>
+                          <FileText className={`h-4 w-4 ${ps.void_check_url ? 'text-primary' : 'text-muted-foreground'}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-foreground">Voided Check</p>
+                          {ps.void_check_url ? (
+                            <a
+                              href={ps.void_check_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline truncate flex items-center gap-1"
+                            >
+                              {ps.void_check_file_name ?? 'View file'}
+                              <ExternalLink className="h-3 w-3 shrink-0" />
+                            </a>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">Not uploaded</p>
+                          )}
+                        </div>
+                        {ps.void_check_url && (
+                          <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-status-complete/10 text-status-complete border border-status-complete/25 uppercase tracking-wide">Uploaded</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
