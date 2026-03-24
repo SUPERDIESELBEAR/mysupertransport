@@ -489,6 +489,23 @@ export default function OperatorPortal() {
       ],
       hint: 'Your coordinator will confirm your orientation call, consortium enrollment, and first dispatch assignment before setting your official go-live date.',
     },
+    {
+      number: 8,
+      title: 'Contractor Pay Setup',
+      description: paySetupData?.submitted_at && paySetupData?.terms_accepted
+        ? 'Payroll information submitted — account setup in progress'
+        : 'Enter your payroll details so we can set up your contractor account',
+      icon: <CreditCard className="h-4 w-4" />,
+      status: getStageStatus(8),
+      substeps: [
+        {
+          label: 'Pay Setup',
+          value: paySetupData?.submitted_at && paySetupData?.terms_accepted ? 'Submitted' : paySetupData ? 'In Progress' : 'Pending',
+          status: paySetupData?.submitted_at && paySetupData?.terms_accepted ? 'complete' : paySetupData ? 'in_progress' : 'not_started',
+        },
+      ],
+      hint: 'Complete your payroll details so we can set up your contractor account.',
+    },
   ];
 
   const completedStages = stages.filter(s => s.status === 'complete').length;
