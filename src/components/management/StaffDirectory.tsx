@@ -300,6 +300,7 @@ export default function StaffDirectory() {
 
   const handleEmailUpdate = async () => {
     if (!managingMember) return;
+    if (guardDemo()) return;
     const trimmed = editingEmail.trim().toLowerCase();
     setEmailSaving(true);
     setEmailConfirmPending(false);
