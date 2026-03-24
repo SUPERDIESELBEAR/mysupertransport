@@ -143,6 +143,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
   };
 
   const updateUploadStatus = async (uploadId: string, status: 'pending_review' | 'reviewed' | 'needs_attention') => {
+    if (guardDemo()) return;
     await supabase.from('driver_uploads').update({ status, reviewed_at: new Date().toISOString(), reviewed_by: user?.id }).eq('id', uploadId);
     toast({ title: 'Status updated', description: `Marked as ${UPLOAD_STATUS_LABELS[status]}.` });
     fetchDocs();
