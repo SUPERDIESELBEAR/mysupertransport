@@ -1,70 +1,56 @@
 
-## Upfront Costs — Standalone Card (Option A)
+## Clean Up Marcus Mueller's Test Data
 
-### What's being built
+### What's in the database right now
 
-A new **"Upfront Costs"** card inserted between the top completion summary and the sticky mini-bar section in `OperatorDetailPanel.tsx`. It is always visible in both the Pipeline and Active Drivers views, is staff-only (no operator-facing file is touched), and saves through the existing `handleSave` flow.
+There is **one operator** — Marcus Mueller (that's you). No other operators need to be removed. The cleanup is resetting the test artifacts on your own record so you can walk through the full cycle fresh from the beginning.
 
----
+### What will be cleared
 
-### Database migration
+| Table | What's there | Action |
+|---|---|---|
+| `onboarding_status` | `eld_serial_number = 'ELD-TEST1234'`, all other fields already null | Reset that field to null, leave the row (it must stay linked to your operator) |
+| `operator_documents` | 1 file: `test-physical-damage-cert.pdf` (insurance_cert) | Delete the row |
+| `messages` | 2 test send-verification messages | Delete both |
+| `notifications` | 16 accumulated test/system notifications | Delete all |
+| `audit_log` | 25 entries from all test activity | Delete all |
+| `cert_reminders` | 1 test CDL reminder | Delete the row |
 
-Add 5 nullable columns to `onboarding_status`:
+### What will NOT be touched
+
+- Your `profiles` row and `user_roles` (management, onboarding_staff, dispatcher, operator) — preserved
+- Your `operators` row — preserved (the operator record itself stays)
+- The `onboarding_status` row stays — only the test ELD serial number is nulled out and all other fields are already at their clean defaults
+- All configuration tables: `faq`, `services`, `message_templates`, `inspection_documents`, `driver_documents`
+
+### Implementation
+
+One database migration with the following SQL:
 
 ```sql
-ALTER TABLE public.onboarding_status
-  ADD COLUMN IF NOT EXISTS cost_mo_registration NUMERIC,
-  ADD COLUMN IF NOT EXISTS cost_form_2290 NUMERIC,
-  ADD COLUMN IF NOT EXISTS cost_other NUMERIC,
-  ADD COLUMN IF NOT EXISTS cost_other_description TEXT,
-  ADD COLUMN IF NOT EXISTS cost_notes TEXT;
+-- 1. Clear test ELD serial on Marcus's onboarding status
+UPDATE public.onboarding_status
+SET eld_serial_number = NULL
+WHERE operator_id = 'ec79e22f-3001-4e5b-b8d1-7347e7a4c718';
+
+-- 2. Remove test operator document (insurance cert upload)
+DELETE FROM public.operator_documents
+WHERE operator_id = 'ec79e22f-3001-4e5b-b8d1-7347e7a4c718';
+
+-- 3. Clear test messages
+DELETE FROM public.messages;
+
+-- 4. Clear all notifications (all belong to Marcus)
+DELETE FROM public.notifications;
+
+-- 5. Clear audit log
+DELETE FROM public.audit_log;
+
+-- 6. Clear cert reminders
+DELETE FROM public.cert_reminders;
 ```
 
-No RLS changes needed — the existing "Staff can update onboarding status" policy already covers these columns.
-
----
-
-### UI changes — `src/pages/staff/OperatorDetailPanel.tsx`
-
-**1. Type extension** (~line 112 — end of `OnboardingStatus` type):
-Add 5 new fields:
-```ts
-cost_mo_registration: number | null;
-cost_form_2290: number | null;
-cost_other: number | null;
-cost_other_description: string | null;
-cost_notes: string | null;
-```
-
-**2. New card rendered at line ~1333** — inserted directly after the closing `})()}` of the top completion summary card and before the sticky mini-bar `{(() => {`:
-
-```text
-┌────────────────────────────────────────────────┐
-│ 💰 Upfront Costs Paid by SUPERTRANSPORT        │  amber-50 bg
-│                                                │
-│ MO Registration    $ [ __________ ]            │
-│ Form 2290          $ [ __________ ]            │
-│ Other              $ [ __________ ]            │
-│                    Description: [ ___________ ]│  (shown only when Other > 0)
-│                                                │
-│ Total: $1,250.00                    (read-only)│
-│                                                │
-│ Cost Notes: [ textarea ]                       │
-└────────────────────────────────────────────────┘
-```
-
-- Currency inputs: `type="number"` `min="0"` `step="0.01"` with `$` prefix label
-- Total line: computed from `(cost_mo_registration ?? 0) + (cost_form_2290 ?? 0) + (cost_other ?? 0)`, only shown when at least one field has a value
-- "Other description" text input: only rendered when `cost_other` is a number > 0
-- Cost Notes: small `<Textarea>` for free-form context (vendor, date paid, etc.)
-- Card style: `bg-amber-50 border-amber-200` to visually distinguish financial data
-- All fields update `status` via `setStatus(prev => ({ ...prev, fieldName: value }))` — identical pattern to every other field in the file
-- Saves automatically through the existing `handleSave` → `supabase.from('onboarding_status').update(updateData)` call (the new fields are part of `status` and flow through with no extra code)
-
-**3. No changes** to any operator-facing file (`OperatorPortal.tsx`, `OnboardingChecklist.tsx`, `OperatorStatusPage.tsx`, `SmartProgressWidget.tsx`).
-
----
+After this, Marcus Mueller's operator record exists with a completely clean onboarding status — every field at its default — ready to walk through the full onboarding cycle from step one.
 
 ### Files changed
-1. `supabase/migrations/` — new migration with 5 `ADD COLUMN` statements
-2. `src/pages/staff/OperatorDetailPanel.tsx` — type update + new Upfront Costs card (~40 lines of JSX inserted at line 1333)
+1. `supabase/migrations/` — one new migration with the cleanup SQL above
