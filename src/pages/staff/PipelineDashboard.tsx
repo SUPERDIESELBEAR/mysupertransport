@@ -354,6 +354,7 @@ const STAGES = [
   'Stage 4 — MO Registration',
   'Stage 5 — Equipment',
   'Stage 6 — Insurance',
+  'Stage 8 — Pay Setup',
 ];
 
 // ─── MultiBlockedCallout ─────────────────────────────────────────────────────
