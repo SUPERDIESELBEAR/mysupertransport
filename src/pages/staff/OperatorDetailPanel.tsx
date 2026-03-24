@@ -220,6 +220,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   // Stage 8 — Contractor Pay Setup
   const [paySetupRecord, setPaySetupRecord] = useState<any>(null);
   const [paySetupLoaded, setPaySetupLoaded] = useState(false);
+  const [paySetupSignedUrls, setPaySetupSignedUrls] = useState<{ w9: string | null; voidCheck: string | null }>({ w9: null, voidCheck: null });
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
