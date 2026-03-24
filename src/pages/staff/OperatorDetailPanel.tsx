@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -217,6 +217,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [deactivateReason, setDeactivateReason] = useState<string>('');
   const { isManagement } = useAuth();
 
+  // Stage 8 — Contractor Pay Setup
+  const [paySetupRecord, setPaySetupRecord] = useState<any>(null);
+  const [paySetupLoaded, setPaySetupLoaded] = useState(false);
+
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
   const inspectionBinderRef = useRef<HTMLDivElement | null>(null);
@@ -297,6 +301,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     fetchOperatorDetail();
     fetchDispatchHistory();
     fetchCertHistory();
+    // Fetch Stage 8 pay setup record
+    supabase
+      .from('contractor_pay_setup' as any)
+      .select('*')
+      .eq('operator_id', operatorId)
+      .maybeSingle()
+      .then(({ data }) => { setPaySetupRecord(data); setPaySetupLoaded(true); });
   }, [operatorId]);
 
   // Fetch ICA draft updated_at when ica_status is in_progress
@@ -4228,6 +4239,64 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         );
       })()}
 
+
+      {/* Stage 8 — Contractor Pay Setup (read-only, uses component-level state) */}
+      {(() => {
+        const stageKey = 'stage8';
+        const isCollapsed = collapsedStages.has(stageKey);
+        const ps = paySetupRecord;
+        const isComplete = ps?.submitted_at && ps?.terms_accepted;
+        return (
+          <div ref={el => { stageRefs.current[stageKey] = el; }} className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
+            <button
+              onClick={() => toggleStage(stageKey)}
+              className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors"
+            >
+              <span className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${isComplete ? 'bg-status-complete/10' : 'bg-muted'}`}>
+                <CreditCard className={`h-4 w-4 ${isComplete ? 'text-status-complete' : 'text-muted-foreground'}`} />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">Stage 8 — Contractor Pay Setup</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {!paySetupLoaded ? 'Loading…' : isComplete ? `Submitted ${new Date(ps.submitted_at).toLocaleDateString()}` : ps ? 'In progress — not yet submitted' : 'Not started'}
+                </p>
+              </div>
+              {isComplete && <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-status-complete/10 text-status-complete border border-status-complete/25 uppercase tracking-wide">Submitted</span>}
+              {isCollapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />}
+            </button>
+            {!isCollapsed && (
+              <div className="border-t border-border">
+                {!paySetupLoaded ? (
+                  <div className="px-5 py-4 text-xs text-muted-foreground">Loading…</div>
+                ) : !ps ? (
+                  <div className="px-5 py-6 text-center text-muted-foreground text-xs">
+                    <CreditCard className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p>Operator has not started pay setup yet.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border/60">
+                    {([
+                      { label: 'Contractor Type', value: ps.contractor_type === 'business' ? 'Business' : 'Individual' },
+                      { label: 'Legal First Name', value: ps.legal_first_name },
+                      { label: 'Legal Last Name', value: ps.legal_last_name },
+                      ...(ps.contractor_type === 'business' && ps.business_name ? [{ label: 'Business Name', value: ps.business_name }] : []),
+                      { label: 'Phone', value: ps.phone },
+                      { label: 'Email', value: ps.email },
+                      { label: 'Terms Accepted', value: ps.terms_accepted ? `Yes — ${ps.terms_accepted_at ? new Date(ps.terms_accepted_at).toLocaleString() : ''}` : 'No' },
+                      { label: 'Submitted', value: ps.submitted_at ? new Date(ps.submitted_at).toLocaleString() : 'Not submitted' },
+                    ] as { label: string; value: string }[]).map(row => (
+                      <div key={row.label} className="flex items-start gap-3 px-5 py-3">
+                        <span className="text-xs text-muted-foreground w-36 shrink-0 pt-0.5">{row.label}</span>
+                        <span className="text-sm font-medium text-foreground flex-1">{row.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Inspection Binder — per-driver docs & uploads */}
       {operatorUserId && (

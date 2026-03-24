@@ -26,9 +26,10 @@ import { useDesktopNotifications } from '@/hooks/useDesktopNotifications';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
 import OperatorInspectionBinder from '@/components/inspection/OperatorInspectionBinder';
+import ContractorPaySetup from '@/components/operator/ContractorPaySetup';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder';
+type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'pay-setup';
 
 interface Stage {
   number: number;
@@ -55,9 +56,10 @@ export default function OperatorPortal() {
   const [view, setView] = useState<OperatorView>(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications','docs-hub','service-library','inspection-binder'].includes(tab)) return tab;
+    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications','docs-hub','service-library','inspection-binder','pay-setup'].includes(tab)) return tab;
     return 'progress';
   });
+  const [paySetupData, setPaySetupData] = useState<{ submitted_at: string | null; terms_accepted: boolean } | null>(null);
 
   // Desktop push notifications for high-priority events
   const { fireNotification } = useDesktopNotifications({
@@ -68,7 +70,7 @@ export default function OperatorPortal() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications','docs-hub','inspection-binder'].includes(tab)) setView(tab);
+    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup'].includes(tab)) setView(tab);
   }, [location.search]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [operatorId, setOperatorId] = useState<string | null>(null);
@@ -159,6 +161,14 @@ export default function OperatorPortal() {
       const os = (op as any).onboarding_status ?? {};
       setOnboardingStatus(os);
       setUploadedDocs((op as any).operator_documents ?? []);
+
+      // Fetch Stage 8 pay setup status
+      const { data: ps } = await supabase
+        .from('contractor_pay_setup' as any)
+        .select('submitted_at, terms_accepted')
+        .eq('operator_id', opId)
+        .maybeSingle();
+      setPaySetupData(ps ? { submitted_at: (ps as any).submitted_at, terms_accepted: (ps as any).terms_accepted } : null);
 
       // Fetch coordinator info
       fetchCoordinatorInfo((op as any).assigned_onboarding_staff ?? null);
@@ -369,6 +379,10 @@ export default function OperatorPortal() {
         if (s.go_live_date) return 'complete';
         if (s.dispatch_ready_orientation || s.dispatch_ready_consortium || s.dispatch_ready_first_assigned) return 'in_progress';
         return 'not_started';
+      case 8:
+        if (paySetupData?.submitted_at && paySetupData?.terms_accepted) return 'complete';
+        if (paySetupData && !paySetupData.submitted_at) return 'in_progress';
+        return 'not_started';
       default:
         return 'not_started';
     }
@@ -475,6 +489,23 @@ export default function OperatorPortal() {
       ],
       hint: 'Your coordinator will confirm your orientation call, consortium enrollment, and first dispatch assignment before setting your official go-live date.',
     },
+    {
+      number: 8,
+      title: 'Contractor Pay Setup',
+      description: paySetupData?.submitted_at && paySetupData?.terms_accepted
+        ? 'Payroll information submitted — account setup in progress'
+        : 'Enter your payroll details so we can set up your contractor account',
+      icon: <CreditCard className="h-4 w-4" />,
+      status: getStageStatus(8),
+      substeps: [
+        {
+          label: 'Pay Setup',
+          value: paySetupData?.submitted_at && paySetupData?.terms_accepted ? 'Submitted' : paySetupData ? 'In Progress' : 'Pending',
+          status: paySetupData?.submitted_at && paySetupData?.terms_accepted ? 'complete' : paySetupData ? 'in_progress' : 'not_started',
+        },
+      ],
+      hint: 'Complete your payroll details so we can set up your contractor account.',
+    },
   ];
 
   const completedStages = stages.filter(s => s.status === 'complete').length;
@@ -574,6 +605,7 @@ export default function OperatorPortal() {
     { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
     { view: 'inspection-binder' as OperatorView, label: 'Inspection Binder', icon: <Shield className="h-5 w-5" /> },
     { view: 'service-library' as OperatorView, label: 'Service Library', icon: <BookOpen className="h-5 w-5" /> },
+    { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
     { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete', icaDot: icaActionDot },
     { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
@@ -1145,6 +1177,22 @@ export default function OperatorPortal() {
 
         {/* ── SERVICE LIBRARY VIEW ── */}
         {view === 'service-library' && <DriverServiceLibrary />}
+
+        {/* ── PAY SETUP VIEW ── */}
+        {view === 'pay-setup' && operatorId && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+                <CreditCard className="h-5 w-5 text-primary" />
+              </span>
+              <div>
+                <h2 className="text-base font-bold text-foreground">Stage 8 — Contractor Pay Setup</h2>
+                <p className="text-xs text-muted-foreground">Enter your payroll details to get your contractor account set up.</p>
+              </div>
+            </div>
+            <ContractorPaySetup operatorId={operatorId} onSubmitted={fetchData} />
+          </div>
+        )}
 
         {/* ── NOTIFICATIONS VIEW ── */}
         {view === 'notifications' && <NotificationHistory />}

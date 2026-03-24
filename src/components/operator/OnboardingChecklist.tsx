@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
-  Shield, FileCheck, FileText, Truck,
+  Shield, FileCheck, FileText, Truck, CreditCard,
   Upload, ArrowRight, ChevronDown, ChevronUp, Phone, MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -97,6 +97,8 @@ const STAGE_HEADER_ICONS: Record<number, React.ReactNode> = {
   4: <FileCheck className="h-4 w-4" />,
   5: <Truck className="h-4 w-4" />,
   6: <Shield className="h-4 w-4" />,
+  7: <CheckCircle2 className="h-4 w-4" />,
+  8: <CreditCard className="h-4 w-4" />,
 };
 
 function SubstepIcon({ status }: { status: StageStatus }) {
@@ -127,6 +129,7 @@ function StageCard({
   // CTA logic
   const showDocsCTA = stage.number === 2 && (stage.status === 'in_progress' || stage.status === 'not_started');
   const showIcaCTA = stage.number === 3 && onboardingStatus.ica_status === 'sent_for_signature';
+  const showPaySetupCTA = stage.number === 8 && (stage.status === 'not_started' || stage.status === 'in_progress');
 
   return (
     <div
@@ -220,6 +223,19 @@ function StageCard({
               >
                 <FileText className="h-3.5 w-3.5" />
                 Sign ICA Agreement
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+          {showPaySetupCTA && (
+            <div className="px-3 py-2.5">
+              <Button
+                size="sm"
+                onClick={() => onNavigateTo('pay-setup')}
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-xs h-8 gap-1.5 font-semibold"
+              >
+                <CreditCard className="h-3.5 w-3.5" />
+                Complete Pay Setup
                 <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </div>
