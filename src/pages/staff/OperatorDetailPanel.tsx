@@ -1149,6 +1149,42 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
   };
 
+  const handleToggleActive = async () => {
+    setDeactivating(true);
+    const newActive = !isActive;
+    try {
+      const { error } = await supabase
+        .from('operators')
+        .update({ is_active: newActive } as any)
+        .eq('id', operatorId);
+      if (error) throw error;
+
+      // Log the action
+      void supabase.from('audit_log' as any).insert({
+        actor_id: session?.user?.id ?? null,
+        actor_name: null,
+        action: newActive ? 'operator_reactivated' : 'operator_deactivated',
+        entity_type: 'operator',
+        entity_id: operatorId,
+        entity_label: operatorName,
+        metadata: { is_active: newActive },
+      });
+
+      setIsActive(newActive);
+      setShowDeactivateConfirm(false);
+      toast({
+        title: newActive ? 'Driver reactivated' : 'Driver deactivated',
+        description: newActive
+          ? `${operatorName} has been reactivated and will appear in the active roster.`
+          : `${operatorName} has been deactivated and removed from the active roster.`,
+      });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setDeactivating(false);
+    }
+  };
+
   const updateStatus = (field: keyof OnboardingStatus, value: string | null) => {
     setStatus(prev => ({ ...prev, [field]: value }));
   };
