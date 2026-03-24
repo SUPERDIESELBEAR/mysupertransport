@@ -207,6 +207,7 @@ export default function FaqManager() {
 
   // ── Save (create or update) ───────────────────────────────────────────────
   const handleSave = async () => {
+    if (guardDemo()) return;
     if (!form.question.trim() || !form.answer.trim()) {
       toast.error('Question and answer are required.');
       return;
