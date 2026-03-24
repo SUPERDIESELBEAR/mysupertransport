@@ -379,6 +379,10 @@ export default function OperatorPortal() {
         if (s.go_live_date) return 'complete';
         if (s.dispatch_ready_orientation || s.dispatch_ready_consortium || s.dispatch_ready_first_assigned) return 'in_progress';
         return 'not_started';
+      case 8:
+        if (paySetupData?.submitted_at && paySetupData?.terms_accepted) return 'complete';
+        if (paySetupData && !paySetupData.submitted_at) return 'in_progress';
+        return 'not_started';
       default:
         return 'not_started';
     }
