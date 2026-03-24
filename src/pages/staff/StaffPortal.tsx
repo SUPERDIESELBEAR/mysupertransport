@@ -568,7 +568,7 @@ export default function StaffPortal() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setBulkMessageOpen(true)}
+              onClick={() => { if (guardDemo()) return; setBulkMessageOpen(true); }}
               className="text-xs gap-2 shrink-0 ml-3"
             >
               <Users className="h-3.5 w-3.5" />
