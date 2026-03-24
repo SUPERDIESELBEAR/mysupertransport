@@ -1,20 +1,40 @@
 
-## Plan: Start Desktop Sidebar Expanded by Default
+## Add Tooltips to Collapsed Sidebar Nav Items
 
-**Single change required** — line 64 in `src/components/layouts/StaffLayout.tsx`.
+### What & Why
+When the desktop sidebar is collapsed (w-16), nav items show only icons. There's no text hint, so users must memorize the icon mapping. Wrapping each nav `<button>` in a Tooltip that shows the item label on hover (right-side) gives instant discoverability — only when collapsed, since the label is already visible when expanded.
 
 ### What changes
+**`src/components/layouts/StaffLayout.tsx`**
 
-Change the initial `sidebarOpen` state from `false` to `true`:
+1. Import `Tooltip`, `TooltipContent`, `TooltipProvider`, `TooltipTrigger` from `@/components/ui/tooltip`.
+2. In `sidebarContent()`, wrap the nav `<button>` for each item inside a `<Tooltip>` with `side="right"`.
+   - Only render tooltip content when `!sidebarOpen && !isMobileDrawer` (i.e. collapsed desktop state).
+   - When expanded or in the mobile drawer, the label is already visible — no tooltip needed.
+3. Wrap the nav list in a single `<TooltipProvider delayDuration={300}>` so all tooltips share one provider.
 
-```ts
-// Before
-const [sidebarOpen, setSidebarOpen] = useState(false);
+### Behaviour
+- Collapsed desktop: hover an icon → label pops up on the right side, styled consistently with the rest of the app.
+- Expanded desktop or mobile drawer: tooltip is suppressed (disabled prop or empty content), so no double-label.
 
-// After
-const [sidebarOpen, setSidebarOpen] = useState(true);
+### Technical detail
+```text
+<TooltipProvider delayDuration={300}>
+  {navItems.map(item => (
+    <Tooltip key={item.path}>
+      <TooltipTrigger asChild>
+        <button ...>  {/* existing nav button */}
+          ...
+        </button>
+      </TooltipTrigger>
+      {!sidebarOpen && !isMobileDrawer && (
+        <TooltipContent side="right">
+          {item.label}
+        </TooltipContent>
+      )}
+    </Tooltip>
+  ))}
+</TooltipProvider>
 ```
 
-This is the only change needed. The desktop sidebar is already fully controlled by this boolean — `true` renders the `w-60` expanded variant, `false` renders the `w-16` icon-strip. The toggle button in the header still works identically; staff can still collapse it any time by clicking the hamburger/X icon.
-
-Mobile is completely unaffected — it uses the separate `mobileSidebarOpen` state and the bottom nav bar, both of which remain unchanged.
+Single file change, no new dependencies, no schema changes.
