@@ -716,6 +716,8 @@ export default function ManagementPortal() {
         onNavigate={handleNavigate}
         title="Management"
         notificationsPath="/dashboard?view=notifications"
+        isDemo={isDemo}
+        onExitDemo={exitDemo}
         headerActions={
           <button
             onClick={() => setNotifPrefsOpen(true)}
