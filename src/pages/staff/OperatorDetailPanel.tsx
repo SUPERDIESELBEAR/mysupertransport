@@ -4359,18 +4359,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         {ps.void_check_file_path && (
                           <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-status-complete/10 text-status-complete border border-status-complete/25 uppercase tracking-wide">Uploaded</span>
                         )}
-                      </div>
-                    </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })()}
+                       </div>
+                     </div>
+                   </div>
+                 )}
+               </div>
+             )}
+           </div>
+         );
+       })()}
 
       {/* Inspection Binder — per-driver docs & uploads */}
       {operatorUserId && (
