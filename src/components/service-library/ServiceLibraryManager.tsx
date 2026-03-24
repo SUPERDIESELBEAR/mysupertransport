@@ -542,11 +542,17 @@ function ServiceRow({
         {/* Toggles */}
         <div className="flex items-center gap-4 shrink-0">
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-            <Switch checked={service.is_visible} onCheckedChange={onToggleVisible} />
+            <div className="relative inline-flex">
+              <Switch checked={service.is_visible} onCheckedChange={onToggleVisible} />
+              <DemoLockIcon badge />
+            </div>
             <span className="hidden sm:inline">Visible</span>
           </label>
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-            <Switch checked={service.is_new_driver_essential} onCheckedChange={onToggleEssential} />
+            <div className="relative inline-flex">
+              <Switch checked={service.is_new_driver_essential} onCheckedChange={onToggleEssential} />
+              <DemoLockIcon badge />
+            </div>
             <span className="hidden sm:inline">Essential</span>
           </label>
         </div>
@@ -556,9 +562,12 @@ function ServiceRow({
           <Button size="sm" variant="ghost" onClick={onEdit} className="h-8 w-8 p-0">
             <Pencil className="h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={onDelete} className="h-8 w-8 p-0 text-destructive hover:text-destructive">
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          <div className="relative inline-flex">
+            <Button size="sm" variant="ghost" onClick={onDelete} className="h-8 w-8 p-0 text-destructive hover:text-destructive">
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+            <DemoLockIcon badge />
+          </div>
           <Button size="sm" variant="ghost" onClick={onToggleExpand} className="h-8 w-8 p-0">
             {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </Button>
