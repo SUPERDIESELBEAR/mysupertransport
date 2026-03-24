@@ -716,7 +716,7 @@ export default function OperatorStatusPage({
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">Onboarding Stages</h2>
         <div>
           {stages.map((stage, idx) => (
-            <MilestoneNode key={stage.number} stage={stage} isLast={idx === stages.length - 1} />
+            <MilestoneNode key={stage.number} stage={stage} isLast={idx === stages.length - 1} onNavigateTo={onNavigateTo} />
           ))}
         </div>
       </div>
