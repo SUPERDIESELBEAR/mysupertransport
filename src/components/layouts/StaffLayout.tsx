@@ -1,5 +1,6 @@
 import { ReactNode, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { GraduationCap, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   LogOut, Menu, X, ChevronDown, KeyRound, UserPen,
