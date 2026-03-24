@@ -33,6 +33,7 @@ type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resource
 
 export default function StaffPortal() {
   const { user } = useAuth();
+  const { isDemo, enterDemo, exitDemo, guardDemo } = useDemoMode();
   const [searchParams] = useSearchParams();
   const [currentView, setCurrentView] = useState<StaffView>('pipeline');
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
