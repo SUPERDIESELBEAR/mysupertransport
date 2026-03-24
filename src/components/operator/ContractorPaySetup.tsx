@@ -243,9 +243,9 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
             <p className="text-muted-foreground text-xs">
               [Payroll instructions content will be added here. Please provide the text and any document links you would like displayed in this section.]
             </p>
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/8 px-4 py-3 flex items-start gap-2.5 mt-2">
-              <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-600 dark:text-amber-400 leading-snug">
+            <div className="rounded-lg border border-gold/30 bg-gold/8 px-4 py-3 flex items-start gap-2.5 mt-2">
+              <AlertTriangle className="h-4 w-4 text-gold shrink-0 mt-0.5" />
+              <p className="text-xs text-gold leading-snug">
                 You must read and acknowledge the payroll terms below before submitting this form.
               </p>
             </div>
