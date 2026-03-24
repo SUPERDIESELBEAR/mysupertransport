@@ -333,6 +333,7 @@ function StageCard({ stage, dirty, saving, onSave, onChange }: StageCardProps) {
 export default function PipelineConfigEditor() {
   const { session } = useAuth();
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [stages, setStages] = useState<StageConfig[]>([]);
   const [originalStages, setOriginalStages] = useState<StageConfig[]>([]);
   const [loading, setLoading] = useState(true);

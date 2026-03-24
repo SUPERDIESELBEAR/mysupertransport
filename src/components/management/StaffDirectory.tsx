@@ -61,6 +61,7 @@ const ALL_STAFF_ROLES: StaffRole[] = ['onboarding_staff', 'dispatcher', 'managem
 export default function StaffDirectory() {
   const { session, user } = useAuth();
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
 
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(false);
