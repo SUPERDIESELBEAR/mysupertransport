@@ -157,7 +157,6 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
     if (error) {
       toast({ title: 'Error', description: 'Could not reactivate driver.', variant: 'destructive' });
     } else {
-      // Audit log
       await supabase.from('audit_log').insert({
         entity_type: 'operator',
         entity_id: confirmReactivate.operator_id,
@@ -172,6 +171,47 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
     }
     setReactivating(false);
   };
+
+  const openEditReason = (driver: ArchivedDriver) => {
+    setEditReasonDriver(driver);
+    const isPreset = PRESET_REASONS.includes(driver.deactivate_reason ?? '');
+    if (isPreset) {
+      setEditReasonValue(driver.deactivate_reason ?? '');
+      setEditReasonCustom('');
+    } else {
+      setEditReasonValue(driver.deactivate_reason ? 'Other' : '');
+      setEditReasonCustom(driver.deactivate_reason ?? '');
+    }
+  };
+
+  const handleSaveReason = async () => {
+    if (!editReasonDriver) return;
+    setSavingReason(true);
+    const finalReason = editReasonValue === 'Other' ? editReasonCustom.trim() : editReasonValue;
+
+    if (editReasonDriver.audit_log_id) {
+      // Update existing audit log entry metadata
+      await supabase
+        .from('audit_log' as any)
+        .update({ metadata: { is_active: false, reason: finalReason || null } } as any)
+        .eq('id', editReasonDriver.audit_log_id);
+    } else {
+      // No existing deactivation audit log entry — insert one
+      await supabase.from('audit_log').insert({
+        entity_type: 'operator',
+        entity_id: editReasonDriver.operator_id,
+        entity_label: [editReasonDriver.first_name, editReasonDriver.last_name].filter(Boolean).join(' ') || 'Unknown',
+        action: 'operator_deactivated',
+        metadata: { is_active: false, reason: finalReason || null },
+      });
+    }
+
+    toast({ title: 'Reason updated', description: 'Deactivation reason saved.' });
+    setSavingReason(false);
+    setEditReasonDriver(null);
+    fetchArchived(true);
+  };
+
 
   const filtered = drivers.filter(d => {
     const q = search.toLowerCase();
