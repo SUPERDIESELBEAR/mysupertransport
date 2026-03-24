@@ -667,7 +667,7 @@ export default function ManagementPortal() {
   const navItems = [
     { label: 'Overview',          icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
     { label: 'Applications',      icon: <ClipboardList className="h-4 w-4" />,   path: 'applications' },
-    { label: 'Pipeline',          icon: <Users className="h-4 w-4" />,           path: 'pipeline', badge: criticalExpiryCount || undefined },
+    { label: 'Applicant Pipeline', icon: <Users className="h-4 w-4" />,           path: 'pipeline', badge: criticalExpiryCount || undefined },
     { label: 'Messages',          icon: <MessageSquare className="h-4 w-4" />,   path: 'messages', badge: unreadMsgCount },
     { label: 'Notifications',     icon: <BellRing className="h-4 w-4" />,        path: 'notifications', badge: unreadNotifCount },
     { label: 'Compliance',        icon: <ShieldCheck className="h-4 w-4" />,     path: 'compliance', badge: criticalExpiryCount || undefined },
