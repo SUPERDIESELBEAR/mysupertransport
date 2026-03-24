@@ -158,6 +158,7 @@ export default function ICABuilderModal({
 
   // ── Save & Close (in_progress) — available on every step ─────────────────
   const handleSaveAndClose = async () => {
+    if (guardDemo()) return;
     setSaving(true);
     try {
       // Upload carrier sig if already signed
