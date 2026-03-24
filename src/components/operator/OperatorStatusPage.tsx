@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText, Truck, ArrowRight, Upload, Mail, Phone, Hash, User, CalendarClock, ShieldAlert, X } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText, Truck, ArrowRight, Upload, Mail, Phone, Hash, User, CalendarClock, ShieldAlert, X, CreditCard } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -61,7 +61,7 @@ const STATUS_LABEL: Record<StageStatus, string> = {
   not_started: 'Pending',
 };
 
-function MilestoneNode({ stage, isLast }: { stage: Stage; isLast: boolean }) {
+function MilestoneNode({ stage, isLast, onNavigateTo }: { stage: Stage; isLast: boolean; onNavigateTo: (view: string) => void }) {
   const isComplete = stage.status === 'complete';
   const isActionRequired = stage.status === 'action_required';
   const isInProgress = stage.status === 'in_progress';
@@ -238,6 +238,21 @@ function MilestoneNode({ stage, isLast }: { stage: Stage; isLast: boolean }) {
           {/* Hint for not_started next stage */}
           {isNotStarted && stage.hint && (
             <p className="mt-2 text-xs text-muted-foreground/70 italic border-t border-border pt-2">{stage.hint}</p>
+          )}
+
+          {/* Stage 8 Pay Setup CTA */}
+          {stage.number === 8 && (stage.status === 'not_started' || stage.status === 'in_progress') && (
+            <div className="mt-3 pt-3 border-t border-border/50">
+              <Button
+                size="sm"
+                onClick={() => onNavigateTo('pay-setup')}
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-xs h-8 gap-1.5 font-semibold"
+              >
+                <CreditCard className="h-3.5 w-3.5" />
+                Complete Pay Setup
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -716,7 +731,7 @@ export default function OperatorStatusPage({
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">Onboarding Stages</h2>
         <div>
           {stages.map((stage, idx) => (
-            <MilestoneNode key={stage.number} stage={stage} isLast={idx === stages.length - 1} />
+            <MilestoneNode key={stage.number} stage={stage} isLast={idx === stages.length - 1} onNavigateTo={onNavigateTo} />
           ))}
         </div>
       </div>

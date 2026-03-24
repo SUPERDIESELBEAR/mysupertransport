@@ -179,6 +179,21 @@ function StageCard({
         </div>
       )}
 
+      {/* Pay Setup CTA — shown even when not_started, outside substeps gate */}
+      {showPaySetupCTA && (
+        <div className="px-3 pb-2.5">
+          <Button
+            size="sm"
+            onClick={() => onNavigateTo('pay-setup')}
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-xs h-8 gap-1.5 font-semibold"
+          >
+            <CreditCard className="h-3.5 w-3.5" />
+            Complete Pay Setup
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
       {/* Substeps — only when expanded */}
       {showSubsteps && expanded && (
         <div className="border-t border-border/50 divide-y divide-border/30">
@@ -223,19 +238,6 @@ function StageCard({
               >
                 <FileText className="h-3.5 w-3.5" />
                 Sign ICA Agreement
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
-          {showPaySetupCTA && (
-            <div className="px-3 py-2.5">
-              <Button
-                size="sm"
-                onClick={() => onNavigateTo('pay-setup')}
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-xs h-8 gap-1.5 font-semibold"
-              >
-                <CreditCard className="h-3.5 w-3.5" />
-                Complete Pay Setup
                 <ArrowRight className="h-3.5 w-3.5" />
               </Button>
             </div>
