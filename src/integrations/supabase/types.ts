@@ -375,6 +375,62 @@ export type Database = {
           },
         ]
       }
+      contractor_pay_setup: {
+        Row: {
+          business_name: string | null
+          contractor_type: string
+          created_at: string
+          email: string
+          id: string
+          legal_first_name: string
+          legal_last_name: string
+          operator_id: string
+          phone: string
+          submitted_at: string | null
+          terms_accepted: boolean
+          terms_accepted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          business_name?: string | null
+          contractor_type: string
+          created_at?: string
+          email: string
+          id?: string
+          legal_first_name: string
+          legal_last_name: string
+          operator_id: string
+          phone: string
+          submitted_at?: string | null
+          terms_accepted?: boolean
+          terms_accepted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          business_name?: string | null
+          contractor_type?: string
+          created_at?: string
+          email?: string
+          id?: string
+          legal_first_name?: string
+          legal_last_name?: string
+          operator_id?: string
+          phone?: string
+          submitted_at?: string | null
+          terms_accepted?: boolean
+          terms_accepted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contractor_pay_setup_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: true
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dispatch_status_history: {
         Row: {
           changed_at: string
