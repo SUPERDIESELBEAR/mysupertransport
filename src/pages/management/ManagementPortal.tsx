@@ -91,6 +91,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function ManagementPortal() {
   const { toast } = useToast();
   const { session } = useAuth();
+  const { isDemo, enterDemo, exitDemo, guardDemo } = useDemoMode();
   const [searchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const v = searchParams.get('view') as ManagementView | null;
