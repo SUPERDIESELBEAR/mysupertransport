@@ -67,7 +67,10 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
       .eq('is_active', false);
 
     if (rawData) {
+      const operatorIds = (rawData as any[]).map((op: any) => op.id).filter(Boolean);
       const userIds = (rawData as any[]).map((op: any) => op.user_id).filter(Boolean);
+
+      // Fetch profiles
       const profileMap: Record<string, any> = {};
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
@@ -75,6 +78,23 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
           .select('user_id, first_name, last_name, phone, home_state')
           .in('user_id', userIds);
         (profiles ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
+      }
+
+      // Fetch most-recent operator_deactivated audit log entry per operator for reason
+      const reasonMap: Record<string, string | null> = {};
+      if (operatorIds.length > 0) {
+        const { data: auditRows } = await supabase
+          .from('audit_log' as any)
+          .select('entity_id, metadata, created_at')
+          .eq('action', 'operator_deactivated')
+          .in('entity_id', operatorIds)
+          .order('created_at', { ascending: false });
+        // Keep only the latest entry per operator
+        (auditRows as any[] ?? []).forEach((row: any) => {
+          if (row.entity_id && !(row.entity_id in reasonMap)) {
+            reasonMap[row.entity_id] = (row.metadata as any)?.reason ?? null;
+          }
+        });
       }
 
       const getOne = (val: any) => (Array.isArray(val) ? val[0] : val) ?? null;
@@ -95,6 +115,7 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
           medical_cert_expiration: app?.medical_cert_expiration ?? null,
           fully_onboarded: os?.fully_onboarded ?? null,
           deactivated_at: op.updated_at ?? null,
+          deactivate_reason: reasonMap[op.id] ?? null,
         };
       }).sort((a, b) => {
         // Most recently deactivated first
