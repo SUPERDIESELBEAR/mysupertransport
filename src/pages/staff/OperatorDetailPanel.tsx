@@ -220,6 +220,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   // Stage 8 — Contractor Pay Setup
   const [paySetupRecord, setPaySetupRecord] = useState<any>(null);
   const [paySetupLoaded, setPaySetupLoaded] = useState(false);
+  const [paySetupSignedUrls, setPaySetupSignedUrls] = useState<{ w9: string | null; voidCheck: string | null }>({ w9: null, voidCheck: null });
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
@@ -301,13 +302,28 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     fetchOperatorDetail();
     fetchDispatchHistory();
     fetchCertHistory();
-    // Fetch Stage 8 pay setup record
+    // Fetch Stage 8 pay setup record + signed URLs for files
     supabase
       .from('contractor_pay_setup' as any)
       .select('*')
       .eq('operator_id', operatorId)
       .maybeSingle()
-      .then(({ data }) => { setPaySetupRecord(data); setPaySetupLoaded(true); });
+      .then(async ({ data }) => {
+        setPaySetupRecord(data);
+        setPaySetupLoaded(true);
+        if (data) {
+          const ps = data as any;
+          const [w9Signed, voidCheckSigned] = await Promise.all([
+            ps.w9_file_path
+              ? supabase.storage.from('operator-documents').createSignedUrl(ps.w9_file_path, 3600).then(r => r.data?.signedUrl ?? null)
+              : Promise.resolve(null),
+            ps.void_check_file_path
+              ? supabase.storage.from('operator-documents').createSignedUrl(ps.void_check_file_path, 3600).then(r => r.data?.signedUrl ?? null)
+              : Promise.resolve(null),
+          ]);
+          setPaySetupSignedUrls({ w9: w9Signed, voidCheck: voidCheckSigned });
+        }
+      });
   }, [operatorId]);
 
   // Fetch ICA draft updated_at when ica_status is in_progress
@@ -4290,13 +4306,68 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         <span className="text-sm font-medium text-foreground flex-1">{row.value}</span>
                       </div>
                     ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })()}
+
+                    {/* ── Uploaded Documents ── */}
+                    <div className="px-5 py-4 space-y-3">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Uploaded Documents</p>
+                      {/* W-9 */}
+                      <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
+                        <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${ps.w9_file_path ? 'bg-primary/10' : 'bg-muted'}`}>
+                          <FileText className={`h-4 w-4 ${ps.w9_file_path ? 'text-primary' : 'text-muted-foreground'}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-foreground">W-9 Form</p>
+                          {paySetupSignedUrls.w9 ? (
+                            <a
+                              href={paySetupSignedUrls.w9}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline truncate flex items-center gap-1"
+                            >
+                              {ps.w9_file_name ?? 'View file'}
+                              <ExternalLink className="h-3 w-3 shrink-0" />
+                            </a>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">{ps.w9_file_path ? 'Generating link…' : 'Not uploaded'}</p>
+                          )}
+                        </div>
+                        {ps.w9_file_path && (
+                          <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-status-complete/10 text-status-complete border border-status-complete/25 uppercase tracking-wide">Uploaded</span>
+                        )}
+                      </div>
+                      {/* Voided Check */}
+                      <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
+                        <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${ps.void_check_file_path ? 'bg-primary/10' : 'bg-muted'}`}>
+                          <FileText className={`h-4 w-4 ${ps.void_check_file_path ? 'text-primary' : 'text-muted-foreground'}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-foreground">Voided Check</p>
+                          {paySetupSignedUrls.voidCheck ? (
+                            <a
+                              href={paySetupSignedUrls.voidCheck}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline truncate flex items-center gap-1"
+                            >
+                              {ps.void_check_file_name ?? 'View file'}
+                              <ExternalLink className="h-3 w-3 shrink-0" />
+                            </a>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">{ps.void_check_file_path ? 'Generating link…' : 'Not uploaded'}</p>
+                          )}
+                        </div>
+                        {ps.void_check_file_path && (
+                          <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-status-complete/10 text-status-complete border border-status-complete/25 uppercase tracking-wide">Uploaded</span>
+                        )}
+                        </div>
+                     </div>
+                   </div>
+                 )}
+               </div>
+             )}
+           </div>
+         );
+       })()}
 
       {/* Inspection Binder — per-driver docs & uploads */}
       {operatorUserId && (

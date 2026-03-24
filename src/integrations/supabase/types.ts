@@ -390,6 +390,12 @@ export type Database = {
           terms_accepted: boolean
           terms_accepted_at: string | null
           updated_at: string
+          void_check_file_name: string | null
+          void_check_file_path: string | null
+          void_check_url: string | null
+          w9_file_name: string | null
+          w9_file_path: string | null
+          w9_url: string | null
         }
         Insert: {
           business_name?: string | null
@@ -405,6 +411,12 @@ export type Database = {
           terms_accepted?: boolean
           terms_accepted_at?: string | null
           updated_at?: string
+          void_check_file_name?: string | null
+          void_check_file_path?: string | null
+          void_check_url?: string | null
+          w9_file_name?: string | null
+          w9_file_path?: string | null
+          w9_url?: string | null
         }
         Update: {
           business_name?: string | null
@@ -420,6 +432,12 @@ export type Database = {
           terms_accepted?: boolean
           terms_accepted_at?: string | null
           updated_at?: string
+          void_check_file_name?: string | null
+          void_check_file_path?: string | null
+          void_check_url?: string | null
+          w9_file_name?: string | null
+          w9_file_path?: string | null
+          w9_url?: string | null
         }
         Relationships: [
           {
