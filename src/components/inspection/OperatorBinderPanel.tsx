@@ -102,6 +102,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
 
   const handleUpload = async (docName: string, file: File, existingId?: string) => {
     if (!user) return;
+    if (guardDemo()) return;
     setUploading(docName);
     try {
       const ext = file.name.split('.').pop();
