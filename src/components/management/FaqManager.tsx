@@ -400,17 +400,20 @@ export default function FaqManager() {
                 >
                   <History className="h-4 w-4" />
                 </button>
-                <button
-                  onClick={() => togglePublish(faq)}
-                  title={faq.is_published ? 'Unpublish' : 'Publish'}
-                  className={`p-2 rounded-lg transition-colors ${
-                    faq.is_published
-                      ? 'text-green-600 hover:bg-green-50'
-                      : 'text-muted-foreground hover:bg-secondary'
-                  }`}
-                >
-                  {faq.is_published ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                </button>
+                <div className="relative inline-flex">
+                  <button
+                    onClick={() => togglePublish(faq)}
+                    title={faq.is_published ? 'Unpublish' : 'Publish'}
+                    className={`p-2 rounded-lg transition-colors ${
+                      faq.is_published
+                        ? 'text-green-600 hover:bg-green-50'
+                        : 'text-muted-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    {faq.is_published ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  </button>
+                  <DemoLockIcon badge />
+                </div>
                 <button
                   onClick={() => openEdit(faq)}
                   title="Edit"
@@ -418,13 +421,16 @@ export default function FaqManager() {
                 >
                   <Pencil className="h-4 w-4" />
                 </button>
-                <button
-                  onClick={() => setDeleteTarget(faq)}
-                  title="Delete"
-                  className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="relative inline-flex">
+                  <button
+                    onClick={() => setDeleteTarget(faq)}
+                    title="Delete"
+                    className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                  <DemoLockIcon badge />
+                </div>
               </div>
             </div>
           ))}

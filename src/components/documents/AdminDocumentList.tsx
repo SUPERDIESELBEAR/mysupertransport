@@ -29,6 +29,7 @@ import { DriverDocument, CATEGORY_COLORS } from './DocumentHubTypes';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
+import DemoLockIcon from '@/components/DemoLockIcon';
 
 interface AdminDocumentListProps {
   documents: DriverDocument[];
@@ -124,34 +125,43 @@ function SortableRow({
 
       {/* Toggles */}
       <div className="flex items-center gap-4 shrink-0">
-        <div className="flex items-center gap-1.5" title="Visible to drivers">
+        <div className="relative inline-flex items-center gap-1.5" title="Visible to drivers">
           {doc.is_visible
             ? <Eye className="h-3.5 w-3.5 text-status-complete" />
             : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
-          <Switch
-            checked={doc.is_visible}
-            disabled={toggling === `${doc.id}-is_visible`}
-            onCheckedChange={() => onToggle(doc, 'is_visible')}
-            className="scale-90"
-          />
+          <div className="relative inline-flex">
+            <Switch
+              checked={doc.is_visible}
+              disabled={toggling === `${doc.id}-is_visible`}
+              onCheckedChange={() => onToggle(doc, 'is_visible')}
+              className="scale-90"
+            />
+            <DemoLockIcon badge />
+          </div>
         </div>
         <div className="hidden sm:flex items-center gap-1.5" title="Required">
           <AlertTriangle className={`h-3.5 w-3.5 ${doc.is_required ? 'text-destructive' : 'text-muted-foreground'}`} />
-          <Switch
-            checked={doc.is_required}
-            disabled={toggling === `${doc.id}-is_required`}
-            onCheckedChange={() => onToggle(doc, 'is_required')}
-            className="scale-90"
-          />
+          <div className="relative inline-flex">
+            <Switch
+              checked={doc.is_required}
+              disabled={toggling === `${doc.id}-is_required`}
+              onCheckedChange={() => onToggle(doc, 'is_required')}
+              className="scale-90"
+            />
+            <DemoLockIcon badge />
+          </div>
         </div>
         <div className="hidden sm:flex items-center gap-1.5" title="Pinned">
           <Pin className={`h-3.5 w-3.5 ${doc.is_pinned ? 'text-gold fill-gold' : 'text-muted-foreground'}`} />
-          <Switch
-            checked={doc.is_pinned}
-            disabled={toggling === `${doc.id}-is_pinned`}
-            onCheckedChange={() => onToggle(doc, 'is_pinned')}
-            className="scale-90"
-          />
+          <div className="relative inline-flex">
+            <Switch
+              checked={doc.is_pinned}
+              disabled={toggling === `${doc.id}-is_pinned`}
+              onCheckedChange={() => onToggle(doc, 'is_pinned')}
+              className="scale-90"
+            />
+            <DemoLockIcon badge />
+          </div>
         </div>
       </div>
 
@@ -160,13 +170,16 @@ function SortableRow({
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(doc)}>
           <Edit2 className="h-3.5 w-3.5" />
         </Button>
-        <Button
-          variant="ghost" size="icon"
-          className="h-8 w-8 text-destructive hover:text-destructive"
-          onClick={() => onDelete(doc)}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        <div className="relative inline-flex">
+          <Button
+            variant="ghost" size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={() => onDelete(doc)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+          <DemoLockIcon badge />
+        </div>
       </div>
     </div>
   );
