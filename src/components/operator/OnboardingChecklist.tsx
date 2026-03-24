@@ -227,6 +227,19 @@ function StageCard({
               </Button>
             </div>
           )}
+          {showPaySetupCTA && (
+            <div className="px-3 py-2.5">
+              <Button
+                size="sm"
+                onClick={() => onNavigateTo('pay-setup')}
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-xs h-8 gap-1.5 font-semibold"
+              >
+                <CreditCard className="h-3.5 w-3.5" />
+                Complete Pay Setup
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
