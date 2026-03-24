@@ -22,6 +22,7 @@ interface NavItem {
   icon: ReactNode;
   path: string;
   badge?: number;
+  dividerBefore?: string; // optional section label shown above this item
 }
 
 interface StaffLayoutProps {
