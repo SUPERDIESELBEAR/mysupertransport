@@ -792,6 +792,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   };
 
   const handleSave = async () => {
+    if (guardDemo()) return;
     setSaving(true);
 
     // ── Detect milestone transitions before saving ──────────────────────
