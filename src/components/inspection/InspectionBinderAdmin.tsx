@@ -87,6 +87,7 @@ function UploadStatusBadge({ status }: { status: string }) {
 export default function InspectionBinderAdmin({ operatorUserId, operatorName }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [searchParams] = useSearchParams();
 
   // Support deep-link: ?driver=<userId>&tab=driver|company|uploads

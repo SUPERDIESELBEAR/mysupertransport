@@ -62,6 +62,7 @@ function UploadStatusBadge({ status }: { status: string }) {
 export default function OperatorBinderPanel({ driverUserId, operatorName }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
 
   const [perDriverDocs, setPerDriverDocs] = useState<InspectionDocument[]>([]);
   const [driverUploads, setDriverUploads] = useState<DriverUpload[]>([]);
