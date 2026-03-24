@@ -349,6 +349,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   };
 
   const handleDeleteStaged = async (doc: StagedDoc) => {
+    if (guardDemo()) return;
     await supabase.from('inspection_documents').delete().eq('id', doc.id);
     if (doc.file_path) await supabase.storage.from('inspection-documents').remove([doc.file_path]);
     toast({ title: 'Deleted', description: `${doc.name} removed from staging.` });
