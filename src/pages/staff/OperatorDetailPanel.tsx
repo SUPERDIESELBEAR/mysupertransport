@@ -208,6 +208,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   // Last renewed by name per doc type
   const [lastRenewedBy, setLastRenewedBy] = useState<Record<string, string>>({});
 
+  // Deactivation state
+  const [isActive, setIsActive] = useState(true);
+  const [deactivating, setDeactivating] = useState(false);
+  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
+  const { isManagement } = useAuth();
+
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
   const inspectionBinderRef = useRef<HTMLDivElement | null>(null);
