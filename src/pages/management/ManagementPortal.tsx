@@ -4,6 +4,7 @@ import InviteApplicantModal from '@/components/management/InviteApplicantModal';
 import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import { supabase } from '@/integrations/supabase/client';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import PipelineDashboard from '../staff/PipelineDashboard';
