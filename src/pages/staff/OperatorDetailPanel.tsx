@@ -682,6 +682,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     setDocFiles(grouped);
 
     if (op) {
+      setIsActive((op as any).is_active ?? true);
       // Fetch profile separately to avoid FK hint issues
       const { data: profile } = await supabase
         .from('profiles')
