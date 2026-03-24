@@ -61,7 +61,7 @@ const STATUS_LABEL: Record<StageStatus, string> = {
   not_started: 'Pending',
 };
 
-function MilestoneNode({ stage, isLast }: { stage: Stage; isLast: boolean }) {
+function MilestoneNode({ stage, isLast, onNavigateTo }: { stage: Stage; isLast: boolean; onNavigateTo: (view: string) => void }) {
   const isComplete = stage.status === 'complete';
   const isActionRequired = stage.status === 'action_required';
   const isInProgress = stage.status === 'in_progress';
