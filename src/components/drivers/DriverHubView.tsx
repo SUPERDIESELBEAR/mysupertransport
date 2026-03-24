@@ -545,7 +545,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
             <ArchivedDriversView
               onOpenDriver={setSelectedOperatorId}
               onMessageDriver={onMessageDriver}
-              onReactivated={() => setRosterKey(k => k + 1)}
+              onReactivated={() => { setRosterKey(k => k + 1); fetchArchivedCount(); }}
             />
           </TabsContent>
         </Tabs>
