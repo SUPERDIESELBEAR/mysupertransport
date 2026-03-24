@@ -29,6 +29,7 @@ import { DriverDocument, CATEGORY_COLORS } from './DocumentHubTypes';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
+import DemoLockIcon from '@/components/DemoLockIcon';
 
 interface AdminDocumentListProps {
   documents: DriverDocument[];
