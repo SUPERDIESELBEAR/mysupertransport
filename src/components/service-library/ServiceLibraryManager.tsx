@@ -661,17 +661,26 @@ function ResourceAdminRow({ resource, onEdit, onDelete, onToggleVisible, onToggl
       </div>
 
       <div className="flex items-center gap-3 shrink-0">
-        <Switch checked={resource.is_visible} onCheckedChange={onToggleVisible} />
-        <Switch checked={resource.is_start_here} onCheckedChange={onToggleStartHere} />
+        <div className="relative inline-flex">
+          <Switch checked={resource.is_visible} onCheckedChange={onToggleVisible} />
+          <DemoLockIcon badge />
+        </div>
+        <div className="relative inline-flex">
+          <Switch checked={resource.is_start_here} onCheckedChange={onToggleStartHere} />
+          <DemoLockIcon badge />
+        </div>
         <Button size="sm" variant="outline" onClick={onMarkVerified} className="h-7 text-xs gap-1 hidden sm:flex">
           <CheckCircle className="h-3 w-3" />Verified
         </Button>
         <Button size="sm" variant="ghost" onClick={onEdit} className="h-7 w-7 p-0">
           <Pencil className="h-3.5 w-3.5" />
         </Button>
-        <Button size="sm" variant="ghost" onClick={onDelete} className="h-7 w-7 p-0 text-destructive hover:text-destructive">
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        <div className="relative inline-flex">
+          <Button size="sm" variant="ghost" onClick={onDelete} className="h-7 w-7 p-0 text-destructive hover:text-destructive">
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+          <DemoLockIcon badge />
+        </div>
       </div>
     </div>
   );
