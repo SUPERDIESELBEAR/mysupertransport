@@ -1,79 +1,58 @@
 
+## Add Payroll Document Thumbnails to Stage 8 — Staff Panel
 
-## Clarifying What "Stage 8" Is and Where It Currently Lives
+### What "Two Items" Means
+The user uploaded two company-authored reference documents:
+1. **SUPERTRANSPORT Payroll Deposit Overview** (DOCX) — the written payroll policy
+2. **Supertransport Payroll Calendar** (PDF) — the payroll schedule
 
-This is a great question. There are actually **two separate systems** in this app that both use the word "stage" — and they have been partially crossed, which is the source of the confusion.
+These are not operator-uploaded files. They are company documents staff should be able to preview inline from the Stage 8 section of the Operator Detail Panel, so staff can confirm the operator has seen and acknowledged them.
 
 ---
 
-### The Two Systems
+### What Will Be Built
 
+In the **Stage 8 section** of `OperatorDetailPanel.tsx` (the "Uploaded Documents" area), add two **document thumbnail cards** that staff can click to expand into a readable in-panel lightbox/modal. No new files or database changes required.
+
+**Approach — Static URLs + Inline Lightbox:**
+- Upload both files to the `operator-documents` Supabase storage bucket as public company-level assets (path: `company-docs/payroll-deposit-overview.pdf` and `company-docs/payroll-calendar.pdf`)
+- In the Stage 8 section of the detail panel, render two document cards:
+  - A PDF-style thumbnail card with title, icon, and a "View" button
+  - Clicking either card opens a full-screen modal (Dialog) with an embedded `<iframe>` rendering the PDF at readable size
+  - Staff can also download or open in a new tab from the modal
+
+**Card Design:**
 ```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│  SYSTEM 1: OPERATOR PORTAL (operator's view)                            │
-│  A checklist of 8 steps the operator must complete themselves.          │
-│  Lives in: OnboardingChecklist.tsx / OperatorStatusPage.tsx             │
-│                                                                          │
-│  Stage 1: Background Check                                              │
-│  Stage 2: Documents                                                      │
-│  Stage 3: ICA Contract                                                   │
-│  Stage 4: MO Registration                                                │
-│  Stage 5: Equipment                                                      │
-│  Stage 6: Insurance                                                      │
-│  Stage 7: Go Live                                                        │
-│  Stage 8: Contractor Pay Setup  ← operator fills out a form             │
-└─────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────┐
-│  SYSTEM 2: STAFF PIPELINE DASHBOARD (staff's view)                     │
-│  A tracker for staff to manage and monitor all operators.               │
-│  Lives in: PipelineDashboard.tsx / OperatorDetailPanel.tsx              │
-│                                                                          │
-│  7-node progress track: BG → Docs → ICA → MO → Equip → Ins → Go Live  │
-│  Driven by the pipeline_config database table.                          │
-│  Currently has NO Stage 8 / Pay node.                                   │
-│                                                                          │
-│  The OperatorDetailPanel (what opens when you click an operator)        │
-│  DOES already have a "Stage 8 — Contractor Pay Setup" read-only        │
-│  section at the bottom that shows what the operator submitted.          │
-│  But it is NOT in the 7-node progress track at the top.                 │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│  [PDF icon]  Payroll Deposit Overview          [View]   │
+│              PDF • Company document                     │
+└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│  [PDF icon]  Payroll Calendar                  [View]   │
+│              PDF • Company document                     │
+└─────────────────────────────────────────────────────────┘
 ```
 
----
-
-### What Has Been Done vs. What Still Needs Doing
-
-| Area | Status |
-|------|--------|
-| Operator can see/access Stage 8 form in their portal | Fixed (buttons now visible) |
-| Staff can see submitted pay setup data in the detail panel | Already done — section exists at the bottom of the panel |
-| Staff progress track (7 nodes) shows a "Pay" node | **Not done** |
-| pipeline_config database has a Stage 8 row | **Not done** — only 7 rows exist |
-| OperatorRow fetch includes `pay_setup_submitted` field | **Not done** |
-| Clicking "Pay" node navigates to Stage 8 section | **Not done** |
+**Lightbox/Modal:**
+- Full-screen Dialog overlay (existing shadcn `Dialog` component)
+- `<iframe>` rendering the PDF, taking full modal height
+- Header bar with doc title, Download button, Open in New Tab button, and Close
+- Uses the same pattern as the existing `FilePreviewModal` memory
 
 ---
 
-### What the Plan Would Build
+### Files Changed (no new files)
 
-Add a **Pay** node (8th node) to the staff-side progress track, so it appears alongside BG → Docs → ICA → MO → Equip → Ins → Go Live → Pay.
+**`src/pages/staff/OperatorDetailPanel.tsx`**
+- Add a `CompanyDocPreviewModal` inline component (small, ~50 lines) for the lightbox with iframe + controls
+- In the Stage 8 "Uploaded Documents" section, add a second sub-section titled "Payroll Reference Documents" with the two static cards above the operator's W-9 / Voided Check rows
+- The cards are always visible regardless of whether the operator has submitted (staff reference docs)
 
-**Step 1 — Database:** Insert a `pay_setup` row into `pipeline_config` (stage_order 8, label "Pay", full_name "Contractor Pay Setup") with one item: `pay_setup_submitted` = "true".
-
-**Step 2 — PipelineDashboard.tsx:**
-- Add `pay_setup_submitted: string` to the `OperatorRow` type
-- In `fetchOperators`, join to `contractor_pay_setup` and derive `pay_setup_submitted` as `"true"` when `submitted_at` is not null and `terms_accepted = true`, otherwise `""`
-- Add `pay_setup: 'stage8'` to `STAGE_KEY_TO_DETAIL` so clicking the Pay node scrolls to Stage 8 in the detail panel
-- Add `'Stage 8 — Pay Setup'` to the `STAGES` filter array and update `computeStage()` to include it
-
-No new files. No operator portal changes. No new edge functions. No schema changes.
+The DOCX will be converted to PDF before uploading so it renders inline in the iframe. The two files are uploaded to storage as part of this implementation.
 
 ---
 
-### Summary for Giving Instructions in the Future
-
-- "**Operator portal Stage 8**" = the form/checklist item the operator sees and fills out
-- "**Staff pipeline Stage 8 / Pay node**" = the tracking node staff sees in the progress track dashboard
-- These are independent and each needs to be explicitly built
-
+### No Changes To
+- Operator portal (ContractorPaySetup.tsx) — untouched
+- Database schema — no migrations needed
+- Any other stage or panel
