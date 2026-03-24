@@ -156,6 +156,7 @@ export default function ServiceLibraryManager() {
   };
 
   const handleToggleVisible = async (service: Service) => {
+    if (guardDemo()) return;
     const { error } = await supabase
       .from('services')
       .update({ is_visible: !service.is_visible })
