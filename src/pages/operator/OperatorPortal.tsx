@@ -162,6 +162,14 @@ export default function OperatorPortal() {
       setOnboardingStatus(os);
       setUploadedDocs((op as any).operator_documents ?? []);
 
+      // Fetch Stage 8 pay setup status
+      const { data: ps } = await supabase
+        .from('contractor_pay_setup' as any)
+        .select('submitted_at, terms_accepted')
+        .eq('operator_id', opId)
+        .maybeSingle();
+      setPaySetupData(ps ? { submitted_at: (ps as any).submitted_at, terms_accepted: (ps as any).terms_accepted } : null);
+
       // Fetch coordinator info
       fetchCoordinatorInfo((op as any).assigned_onboarding_staff ?? null);
 
