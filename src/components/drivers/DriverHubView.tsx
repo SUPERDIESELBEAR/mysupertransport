@@ -508,7 +508,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
 
       {/* Tabs: Active / Archived — only in non-dispatch mode */}
       {!dispatchMode && (
-        <Tabs value={activeTab} onValueChange={v => setActiveTab(v as 'active' | 'archived')}>
+        <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as 'active' | 'archived'); if (v === 'archived') fetchArchivedCount(); }}>
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="active" className="gap-2">
               <Users2 className="h-3.5 w-3.5" />
