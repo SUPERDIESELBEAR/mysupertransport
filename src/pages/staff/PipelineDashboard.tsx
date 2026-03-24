@@ -104,13 +104,14 @@ function computeProgressFromConfig(
 
 // Stage key → OperatorDetailPanel stageRefs key mapping
 const STAGE_KEY_TO_DETAIL: Record<string, string> = {
-  bg:       'stage1',
-  docs:     'stage2',
-  ica:      'stage3',
-  mo:       'stage4',
-  equip:    'stage5',
-  ins:      'stage6',
-  dispatch: 'stage7',
+  bg:        'stage1',
+  docs:      'stage2',
+  ica:       'stage3',
+  mo:        'stage4',
+  equip:     'stage5',
+  ins:       'stage6',
+  dispatch:  'stage7',
+  pay_setup: 'stage8',
 };
 
 function StageTrack({
