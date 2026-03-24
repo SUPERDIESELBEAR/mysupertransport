@@ -146,10 +146,10 @@ export default function StaffPortal() {
   const navItems = [
     { label: 'Applicant Pipeline', icon: <LayoutDashboard className="h-4 w-4" />, path: 'pipeline' },
     { label: 'Driver Hub', icon: <Users2 className="h-4 w-4" />, path: 'drivers', badge: driverAlertCount || undefined },
-    { label: 'Compliance', icon: <ShieldCheck className="h-4 w-4" />, path: 'compliance', badge: criticalExpiryCount || undefined },
+    { label: 'Compliance', icon: <ShieldCheck className="h-4 w-4" />, path: 'compliance', badge: criticalExpiryCount || undefined, dividerBefore: 'Operations' },
     { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />, path: 'inspection-binder' },
     { label: 'Document Hub', icon: <Library className="h-4 w-4" />, path: 'docs-hub' },
-    { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'messages', badge: unreadCount },
+    { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'messages', badge: unreadCount, dividerBefore: 'Tools' },
     { label: 'Service Library', icon: <Wrench className="h-4 w-4" />, path: 'service-library' },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
     { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },

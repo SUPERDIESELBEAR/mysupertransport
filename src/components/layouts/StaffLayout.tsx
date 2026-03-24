@@ -22,6 +22,7 @@ interface NavItem {
   icon: ReactNode;
   path: string;
   badge?: number;
+  dividerBefore?: string; // optional section label shown above this item
 }
 
 interface StaffLayoutProps {
@@ -96,35 +97,51 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
       {/* Nav items */}
       <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
         {navItems.map((item) => (
-          <button
-            key={item.path}
-            onClick={() => handleNavClick(item.path)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              currentPath === item.path
-                ? 'bg-gold/15 text-gold border border-gold/25'
-                : 'text-surface-dark-muted hover:text-surface-dark-foreground hover:bg-surface-dark-card'
-            }`}
-          >
-            {/* Icon with optional badge */}
-            <span className="relative shrink-0">
-              {item.icon}
-              {item.badge != null && item.badge > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
-                  {item.badge > 99 ? '99+' : item.badge}
-                </span>
-              )}
-            </span>
-            {(sidebarOpen || isMobileDrawer) && (
-              <span className="flex-1 flex items-center justify-between min-w-0">
-                <span className="truncate">{item.label}</span>
+          <div key={item.path}>
+            {/* Section divider */}
+            {item.dividerBefore && (
+              <div className="mt-2 mb-1 mx-1">
+                {(sidebarOpen || isMobileDrawer) ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-surface-dark-muted/60 whitespace-nowrap">
+                      {item.dividerBefore}
+                    </span>
+                    <div className="flex-1 h-px bg-surface-dark-border/60" />
+                  </div>
+                ) : (
+                  <div className="h-px bg-surface-dark-border/60 mx-1" />
+                )}
+              </div>
+            )}
+            <button
+              onClick={() => handleNavClick(item.path)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                currentPath === item.path
+                  ? 'bg-gold/15 text-gold border border-gold/25'
+                  : 'text-surface-dark-muted hover:text-surface-dark-foreground hover:bg-surface-dark-card'
+              }`}
+            >
+              {/* Icon with optional badge */}
+              <span className="relative shrink-0">
+                {item.icon}
                 {item.badge != null && item.badge > 0 && (
-                  <span className="ml-1.5 shrink-0 h-4 min-w-4 px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                  <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
                     {item.badge > 99 ? '99+' : item.badge}
                   </span>
                 )}
               </span>
-            )}
-          </button>
+              {(sidebarOpen || isMobileDrawer) && (
+                <span className="flex-1 flex items-center justify-between min-w-0">
+                  <span className="truncate">{item.label}</span>
+                  {item.badge != null && item.badge > 0 && (
+                    <span className="ml-1.5 shrink-0 h-4 min-w-4 px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </span>
+                  )}
+                </span>
+              )}
+            </button>
+          </div>
         ))}
       </nav>
 
