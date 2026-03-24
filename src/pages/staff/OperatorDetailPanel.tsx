@@ -4320,6 +4320,39 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     {/* ── Uploaded Documents ── */}
                     <div className="px-5 py-4 space-y-3">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Uploaded Documents</p>
+
+                      {/* ── Payroll Reference Documents ── */}
+                      <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mt-1 mb-1.5">Payroll Reference Documents</p>
+                      {[
+                        { title: 'Payroll Deposit Overview', url: companyDocUrls.overview, subtitle: 'Direct deposit policy & pay structure' },
+                        { title: 'Payroll Calendar', url: companyDocUrls.calendar, subtitle: 'Pay schedule & settlement dates' },
+                      ].map(doc => (
+                        <div key={doc.title} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0 bg-primary/10">
+                            <BookOpen className="h-4 w-4 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-foreground">{doc.title}</p>
+                            <p className="text-[11px] text-muted-foreground">{doc.subtitle}</p>
+                          </div>
+                          {doc.url ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="shrink-0 h-7 px-2.5 text-xs gap-1"
+                              onClick={() => setPreviewDoc({ title: doc.title, url: doc.url! })}
+                            >
+                              <ZoomIn className="h-3 w-3" />
+                              View
+                            </Button>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground italic">Loading…</span>
+                          )}
+                        </div>
+                      ))}
+
+                      <div className="border-t border-border/50 mt-3 pt-3" />
+
                       {/* W-9 */}
                       <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
                         <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${ps.w9_file_path ? 'bg-primary/10' : 'bg-muted'}`}>
