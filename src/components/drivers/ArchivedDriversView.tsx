@@ -31,6 +31,7 @@ interface ArchivedDriver {
   medical_cert_expiration: string | null;
   fully_onboarded: boolean | null;
   deactivated_at: string | null; // we use updated_at as proxy
+  deactivate_reason: string | null;
 }
 
 interface ArchivedDriversViewProps {
