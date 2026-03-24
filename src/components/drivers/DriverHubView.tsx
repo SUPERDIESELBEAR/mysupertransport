@@ -1,14 +1,14 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import DriverRoster from './DriverRoster';
+import ArchivedDriversView from './ArchivedDriversView';
 import AddDriverModal from './AddDriverModal';
 import OperatorDetailPanel from '@/pages/staff/OperatorDetailPanel';
 import BulkMessageModal from '@/components/staff/BulkMessageModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import ComplianceAlertsPanel from '@/components/inspection/ComplianceAlertsPanel';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertDialog,
@@ -23,7 +23,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useBulkReminderCooldown } from '@/hooks/useBulkReminderCooldown';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
-import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX, Info, Bell, Loader2, ChevronDown, ChevronUp, ShieldAlert } from 'lucide-react';
+import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX, Info, Bell, Loader2, ChevronDown, ChevronUp, ShieldAlert, Archive } from 'lucide-react';
 import type { ComplianceFilter, ComplianceCounts } from './DriverRoster';
 
 interface DriverHubViewProps {
@@ -58,7 +58,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   const [alertsPanelOpen, setAlertsPanelOpen] = useState(true);
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>(defaultComplianceFilter ?? 'all');
   const [complianceCounts, setComplianceCounts] = useState<ComplianceCounts>({ expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0 });
-  const [showInactive, setShowInactive] = useState(false);
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
 
   // Inline App Review Drawer state (opened via "Update" link on roster rows)
   const [reviewApp, setReviewApp] = useState<FullApplication | null>(null);
@@ -252,8 +252,8 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
               <Users2 className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground leading-tight">Active Drivers</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">Fully onboarded operators ready for dispatch</p>
+              <h1 className="text-xl font-bold text-foreground leading-tight">Driver Hub</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Manage active and archived operators</p>
             </div>
           </div>
 
@@ -495,34 +495,62 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         </div>
       )}
 
-      {/* Show Inactive toggle */}
+      {/* Tabs: Active / Archived — only in non-dispatch mode */}
       {!dispatchMode && (
-        <div className="flex items-center gap-2.5 py-1">
-          <Switch
-            id="show-inactive"
-            checked={showInactive}
-            onCheckedChange={val => { setShowInactive(val); setRosterKey(k => k + 1); }}
-          />
-          <Label htmlFor="show-inactive" className="text-sm text-muted-foreground cursor-pointer select-none">
-            Show inactive drivers
-          </Label>
-        </div>
+        <Tabs value={activeTab} onValueChange={v => setActiveTab(v as 'active' | 'archived')}>
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="active" className="gap-2">
+              <Users2 className="h-3.5 w-3.5" />
+              Active Drivers
+            </TabsTrigger>
+            <TabsTrigger value="archived" className="gap-2">
+              <Archive className="h-3.5 w-3.5" />
+              Archived
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="active" className="mt-4 space-y-4">
+            <DriverRoster
+              key={rosterKey}
+              onOpenDriver={setSelectedOperatorId}
+              onMessageDriver={onMessageDriver}
+              dispatchMode={false}
+              showInactive={false}
+              onSelectionChange={setSelectedOperatorIds}
+              complianceFilter={complianceFilter}
+              onComplianceFilterChange={setComplianceFilter}
+              onComplianceCountsChange={setComplianceCounts}
+              onUpdateCompliance={handleUpdateCompliance}
+              onDriversChange={drivers => { allDriversRef.current = drivers; }}
+            />
+          </TabsContent>
+
+          <TabsContent value="archived" className="mt-4">
+            <ArchivedDriversView
+              onOpenDriver={setSelectedOperatorId}
+              onMessageDriver={onMessageDriver}
+              onReactivated={() => setRosterKey(k => k + 1)}
+            />
+          </TabsContent>
+        </Tabs>
       )}
 
-      {/* Roster */}
-      <DriverRoster
-        key={rosterKey}
-        onOpenDriver={setSelectedOperatorId}
-        onMessageDriver={onMessageDriver}
-        dispatchMode={dispatchMode}
-        showInactive={showInactive}
-        onSelectionChange={setSelectedOperatorIds}
-        complianceFilter={complianceFilter}
-        onComplianceFilterChange={setComplianceFilter}
-        onComplianceCountsChange={setComplianceCounts}
-        onUpdateCompliance={handleUpdateCompliance}
-        onDriversChange={drivers => { allDriversRef.current = drivers; }}
-      />
+      {/* Roster — dispatch mode (no tabs) */}
+      {dispatchMode && (
+        <DriverRoster
+          key={rosterKey}
+          onOpenDriver={setSelectedOperatorId}
+          onMessageDriver={onMessageDriver}
+          dispatchMode={true}
+          showInactive={false}
+          onSelectionChange={setSelectedOperatorIds}
+          complianceFilter={complianceFilter}
+          onComplianceFilterChange={setComplianceFilter}
+          onComplianceCountsChange={setComplianceCounts}
+          onUpdateCompliance={handleUpdateCompliance}
+          onDriversChange={drivers => { allDriversRef.current = drivers; }}
+        />
+      )}
 
       {/* Add Driver Modal */}
       <AddDriverModal
