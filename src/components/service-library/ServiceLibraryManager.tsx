@@ -282,6 +282,7 @@ export default function ServiceLibraryManager() {
     setActiveDragServiceId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    if (guardDemo()) return;
 
     const oldIndex = services.findIndex(s => s.id === active.id);
     const newIndex = services.findIndex(s => s.id === over.id);
