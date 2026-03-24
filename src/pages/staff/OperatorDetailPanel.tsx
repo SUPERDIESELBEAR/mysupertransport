@@ -4312,7 +4312,43 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Uploaded Documents</p>
 
                       {/* ── Payroll Reference Documents ── */}
-                      <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mt-1 mb-1.5">Payroll Reference Documents</p>
+                      <div className="flex items-center justify-between mb-1.5 mt-1">
+                        <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">Payroll Reference Documents</p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2.5 text-xs gap-1.5"
+                          disabled={sendingPayrollDocs}
+                          onClick={async () => {
+                            if (isDemoMode) { toast({ title: 'Demo mode', description: 'Email sending is disabled in demo mode.' }); return; }
+                            setSendingPayrollDocs(true);
+                            try {
+                              const session = (await supabase.auth.getSession()).data.session;
+                              const res = await fetch(
+                                `https://qgxpkcudwjmacrdcyvhj.supabase.co/functions/v1/send-payroll-docs`,
+                                {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${session?.access_token ?? ''}`,
+                                  },
+                                  body: JSON.stringify({ operator_id: operatorId }),
+                                }
+                              );
+                              const data = await res.json();
+                              if (!res.ok) throw new Error(data.error ?? 'Failed to send');
+                              toast({ title: 'Payroll docs sent ✓', description: `Email sent to ${data.sent_to}` });
+                            } catch (err) {
+                              toast({ title: 'Failed to send', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
+                            } finally {
+                              setSendingPayrollDocs(false);
+                            }
+                          }}
+                        >
+                          {sendingPayrollDocs ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                          Send Payroll Docs
+                        </Button>
+                      </div>
                       {[
                         { title: 'Payroll Deposit Overview', url: companyDocUrls.overview, subtitle: 'Direct deposit policy & pay structure' },
                         { title: 'Payroll Calendar', url: companyDocUrls.calendar, subtitle: 'Pay schedule & settlement dates' },
