@@ -327,6 +327,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           setPaySetupSignedUrls({ w9: w9Signed, voidCheck: voidCheckSigned });
         }
       });
+    // Fetch signed URLs for company payroll reference docs
+    Promise.all([
+      supabase.storage.from('operator-documents').createSignedUrl('company-docs/payroll-deposit-overview.pdf', 3600).then(r => r.data?.signedUrl ?? null),
+      supabase.storage.from('operator-documents').createSignedUrl('company-docs/payroll-calendar.pdf', 3600).then(r => r.data?.signedUrl ?? null),
+    ]).then(([overview, calendar]) => {
+      setCompanyDocUrls({ overview, calendar });
+    });
   }, [operatorId]);
 
   // Fetch ICA draft updated_at when ica_status is in_progress
