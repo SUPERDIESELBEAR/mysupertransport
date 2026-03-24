@@ -673,7 +673,7 @@ export default function ManagementPortal() {
     { label: 'Compliance',        icon: <ShieldCheck className="h-4 w-4" />,     path: 'compliance', badge: criticalExpiryCount || undefined },
     { label: 'Driver Hub',         icon: <Users2 className="h-4 w-4" />,          path: 'drivers' },
     { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />,          path: 'inspection-binder' },
-    { label: 'Doc Hub',           icon: <Library className="h-4 w-4" />,         path: 'docs-hub' },
+    { label: 'Document Hub',      icon: <Library className="h-4 w-4" />,         path: 'docs-hub' },
     { label: 'Service Library',   icon: <Layers className="h-4 w-4" />,          path: 'service-library' },
     { label: 'Resources',         icon: <BookOpen className="h-4 w-4" />,        path: 'resources' },
     { label: 'Staff',             icon: <UserPlus className="h-4 w-4" />,        path: 'staff' },
