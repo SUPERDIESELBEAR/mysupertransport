@@ -4,6 +4,8 @@ import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -16,8 +18,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Users2, RefreshCw, ArrowRight, Phone, RotateCcw, Archive, CalendarDays, Loader2, MessageSquare } from 'lucide-react';
+import { Search, RefreshCw, ArrowRight, Phone, RotateCcw, Archive, CalendarDays, Loader2, MessageSquare, Pencil } from 'lucide-react';
+
+const PRESET_REASONS = ['Resigned', 'Terminated', 'No Loads', 'Medical', 'Abandoned'];
 
 interface ArchivedDriver {
   operator_id: string;
@@ -30,8 +35,9 @@ interface ArchivedDriver {
   cdl_expiration: string | null;
   medical_cert_expiration: string | null;
   fully_onboarded: boolean | null;
-  deactivated_at: string | null; // we use updated_at as proxy
+  deactivated_at: string | null;
   deactivate_reason: string | null;
+  audit_log_id: string | null;
 }
 
 interface ArchivedDriversViewProps {
@@ -49,6 +55,12 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
   const [search, setSearch] = useState('');
   const [confirmReactivate, setConfirmReactivate] = useState<ArchivedDriver | null>(null);
   const [reactivating, setReactivating] = useState(false);
+
+  // Edit-reason state
+  const [editReasonDriver, setEditReasonDriver] = useState<ArchivedDriver | null>(null);
+  const [editReasonValue, setEditReasonValue] = useState('');
+  const [editReasonCustom, setEditReasonCustom] = useState('');
+  const [savingReason, setSavingReason] = useState(false);
 
   const fetchArchived = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
