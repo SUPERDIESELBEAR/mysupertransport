@@ -7,6 +7,8 @@ import BulkMessageModal from '@/components/staff/BulkMessageModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import ComplianceAlertsPanel from '@/components/inspection/ComplianceAlertsPanel';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertDialog,
