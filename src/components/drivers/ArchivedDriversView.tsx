@@ -301,7 +301,12 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
                               </span>
                             </TooltipTrigger>
                             <TooltipContent>
-                              {format(parseISO(driver.deactivated_at), 'MMMM d, yyyy · h:mm a')}
+                              <div className="space-y-0.5">
+                                <div>{format(parseISO(driver.deactivated_at), 'MMMM d, yyyy · h:mm a')}</div>
+                                {driver.deactivate_reason && (
+                                  <div className="text-muted-foreground">Reason: {driver.deactivate_reason}</div>
+                                )}
+                              </div>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
