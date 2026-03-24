@@ -212,6 +212,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [isActive, setIsActive] = useState(true);
   const [deactivating, setDeactivating] = useState(false);
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
+  const [deactivateReason, setDeactivateReason] = useState<string>('');
   const { isManagement } = useAuth();
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
