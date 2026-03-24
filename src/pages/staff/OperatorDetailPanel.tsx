@@ -302,13 +302,28 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     fetchOperatorDetail();
     fetchDispatchHistory();
     fetchCertHistory();
-    // Fetch Stage 8 pay setup record
+    // Fetch Stage 8 pay setup record + signed URLs for files
     supabase
       .from('contractor_pay_setup' as any)
       .select('*')
       .eq('operator_id', operatorId)
       .maybeSingle()
-      .then(({ data }) => { setPaySetupRecord(data); setPaySetupLoaded(true); });
+      .then(async ({ data }) => {
+        setPaySetupRecord(data);
+        setPaySetupLoaded(true);
+        if (data) {
+          const ps = data as any;
+          const [w9Signed, voidCheckSigned] = await Promise.all([
+            ps.w9_file_path
+              ? supabase.storage.from('operator-documents').createSignedUrl(ps.w9_file_path, 3600).then(r => r.data?.signedUrl ?? null)
+              : Promise.resolve(null),
+            ps.void_check_file_path
+              ? supabase.storage.from('operator-documents').createSignedUrl(ps.void_check_file_path, 3600).then(r => r.data?.signedUrl ?? null)
+              : Promise.resolve(null),
+          ]);
+          setPaySetupSignedUrls({ w9: w9Signed, voidCheck: voidCheckSigned });
+        }
+      });
   }, [operatorId]);
 
   // Fetch ICA draft updated_at when ica_status is in_progress
