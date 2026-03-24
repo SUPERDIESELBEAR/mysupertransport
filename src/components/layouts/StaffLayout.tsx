@@ -37,6 +37,10 @@ interface StaffLayoutProps {
   headerActions?: ReactNode;
   /** Path for the bell dropdown 'View all →' link. Defaults to /staff?tab=notifications */
   notificationsPath?: string;
+  /** Show demo mode amber banner when true */
+  isDemo?: boolean;
+  /** Called when the user clicks "Exit Demo" in the banner */
+  onExitDemo?: () => void;
 }
 
 const roleColors: Record<AppRole, string> = {
