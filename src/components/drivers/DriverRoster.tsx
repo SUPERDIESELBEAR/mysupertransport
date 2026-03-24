@@ -22,6 +22,7 @@ interface DriverRow {
   dispatch_status: 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
   cdl_expiration: string | null;
   medical_cert_expiration: string | null;
+  is_active: boolean;
 }
 
 interface ReminderEntry {
@@ -64,6 +65,8 @@ interface DriverRosterProps {
   onMessageDriver?: (userId: string) => void;
   /** If true, only shows dispatch-relevant columns (for Dispatch Portal) */
   dispatchMode?: boolean;
+  /** If true, shows inactive drivers instead of active ones */
+  showInactive?: boolean;
   /** Called whenever the selection set changes (operator IDs) */
   onSelectionChange?: (selectedOperatorIds: string[]) => void;
   /** Controlled compliance filter — lifted to parent for header chips */
@@ -339,6 +342,7 @@ export default function DriverRoster({
   onOpenDriver,
   onMessageDriver,
   dispatchMode = false,
+  showInactive = false,
   onSelectionChange,
   complianceFilter: externalComplianceFilter,
   onComplianceFilterChange,
@@ -367,7 +371,7 @@ export default function DriverRoster({
     if (!silent) setLoading(true);
     else setRefreshing(true);
 
-    const [{ data }, { data: reminders }] = await Promise.all([
+    const [{ data: rawData }, { data: reminders }] = await Promise.all([
       supabase
         .from('operators')
         .select(`
@@ -384,6 +388,22 @@ export default function DriverRoster({
         .select('operator_id, sent_at, doc_type, sent_by_name, email_sent, email_error')
         .order('sent_at', { ascending: false }),
     ]);
+
+    // Fetch is_active separately to avoid deep TS inference issues
+    const operatorIds = (rawData as any[] ?? []).map((op: any) => op.id);
+    let activeSet: Set<string> = new Set();
+    if (operatorIds.length > 0) {
+      const { data: activeData } = await supabase
+        .from('operators')
+        .select('id, is_active')
+        .in('id', operatorIds) as any;
+      for (const row of (activeData ?? []) as any[]) {
+        if ((row.is_active ?? true) === !showInactive) activeSet.add(row.id);
+      }
+    }
+
+    // Filter to only operators matching is_active state
+    const data = (rawData as any[] ?? []).filter((op: any) => activeSet.has(op.id));
 
     // Build per-operator reminder maps
     const latestMap: Record<string, string> = {};
@@ -441,6 +461,7 @@ export default function DriverRoster({
           dispatch_status: (ad?.dispatch_status ?? 'not_dispatched') as DriverRow['dispatch_status'],
           cdl_expiration: app?.cdl_expiration ?? null,
           medical_cert_expiration: app?.medical_cert_expiration ?? null,
+          is_active: activeSet.has(op.id),
         };
       }).sort((a, b) => {
         const order: Record<DriverRow['dispatch_status'], number> = { truck_down: 0, not_dispatched: 1, home: 2, dispatched: 3 };

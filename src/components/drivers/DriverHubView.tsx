@@ -7,6 +7,8 @@ import BulkMessageModal from '@/components/staff/BulkMessageModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import ComplianceAlertsPanel from '@/components/inspection/ComplianceAlertsPanel';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertDialog,
@@ -55,13 +57,8 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   const [selectedOperatorIds, setSelectedOperatorIds] = useState<string[]>([]);
   const [alertsPanelOpen, setAlertsPanelOpen] = useState(true);
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>(defaultComplianceFilter ?? 'all');
-  const [complianceCounts, setComplianceCounts] = useState<ComplianceCounts>({
-    expired: 0,
-    critical: 0,
-    warning: 0,
-    neverRenewed: 0,
-    notYetReminded: 0,
-  });
+  const [complianceCounts, setComplianceCounts] = useState<ComplianceCounts>({ expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0 });
+  const [showInactive, setShowInactive] = useState(false);
 
   // Inline App Review Drawer state (opened via "Update" link on roster rows)
   const [reviewApp, setReviewApp] = useState<FullApplication | null>(null);
@@ -498,12 +495,27 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         </div>
       )}
 
+      {/* Show Inactive toggle */}
+      {!dispatchMode && (
+        <div className="flex items-center gap-2.5 py-1">
+          <Switch
+            id="show-inactive"
+            checked={showInactive}
+            onCheckedChange={val => { setShowInactive(val); setRosterKey(k => k + 1); }}
+          />
+          <Label htmlFor="show-inactive" className="text-sm text-muted-foreground cursor-pointer select-none">
+            Show inactive drivers
+          </Label>
+        </div>
+      )}
+
       {/* Roster */}
       <DriverRoster
         key={rosterKey}
         onOpenDriver={setSelectedOperatorId}
         onMessageDriver={onMessageDriver}
         dispatchMode={dispatchMode}
+        showInactive={showInactive}
         onSelectionChange={setSelectedOperatorIds}
         complianceFilter={complianceFilter}
         onComplianceFilterChange={setComplianceFilter}

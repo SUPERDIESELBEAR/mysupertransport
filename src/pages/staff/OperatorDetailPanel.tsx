@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -207,6 +207,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [lastRenewed, setLastRenewed] = useState<Record<string, string>>({});
   // Last renewed by name per doc type
   const [lastRenewedBy, setLastRenewedBy] = useState<Record<string, string>>({});
+
+  // Deactivation state
+  const [isActive, setIsActive] = useState(true);
+  const [deactivating, setDeactivating] = useState(false);
+  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
+  const { isManagement } = useAuth();
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
@@ -676,6 +682,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     setDocFiles(grouped);
 
     if (op) {
+      setIsActive((op as any).is_active ?? true);
       // Fetch profile separately to avoid FK hint issues
       const { data: profile } = await supabase
         .from('profiles')
@@ -1139,6 +1146,42 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       toast({ title: 'Error voiding ICA', description: err.message, variant: 'destructive' });
     } finally {
       setVoidingICA(false);
+    }
+  };
+
+  const handleToggleActive = async () => {
+    setDeactivating(true);
+    const newActive = !isActive;
+    try {
+      const { error } = await supabase
+        .from('operators')
+        .update({ is_active: newActive } as any)
+        .eq('id', operatorId);
+      if (error) throw error;
+
+      // Log the action
+      void supabase.from('audit_log' as any).insert({
+        actor_id: session?.user?.id ?? null,
+        actor_name: null,
+        action: newActive ? 'operator_reactivated' : 'operator_deactivated',
+        entity_type: 'operator',
+        entity_id: operatorId,
+        entity_label: operatorName,
+        metadata: { is_active: newActive },
+      });
+
+      setIsActive(newActive);
+      setShowDeactivateConfirm(false);
+      toast({
+        title: newActive ? 'Driver reactivated' : 'Driver deactivated',
+        description: newActive
+          ? `${operatorName} has been reactivated and will appear in the active roster.`
+          : `${operatorName} has been deactivated and removed from the active roster.`,
+      });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setDeactivating(false);
     }
   };
 
@@ -1845,6 +1888,32 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </div>
         <TooltipProvider delayDuration={150}>
           <div className="flex items-center gap-2 shrink-0">
+            {/* Deactivate / Reactivate — management only */}
+            {isManagement && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDeactivateConfirm(true)}
+                    disabled={deactivating}
+                    className={isActive
+                      ? 'gap-2 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive'
+                      : 'gap-2 text-status-complete border-status-complete/40 hover:bg-status-complete/10 hover:text-status-complete'
+                    }
+                  >
+                    {isActive
+                      ? <UserX className="h-3.5 w-3.5" />
+                      : <UserCheck className="h-3.5 w-3.5" />
+                    }
+                    <span className="hidden sm:inline">{isActive ? 'Deactivate' : 'Reactivate'}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {isActive ? 'Remove from active roster' : 'Restore to active roster'}
+                </TooltipContent>
+              </Tooltip>
+            )}
             {operatorEmail && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1889,11 +1958,43 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Status overview */}
       <div className="flex flex-wrap gap-2">
+        {!isActive && <Badge className="bg-muted text-muted-foreground border text-xs">⊘ Inactive</Badge>}
         {isAlert && <Badge className="status-action border text-xs">⚠ Alert — Review Required</Badge>}
         {status.fully_onboarded && <Badge className="status-complete border text-xs">✓ Fully Onboarded</Badge>}
         {status.ica_status === 'complete' && <Badge className="status-complete border text-xs">ICA Signed</Badge>}
         {status.pe_screening_result === 'clear' && <Badge className="status-complete border text-xs">PE Clear</Badge>}
       </div>
+
+      {/* ── Deactivate Confirmation Dialog ── */}
+      <AlertDialog open={showDeactivateConfirm} onOpenChange={setShowDeactivateConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isActive ? 'Deactivate this driver?' : 'Reactivate this driver?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isActive
+                ? `${operatorName} will be removed from the active Driver Hub roster. Their onboarding record and history will be preserved. You can reactivate them at any time.`
+                : `${operatorName} will be restored to the active Driver Hub roster and appear as a fully-onboarded driver.`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deactivating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleToggleActive}
+              disabled={deactivating}
+              className={isActive ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground' : ''}
+            >
+              {deactivating
+                ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />{isActive ? 'Deactivating…' : 'Reactivating…'}</>
+                : isActive ? 'Yes, deactivate' : 'Yes, reactivate'
+              }
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       {/* ── Compliance Alert Banner ─────────────────────────────────────── */}
       {(() => {

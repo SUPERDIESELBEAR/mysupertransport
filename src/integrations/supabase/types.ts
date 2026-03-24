@@ -1376,6 +1376,7 @@ export type Database = {
           assigned_onboarding_staff: string | null
           created_at: string
           id: string
+          is_active: boolean
           notes: string | null
           unit_number: string | null
           updated_at: string
@@ -1386,6 +1387,7 @@ export type Database = {
           assigned_onboarding_staff?: string | null
           created_at?: string
           id?: string
+          is_active?: boolean
           notes?: string | null
           unit_number?: string | null
           updated_at?: string
@@ -1396,6 +1398,7 @@ export type Database = {
           assigned_onboarding_staff?: string | null
           created_at?: string
           id?: string
+          is_active?: boolean
           notes?: string | null
           unit_number?: string | null
           updated_at?: string
