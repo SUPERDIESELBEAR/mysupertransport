@@ -282,6 +282,7 @@ export default function AdminDocumentList({
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    if (guardDemo()) return;
     const { error } = await supabase.from('driver_documents').delete().eq('id', deleteTarget.id);
     setDeleteTarget(null);
     if (error) {
