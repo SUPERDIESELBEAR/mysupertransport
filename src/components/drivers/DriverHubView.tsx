@@ -59,6 +59,17 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>(defaultComplianceFilter ?? 'all');
   const [complianceCounts, setComplianceCounts] = useState<ComplianceCounts>({ expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0 });
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+  const [archivedCount, setArchivedCount] = useState<number | null>(null);
+
+  const fetchArchivedCount = useCallback(async () => {
+    const { count } = await supabase
+      .from('operators')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_active', false);
+    setArchivedCount(count ?? 0);
+  }, []);
+
+  useEffect(() => { fetchArchivedCount(); }, [fetchArchivedCount]);
 
   // Inline App Review Drawer state (opened via "Update" link on roster rows)
   const [reviewApp, setReviewApp] = useState<FullApplication | null>(null);
