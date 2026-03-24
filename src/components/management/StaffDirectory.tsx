@@ -257,6 +257,7 @@ export default function StaffDirectory() {
 
   const handleNameUpdate = async () => {
     if (!managingMember) return;
+    if (guardDemo()) return;
     setNameSaving(true);
     try {
       const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
