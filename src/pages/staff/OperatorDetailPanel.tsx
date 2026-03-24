@@ -224,6 +224,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [paySetupSignedUrls, setPaySetupSignedUrls] = useState<{ w9: string | null; voidCheck: string | null }>({ w9: null, voidCheck: null });
   const [companyDocUrls, setCompanyDocUrls] = useState<{ overview: string | null; calendar: string | null }>({ overview: null, calendar: null });
   const [previewDoc, setPreviewDoc] = useState<{ title: string; url: string } | null>(null);
+  const [sendingPayrollDocs, setSendingPayrollDocs] = useState(false);
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
