@@ -1970,7 +1970,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       </div>
 
       {/* ── Deactivate Confirmation Dialog ── */}
-      <AlertDialog open={showDeactivateConfirm} onOpenChange={setShowDeactivateConfirm}>
+      <AlertDialog open={showDeactivateConfirm} onOpenChange={open => { if (!open) setDeactivateReason(''); setShowDeactivateConfirm(open); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -1983,6 +1983,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               }
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {isActive && (
+            <div className="px-0 pb-2 space-y-1.5">
+              <Label className="text-xs font-medium text-foreground">Reason for deactivation</Label>
+              <Select value={deactivateReason} onValueChange={setDeactivateReason}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Select a reason (optional)…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Resigned">Resigned</SelectItem>
+                  <SelectItem value="Terminated">Terminated</SelectItem>
+                  <SelectItem value="No Loads">No Loads</SelectItem>
+                  <SelectItem value="Medical">Medical</SelectItem>
+                  <SelectItem value="Abandoned">Abandoned</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deactivating}>Cancel</AlertDialogCancel>
             <AlertDialogAction
