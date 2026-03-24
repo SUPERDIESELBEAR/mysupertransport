@@ -194,6 +194,7 @@ export default function ServiceLibraryManager() {
   };
 
   const handleToggleStartHere = async (resource: ServiceResource) => {
+    if (guardDemo()) return;
     const { error } = await supabase
       .from('service_resources')
       .update({ is_start_here: !resource.is_start_here })
