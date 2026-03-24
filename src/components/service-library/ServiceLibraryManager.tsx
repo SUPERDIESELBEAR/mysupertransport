@@ -210,6 +210,7 @@ export default function ServiceLibraryManager() {
   };
 
   const handleMarkVerified = async (resource: ServiceResource) => {
+    if (guardDemo()) return;
     const now = new Date().toISOString();
     const { error } = await supabase
       .from('service_resources')
