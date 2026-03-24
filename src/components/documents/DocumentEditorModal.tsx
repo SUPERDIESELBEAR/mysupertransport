@@ -16,6 +16,7 @@ import {
   History, RotateCcw, Clock, User, Eye, AlertTriangle, BookOpen,
   FileText, Upload, X, File, ExternalLink, Video,
 } from 'lucide-react';
+import DemoLockIcon from '@/components/DemoLockIcon';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,

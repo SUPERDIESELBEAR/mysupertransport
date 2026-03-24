@@ -14,6 +14,7 @@ import type { ServiceResource, ResourceType } from './ServiceLibraryTypes';
 import { ALL_RESOURCE_TYPES } from './ServiceLibraryTypes';
 import { parseVideoEmbedUrl } from '@/components/documents/DocumentHubTypes';
 import { Loader2 } from 'lucide-react';
+import DemoLockIcon from '@/components/DemoLockIcon';
 
 interface ResourceFormModalProps {
   resource?: ServiceResource | null;

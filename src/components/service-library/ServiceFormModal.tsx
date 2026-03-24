@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { Service } from './ServiceLibraryTypes';
 import { Upload, X, Loader2 } from 'lucide-react';
+import DemoLockIcon from '@/components/DemoLockIcon';
 
 interface ServiceFormModalProps {
   service?: Service | null;

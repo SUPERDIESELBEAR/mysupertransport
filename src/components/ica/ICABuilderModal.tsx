@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X, ChevronRight, ChevronLeft, Save, Send, FileText, Pen, Clock } from 'lucide-react';
+import DemoLockIcon from '@/components/DemoLockIcon';
 import SignatureCanvas from 'react-signature-canvas';
 import ICADocumentView from './ICADocumentView';
 

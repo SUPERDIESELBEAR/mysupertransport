@@ -50,6 +50,7 @@ import { toast } from 'sonner';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 import { useDemoMode } from '@/hooks/useDemoMode';
+import DemoLockIcon from '@/components/DemoLockIcon';
 
 type ResourceCategory = Database['public']['Enums']['resource_category'];
 
