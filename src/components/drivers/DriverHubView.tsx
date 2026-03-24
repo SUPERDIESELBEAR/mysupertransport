@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import DriverRoster from './DriverRoster';
 import ArchivedDriversView from './ArchivedDriversView';
@@ -59,6 +59,17 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>(defaultComplianceFilter ?? 'all');
   const [complianceCounts, setComplianceCounts] = useState<ComplianceCounts>({ expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0 });
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+  const [archivedCount, setArchivedCount] = useState<number | null>(null);
+
+  const fetchArchivedCount = useCallback(async () => {
+    const { count } = await supabase
+      .from('operators')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_active', false);
+    setArchivedCount(count ?? 0);
+  }, []);
+
+  useEffect(() => { fetchArchivedCount(); }, [fetchArchivedCount]);
 
   // Inline App Review Drawer state (opened via "Update" link on roster rows)
   const [reviewApp, setReviewApp] = useState<FullApplication | null>(null);
@@ -497,7 +508,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
 
       {/* Tabs: Active / Archived — only in non-dispatch mode */}
       {!dispatchMode && (
-        <Tabs value={activeTab} onValueChange={v => setActiveTab(v as 'active' | 'archived')}>
+        <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as 'active' | 'archived'); if (v === 'archived') fetchArchivedCount(); }}>
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="active" className="gap-2">
               <Users2 className="h-3.5 w-3.5" />
@@ -506,6 +517,11 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
             <TabsTrigger value="archived" className="gap-2">
               <Archive className="h-3.5 w-3.5" />
               Archived
+              {archivedCount !== null && archivedCount > 0 && (
+                <span className="inline-flex items-center justify-center h-4.5 min-w-[1.125rem] px-1 rounded-full bg-muted-foreground/20 text-muted-foreground text-[10px] font-semibold leading-none tabular-nums">
+                  {archivedCount}
+                </span>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -529,7 +545,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
             <ArchivedDriversView
               onOpenDriver={setSelectedOperatorId}
               onMessageDriver={onMessageDriver}
-              onReactivated={() => setRosterKey(k => k + 1)}
+              onReactivated={() => { setRosterKey(k => k + 1); fetchArchivedCount(); }}
             />
           </TabsContent>
         </Tabs>
