@@ -164,6 +164,7 @@ export default function ComplianceDashboard({ documents }: ComplianceDashboardPr
 
   // ── Send single reminder ───────────────────────────────────────────────────
   const handleSendOne = async (doc: DriverDocument, op: OperatorRow) => {
+    if (guardDemo()) return;
     const key = `${doc.id}-${op.user_id}`;
     setSending(key);
 
