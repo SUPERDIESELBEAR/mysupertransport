@@ -239,6 +239,21 @@ function MilestoneNode({ stage, isLast, onNavigateTo }: { stage: Stage; isLast: 
           {isNotStarted && stage.hint && (
             <p className="mt-2 text-xs text-muted-foreground/70 italic border-t border-border pt-2">{stage.hint}</p>
           )}
+
+          {/* Stage 8 Pay Setup CTA */}
+          {stage.number === 8 && (stage.status === 'not_started' || stage.status === 'in_progress') && (
+            <div className="mt-3 pt-3 border-t border-border/50">
+              <Button
+                size="sm"
+                onClick={() => onNavigateTo('pay-setup')}
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 text-xs h-8 gap-1.5 font-semibold"
+              >
+                <CreditCard className="h-3.5 w-3.5" />
+                Complete Pay Setup
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
