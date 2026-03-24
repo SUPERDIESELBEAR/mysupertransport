@@ -4229,6 +4229,73 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       })()}
 
 
+      {/* Stage 8 — Contractor Pay Setup (read-only) */}
+      {(() => {
+        const stageKey = 'stage8';
+        const isCollapsed = collapsedStages.has(stageKey);
+        const [ps, setPs] = React.useState<any>(null);
+        const [psLoaded, setPsLoaded] = React.useState(false);
+        React.useEffect(() => {
+          supabase
+            .from('contractor_pay_setup' as any)
+            .select('*')
+            .eq('operator_id', operatorId)
+            .maybeSingle()
+            .then(({ data }) => { setPs(data); setPsLoaded(true); });
+        }, []);
+        const isComplete = ps?.submitted_at && ps?.terms_accepted;
+        return (
+          <div ref={el => { stageRefs.current[stageKey] = el; }} className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
+            <button
+              onClick={() => toggleStage(stageKey)}
+              className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors"
+            >
+              <span className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${isComplete ? 'bg-status-complete/10' : 'bg-muted'}`}>
+                <CreditCard className={`h-4 w-4 ${isComplete ? 'text-status-complete' : 'text-muted-foreground'}`} />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">Stage 8 — Contractor Pay Setup</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {!psLoaded ? 'Loading…' : isComplete ? `Submitted ${new Date(ps.submitted_at).toLocaleDateString()}` : ps ? 'In progress — not yet submitted' : 'Not started'}
+                </p>
+              </div>
+              {isComplete && <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-status-complete/10 text-status-complete border border-status-complete/25 uppercase tracking-wide">Submitted</span>}
+              {isCollapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />}
+            </button>
+            {!isCollapsed && (
+              <div className="border-t border-border">
+                {!psLoaded ? (
+                  <div className="px-5 py-4 text-xs text-muted-foreground">Loading…</div>
+                ) : !ps ? (
+                  <div className="px-5 py-6 text-center text-muted-foreground text-xs">
+                    <CreditCard className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p>Operator has not started pay setup yet.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border/60">
+                    {[
+                      { label: 'Contractor Type', value: ps.contractor_type === 'business' ? 'Business' : 'Individual' },
+                      { label: 'Legal First Name', value: ps.legal_first_name },
+                      { label: 'Legal Last Name', value: ps.legal_last_name },
+                      ...(ps.contractor_type === 'business' && ps.business_name ? [{ label: 'Business Name', value: ps.business_name }] : []),
+                      { label: 'Phone', value: ps.phone },
+                      { label: 'Email', value: ps.email },
+                      { label: 'Terms Accepted', value: ps.terms_accepted ? `Yes — ${ps.terms_accepted_at ? new Date(ps.terms_accepted_at).toLocaleString() : ''}` : 'No' },
+                      { label: 'Submitted', value: ps.submitted_at ? new Date(ps.submitted_at).toLocaleString() : 'Not submitted' },
+                    ].map(row => (
+                      <div key={row.label} className="flex items-start gap-3 px-5 py-3">
+                        <span className="text-xs text-muted-foreground w-36 shrink-0 pt-0.5">{row.label}</span>
+                        <span className="text-sm font-medium text-foreground flex-1">{row.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Inspection Binder — per-driver docs & uploads */}
       {operatorUserId && (
         <div ref={inspectionBinderRef}>
