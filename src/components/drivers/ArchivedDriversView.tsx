@@ -93,18 +93,18 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
       }
 
       // Fetch most-recent operator_deactivated audit log entry per operator for reason
-      const reasonMap: Record<string, string | null> = {};
+      const reasonMap: Record<string, { reason: string | null; id: string | null }> = {};
       if (operatorIds.length > 0) {
         const { data: auditRows } = await supabase
           .from('audit_log' as any)
-          .select('entity_id, metadata, created_at')
+          .select('id, entity_id, metadata, created_at')
           .eq('action', 'operator_deactivated')
           .in('entity_id', operatorIds)
           .order('created_at', { ascending: false });
         // Keep only the latest entry per operator
         (auditRows as any[] ?? []).forEach((row: any) => {
           if (row.entity_id && !(row.entity_id in reasonMap)) {
-            reasonMap[row.entity_id] = (row.metadata as any)?.reason ?? null;
+            reasonMap[row.entity_id] = { reason: (row.metadata as any)?.reason ?? null, id: row.id };
           }
         });
       }
@@ -127,7 +127,8 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
           medical_cert_expiration: app?.medical_cert_expiration ?? null,
           fully_onboarded: os?.fully_onboarded ?? null,
           deactivated_at: op.updated_at ?? null,
-          deactivate_reason: reasonMap[op.id] ?? null,
+          deactivate_reason: reasonMap[op.id]?.reason ?? null,
+          audit_log_id: reasonMap[op.id]?.id ?? null,
         };
       }).sort((a, b) => {
         // Most recently deactivated first
