@@ -204,6 +204,7 @@ export default function ComplianceDashboard({ documents }: ComplianceDashboardPr
 
   // ── Send reminders to ALL pending for a doc ────────────────────────────────
   const handleRemindAll = async (doc: DriverDocument, pending: OperatorRow[]) => {
+    if (guardDemo()) return;
     setSendingAll(doc.id);
 
     // Batch in-app notifications
