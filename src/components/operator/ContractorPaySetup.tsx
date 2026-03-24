@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,6 @@ import { useToast } from '@/hooks/use-toast';
 import {
   CreditCard, CheckCircle2, User, Building2, Phone, Mail,
   AlertTriangle, Info, Loader2, ChevronDown, ChevronUp,
-  Upload, FileText, X, ExternalLink,
 } from 'lucide-react';
 import PayrollCalendar from '@/components/operator/PayrollCalendar';
 
@@ -29,13 +28,7 @@ interface PaySetupRow {
   terms_accepted: boolean;
   terms_accepted_at: string | null;
   submitted_at: string | null;
-  w9_file_name: string | null;
-  w9_url: string | null;
-  void_check_file_name: string | null;
-  void_check_url: string | null;
 }
-
-type UploadState = { uploading: boolean; fileName: string | null; url: string | null; path: string | null };
 
 export default function ContractorPaySetup({ operatorId, onSubmitted }: ContractorPaySetupProps) {
   const { user, profile } = useAuth();
@@ -54,12 +47,6 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
-
-  // File upload state
-  const [w9, setW9] = useState<UploadState>({ uploading: false, fileName: null, url: null, path: null });
-  const [voidCheck, setVoidCheck] = useState<UploadState>({ uploading: false, fileName: null, url: null, path: null });
-  const w9InputRef = useRef<HTMLInputElement>(null);
-  const voidCheckInputRef = useRef<HTMLInputElement>(null);
 
   // Load existing record + pre-fill from profile
   useEffect(() => {
@@ -81,8 +68,6 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
         setPhone(row.phone);
         setEmail(row.email);
         setTermsAccepted(row.terms_accepted);
-        if (row.w9_file_name) setW9(s => ({ ...s, fileName: row.w9_file_name, url: row.w9_url }));
-        if (row.void_check_file_name) setVoidCheck(s => ({ ...s, fileName: row.void_check_file_name, url: row.void_check_url }));
       } else {
         // Pre-fill from profile
         setFirstName(profile?.first_name ?? '');
@@ -121,49 +106,6 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
     return true;
   })();
 
-  // ── FILE UPLOAD HELPER ──
-  const handleFileUpload = async (
-    file: File,
-    docType: 'w9' | 'void_check',
-  ) => {
-    const setter = docType === 'w9' ? setW9 : setVoidCheck;
-    setter(s => ({ ...s, uploading: true }));
-
-    try {
-      const ext = file.name.split('.').pop() ?? 'pdf';
-      const path = `pay-setup/${operatorId}/${docType}-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('operator-documents')
-        .upload(path, file, { upsert: true });
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('operator-documents')
-        .getPublicUrl(path);
-      const url = urlData?.publicUrl ?? null;
-
-      setter({ uploading: false, fileName: file.name, url, path });
-
-      // Persist immediately to DB (upsert)
-      const updatePayload: Record<string, string | null> =
-        docType === 'w9'
-          ? { w9_file_name: file.name, w9_file_path: path, w9_url: url }
-          : { void_check_file_name: file.name, void_check_file_path: path, void_check_url: url };
-
-      if (existing) {
-        await supabase
-          .from('contractor_pay_setup' as any)
-          .update({ ...updatePayload, updated_at: new Date().toISOString() })
-          .eq('operator_id', operatorId);
-      }
-      // If no record yet, it will be saved on form submit
-      toast({ title: `${docType === 'w9' ? 'W-9' : 'Voided Check'} uploaded ✓` });
-    } catch (err: any) {
-      setter(s => ({ ...s, uploading: false }));
-      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
-    }
-  };
-
   const handleSubmit = async () => {
     if (!requiredFilled || !user) return;
     setSaving(true);
@@ -180,12 +122,6 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
         terms_accepted_at: new Date().toISOString(),
         submitted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        w9_file_name: w9.fileName ?? null,
-        w9_file_path: w9.path ?? null,
-        w9_url: w9.url ?? null,
-        void_check_file_name: voidCheck.fileName ?? null,
-        void_check_file_path: voidCheck.path ?? null,
-        void_check_url: voidCheck.url ?? null,
       };
 
       let error: any;
@@ -269,123 +205,9 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
             ))}
           </div>
         </div>
-
-        {/* Uploaded files (read-only) */}
-        {(existing?.w9_url || existing?.void_check_url) && (
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-border bg-muted/30">
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Uploaded Documents</p>
-            </div>
-            <div className="divide-y divide-border/60">
-              {existing?.w9_url && (
-                <div className="flex items-center gap-3 px-5 py-3">
-                  <FileText className="h-4 w-4 text-primary shrink-0" />
-                  <span className="text-xs text-muted-foreground w-24 shrink-0">W-9 Form</span>
-                  <a
-                    href={existing.w9_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-medium text-primary hover:underline flex items-center gap-1 truncate"
-                  >
-                    {existing.w9_file_name ?? 'View file'}
-                    <ExternalLink className="h-3 w-3 shrink-0" />
-                  </a>
-                </div>
-              )}
-              {existing?.void_check_url && (
-                <div className="flex items-center gap-3 px-5 py-3">
-                  <FileText className="h-4 w-4 text-primary shrink-0" />
-                  <span className="text-xs text-muted-foreground w-24 shrink-0">Voided Check</span>
-                  <a
-                    href={existing.void_check_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-medium text-primary hover:underline flex items-center gap-1 truncate"
-                  >
-                    {existing.void_check_file_name ?? 'View file'}
-                    <ExternalLink className="h-3 w-3 shrink-0" />
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     );
   }
-
-  // ── FILE UPLOAD WIDGET ──
-  const FileUploadWidget = ({
-    docType,
-    label,
-    hint,
-    state,
-    inputRef,
-  }: {
-    docType: 'w9' | 'void_check';
-    label: string;
-    hint: string;
-    state: UploadState;
-    inputRef: React.RefObject<HTMLInputElement>;
-  }) => (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-xs font-semibold flex items-center gap-1.5">
-          <FileText className="h-3 w-3" />
-          {label}
-          <span className="text-muted-foreground font-normal">(Optional)</span>
-        </Label>
-        {state.fileName && (
-          <button
-            type="button"
-            onClick={() => {
-              if (docType === 'w9') setW9({ uploading: false, fileName: null, url: null, path: null });
-              else setVoidCheck({ uploading: false, fileName: null, url: null, path: null });
-            }}
-            className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1"
-          >
-            <X className="h-3 w-3" /> Remove
-          </button>
-        )}
-      </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf,.jpg,.jpeg,.png"
-        className="hidden"
-        onChange={e => {
-          const file = e.target.files?.[0];
-          if (file) handleFileUpload(file, docType);
-          e.target.value = '';
-        }}
-      />
-      {state.fileName ? (
-        <div className="flex items-center gap-2 rounded-lg border border-status-complete/30 bg-status-complete/5 px-3 py-2.5">
-          <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />
-          <span className="text-xs font-medium text-status-complete truncate flex-1">{state.fileName}</span>
-          {state.url && (
-            <a href={state.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline shrink-0">
-              View
-            </a>
-          )}
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={state.uploading}
-          className="w-full flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/20 px-4 py-4 text-sm text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition-colors disabled:opacity-50"
-        >
-          {state.uploading ? (
-            <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</>
-          ) : (
-            <><Upload className="h-4 w-4" /> Upload {label}</>
-          )}
-        </button>
-      )}
-      <p className="text-[11px] text-muted-foreground">{hint}</p>
-    </div>
-  );
 
   // ── FORM STATE ──
   return (
@@ -645,31 +467,6 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
               onChange={e => setEmail(e.target.value)}
               placeholder="your@email.com"
               maxLength={255}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ── DOCUMENT UPLOADS ── */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-border bg-muted/30">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Required Documents</p>
-        </div>
-        <div className="p-5 space-y-5">
-          <FileUploadWidget
-            docType="w9"
-            label="W-9 Form"
-            hint="Upload your completed IRS W-9 form. Accepted formats: PDF, JPG, PNG."
-            state={w9}
-            inputRef={w9InputRef}
-          />
-          <div className="border-t border-border/60 pt-5">
-            <FileUploadWidget
-              docType="void_check"
-              label="Voided Check"
-              hint="Upload a voided check or bank letter for direct deposit setup. Accepted formats: PDF, JPG, PNG."
-              state={voidCheck}
-              inputRef={voidCheckInputRef}
             />
           </div>
         </div>
