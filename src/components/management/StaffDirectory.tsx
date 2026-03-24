@@ -429,6 +429,7 @@ export default function StaffDirectory() {
             onClick={() => setShowInvite(true)}
             className="gap-1.5 bg-surface-dark text-surface-dark-foreground hover:bg-surface-dark/90"
           >
+            <DemoLockIcon />
             <UserPlus className="h-4 w-4" />
             Invite Staff Member
           </Button>
