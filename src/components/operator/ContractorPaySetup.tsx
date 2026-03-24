@@ -317,6 +317,42 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
               </p>
             </div>
 
+            {/* ── DEPOSIT & VISA CARD SECTION ── */}
+            <div className="rounded-lg border border-border overflow-hidden mt-1">
+              <div className="px-4 py-2.5 bg-muted/40 border-b border-border">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Payroll Deposit & Visa Card</p>
+              </div>
+
+              {/* Important callout */}
+              <div className="px-4 pt-3 pb-2">
+                <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5">
+                  <p className="text-xs text-foreground leading-relaxed">
+                    <span className="font-bold">Important:</span> Tuesday is our payroll processing day. Standard bank deposits typically post the <span className="font-semibold">following business day</span>. Drivers who want faster access to funds may choose the Payroll Visa card / virtual card option.
+                  </p>
+                </div>
+              </div>
+
+              {[
+                {
+                  label: "How Deposits Work",
+                  detail: "SUPERTRANSPORT submits payroll through Everee during normal business hours on Tuesday. Once submitted, funds move through Everee and the receiving bank. Standard bank deposits typically post the following business day. The exact posting time is controlled by the banking system and the receiving bank — not by SUPERTRANSPORT.",
+                },
+                {
+                  label: "Payroll Visa Card",
+                  detail: "Everee offers a Payroll Visa card / virtual card option that can make funds available immediately after payroll is processed, without waiting on the normal bank transfer timeline. You can still link your bank account to the card and sweep funds to your bank at any time. This is often the best option for drivers who want the fastest access to their settlement funds.",
+                },
+                {
+                  label: "Alvys Settlements",
+                  detail: "Seeing a settlement posted in Alvys means it has been calculated and is available to review — it does not mean the bank deposit has already landed. Payroll processing and bank posting are separate steps. A settlement may appear in Alvys before the deposit reaches your account.",
+                },
+              ].map(({ label, detail }) => (
+                <div key={label} className="flex items-start gap-3 px-4 py-3 border-t border-border/60">
+                  <span className="text-xs font-bold text-foreground w-28 shrink-0 pt-0.5">{label}</span>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{detail}</p>
+                </div>
+              ))}
+            </div>
+
             {/* ── WARNING STRIP ── */}
             <div className="rounded-lg border border-gold/30 bg-gold/8 px-4 py-3 flex items-start gap-2.5">
               <AlertTriangle className="h-4 w-4 text-gold shrink-0 mt-0.5" />
