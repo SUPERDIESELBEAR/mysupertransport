@@ -58,6 +58,7 @@ export default function HelpRequestsPanel() {
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
 
   const handleStatusChange = async (requestId: string, status: HelpRequestStatus) => {
+    if (guardDemo()) return;
     const req = requests.find(r => r.id === requestId);
     const { error } = await supabase
       .from('service_help_requests')

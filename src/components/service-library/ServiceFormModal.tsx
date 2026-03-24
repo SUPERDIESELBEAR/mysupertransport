@@ -45,6 +45,7 @@ export default function ServiceFormModal({ service, onClose, onSaved }: ServiceF
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (guardDemo()) return;
     if (!form.name.trim()) { toast({ title: 'Service name is required', variant: 'destructive' }); return; }
     setSaving(true);
     try {

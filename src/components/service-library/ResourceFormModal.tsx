@@ -45,6 +45,7 @@ export default function ResourceFormModal({ resource, serviceId, onClose, onSave
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (guardDemo()) return;
     if (!form.title.trim()) { toast({ title: 'Title is required', variant: 'destructive' }); return; }
     setSaving(true);
     try {
