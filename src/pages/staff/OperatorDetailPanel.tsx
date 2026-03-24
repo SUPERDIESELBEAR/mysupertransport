@@ -13,7 +13,8 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -221,6 +222,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [paySetupRecord, setPaySetupRecord] = useState<any>(null);
   const [paySetupLoaded, setPaySetupLoaded] = useState(false);
   const [paySetupSignedUrls, setPaySetupSignedUrls] = useState<{ w9: string | null; voidCheck: string | null }>({ w9: null, voidCheck: null });
+  const [companyDocUrls, setCompanyDocUrls] = useState<{ overview: string | null; calendar: string | null }>({ overview: null, calendar: null });
+  const [previewDoc, setPreviewDoc] = useState<{ title: string; url: string } | null>(null);
 
   const stageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const progressBarRef = useRef<HTMLDivElement | null>(null);
@@ -324,6 +327,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           setPaySetupSignedUrls({ w9: w9Signed, voidCheck: voidCheckSigned });
         }
       });
+    // Fetch signed URLs for company payroll reference docs
+    Promise.all([
+      supabase.storage.from('operator-documents').createSignedUrl('company-docs/payroll-deposit-overview.pdf', 3600).then(r => r.data?.signedUrl ?? null),
+      supabase.storage.from('operator-documents').createSignedUrl('company-docs/payroll-calendar.pdf', 3600).then(r => r.data?.signedUrl ?? null),
+    ]).then(([overview, calendar]) => {
+      setCompanyDocUrls({ overview, calendar });
+    });
   }, [operatorId]);
 
   // Fetch ICA draft updated_at when ica_status is in_progress
@@ -4310,6 +4320,39 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     {/* ── Uploaded Documents ── */}
                     <div className="px-5 py-4 space-y-3">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Uploaded Documents</p>
+
+                      {/* ── Payroll Reference Documents ── */}
+                      <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest mt-1 mb-1.5">Payroll Reference Documents</p>
+                      {[
+                        { title: 'Payroll Deposit Overview', url: companyDocUrls.overview, subtitle: 'Direct deposit policy & pay structure' },
+                        { title: 'Payroll Calendar', url: companyDocUrls.calendar, subtitle: 'Pay schedule & settlement dates' },
+                      ].map(doc => (
+                        <div key={doc.title} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0 bg-primary/10">
+                            <BookOpen className="h-4 w-4 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-foreground">{doc.title}</p>
+                            <p className="text-[11px] text-muted-foreground">{doc.subtitle}</p>
+                          </div>
+                          {doc.url ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="shrink-0 h-7 px-2.5 text-xs gap-1"
+                              onClick={() => setPreviewDoc({ title: doc.title, url: doc.url! })}
+                            >
+                              <ZoomIn className="h-3 w-3" />
+                              View
+                            </Button>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground italic">Loading…</span>
+                          )}
+                        </div>
+                      ))}
+
+                      <div className="border-t border-border/50 mt-3 pt-3" />
+
                       {/* W-9 */}
                       <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
                         <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${ps.w9_file_path ? 'bg-primary/10' : 'bg-muted'}`}>
@@ -4387,6 +4430,50 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           className="min-h-[100px] text-sm"
         />
       </div>
+
+      {/* Company Payroll Doc Preview Modal */}
+      <Dialog open={!!previewDoc} onOpenChange={(open) => { if (!open) setPreviewDoc(null); }}>
+        <DialogContent className="max-w-4xl w-full h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="flex-row items-center justify-between px-5 py-3 border-b border-border shrink-0">
+            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-primary" />
+              {previewDoc?.title}
+            </DialogTitle>
+            <div className="flex items-center gap-2">
+              {previewDoc?.url && (
+                <>
+                  <a
+                    href={previewDoc.url}
+                    download
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted transition-colors"
+                  >
+                    <Download className="h-3 w-3" />
+                    Download
+                  </a>
+                  <a
+                    href={previewDoc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Open
+                  </a>
+                </>
+              )}
+            </div>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            {previewDoc?.url && (
+              <iframe
+                src={previewDoc.url}
+                title={previewDoc.title}
+                className="w-full h-full border-0"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ICA Builder Modal */}
       {showICABuilder && (
