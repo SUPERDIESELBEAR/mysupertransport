@@ -150,6 +150,7 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
 
   const handleReactivate = async () => {
     if (!confirmReactivate) return;
+    if (guardDemo()) return;
     setReactivating(true);
     const { error } = await supabase
       .from('operators')
