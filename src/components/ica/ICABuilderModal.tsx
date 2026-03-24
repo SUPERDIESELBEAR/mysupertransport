@@ -551,6 +551,7 @@ export default function ICABuilderModal({
               disabled={saving}
               className="text-muted-foreground hover:text-foreground gap-1.5"
             >
+              <DemoLockIcon />
               <Save className="h-4 w-4" />
               {saving ? 'Saving…' : 'Save & Close'}
             </Button>
