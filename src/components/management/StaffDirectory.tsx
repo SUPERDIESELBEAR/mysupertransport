@@ -231,6 +231,7 @@ export default function StaffDirectory() {
 
   const handlePhoneUpdate = async () => {
     if (!managingMember) return;
+    if (guardDemo()) return;
     setPhoneSaving(true);
     try {
       const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
