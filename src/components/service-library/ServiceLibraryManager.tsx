@@ -167,6 +167,7 @@ export default function ServiceLibraryManager() {
   };
 
   const handleToggleEssential = async (service: Service) => {
+    if (guardDemo()) return;
     const { error } = await supabase
       .from('services')
       .update({ is_new_driver_essential: !service.is_new_driver_essential })
