@@ -319,6 +319,7 @@ export default function ResourceLibraryManager() {
   // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    if (guardDemo()) return;
     setDeleting(true);
     const { error } = await supabase.from('resource_documents').delete().eq('id', deleteTarget.id);
     if (error) { toast.error('Failed to delete resource.'); setDeleting(false); return; }
