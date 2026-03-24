@@ -178,6 +178,7 @@ export default function ServiceLibraryManager() {
   };
 
   const handleToggleResourceVisible = async (resource: ServiceResource) => {
+    if (guardDemo()) return;
     const { error } = await supabase
       .from('service_resources')
       .update({ is_visible: !resource.is_visible })
