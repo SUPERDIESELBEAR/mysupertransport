@@ -59,7 +59,7 @@ const roleLabels: Record<AppRole, string> = {
   applicant: 'Applicant',
 };
 
-export default function StaffLayout({ children, navItems, mobileNavItems, currentPath, onNavigate, title, headerActions, notificationsPath = '/staff?tab=notifications' }: StaffLayoutProps) {
+export default function StaffLayout({ children, navItems, mobileNavItems, currentPath, onNavigate, title, headerActions, notificationsPath = '/staff?tab=notifications', isDemo = false, onExitDemo }: StaffLayoutProps) {
   const { profile, roles, activeRole, setActiveRole, signOut, refreshProfile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false); // default closed on mobile
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
