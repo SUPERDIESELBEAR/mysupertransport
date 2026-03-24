@@ -4,6 +4,8 @@ import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -16,8 +18,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Search, Users2, RefreshCw, ArrowRight, Phone, RotateCcw, Archive, CalendarDays, Loader2, MessageSquare } from 'lucide-react';
+import { Search, RefreshCw, ArrowRight, Phone, RotateCcw, Archive, CalendarDays, Loader2, MessageSquare, Pencil } from 'lucide-react';
+
+const PRESET_REASONS = ['Resigned', 'Terminated', 'No Loads', 'Medical', 'Abandoned'];
 
 interface ArchivedDriver {
   operator_id: string;
@@ -30,8 +35,9 @@ interface ArchivedDriver {
   cdl_expiration: string | null;
   medical_cert_expiration: string | null;
   fully_onboarded: boolean | null;
-  deactivated_at: string | null; // we use updated_at as proxy
+  deactivated_at: string | null;
   deactivate_reason: string | null;
+  audit_log_id: string | null;
 }
 
 interface ArchivedDriversViewProps {
@@ -49,6 +55,12 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
   const [search, setSearch] = useState('');
   const [confirmReactivate, setConfirmReactivate] = useState<ArchivedDriver | null>(null);
   const [reactivating, setReactivating] = useState(false);
+
+  // Edit-reason state
+  const [editReasonDriver, setEditReasonDriver] = useState<ArchivedDriver | null>(null);
+  const [editReasonValue, setEditReasonValue] = useState('');
+  const [editReasonCustom, setEditReasonCustom] = useState('');
+  const [savingReason, setSavingReason] = useState(false);
 
   const fetchArchived = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -81,18 +93,18 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
       }
 
       // Fetch most-recent operator_deactivated audit log entry per operator for reason
-      const reasonMap: Record<string, string | null> = {};
+      const reasonMap: Record<string, { reason: string | null; id: string | null }> = {};
       if (operatorIds.length > 0) {
         const { data: auditRows } = await supabase
           .from('audit_log' as any)
-          .select('entity_id, metadata, created_at')
+          .select('id, entity_id, metadata, created_at')
           .eq('action', 'operator_deactivated')
           .in('entity_id', operatorIds)
           .order('created_at', { ascending: false });
         // Keep only the latest entry per operator
         (auditRows as any[] ?? []).forEach((row: any) => {
           if (row.entity_id && !(row.entity_id in reasonMap)) {
-            reasonMap[row.entity_id] = (row.metadata as any)?.reason ?? null;
+            reasonMap[row.entity_id] = { reason: (row.metadata as any)?.reason ?? null, id: row.id };
           }
         });
       }
@@ -115,7 +127,8 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
           medical_cert_expiration: app?.medical_cert_expiration ?? null,
           fully_onboarded: os?.fully_onboarded ?? null,
           deactivated_at: op.updated_at ?? null,
-          deactivate_reason: reasonMap[op.id] ?? null,
+          deactivate_reason: reasonMap[op.id]?.reason ?? null,
+          audit_log_id: reasonMap[op.id]?.id ?? null,
         };
       }).sort((a, b) => {
         // Most recently deactivated first
@@ -144,7 +157,6 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
     if (error) {
       toast({ title: 'Error', description: 'Could not reactivate driver.', variant: 'destructive' });
     } else {
-      // Audit log
       await supabase.from('audit_log').insert({
         entity_type: 'operator',
         entity_id: confirmReactivate.operator_id,
@@ -159,6 +171,47 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
     }
     setReactivating(false);
   };
+
+  const openEditReason = (driver: ArchivedDriver) => {
+    setEditReasonDriver(driver);
+    const isPreset = PRESET_REASONS.includes(driver.deactivate_reason ?? '');
+    if (isPreset) {
+      setEditReasonValue(driver.deactivate_reason ?? '');
+      setEditReasonCustom('');
+    } else {
+      setEditReasonValue(driver.deactivate_reason ? 'Other' : '');
+      setEditReasonCustom(driver.deactivate_reason ?? '');
+    }
+  };
+
+  const handleSaveReason = async () => {
+    if (!editReasonDriver) return;
+    setSavingReason(true);
+    const finalReason = editReasonValue === 'Other' ? editReasonCustom.trim() : editReasonValue;
+
+    if (editReasonDriver.audit_log_id) {
+      // Update existing audit log entry metadata
+      await supabase
+        .from('audit_log' as any)
+        .update({ metadata: { is_active: false, reason: finalReason || null } } as any)
+        .eq('id', editReasonDriver.audit_log_id);
+    } else {
+      // No existing deactivation audit log entry — insert one
+      await supabase.from('audit_log').insert({
+        entity_type: 'operator',
+        entity_id: editReasonDriver.operator_id,
+        entity_label: [editReasonDriver.first_name, editReasonDriver.last_name].filter(Boolean).join(' ') || 'Unknown',
+        action: 'operator_deactivated',
+        metadata: { is_active: false, reason: finalReason || null },
+      });
+    }
+
+    toast({ title: 'Reason updated', description: 'Deactivation reason saved.' });
+    setSavingReason(false);
+    setEditReasonDriver(null);
+    fetchArchived(true);
+  };
+
 
   const filtered = drivers.filter(d => {
     const q = search.toLowerCase();
@@ -338,6 +391,21 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
                               <Button
                                 size="sm"
                                 variant="ghost"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                                onClick={() => openEditReason(driver)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="left">Edit deactivation reason</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
                                 className="h-7 w-7 p-0 text-primary/70 hover:text-primary hover:bg-primary/10"
                                 onClick={() => setConfirmReactivate(driver)}
                               >
@@ -365,6 +433,52 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
           </Table>
         </div>
       )}
+
+      {/* Edit Deactivation Reason Dialog */}
+      <Dialog open={!!editReasonDriver} onOpenChange={open => { if (!open && !savingReason) setEditReasonDriver(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4" />
+              Edit Deactivation Reason
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-1">
+            <Label className="text-xs font-medium">
+              Reason for <span className="text-foreground font-semibold">{[editReasonDriver?.first_name, editReasonDriver?.last_name].filter(Boolean).join(' ') || 'driver'}</span>
+            </Label>
+            <Select value={editReasonValue} onValueChange={val => { setEditReasonValue(val); if (val !== 'Other') setEditReasonCustom(''); }}>
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Select a reason…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Resigned">Resigned</SelectItem>
+                <SelectItem value="Terminated">Terminated</SelectItem>
+                <SelectItem value="No Loads">No Loads</SelectItem>
+                <SelectItem value="Medical">Medical</SelectItem>
+                <SelectItem value="Abandoned">Abandoned</SelectItem>
+                <SelectItem value="Other">Other…</SelectItem>
+              </SelectContent>
+            </Select>
+            {editReasonValue === 'Other' && (
+              <Input
+                className="h-9 text-sm"
+                placeholder="Describe the reason…"
+                value={editReasonCustom}
+                onChange={e => setEditReasonCustom(e.target.value)}
+                autoFocus
+                maxLength={120}
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setEditReasonDriver(null)} disabled={savingReason}>Cancel</Button>
+            <Button size="sm" onClick={handleSaveReason} disabled={savingReason || (editReasonValue === 'Other' && !editReasonCustom.trim())} className="gap-1.5">
+              {savingReason ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Saving…</> : 'Save Reason'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Reactivate Confirmation */}
       <AlertDialog open={!!confirmReactivate} onOpenChange={open => { if (!open && !reactivating) setConfirmReactivate(null); }}>

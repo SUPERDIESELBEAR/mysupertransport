@@ -1984,9 +1984,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </AlertDialogDescription>
           </AlertDialogHeader>
           {isActive && (
-            <div className="px-0 pb-2 space-y-1.5">
+            <div className="px-0 pb-2 space-y-2">
               <Label className="text-xs font-medium text-foreground">Reason for deactivation</Label>
-              <Select value={deactivateReason} onValueChange={setDeactivateReason}>
+              <Select
+                value={deactivateReason === '' || ['Resigned','Terminated','No Loads','Medical','Abandoned'].includes(deactivateReason) ? deactivateReason : 'Other'}
+                onValueChange={val => {
+                  if (val !== 'Other') setDeactivateReason(val);
+                  else setDeactivateReason('Other');
+                }}
+              >
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="Select a reason (optional)…" />
                 </SelectTrigger>
@@ -1996,9 +2002,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <SelectItem value="No Loads">No Loads</SelectItem>
                   <SelectItem value="Medical">Medical</SelectItem>
                   <SelectItem value="Abandoned">Abandoned</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
+                  <SelectItem value="Other">Other…</SelectItem>
                 </SelectContent>
               </Select>
+              {(deactivateReason === 'Other' || (!['', 'Resigned','Terminated','No Loads','Medical','Abandoned'].includes(deactivateReason) && deactivateReason !== '')) && (
+                <Input
+                  className="h-9 text-sm"
+                  placeholder="Describe the reason…"
+                  value={deactivateReason === 'Other' ? '' : deactivateReason}
+                  onChange={e => setDeactivateReason(e.target.value)}
+                  autoFocus
+                  maxLength={120}
+                />
+              )}
             </div>
           )}
           <AlertDialogFooter>
