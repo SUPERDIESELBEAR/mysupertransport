@@ -358,6 +358,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   };
 
   const saveExpiry = async (id: string) => {
+    if (guardDemo()) return;
     await supabase.from('inspection_documents').update({ expires_at: expiryValue || null }).eq('id', id);
     toast({ title: 'Expiry updated' });
     setExpiryEditing(null);
