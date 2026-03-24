@@ -129,6 +129,7 @@ function StageCard({
   // CTA logic
   const showDocsCTA = stage.number === 2 && (stage.status === 'in_progress' || stage.status === 'not_started');
   const showIcaCTA = stage.number === 3 && onboardingStatus.ica_status === 'sent_for_signature';
+  const showPaySetupCTA = stage.number === 8 && (stage.status === 'not_started' || stage.status === 'in_progress');
 
   return (
     <div
