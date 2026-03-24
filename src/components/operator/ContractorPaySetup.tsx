@@ -185,10 +185,13 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
 
   const isSubmitted = !!existing?.submitted_at && existing?.terms_accepted;
 
+  const allDocsAcknowledged = COMPANY_DOCS.every(doc => docAcknowledged[doc.key]);
+
   const requiredFilled = (() => {
     if (!firstName.trim() || !lastName.trim()) return false;
     if (contractorType === 'business' && !businessName.trim()) return false;
     if (!phone.trim() || !email.trim()) return false;
+    if (!allDocsAcknowledged) return false;
     if (!termsAccepted) return false;
     return true;
   })();
