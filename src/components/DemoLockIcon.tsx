@@ -1,16 +1,9 @@
 import { Lock } from 'lucide-react';
 import { useDemoMode } from '@/hooks/useDemoMode';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-/**
- * Two display modes:
- *
- * 1. Inline (default) — renders a small amber lock next to button text.
- *    <Button><DemoLockIcon />Save</Button>
- *
- * 2. Badge — renders an absolute amber lock badge in the corner of a
- *    `relative`-positioned wrapper. Use for icon-only buttons.
- *    <div className="relative inline-flex"><Button …/><DemoLockIcon badge /></div>
- */
+const TOOLTIP_TEXT = 'Blocked in demo mode — exit demo to save changes';
+
 export default function DemoLockIcon({
   className,
   badge = false,
@@ -23,19 +16,39 @@ export default function DemoLockIcon({
 
   if (badge) {
     return (
-      <span
-        className="pointer-events-none absolute -top-1 -right-1 z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 ring-1 ring-background"
-        aria-label="Blocked in demo mode"
-      >
-        <Lock className="h-2 w-2 text-white" strokeWidth={3} />
-      </span>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className="pointer-events-auto absolute -top-1 -right-1 z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 ring-1 ring-background"
+              aria-label={TOOLTIP_TEXT}
+            >
+              <Lock className="h-2 w-2 text-white" strokeWidth={3} />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>{TOOLTIP_TEXT}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   }
 
   return (
-    <Lock
-      className={className ?? 'h-3 w-3 text-amber-500 shrink-0'}
-      aria-label="Blocked in demo mode"
-    />
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex items-center" aria-label={TOOLTIP_TEXT}>
+            <Lock
+              className={className ?? 'h-3 w-3 text-amber-500 shrink-0'}
+              strokeWidth={2.5}
+            />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>{TOOLTIP_TEXT}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
