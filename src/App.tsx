@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { DemoModeProvider } from "@/hooks/useDemoMode";
 import IdleWarningModal from "@/components/IdleWarningModal";
 
 // Pages
@@ -91,14 +92,16 @@ function AppRoutes() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppRoutes />
-          <IdleWarningModal />
-        </BrowserRouter>
-      </TooltipProvider>
+      <DemoModeProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AppRoutes />
+            <IdleWarningModal />
+          </BrowserRouter>
+        </TooltipProvider>
+      </DemoModeProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -61,6 +62,7 @@ const ALL_STAFF_ROLES: StaffRole[] = ['onboarding_staff', 'dispatcher', 'managem
 export default function StaffDirectory() {
   const { session, user } = useAuth();
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
 
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(false);
@@ -130,6 +132,7 @@ export default function StaffDirectory() {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (guardDemo()) return;
     if (!inviteEmail.trim()) return;
     if (inviteMode === 'manual' && invitePassword.length < 8) {
       toast({ title: 'Password too short', description: 'Password must be at least 8 characters.', variant: 'destructive' });
@@ -180,6 +183,7 @@ export default function StaffDirectory() {
   };
 
   const handleRoleChange = async (memberId: string, role: StaffRole, action: 'add' | 'remove') => {
+    if (guardDemo()) return;
     const key = `${memberId}-${role}-${action}`;
     setRoleActionLoading(key);
     try {
@@ -320,6 +324,7 @@ export default function StaffDirectory() {
 
   const handleDeleteMember = async () => {
     if (!managingMember) return;
+    if (guardDemo()) return;
     setDeleting(true);
     try {
       const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -333,6 +334,7 @@ function StageCard({ stage, dirty, saving, onSave, onChange }: StageCardProps) {
 export default function PipelineConfigEditor() {
   const { session } = useAuth();
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [stages, setStages] = useState<StageConfig[]>([]);
   const [originalStages, setOriginalStages] = useState<StageConfig[]>([]);
   const [loading, setLoading] = useState(true);
@@ -372,6 +374,7 @@ export default function PipelineConfigEditor() {
   };
 
   const handleSave = async (stage: StageConfig) => {
+    if (guardDemo()) return;
     if (!session?.user?.id) return;
     setSavingId(stage.id);
     const { error } = await supabase

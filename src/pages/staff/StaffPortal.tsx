@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import { supabase } from '@/integrations/supabase/client';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import PipelineDashboard from './PipelineDashboard';
@@ -13,7 +14,7 @@ import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Wrench, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff, HardDrive } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Wrench, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff, HardDrive, GraduationCap } from 'lucide-react';
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
 import DriverHubView from '@/components/drivers/DriverHubView';
@@ -32,6 +33,7 @@ type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resource
 
 export default function StaffPortal() {
   const { user } = useAuth();
+  const { isDemo, enterDemo, exitDemo, guardDemo } = useDemoMode();
   const [searchParams] = useSearchParams();
   const [currentView, setCurrentView] = useState<StaffView>('pipeline');
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
@@ -155,6 +157,7 @@ export default function StaffPortal() {
     { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
     { label: 'Equipment', icon: <HardDrive className="h-4 w-4" />, path: 'equipment' },
     { label: 'Notifications', icon: <Bell className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
+    { label: 'Demo Mode', icon: <GraduationCap className="h-4 w-4" />, path: '__demo__' },
   ];
 
   const handleOpenOperator = (operatorId: string) => {
@@ -196,6 +199,10 @@ export default function StaffPortal() {
   };
 
   const handleNavigate = (path: string) => {
+    if (path === '__demo__') {
+      if (isDemo) exitDemo(); else enterDemo();
+      return;
+    }
     if (currentView === 'operator-detail' && operatorHasUnsavedChanges) {
       setPendingNavPath(path);
     } else {
@@ -436,6 +443,8 @@ export default function StaffPortal() {
       currentPath={currentView}
       onNavigate={handleNavigate}
       title="Onboarding"
+      isDemo={isDemo}
+      onExitDemo={exitDemo}
       headerActions={
         <button
           onClick={() => setPrefOpen(true)}
@@ -559,7 +568,7 @@ export default function StaffPortal() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setBulkMessageOpen(true)}
+              onClick={() => { if (guardDemo()) return; setBulkMessageOpen(true); }}
               className="text-xs gap-2 shrink-0 ml-3"
             >
               <Users className="h-3.5 w-3.5" />

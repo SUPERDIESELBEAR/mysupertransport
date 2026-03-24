@@ -4,6 +4,7 @@ import InviteApplicantModal from '@/components/management/InviteApplicantModal';
 import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import { supabase } from '@/integrations/supabase/client';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import PipelineDashboard from '../staff/PipelineDashboard';
@@ -25,7 +26,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Layers, Shield, Users2, AlertCircle, FileX,
   MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2,
-  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive,
+  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap,
 } from 'lucide-react';
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
 import DocumentHub from '@/components/documents/DocumentHub';
@@ -90,6 +91,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function ManagementPortal() {
   const { toast } = useToast();
   const { session } = useAuth();
+  const { isDemo, enterDemo, exitDemo, guardDemo } = useDemoMode();
   const [searchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const v = searchParams.get('view') as ManagementView | null;
@@ -645,6 +647,10 @@ export default function ManagementPortal() {
   const pendingApps = applications.filter(a => a.review_status === 'pending');
 
   const handleNavigate = (path: string) => {
+    if (path === '__demo__') {
+      if (isDemo) exitDemo(); else enterDemo();
+      return;
+    }
     if (view === 'operator-detail' && operatorHasUnsavedChanges) {
       setPendingNavPath(path);
     } else {
@@ -683,6 +689,7 @@ export default function ManagementPortal() {
     { label: 'Activity',          icon: <ScrollText className="h-4 w-4" />,      path: 'activity' },
     { label: 'Equipment',         icon: <HardDrive className="h-4 w-4" />,       path: 'equipment' },
     { label: 'Email Catalog',     icon: <Mail className="h-4 w-4" />,            path: 'email-catalog' },
+    { label: 'Demo Mode',         icon: <GraduationCap className="h-4 w-4" />,   path: '__demo__' },
   ];
 
   // Bottom nav on mobile: 5 priority items that fit cleanly at 375px
@@ -709,6 +716,8 @@ export default function ManagementPortal() {
         onNavigate={handleNavigate}
         title="Management"
         notificationsPath="/dashboard?view=notifications"
+        isDemo={isDemo}
+        onExitDemo={exitDemo}
         headerActions={
           <button
             onClick={() => setNotifPrefsOpen(true)}
@@ -1772,7 +1781,7 @@ export default function ManagementPortal() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setBulkMessageOpen(true)}
+                onClick={() => { if (guardDemo()) return; setBulkMessageOpen(true); }}
                 className="text-xs gap-2 shrink-0 ml-3"
               >
                 <Users className="h-3.5 w-3.5" />

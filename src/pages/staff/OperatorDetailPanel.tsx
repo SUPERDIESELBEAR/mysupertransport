@@ -17,6 +17,7 @@ import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, Aler
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
 import ICAViewModal from '@/components/ica/ICAViewModal';
 import OperatorBinderPanel from '@/components/inspection/OperatorBinderPanel';
@@ -138,6 +139,7 @@ const DISPATCH_STATUS_CONFIG: Record<string, { label: string; dotClass: string; 
 export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator, onUnsavedChangesChange, onOpenAppReview, expiryOverride, scrollToInspectionBinder, scrollToStageKey }: OperatorDetailPanelProps) {
   const { toast } = useToast();
   const { session } = useAuth();
+  const { guardDemo } = useDemoMode();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [voidingICA, setVoidingICA] = useState(false);
@@ -790,6 +792,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   };
 
   const handleSave = async () => {
+    if (guardDemo()) return;
     setSaving(true);
 
     // ── Detect milestone transitions before saving ──────────────────────
