@@ -495,34 +495,62 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         </div>
       )}
 
-      {/* Show Inactive toggle */}
+      {/* Tabs: Active / Archived — only in non-dispatch mode */}
       {!dispatchMode && (
-        <div className="flex items-center gap-2.5 py-1">
-          <Switch
-            id="show-inactive"
-            checked={showInactive}
-            onCheckedChange={val => { setShowInactive(val); setRosterKey(k => k + 1); }}
-          />
-          <Label htmlFor="show-inactive" className="text-sm text-muted-foreground cursor-pointer select-none">
-            Show inactive drivers
-          </Label>
-        </div>
+        <Tabs value={activeTab} onValueChange={v => setActiveTab(v as 'active' | 'archived')}>
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="active" className="gap-2">
+              <Users2 className="h-3.5 w-3.5" />
+              Active Drivers
+            </TabsTrigger>
+            <TabsTrigger value="archived" className="gap-2">
+              <Archive className="h-3.5 w-3.5" />
+              Archived
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="active" className="mt-4 space-y-4">
+            <DriverRoster
+              key={rosterKey}
+              onOpenDriver={setSelectedOperatorId}
+              onMessageDriver={onMessageDriver}
+              dispatchMode={false}
+              showInactive={false}
+              onSelectionChange={setSelectedOperatorIds}
+              complianceFilter={complianceFilter}
+              onComplianceFilterChange={setComplianceFilter}
+              onComplianceCountsChange={setComplianceCounts}
+              onUpdateCompliance={handleUpdateCompliance}
+              onDriversChange={drivers => { allDriversRef.current = drivers; }}
+            />
+          </TabsContent>
+
+          <TabsContent value="archived" className="mt-4">
+            <ArchivedDriversView
+              onOpenDriver={setSelectedOperatorId}
+              onMessageDriver={onMessageDriver}
+              onReactivated={() => setRosterKey(k => k + 1)}
+            />
+          </TabsContent>
+        </Tabs>
       )}
 
-      {/* Roster */}
-      <DriverRoster
-        key={rosterKey}
-        onOpenDriver={setSelectedOperatorId}
-        onMessageDriver={onMessageDriver}
-        dispatchMode={dispatchMode}
-        showInactive={showInactive}
-        onSelectionChange={setSelectedOperatorIds}
-        complianceFilter={complianceFilter}
-        onComplianceFilterChange={setComplianceFilter}
-        onComplianceCountsChange={setComplianceCounts}
-        onUpdateCompliance={handleUpdateCompliance}
-        onDriversChange={drivers => { allDriversRef.current = drivers; }}
-      />
+      {/* Roster — dispatch mode (no tabs) */}
+      {dispatchMode && (
+        <DriverRoster
+          key={rosterKey}
+          onOpenDriver={setSelectedOperatorId}
+          onMessageDriver={onMessageDriver}
+          dispatchMode={true}
+          showInactive={false}
+          onSelectionChange={setSelectedOperatorIds}
+          complianceFilter={complianceFilter}
+          onComplianceFilterChange={setComplianceFilter}
+          onComplianceCountsChange={setComplianceCounts}
+          onUpdateCompliance={handleUpdateCompliance}
+          onDriversChange={drivers => { allDriversRef.current = drivers; }}
+        />
+      )}
 
       {/* Add Driver Modal */}
       <AddDriverModal
