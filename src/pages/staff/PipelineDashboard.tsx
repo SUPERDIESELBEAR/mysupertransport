@@ -303,6 +303,7 @@ interface OperatorRow {
   fuel_card_issued: string;
   paper_logbook_approved: boolean;
   temp_decal_approved: boolean;
+  pay_setup_submitted: string;
   progress_pct: number;
   onboarding_updated_at: string | null;
 }
