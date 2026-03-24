@@ -378,11 +378,13 @@ export default function DriverRoster({
           id,
           user_id,
           unit_number,
+          is_active,
           onboarding_status!inner (fully_onboarded, unit_number),
           active_dispatch (dispatch_status),
           applications (first_name, last_name, phone, address_state, cdl_expiration, medical_cert_expiration)
         `)
-        .eq('onboarding_status.fully_onboarded', true),
+        .eq('onboarding_status.fully_onboarded', true)
+        .eq('is_active' as any, !showInactive),
       supabase
         .from('cert_reminders')
         .select('operator_id, sent_at, doc_type, sent_by_name, email_sent, email_error')
