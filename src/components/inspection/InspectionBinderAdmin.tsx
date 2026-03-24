@@ -305,6 +305,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
   const handleUpload = async (docName: string, scope: 'company_wide' | 'per_driver', file: File, existingId?: string) => {
     if (!user) return;
+    if (guardDemo()) return;
     const driverId = scope === 'per_driver' ? selectedDriverId : null;
     if (scope === 'per_driver' && !driverId) {
       toast({ title: 'Select a driver first', variant: 'destructive' });
