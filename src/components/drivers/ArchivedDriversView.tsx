@@ -391,6 +391,21 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
                               <Button
                                 size="sm"
                                 variant="ghost"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                                onClick={() => openEditReason(driver)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="left">Edit deactivation reason</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
                                 className="h-7 w-7 p-0 text-primary/70 hover:text-primary hover:bg-primary/10"
                                 onClick={() => setConfirmReactivate(driver)}
                               >
@@ -418,6 +433,52 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
           </Table>
         </div>
       )}
+
+      {/* Edit Deactivation Reason Dialog */}
+      <Dialog open={!!editReasonDriver} onOpenChange={open => { if (!open && !savingReason) setEditReasonDriver(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4" />
+              Edit Deactivation Reason
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-1">
+            <Label className="text-xs font-medium">
+              Reason for <span className="text-foreground font-semibold">{[editReasonDriver?.first_name, editReasonDriver?.last_name].filter(Boolean).join(' ') || 'driver'}</span>
+            </Label>
+            <Select value={editReasonValue} onValueChange={val => { setEditReasonValue(val); if (val !== 'Other') setEditReasonCustom(''); }}>
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Select a reason…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Resigned">Resigned</SelectItem>
+                <SelectItem value="Terminated">Terminated</SelectItem>
+                <SelectItem value="No Loads">No Loads</SelectItem>
+                <SelectItem value="Medical">Medical</SelectItem>
+                <SelectItem value="Abandoned">Abandoned</SelectItem>
+                <SelectItem value="Other">Other…</SelectItem>
+              </SelectContent>
+            </Select>
+            {editReasonValue === 'Other' && (
+              <Input
+                className="h-9 text-sm"
+                placeholder="Describe the reason…"
+                value={editReasonCustom}
+                onChange={e => setEditReasonCustom(e.target.value)}
+                autoFocus
+                maxLength={120}
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setEditReasonDriver(null)} disabled={savingReason}>Cancel</Button>
+            <Button size="sm" onClick={handleSaveReason} disabled={savingReason || (editReasonValue === 'Other' && !editReasonCustom.trim())} className="gap-1.5">
+              {savingReason ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Saving…</> : 'Save Reason'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Reactivate Confirmation */}
       <AlertDialog open={!!confirmReactivate} onOpenChange={open => { if (!open && !reactivating) setConfirmReactivate(null); }}>
