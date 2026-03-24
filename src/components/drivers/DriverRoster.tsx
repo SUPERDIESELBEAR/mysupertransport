@@ -461,6 +461,7 @@ export default function DriverRoster({
           dispatch_status: (ad?.dispatch_status ?? 'not_dispatched') as DriverRow['dispatch_status'],
           cdl_expiration: app?.cdl_expiration ?? null,
           medical_cert_expiration: app?.medical_cert_expiration ?? null,
+          is_active: activeSet.has(op.id),
         };
       }).sort((a, b) => {
         const order: Record<DriverRow['dispatch_status'], number> = { truck_down: 0, not_dispatched: 1, home: 2, dispatched: 3 };
