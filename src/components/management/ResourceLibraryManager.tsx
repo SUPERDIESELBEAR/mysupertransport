@@ -477,17 +477,20 @@ export default function ResourceLibraryManager() {
                 >
                   <History className="h-4 w-4" />
                 </button>
-                <button
-                  onClick={() => toggleVisibility(r)}
-                  title={r.is_visible ? 'Hide from operators' : 'Show to operators'}
-                  className={`p-2 rounded-lg transition-colors ${
-                    r.is_visible
-                      ? 'text-green-600 hover:bg-green-50'
-                      : 'text-muted-foreground hover:bg-secondary'
-                  }`}
-                >
-                  {r.is_visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                </button>
+                <div className="relative inline-flex">
+                  <button
+                    onClick={() => toggleVisibility(r)}
+                    title={r.is_visible ? 'Hide from operators' : 'Show to operators'}
+                    className={`p-2 rounded-lg transition-colors ${
+                      r.is_visible
+                        ? 'text-green-600 hover:bg-green-50'
+                        : 'text-muted-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    {r.is_visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  </button>
+                  <DemoLockIcon badge />
+                </div>
                 <button
                   onClick={() => openEdit(r)}
                   title="Edit"
@@ -495,13 +498,16 @@ export default function ResourceLibraryManager() {
                 >
                   <Pencil className="h-4 w-4" />
                 </button>
-                <button
-                  onClick={() => setDeleteTarget(r)}
-                  title="Delete"
-                  className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="relative inline-flex">
+                  <button
+                    onClick={() => setDeleteTarget(r)}
+                    title="Delete"
+                    className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                  <DemoLockIcon badge />
+                </div>
               </div>
             </div>
           ))}
