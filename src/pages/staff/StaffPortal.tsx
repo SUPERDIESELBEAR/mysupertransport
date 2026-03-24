@@ -443,6 +443,8 @@ export default function StaffPortal() {
       currentPath={currentView}
       onNavigate={handleNavigate}
       title="Onboarding"
+      isDemo={isDemo}
+      onExitDemo={exitDemo}
       headerActions={
         <button
           onClick={() => setPrefOpen(true)}
