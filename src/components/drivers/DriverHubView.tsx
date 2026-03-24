@@ -1,14 +1,14 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import DriverRoster from './DriverRoster';
+import ArchivedDriversView from './ArchivedDriversView';
 import AddDriverModal from './AddDriverModal';
 import OperatorDetailPanel from '@/pages/staff/OperatorDetailPanel';
 import BulkMessageModal from '@/components/staff/BulkMessageModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import ComplianceAlertsPanel from '@/components/inspection/ComplianceAlertsPanel';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertDialog,
