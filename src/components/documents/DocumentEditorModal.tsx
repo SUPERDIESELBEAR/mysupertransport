@@ -987,7 +987,8 @@ function EditForm({
 
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-        <Button onClick={onSave} disabled={saving || pdfUploading}>
+        <Button onClick={onSave} disabled={saving || pdfUploading} className="gap-1.5">
+          <DemoLockIcon />
           {saving ? 'Saving…' : pdfUploading ? 'Uploading PDF…' : doc ? 'Save Changes' : 'Create Document'}
         </Button>
       </div>
