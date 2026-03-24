@@ -671,6 +671,7 @@ export default function ManagementPortal() {
     { label: 'Messages',          icon: <MessageSquare className="h-4 w-4" />,   path: 'messages', badge: unreadMsgCount },
     { label: 'Notifications',     icon: <BellRing className="h-4 w-4" />,        path: 'notifications', badge: unreadNotifCount },
     { label: 'Compliance',        icon: <ShieldCheck className="h-4 w-4" />,     path: 'compliance', badge: criticalExpiryCount || undefined },
+    { label: 'Dispatch',          icon: <Truck className="h-4 w-4" />,           path: 'dispatch', badge: truckDownCount || undefined },
     { label: 'Driver Hub',         icon: <Users2 className="h-4 w-4" />,          path: 'drivers' },
     { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />,          path: 'inspection-binder' },
     { label: 'Document Hub',      icon: <Library className="h-4 w-4" />,         path: 'docs-hub' },
@@ -680,7 +681,6 @@ export default function ManagementPortal() {
     { label: 'FAQ Manager',       icon: <HelpCircle className="h-4 w-4" />,      path: 'faq' },
     { label: 'Pipeline Config',   icon: <Settings2 className="h-4 w-4" />,       path: 'pipeline-config' },
     { label: 'Activity',          icon: <ScrollText className="h-4 w-4" />,      path: 'activity' },
-    { label: 'Dispatch',          icon: <Truck className="h-4 w-4" />,           path: 'dispatch', badge: truckDownCount || undefined },
     { label: 'Equipment',         icon: <HardDrive className="h-4 w-4" />,       path: 'equipment' },
     { label: 'Email Catalog',     icon: <Mail className="h-4 w-4" />,            path: 'email-catalog' },
   ];
