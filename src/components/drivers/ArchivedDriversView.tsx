@@ -265,6 +265,11 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/30 text-muted-foreground/70 leading-relaxed">
                               Inactive
                             </Badge>
+                            {driver.deactivate_reason && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/20 text-muted-foreground/50 leading-relaxed">
+                                {driver.deactivate_reason}
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       </div>
