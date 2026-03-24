@@ -31,6 +31,7 @@ interface ArchivedDriver {
   medical_cert_expiration: string | null;
   fully_onboarded: boolean | null;
   deactivated_at: string | null; // we use updated_at as proxy
+  deactivate_reason: string | null;
 }
 
 interface ArchivedDriversViewProps {
@@ -66,7 +67,10 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
       .eq('is_active', false);
 
     if (rawData) {
+      const operatorIds = (rawData as any[]).map((op: any) => op.id).filter(Boolean);
       const userIds = (rawData as any[]).map((op: any) => op.user_id).filter(Boolean);
+
+      // Fetch profiles
       const profileMap: Record<string, any> = {};
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
@@ -74,6 +78,23 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
           .select('user_id, first_name, last_name, phone, home_state')
           .in('user_id', userIds);
         (profiles ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
+      }
+
+      // Fetch most-recent operator_deactivated audit log entry per operator for reason
+      const reasonMap: Record<string, string | null> = {};
+      if (operatorIds.length > 0) {
+        const { data: auditRows } = await supabase
+          .from('audit_log' as any)
+          .select('entity_id, metadata, created_at')
+          .eq('action', 'operator_deactivated')
+          .in('entity_id', operatorIds)
+          .order('created_at', { ascending: false });
+        // Keep only the latest entry per operator
+        (auditRows as any[] ?? []).forEach((row: any) => {
+          if (row.entity_id && !(row.entity_id in reasonMap)) {
+            reasonMap[row.entity_id] = (row.metadata as any)?.reason ?? null;
+          }
+        });
       }
 
       const getOne = (val: any) => (Array.isArray(val) ? val[0] : val) ?? null;
@@ -94,6 +115,7 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
           medical_cert_expiration: app?.medical_cert_expiration ?? null,
           fully_onboarded: os?.fully_onboarded ?? null,
           deactivated_at: op.updated_at ?? null,
+          deactivate_reason: reasonMap[op.id] ?? null,
         };
       }).sort((a, b) => {
         // Most recently deactivated first
@@ -243,6 +265,11 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/30 text-muted-foreground/70 leading-relaxed">
                               Inactive
                             </Badge>
+                            {driver.deactivate_reason && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/20 text-muted-foreground/50 leading-relaxed">
+                                {driver.deactivate_reason}
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -279,7 +306,12 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
                               </span>
                             </TooltipTrigger>
                             <TooltipContent>
-                              {format(parseISO(driver.deactivated_at), 'MMMM d, yyyy · h:mm a')}
+                              <div className="space-y-0.5">
+                                <div>{format(parseISO(driver.deactivated_at), 'MMMM d, yyyy · h:mm a')}</div>
+                                {driver.deactivate_reason && (
+                                  <div className="text-muted-foreground">Reason: {driver.deactivate_reason}</div>
+                                )}
+                              </div>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
