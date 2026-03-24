@@ -307,6 +307,7 @@ export default function ICABuilderModal({
 
   // Legacy silent save (used internally when progressing steps)
   const handleSaveDraft = async () => {
+    if (guardDemo()) return;
     setSaving(true);
     try {
       const payload = { operator_id: operatorId, ...data, equipment_location: [data.equipment_location_city, data.equipment_location_state].filter(Boolean).join(', ') || null, lease_effective_date: data.lease_effective_date || null, lease_termination_date: data.lease_termination_date || null, status: 'draft' };
