@@ -495,12 +495,27 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         </div>
       )}
 
+      {/* Show Inactive toggle */}
+      {!dispatchMode && (
+        <div className="flex items-center gap-2.5 py-1">
+          <Switch
+            id="show-inactive"
+            checked={showInactive}
+            onCheckedChange={val => { setShowInactive(val); setRosterKey(k => k + 1); }}
+          />
+          <Label htmlFor="show-inactive" className="text-sm text-muted-foreground cursor-pointer select-none">
+            Show inactive drivers
+          </Label>
+        </div>
+      )}
+
       {/* Roster */}
       <DriverRoster
         key={rosterKey}
         onOpenDriver={setSelectedOperatorId}
         onMessageDriver={onMessageDriver}
         dispatchMode={dispatchMode}
+        showInactive={showInactive}
         onSelectionChange={setSelectedOperatorIds}
         complianceFilter={complianceFilter}
         onComplianceFilterChange={setComplianceFilter}
