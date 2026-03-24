@@ -301,6 +301,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     fetchOperatorDetail();
     fetchDispatchHistory();
     fetchCertHistory();
+    // Fetch Stage 8 pay setup record
+    supabase
+      .from('contractor_pay_setup' as any)
+      .select('*')
+      .eq('operator_id', operatorId)
+      .maybeSingle()
+      .then(({ data }) => { setPaySetupRecord(data); setPaySetupLoaded(true); });
   }, [operatorId]);
 
   // Fetch ICA draft updated_at when ica_status is in_progress
