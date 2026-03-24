@@ -371,25 +371,39 @@ export default function DriverRoster({
     if (!silent) setLoading(true);
     else setRefreshing(true);
 
-    const [{ data }, { data: reminders }] = await Promise.all([
+    const [{ data: rawData }, { data: reminders }] = await Promise.all([
       supabase
         .from('operators')
         .select(`
           id,
           user_id,
           unit_number,
-          is_active,
           onboarding_status!inner (fully_onboarded, unit_number),
           active_dispatch (dispatch_status),
           applications (first_name, last_name, phone, address_state, cdl_expiration, medical_cert_expiration)
         `)
-        .eq('onboarding_status.fully_onboarded', true)
-        .eq('is_active' as any, !showInactive),
+        .eq('onboarding_status.fully_onboarded', true),
       supabase
         .from('cert_reminders')
         .select('operator_id, sent_at, doc_type, sent_by_name, email_sent, email_error')
         .order('sent_at', { ascending: false }),
     ]);
+
+    // Fetch is_active separately to avoid deep TS inference issues
+    const operatorIds = (rawData as any[] ?? []).map((op: any) => op.id);
+    let activeSet: Set<string> = new Set();
+    if (operatorIds.length > 0) {
+      const { data: activeData } = await supabase
+        .from('operators')
+        .select('id, is_active')
+        .in('id', operatorIds) as any;
+      for (const row of (activeData ?? []) as any[]) {
+        if ((row.is_active ?? true) === !showInactive) activeSet.add(row.id);
+      }
+    }
+
+    // Filter to only operators matching is_active state
+    const data = (rawData as any[] ?? []).filter((op: any) => activeSet.has(op.id));
 
     // Build per-operator reminder maps
     const latestMap: Record<string, string> = {};
