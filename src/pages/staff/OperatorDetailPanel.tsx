@@ -17,6 +17,7 @@ import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, Aler
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
 import ICAViewModal from '@/components/ica/ICAViewModal';
 import OperatorBinderPanel from '@/components/inspection/OperatorBinderPanel';
