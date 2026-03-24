@@ -61,7 +61,14 @@ const roleLabels: Record<AppRole, string> = {
 
 export default function StaffLayout({ children, navItems, mobileNavItems, currentPath, onNavigate, title, headerActions, notificationsPath = '/staff?tab=notifications', isDemo = false, onExitDemo }: StaffLayoutProps) {
   const { profile, roles, activeRole, setActiveRole, signOut, refreshProfile } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(true); // default open on desktop
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const stored = localStorage.getItem('staff_sidebar_open');
+    return stored !== null ? stored === 'true' : true; // default open on desktop
+  });
+
+  useEffect(() => {
+    localStorage.setItem('staff_sidebar_open', String(sidebarOpen));
+  }, [sidebarOpen]);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [roleSwitchOpen, setRoleSwitchOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
