@@ -11,6 +11,7 @@ import { DriverDocument, CATEGORIES, CATEGORY_COLORS, parseVideoEmbedUrl } from 
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import {
   History, RotateCcw, Clock, User, Eye, AlertTriangle, BookOpen,
   FileText, Upload, X, File, ExternalLink, Video,
@@ -56,6 +57,7 @@ interface VersionEntry {
 export default function DocumentEditorModal({ open, onClose, doc, onSaved }: DocumentEditorModalProps) {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { guardDemo } = useDemoMode();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [activeTab, setActiveTab] = useState('edit');
@@ -199,6 +201,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
   // ── Save ──────────────────────────────────────────────────────────────────
 
   const handleSave = async () => {
+    if (guardDemo()) return;
     if (!form.title.trim()) {
       toast({ title: 'Title required', variant: 'destructive' });
       return;

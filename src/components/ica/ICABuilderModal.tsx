@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -60,6 +61,7 @@ export default function ICABuilderModal({
 }: ICABuilderModalProps) {
   const { session } = useAuth();
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [contractId, setContractId] = useState<string | null>(null);
@@ -156,6 +158,7 @@ export default function ICABuilderModal({
 
   // ── Save & Close (in_progress) — available on every step ─────────────────
   const handleSaveAndClose = async () => {
+    if (guardDemo()) return;
     setSaving(true);
     try {
       // Upload carrier sig if already signed
@@ -205,6 +208,7 @@ export default function ICABuilderModal({
   };
 
   const handleSaveAndSend = async () => {
+    if (guardDemo()) return;
     setSaving(true);
     try {
       let carrierSigUrl: string | null = null;
@@ -303,6 +307,7 @@ export default function ICABuilderModal({
 
   // Legacy silent save (used internally when progressing steps)
   const handleSaveDraft = async () => {
+    if (guardDemo()) return;
     setSaving(true);
     try {
       const payload = { operator_id: operatorId, ...data, equipment_location: [data.equipment_location_city, data.equipment_location_state].filter(Boolean).join(', ') || null, lease_effective_date: data.lease_effective_date || null, lease_termination_date: data.lease_termination_date || null, status: 'draft' };
