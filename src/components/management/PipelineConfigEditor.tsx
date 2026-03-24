@@ -374,6 +374,7 @@ export default function PipelineConfigEditor() {
   };
 
   const handleSave = async (stage: StageConfig) => {
+    if (guardDemo()) return;
     if (!session?.user?.id) return;
     setSavingId(stage.id);
     const { error } = await supabase

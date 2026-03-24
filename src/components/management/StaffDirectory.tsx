@@ -324,6 +324,7 @@ export default function StaffDirectory() {
 
   const handleDeleteMember = async () => {
     if (!managingMember) return;
+    if (guardDemo()) return;
     setDeleting(true);
     try {
       const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
