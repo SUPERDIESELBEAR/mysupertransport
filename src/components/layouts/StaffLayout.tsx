@@ -303,20 +303,20 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
         <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6">
           {/* Demo Mode banner */}
           {isDemo && (
-            <div className="mb-4 flex items-center justify-between gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 animate-fade-in">
+            <div className="mb-4 flex items-center justify-between gap-3 bg-warning/10 border border-warning/30 rounded-xl px-4 py-3 animate-fade-in">
               <div className="flex items-center gap-3 min-w-0">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 shrink-0">
-                  <GraduationCap className="h-4 w-4 text-amber-500" />
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning/15 shrink-0">
+                  <GraduationCap className="h-4 w-4 text-warning" />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-amber-600 leading-tight">Demo Mode — Read Only</p>
-                  <p className="text-xs text-amber-600/70 leading-tight mt-0.5">No changes will be saved. Browse freely.</p>
+                  <p className="text-sm font-semibold text-warning leading-tight">Demo Mode — Read Only</p>
+                  <p className="text-xs text-warning/70 leading-tight mt-0.5">No changes will be saved. Browse freely.</p>
                 </div>
               </div>
               {onExitDemo && (
                 <button
                   onClick={onExitDemo}
-                  className="shrink-0 text-xs font-semibold text-amber-600 border border-amber-500/40 rounded-lg px-3 py-1.5 hover:bg-amber-500/10 transition-colors"
+                  className="shrink-0 text-xs font-semibold text-warning border border-warning/40 rounded-lg px-3 py-1.5 hover:bg-warning/10 transition-colors"
                 >
                   Exit Demo
                 </button>
