@@ -671,7 +671,7 @@ export default function ManagementPortal() {
     { label: 'Messages',          icon: <MessageSquare className="h-4 w-4" />,   path: 'messages', badge: unreadMsgCount },
     { label: 'Notifications',     icon: <BellRing className="h-4 w-4" />,        path: 'notifications', badge: unreadNotifCount },
     { label: 'Compliance',        icon: <ShieldCheck className="h-4 w-4" />,     path: 'compliance', badge: criticalExpiryCount || undefined },
-    { label: 'Drivers',           icon: <Users2 className="h-4 w-4" />,          path: 'drivers' },
+    { label: 'Driver Hub',         icon: <Users2 className="h-4 w-4" />,          path: 'drivers' },
     { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />,          path: 'inspection-binder' },
     { label: 'Doc Hub',           icon: <Library className="h-4 w-4" />,         path: 'docs-hub' },
     { label: 'Service Library',   icon: <Layers className="h-4 w-4" />,          path: 'service-library' },
