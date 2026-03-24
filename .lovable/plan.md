@@ -1,61 +1,79 @@
 
-## Root Cause
 
-In `OnboardingChecklist.tsx`, line 132 defines:
-```tsx
-const showPaySetupCTA = stage.number === 8 && (stage.status === 'not_started' || stage.status === 'in_progress');
-```
-But the CTA renders inside:
-```tsx
-{showSubsteps && expanded && (
-  ...
-  {showPaySetupCTA && (...)}
-)}
-```
-`showSubsteps = stage.substeps.length > 0 && !isNotStarted` — so when Stage 8 is `not_started`, `showSubsteps` is `false` and the entire block (including the CTA) is never rendered. The stage card shows only the hint text with no way to open the pay setup form.
+## Clarifying What "Stage 8" Is and Where It Currently Lives
 
-On desktop (`OperatorStatusPage.tsx`), `MilestoneNode` has no CTA button logic at all for Stage 8.
+This is a great question. There are actually **two separate systems** in this app that both use the word "stage" — and they have been partially crossed, which is the source of the confusion.
 
 ---
 
-## Fix
+### The Two Systems
 
-### 1. `OnboardingChecklist.tsx` — render the CTA outside the substeps gate
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│  SYSTEM 1: OPERATOR PORTAL (operator's view)                            │
+│  A checklist of 8 steps the operator must complete themselves.          │
+│  Lives in: OnboardingChecklist.tsx / OperatorStatusPage.tsx             │
+│                                                                          │
+│  Stage 1: Background Check                                              │
+│  Stage 2: Documents                                                      │
+│  Stage 3: ICA Contract                                                   │
+│  Stage 4: MO Registration                                                │
+│  Stage 5: Equipment                                                      │
+│  Stage 6: Insurance                                                      │
+│  Stage 7: Go Live                                                        │
+│  Stage 8: Contractor Pay Setup  ← operator fills out a form             │
+└─────────────────────────────────────────────────────────────────────────┘
 
-Add a second render block after the "not-started hint" section that shows the Pay Setup CTA unconditionally for Stage 8 when `not_started` or `in_progress`, regardless of `showSubsteps`:
-
+┌─────────────────────────────────────────────────────────────────────────┐
+│  SYSTEM 2: STAFF PIPELINE DASHBOARD (staff's view)                     │
+│  A tracker for staff to manage and monitor all operators.               │
+│  Lives in: PipelineDashboard.tsx / OperatorDetailPanel.tsx              │
+│                                                                          │
+│  7-node progress track: BG → Docs → ICA → MO → Equip → Ins → Go Live  │
+│  Driven by the pipeline_config database table.                          │
+│  Currently has NO Stage 8 / Pay node.                                   │
+│                                                                          │
+│  The OperatorDetailPanel (what opens when you click an operator)        │
+│  DOES already have a "Stage 8 — Contractor Pay Setup" read-only        │
+│  section at the bottom that shows what the operator submitted.          │
+│  But it is NOT in the 7-node progress track at the top.                 │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
-{/* Pay Setup CTA — shown even when not_started */}
-{showPaySetupCTA && (
-  <div className="px-3 pb-2.5">
-    <Button ...>Complete Pay Setup</Button>
-  </div>
-)}
-```
-
-This replaces the need to gate it through `showSubsteps`.
-
-### 2. `OperatorStatusPage.tsx` — add CTA to `MilestoneNode` for Stage 8
-
-Inside `MilestoneNode`, after the substeps section, add:
-
-```
-{stage.number === 8 && (stage.status === 'not_started' || stage.status === 'in_progress') && (
-  <button onClick={() => onNavigateTo('pay-setup')} ...>
-    Complete Pay Setup →
-  </button>
-)}
-```
-
-`MilestoneNode` needs to receive `onNavigateTo` — it currently doesn't. The prop must be threaded from `OperatorStatusPage` → `MilestoneNode`.
 
 ---
 
-## Files Changed
+### What Has Been Done vs. What Still Needs Doing
 
-| File | Change |
+| Area | Status |
 |------|--------|
-| `src/components/operator/OnboardingChecklist.tsx` | Move CTA out of substeps gate — show it for `not_started` Stage 8 |
-| `src/components/operator/OperatorStatusPage.tsx` | Add `onNavigateTo` to `MilestoneNode`, add Stage 8 CTA inside milestone card |
+| Operator can see/access Stage 8 form in their portal | Fixed (buttons now visible) |
+| Staff can see submitted pay setup data in the detail panel | Already done — section exists at the bottom of the panel |
+| Staff progress track (7 nodes) shows a "Pay" node | **Not done** |
+| pipeline_config database has a Stage 8 row | **Not done** — only 7 rows exist |
+| OperatorRow fetch includes `pay_setup_submitted` field | **Not done** |
+| Clicking "Pay" node navigates to Stage 8 section | **Not done** |
 
-No database changes. No new files. No routes changed.
+---
+
+### What the Plan Would Build
+
+Add a **Pay** node (8th node) to the staff-side progress track, so it appears alongside BG → Docs → ICA → MO → Equip → Ins → Go Live → Pay.
+
+**Step 1 — Database:** Insert a `pay_setup` row into `pipeline_config` (stage_order 8, label "Pay", full_name "Contractor Pay Setup") with one item: `pay_setup_submitted` = "true".
+
+**Step 2 — PipelineDashboard.tsx:**
+- Add `pay_setup_submitted: string` to the `OperatorRow` type
+- In `fetchOperators`, join to `contractor_pay_setup` and derive `pay_setup_submitted` as `"true"` when `submitted_at` is not null and `terms_accepted = true`, otherwise `""`
+- Add `pay_setup: 'stage8'` to `STAGE_KEY_TO_DETAIL` so clicking the Pay node scrolls to Stage 8 in the detail panel
+- Add `'Stage 8 — Pay Setup'` to the `STAGES` filter array and update `computeStage()` to include it
+
+No new files. No operator portal changes. No new edge functions. No schema changes.
+
+---
+
+### Summary for Giving Instructions in the Future
+
+- "**Operator portal Stage 8**" = the form/checklist item the operator sees and fills out
+- "**Staff pipeline Stage 8 / Pay node**" = the tracking node staff sees in the progress track dashboard
+- These are independent and each needs to be explicitly built
+
