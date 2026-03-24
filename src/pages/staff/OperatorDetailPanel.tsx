@@ -1168,10 +1168,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         entity_type: 'operator',
         entity_id: operatorId,
         entity_label: operatorName,
-        metadata: { is_active: newActive },
+        metadata: newActive
+          ? { is_active: true }
+          : { is_active: false, reason: deactivateReason || null },
       });
 
       setIsActive(newActive);
+      setDeactivateReason('');
       setShowDeactivateConfirm(false);
       toast({
         title: newActive ? 'Driver reactivated' : 'Driver deactivated',
