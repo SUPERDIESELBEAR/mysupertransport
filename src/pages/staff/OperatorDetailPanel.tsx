@@ -4312,14 +4312,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Uploaded Documents</p>
                       {/* W-9 */}
                       <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
-                        <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${ps.w9_url ? 'bg-primary/10' : 'bg-muted'}`}>
-                          <FileText className={`h-4 w-4 ${ps.w9_url ? 'text-primary' : 'text-muted-foreground'}`} />
+                        <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${ps.w9_file_path ? 'bg-primary/10' : 'bg-muted'}`}>
+                          <FileText className={`h-4 w-4 ${ps.w9_file_path ? 'text-primary' : 'text-muted-foreground'}`} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold text-foreground">W-9 Form</p>
-                          {ps.w9_url ? (
+                          {paySetupSignedUrls.w9 ? (
                             <a
-                              href={ps.w9_url}
+                              href={paySetupSignedUrls.w9}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-xs text-primary hover:underline truncate flex items-center gap-1"
@@ -4328,23 +4328,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                               <ExternalLink className="h-3 w-3 shrink-0" />
                             </a>
                           ) : (
-                            <p className="text-xs text-muted-foreground">Not uploaded</p>
+                            <p className="text-xs text-muted-foreground">{ps.w9_file_path ? 'Generating link…' : 'Not uploaded'}</p>
                           )}
                         </div>
-                        {ps.w9_url && (
+                        {ps.w9_file_path && (
                           <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-status-complete/10 text-status-complete border border-status-complete/25 uppercase tracking-wide">Uploaded</span>
                         )}
                       </div>
                       {/* Voided Check */}
                       <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
-                        <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${ps.void_check_url ? 'bg-primary/10' : 'bg-muted'}`}>
-                          <FileText className={`h-4 w-4 ${ps.void_check_url ? 'text-primary' : 'text-muted-foreground'}`} />
+                        <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${ps.void_check_file_path ? 'bg-primary/10' : 'bg-muted'}`}>
+                          <FileText className={`h-4 w-4 ${ps.void_check_file_path ? 'text-primary' : 'text-muted-foreground'}`} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold text-foreground">Voided Check</p>
-                          {ps.void_check_url ? (
+                          {paySetupSignedUrls.voidCheck ? (
                             <a
-                              href={ps.void_check_url}
+                              href={paySetupSignedUrls.voidCheck}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-xs text-primary hover:underline truncate flex items-center gap-1"
@@ -4353,11 +4353,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                               <ExternalLink className="h-3 w-3 shrink-0" />
                             </a>
                           ) : (
-                            <p className="text-xs text-muted-foreground">Not uploaded</p>
+                            <p className="text-xs text-muted-foreground">{ps.void_check_file_path ? 'Generating link…' : 'Not uploaded'}</p>
                           )}
                         </div>
-                        {ps.void_check_url && (
+                        {ps.void_check_file_path && (
                           <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-status-complete/10 text-status-complete border border-status-complete/25 uppercase tracking-wide">Uploaded</span>
+                        )}
+                      </div>
+                    </div>
                         )}
                       </div>
                     </div>
