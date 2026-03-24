@@ -203,7 +203,8 @@ export default function ServiceFormModal({ service, onClose, onSaved }: ServiceF
 
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
-            <Button type="submit" disabled={saving} className="flex-1">
+            <Button type="submit" disabled={saving} className="flex-1 gap-1.5">
+              <DemoLockIcon />
               {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving…</> : service ? 'Save Changes' : 'Create Service'}
             </Button>
           </div>

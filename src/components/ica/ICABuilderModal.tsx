@@ -573,6 +573,7 @@ export default function ICABuilderModal({
                 disabled={saving}
                 className="bg-gold text-surface-dark font-semibold hover:bg-gold-light gap-1.5"
               >
+                <DemoLockIcon />
                 <Send className="h-4 w-4" />
                 {saving ? 'Sending…' : 'Send to Operator'}
               </Button>

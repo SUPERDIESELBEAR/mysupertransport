@@ -602,8 +602,9 @@ export default function ResourceLibraryManager() {
             <Button
               onClick={handleSave}
               disabled={saving || uploading}
-              className="bg-gold hover:bg-gold-light text-surface-dark font-semibold"
+              className="bg-gold hover:bg-gold-light text-surface-dark font-semibold gap-1.5"
             >
+              <DemoLockIcon />
               {(saving || uploading) ? 'Saving…' : editing ? 'Save Changes' : 'Upload Resource'}
             </Button>
           </DialogFooter>
