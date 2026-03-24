@@ -4431,6 +4431,50 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         />
       </div>
 
+      {/* Company Payroll Doc Preview Modal */}
+      <Dialog open={!!previewDoc} onOpenChange={(open) => { if (!open) setPreviewDoc(null); }}>
+        <DialogContent className="max-w-4xl w-full h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="flex-row items-center justify-between px-5 py-3 border-b border-border shrink-0">
+            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-primary" />
+              {previewDoc?.title}
+            </DialogTitle>
+            <div className="flex items-center gap-2">
+              {previewDoc?.url && (
+                <>
+                  <a
+                    href={previewDoc.url}
+                    download
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted transition-colors"
+                  >
+                    <Download className="h-3 w-3" />
+                    Download
+                  </a>
+                  <a
+                    href={previewDoc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Open
+                  </a>
+                </>
+              )}
+            </div>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            {previewDoc?.url && (
+              <iframe
+                src={previewDoc.url}
+                title={previewDoc.title}
+                className="w-full h-full border-0"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* ICA Builder Modal */}
       {showICABuilder && (
         <ICABuilderModal
