@@ -304,6 +304,7 @@ export default function ResourceLibraryManager() {
 
   // ── Toggle visibility ─────────────────────────────────────────────────────
   const toggleVisibility = async (r: ResourceRow) => {
+    if (guardDemo()) return;
     const newVal = !r.is_visible;
     const { error } = await supabase
       .from('resource_documents')
