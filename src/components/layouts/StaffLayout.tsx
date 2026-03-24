@@ -69,6 +69,7 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
   useEffect(() => {
     localStorage.setItem('staff_sidebar_open', String(sidebarOpen));
   }, [sidebarOpen]);
+
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [roleSwitchOpen, setRoleSwitchOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
