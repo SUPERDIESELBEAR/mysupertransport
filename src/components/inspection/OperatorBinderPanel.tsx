@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, FolderOpen,

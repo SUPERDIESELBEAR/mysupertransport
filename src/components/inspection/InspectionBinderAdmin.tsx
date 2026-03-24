@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2, Bell,
