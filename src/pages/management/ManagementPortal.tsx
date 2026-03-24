@@ -647,6 +647,10 @@ export default function ManagementPortal() {
   const pendingApps = applications.filter(a => a.review_status === 'pending');
 
   const handleNavigate = (path: string) => {
+    if (path === '__demo__') {
+      if (isDemo) exitDemo(); else enterDemo();
+      return;
+    }
     if (view === 'operator-detail' && operatorHasUnsavedChanges) {
       setPendingNavPath(path);
     } else {
