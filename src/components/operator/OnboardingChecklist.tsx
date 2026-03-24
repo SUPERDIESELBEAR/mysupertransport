@@ -97,6 +97,8 @@ const STAGE_HEADER_ICONS: Record<number, React.ReactNode> = {
   4: <FileCheck className="h-4 w-4" />,
   5: <Truck className="h-4 w-4" />,
   6: <Shield className="h-4 w-4" />,
+  7: <CheckCircle2 className="h-4 w-4" />,
+  8: <CreditCard className="h-4 w-4" />,
 };
 
 function SubstepIcon({ status }: { status: StageStatus }) {
