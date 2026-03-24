@@ -1,32 +1,62 @@
 
-## Extend Demo Mode Write Guards
+## The short answer: No — you should guard everything. Here's the complete gap analysis and plan.
 
-Four components need `useDemoMode` imported and `guardDemo()` called at the top of each write handler. The pattern is identical across all four: import the hook, call `guardDemo()` early-return if it returns `true`.
+The question is valid. Right now demo mode is *mostly* covered but has genuine gaps where real data mutations can still fire. There's no architectural reason to leave any staff/management-facing write action unguarded.
+
+### What's already guarded
+- `OperatorDetailPanel` — stage saves, notes, cert reminders
+- `DocumentEditorModal` — save
+- `EquipmentAssignModal` — assign
+- `EquipmentReturnModal` — return
+- `ICABuilderModal` — save/send/draft
+- `StaffDirectory` — invite, role change, delete
+- `PipelineConfigEditor` — save
+- `StaffPortal` / `ManagementPortal` — bulk message send button
+
+### Confirmed gaps (unguarded write handlers)
+
+**Management Portal components:**
+| Component | Unguarded handlers |
+|---|---|
+| `AdminDocumentList.tsx` | inline toggle (visibility, sort), `handleDelete` |
+| `ComplianceDashboard.tsx` | `sendReminder`, bulk reminder send |
+| `FaqManager.tsx` | `handleSave`, `handleDelete`, reorder |
+| `ResourceLibraryManager.tsx` | `handleSave`, `handleDelete`, reorder |
+| `ServiceLibraryManager.tsx` | toggle visibility, toggle essential, mark verified, `handleDelete` |
+| `HelpRequestsPanel.tsx` | `handleUpdateStatus` |
+| `ServiceFormModal.tsx` | `handleSubmit` |
+| `ResourceFormModal.tsx` | `handleSubmit` |
+
+**Staff Portal components:**
+| Component | Unguarded handlers |
+|---|---|
+| `InspectionBinderAdmin.tsx` | upload, `handleDelete`, `handleDeleteStaged`, `saveExpiry`, `updateUploadStatus` |
+| `OperatorBinderPanel.tsx` | upload, `handleDelete`, `saveExpiry`, `updateUploadStatus` |
+| `ArchivedDriversView.tsx` | `handleReactivate`, `handleEditReason` |
+| `AddDriverModal.tsx` | `handleSubmit` |
+| `StaffDirectory.tsx` | `handlePhoneUpdate`, `handleNameUpdate`, `handleEmailUpdate`, `handleToggleStatus` (4 handlers still missing guards) |
+
+**Note on operator-facing components:** `OperatorInspectionBinder`, `DocumentViewer` (acknowledge), `ServiceDetailPage` (completions/bookmarks), `DriverServiceLibrary` (view tracking) — these are *operator* portal components, not staff/management, so guarding them is optional. Staff demo mode is about staff practicing, not impersonating operators.
 
 ---
 
-### Changes
+### Plan
 
-**1. `DocumentEditorModal.tsx`**
-- Import `useDemoMode`
-- Call `if (guardDemo()) return;` at the top of `handleSave` (line ~201)
+Add `useDemoMode` + `if (guardDemo()) return;` to every unguarded write handler in the 10 components listed above. The pattern is identical to what's already implemented — no architectural changes needed.
 
-**2. `EquipmentAssignModal.tsx`**
-- Import `useDemoMode`
-- Call `if (guardDemo()) return;` at the top of `handleAssign` (line ~59)
+**Files to change:**
+1. `src/components/documents/AdminDocumentList.tsx` — guard inline toggle handler + `handleDelete`
+2. `src/components/documents/ComplianceDashboard.tsx` — guard `sendReminder` + bulk send
+3. `src/components/management/FaqManager.tsx` — guard `handleSave`, `handleDelete`, reorder
+4. `src/components/management/ResourceLibraryManager.tsx` — guard `handleSave`, `handleDelete`, reorder
+5. `src/components/service-library/ServiceLibraryManager.tsx` — guard all toggle/delete handlers
+6. `src/components/service-library/HelpRequestsPanel.tsx` — guard `handleUpdateStatus`
+7. `src/components/service-library/ServiceFormModal.tsx` — guard `handleSubmit`
+8. `src/components/service-library/ResourceFormModal.tsx` — guard `handleSubmit`
+9. `src/components/inspection/InspectionBinderAdmin.tsx` — guard upload, delete, expiry, status update
+10. `src/components/inspection/OperatorBinderPanel.tsx` — guard upload, delete, expiry, status update
+11. `src/components/drivers/ArchivedDriversView.tsx` — guard reactivate and edit reason
+12. `src/components/drivers/AddDriverModal.tsx` — guard `handleSubmit`
+13. `src/components/management/StaffDirectory.tsx` — add missing guards to phone, name, email, toggle-status handlers
 
-**3. `EquipmentReturnModal.tsx`**
-- Import `useDemoMode`
-- Call `if (guardDemo()) return;` at the top of `handleReturn` (line ~35)
-
-**4. `ICABuilderModal.tsx`**
-- Import `useDemoMode`
-- Call `if (guardDemo()) return;` at the top of three handlers:
-  - `handleSaveAndClose` (line ~158)
-  - `handleSaveAndSend` (line ~207)
-  - `handleSaveDraft` (line ~305)
-
----
-
-### No prop-drilling needed
-All four components are self-contained modals that call `useToast` directly — `useDemoMode` follows the same pattern. No parent component changes required.
+No new files. No database changes. No prop drilling — every component can call `useDemoMode()` directly as a hook.
