@@ -199,6 +199,10 @@ export default function StaffPortal() {
   };
 
   const handleNavigate = (path: string) => {
+    if (path === '__demo__') {
+      if (isDemo) exitDemo(); else enterDemo();
+      return;
+    }
     if (currentView === 'operator-detail' && operatorHasUnsavedChanges) {
       setPendingNavPath(path);
     } else {
