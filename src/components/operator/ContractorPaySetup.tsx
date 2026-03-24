@@ -10,6 +10,7 @@ import {
   CreditCard, CheckCircle2, User, Building2, Phone, Mail,
   AlertTriangle, Info, Loader2, ChevronDown, ChevronUp,
 } from 'lucide-react';
+import PayrollCalendar from '@/components/operator/PayrollCalendar';
 
 interface ContractorPaySetupProps {
   operatorId: string;
