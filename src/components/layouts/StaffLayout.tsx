@@ -1,4 +1,5 @@
 import { ReactNode, useState, useEffect } from 'react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/useAuth';
 import { GraduationCap, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
