@@ -50,6 +50,7 @@ import { toast } from 'sonner';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 import { useDemoMode } from '@/hooks/useDemoMode';
+import DemoLockIcon from '@/components/DemoLockIcon';
 
 type ResourceCategory = Database['public']['Enums']['resource_category'];
 
@@ -601,8 +602,9 @@ export default function ResourceLibraryManager() {
             <Button
               onClick={handleSave}
               disabled={saving || uploading}
-              className="bg-gold hover:bg-gold-light text-surface-dark font-semibold"
+              className="bg-gold hover:bg-gold-light text-surface-dark font-semibold gap-1.5"
             >
+              <DemoLockIcon />
               {(saving || uploading) ? 'Saving…' : editing ? 'Save Changes' : 'Upload Resource'}
             </Button>
           </DialogFooter>

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, UserCheck } from 'lucide-react';
+import DemoLockIcon from '@/components/DemoLockIcon';
 import type { EquipmentItem } from './EquipmentInventory';
 import { DEVICE_CONFIG_LABELS } from './equipmentUtils';
 
@@ -161,8 +162,8 @@ export default function EquipmentAssignModal({ open, item, onClose, onSaved }: P
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={handleAssign} disabled={saving || !selectedOperator}>
-            {saving && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+          <Button onClick={handleAssign} disabled={saving || !selectedOperator} className="gap-1.5">
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DemoLockIcon />}
             Assign Device
           </Button>
         </div>

@@ -47,6 +47,7 @@ import { toast } from 'sonner';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 import { useDemoMode } from '@/hooks/useDemoMode';
+import DemoLockIcon from '@/components/DemoLockIcon';
 
 type FaqCategory = Database['public']['Enums']['faq_category'];
 
@@ -482,8 +483,9 @@ export default function FaqManager() {
             <Button
               onClick={handleSave}
               disabled={saving}
-              className="bg-gold hover:bg-gold-light text-surface-dark font-semibold"
+              className="bg-gold hover:bg-gold-light text-surface-dark font-semibold gap-1.5"
             >
+              <DemoLockIcon />
               {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create FAQ'}
             </Button>
           </DialogFooter>

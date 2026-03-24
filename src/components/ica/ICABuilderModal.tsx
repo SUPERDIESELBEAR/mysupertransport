@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X, ChevronRight, ChevronLeft, Save, Send, FileText, Pen, Clock } from 'lucide-react';
+import DemoLockIcon from '@/components/DemoLockIcon';
 import SignatureCanvas from 'react-signature-canvas';
 import ICADocumentView from './ICADocumentView';
 
@@ -550,6 +551,7 @@ export default function ICABuilderModal({
               disabled={saving}
               className="text-muted-foreground hover:text-foreground gap-1.5"
             >
+              <DemoLockIcon />
               <Save className="h-4 w-4" />
               {saving ? 'Saving…' : 'Save & Close'}
             </Button>
@@ -571,6 +573,7 @@ export default function ICABuilderModal({
                 disabled={saving}
                 className="bg-gold text-surface-dark font-semibold hover:bg-gold-light gap-1.5"
               >
+                <DemoLockIcon />
                 <Send className="h-4 w-4" />
                 {saving ? 'Sending…' : 'Send to Operator'}
               </Button>

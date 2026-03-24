@@ -14,6 +14,7 @@ import type { ServiceResource, ResourceType } from './ServiceLibraryTypes';
 import { ALL_RESOURCE_TYPES } from './ServiceLibraryTypes';
 import { parseVideoEmbedUrl } from '@/components/documents/DocumentHubTypes';
 import { Loader2 } from 'lucide-react';
+import DemoLockIcon from '@/components/DemoLockIcon';
 
 interface ResourceFormModalProps {
   resource?: ServiceResource | null;
@@ -222,7 +223,8 @@ export default function ResourceFormModal({ resource, serviceId, onClose, onSave
 
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
-            <Button type="submit" disabled={saving} className="flex-1">
+            <Button type="submit" disabled={saving} className="flex-1 gap-1.5">
+              <DemoLockIcon />
               {saving ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving…</> : resource ? 'Save Changes' : 'Create Resource'}
             </Button>
           </div>

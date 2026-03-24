@@ -22,6 +22,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Search, RefreshCw, ArrowRight, Phone, RotateCcw, Archive, CalendarDays, Loader2, MessageSquare, Pencil } from 'lucide-react';
+import DemoLockIcon from '@/components/DemoLockIcon';
 
 const PRESET_REASONS = ['Resigned', 'Terminated', 'No Loads', 'Medical', 'Abandoned'];
 

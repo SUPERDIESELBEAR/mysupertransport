@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Loader2 } from 'lucide-react';
+import DemoLockIcon from '@/components/DemoLockIcon';
 
 const US_STATES = [
   'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA',
@@ -214,6 +215,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={saving} className="gap-1.5">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+            <DemoLockIcon />
             Add Driver
           </Button>
         </DialogFooter>
