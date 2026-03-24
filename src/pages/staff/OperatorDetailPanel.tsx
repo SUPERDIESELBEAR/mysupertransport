@@ -4320,8 +4320,30 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           className="h-7 px-2.5 text-xs gap-1.5"
                           disabled={sendingPayrollDocs}
                           onClick={async () => {
-                            if (isDemoMode) { toast({ title: 'Demo mode', description: 'Email sending is disabled in demo mode.' }); return; }
                             setSendingPayrollDocs(true);
+                            try {
+                              const session = (await supabase.auth.getSession()).data.session;
+                              const res = await fetch(
+                                `https://qgxpkcudwjmacrdcyvhj.supabase.co/functions/v1/send-payroll-docs`,
+                                {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${session?.access_token ?? ''}`,
+                                  },
+                                  body: JSON.stringify({ operator_id: operatorId }),
+                                }
+                              );
+                              const data = await res.json();
+                              if (!res.ok) throw new Error(data.error ?? 'Failed to send');
+                              toast({ title: 'Payroll docs sent ✓', description: `Email sent to ${data.sent_to}` });
+                            } catch (err) {
+                              toast({ title: 'Failed to send', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
+                            } finally {
+                              setSendingPayrollDocs(false);
+                            }
+                          }}
+                        >
                             try {
                               const session = (await supabase.auth.getSession()).data.session;
                               const res = await fetch(
