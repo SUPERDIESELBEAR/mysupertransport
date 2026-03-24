@@ -235,16 +235,90 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
 
         {instructionsOpen && (
           <div className="border-t border-primary/15 px-5 py-4 space-y-3 text-sm text-foreground leading-relaxed">
-            {/* ─────────────────────────────────────────────────────── */}
-            {/* PAYROLL_INSTRUCTIONS_CONTENT                            */}
-            {/* Replace the placeholder below with your payroll         */}
-            {/* process instructions once you provide the content.      */}
-            {/* ─────────────────────────────────────────────────────── */}
-            <p className="font-semibold text-foreground">How Contractor Pay Works at SUPERTRANSPORT</p>
-            <p className="text-muted-foreground text-xs">
-              [Payroll instructions content will be added here. Please provide the text and any document links you would like displayed in this section.]
+            {/* ── INTRO ── */}
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              SUPERTRANSPORT operates a structured weekly settlement system designed for accuracy, transparency, and consistency. Understanding the cycle below will help you plan your finances and know exactly when to expect payment.
             </p>
-            <div className="rounded-lg border border-gold/30 bg-gold/8 px-4 py-3 flex items-start gap-2.5 mt-2">
+
+            {/* ── 3 NUMBERED CARDS ── */}
+            <div className="space-y-2.5 mt-1">
+              {[
+                {
+                  num: "1",
+                  title: "The Work Week",
+                  color: "bg-[#B5D4F4]/30 border-[#B5D4F4]",
+                  numColor: "bg-[#B5D4F4] text-[#0C447C]",
+                  body: "Wednesday 12:00 a.m. through Tuesday 11:59 p.m. All loads delivered during this period are grouped together for settlement.",
+                },
+                {
+                  num: "2",
+                  title: "The Reconciliation Period",
+                  color: "bg-[#FAC775]/20 border-[#FAC775]",
+                  numColor: "bg-[#FAC775] text-[#633806]",
+                  body: "After the Work Week closes, we verify delivery paperwork, revenue billing, fuel purchases, cash advances, approved accessorials, and authorized deductions.",
+                },
+                {
+                  num: "3",
+                  title: "Payday",
+                  color: "bg-[#C0DD97]/20 border-[#C0DD97]",
+                  numColor: "bg-[#C0DD97] text-[#27500A]",
+                  body: "You are paid every Tuesday for the Work Week that ended two (2) Tuesdays prior. Settlement statements are issued the same day.",
+                },
+              ].map(({ num, title, color, numColor, body }) => (
+                <div key={num} className={`flex items-start gap-3 rounded-lg border px-3.5 py-3 ${color}`}>
+                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${numColor}`}>
+                    {num}
+                  </span>
+                  <div>
+                    <p className="text-xs font-bold text-foreground leading-snug">{title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{body}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* ── PAYROLL CALENDAR ── */}
+            <div className="mt-2">
+              <PayrollCalendar />
+            </div>
+
+            {/* ── DETAIL ROWS ── */}
+            <div className="rounded-lg border border-border overflow-hidden mt-1">
+              <div className="px-4 py-2.5 bg-muted/40 border-b border-border">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Settlement Details</p>
+              </div>
+              {[
+                {
+                  label: "Fuel",
+                  detail: "Fuel purchases made on the company fuel card during your Work Week are reconciled and deducted from your settlement. Retail fuel receipts submitted for reimbursement are also processed during this period.",
+                },
+                {
+                  label: "Accessorials",
+                  detail: "Approved accessorial pay (layovers, detention, lumper reimbursements, etc.) is verified and added to your settlement during reconciliation. Unapproved or undocumented accessorials will not be included.",
+                },
+                {
+                  label: "Cash Advances",
+                  detail: "Any cash advances taken during the Work Week are reconciled against your settlement. Advances must be documented and pre-approved. Repayment is automatic on your next settlement.",
+                },
+              ].map(({ label, detail }) => (
+                <div key={label} className="flex items-start gap-3 px-4 py-3 border-b border-border/60 last:border-0">
+                  <span className="text-xs font-bold text-foreground w-24 shrink-0 pt-0.5">{label}</span>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{detail}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* ── SIMPLE RULE CALLOUT ── */}
+            <div className="rounded-lg border border-amber-400/40 bg-amber-50/60 px-4 py-3 text-center mt-1">
+              <p className="text-xs text-amber-900 leading-relaxed">
+                <span className="font-bold">Simple rule:</span> You are paid every{" "}
+                <span className="font-bold">Tuesday</span> for the work week that ended{" "}
+                <span className="font-bold">two Tuesdays prior.</span>
+              </p>
+            </div>
+
+            {/* ── WARNING STRIP ── */}
+            <div className="rounded-lg border border-gold/30 bg-gold/8 px-4 py-3 flex items-start gap-2.5">
               <AlertTriangle className="h-4 w-4 text-gold shrink-0 mt-0.5" />
               <p className="text-xs text-gold leading-snug">
                 You must read and acknowledge the payroll terms below before submitting this form.
