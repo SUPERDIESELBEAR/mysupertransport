@@ -183,6 +183,7 @@ export default function StaffDirectory() {
   };
 
   const handleRoleChange = async (memberId: string, role: StaffRole, action: 'add' | 'remove') => {
+    if (guardDemo()) return;
     const key = `${memberId}-${role}-${action}`;
     setRoleActionLoading(key);
     try {
