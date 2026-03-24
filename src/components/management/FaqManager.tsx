@@ -247,6 +247,7 @@ export default function FaqManager() {
 
   // ── Toggle publish ────────────────────────────────────────────────────────
   const togglePublish = async (faq: FaqRow) => {
+    if (guardDemo()) return;
     const newVal = !faq.is_published;
     const { error } = await supabase
       .from('faq')
