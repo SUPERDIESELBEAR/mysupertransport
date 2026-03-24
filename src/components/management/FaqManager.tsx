@@ -274,6 +274,7 @@ export default function FaqManager() {
 
   // ── Reorder ───────────────────────────────────────────────────────────────
   const moveItem = async (faq: FaqRow, direction: 'up' | 'down') => {
+    if (guardDemo()) return;
     const sortedAll = [...faqs].sort((a, b) => a.sort_order - b.sort_order);
     const idx = sortedAll.findIndex(f => f.id === faq.id);
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
