@@ -65,6 +65,8 @@ interface DriverRosterProps {
   onMessageDriver?: (userId: string) => void;
   /** If true, only shows dispatch-relevant columns (for Dispatch Portal) */
   dispatchMode?: boolean;
+  /** If true, shows inactive drivers instead of active ones */
+  showInactive?: boolean;
   /** Called whenever the selection set changes (operator IDs) */
   onSelectionChange?: (selectedOperatorIds: string[]) => void;
   /** Controlled compliance filter — lifted to parent for header chips */
