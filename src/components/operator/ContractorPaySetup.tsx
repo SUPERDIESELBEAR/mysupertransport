@@ -110,6 +110,31 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
   const [email, setEmail] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
 
+  // Document acknowledgments
+  const [docAcknowledged, setDocAcknowledged] = useState<Record<DocKey, boolean>>({
+    deposit_overview: false,
+    payroll_calendar: false,
+  });
+  const [docUrls, setDocUrls] = useState<Record<DocKey, string | null>>({
+    deposit_overview: null,
+    payroll_calendar: null,
+  });
+  const [previewDoc, setPreviewDoc] = useState<{ title: string; url: string } | null>(null);
+
+  // Fetch signed URLs for company reference docs
+  useEffect(() => {
+    Promise.all(
+      COMPANY_DOCS.map(doc =>
+        supabase.storage.from('operator-documents').createSignedUrl(doc.storagePath, 3600)
+          .then(r => ({ key: doc.key, url: r.data?.signedUrl ?? null }))
+      )
+    ).then(results => {
+      const urls = {} as Record<DocKey, string | null>;
+      results.forEach(r => { urls[r.key as DocKey] = r.url; });
+      setDocUrls(urls);
+    });
+  }, []);
+
   // Load existing record + pre-fill from profile
   useEffect(() => {
     const load = async () => {
