@@ -252,8 +252,8 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
               <Users2 className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground leading-tight">Active Drivers</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">Fully onboarded operators ready for dispatch</p>
+              <h1 className="text-xl font-bold text-foreground leading-tight">Driver Hub</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Manage active and archived operators</p>
             </div>
           </div>
 
