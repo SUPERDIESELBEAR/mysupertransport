@@ -132,6 +132,7 @@ export default function StaffDirectory() {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (guardDemo()) return;
     if (!inviteEmail.trim()) return;
     if (inviteMode === 'manual' && invitePassword.length < 8) {
       toast({ title: 'Password too short', description: 'Password must be at least 8 characters.', variant: 'destructive' });
