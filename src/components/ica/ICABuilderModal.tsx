@@ -208,6 +208,7 @@ export default function ICABuilderModal({
   };
 
   const handleSaveAndSend = async () => {
+    if (guardDemo()) return;
     setSaving(true);
     try {
       let carrierSigUrl: string | null = null;
