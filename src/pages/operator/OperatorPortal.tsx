@@ -1178,6 +1178,22 @@ export default function OperatorPortal() {
         {/* ── SERVICE LIBRARY VIEW ── */}
         {view === 'service-library' && <DriverServiceLibrary />}
 
+        {/* ── PAY SETUP VIEW ── */}
+        {view === 'pay-setup' && operatorId && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+                <CreditCard className="h-5 w-5 text-primary" />
+              </span>
+              <div>
+                <h2 className="text-base font-bold text-foreground">Stage 8 — Contractor Pay Setup</h2>
+                <p className="text-xs text-muted-foreground">Enter your payroll details to get your contractor account set up.</p>
+              </div>
+            </div>
+            <ContractorPaySetup operatorId={operatorId} onSubmitted={fetchData} />
+          </div>
+        )}
+
         {/* ── NOTIFICATIONS VIEW ── */}
         {view === 'notifications' && <NotificationHistory />}
       </div>
