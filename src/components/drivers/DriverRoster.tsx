@@ -342,6 +342,7 @@ export default function DriverRoster({
   onOpenDriver,
   onMessageDriver,
   dispatchMode = false,
+  showInactive = false,
   onSelectionChange,
   complianceFilter: externalComplianceFilter,
   onComplianceFilterChange,
