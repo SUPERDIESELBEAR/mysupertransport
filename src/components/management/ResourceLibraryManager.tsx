@@ -229,6 +229,7 @@ export default function ResourceLibraryManager() {
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
+    if (guardDemo()) return;
     if (!form.title.trim()) {
       toast.error('Title is required.');
       return;
