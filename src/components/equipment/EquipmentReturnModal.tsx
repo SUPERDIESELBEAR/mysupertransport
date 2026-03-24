@@ -35,6 +35,7 @@ export default function EquipmentReturnModal({ open, item, isManagement, onClose
   const [saving, setSaving] = useState(false);
 
   const handleReturn = async () => {
+    if (guardDemo()) return;
     if (!item) return;
     // Block staff from setting damaged/lost
     if (!isManagement && (condition === 'damaged' || condition === 'lost')) {

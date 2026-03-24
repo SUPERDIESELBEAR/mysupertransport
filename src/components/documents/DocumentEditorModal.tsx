@@ -201,6 +201,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
   // ── Save ──────────────────────────────────────────────────────────────────
 
   const handleSave = async () => {
+    if (guardDemo()) return;
     if (!form.title.trim()) {
       toast({ title: 'Title required', variant: 'destructive' });
       return;

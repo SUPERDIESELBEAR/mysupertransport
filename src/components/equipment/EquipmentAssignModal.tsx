@@ -59,6 +59,7 @@ export default function EquipmentAssignModal({ open, item, onClose, onSaved }: P
   };
 
   const handleAssign = async () => {
+    if (guardDemo()) return;
     if (!item || !selectedOperator) {
       toast({ title: 'Please select an operator', variant: 'destructive' });
       return;
