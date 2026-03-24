@@ -517,6 +517,11 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
             <TabsTrigger value="archived" className="gap-2">
               <Archive className="h-3.5 w-3.5" />
               Archived
+              {archivedCount !== null && archivedCount > 0 && (
+                <span className="inline-flex items-center justify-center h-4.5 min-w-[1.125rem] px-1 rounded-full bg-muted-foreground/20 text-muted-foreground text-[10px] font-semibold leading-none tabular-nums">
+                  {archivedCount}
+                </span>
+              )}
             </TabsTrigger>
           </TabsList>
 
