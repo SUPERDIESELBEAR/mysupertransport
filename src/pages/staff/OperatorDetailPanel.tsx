@@ -1888,6 +1888,32 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </div>
         <TooltipProvider delayDuration={150}>
           <div className="flex items-center gap-2 shrink-0">
+            {/* Deactivate / Reactivate — management only */}
+            {isManagement && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDeactivateConfirm(true)}
+                    disabled={deactivating}
+                    className={isActive
+                      ? 'gap-2 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive'
+                      : 'gap-2 text-status-complete border-status-complete/40 hover:bg-status-complete/10 hover:text-status-complete'
+                    }
+                  >
+                    {isActive
+                      ? <UserX className="h-3.5 w-3.5" />
+                      : <UserCheck className="h-3.5 w-3.5" />
+                    }
+                    <span className="hidden sm:inline">{isActive ? 'Deactivate' : 'Reactivate'}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {isActive ? 'Remove from active roster' : 'Restore to active roster'}
+                </TooltipContent>
+              </Tooltip>
+            )}
             {operatorEmail && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1932,11 +1958,43 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Status overview */}
       <div className="flex flex-wrap gap-2">
+        {!isActive && <Badge className="bg-muted text-muted-foreground border text-xs">⊘ Inactive</Badge>}
         {isAlert && <Badge className="status-action border text-xs">⚠ Alert — Review Required</Badge>}
         {status.fully_onboarded && <Badge className="status-complete border text-xs">✓ Fully Onboarded</Badge>}
         {status.ica_status === 'complete' && <Badge className="status-complete border text-xs">ICA Signed</Badge>}
         {status.pe_screening_result === 'clear' && <Badge className="status-complete border text-xs">PE Clear</Badge>}
       </div>
+
+      {/* ── Deactivate Confirmation Dialog ── */}
+      <AlertDialog open={showDeactivateConfirm} onOpenChange={setShowDeactivateConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isActive ? 'Deactivate this driver?' : 'Reactivate this driver?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isActive
+                ? `${operatorName} will be removed from the active Driver Hub roster. Their onboarding record and history will be preserved. You can reactivate them at any time.`
+                : `${operatorName} will be restored to the active Driver Hub roster and appear as a fully-onboarded driver.`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deactivating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleToggleActive}
+              disabled={deactivating}
+              className={isActive ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground' : ''}
+            >
+              {deactivating
+                ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />{isActive ? 'Deactivating…' : 'Reactivating…'}</>
+                : isActive ? 'Yes, deactivate' : 'Yes, reactivate'
+              }
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       {/* ── Compliance Alert Banner ─────────────────────────────────────── */}
       {(() => {
