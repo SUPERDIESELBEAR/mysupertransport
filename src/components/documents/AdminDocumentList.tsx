@@ -236,6 +236,7 @@ export default function AdminDocumentList({
   };
 
   const handleToggle = async (doc: DriverDocument, field: 'is_visible' | 'is_required' | 'is_pinned') => {
+    if (guardDemo()) return;
     const newVal = !doc[field];
     setToggling(`${doc.id}-${field}`);
 
