@@ -28,6 +28,7 @@ import {
 import { DriverDocument, CATEGORY_COLORS } from './DocumentHubTypes';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useDemoMode } from '@/hooks/useDemoMode';
 
 interface AdminDocumentListProps {
   documents: DriverDocument[];
@@ -177,6 +178,7 @@ export default function AdminDocumentList({
   documents, ackCounts, totalDrivers, onEdit, onRefresh,
 }: AdminDocumentListProps) {
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [items, setItems] = useState<DriverDocument[]>(documents);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DriverDocument | null>(null);
@@ -202,6 +204,7 @@ export default function AdminDocumentList({
     setActiveId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    if (guardDemo()) return;
 
     const oldIndex = items.findIndex(d => d.id === active.id);
     const newIndex = items.findIndex(d => d.id === over.id);
@@ -233,6 +236,7 @@ export default function AdminDocumentList({
   };
 
   const handleToggle = async (doc: DriverDocument, field: 'is_visible' | 'is_required' | 'is_pinned') => {
+    if (guardDemo()) return;
     const newVal = !doc[field];
     setToggling(`${doc.id}-${field}`);
 
@@ -278,6 +282,7 @@ export default function AdminDocumentList({
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    if (guardDemo()) return;
     const { error } = await supabase.from('driver_documents').delete().eq('id', deleteTarget.id);
     setDeleteTarget(null);
     if (error) {

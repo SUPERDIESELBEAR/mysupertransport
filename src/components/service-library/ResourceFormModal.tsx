@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +24,7 @@ interface ResourceFormModalProps {
 
 export default function ResourceFormModal({ resource, serviceId, onClose, onSaved }: ResourceFormModalProps) {
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     title: resource?.title ?? '',
@@ -43,6 +45,7 @@ export default function ResourceFormModal({ resource, serviceId, onClose, onSave
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (guardDemo()) return;
     if (!form.title.trim()) { toast({ title: 'Title is required', variant: 'destructive' }); return; }
     setSaving(true);
     try {

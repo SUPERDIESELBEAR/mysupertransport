@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2, Bell,
@@ -86,6 +87,7 @@ function UploadStatusBadge({ status }: { status: string }) {
 export default function InspectionBinderAdmin({ operatorUserId, operatorName }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [searchParams] = useSearchParams();
 
   // Support deep-link: ?driver=<userId>&tab=driver|company|uploads
@@ -303,6 +305,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
   const handleUpload = async (docName: string, scope: 'company_wide' | 'per_driver', file: File, existingId?: string) => {
     if (!user) return;
+    if (guardDemo()) return;
     const driverId = scope === 'per_driver' ? selectedDriverId : null;
     if (scope === 'per_driver' && !driverId) {
       toast({ title: 'Select a driver first', variant: 'destructive' });
@@ -337,6 +340,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   };
 
   const handleDelete = async (doc: InspectionDocument) => {
+    if (guardDemo()) return;
     await supabase.from('inspection_documents').delete().eq('id', doc.id);
     if (doc.file_path) await supabase.storage.from('inspection-documents').remove([doc.file_path]);
     toast({ title: 'Deleted', description: `${doc.name} removed.` });
@@ -345,6 +349,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   };
 
   const handleDeleteStaged = async (doc: StagedDoc) => {
+    if (guardDemo()) return;
     await supabase.from('inspection_documents').delete().eq('id', doc.id);
     if (doc.file_path) await supabase.storage.from('inspection-documents').remove([doc.file_path]);
     toast({ title: 'Deleted', description: `${doc.name} removed from staging.` });
@@ -353,6 +358,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   };
 
   const saveExpiry = async (id: string) => {
+    if (guardDemo()) return;
     await supabase.from('inspection_documents').update({ expires_at: expiryValue || null }).eq('id', id);
     toast({ title: 'Expiry updated' });
     setExpiryEditing(null);
@@ -360,6 +366,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   };
 
   const updateUploadStatus = async (uploadId: string, status: 'pending_review' | 'reviewed' | 'needs_attention') => {
+    if (guardDemo()) return;
     await supabase.from('driver_uploads').update({ status, reviewed_at: new Date().toISOString(), reviewed_by: user?.id }).eq('id', uploadId);
     toast({ title: 'Status updated', description: `Upload marked as ${UPLOAD_STATUS_LABELS[status]}.` });
     fetchDocs();

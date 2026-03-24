@@ -46,6 +46,7 @@ import {
 import { toast } from 'sonner';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
+import { useDemoMode } from '@/hooks/useDemoMode';
 
 type FaqCategory = Database['public']['Enums']['faq_category'];
 
@@ -104,6 +105,7 @@ const CHANGE_TYPE_COLOR: Record<string, string> = {
 const EMPTY_FORM = { question: '', answer: '', category: 'general_owner_operator' as FaqCategory };
 
 export default function FaqManager() {
+  const { guardDemo } = useDemoMode();
   const [faqs, setFaqs] = useState<FaqRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -205,6 +207,7 @@ export default function FaqManager() {
 
   // ── Save (create or update) ───────────────────────────────────────────────
   const handleSave = async () => {
+    if (guardDemo()) return;
     if (!form.question.trim() || !form.answer.trim()) {
       toast.error('Question and answer are required.');
       return;
@@ -244,6 +247,7 @@ export default function FaqManager() {
 
   // ── Toggle publish ────────────────────────────────────────────────────────
   const togglePublish = async (faq: FaqRow) => {
+    if (guardDemo()) return;
     const newVal = !faq.is_published;
     const { error } = await supabase
       .from('faq')
@@ -258,6 +262,7 @@ export default function FaqManager() {
   // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    if (guardDemo()) return;
     setDeleting(true);
     const { error } = await supabase.from('faq').delete().eq('id', deleteTarget.id);
     if (error) { toast.error('Failed to delete FAQ.'); setDeleting(false); return; }
@@ -269,6 +274,7 @@ export default function FaqManager() {
 
   // ── Reorder ───────────────────────────────────────────────────────────────
   const moveItem = async (faq: FaqRow, direction: 'up' | 'down') => {
+    if (guardDemo()) return;
     const sortedAll = [...faqs].sort((a, b) => a.sort_order - b.sort_order);
     const idx = sortedAll.findIndex(f => f.id === faq.id);
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;

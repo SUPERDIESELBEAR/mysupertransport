@@ -28,6 +28,7 @@ import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
@@ -101,6 +102,7 @@ function SortableResourceRow(props: SortableResourceRowProps) {
 
 export default function ServiceLibraryManager() {
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedService, setExpandedService] = useState<string | null>(null);
@@ -154,6 +156,7 @@ export default function ServiceLibraryManager() {
   };
 
   const handleToggleVisible = async (service: Service) => {
+    if (guardDemo()) return;
     const { error } = await supabase
       .from('services')
       .update({ is_visible: !service.is_visible })
@@ -164,6 +167,7 @@ export default function ServiceLibraryManager() {
   };
 
   const handleToggleEssential = async (service: Service) => {
+    if (guardDemo()) return;
     const { error } = await supabase
       .from('services')
       .update({ is_new_driver_essential: !service.is_new_driver_essential })
@@ -174,6 +178,7 @@ export default function ServiceLibraryManager() {
   };
 
   const handleToggleResourceVisible = async (resource: ServiceResource) => {
+    if (guardDemo()) return;
     const { error } = await supabase
       .from('service_resources')
       .update({ is_visible: !resource.is_visible })
@@ -189,6 +194,7 @@ export default function ServiceLibraryManager() {
   };
 
   const handleToggleStartHere = async (resource: ServiceResource) => {
+    if (guardDemo()) return;
     const { error } = await supabase
       .from('service_resources')
       .update({ is_start_here: !resource.is_start_here })
@@ -204,6 +210,7 @@ export default function ServiceLibraryManager() {
   };
 
   const handleMarkVerified = async (resource: ServiceResource) => {
+    if (guardDemo()) return;
     const now = new Date().toISOString();
     const { error } = await supabase
       .from('service_resources')
@@ -221,6 +228,7 @@ export default function ServiceLibraryManager() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    if (guardDemo()) return;
     if (deleteTarget.type === 'service') {
       const { error } = await supabase.from('services').delete().eq('id', deleteTarget.id);
       if (error) { toast({ title: 'Error', variant: 'destructive' }); return; }
@@ -274,6 +282,7 @@ export default function ServiceLibraryManager() {
     setActiveDragServiceId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    if (guardDemo()) return;
 
     const oldIndex = services.findIndex(s => s.id === active.id);
     const newIndex = services.findIndex(s => s.id === over.id);
@@ -301,6 +310,7 @@ export default function ServiceLibraryManager() {
     setDraggingInServiceId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    if (guardDemo()) return;
 
     const resources = serviceResources[serviceId] ?? [];
     const oldIndex = resources.findIndex(r => r.id === active.id);

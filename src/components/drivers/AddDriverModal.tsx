@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,7 @@ interface AddDriverModalProps {
 export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModalProps) {
   const { session } = useAuth();
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     first_name: '',
@@ -40,6 +42,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
   const set = (key: keyof typeof form, val: string) => setForm(prev => ({ ...prev, [key]: val }));
 
   const handleSubmit = async () => {
+    if (guardDemo()) return;
     if (!form.first_name || !form.last_name || !form.email) {
       toast({ title: 'Missing fields', description: 'First name, last name, and email are required.', variant: 'destructive' });
       return;

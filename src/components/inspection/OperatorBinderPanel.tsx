@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, FolderOpen,
@@ -61,6 +62,7 @@ function UploadStatusBadge({ status }: { status: string }) {
 export default function OperatorBinderPanel({ driverUserId, operatorName }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
 
   const [perDriverDocs, setPerDriverDocs] = useState<InspectionDocument[]>([]);
   const [driverUploads, setDriverUploads] = useState<DriverUpload[]>([]);
@@ -100,6 +102,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
 
   const handleUpload = async (docName: string, file: File, existingId?: string) => {
     if (!user) return;
+    if (guardDemo()) return;
     setUploading(docName);
     try {
       const ext = file.name.split('.').pop();
@@ -123,6 +126,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
   };
 
   const handleDelete = async (doc: InspectionDocument) => {
+    if (guardDemo()) return;
     await supabase.from('inspection_documents').delete().eq('id', doc.id);
     if (doc.file_path) await supabase.storage.from('inspection-documents').remove([doc.file_path]);
     toast({ title: 'Deleted', description: `${doc.name} removed.` });
@@ -131,6 +135,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
   };
 
   const saveExpiry = async (id: string) => {
+    if (guardDemo()) return;
     await supabase.from('inspection_documents').update({ expires_at: expiryValue || null }).eq('id', id);
     toast({ title: 'Expiry updated' });
     setExpiryEditing(null);
@@ -138,6 +143,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
   };
 
   const updateUploadStatus = async (uploadId: string, status: 'pending_review' | 'reviewed' | 'needs_attention') => {
+    if (guardDemo()) return;
     await supabase.from('driver_uploads').update({ status, reviewed_at: new Date().toISOString(), reviewed_by: user?.id }).eq('id', uploadId);
     toast({ title: 'Status updated', description: `Marked as ${UPLOAD_STATUS_LABELS[status]}.` });
     fetchDocs();

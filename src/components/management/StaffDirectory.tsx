@@ -231,6 +231,7 @@ export default function StaffDirectory() {
 
   const handlePhoneUpdate = async () => {
     if (!managingMember) return;
+    if (guardDemo()) return;
     setPhoneSaving(true);
     try {
       const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
@@ -256,6 +257,7 @@ export default function StaffDirectory() {
 
   const handleNameUpdate = async () => {
     if (!managingMember) return;
+    if (guardDemo()) return;
     setNameSaving(true);
     try {
       const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
@@ -298,6 +300,7 @@ export default function StaffDirectory() {
 
   const handleEmailUpdate = async () => {
     if (!managingMember) return;
+    if (guardDemo()) return;
     const trimmed = editingEmail.trim().toLowerCase();
     setEmailSaving(true);
     setEmailConfirmPending(false);
@@ -349,6 +352,7 @@ export default function StaffDirectory() {
 
   const handleToggleStatus = async () => {
     if (!managingMember) return;
+    if (guardDemo()) return;
     const isActive = managingMember.account_status === 'active';
     const newStatus = isActive ? 'inactive' : 'active';
     const action = isActive ? 'deactivate_user' : 'reactivate_user';

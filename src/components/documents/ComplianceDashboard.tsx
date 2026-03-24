@@ -12,6 +12,7 @@ import {
 import { DriverDocument } from './DocumentHubTypes';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useDemoMode } from '@/hooks/useDemoMode';
 
 interface OperatorRow {
   operator_id: string;
@@ -104,6 +105,7 @@ function OperatorStatusRow({
 // ── Main component ────────────────────────────────────────────────────────────
 export default function ComplianceDashboard({ documents }: ComplianceDashboardProps) {
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
 
   const [operators, setOperators] = useState<OperatorRow[]>([]);
   const [acksByDoc, setAcksByDoc] = useState<Record<string, AckRecord[]>>({});
@@ -162,6 +164,7 @@ export default function ComplianceDashboard({ documents }: ComplianceDashboardPr
 
   // ── Send single reminder ───────────────────────────────────────────────────
   const handleSendOne = async (doc: DriverDocument, op: OperatorRow) => {
+    if (guardDemo()) return;
     const key = `${doc.id}-${op.user_id}`;
     setSending(key);
 
@@ -201,6 +204,7 @@ export default function ComplianceDashboard({ documents }: ComplianceDashboardPr
 
   // ── Send reminders to ALL pending for a doc ────────────────────────────────
   const handleRemindAll = async (doc: DriverDocument, pending: OperatorRow[]) => {
+    if (guardDemo()) return;
     setSendingAll(doc.id);
 
     // Batch in-app notifications

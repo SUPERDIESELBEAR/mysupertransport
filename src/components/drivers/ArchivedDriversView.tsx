@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,7 @@ interface ArchivedDriversViewProps {
 
 export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onReactivated }: ArchivedDriversViewProps) {
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [drivers, setDrivers] = useState<ArchivedDriver[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -148,6 +150,7 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
 
   const handleReactivate = async () => {
     if (!confirmReactivate) return;
+    if (guardDemo()) return;
     setReactivating(true);
     const { error } = await supabase
       .from('operators')
@@ -186,6 +189,7 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
 
   const handleSaveReason = async () => {
     if (!editReasonDriver) return;
+    if (guardDemo()) return;
     setSavingReason(true);
     const finalReason = editReasonValue === 'Other' ? editReasonCustom.trim() : editReasonValue;
 

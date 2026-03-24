@@ -49,6 +49,7 @@ import {
 import { toast } from 'sonner';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
+import { useDemoMode } from '@/hooks/useDemoMode';
 
 type ResourceCategory = Database['public']['Enums']['resource_category'];
 
@@ -108,6 +109,7 @@ const EMPTY_FORM = {
 };
 
 export default function ResourceLibraryManager() {
+  const { guardDemo } = useDemoMode();
   const [resources, setResources] = useState<ResourceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -227,6 +229,7 @@ export default function ResourceLibraryManager() {
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async () => {
+    if (guardDemo()) return;
     if (!form.title.trim()) {
       toast.error('Title is required.');
       return;
@@ -301,6 +304,7 @@ export default function ResourceLibraryManager() {
 
   // ── Toggle visibility ─────────────────────────────────────────────────────
   const toggleVisibility = async (r: ResourceRow) => {
+    if (guardDemo()) return;
     const newVal = !r.is_visible;
     const { error } = await supabase
       .from('resource_documents')
@@ -315,6 +319,7 @@ export default function ResourceLibraryManager() {
   // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    if (guardDemo()) return;
     setDeleting(true);
     const { error } = await supabase.from('resource_documents').delete().eq('id', deleteTarget.id);
     if (error) { toast.error('Failed to delete resource.'); setDeleting(false); return; }
@@ -326,6 +331,7 @@ export default function ResourceLibraryManager() {
 
   // ── Reorder ───────────────────────────────────────────────────────────────
   const moveItem = async (r: ResourceRow, direction: 'up' | 'down') => {
+    if (guardDemo()) return;
     const sortedAll = [...resources].sort((a, b) => a.sort_order - b.sort_order);
     const idx = sortedAll.findIndex(x => x.id === r.id);
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;

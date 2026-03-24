@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +19,7 @@ interface ServiceFormModalProps {
 
 export default function ServiceFormModal({ service, onClose, onSaved }: ServiceFormModalProps) {
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [saving, setSaving] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(service?.logo_url ?? null);
@@ -43,6 +45,7 @@ export default function ServiceFormModal({ service, onClose, onSaved }: ServiceF
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (guardDemo()) return;
     if (!form.name.trim()) { toast({ title: 'Service name is required', variant: 'destructive' }); return; }
     setSaving(true);
     try {

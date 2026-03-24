@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useDemoMode } from '@/hooks/useDemoMode';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,6 +17,7 @@ const STATUS_COLORS: Record<HelpRequestStatus, string> = {
 
 export default function HelpRequestsPanel() {
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [requests, setRequests] = useState<ServiceHelpRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<HelpRequestStatus | 'All'>('All');
@@ -56,6 +58,7 @@ export default function HelpRequestsPanel() {
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
 
   const handleStatusChange = async (requestId: string, status: HelpRequestStatus) => {
+    if (guardDemo()) return;
     const req = requests.find(r => r.id === requestId);
     const { error } = await supabase
       .from('service_help_requests')
