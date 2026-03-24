@@ -891,7 +891,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           mo_docs_submitted,
           mo_reg_received,
           updated_at
-        )
+        ),
+        contractor_pay_setup ( submitted_at, terms_accepted )
       `),
       supabase.from('user_roles').select('user_id').in('role', ['onboarding_staff', 'management']),
     ]);
@@ -985,6 +986,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       const appRaw = op.applications;
       const appEmail = Array.isArray(appRaw) ? (appRaw[0]?.email ?? null) : (appRaw?.email ?? null);
       const icaStatus = os.ica_status ?? 'not_issued';
+      // Derive pay_setup_submitted: "true" when submitted_at is set and terms_accepted = true
+      const payRaw = op.contractor_pay_setup;
+      const pay = Array.isArray(payRaw) ? (payRaw[0] ?? null) : (payRaw ?? null);
+      const paySetupSubmitted = pay?.submitted_at && pay?.terms_accepted ? 'true' : '';
       return {
         id: op.id,
         user_id: op.user_id,
@@ -1020,6 +1025,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         fuel_card_issued: os.fuel_card_issued ?? 'no',
         paper_logbook_approved: os.paper_logbook_approved ?? false,
         temp_decal_approved: os.temp_decal_approved ?? false,
+        pay_setup_submitted: paySetupSubmitted,
         progress_pct: 0, // placeholder; real % computed in StageTrack from pipeline_config
         onboarding_updated_at: os.updated_at ?? null,
       };
