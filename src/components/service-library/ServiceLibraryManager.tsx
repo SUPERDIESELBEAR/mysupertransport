@@ -228,6 +228,7 @@ export default function ServiceLibraryManager() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    if (guardDemo()) return;
     if (deleteTarget.type === 'service') {
       const { error } = await supabase.from('services').delete().eq('id', deleteTarget.id);
       if (error) { toast({ title: 'Error', variant: 'destructive' }); return; }
