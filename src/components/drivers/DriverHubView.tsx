@@ -57,13 +57,8 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   const [selectedOperatorIds, setSelectedOperatorIds] = useState<string[]>([]);
   const [alertsPanelOpen, setAlertsPanelOpen] = useState(true);
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>(defaultComplianceFilter ?? 'all');
-  const [complianceCounts, setComplianceCounts] = useState<ComplianceCounts>({
-    expired: 0,
-    critical: 0,
-    warning: 0,
-    neverRenewed: 0,
-    notYetReminded: 0,
-  });
+  const [complianceCounts, setComplianceCounts] = useState<ComplianceCounts>({ expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0 });
+  const [showInactive, setShowInactive] = useState(false);
 
   // Inline App Review Drawer state (opened via "Update" link on roster rows)
   const [reviewApp, setReviewApp] = useState<FullApplication | null>(null);
