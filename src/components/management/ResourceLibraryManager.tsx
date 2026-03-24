@@ -331,6 +331,7 @@ export default function ResourceLibraryManager() {
 
   // ── Reorder ───────────────────────────────────────────────────────────────
   const moveItem = async (r: ResourceRow, direction: 'up' | 'down') => {
+    if (guardDemo()) return;
     const sortedAll = [...resources].sort((a, b) => a.sort_order - b.sort_order);
     const idx = sortedAll.findIndex(x => x.id === r.id);
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
