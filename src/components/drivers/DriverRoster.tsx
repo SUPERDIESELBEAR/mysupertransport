@@ -22,6 +22,7 @@ interface DriverRow {
   dispatch_status: 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
   cdl_expiration: string | null;
   medical_cert_expiration: string | null;
+  is_active: boolean;
 }
 
 interface ReminderEntry {
