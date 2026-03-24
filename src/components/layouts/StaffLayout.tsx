@@ -205,21 +205,28 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
         )}
 
         {/* User / Sign out */}
+        <TooltipProvider delayDuration={300}>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setEditProfileOpen(true)}
-            title="Edit profile"
-            className="h-8 w-8 rounded-full overflow-hidden border border-gold/30 shrink-0 hover:border-gold/60 transition-colors"
-          >
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt={displayName} className="block h-full w-full object-cover" />
-            ) : (
-              <div className="h-full w-full flex items-center justify-center bg-gold/20">
-                <span className="text-gold text-xs font-bold">{initials}</span>
-              </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => setEditProfileOpen(true)}
+                className="h-8 w-8 rounded-full overflow-hidden border border-gold/30 shrink-0 hover:border-gold/60 transition-colors"
+              >
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt={displayName} className="block h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center bg-gold/20">
+                    <span className="text-gold text-xs font-bold">{initials}</span>
+                  </div>
+                )}
+              </button>
+            </TooltipTrigger>
+            {!sidebarOpen && !isMobileDrawer && (
+              <TooltipContent side="right">Edit profile</TooltipContent>
             )}
-          </button>
+          </Tooltip>
           {(sidebarOpen || isMobileDrawer) && (
             <>
               <div className="flex-1 min-w-0">
