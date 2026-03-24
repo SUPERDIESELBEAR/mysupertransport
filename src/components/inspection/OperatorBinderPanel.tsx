@@ -126,6 +126,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
   };
 
   const handleDelete = async (doc: InspectionDocument) => {
+    if (guardDemo()) return;
     await supabase.from('inspection_documents').delete().eq('id', doc.id);
     if (doc.file_path) await supabase.storage.from('inspection-documents').remove([doc.file_path]);
     toast({ title: 'Deleted', description: `${doc.name} removed.` });
