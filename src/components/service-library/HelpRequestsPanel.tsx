@@ -17,6 +17,7 @@ const STATUS_COLORS: Record<HelpRequestStatus, string> = {
 
 export default function HelpRequestsPanel() {
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [requests, setRequests] = useState<ServiceHelpRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<HelpRequestStatus | 'All'>('All');

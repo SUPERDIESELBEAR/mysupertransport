@@ -25,6 +25,7 @@ interface AddDriverModalProps {
 export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModalProps) {
   const { session } = useAuth();
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     first_name: '',

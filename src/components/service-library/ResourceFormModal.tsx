@@ -24,6 +24,7 @@ interface ResourceFormModalProps {
 
 export default function ResourceFormModal({ resource, serviceId, onClose, onSaved }: ResourceFormModalProps) {
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     title: resource?.title ?? '',

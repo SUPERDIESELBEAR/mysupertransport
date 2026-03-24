@@ -19,6 +19,7 @@ interface ServiceFormModalProps {
 
 export default function ServiceFormModal({ service, onClose, onSaved }: ServiceFormModalProps) {
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [saving, setSaving] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(service?.logo_url ?? null);

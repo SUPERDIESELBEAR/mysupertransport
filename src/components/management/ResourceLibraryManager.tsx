@@ -109,6 +109,7 @@ const EMPTY_FORM = {
 };
 
 export default function ResourceLibraryManager() {
+  const { guardDemo } = useDemoMode();
   const [resources, setResources] = useState<ResourceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');

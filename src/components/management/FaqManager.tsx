@@ -105,6 +105,7 @@ const CHANGE_TYPE_COLOR: Record<string, string> = {
 const EMPTY_FORM = { question: '', answer: '', category: 'general_owner_operator' as FaqCategory };
 
 export default function FaqManager() {
+  const { guardDemo } = useDemoMode();
   const [faqs, setFaqs] = useState<FaqRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');

@@ -178,6 +178,7 @@ export default function AdminDocumentList({
   documents, ackCounts, totalDrivers, onEdit, onRefresh,
 }: AdminDocumentListProps) {
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [items, setItems] = useState<DriverDocument[]>(documents);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DriverDocument | null>(null);

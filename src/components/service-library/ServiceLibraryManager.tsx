@@ -102,6 +102,7 @@ function SortableResourceRow(props: SortableResourceRowProps) {
 
 export default function ServiceLibraryManager() {
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedService, setExpandedService] = useState<string | null>(null);

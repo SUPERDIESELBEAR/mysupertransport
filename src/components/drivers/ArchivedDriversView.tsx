@@ -50,6 +50,7 @@ interface ArchivedDriversViewProps {
 
 export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onReactivated }: ArchivedDriversViewProps) {
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [drivers, setDrivers] = useState<ArchivedDriver[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

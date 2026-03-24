@@ -105,6 +105,7 @@ function OperatorStatusRow({
 // ── Main component ────────────────────────────────────────────────────────────
 export default function ComplianceDashboard({ documents }: ComplianceDashboardProps) {
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
 
   const [operators, setOperators] = useState<OperatorRow[]>([]);
   const [acksByDoc, setAcksByDoc] = useState<Record<string, AckRecord[]>>({});
