@@ -42,6 +42,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
   const set = (key: keyof typeof form, val: string) => setForm(prev => ({ ...prev, [key]: val }));
 
   const handleSubmit = async () => {
+    if (guardDemo()) return;
     if (!form.first_name || !form.last_name || !form.email) {
       toast({ title: 'Missing fields', description: 'First name, last name, and email are required.', variant: 'destructive' });
       return;

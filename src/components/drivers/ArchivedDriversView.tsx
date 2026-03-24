@@ -189,6 +189,7 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
 
   const handleSaveReason = async () => {
     if (!editReasonDriver) return;
+    if (guardDemo()) return;
     setSavingReason(true);
     const finalReason = editReasonValue === 'Other' ? editReasonCustom.trim() : editReasonValue;
 
