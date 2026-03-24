@@ -314,18 +314,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       .then(async ({ data }) => {
         setPaySetupRecord(data);
         setPaySetupLoaded(true);
-        if (data) {
-          const ps = data as any;
-          const [w9Signed, voidCheckSigned] = await Promise.all([
-            ps.w9_file_path
-              ? supabase.storage.from('operator-documents').createSignedUrl(ps.w9_file_path, 3600).then(r => r.data?.signedUrl ?? null)
-              : Promise.resolve(null),
-            ps.void_check_file_path
-              ? supabase.storage.from('operator-documents').createSignedUrl(ps.void_check_file_path, 3600).then(r => r.data?.signedUrl ?? null)
-              : Promise.resolve(null),
-          ]);
-          setPaySetupSignedUrls({ w9: w9Signed, voidCheck: voidCheckSigned });
-        }
+        // (no additional signed URLs needed for pay setup)
       });
     // Fetch signed URLs for company payroll reference docs
     Promise.all([
