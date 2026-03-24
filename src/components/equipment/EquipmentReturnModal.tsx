@@ -29,6 +29,7 @@ const CONDITIONS: { value: ReturnCondition; label: string; description: string; 
 
 export default function EquipmentReturnModal({ open, item, isManagement, onClose, onSaved }: Props) {
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [condition, setCondition] = useState<ReturnCondition>('available');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);

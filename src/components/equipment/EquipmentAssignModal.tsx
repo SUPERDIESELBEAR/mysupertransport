@@ -27,6 +27,7 @@ interface Props {
 export default function EquipmentAssignModal({ open, item, onClose, onSaved }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [operators, setOperators] = useState<Operator[]>([]);
   const [selectedOperator, setSelectedOperator] = useState('');
   const [notes, setNotes] = useState('');

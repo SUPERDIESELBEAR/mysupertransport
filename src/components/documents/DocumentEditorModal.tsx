@@ -57,6 +57,7 @@ interface VersionEntry {
 export default function DocumentEditorModal({ open, onClose, doc, onSaved }: DocumentEditorModalProps) {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { guardDemo } = useDemoMode();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [activeTab, setActiveTab] = useState('edit');

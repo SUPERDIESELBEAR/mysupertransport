@@ -61,6 +61,7 @@ export default function ICABuilderModal({
 }: ICABuilderModalProps) {
   const { session } = useAuth();
   const { toast } = useToast();
+  const { guardDemo } = useDemoMode();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [contractId, setContractId] = useState<string | null>(null);
