@@ -9,8 +9,70 @@ import { useToast } from '@/hooks/use-toast';
 import {
   CreditCard, CheckCircle2, User, Building2, Phone, Mail,
   AlertTriangle, Info, Loader2, ChevronDown, ChevronUp,
+  FileText, Download, ExternalLink, X,
 } from 'lucide-react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import PayrollCalendar from '@/components/operator/PayrollCalendar';
+
+// ── Company payroll reference documents ──────────────────────────────────────
+const COMPANY_DOCS = [
+  {
+    key: 'deposit_overview',
+    title: 'Payroll Deposit Overview',
+    storagePath: 'company-docs/payroll-deposit-overview.pdf',
+    description: 'Payroll deposit policy & Everee setup guide',
+  },
+  {
+    key: 'payroll_calendar',
+    title: 'Payroll Calendar',
+    storagePath: 'company-docs/payroll-calendar.pdf',
+    description: 'Weekly settlement schedule & pay dates',
+  },
+] as const;
+
+type DocKey = typeof COMPANY_DOCS[number]['key'];
+
+// ── Inline PDF lightbox ───────────────────────────────────────────────────────
+function DocPreviewModal({
+  title, url, onClose,
+}: { title: string; url: string; onClose: () => void }) {
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-4xl w-full h-[90vh] flex flex-col p-0 gap-0">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border bg-muted/30 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="text-sm font-semibold text-foreground truncate">{title}</span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <a
+              href={url}
+              download
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1.5 rounded hover:bg-muted transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" /> Download
+            </a>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1.5 rounded hover:bg-muted transition-colors"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> Open
+            </a>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        <iframe src={url} title={title} className="w-full flex-1 border-0" />
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 interface ContractorPaySetupProps {
   operatorId: string;
@@ -47,6 +109,31 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
+
+  // Document acknowledgments
+  const [docAcknowledged, setDocAcknowledged] = useState<Record<DocKey, boolean>>({
+    deposit_overview: false,
+    payroll_calendar: false,
+  });
+  const [docUrls, setDocUrls] = useState<Record<DocKey, string | null>>({
+    deposit_overview: null,
+    payroll_calendar: null,
+  });
+  const [previewDoc, setPreviewDoc] = useState<{ title: string; url: string } | null>(null);
+
+  // Fetch signed URLs for company reference docs
+  useEffect(() => {
+    Promise.all(
+      COMPANY_DOCS.map(doc =>
+        supabase.storage.from('operator-documents').createSignedUrl(doc.storagePath, 3600)
+          .then(r => ({ key: doc.key, url: r.data?.signedUrl ?? null }))
+      )
+    ).then(results => {
+      const urls = {} as Record<DocKey, string | null>;
+      results.forEach(r => { urls[r.key as DocKey] = r.url; });
+      setDocUrls(urls);
+    });
+  }, []);
 
   // Load existing record + pre-fill from profile
   useEffect(() => {
@@ -98,10 +185,13 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
 
   const isSubmitted = !!existing?.submitted_at && existing?.terms_accepted;
 
+  const allDocsAcknowledged = COMPANY_DOCS.every(doc => docAcknowledged[doc.key]);
+
   const requiredFilled = (() => {
     if (!firstName.trim() || !lastName.trim()) return false;
     if (contractorType === 'business' && !businessName.trim()) return false;
     if (!phone.trim() || !email.trim()) return false;
+    if (!allDocsAcknowledged) return false;
     if (!termsAccepted) return false;
     return true;
   })();
@@ -472,6 +562,65 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
         </div>
       </div>
 
+      {/* ── PAYROLL REFERENCE DOCUMENTS ── */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-border bg-muted/30">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Payroll Reference Documents</p>
+        </div>
+        <div className="p-4 space-y-3">
+          <p className="text-xs text-muted-foreground leading-relaxed px-1">
+            Please review both documents below, then toggle each acknowledgment to confirm you have read them.
+          </p>
+          {COMPANY_DOCS.map(doc => {
+            const acked = docAcknowledged[doc.key];
+            const url = docUrls[doc.key];
+            return (
+              <div
+                key={doc.key}
+                className={`rounded-lg border-2 transition-colors ${acked ? 'border-status-complete/40 bg-status-complete/5' : 'border-border bg-background'}`}
+              >
+                {/* Card row */}
+                <div className="flex items-center gap-3 px-4 py-3.5">
+                  <span className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${acked ? 'bg-status-complete/15' : 'bg-muted'}`}>
+                    <FileText className={`h-4 w-4 ${acked ? 'text-status-complete' : 'text-muted-foreground'}`} />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground leading-snug">{doc.title}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{doc.description}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!url}
+                    onClick={() => url && setPreviewDoc({ title: doc.title, url })}
+                    className="shrink-0 text-xs h-8 px-3"
+                  >
+                    View
+                  </Button>
+                </div>
+                {/* Acknowledgment toggle */}
+                <div className="border-t border-border/60 px-4 py-3 flex items-center gap-3">
+                  <Switch
+                    id={`ack-${doc.key}`}
+                    checked={acked}
+                    onCheckedChange={val =>
+                      setDocAcknowledged(prev => ({ ...prev, [doc.key]: val }))
+                    }
+                    className="shrink-0"
+                  />
+                  <label htmlFor={`ack-${doc.key}`} className="flex-1 cursor-pointer">
+                    <p className={`text-xs font-semibold ${acked ? 'text-status-complete' : 'text-foreground'}`}>
+                      I have read and acknowledged this document
+                    </p>
+                  </label>
+                  {acked && <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* ── TERMS & CONDITIONS TOGGLE ── */}
       <div className={`rounded-xl border-2 p-5 transition-colors ${
         termsAccepted ? 'border-status-complete/40 bg-status-complete/5' : 'border-border bg-card'
@@ -516,10 +665,21 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
         )}
       </Button>
 
-      {!termsAccepted && (
+      {(!allDocsAcknowledged || !termsAccepted) && (
         <p className="text-center text-xs text-muted-foreground">
-          You must accept the payroll terms and conditions to submit.
+          {!allDocsAcknowledged
+            ? 'Please acknowledge both reference documents to continue.'
+            : 'You must accept the payroll terms and conditions to submit.'}
         </p>
+      )}
+
+      {/* ── PDF PREVIEW MODAL ── */}
+      {previewDoc && (
+        <DocPreviewModal
+          title={previewDoc.title}
+          url={previewDoc.url}
+          onClose={() => setPreviewDoc(null)}
+        />
       )}
     </div>
   );
