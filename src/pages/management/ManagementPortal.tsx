@@ -675,7 +675,7 @@ export default function ManagementPortal() {
     { label: 'Driver Hub',        icon: <Users2 className="h-4 w-4" />,          path: 'drivers' },
     { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />,          path: 'inspection-binder' },
     { label: 'Document Hub',      icon: <Library className="h-4 w-4" />,         path: 'docs-hub' },
-    { label: 'Service Library',   icon: <Layers className="h-4 w-4" />,          path: 'service-library', dividerBefore: 'Tools' },
+    { label: 'Service Library',   icon: <Layers className="h-4 w-4" />,          path: 'service-library', dividerBefore: 'Admin' },
     { label: 'Resources',         icon: <BookOpen className="h-4 w-4" />,        path: 'resources' },
     { label: 'Staff',             icon: <UserPlus className="h-4 w-4" />,        path: 'staff' },
     { label: 'FAQ Manager',       icon: <HelpCircle className="h-4 w-4" />,      path: 'faq' },
