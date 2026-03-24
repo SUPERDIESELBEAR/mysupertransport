@@ -310,6 +310,7 @@ export default function ServiceLibraryManager() {
     setDraggingInServiceId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    if (guardDemo()) return;
 
     const resources = serviceResources[serviceId] ?? [];
     const oldIndex = resources.findIndex(r => r.id === active.id);
