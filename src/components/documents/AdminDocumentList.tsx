@@ -204,6 +204,7 @@ export default function AdminDocumentList({
     setActiveId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
+    if (guardDemo()) return;
 
     const oldIndex = items.findIndex(d => d.id === active.id);
     const newIndex = items.findIndex(d => d.id === over.id);
