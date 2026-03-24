@@ -4339,17 +4339,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           )}
                         </div>
                       ))}
-
-
-                      <div className="border-t border-border/50 mt-3 pt-3" />
-                     </div>
-                   </div>
-                 )}
-               </div>
-             )}
-           </div>
-         );
-       })()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
       {/* Inspection Binder — per-driver docs & uploads */}
       {operatorUserId && (
