@@ -690,13 +690,12 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
         )}
       </Button>
 
-      {(!allDocsAcknowledged || !termsAccepted) && (
+      {!termsAccepted && (
         <p className="text-center text-xs text-muted-foreground">
-          {!allDocsAcknowledged
-            ? 'Please acknowledge both reference documents to continue.'
-            : 'You must accept the payroll terms and conditions to submit.'}
+          You must accept the payroll terms and conditions to submit.
         </p>
       )}
+      </div>{/* end gated form section */}
 
       {/* ── PDF PREVIEW MODAL ── */}
       {previewDoc && (
