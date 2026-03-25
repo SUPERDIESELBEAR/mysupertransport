@@ -361,6 +361,16 @@ const STAGES = [
   'Stage 8 — Pay Setup',
 ];
 
+const STAGE_ABBR: Record<string, string> = {
+  'Stage 1 — Background':     'BG',
+  'Stage 2 — Documents':      'Docs',
+  'Stage 3 — ICA':            'ICA',
+  'Stage 4 — MO Registration':'MO',
+  'Stage 5 — Equipment':      'Equip',
+  'Stage 6 — Insurance':      'Ins',
+  'Stage 8 — Pay Setup':      'Pay',
+};
+
 // ─── MultiBlockedCallout ─────────────────────────────────────────────────────
 
 function MultiBlockedCallout({
@@ -1733,7 +1743,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             }`}
           >
             <span className="font-bold">{stageCounts[stage] ?? 0}</span>
-            <span className="text-muted-foreground">S{stage.match(/Stage (\d+)/)?.[1] ?? i + 1}</span>
+            <span className="text-muted-foreground">{STAGE_ABBR[stage] ?? `S${stage.match(/Stage (\d+)/)?.[1] ?? i + 1}`}</span>
           </button>
         ))}
         <span className="w-px h-4 bg-border shrink-0 mx-1" />
