@@ -1150,7 +1150,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             exception_notes: status.exception_notes ?? null,
             approved_at: new Date().toISOString(),
           },
-        }).then(({ error }) => { if (error) console.error('[audit] exception_approved:', error); });
+        }).then(({ error }) => { if (error) {} });
       }
 
       // ── Write audit log when go-live date is set or changed ───────────
