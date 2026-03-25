@@ -1,50 +1,73 @@
 
-## Remove Extra Signature Line Above Date
+## What exists today
 
-The current signature block (lines 100–134) has this layout:
+**Operator-facing portal** (`OperatorPortal.tsx` lines 1022–1088): A "My Equipment Info" card already shows `eld_serial_number`, `dash_cam_number`, `bestpass_number`, and `fuel_card_number` — but only once those fields are populated. Truck details (year/make/model/VIN/plate) from `ica_contracts` are not shown at all.
+
+**Staff/Management "Operator Detail Panel"** (`OperatorDetailPanel.tsx`): Equipment device numbers are buried inside the Stage 5 admin section as editable inputs. There is no combined "Truck & Equipment" summary card anywhere in the panel.
+
+**Management Portal** (`ManagementPortal.tsx`): Renders `OperatorDetailPanel` directly — it shares the same component as Staff, so any change to the panel appears in both places automatically.
+
+---
+
+## Plan
+
+### 1. Add a `TruckInfoCard` component
+Create `src/components/operator/TruckInfoCard.tsx` — a shared read-only display card showing two grouped sections:
 
 ```text
-[ Signature image/line ]   [ Date ]
-[ Name (Please Print) ]              ← this is BELOW date
+┌─────────────────────────────────────┐
+│  🚛  Truck & Equipment              │
+├─────────────────────────────────────┤
+│  TRUCK INFO (from ICA)              │
+│  Year / Make / Model  VIN           │
+│  License Plate        Plate State   │
+│  Unit Number          Trailer #     │
+├─────────────────────────────────────┤
+│  DEVICES & CARDS                    │
+│  ELD Serial #         Dash Cam #    │
+│  BestPass #           Fuel Card #   │
+└─────────────────────────────────────┘
 ```
 
-But there is also an applicant info box at the top (lines 39–54) which already shows the signed date. Looking at the signature block, the structure is:
+Fields shown only when populated. If nothing is filled in yet, the card is hidden entirely.
 
-- Row 1: Signature (flex: 2) + Date (flex: 1) — side by side
-- Row 2: Name (Please Print) — below, spanning full width
+---
 
-The user says there is "an extra signature line above the date section." Looking at the layout, the Signature field and Date field are on the same row (flex row, `alignItems: 'flex-end'`). There's no explicit second signature line above the date — but the blank `<div style={{ borderBottom: '1px solid #000', height: '50px' }} />` at line 116 (the empty signature placeholder when there's no signature image) could be perceived as an extra line.
+### 2. Update the Operator Portal
+**File:** `src/pages/operator/OperatorPortal.tsx`
 
-More likely, the user sees the printed document and the "Signature" line and "Date" are stacked in a way that looks like there are two lines before the Date. The document needs to be looked at more carefully.
+- Extend the `fetchData` query to also fetch the operator's `ica_contracts` record (truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number).
+- Add a `icaTruckInfo` state object.
+- **Replace** the existing inline "My Equipment Info" card (lines 1022–1088) with `<TruckInfoCard>`, passing both `onboardingStatus` fields and `icaTruckInfo`.
 
-Looking at the structure again:
-- Lines 101-127: A flex row with [Signature (flex:2)] and [Date (flex:1)]
-- Lines 128-133: Name (Please Print) row below
+---
 
-The "extra signature line above the date section" most likely refers to the **Signature** field that appears in the same flex row as Date — when the document is printed on letter paper, the Signature + Date flex row appears, and the user sees the signature blank line as an "extra" line above the date. 
+### 3. Update the Operator Detail Panel (Staff / Management)
+**File:** `src/pages/staff/OperatorDetailPanel.tsx`
 
-Actually re-reading the user's request: "remove the extra signature line **above the date section**". The date section is likely the full row (Signature + Date). So there might be something above that row.
+- Extend the existing `ica_contracts` query (already used for draft status) to also pull truck fields.
+- Add an `icaTruckInfo` state object populated on data load.
+- Insert `<TruckInfoCard>` as a **new collapsible stage section** titled "Truck & Equipment Info" placed between Stage 5 (Equipment) and Stage 6 (Insurance) in the stage list — or as a standalone non-collapsible summary card near the top of the panel beside the progress bar. The top summary card placement is preferred since it gives coordinators an at-a-glance reference without scrolling into stage 5.
 
-Looking again at the file: the signature block starts at line 100 with `marginTop: '0.4in'`. Before that is the Authorization section (lines 78-97). There's nothing explicitly "above" the date section that looks like an extra signature line in the code.
+---
 
-Wait — looking at the applicant info box at lines 39-54, it has "Signed Date" field in the top info block. Then at the bottom there's also a Date field in the signature block. These two date fields might be what's confusing — but that's not a signature line.
+### 4. Editable fields (staff only)
+The `TruckInfoCard` component will accept an optional `onEdit` prop. When provided (staff/management view), a small "Edit" icon button appears in the card header opening an inline edit popover for the device numbers (unit #, ELD, dash cam, BestPass, fuel card). Truck details (year/make/model/VIN/plate) remain read-only in this card since they are managed through the ICA builder.
 
-Most likely interpretation: The **signature line** (the blank line/image) appears **in the same row** as the date, but the user sees the layout as having the signature line appearing above where the date sits (since signature flex:2 and date flex:1 are side by side but the signature is taller). The user wants the signature section removed from this row — keeping only the Date and Name (Please Print) fields.
+---
 
-OR — looking at this from the actual printed view perspective, the flex row shows:
-1. Signature block (left, large)
-2. Date (right, smaller)
+### Files to change
+| File | Change |
+|---|---|
+| `src/components/operator/TruckInfoCard.tsx` | **New** shared display card |
+| `src/pages/operator/OperatorPortal.tsx` | Fetch ICA truck fields; replace inline card with `TruckInfoCard` |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Fetch ICA truck fields; add `TruckInfoCard` to summary area |
 
-The "extra signature line above the date section" = the signature line itself that sits visually above/beside the date. The user wants to remove the **Signature** row entirely, leaving only:
-- Date
-- Name (Please Print)
+No database migration needed — all data already exists in `ica_contracts` and `onboarding_status`.
 
-This makes the most sense since the applicant's name and signed date are already captured in the info box at the top, and the Step 9 of the application already captures the actual signature.
+---
 
-**Plan**: Remove the Signature image/blank line from the signature block (lines 101-120), keeping only the Date and Name (Please Print) fields. Restructure the bottom signature block to show Date and Name side by side or stacked without the signature drawing line.
-
-Actually, let me reconsider. The user said "the extra signature line **above the date section**." If Signature and Date are side by side in a flex row, neither is "above" the other. So maybe the layout renders them stacked on the printed page — or the user is describing it differently.
-
-The simplest and clearest interpretation: remove the Signature line/image element from the signature block, keeping Date and Name (Please Print). This removes what appears as an extra line before the date.
-
-**Change**: In `PreEmploymentAuthorizationsDoc.tsx`, remove the entire Signature block (lines 101-120) from the flex row, and adjust the remaining Date and Name fields accordingly.
+### Portals affected
+- **Staff Portal** — Driver Hub → Operator Detail Panel ✓
+- **Management Portal** — Driver Hub → same `OperatorDetailPanel` component ✓
+- **Operator Portal** — "My Progress" tab, below the stage cards ✓
