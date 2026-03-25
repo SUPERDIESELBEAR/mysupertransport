@@ -1171,7 +1171,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             is_first_go_live: isNewlyGoLive,
             previous_go_live_date: prevGoLive,
           },
-        }).then(({ error }) => { if (error) console.error('[audit] go_live_updated:', error); });
+        }).then(({ error }) => { if (error) {} });
       }
     }
 
