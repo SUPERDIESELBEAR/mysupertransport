@@ -16,7 +16,7 @@ export interface InspectionDocument {
 export interface DriverUpload {
   id: string;
   driver_id: string;
-  category: 'roadside_inspection_report' | 'repairs_maintenance_receipt';
+  category: 'roadside_inspection_report' | 'repairs_maintenance_receipt' | 'miscellaneous';
   file_url: string | null;
   file_path: string | null;
   file_name: string | null;
