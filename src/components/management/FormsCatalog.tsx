@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ChevronLeft, ChevronRight, Eye, FileText, ClipboardList } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, FileText, ClipboardList, ScrollText } from 'lucide-react';
 import FormProgress from '@/components/application/FormProgress';
 import Step1Personal from '@/components/application/Step1Personal';
 import Step2CDL from '@/components/application/Step2CDL';
@@ -14,6 +14,7 @@ import Step7Documents from '@/components/application/Step7Documents';
 import Step8Disclosures from '@/components/application/Step8Disclosures';
 import Step9Signature from '@/components/application/Step9Signature';
 import { defaultFormData } from '@/components/application/types';
+import ICADocumentView from '@/components/ica/ICADocumentView';
 
 const STEP_LABELS = [
   'Personal Info',
