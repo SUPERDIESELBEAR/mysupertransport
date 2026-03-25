@@ -1132,7 +1132,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           entity_id: operatorId,
           entity_label: operatorName,
           metadata: { changes: insuranceChanges },
-        }).then(({ error }) => { if (error) console.error('[audit] insurance_fields_updated:', error); });
+        }).then(({ error }) => { if (error) {} });
       }
 
       // ── Write audit log when exceptions are first approved ────────────
