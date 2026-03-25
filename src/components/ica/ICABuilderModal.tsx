@@ -212,11 +212,11 @@ export default function ICABuilderModal({
         carrierSigUrl = await uploadSignature(carrierSigRef, 'carrier');
       }
 
-      const { equipment_location_city: _city2, equipment_location_state: _state2, ...restData2 } = data;
+
       const payload = {
         operator_id: operatorId,
-        ...restData2,
-        equipment_location: [_city2, _state2].filter(Boolean).join(', ') || null,
+        ...data,
+        equipment_location: null,
         lease_effective_date: data.lease_effective_date || null,
         lease_termination_date: data.lease_termination_date || null,
         carrier_typed_name: carrierTypedName,
