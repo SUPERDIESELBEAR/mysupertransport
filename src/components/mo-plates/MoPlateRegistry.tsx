@@ -15,7 +15,7 @@ import { format } from 'date-fns';
 import {
   Plus, Search, Loader2, Car, CheckCircle2, UserCheck,
   AlertTriangle, Archive, History, Pencil, RotateCcw,
-  RefreshCcw, Trash2, UserX, CalendarClock,
+  RefreshCcw, Trash2, UserX, CalendarClock, ArrowLeftRight, User, Hash,
 } from 'lucide-react';
 
 // ── Expiry helpers (mirrors Inspection Binder logic) ──────────────────────────
@@ -64,6 +64,7 @@ export default function MoPlateRegistry() {
   const [editPlate, setEditPlate] = useState<MoPlate | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignPlate, setAssignPlate] = useState<MoPlate | null>(null);
+  const [transferFromDriver, setTransferFromDriver] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyPlate, setHistoryPlate] = useState<MoPlate | null>(null);
 
@@ -381,15 +382,21 @@ export default function MoPlateRegistry() {
                   </Badge>
                 </div>
 
-                {/* Current driver info */}
+                {/* Current driver / unit info */}
                 {plate.status === 'assigned' && plate.current_driver && (
-                  <div className="bg-primary/5 border border-primary/15 rounded-lg px-3 py-2">
-                    <p className="text-xs font-semibold text-primary">{plate.current_driver}</p>
+                  <div className="bg-primary/5 border border-primary/15 rounded-lg px-3 py-2 space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <p className="text-sm font-semibold text-primary leading-tight">{plate.current_driver}</p>
+                    </div>
                     {plate.current_driver_unit && (
-                      <p className="text-[11px] text-muted-foreground">Unit #{plate.current_driver_unit}</p>
+                      <div className="flex items-center gap-1.5">
+                        <Hash className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <p className="text-xs text-muted-foreground">Unit #{plate.current_driver_unit}</p>
+                      </div>
                     )}
                     {plate.assigned_since && (
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                      <p className="text-[11px] text-muted-foreground">
                         Since {format(new Date(plate.assigned_since), 'MMM d, yyyy')}
                       </p>
                     )}
@@ -412,15 +419,26 @@ export default function MoPlateRegistry() {
                 {/* Actions */}
                 <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border/60">
                   {plate.status === 'available' && (
-                    <Button size="sm" className="h-7 text-xs gap-1" onClick={() => { setAssignPlate(plate); setAssignOpen(true); }}>
+                    <Button size="sm" className="h-7 text-xs gap-1" onClick={() => { setTransferFromDriver(null); setAssignPlate(plate); setAssignOpen(true); }}>
                       <UserCheck className="h-3 w-3" /> Assign
                     </Button>
                   )}
-                  {plate.status === 'assigned' && (
+                  {plate.status === 'assigned' && (<>
                     <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => { setReturnDialogPlate(plate); setReturnNotes(''); }}>
                       <UserX className="h-3 w-3" /> Return
                     </Button>
-                  )}
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs gap-1 bg-primary/90 hover:bg-primary text-primary-foreground"
+                      onClick={() => {
+                        setTransferFromDriver(plate.current_driver ?? null);
+                        setAssignPlate(plate);
+                        setAssignOpen(true);
+                      }}
+                    >
+                      <ArrowLeftRight className="h-3 w-3" /> Transfer
+                    </Button>
+                  </>)}
                   {plate.status === 'lost_stolen' && (
                     <Button size="sm" className="h-7 text-xs gap-1 bg-status-complete hover:bg-status-complete/90 text-white" onClick={() => setReplacementDialogPlate(plate)}>
                       <RefreshCcw className="h-3 w-3" /> Replacement Received
@@ -476,7 +494,13 @@ export default function MoPlateRegistry() {
 
       {/* Modals */}
       <MoPlateFormModal open={formOpen} onClose={() => setFormOpen(false)} onSaved={fetchPlates} plate={editPlate} />
-      <MoPlateAssignModal open={assignOpen} onClose={() => setAssignOpen(false)} onSaved={fetchPlates} plate={assignPlate} />
+      <MoPlateAssignModal
+        open={assignOpen}
+        onClose={() => { setAssignOpen(false); setTransferFromDriver(null); }}
+        onSaved={fetchPlates}
+        plate={assignPlate}
+        transferFromDriver={transferFromDriver}
+      />
       <MoPlateHistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} plate={historyPlate} />
 
       {/* Return dialog */}

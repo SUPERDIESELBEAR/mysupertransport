@@ -22,23 +22,30 @@ interface Props {
   onClose: () => void;
   onSaved: () => void;
   plate: MoPlate | null;
+  transferFromDriver?: string | null;
 }
 
-export default function MoPlateAssignModal({ open, onClose, onSaved, plate }: Props) {
+export default function MoPlateAssignModal({ open, onClose, onSaved, plate, transferFromDriver }: Props) {
   const { toast } = useToast();
   const { session } = useAuth();
   const [saving, setSaving] = useState(false);
   const [operators, setOperators] = useState<OperatorOption[]>([]);
   const [loadingOps, setLoadingOps] = useState(false);
   const [selectedOperatorId, setSelectedOperatorId] = useState('');
+  const [driverName, setDriverName] = useState('');
   const [unitNumber, setUnitNumber] = useState('');
   const [notes, setNotes] = useState('');
+  const [useManualName, setUseManualName] = useState(false);
+
+  const isTransfer = !!transferFromDriver;
 
   useEffect(() => {
     if (!open) return;
     setSelectedOperatorId('');
+    setDriverName('');
     setUnitNumber('');
     setNotes('');
+    setUseManualName(false);
     fetchOperators();
   }, [open]);
 
@@ -46,6 +53,7 @@ export default function MoPlateAssignModal({ open, onClose, onSaved, plate }: Pr
   useEffect(() => {
     const op = operators.find(o => o.id === selectedOperatorId);
     if (op?.unit_number) setUnitNumber(op.unit_number);
+    if (op?.name) setDriverName(op.name);
   }, [selectedOperatorId, operators]);
 
   const fetchOperators = async () => {
@@ -68,16 +76,20 @@ export default function MoPlateAssignModal({ open, onClose, onSaved, plate }: Pr
   };
 
   const handleAssign = async () => {
-    if (!plate || !selectedOperatorId) {
-      toast({ title: 'Select a driver', variant: 'destructive' });
+    if (!plate || (!selectedOperatorId && !useManualName)) {
+      toast({ title: 'Select a driver or enter a name', variant: 'destructive' });
+      return;
+    }
+    if (useManualName && !driverName.trim()) {
+      toast({ title: 'Enter a driver name', variant: 'destructive' });
       return;
     }
     setSaving(true);
     try {
       const op = operators.find(o => o.id === selectedOperatorId);
-      const driverName = op?.name ?? 'Unknown Driver';
+      const resolvedDriverName = useManualName ? driverName.trim() : (op?.name ?? 'Unknown Driver');
 
-      // 1. Close any open assignment for this plate
+      // 1. Close any open assignment for this plate (handles both regular assign and transfer)
       await supabase
         .from('mo_plate_assignments')
         .update({ returned_at: new Date().toISOString(), returned_by: session?.user?.id ?? null })
@@ -88,11 +100,11 @@ export default function MoPlateAssignModal({ open, onClose, onSaved, plate }: Pr
       // 2. Insert new assignment
       const { error } = await supabase.from('mo_plate_assignments').insert({
         plate_id: plate.id,
-        operator_id: selectedOperatorId,
-        driver_name: driverName,
+        operator_id: useManualName ? null : (selectedOperatorId || null),
+        driver_name: resolvedDriverName,
         unit_number: unitNumber.trim() || null,
         event_type: 'assignment',
-        notes: notes.trim() || null,
+        notes: notes.trim() || (isTransfer ? `Transferred from ${transferFromDriver}` : null),
         assigned_by: session?.user?.id ?? null,
       });
       if (error) throw error;
@@ -100,7 +112,10 @@ export default function MoPlateAssignModal({ open, onClose, onSaved, plate }: Pr
       // 3. Update plate status to assigned
       await supabase.from('mo_plates').update({ status: 'assigned' }).eq('id', plate.id);
 
-      toast({ title: 'Plate assigned', description: `${plate.plate_number} → ${driverName}` });
+      toast({
+        title: isTransfer ? 'Plate transferred' : 'Plate assigned',
+        description: `${plate.plate_number} → ${resolvedDriverName}`,
+      });
       onSaved();
       onClose();
     } catch (err: unknown) {
@@ -116,24 +131,69 @@ export default function MoPlateAssignModal({ open, onClose, onSaved, plate }: Pr
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign Plate <span className="font-mono">{plate.plate_number}</span></DialogTitle>
+          <DialogTitle>
+            {isTransfer ? (
+              <span className="flex items-center gap-2">
+                Transfer Plate <span className="font-mono">{plate.plate_number}</span>
+              </span>
+            ) : (
+              <span>Assign Plate <span className="font-mono">{plate.plate_number}</span></span>
+            )}
+          </DialogTitle>
+          {isTransfer && (
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Currently assigned to <span className="font-medium text-foreground">{transferFromDriver}</span>. Select the new driver below.
+            </p>
+          )}
         </DialogHeader>
         <div className="space-y-4">
-          <div>
-            <Label>Driver / Operator <span className="text-destructive">*</span></Label>
-            <Select value={selectedOperatorId} onValueChange={setSelectedOperatorId} disabled={loadingOps}>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder={loadingOps ? 'Loading…' : 'Select a driver'} />
-              </SelectTrigger>
-              <SelectContent>
-                {operators.map(op => (
-                  <SelectItem key={op.id} value={op.id}>
-                    {op.name}{op.unit_number ? ` — Unit #${op.unit_number}` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Driver selection */}
+          {!useManualName ? (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <Label>Driver / Operator <span className="text-destructive">*</span></Label>
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline"
+                  onClick={() => setUseManualName(true)}
+                >
+                  Enter name manually
+                </button>
+              </div>
+              <Select value={selectedOperatorId} onValueChange={setSelectedOperatorId} disabled={loadingOps}>
+                <SelectTrigger>
+                  <SelectValue placeholder={loadingOps ? 'Loading…' : 'Select a driver'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {operators.map(op => (
+                    <SelectItem key={op.id} value={op.id}>
+                      {op.name}{op.unit_number ? ` — Unit #${op.unit_number}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <Label>Driver Name <span className="text-destructive">*</span></Label>
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline"
+                  onClick={() => { setUseManualName(false); setDriverName(''); }}
+                >
+                  Select from list
+                </button>
+              </div>
+              <Input
+                placeholder="e.g. John Smith"
+                value={driverName}
+                onChange={e => setDriverName(e.target.value)}
+              />
+            </div>
+          )}
+
+          {/* Unit number */}
           <div>
             <Label>Unit Number <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
             <Input
@@ -143,21 +203,29 @@ export default function MoPlateAssignModal({ open, onClose, onSaved, plate }: Pr
               onChange={e => setUnitNumber(e.target.value)}
             />
           </div>
+
+          {/* Notes */}
           <div>
             <Label>Notes <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
             <Textarea
               className="mt-1 resize-none"
               rows={2}
-              placeholder="e.g. Assigned at orientation"
+              placeholder={isTransfer ? `e.g. Previous driver left company` : 'e.g. Assigned at orientation'}
               value={notes}
               onChange={e => setNotes(e.target.value)}
             />
+            {isTransfer && !notes && (
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Auto-note: "Transferred from {transferFromDriver}" will be recorded if left blank.
+              </p>
+            )}
           </div>
+
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-            <Button onClick={handleAssign} disabled={saving || !selectedOperatorId}>
+            <Button onClick={handleAssign} disabled={saving || (!selectedOperatorId && !useManualName) || (useManualName && !driverName.trim())}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Assign Plate
+              {isTransfer ? 'Transfer Plate' : 'Assign Plate'}
             </Button>
           </div>
         </div>
