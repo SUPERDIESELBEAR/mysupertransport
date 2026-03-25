@@ -20,8 +20,6 @@ interface ICAData {
   linehaul_split_pct: number;
   lease_effective_date: string;
   lease_termination_date: string;
-  equipment_location_city: string;
-  equipment_location_state: string;
 }
 
 interface ICADocumentViewProps {
@@ -299,7 +297,6 @@ export default function ICADocumentView({
               <AppRow label="Equipment (Year / Make / VIN)" value={[fullTruck, data.truck_vin].filter(Boolean).join(' · ') || fmt(null)} />
               <AppRow label="Lease Effective Date" value={fmtDate(data.lease_effective_date)} />
               <AppRow label="Lease Termination Date" value={data.lease_termination_date ? fmtDate(data.lease_termination_date) : fmt(null)} />
-              <AppRow label="Location" value={[data.equipment_location_city, data.equipment_location_state].filter(Boolean).join(', ') || fmt(null)} />
               <AppRow label="Carrier Representative" value={fmt(carrierTypedName)} />
               <AppRow label="Contractor" value={fmt(contractorTypedName || contractorSignedName)} />
               <AppRow label="Date" value={fmtDate(data.lease_effective_date)} />

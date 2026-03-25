@@ -188,8 +188,6 @@ export default function ICAViewModal({ operatorId, operatorName, onClose }: ICAV
                   linehaul_split_pct: contract.linehaul_split_pct ?? 72,
                   lease_effective_date: contract.lease_effective_date ?? '',
                   lease_termination_date: contract.lease_termination_date ?? '',
-                  equipment_location_city: contract.equipment_location ? contract.equipment_location.split(',')[0].trim() : '',
-                  equipment_location_state: contract.equipment_location ? (contract.equipment_location.split(',')[1] ?? '').trim() : '',
                 }}
                 operatorName={operatorName}
                 previewMode
