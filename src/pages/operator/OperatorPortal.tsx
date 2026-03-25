@@ -187,12 +187,19 @@ export default function OperatorPortal() {
         setMedicalCertExpiration((app as any)?.medical_cert_expiration ?? null);
       }
 
-      // Fetch current dispatch status + assigned dispatcher
-      const [dispatchResult] = await Promise.all([
+      // Fetch current dispatch status + ICA truck info in parallel
+      const [dispatchResult, icaResult] = await Promise.all([
         supabase
           .from('active_dispatch')
           .select('dispatch_status, assigned_dispatcher, updated_at')
           .eq('operator_id', opId)
+          .maybeSingle(),
+        supabase
+          .from('ica_contracts' as any)
+          .select('truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number')
+          .eq('operator_id', opId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
           .maybeSingle(),
       ]);
       const dispatch = dispatchResult.data;
@@ -208,6 +215,22 @@ export default function OperatorPortal() {
         setTruckDownAcked(false);
       }
       fetchDispatcherInfo((dispatch as any)?.assigned_dispatcher ?? null);
+
+      // Store ICA truck info
+      const ica = icaResult.data as any;
+      if (ica) {
+        setIcaTruckInfo({
+          truck_year: ica.truck_year ?? null,
+          truck_make: ica.truck_make ?? null,
+          truck_model: ica.truck_model ?? null,
+          truck_vin: ica.truck_vin ?? null,
+          truck_plate: ica.truck_plate ?? null,
+          truck_plate_state: ica.truck_plate_state ?? null,
+          trailer_number: ica.trailer_number ?? null,
+        });
+      } else {
+        setIcaTruckInfo(null);
+      }
     }
   }, [user, fetchDispatcherInfo, fetchCoordinatorInfo]);
 
