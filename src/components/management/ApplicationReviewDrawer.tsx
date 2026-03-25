@@ -396,6 +396,31 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           </div>
         </div>
 
+        {/* Tab Navigation */}
+        <div className="flex border-b border-border bg-surface-dark/5 shrink-0">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === 'overview'
+                ? 'text-gold border-b-2 border-gold bg-gold/5'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('documents')}
+            className={`flex-1 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+              activeTab === 'documents'
+                ? 'text-gold border-b-2 border-gold bg-gold/5'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <FileText className="h-3.5 w-3.5" />
+            Documents
+          </button>
+        </div>
+
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-7">
 
