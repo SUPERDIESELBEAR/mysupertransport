@@ -837,6 +837,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                   <Badge variant="secondary" className="text-[10px]">No file</Badge>
                 )}
                 {doc?.file_url && hasExpiry && <ExpiryBadge expiresAt={doc.expires_at} />}
+                {doc?.file_url && !hasExpiry && <OnFileBadge />}
                 {doc?.shared_with_fleet && (
                   <span className="inline-flex items-center gap-1 text-[10px] bg-info/10 text-info border border-info/30 rounded-full px-2 py-0.5 font-semibold">
                     <Users className="h-3 w-3" />Fleet
