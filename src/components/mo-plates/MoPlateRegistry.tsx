@@ -351,6 +351,28 @@ export default function MoPlateRegistry() {
                     {plate.registration_number && (
                       <p className="text-xs text-muted-foreground">Reg #{plate.registration_number}</p>
                     )}
+                    {/* Expiry indicator */}
+                    {(() => {
+                      const status = getExpiryStatus(plate.expires_at);
+                      const days = daysUntilExpiry(plate.expires_at);
+                      if (!status) return null;
+                      const expiryClasses = {
+                        valid: 'text-status-complete',
+                        expiring_soon: 'text-status-warning',
+                        expired: 'text-destructive',
+                      };
+                      const expiryLabel = status === 'expired'
+                        ? `Expired ${format(new Date(plate.expires_at!), 'MMM d, yyyy')}`
+                        : status === 'expiring_soon'
+                          ? `Expires in ${days}d — ${format(new Date(plate.expires_at!), 'MMM d, yyyy')}`
+                          : `Expires ${format(new Date(plate.expires_at!), 'MMM d, yyyy')}`;
+                      return (
+                        <p className={`text-[11px] flex items-center gap-1 mt-0.5 font-medium ${expiryClasses[status]}`}>
+                          <CalendarClock className="h-3 w-3" />
+                          {expiryLabel}
+                        </p>
+                      );
+                    })()}
                   </div>
                   <Badge className={`text-[10px] font-semibold border flex items-center gap-1 shrink-0 ${cfg.badge}`}>
                     {cfg.icon}
