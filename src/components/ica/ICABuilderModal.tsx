@@ -90,8 +90,6 @@ export default function ICABuilderModal({
     linehaul_split_pct: 72,
     lease_effective_date: new Date().toISOString().split('T')[0],
     lease_termination_date: '',
-    equipment_location_city: 'Pleasant Hill',
-    equipment_location_state: 'MO',
   });
 
   const set = (field: keyof ICAData, value: string | number) =>
