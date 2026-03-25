@@ -1198,7 +1198,15 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         </div>
       </TooltipProvider>
 
-      {loading ? (
+      {/* Status color key — staff reference */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-1">
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mr-1">Key:</span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-status-complete font-medium"><span className="h-2 w-2 rounded-full bg-status-complete inline-block" />Valid — uploaded, not expired</span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-info font-medium"><span className="h-2 w-2 rounded-full bg-info inline-block" />On File — uploaded, no expiry tracked</span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-warning font-medium"><span className="h-2 w-2 rounded-full bg-warning inline-block" />Expiring Soon — within 30 days</span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-destructive font-medium"><span className="h-2 w-2 rounded-full bg-destructive inline-block" />Expired</span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground font-medium"><span className="h-2 w-2 rounded-full bg-muted-foreground/40 inline-block" />No File — awaiting upload</span>
+      </div>
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}
         </div>
