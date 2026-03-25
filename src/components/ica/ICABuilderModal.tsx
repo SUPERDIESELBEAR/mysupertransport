@@ -38,8 +38,10 @@ type ICAData = {
   truck_plate: string;
   truck_plate_state: string;
   trailer_number: string;
+  owner_name: string;
   owner_business_name: string;
-  owner_ein_ssn: string;
+  owner_ein: string;
+  owner_ssn: string;
   owner_address: string;
   owner_city: string;
   owner_state: string;
@@ -79,8 +81,10 @@ export default function ICABuilderModal({
     truck_plate: '',
     truck_plate_state: applicationData?.address_state ?? 'MO',
     trailer_number: '',
-    owner_business_name: operatorName,
-    owner_ein_ssn: '',
+    owner_name: `${applicationData?.first_name ?? ''} ${applicationData?.last_name ?? ''}`.trim() || operatorName,
+    owner_business_name: '',
+    owner_ein: '',
+    owner_ssn: '',
     owner_address: applicationData?.address_street ?? '',
     owner_city: applicationData?.address_city ?? '',
     owner_state: applicationData?.address_state ?? '',
@@ -114,6 +118,9 @@ export default function ICABuilderModal({
       setDraftResumed(true);
       setDraftLastSaved(row.updated_at ?? null);
 
+      // Parse stored owner_ein_ssn back into separate fields if needed
+      const storedEinSsn = row.owner_ein_ssn ?? '';
+      const isEin = /^\d{2}-/.test(storedEinSsn);
       setData({
         truck_year: row.truck_year ?? new Date().getFullYear().toString(),
         truck_make: row.truck_make ?? '',
@@ -122,8 +129,10 @@ export default function ICABuilderModal({
         truck_plate: row.truck_plate ?? '',
         truck_plate_state: row.truck_plate_state ?? applicationData?.address_state ?? 'MO',
         trailer_number: row.trailer_number ?? '',
-        owner_business_name: row.owner_business_name ?? operatorName,
-        owner_ein_ssn: row.owner_ein_ssn ?? '',
+        owner_name: row.owner_name ?? (`${applicationData?.first_name ?? ''} ${applicationData?.last_name ?? ''}`.trim() || operatorName),
+        owner_business_name: row.owner_business_name ?? '',
+        owner_ein: isEin ? storedEinSsn : '',
+        owner_ssn: !isEin && storedEinSsn ? storedEinSsn : '',
         owner_address: row.owner_address ?? applicationData?.address_street ?? '',
         owner_city: row.owner_city ?? applicationData?.address_city ?? '',
         owner_state: row.owner_state ?? applicationData?.address_state ?? '',
@@ -163,9 +172,12 @@ export default function ICABuilderModal({
       }
 
 
+      const { owner_ein, owner_ssn, owner_name, ...restData } = data;
       const payload = {
         operator_id: operatorId,
-        ...data,
+        ...restData,
+        owner_name,
+        owner_ein_ssn: owner_ein || owner_ssn || null,
         equipment_location: null,
         lease_effective_date: data.lease_effective_date || null,
         lease_termination_date: data.lease_termination_date || null,
@@ -213,9 +225,12 @@ export default function ICABuilderModal({
       }
 
 
+      const { owner_ein, owner_ssn, owner_name, ...restData2 } = data;
       const payload = {
         operator_id: operatorId,
-        ...data,
+        ...restData2,
+        owner_name,
+        owner_ein_ssn: owner_ein || owner_ssn || null,
         equipment_location: null,
         lease_effective_date: data.lease_effective_date || null,
         lease_termination_date: data.lease_termination_date || null,
@@ -307,7 +322,8 @@ export default function ICABuilderModal({
     if (guardDemo()) return;
     setSaving(true);
     try {
-      const payload = { operator_id: operatorId, ...data, equipment_location: null, lease_effective_date: data.lease_effective_date || null, lease_termination_date: data.lease_termination_date || null, status: 'draft' };
+      const { owner_ein: _ein, owner_ssn: _ssn, owner_name: _oname, ...restData3 } = data;
+      const payload = { operator_id: operatorId, ...restData3, owner_name: _oname, owner_ein_ssn: _ein || _ssn || null, equipment_location: null, lease_effective_date: data.lease_effective_date || null, lease_termination_date: data.lease_termination_date || null, status: 'draft' };
       let result;
       if (contractId) {
         result = await supabase.from('ica_contracts' as any).update(payload).eq('id', contractId).select().single();
@@ -402,13 +418,15 @@ export default function ICABuilderModal({
               <div>
                 <h3 className="text-sm font-semibold text-foreground mb-4">Owner / Business Info</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  <FormField label="Owner / Business Name *" value={data.owner_business_name} onChange={v => set('owner_business_name', v)} placeholder="John Doe LLC" span={2} />
-                  <FormField label="EIN or SSN" value={data.owner_ein_ssn} onChange={v => set('owner_ein_ssn', v)} placeholder="XX-XXXXXXX" />
-                  <FormField label="Address" value={data.owner_address} onChange={v => set('owner_address', v)} placeholder="123 Main St" />
+                  <FormField label="Owner Name *" value={data.owner_name} onChange={v => set('owner_name', v)} placeholder="John Doe" />
+                  <FormField label="Business Name" value={data.owner_business_name} onChange={v => set('owner_business_name', v)} placeholder="John Doe LLC" />
+                  <MaskedField label="EIN" value={data.owner_ein} onChange={v => set('owner_ein', v)} mask="ein" placeholder="12-3456789" />
+                  <MaskedField label="SSN" value={data.owner_ssn} onChange={v => set('owner_ssn', v)} mask="ssn" placeholder="123-45-6789" />
+                  <FormField label="Address" value={data.owner_address} onChange={v => set('owner_address', v)} placeholder="123 Main St" span={2} />
                   <FormField label="City" value={data.owner_city} onChange={v => set('owner_city', v)} placeholder="Kansas City" />
                   <FormField label="State" value={data.owner_state} onChange={v => set('owner_state', v)} placeholder="MO" />
                   <FormField label="ZIP" value={data.owner_zip} onChange={v => set('owner_zip', v)} placeholder="64080" />
-                  <FormField label="Phone" value={data.owner_phone} onChange={v => set('owner_phone', v)} placeholder="816-555-0100" />
+                  <MaskedField label="Phone" value={data.owner_phone} onChange={v => set('owner_phone', v)} mask="phone" placeholder="816-555-0100" />
                   <FormField label="Email" value={data.owner_email} onChange={v => set('owner_email', v)} placeholder="operator@email.com" />
                 </div>
               </div>
@@ -576,6 +594,51 @@ export default function ICABuilderModal({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Auto-format helpers ───────────────────────────────────────────────────────
+function formatEIN(raw: string) {
+  const digits = raw.replace(/\D/g, '').slice(0, 9);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+}
+
+function formatSSN(raw: string) {
+  const digits = raw.replace(/\D/g, '').slice(0, 9);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+}
+
+function formatPhone(raw: string) {
+  const digits = raw.replace(/\D/g, '').slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function MaskedField({ label, value, onChange, mask, placeholder, span }: {
+  label: string; value: string; onChange: (v: string) => void;
+  mask: 'ein' | 'ssn' | 'phone'; placeholder?: string; span?: number;
+}) {
+  const handleChange = (raw: string) => {
+    if (mask === 'ein') onChange(formatEIN(raw));
+    else if (mask === 'ssn') onChange(formatSSN(raw));
+    else onChange(formatPhone(raw));
+  };
+  return (
+    <div className={`space-y-1.5 ${span === 2 ? 'col-span-2' : ''}`}>
+      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
+      <Input
+        type="text"
+        inputMode="numeric"
+        value={value}
+        onChange={e => handleChange(e.target.value)}
+        placeholder={placeholder}
+        className="h-9 text-sm"
+      />
     </div>
   );
 }

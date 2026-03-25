@@ -212,6 +212,9 @@ export default function OperatorICASign() {
       <ICADocumentView
         data={{
           ...contract,
+          owner_name: (contract as any).owner_name ?? '',
+          owner_ein: (contract as any).owner_ein ?? '',
+          owner_ssn: (contract as any).owner_ssn ?? '',
         }}
         operatorName={operatorName}
         previewMode={isFullyExecuted}
