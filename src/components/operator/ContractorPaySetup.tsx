@@ -219,6 +219,8 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
         terms_accepted_at: new Date().toISOString(),
         submitted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        deposit_overview_acknowledged: docAcknowledged.deposit_overview,
+        payroll_calendar_acknowledged: docAcknowledged.payroll_calendar,
       };
 
       let error: any;
