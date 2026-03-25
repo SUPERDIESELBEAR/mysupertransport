@@ -221,7 +221,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   // Stage 8 — Contractor Pay Setup
   const [paySetupRecord, setPaySetupRecord] = useState<any>(null);
   const [paySetupLoaded, setPaySetupLoaded] = useState(false);
-  const [paySetupSignedUrls, setPaySetupSignedUrls] = useState<{ w9: string | null; voidCheck: string | null }>({ w9: null, voidCheck: null });
+  
   const [companyDocUrls, setCompanyDocUrls] = useState<{ overview: string | null; calendar: string | null }>({ overview: null, calendar: null });
   const [previewDoc, setPreviewDoc] = useState<{ title: string; url: string } | null>(null);
   const [sendingPayrollDocs, setSendingPayrollDocs] = useState(false);
