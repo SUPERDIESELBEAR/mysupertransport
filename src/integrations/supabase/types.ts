@@ -381,12 +381,14 @@ export type Database = {
           contractor_type: string
           created_at: string
           deposit_overview_acknowledged: boolean
+          deposit_overview_acknowledged_at: string | null
           email: string
           id: string
           legal_first_name: string
           legal_last_name: string
           operator_id: string
           payroll_calendar_acknowledged: boolean
+          payroll_calendar_acknowledged_at: string | null
           phone: string
           submitted_at: string | null
           terms_accepted: boolean
@@ -404,12 +406,14 @@ export type Database = {
           contractor_type: string
           created_at?: string
           deposit_overview_acknowledged?: boolean
+          deposit_overview_acknowledged_at?: string | null
           email: string
           id?: string
           legal_first_name: string
           legal_last_name: string
           operator_id: string
           payroll_calendar_acknowledged?: boolean
+          payroll_calendar_acknowledged_at?: string | null
           phone: string
           submitted_at?: string | null
           terms_accepted?: boolean
@@ -427,12 +431,14 @@ export type Database = {
           contractor_type?: string
           created_at?: string
           deposit_overview_acknowledged?: boolean
+          deposit_overview_acknowledged_at?: string | null
           email?: string
           id?: string
           legal_first_name?: string
           legal_last_name?: string
           operator_id?: string
           payroll_calendar_acknowledged?: boolean
+          payroll_calendar_acknowledged_at?: string | null
           phone?: string
           submitted_at?: string | null
           terms_accepted?: boolean

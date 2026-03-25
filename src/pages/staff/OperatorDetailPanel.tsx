@@ -4390,22 +4390,28 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     {/* ── Doc Acknowledgments ── */}
                     <div className="flex items-start gap-3 px-5 py-3">
                       <span className="text-xs text-muted-foreground w-36 shrink-0 pt-0.5">Doc Acknowledgments</span>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-col gap-2">
                         {[
-                          { label: 'Payroll Deposit Overview', acked: !!ps.deposit_overview_acknowledged },
-                          { label: 'Payroll Calendar', acked: !!ps.payroll_calendar_acknowledged },
-                        ].map(({ label, acked }) => (
-                          <span
-                            key={label}
-                            className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
-                              acked
-                                ? 'bg-status-complete/10 text-status-complete border-status-complete/30'
-                                : 'bg-muted text-muted-foreground border-border'
-                            }`}
-                          >
-                            {acked ? <CheckCircle2 className="h-3 w-3 shrink-0" /> : <Clock className="h-3 w-3 shrink-0" />}
-                            {label} — {acked ? 'Acknowledged' : 'Not yet'}
-                          </span>
+                          { label: 'Payroll Deposit Overview', acked: !!ps.deposit_overview_acknowledged, ackedAt: ps.deposit_overview_acknowledged_at ?? null },
+                          { label: 'Payroll Calendar', acked: !!ps.payroll_calendar_acknowledged, ackedAt: ps.payroll_calendar_acknowledged_at ?? null },
+                        ].map(({ label, acked, ackedAt }) => (
+                          <div key={label} className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
+                                acked
+                                  ? 'bg-status-complete/10 text-status-complete border-status-complete/30'
+                                  : 'bg-muted text-muted-foreground border-border'
+                              }`}
+                            >
+                              {acked ? <CheckCircle2 className="h-3 w-3 shrink-0" /> : <Clock className="h-3 w-3 shrink-0" />}
+                              {label} — {acked ? 'Acknowledged' : 'Not yet'}
+                            </span>
+                            {acked && ackedAt && (
+                              <span className="text-[11px] text-muted-foreground">
+                                {new Date(ackedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                              </span>
+                            )}
+                          </div>
                         ))}
                       </div>
                     </div>
