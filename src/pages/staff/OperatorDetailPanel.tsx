@@ -1742,6 +1742,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           tooltip: status.go_live_date ? `Go Live: ${format(new Date(status.go_live_date + 'T12:00:00'), 'MMM d, yyyy')}` : 'Not started',
                           items: stages.find(s => s.key === 'stage7')?.items ?? [],
                         },
+                        {
+                          key: 'stage8', shortLabel: 'Pay',
+                          state: (paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted) ? 'complete' : paySetupRecord ? 'progress' : 'none',
+                          tooltip: (paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted) ? 'Pay Setup Complete' : paySetupRecord ? 'In Progress' : 'Not started',
+                          items: stages.find(s => s.key === 'stage8')?.items ?? [],
+                        },
                       ];
                       const dotCls: Record<StickyDotState, string> = {
                         complete:  'bg-status-complete border-status-complete/40',
