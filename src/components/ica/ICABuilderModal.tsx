@@ -57,6 +57,52 @@ type ICAData = {
 
 const STEPS = ['Equipment Info', 'Review ICA', 'Carrier Signature', 'Send to Operator'];
 
+// ── Auto-format helpers ───────────────────────────────────────────────────────
+function formatEIN(raw: string) {
+  const digits = raw.replace(/\D/g, '').slice(0, 9);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+}
+function formatSSN(raw: string) {
+  const digits = raw.replace(/\D/g, '').slice(0, 9);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+}
+function formatPhone(raw: string) {
+  const digits = raw.replace(/\D/g, '').slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+function FormField({ label, value, onChange, placeholder, type = 'text', span }: {
+  label: string; value: string; onChange: (v: string) => void;
+  placeholder?: string; type?: string; span?: number;
+}) {
+  return (
+    <div className={`space-y-1.5 ${span === 2 ? 'col-span-2' : ''}`}>
+      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
+      <Input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="h-9 text-sm" />
+    </div>
+  );
+}
+function MaskedField({ label, value, onChange, mask, placeholder, span }: {
+  label: string; value: string; onChange: (v: string) => void;
+  mask: 'ein' | 'ssn' | 'phone'; placeholder?: string; span?: number;
+}) {
+  const handleChange = (raw: string) => {
+    if (mask === 'ein') onChange(formatEIN(raw));
+    else if (mask === 'ssn') onChange(formatSSN(raw));
+    else onChange(formatPhone(raw));
+  };
+  return (
+    <div className={`space-y-1.5 ${span === 2 ? 'col-span-2' : ''}`}>
+      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
+      <Input type="text" inputMode="numeric" value={value} onChange={e => handleChange(e.target.value)} placeholder={placeholder} className="h-9 text-sm" />
+    </div>
+  );
+}
+
 export default function ICABuilderModal({
   operatorId, operatorName, operatorEmail, applicationData, onClose, onSent
 }: ICABuilderModalProps) {
@@ -598,59 +644,3 @@ export default function ICABuilderModal({
   );
 }
 
-// ── Auto-format helpers ───────────────────────────────────────────────────────
-function formatEIN(raw: string) {
-  const digits = raw.replace(/\D/g, '').slice(0, 9);
-  if (digits.length <= 2) return digits;
-  return `${digits.slice(0, 2)}-${digits.slice(2)}`;
-}
-
-function formatSSN(raw: string) {
-  const digits = raw.replace(/\D/g, '').slice(0, 9);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 5) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
-}
-
-function formatPhone(raw: string) {
-  const digits = raw.replace(/\D/g, '').slice(0, 10);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-}
-
-function MaskedField({ label, value, onChange, mask, placeholder, span }: {
-  label: string; value: string; onChange: (v: string) => void;
-  mask: 'ein' | 'ssn' | 'phone'; placeholder?: string; span?: number;
-}) {
-  const handleChange = (raw: string) => {
-    if (mask === 'ein') onChange(formatEIN(raw));
-    else if (mask === 'ssn') onChange(formatSSN(raw));
-    else onChange(formatPhone(raw));
-  };
-  return (
-    <div className={`space-y-1.5 ${span === 2 ? 'col-span-2' : ''}`}>
-      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
-      <Input
-        type="text"
-        inputMode="numeric"
-        value={value}
-        onChange={e => handleChange(e.target.value)}
-        placeholder={placeholder}
-        className="h-9 text-sm"
-      />
-    </div>
-  );
-}
-
-function FormField({ label, value, onChange, placeholder, type = 'text', span }: {
-  label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; type?: string; span?: number;
-}) {
-  return (
-    <div className={`space-y-1.5 ${span === 2 ? 'col-span-2' : ''}`}>
-      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
-      <Input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="h-9 text-sm" />
-    </div>
-  );
-}
