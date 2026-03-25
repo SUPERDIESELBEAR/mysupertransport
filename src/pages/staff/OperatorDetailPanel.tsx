@@ -1627,6 +1627,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               { label: 'First Dispatch Assigned',done: status.dispatch_ready_first_assigned },
               { label: 'Go-Live Date Set',       done: !!status.go_live_date },
             ]},
+          { label: 'Pay',        key: 'stage8', complete: !!(paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted), fullName: 'Contractor Pay Setup', items: [
+              { label: 'Docs Acknowledged',     done: !!(paySetupRecord?.deposit_overview_acknowledged && paySetupRecord?.payroll_calendar_acknowledged) },
+              { label: 'Pay Setup Submitted',   done: !!(paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted) },
+            ]},
         ];
         const completedCount = stages.filter(s => s.complete).length;
         const pct = Math.round((completedCount / stages.length) * 100);
