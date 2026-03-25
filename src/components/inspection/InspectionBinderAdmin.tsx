@@ -66,6 +66,12 @@ const UPLOAD_STATUS_LABELS: Record<string, string> = {
   needs_attention: 'Needs Attention',
 };
 
+const UPLOAD_CATEGORY_LABELS: Record<string, string> = {
+  roadside_inspection_report: 'Roadside Inspection Report',
+  repairs_maintenance_receipt: 'Repairs & Maintenance Receipt',
+  miscellaneous: 'Miscellaneous',
+};
+
 function UploadStatusBadge({ status }: { status: string }) {
   if (status === 'reviewed') return (
     <span className="inline-flex items-center gap-1 text-[10px] bg-status-complete/10 text-status-complete border border-status-complete/30 rounded-full px-2 py-0.5 font-semibold">
