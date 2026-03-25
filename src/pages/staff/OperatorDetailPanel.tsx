@@ -1369,6 +1369,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           { key: 'stage5', label: 'Equip', complete: _allEquipFull, exception: _exceptionActive && !_allEquipFull },
           { key: 'stage6', label: 'Ins',   complete: !!status.insurance_added_date },
           { key: 'stage7', label: 'Live',  complete: !!(status.go_live_date) },
+          { key: 'stage8', label: 'Pay',   complete: !!(paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted) },
         ];
         const _completedCount = _stageStatuses.filter(s => s.complete).length;
         const _pct = Math.round((_completedCount / _stageStatuses.length) * 100);
@@ -1626,6 +1627,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               { label: 'First Dispatch Assigned',done: status.dispatch_ready_first_assigned },
               { label: 'Go-Live Date Set',       done: !!status.go_live_date },
             ]},
+          { label: 'Pay',        key: 'stage8', complete: !!(paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted), fullName: 'Contractor Pay Setup', items: [
+              { label: 'Docs Acknowledged',     done: !!(paySetupRecord?.deposit_overview_acknowledged && paySetupRecord?.payroll_calendar_acknowledged) },
+              { label: 'Pay Setup Submitted',   done: !!(paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted) },
+            ]},
         ];
         const completedCount = stages.filter(s => s.complete).length;
         const pct = Math.round((completedCount / stages.length) * 100);
@@ -1736,6 +1741,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           state: status.go_live_date ? 'complete' : ([status.dispatch_ready_orientation, status.dispatch_ready_consortium, status.dispatch_ready_first_assigned].some(Boolean)) ? 'progress' : 'none',
                           tooltip: status.go_live_date ? `Go Live: ${format(new Date(status.go_live_date + 'T12:00:00'), 'MMM d, yyyy')}` : 'Not started',
                           items: stages.find(s => s.key === 'stage7')?.items ?? [],
+                        },
+                        {
+                          key: 'stage8', shortLabel: 'Pay',
+                          state: (paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted) ? 'complete' : paySetupRecord ? 'progress' : 'none',
+                          tooltip: (paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted) ? 'Pay Setup Complete' : paySetupRecord ? 'In Progress' : 'Not started',
+                          items: stages.find(s => s.key === 'stage8')?.items ?? [],
                         },
                       ];
                       const dotCls: Record<StickyDotState, string> = {
