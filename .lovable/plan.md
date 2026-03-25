@@ -1,58 +1,39 @@
 
-## Add Payroll Document Thumbnails to Stage 8 — Staff Panel
+## Plan: Payroll Doc Acknowledgment — Gating, Reordering & Staff Visibility
 
-### What "Two Items" Means
-The user uploaded two company-authored reference documents:
-1. **SUPERTRANSPORT Payroll Deposit Overview** (DOCX) — the written payroll policy
-2. **Supertransport Payroll Calendar** (PDF) — the payroll schedule
+### What needs to change
 
-These are not operator-uploaded files. They are company documents staff should be able to preview inline from the Stage 8 section of the Operator Detail Panel, so staff can confirm the operator has seen and acknowledged them.
+**1. Operator Portal — reorder & gate the form**
+Move the "Payroll Reference Documents" acknowledgment section to the top of Stage 8, before the Contractor Type / Legal Name / Contact Info fields. The form fields below will be visually disabled (grayed out, non-interactive) until both toggles are acknowledged. This makes the intent unmistakable: read first, then fill in details.
 
----
+**2. Database — persist acknowledgments**
+Add two boolean columns to `contractor_pay_setup`:
+- `deposit_overview_acknowledged` (boolean, default false)
+- `payroll_calendar_acknowledged` (boolean, default false)
 
-### What Will Be Built
+This allows the Staff Portal to display whether the operator has actually acknowledged each document, and ensures the acknowledgment survives page refreshes.
 
-In the **Stage 8 section** of `OperatorDetailPanel.tsx` (the "Uploaded Documents" area), add two **document thumbnail cards** that staff can click to expand into a readable in-panel lightbox/modal. No new files or database changes required.
-
-**Approach — Static URLs + Inline Lightbox:**
-- Upload both files to the `operator-documents` Supabase storage bucket as public company-level assets (path: `company-docs/payroll-deposit-overview.pdf` and `company-docs/payroll-calendar.pdf`)
-- In the Stage 8 section of the detail panel, render two document cards:
-  - A PDF-style thumbnail card with title, icon, and a "View" button
-  - Clicking either card opens a full-screen modal (Dialog) with an embedded `<iframe>` rendering the PDF at readable size
-  - Staff can also download or open in a new tab from the modal
-
-**Card Design:**
-```text
-┌─────────────────────────────────────────────────────────┐
-│  [PDF icon]  Payroll Deposit Overview          [View]   │
-│              PDF • Company document                     │
-└─────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────┐
-│  [PDF icon]  Payroll Calendar                  [View]   │
-│              PDF • Company document                     │
-└─────────────────────────────────────────────────────────┘
-```
-
-**Lightbox/Modal:**
-- Full-screen Dialog overlay (existing shadcn `Dialog` component)
-- `<iframe>` rendering the PDF, taking full modal height
-- Header bar with doc title, Download button, Open in New Tab button, and Close
-- Uses the same pattern as the existing `FilePreviewModal` memory
+**3. Staff Portal — acknowledgment status display**
+In the Stage 8 section of the Operator Detail Panel, add an "Operator Acknowledgments" row alongside the existing payroll info. Show each document with a green "Acknowledged" badge or a gray "Not yet" indicator so staff can confirm at a glance.
 
 ---
 
-### Files Changed (no new files)
+### Files to change
 
-**`src/pages/staff/OperatorDetailPanel.tsx`**
-- Add a `CompanyDocPreviewModal` inline component (small, ~50 lines) for the lightbox with iframe + controls
-- In the Stage 8 "Uploaded Documents" section, add a second sub-section titled "Payroll Reference Documents" with the two static cards above the operator's W-9 / Voided Check rows
-- The cards are always visible regardless of whether the operator has submitted (staff reference docs)
-
-The DOCX will be converted to PDF before uploading so it renders inline in the iframe. The two files are uploaded to storage as part of this implementation.
+- **Migration**: Add `deposit_overview_acknowledged` and `payroll_calendar_acknowledged` columns to `contractor_pay_setup`
+- **`src/components/operator/ContractorPaySetup.tsx`**:
+  - Move the "Payroll Reference Documents" card to the very top of the form (above Contractor Type)
+  - Add a conditional lock/dimmed state on all fields below until `allDocsAcknowledged === true`
+  - Save acknowledgment flags to the database on form submit (include them in the `payload`)
+- **`src/pages/staff/OperatorDetailPanel.tsx`**:
+  - Add an "Operator Acknowledgments" display row within the Stage 8 read-only section
+  - Show two labeled status chips (one per document): green "Acknowledged" or gray "Not yet"
 
 ---
 
-### No Changes To
-- Operator portal (ContractorPaySetup.tsx) — untouched
-- Database schema — no migrations needed
-- Any other stage or panel
+### Technical notes
+
+- The form fields below the docs section will use `pointer-events-none opacity-50` + an informational banner ("Acknowledge both documents above to unlock this form") until both toggles are on
+- Acknowledgment values are written to DB at submit time (not on toggle), keeping the existing single-submit flow
+- No new RLS changes needed — existing operator insert/update policies on `contractor_pay_setup` cover the new columns
+- Staff view reads the same `contractor_pay_setup` record already fetched, just surfaces the two new fields
