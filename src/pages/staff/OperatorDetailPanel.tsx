@@ -2007,6 +2007,30 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </div>
         <TooltipProvider delayDuration={150}>
           <div className="flex items-center gap-2 shrink-0">
+            {/* On Hold toggle — all staff */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => isOnHold ? handleRemoveOnHold() : (() => { setOnHoldModalReason(''); setOnHoldModalDate(new Date().toISOString().split('T')[0]); setShowOnHoldModal(true); })()}
+                  disabled={savingOnHold}
+                  className={isOnHold
+                    ? 'gap-2 text-blue-600 border-blue-400 bg-blue-50 hover:bg-blue-100 hover:text-blue-700'
+                    : 'gap-2 text-muted-foreground border-border hover:text-blue-600 hover:border-blue-400'
+                  }
+                >
+                  {savingOnHold
+                    ? <span className="h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent" />
+                    : <PauseCircle className="h-3.5 w-3.5" />
+                  }
+                  <span className="hidden sm:inline">{isOnHold ? 'Remove Hold' : 'Place On Hold'}</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {isOnHold ? 'Remove On Hold status and return to active pipeline' : 'Place operator on hold with a reason'}
+              </TooltipContent>
+            </Tooltip>
             {/* Deactivate / Reactivate — management only */}
             {isManagement && (
               <Tooltip>
@@ -2033,56 +2057,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </TooltipContent>
               </Tooltip>
             )}
-            {operatorEmail && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleResendInvite}
-                    disabled={resendingInvite}
-                    className="gap-2 text-muted-foreground hover:text-foreground"
-                  >
-                    {resendingInvite
-                      ? <span className="h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent" />
-                      : inviteResent
-                      ? <Check className="h-3.5 w-3.5 text-status-complete" />
-                      : <Send className="h-3.5 w-3.5" />
-                    }
-                    <span className="hidden sm:inline">{inviteResent ? 'Invite Sent' : 'Resend Invite'}</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {inviteResent ? '✓ Invitation sent to ' + operatorEmail : 'Resend invitation email to ' + operatorEmail}
-                </TooltipContent>
-              </Tooltip>
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={handleSave} disabled={saving} className="bg-gold text-surface-dark font-semibold hover:bg-gold-light gap-2 shrink-0">
-                  <Save className="h-4 w-4" />
-                  {saving ? 'Saving…' : 'Save Changes'}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs flex items-center gap-1.5">
-                <span className="text-muted-foreground">Keyboard shortcut:</span>
-                <kbd className="px-1 py-0.5 rounded border border-border bg-muted text-foreground font-mono text-[10px] leading-none">
-                  {navigator.platform.startsWith('Mac') ? '⌘S' : 'Ctrl+S'}
-                </kbd>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </TooltipProvider>
-      </div>
-
-      {/* Status overview */}
-      <div className="flex flex-wrap gap-2">
-        {!isActive && <Badge className="bg-muted text-muted-foreground border text-xs">⊘ Inactive</Badge>}
-        {isAlert && <Badge className="status-action border text-xs">⚠ Alert — Review Required</Badge>}
-        {status.fully_onboarded && <Badge className="status-complete border text-xs">✓ Fully Onboarded</Badge>}
-        {status.ica_status === 'complete' && <Badge className="status-complete border text-xs">ICA Signed</Badge>}
-        {status.pe_screening_result === 'clear' && <Badge className="status-complete border text-xs">PE Clear</Badge>}
-      </div>
 
       {/* ── Deactivate Confirmation Dialog ── */}
       <AlertDialog open={showDeactivateConfirm} onOpenChange={open => { if (!open) setDeactivateReason(''); setShowDeactivateConfirm(open); }}>
