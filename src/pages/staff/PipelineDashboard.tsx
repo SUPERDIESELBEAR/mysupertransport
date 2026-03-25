@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw, FileClock, Check } from 'lucide-react';
+import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw, FileClock, Check, PauseCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { differenceInDays, parseISO, format, formatDistanceToNowStrict } from 'date-fns';
@@ -306,6 +306,10 @@ interface OperatorRow {
   pay_setup_submitted: string;
   progress_pct: number;
   onboarding_updated_at: string | null;
+  // On Hold fields
+  on_hold: boolean;
+  on_hold_reason: string | null;
+  on_hold_date: string | null;
 }
 
 interface StaffOption {
@@ -550,6 +554,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [exceptionFilter, setExceptionFilter] = useState(false);
   // Stage node filter: filter to operators who have specific stage(s) NOT complete (multi-select)
   const [stageNodeFilters, setStageNodeFilters] = useState<Set<string>>(new Set());
+  // On Hold section collapsed state
+  const [onHoldExpanded, setOnHoldExpanded] = useState(true);
 
   const toggleStageNodeFilter = (key: string) => {
     setStageNodeFilters(prev => {
@@ -871,6 +877,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         user_id,
         created_at,
         assigned_onboarding_staff,
+        on_hold,
+        on_hold_reason,
+        on_hold_date,
         applications ( email ),
         onboarding_status (
           mvr_status,
@@ -1029,6 +1038,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         pay_setup_submitted: paySetupSubmitted,
         progress_pct: 0, // placeholder; real % computed in StageTrack from pipeline_config
         onboarding_updated_at: os.updated_at ?? null,
+        on_hold: op.on_hold ?? false,
+        on_hold_reason: op.on_hold_reason ?? null,
+        on_hold_date: op.on_hold_date ?? null,
       };
     });
     setOperators(rows);
@@ -1493,7 +1505,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           return !cfg.items.every(item => evalItem(op, item.field, item.complete_value));
         });
       })();
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchException && matchStageNode;
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchException && matchStageNode && !op.on_hold;
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
@@ -3169,6 +3181,86 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           </table>
         </div>
       </div>
+
+      {/* ─── On Hold Section ──────────────────────────────────────────────── */}
+      {(() => {
+        const onHoldOps = operators.filter(op => op.on_hold);
+        if (onHoldOps.length === 0) return null;
+        return (
+          <div className="rounded-xl border border-border shadow-sm overflow-hidden">
+            {/* Header */}
+            <button
+              onClick={() => setOnHoldExpanded(v => !v)}
+              className="w-full flex items-center gap-3 px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
+            >
+              <PauseCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-sm font-semibold text-foreground">On Hold</span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-muted text-muted-foreground border border-border ml-0.5">
+                {onHoldOps.length}
+              </span>
+              <span className="ml-2 text-xs text-muted-foreground font-normal">
+                Operators paused — not currently progressing through onboarding
+              </span>
+              <div className="ml-auto shrink-0">
+                {onHoldExpanded
+                  ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </div>
+            </button>
+
+            {onHoldExpanded && (
+              <div className="divide-y divide-border bg-background">
+                {onHoldOps.map(op => {
+                  const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Unknown Operator';
+                  return (
+                    <div key={op.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/20 transition-colors">
+                      {/* Pause icon */}
+                      <PauseCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+
+                      {/* Name */}
+                      <button
+                        onClick={() => onOpenOperator(op.id)}
+                        className="font-medium text-sm text-foreground hover:text-gold hover:underline underline-offset-2 transition-colors text-left shrink-0"
+                      >
+                        {name}
+                      </button>
+
+                      {/* Hold date */}
+                      {op.on_hold_date && (
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          Since {format(parseISO(op.on_hold_date), 'MMM d, yyyy')}
+                        </span>
+                      )}
+
+                      {/* Reason */}
+                      {op.on_hold_reason && (
+                        <span className="text-xs text-muted-foreground italic truncate max-w-xs">
+                          "{op.on_hold_reason}"
+                        </span>
+                      )}
+
+                      {/* Progress track */}
+                      <div className="ml-auto shrink-0 hidden lg:block">
+                        <StageTrack op={op} stageConfigs={stageConfigs} onNodeClick={onOpenOperatorAtStage} />
+                      </div>
+
+                      {/* Open button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onOpenOperator(op.id)}
+                        className="text-gold hover:text-gold-light hover:bg-gold/10 text-xs shrink-0"
+                      >
+                        Open →
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
     </div>
   );
