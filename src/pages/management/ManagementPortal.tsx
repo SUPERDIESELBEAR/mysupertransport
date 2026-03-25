@@ -690,6 +690,7 @@ export default function ManagementPortal() {
     { label: 'Activity',          icon: <ScrollText className="h-4 w-4" />,      path: 'activity' },
     { label: 'Equipment',         icon: <HardDrive className="h-4 w-4" />,       path: 'equipment' },
     { label: 'Email Catalog',     icon: <Mail className="h-4 w-4" />,            path: 'email-catalog' },
+    { label: 'Forms Catalog',     icon: <FileText className="h-4 w-4" />,         path: 'forms-catalog' },
     { label: 'Demo Mode',         icon: <GraduationCap className="h-4 w-4" />,   path: '__demo__' },
   ];
 
