@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, User,
-  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, FolderOpen,
+  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, FolderOpen, Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,20 @@ import {
 } from '@/components/ui/alert-dialog';
 import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS } from './InspectionBinderTypes';
 import { ExpiryBadge, FilePreviewModal } from './DocRow';
+
+type DriverUploadCategory = 'roadside_inspection_report' | 'repairs_maintenance_receipt' | 'miscellaneous';
+
+const UPLOAD_CATEGORY_LABELS: Record<DriverUploadCategory, string> = {
+  roadside_inspection_report: 'Roadside Inspection Report',
+  repairs_maintenance_receipt: 'Repairs & Maintenance Receipt',
+  miscellaneous: 'Miscellaneous',
+};
+
+const STAFF_UPLOAD_SECTIONS: { key: DriverUploadCategory; label: string }[] = [
+  { key: 'roadside_inspection_report', label: 'Roadside Inspection Report' },
+  { key: 'repairs_maintenance_receipt', label: 'Repairs & Maintenance Receipt' },
+  { key: 'miscellaneous', label: 'Miscellaneous Document' },
+];
 
 interface Props {
   /** auth.uid() of the operator/driver */
@@ -147,6 +161,36 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
     await supabase.from('driver_uploads').update({ status, reviewed_at: new Date().toISOString(), reviewed_by: user?.id }).eq('id', uploadId);
     toast({ title: 'Status updated', description: `Marked as ${UPLOAD_STATUS_LABELS[status]}.` });
     fetchDocs();
+  };
+
+  const staffUploadRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [staffUploading, setStaffUploading] = useState<string | null>(null);
+
+  const handleStaffUpload = async (category: DriverUploadCategory, file: File) => {
+    if (!user) return;
+    if (guardDemo()) return;
+    setStaffUploading(category);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${driverUserId}/${category}/${Date.now()}.${ext}`;
+      const { error: storageErr } = await supabase.storage.from('driver-uploads').upload(path, file);
+      if (storageErr) throw storageErr;
+      const { data: urlData } = await supabase.storage.from('driver-uploads').createSignedUrl(path, 60 * 60 * 24 * 365);
+      await supabase.from('driver_uploads').insert({
+        driver_id: driverUserId,
+        category,
+        file_url: urlData?.signedUrl ?? null,
+        file_path: path,
+        file_name: file.name,
+        status: 'reviewed',
+      });
+      toast({ title: 'Uploaded!', description: `${UPLOAD_CATEGORY_LABELS[category]} uploaded successfully.` });
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setStaffUploading(null);
+    }
   };
 
   const DocRow = ({ docName, hasExpiry }: { docName: string; hasExpiry: boolean }) => {
@@ -306,10 +350,42 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
 
             {/* Driver Uploads */}
             {activeTab === 'uploads' && (
-              <div className="space-y-3">
+              <div className="space-y-4">
+                {/* Staff Upload Section */}
+                <div className="rounded-xl border border-border bg-secondary/40 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-foreground">Upload on behalf of driver</p>
+                  <div className="flex flex-wrap gap-2">
+                    {STAFF_UPLOAD_SECTIONS.map(({ key, label }) => (
+                      <div key={key}>
+                        <input
+                          ref={el => { staffUploadRefs.current[key] = el; }}
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          className="hidden"
+                          onChange={e => { const f = e.target.files?.[0]; if (f) handleStaffUpload(key, f); e.target.value = ''; }}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 gap-1.5 text-xs"
+                          disabled={staffUploading === key}
+                          onClick={() => staffUploadRefs.current[key]?.click()}
+                        >
+                          {staffUploading === key
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <Plus className="h-3 w-3" />
+                          }
+                          {label}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Uploads list */}
                 {driverUploads.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground text-sm border border-dashed border-border rounded-xl">
-                    No uploads from this driver yet.
+                    No uploads yet.
                   </div>
                 ) : (
                   driverUploads.map(upload => (

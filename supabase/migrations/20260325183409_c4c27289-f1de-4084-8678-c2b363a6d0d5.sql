@@ -1,0 +1,1 @@
+ALTER TYPE public.driver_upload_category ADD VALUE IF NOT EXISTS 'miscellaneous';
