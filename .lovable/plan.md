@@ -1,101 +1,50 @@
 
-## What I Now Know
+## Remove Extra Signature Line Above Date
 
-**Step 8 (Disclosures) contains exactly 4 sections that will become standalone PDF documents:**
+The current signature block (lines 100–134) has this layout:
 
-1. **Fair Credit Reporting Act Authorization** — static legal text (no checkboxes, implicit acceptance via signature)
-2. **Pre-Employment Authorizations** — 3 checkboxes (auth_safety_history, auth_drug_alcohol, auth_previous_employers)
-3. **DOT Drug & Alcohol Pre-Employment Questions** — 2 radio questions (dot_positive_test_past_2yr, dot_return_to_duty_docs)
-4. **Certificate of Receipt — Company Testing Policy** — scrollable text + 1 checkbox (testing_policy_accepted)
-
-**Applicant workflow:** Stays embedded in Step 8 — no change to the applicant experience. Sections remain visible and required.
-
-**PDF download:** New "Documents" tab inside the Application Review drawer (staff/management only).
-
-**PDF generation strategy:** On-demand in the browser using a React-rendered print-to-PDF approach, or using an edge function with HTML→PDF rendering. The cleanest approach for this stack is an **edge function** that receives the application data and returns a PDF blob using `reportlab`-style HTML rendering, OR a **client-side approach** using a hidden printable React component per document.
-
-The most pragmatic approach here — given we have no Python runtime in the client — is a **client-side approach**: for each of the 4 documents, create a React component that renders the document in print-ready HTML, then uses `window.print()` scoped to just that component (via a hidden iframe or a dedicated print stylesheet). This avoids needing a new edge function and produces a clean letter-format PDF.
-
----
-
-## Plan
-
-### 4 New Document Components
-Create `src/components/application/documents/` folder with:
-
-1. `FCRAAuthorizationDoc.tsx` — Renders the FCRA text with applicant name, signed date, and signature image
-2. `PreEmploymentAuthorizationsDoc.tsx` — Renders the 3 authorization checkboxes/statements with signature
-3. `DOTDrugAlcoholQuestionsDoc.tsx` — Renders the 2 DOT drug/alcohol questions with applicant answers and signature
-4. `CompanyTestingPolicyCertDoc.tsx` — Renders the full company policy text + acceptance with signature
-
-Each document component renders as a letter-format page with:
-- SUPERTRANSPORT header (company name/logo text)
-- Document title
-- Applicant name, signed date
-- Relevant content/answers
-- Signature image at bottom
-
-### PDF Print Utility
-Create `src/lib/printDocument.ts` — a helper function that takes a React component, renders it into a hidden `<div>`, and triggers a scoped `window.print()` via a temporary `<style>` tag that hides everything except the target element. This is a well-established pattern for client-side PDF generation via the browser's native print-to-PDF dialog.
-
-```typescript
-// Approach: inject print CSS that only shows the target element
-export function printElement(elementId: string, title: string) {
-  const style = document.createElement('style');
-  style.id = '__print_scope__';
-  style.innerHTML = `
-    @media print {
-      body > *:not(#${elementId}) { display: none !important; }
-      #${elementId} { display: block !important; }
-    }
-  `;
-  document.head.appendChild(style);
-  document.title = title;
-  window.print();
-  document.head.removeChild(style);
-}
+```text
+[ Signature image/line ]   [ Date ]
+[ Name (Please Print) ]              ← this is BELOW date
 ```
 
-### New "Documents" Tab in ApplicationReviewDrawer
-Add a tab strip to the drawer: **Overview** (all existing content) | **Documents** (new tab)
+But there is also an applicant info box at the top (lines 39–54) which already shows the signed date. Looking at the signature block, the structure is:
 
-The Documents tab shows 4 cards:
-```
-┌─────────────────────────────────────────────────┐
-│ 📄 FCRA Authorization              [Download PDF] │
-│ 📄 Pre-Employment Authorizations   [Download PDF] │
-│ 📄 DOT Drug & Alcohol Questions    [Download PDF] │
-│ 📄 Certificate of Receipt          [Download PDF] │
-└─────────────────────────────────────────────────┘
-```
+- Row 1: Signature (flex: 2) + Date (flex: 1) — side by side
+- Row 2: Name (Please Print) — below, spanning full width
 
-Each "Download PDF" button renders the corresponding document component into a hidden container and triggers the print dialog scoped to that document only.
+The user says there is "an extra signature line above the date section." Looking at the layout, the Signature field and Date field are on the same row (flex row, `alignItems: 'flex-end'`). There's no explicit second signature line above the date — but the blank `<div style={{ borderBottom: '1px solid #000', height: '50px' }} />` at line 116 (the empty signature placeholder when there's no signature image) could be perceived as an extra line.
 
-### Files to create/modify
-- **Create** `src/components/application/documents/FCRAAuthorizationDoc.tsx`
-- **Create** `src/components/application/documents/PreEmploymentAuthorizationsDoc.tsx`
-- **Create** `src/components/application/documents/DOTDrugAlcoholQuestionsDoc.tsx`
-- **Create** `src/components/application/documents/CompanyTestingPolicyCertDoc.tsx`
-- **Create** `src/lib/printDocument.ts`
-- **Modify** `src/components/management/ApplicationReviewDrawer.tsx` — add tab navigation + Documents tab content with hidden print containers
+More likely, the user sees the printed document and the "Signature" line and "Date" are stacked in a way that looks like there are two lines before the Date. The document needs to be looked at more carefully.
 
-### No database changes needed
-All data already exists in the `applications` table. No new columns, no new tables, no migrations required.
+Looking at the structure again:
+- Lines 101-127: A flex row with [Signature (flex:2)] and [Date (flex:1)]
+- Lines 128-133: Name (Please Print) row below
 
-### Technical Details
+The "extra signature line above the date section" most likely refers to the **Signature** field that appears in the same flex row as Date — when the document is printed on letter paper, the Signature + Date flex row appears, and the user sees the signature blank line as an "extra" line above the date. 
 
-**Print scoping approach:**
-Each document component will have a unique `id` attribute (e.g., `id="doc-fcra-print"`). Clicking "Download PDF" will:
-1. Mount the doc component in a hidden off-screen `div` (already mounted, just hidden with `display:none`)
-2. Toggle its visibility and apply print-only CSS
-3. Call `window.print()`
-4. Restore the hidden state
+Actually re-reading the user's request: "remove the extra signature line **above the date section**". The date section is likely the full row (Signature + Date). So there might be something above that row.
 
-The document components will use `@page { size: letter; margin: 1in; }` CSS for proper letter formatting.
+Looking again at the file: the signature block starts at line 100 with `marginTop: '0.4in'`. Before that is the Authorization section (lines 78-97). There's nothing explicitly "above" the date section that looks like an extra signature line in the code.
 
-**Each document will render:**
-- Company header (SUPERTRANSPORT, USDOT/MC numbers if available, otherwise just company name)
-- Document title + date generated
-- Applicant: full name, DOB if available, signed date
-- Body content (the relevant section text + the applicant's answers/authorizations)
-- Signature image block at bottom with typed name and date
+Wait — looking at the applicant info box at lines 39-54, it has "Signed Date" field in the top info block. Then at the bottom there's also a Date field in the signature block. These two date fields might be what's confusing — but that's not a signature line.
+
+Most likely interpretation: The **signature line** (the blank line/image) appears **in the same row** as the date, but the user sees the layout as having the signature line appearing above where the date sits (since signature flex:2 and date flex:1 are side by side but the signature is taller). The user wants the signature section removed from this row — keeping only the Date and Name (Please Print) fields.
+
+OR — looking at this from the actual printed view perspective, the flex row shows:
+1. Signature block (left, large)
+2. Date (right, smaller)
+
+The "extra signature line above the date section" = the signature line itself that sits visually above/beside the date. The user wants to remove the **Signature** row entirely, leaving only:
+- Date
+- Name (Please Print)
+
+This makes the most sense since the applicant's name and signed date are already captured in the info box at the top, and the Step 9 of the application already captures the actual signature.
+
+**Plan**: Remove the Signature image/blank line from the signature block (lines 101-120), keeping only the Date and Name (Please Print) fields. Restructure the bottom signature block to show Date and Name side by side or stacked without the signature drawing line.
+
+Actually, let me reconsider. The user said "the extra signature line **above the date section**." If Signature and Date are side by side in a flex row, neither is "above" the other. So maybe the layout renders them stacked on the printed page — or the user is describing it differently.
+
+The simplest and clearest interpretation: remove the Signature line/image element from the signature block, keeping Date and Name (Please Print). This removes what appears as an extra line before the date.
+
+**Change**: In `PreEmploymentAuthorizationsDoc.tsx`, remove the entire Signature block (lines 101-120) from the flex row, and adjust the remaining Date and Name fields accordingly.
