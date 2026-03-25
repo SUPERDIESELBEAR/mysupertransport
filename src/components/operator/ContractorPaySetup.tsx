@@ -157,6 +157,11 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
         setPhone(row.phone);
         setEmail(row.email);
         setTermsAccepted(row.terms_accepted);
+        // Restore persisted acknowledgments
+        setDocAcknowledged({
+          deposit_overview: row.deposit_overview_acknowledged ?? false,
+          payroll_calendar: row.payroll_calendar_acknowledged ?? false,
+        });
       } else {
         // Pre-fill from profile
         setFirstName(profile?.first_name ?? '');
