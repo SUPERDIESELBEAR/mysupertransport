@@ -1055,9 +1055,6 @@ export default function OperatorPortal() {
                 fuel_card_number: onboardingStatus.fuel_card_number as string | null,
               }}
             />
-                </div>
-              </div>
-            )}
 
             {/* ── CONTACT SECTION ── */}
             <div className="rounded-xl border border-border bg-card p-5 space-y-4">
