@@ -168,10 +168,11 @@ export default function ICABuilderModal({
         carrierSigUrl = await uploadSignature(carrierSigRef, 'carrier');
       }
 
+      const { equipment_location_city, equipment_location_state, ...restData } = data;
       const payload = {
         operator_id: operatorId,
-        ...data,
-        equipment_location: [data.equipment_location_city, data.equipment_location_state].filter(Boolean).join(', ') || null,
+        ...restData,
+        equipment_location: [equipment_location_city, equipment_location_state].filter(Boolean).join(', ') || null,
         lease_effective_date: data.lease_effective_date || null,
         lease_termination_date: data.lease_termination_date || null,
         carrier_typed_name: carrierTypedName || null,
@@ -217,10 +218,11 @@ export default function ICABuilderModal({
         carrierSigUrl = await uploadSignature(carrierSigRef, 'carrier');
       }
 
+      const { equipment_location_city: _city2, equipment_location_state: _state2, ...restData2 } = data;
       const payload = {
         operator_id: operatorId,
-        ...data,
-        equipment_location: [data.equipment_location_city, data.equipment_location_state].filter(Boolean).join(', ') || null,
+        ...restData2,
+        equipment_location: [_city2, _state2].filter(Boolean).join(', ') || null,
         lease_effective_date: data.lease_effective_date || null,
         lease_termination_date: data.lease_termination_date || null,
         carrier_typed_name: carrierTypedName,
@@ -311,7 +313,8 @@ export default function ICABuilderModal({
     if (guardDemo()) return;
     setSaving(true);
     try {
-      const payload = { operator_id: operatorId, ...data, equipment_location: [data.equipment_location_city, data.equipment_location_state].filter(Boolean).join(', ') || null, lease_effective_date: data.lease_effective_date || null, lease_termination_date: data.lease_termination_date || null, status: 'draft' };
+      const { equipment_location_city: _city3, equipment_location_state: _state3, ...restData3 } = data;
+      const payload = { operator_id: operatorId, ...restData3, equipment_location: [_city3, _state3].filter(Boolean).join(', ') || null, lease_effective_date: data.lease_effective_date || null, lease_termination_date: data.lease_termination_date || null, status: 'draft' };
       let result;
       if (contractId) {
         result = await supabase.from('ica_contracts' as any).update(payload).eq('id', contractId).select().single();
