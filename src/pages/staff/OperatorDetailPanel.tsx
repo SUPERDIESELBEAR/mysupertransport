@@ -1119,7 +1119,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             insurance_added_date: status.insurance_added_date,
             unit_number: status.unit_number ?? null,
           },
-        }).then(({ error }) => { if (error) console.error('[audit] onboarding_completed:', error); });
+        }).then(({ error }) => { if (error) {} });
       }
 
       // ── Write audit log for insurance field changes ───────────────────
