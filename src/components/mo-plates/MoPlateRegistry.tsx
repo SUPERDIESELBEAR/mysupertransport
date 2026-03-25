@@ -280,11 +280,11 @@ export default function MoPlateRegistry() {
 
       {/* Summary counts */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Total Plates',  value: counts.all,        color: 'text-foreground',         bg: 'bg-muted/50' },
-          { label: 'Assigned',      value: counts.assigned,   color: 'text-primary',            bg: 'bg-primary/8' },
-          { label: 'Available',     value: counts.available,  color: 'text-status-complete',    bg: 'bg-status-complete/10' },
-          { label: 'Lost/Stolen',   value: counts.lost_stolen,color: 'text-destructive',        bg: 'bg-destructive/10' },
+      {[
+          { label: 'Total Plates',   value: counts.all,          color: 'text-foreground',         bg: 'bg-muted/50' },
+          { label: 'Assigned',       value: counts.assigned,     color: 'text-primary',            bg: 'bg-primary/8' },
+          { label: 'Available',      value: counts.available,    color: 'text-status-complete',    bg: 'bg-status-complete/10' },
+          { label: 'Exp. / Renewing',value: counts.expiring_soon,color: 'text-status-warning',     bg: 'bg-status-warning/10' },
         ].map(s => (
           <div key={s.label} className={`rounded-xl border border-border p-3 sm:p-4 ${s.bg}`}>
             <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
