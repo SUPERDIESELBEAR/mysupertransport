@@ -380,11 +380,13 @@ export type Database = {
           business_name: string | null
           contractor_type: string
           created_at: string
+          deposit_overview_acknowledged: boolean
           email: string
           id: string
           legal_first_name: string
           legal_last_name: string
           operator_id: string
+          payroll_calendar_acknowledged: boolean
           phone: string
           submitted_at: string | null
           terms_accepted: boolean
@@ -401,11 +403,13 @@ export type Database = {
           business_name?: string | null
           contractor_type: string
           created_at?: string
+          deposit_overview_acknowledged?: boolean
           email: string
           id?: string
           legal_first_name: string
           legal_last_name: string
           operator_id: string
+          payroll_calendar_acknowledged?: boolean
           phone: string
           submitted_at?: string | null
           terms_accepted?: boolean
@@ -422,11 +426,13 @@ export type Database = {
           business_name?: string | null
           contractor_type?: string
           created_at?: string
+          deposit_overview_acknowledged?: boolean
           email?: string
           id?: string
           legal_first_name?: string
           legal_last_name?: string
           operator_id?: string
+          payroll_calendar_acknowledged?: boolean
           phone?: string
           submitted_at?: string | null
           terms_accepted?: boolean
