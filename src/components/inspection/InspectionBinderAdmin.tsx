@@ -66,6 +66,12 @@ const UPLOAD_STATUS_LABELS: Record<string, string> = {
   needs_attention: 'Needs Attention',
 };
 
+const UPLOAD_CATEGORY_LABELS: Record<string, string> = {
+  roadside_inspection_report: 'Roadside Inspection Report',
+  repairs_maintenance_receipt: 'Repairs & Maintenance Receipt',
+  miscellaneous: 'Miscellaneous',
+};
+
 function UploadStatusBadge({ status }: { status: string }) {
   if (status === 'reviewed') return (
     <span className="inline-flex items-center gap-1 text-[10px] bg-status-complete/10 text-status-complete border border-status-complete/30 rounded-full px-2 py-0.5 font-semibold">
@@ -1469,8 +1475,8 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{upload.file_name ?? 'Document'}</p>
-                          <p className="text-xs text-muted-foreground capitalize">
-                            {upload.category.replace(/_/g, ' ')} · {new Date(upload.uploaded_at).toLocaleDateString()}
+                          <p className="text-xs text-muted-foreground">
+                            {UPLOAD_CATEGORY_LABELS[upload.category] ?? upload.category.replace(/_/g, ' ')} · {new Date(upload.uploaded_at).toLocaleDateString()}
                           </p>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
