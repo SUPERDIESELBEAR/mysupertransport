@@ -1207,6 +1207,8 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         <span className="inline-flex items-center gap-1 text-[10px] text-destructive font-medium"><span className="h-2 w-2 rounded-full bg-destructive inline-block" />Expired</span>
         <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground font-medium"><span className="h-2 w-2 rounded-full bg-muted-foreground/40 inline-block" />No File — awaiting upload</span>
       </div>
+
+      {loading ? (
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}
         </div>
