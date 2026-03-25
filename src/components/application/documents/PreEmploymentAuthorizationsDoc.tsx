@@ -96,28 +96,31 @@ export default function PreEmploymentAuthorizationsDoc({ app }: Props) {
         </div>
       </div>
 
-      {/* Signature block — Row 1: Date */}
-      <div style={{ marginTop: '0.4in', maxWidth: '40%' }}>
-        <div style={{ borderBottom: '1px solid #000', paddingBottom: '4px', fontWeight: 'bold', fontSize: '12px' }}>
-          {signedDate}
+      {/* Signature block — stacked labeled fields matching source document */}
+      <div style={{ marginTop: '0.4in', fontSize: '12px', lineHeight: '2' }}>
+        {/* Date */}
+        <div style={{ marginBottom: '16px' }}>
+          <span>Date: </span>
+          <span style={{ fontWeight: 'bold' }}>{signedDate}</span>
         </div>
-        <div style={{ paddingTop: '4px', fontSize: '11px', color: '#444' }}>Date</div>
-      </div>
-      {/* Row 2: Signature */}
-      <div style={{ marginTop: '0.2in' }}>
-        {app.signature_image_url ? (
-          <img src={app.signature_image_url} alt="Signature" style={{ height: '48px', maxWidth: '100%', display: 'block', marginBottom: '2px' }} />
-        ) : (
-          <div style={{ borderBottom: '1px solid #000', height: '48px' }} />
-        )}
-        <div style={{ paddingTop: '4px', fontSize: '11px', color: '#444' }}>Signature</div>
-      </div>
-      {/* Row 3: Name (Please Print) */}
-      <div style={{ marginTop: '0.2in' }}>
-        <div style={{ borderBottom: '1px solid #000', paddingBottom: '4px', fontWeight: 'bold', fontSize: '12px' }}>
-          {app.typed_full_name || fullName}
+        {/* Signature */}
+        <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
+          <span style={{ whiteSpace: 'nowrap' }}>Signature: </span>
+          <div style={{ flex: 1, maxWidth: '360px' }}>
+            {app.signature_image_url ? (
+              <img src={app.signature_image_url} alt="Signature" style={{ height: '40px', maxWidth: '100%', display: 'block' }} />
+            ) : (
+              <div style={{ borderBottom: '1px solid #000', height: '40px' }} />
+            )}
+          </div>
         </div>
-        <div style={{ paddingTop: '4px', fontSize: '11px', color: '#444' }}>Name (Please Print)</div>
+        {/* Name (Please Print) */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
+          <span style={{ whiteSpace: 'nowrap' }}>Name (Please Print): </span>
+          <div style={{ flex: 1, maxWidth: '320px', borderBottom: '1px solid #000', paddingBottom: '2px', fontWeight: 'bold' }}>
+            {app.typed_full_name || fullName}
+          </div>
+        </div>
       </div>
 
       {/* NOTICE */}
