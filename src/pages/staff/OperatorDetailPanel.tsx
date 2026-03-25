@@ -1232,6 +1232,67 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
   };
 
+  const handleSaveOnHold = async () => {
+    if (!onHoldModalReason.trim()) {
+      toast({ title: 'Reason required', description: 'Please enter a reason for placing this operator on hold.', variant: 'destructive' });
+      return;
+    }
+    setSavingOnHold(true);
+    try {
+      const { error } = await supabase
+        .from('operators')
+        .update({ on_hold: true, on_hold_reason: onHoldModalReason.trim(), on_hold_date: onHoldModalDate } as any)
+        .eq('id', operatorId);
+      if (error) throw error;
+      setIsOnHold(true);
+      setOnHoldReason(onHoldModalReason.trim());
+      setOnHoldDate(onHoldModalDate);
+      setShowOnHoldModal(false);
+      void supabase.from('audit_log' as any).insert({
+        actor_id: session?.user?.id ?? null,
+        actor_name: null,
+        action: 'operator_placed_on_hold',
+        entity_type: 'operator',
+        entity_id: operatorId,
+        entity_label: operatorName,
+        metadata: { reason: onHoldModalReason.trim(), on_hold_date: onHoldModalDate },
+      });
+      toast({ title: 'Operator placed on hold', description: `${operatorName} is now marked as On Hold.` });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingOnHold(false);
+    }
+  };
+
+  const handleRemoveOnHold = async () => {
+    setSavingOnHold(true);
+    try {
+      const { error } = await supabase
+        .from('operators')
+        .update({ on_hold: false, on_hold_reason: null, on_hold_date: null } as any)
+        .eq('id', operatorId);
+      if (error) throw error;
+      setIsOnHold(false);
+      setOnHoldReason('');
+      setOnHoldDate(null);
+      void supabase.from('audit_log' as any).insert({
+        actor_id: session?.user?.id ?? null,
+        actor_name: null,
+        action: 'operator_removed_from_hold',
+        entity_type: 'operator',
+        entity_id: operatorId,
+        entity_label: operatorName,
+        metadata: {},
+      });
+      toast({ title: 'On Hold status removed', description: `${operatorName} has been returned to the active pipeline.` });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingOnHold(false);
+    }
+  };
+
   const updateStatus = (field: keyof OnboardingStatus, value: string | null) => {
     setStatus(prev => ({ ...prev, [field]: value }));
   };
