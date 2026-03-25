@@ -15,8 +15,22 @@ import { format } from 'date-fns';
 import {
   Plus, Search, Loader2, Car, CheckCircle2, UserCheck,
   AlertTriangle, Archive, History, Pencil, RotateCcw,
-  RefreshCcw, Trash2, UserX,
+  RefreshCcw, Trash2, UserX, CalendarClock,
 } from 'lucide-react';
+
+// ── Expiry helpers (mirrors Inspection Binder logic) ──────────────────────────
+function getExpiryStatus(expiresAt: string | null): 'valid' | 'expiring_soon' | 'expired' | null {
+  if (!expiresAt) return null;
+  const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+  if (days < 0) return 'expired';
+  if (days <= 30) return 'expiring_soon';
+  return 'valid';
+}
+
+function daysUntilExpiry(expiresAt: string | null): number | null {
+  if (!expiresAt) return null;
+  return Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+}
 import MoPlateFormModal, { type MoPlate } from './MoPlateFormModal';
 import MoPlateAssignModal from './MoPlateAssignModal';
 import MoPlateHistoryModal from './MoPlateHistoryModal';
