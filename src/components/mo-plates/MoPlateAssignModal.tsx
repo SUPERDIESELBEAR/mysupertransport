@@ -22,23 +22,30 @@ interface Props {
   onClose: () => void;
   onSaved: () => void;
   plate: MoPlate | null;
+  transferFromDriver?: string | null;
 }
 
-export default function MoPlateAssignModal({ open, onClose, onSaved, plate }: Props) {
+export default function MoPlateAssignModal({ open, onClose, onSaved, plate, transferFromDriver }: Props) {
   const { toast } = useToast();
   const { session } = useAuth();
   const [saving, setSaving] = useState(false);
   const [operators, setOperators] = useState<OperatorOption[]>([]);
   const [loadingOps, setLoadingOps] = useState(false);
   const [selectedOperatorId, setSelectedOperatorId] = useState('');
+  const [driverName, setDriverName] = useState('');
   const [unitNumber, setUnitNumber] = useState('');
   const [notes, setNotes] = useState('');
+  const [useManualName, setUseManualName] = useState(false);
+
+  const isTransfer = !!transferFromDriver;
 
   useEffect(() => {
     if (!open) return;
     setSelectedOperatorId('');
+    setDriverName('');
     setUnitNumber('');
     setNotes('');
+    setUseManualName(false);
     fetchOperators();
   }, [open]);
 
@@ -46,6 +53,7 @@ export default function MoPlateAssignModal({ open, onClose, onSaved, plate }: Pr
   useEffect(() => {
     const op = operators.find(o => o.id === selectedOperatorId);
     if (op?.unit_number) setUnitNumber(op.unit_number);
+    if (op?.name) setDriverName(op.name);
   }, [selectedOperatorId, operators]);
 
   const fetchOperators = async () => {
