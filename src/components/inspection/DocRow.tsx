@@ -509,6 +509,9 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
             {hasFile && hasExpiry && !doc?.expires_at && (
               <span className="text-[10px] bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-medium shrink-0">No expiry set</span>
             )}
+            {hasFile && !hasExpiry && (
+              <OnFileBadge />
+            )}
           </div>
           {hasFile && doc?.expires_at && (
             <p className="text-xs text-muted-foreground mt-0.5">
