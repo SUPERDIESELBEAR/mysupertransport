@@ -1771,6 +1771,10 @@ export default function ManagementPortal() {
           <EquipmentInventory isManagement={true} />
         )}
 
+        {view === 'mo-plates' && (
+          <MoPlateRegistry />
+        )}
+
         {view === 'email-catalog' && (
           <EmailCatalog />
         )}
