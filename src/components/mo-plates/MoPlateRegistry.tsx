@@ -494,7 +494,13 @@ export default function MoPlateRegistry() {
 
       {/* Modals */}
       <MoPlateFormModal open={formOpen} onClose={() => setFormOpen(false)} onSaved={fetchPlates} plate={editPlate} />
-      <MoPlateAssignModal open={assignOpen} onClose={() => setAssignOpen(false)} onSaved={fetchPlates} plate={assignPlate} />
+      <MoPlateAssignModal
+        open={assignOpen}
+        onClose={() => { setAssignOpen(false); setTransferFromDriver(null); }}
+        onSaved={fetchPlates}
+        plate={assignPlate}
+        transferFromDriver={transferFromDriver}
+      />
       <MoPlateHistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} plate={historyPlate} />
 
       {/* Return dialog */}
