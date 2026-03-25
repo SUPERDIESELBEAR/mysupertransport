@@ -20,8 +20,6 @@ interface ICAData {
   linehaul_split_pct: number;
   lease_effective_date: string;
   lease_termination_date: string;
-  equipment_location_city: string;
-  equipment_location_state: string;
 }
 
 interface ICADocumentViewProps {
