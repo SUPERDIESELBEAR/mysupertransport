@@ -118,6 +118,9 @@ export default function ICABuilderModal({
       setDraftResumed(true);
       setDraftLastSaved(row.updated_at ?? null);
 
+      // Parse stored owner_ein_ssn back into separate fields if needed
+      const storedEinSsn = row.owner_ein_ssn ?? '';
+      const isEin = /^\d{2}-/.test(storedEinSsn);
       setData({
         truck_year: row.truck_year ?? new Date().getFullYear().toString(),
         truck_make: row.truck_make ?? '',
@@ -126,8 +129,10 @@ export default function ICABuilderModal({
         truck_plate: row.truck_plate ?? '',
         truck_plate_state: row.truck_plate_state ?? applicationData?.address_state ?? 'MO',
         trailer_number: row.trailer_number ?? '',
-        owner_business_name: row.owner_business_name ?? operatorName,
-        owner_ein_ssn: row.owner_ein_ssn ?? '',
+        owner_name: row.owner_name ?? `${applicationData?.first_name ?? ''} ${applicationData?.last_name ?? ''}`.trim() || operatorName,
+        owner_business_name: row.owner_business_name ?? '',
+        owner_ein: isEin ? storedEinSsn : '',
+        owner_ssn: !isEin && storedEinSsn ? storedEinSsn : '',
         owner_address: row.owner_address ?? applicationData?.address_street ?? '',
         owner_city: row.owner_city ?? applicationData?.address_city ?? '',
         owner_state: row.owner_state ?? applicationData?.address_state ?? '',
