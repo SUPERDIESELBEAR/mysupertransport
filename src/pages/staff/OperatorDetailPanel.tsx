@@ -1369,6 +1369,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           { key: 'stage5', label: 'Equip', complete: _allEquipFull, exception: _exceptionActive && !_allEquipFull },
           { key: 'stage6', label: 'Ins',   complete: !!status.insurance_added_date },
           { key: 'stage7', label: 'Live',  complete: !!(status.go_live_date) },
+          { key: 'stage8', label: 'Pay',   complete: !!(paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted) },
         ];
         const _completedCount = _stageStatuses.filter(s => s.complete).length;
         const _pct = Math.round((_completedCount / _stageStatuses.length) * 100);
