@@ -554,6 +554,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [exceptionFilter, setExceptionFilter] = useState(false);
   // Stage node filter: filter to operators who have specific stage(s) NOT complete (multi-select)
   const [stageNodeFilters, setStageNodeFilters] = useState<Set<string>>(new Set());
+  // On Hold section collapsed state
+  const [onHoldExpanded, setOnHoldExpanded] = useState(true);
 
   const toggleStageNodeFilter = (key: string) => {
     setStageNodeFilters(prev => {
