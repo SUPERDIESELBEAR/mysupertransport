@@ -4,59 +4,11 @@ interface Props {
   app: FullApplication;
 }
 
-function CheckBox({ checked }: { checked: boolean | null }) {
-  return (
-    <span style={{
-      display: 'inline-block',
-      width: '14px',
-      height: '14px',
-      border: '1.5px solid #000',
-      borderRadius: '2px',
-      textAlign: 'center',
-      lineHeight: '12px',
-      fontSize: '11px',
-      fontWeight: 'bold',
-      marginRight: '8px',
-      verticalAlign: 'middle',
-      flexShrink: 0,
-    }}>
-      {checked ? '✓' : ''}
-    </span>
-  );
-}
-
 export default function PreEmploymentAuthorizationsDoc({ app }: Props) {
   const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email;
   const signedDate = app.signed_date
     ? new Date(app.signed_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : '___________________';
-  const dob = app.dob
-    ? new Date(app.dob).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-    : null;
-
-  const authorizations = [
-    {
-      key: 'auth_safety_history',
-      checked: app.auth_safety_history,
-      title: 'Safety Performance History Authorization',
-      text: 'I authorize this motor carrier to investigate my safety performance history with previous employers as required by FMCSA regulations (49 CFR Part 391). I understand this includes my accident register, roadside inspection history, and any records of violations, suspensions, or disqualifications related to the operation of commercial motor vehicles.',
-      cite: '49 CFR § 391.23',
-    },
-    {
-      key: 'auth_drug_alcohol',
-      checked: app.auth_drug_alcohol,
-      title: 'DOT Drug & Alcohol Testing History Authorization',
-      text: 'I consent to the release of information regarding my DOT drug and alcohol testing history from previous employers as required by 49 CFR § 40.25, including records held in the FMCSA Drug & Alcohol Clearinghouse. I authorize all previous DOT-regulated employers within the past three (3) years to provide complete records of all pre-employment, random, reasonable suspicion, post-accident, return-to-duty, and follow-up drug and alcohol tests.',
-      cite: '49 CFR § 40.25 / FMCSA Clearinghouse',
-    },
-    {
-      key: 'auth_previous_employers',
-      checked: app.auth_previous_employers,
-      title: 'Previous Employer Records Authorization',
-      text: 'I authorize the release of employment records, performance information, personnel files, and other relevant data from previous employers, government agencies, educational institutions, and professional references to SUPERTRANSPORT. This includes verification of job titles, dates of employment, job responsibilities, wage/salary information, and reasons for separation.',
-      cite: 'General Employment Authorization',
-    },
-  ];
 
   return (
     <div
@@ -76,10 +28,10 @@ export default function PreEmploymentAuthorizationsDoc({ app }: Props) {
       {/* Title */}
       <div style={{ textAlign: 'center', marginBottom: '0.35in' }}>
         <div style={{ fontSize: '15px', fontWeight: 'bold', textDecoration: 'underline', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Pre-Employment Authorizations
+          IMPORTANT DISCLOSURE
         </div>
-        <div style={{ fontSize: '11px', color: '#555', marginTop: '6px' }}>
-          Applicant Release and Authorization Form
+        <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '6px' }}>
+          REGARDING BACKGROUND REPORTS FROM THE PSP Online Service
         </div>
       </div>
 
@@ -90,67 +42,64 @@ export default function PreEmploymentAuthorizationsDoc({ app }: Props) {
             <tr>
               <td style={{ paddingBottom: '6px', color: '#555', width: '160px' }}>Applicant Name:</td>
               <td style={{ paddingBottom: '6px', fontWeight: 'bold' }}>{fullName}</td>
-              {dob && (
-                <>
-                  <td style={{ paddingBottom: '6px', color: '#555', width: '120px', paddingLeft: '24px' }}>Date of Birth:</td>
-                  <td style={{ paddingBottom: '6px', fontWeight: 'bold' }}>{dob}</td>
-                </>
-              )}
+              <td style={{ paddingBottom: '6px', color: '#555', width: '120px', paddingLeft: '24px' }}>Signed Date:</td>
+              <td style={{ paddingBottom: '6px', fontWeight: 'bold' }}>{signedDate}</td>
             </tr>
             <tr>
               <td style={{ color: '#555' }}>Email:</td>
               <td>{app.email}</td>
-              <td style={{ color: '#555', paddingLeft: '24px' }}>Signed Date:</td>
-              <td style={{ fontWeight: 'bold' }}>{signedDate}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      {/* Intro */}
-      <p style={{ marginBottom: '0.25in', fontSize: '12px' }}>
-        As part of the application process with SUPERTRANSPORT, the undersigned applicant hereby grants the following authorizations. Each authorization checked below has been individually acknowledged and agreed to by the applicant.
-      </p>
-
-      {/* Authorization items */}
-      <div style={{ marginBottom: '0.35in' }}>
-        {authorizations.map((auth) => (
-          <div
-            key={auth.key}
-            style={{
-              marginBottom: '20px',
-              border: `1.5px solid ${auth.checked ? '#2a6536' : '#ccc'}`,
-              borderRadius: '4px',
-              padding: '14px 16px',
-              backgroundColor: auth.checked ? '#f0f7f1' : '#fafafa',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '8px' }}>
-              <CheckBox checked={auth.checked} />
-              <div style={{ flex: 1 }}>
-                <strong style={{ fontSize: '13px' }}>{auth.title}</strong>
-                <span style={{ fontSize: '10px', color: '#777', marginLeft: '8px', fontStyle: 'italic' }}>{auth.cite}</span>
-              </div>
-            </div>
-            <p style={{ fontSize: '12px', marginLeft: '22px', color: '#333', lineHeight: '1.5' }}>{auth.text}</p>
-            {!auth.checked && (
-              <p style={{ fontSize: '11px', color: '#cc4444', marginLeft: '22px', marginTop: '6px', fontStyle: 'italic' }}>
-                ⚠ Not authorized by applicant
-              </p>
-            )}
-          </div>
-        ))}
+      {/* Disclosure Body */}
+      <div style={{ marginBottom: '0.3in', fontSize: '12px', lineHeight: '1.7' }}>
+        <p style={{ marginBottom: '12px' }}>
+          In connection with your application for employment with SUPERTRANSPORT, LLC ("Prospective Employer"), Prospective Employer, its employees, agents, or contractors may obtain one or more reports regarding your driving and safety inspection history from the Federal Motor Carrier Safety Administration (FMCSA).
+        </p>
+        <p style={{ marginBottom: '12px' }}>
+          When the application for employment is submitted in person, if the Prospective Employer uses any information it obtains from FMCSA in a decision to not hire you or to make any other adverse employment decision regarding you, the Prospective Employer will provide you with a copy of the report upon which its decision was based and a written summary of your rights under the Fair Credit Reporting Act before taking any final adverse action. If any final adverse action is taken against you based upon your driving history or safety report, the Prospective Employer will notify you that the action has been taken and that the action was based in part or in whole on this report.
+        </p>
+        <p style={{ marginBottom: '12px' }}>
+          When the application for employment is submitted by mail, telephone, computer, or other similar means, if the Prospective Employer uses any information it obtains from FMCSA in a decision to not hire you or to make any other adverse employment decision regarding you, the Prospective Employer must provide you within three business days of taking adverse action oral, written or electronic notification: that adverse action has been taken based in whole or in part on information obtained from FMCSA; the name, address, and the toll free telephone number of FMCSA; that the FMCSA did not make the decision to take the adverse action and is unable to provide you the specific reasons why the adverse action was taken; and that you may, upon providing proper identification, request a free copy of the report and may dispute with the FMCSA the accuracy or completeness of any information or report. If you request a copy of a driver record from the Prospective Employer who procured the report, then, within 3 business days of receiving your request, together with proper identification, the Prospective Employer must send or provide to you a copy of your report and a summary of your rights under the Fair Credit Reporting Act.
+        </p>
+        <p style={{ marginBottom: '12px' }}>
+          Neither the Prospective Employer nor the FMCSA contractor supplying the crash and safety information has the capability to correct any safety data that appears to be incorrect. You may challenge the accuracy of the data by submitting a request to https://dataqs.fmcsa.dot.gov. If you challenge crash, or inspection information reported by a State, FMCSA cannot change or correct this data. Your request will be forwarded by the DataQs system to the appropriate State for adjudication.
+        </p>
+        <p style={{ marginBottom: '12px' }}>
+          Any crash or inspection in which you were involved will display on your PSP report. Since the PSP report does not report, assign, or imply fault, it will include all Commercial Motor Vehicle (CMV) crashes where you were a driver or co-driver and where those crashes were reported to FMCSA, regardless of fault. Similarly, all inspections, whether or not they involve violations, appear on the PSP report. State citations associated with Federal Motor Carrier Safety Regulations (FMCSR) violations that have been adjudicated by a court of law will also appear, and remain, on a PSP report.
+        </p>
+        <p style={{ marginBottom: '0' }}>
+          The Prospective Employer cannot obtain background reports from FMCSA without your authorization.
+        </p>
       </div>
 
-      {/* Certification */}
-      <div style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '12px 16px', backgroundColor: '#f9f9f9', marginBottom: '0.4in', fontSize: '12px' }}>
-        <strong>Acknowledgment:</strong> By signing below, I certify that the checkboxes above accurately reflect my authorizations and that I have read and understand each release. I acknowledge that these authorizations are voluntary but that declining to provide them may affect my eligibility for employment.
+      {/* Authorization Section */}
+      <div style={{ borderTop: '2px solid #000', paddingTop: '0.25in', marginBottom: '0.3in' }}>
+        <div style={{ fontSize: '14px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
+          AUTHORIZATION
+        </div>
+        <div style={{ fontSize: '12px', lineHeight: '1.7' }}>
+          <p style={{ marginBottom: '12px' }}>
+            If you agree that the Prospective Employer may obtain such background reports, please read the following and sign below: I authorize SUPERTRANSPORT, LLC ("Prospective Employer") to access the FMCSA Pre-Employment Screening Program (PSP) system to seek information regarding my commercial driving safety record and information regarding my safety inspection history. I understand that I am authorizing the release of safety performance information, including crash data from the previous five (5) years and inspection history from the previous three (3) years. I understand and acknowledge that this release of information may assist the Prospective Employer to make a determination regarding my suitability as an employee.
+          </p>
+          <p style={{ marginBottom: '12px' }}>
+            I further understand that neither the Prospective Employer nor the FMCSA contractor supplying the crash and safety information has the capability to correct any safety data that appears to be incorrect. I understand I may challenge the accuracy of the data by submitting a request to https://dataqs.fmcsa.dot.gov. If I challenge, crash, or inspection information reported by a State, FMCSA cannot change or correct this data. I understand my request will be forwarded by the DataQs system to the appropriate State for adjudication.
+          </p>
+          <p style={{ marginBottom: '12px' }}>
+            I understand that any crash or inspection in which I was involved will display on my PSP report. Since the PSP report does not report, assign, or imply fault, I acknowledge it will include all CMV crashes in which I was a driver or co-driver and were reported to the FMCSA, regardless of fault. Similarly, I understand all inspections, with or without violations, will appear on my PSP report, and State citations associated with FMCSR violations that have been adjudicated by a court of law will also appear, and remain on my PSP report.
+          </p>
+          <p>
+            I have read the above Disclosure Regarding Background Reports provided to me by Prospective Employer and I understand that if I sign this Disclosure and Authorization, Prospective Employer may obtain a report of my crash and inspection history. I hereby authorize Prospective Employer and its employees, authorized agents, and/or affiliates to obtain the information authorized above.
+          </p>
+        </div>
       </div>
 
       {/* Signature block */}
-      <div style={{ marginTop: '0.5in' }}>
+      <div style={{ marginTop: '0.4in' }}>
         <div style={{ display: 'flex', gap: '60px', alignItems: 'flex-end' }}>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 2 }}>
             {app.signature_image_url ? (
               <div>
                 <img
@@ -159,21 +108,15 @@ export default function PreEmploymentAuthorizationsDoc({ app }: Props) {
                   style={{ maxHeight: '64px', maxWidth: '280px', objectFit: 'contain', display: 'block', marginBottom: '4px' }}
                 />
                 <div style={{ borderTop: '1px solid #000', paddingTop: '4px', fontSize: '11px', color: '#444' }}>
-                  Applicant Signature
+                  Signature
                 </div>
               </div>
             ) : (
               <div>
                 <div style={{ borderBottom: '1px solid #000', height: '50px' }} />
-                <div style={{ paddingTop: '4px', fontSize: '11px', color: '#444' }}>Applicant Signature</div>
+                <div style={{ paddingTop: '4px', fontSize: '11px', color: '#444' }}>Signature</div>
               </div>
             )}
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ borderBottom: '1px solid #000', paddingBottom: '4px', fontWeight: 'bold', fontSize: '12px' }}>
-              {app.typed_full_name || fullName}
-            </div>
-            <div style={{ paddingTop: '4px', fontSize: '11px', color: '#444' }}>Printed Name</div>
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ borderBottom: '1px solid #000', paddingBottom: '4px', fontWeight: 'bold', fontSize: '12px' }}>
@@ -182,11 +125,22 @@ export default function PreEmploymentAuthorizationsDoc({ app }: Props) {
             <div style={{ paddingTop: '4px', fontSize: '11px', color: '#444' }}>Date</div>
           </div>
         </div>
+        <div style={{ marginTop: '24px' }}>
+          <div style={{ borderBottom: '1px solid #000', paddingBottom: '4px', fontWeight: 'bold', fontSize: '12px' }}>
+            {app.typed_full_name || fullName}
+          </div>
+          <div style={{ paddingTop: '4px', fontSize: '11px', color: '#444' }}>Name (Please Print)</div>
+        </div>
+      </div>
+
+      {/* NOTICE */}
+      <div style={{ marginTop: '0.4in', border: '1px solid #ccc', borderRadius: '4px', padding: '12px 16px', backgroundColor: '#f9f9f9', fontSize: '10px', lineHeight: '1.6', color: '#444' }}>
+        <strong style={{ color: '#000' }}>NOTICE:</strong> This form is made available to monthly account holders by NIC on behalf of the U.S. Department of Transportation, Federal Motor Carrier Safety Administration (FMCSA). Account holders are required by federal law to obtain an Applicant's written or electronic consent prior to accessing the Applicant's PSP report. Further, account holders are required by FMCSA to use the language contained in this Disclosure and Authorization form to obtain an Applicant's consent. The language must be used in whole, exactly as provided. Further, the language on this form must exist as one stand-alone document. The language may NOT be included with other consent forms or any other language. NOTICE: The prospective employment concept referenced in this form contemplates the definition of "employee" contained at 49 C.F.R. 383.5.
       </div>
 
       {/* Footer */}
-      <div style={{ marginTop: '0.6in', borderTop: '1px solid #ccc', paddingTop: '10px', fontSize: '10px', color: '#888', textAlign: 'center' }}>
-        SUPERTRANSPORT — Pre-Employment Authorizations · Generated {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+      <div style={{ marginTop: '0.4in', borderTop: '1px solid #ccc', paddingTop: '10px', fontSize: '10px', color: '#888', textAlign: 'center' }}>
+        SUPERTRANSPORT — PSP Authorization · Generated {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
       </div>
     </div>
   );
