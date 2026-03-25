@@ -232,6 +232,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   // Stage 8 — Contractor Pay Setup
   const [paySetupRecord, setPaySetupRecord] = useState<any>(null);
   const [paySetupLoaded, setPaySetupLoaded] = useState(false);
+
+  // ICA truck info for TruckInfoCard
+  const [icaTruckInfo, setIcaTruckInfo] = useState<TruckInfo | null>(null);
   
   const [companyDocUrls, setCompanyDocUrls] = useState<{ overview: string | null; calendar: string | null }>({ overview: null, calendar: null });
   const [previewDoc, setPreviewDoc] = useState<{ title: string; url: string } | null>(null);
