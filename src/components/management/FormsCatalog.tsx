@@ -92,6 +92,30 @@ interface FormEntry {
   icon: React.ReactNode;
 }
 
+// ─── Sample ICA data for preview ─────────────────────────────────────────────
+const ICA_SAMPLE_DATA = {
+  truck_year: '2021',
+  truck_make: 'Freightliner',
+  truck_model: 'Cascadia',
+  truck_vin: '3AKJHHDR7MSXYZ123',
+  truck_plate: 'AB1234',
+  truck_plate_state: 'MO',
+  trailer_number: '',
+  owner_name: 'John Smith',
+  owner_business_name: 'Smith Transport LLC',
+  owner_ein: '12-3456789',
+  owner_ssn: '',
+  owner_address: '1234 Highway 70 W',
+  owner_city: 'Kansas City',
+  owner_state: 'MO',
+  owner_zip: '64111',
+  owner_phone: '816-555-0100',
+  owner_email: 'john.smith@example.com',
+  linehaul_split_pct: 72,
+  lease_effective_date: '2026-04-01',
+  lease_termination_date: '',
+};
+
 const FORMS: FormEntry[] = [
   {
     id: 'driver-application',
@@ -101,6 +125,15 @@ const FORMS: FormEntry[] = [
     badgeVariant: 'secondary',
     steps: 9,
     icon: <ClipboardList className="h-5 w-5 text-primary" />,
+  },
+  {
+    id: 'ica-contract',
+    title: 'Independent Contractor Agreement',
+    description: 'Full ICA document presented to operators during onboarding. Includes all standard clauses (compensation, insurance, equipment lease, termination) plus Appendices A–D with equipment identification, pay schedule, and drug & alcohol policy.',
+    badge: 'Single View',
+    badgeVariant: 'outline',
+    steps: 1,
+    icon: <ScrollText className="h-5 w-5 text-primary" />,
   },
 ];
 
