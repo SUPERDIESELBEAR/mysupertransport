@@ -25,7 +25,7 @@ import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Layers, Shield, Users2, AlertCircle, FileX,
-  MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2,
+  MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2, FileText,
   MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap,
 } from 'lucide-react';
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
