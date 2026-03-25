@@ -646,65 +646,6 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
         </div>
       </div>
 
-      {/* ── PAYROLL REFERENCE DOCUMENTS ── */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-border bg-muted/30">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Payroll Reference Documents</p>
-        </div>
-        <div className="p-4 space-y-3">
-          <p className="text-xs text-muted-foreground leading-relaxed px-1">
-            Please review both documents below, then toggle each acknowledgment to confirm you have read them.
-          </p>
-          {COMPANY_DOCS.map(doc => {
-            const acked = docAcknowledged[doc.key];
-            const url = docUrls[doc.key];
-            return (
-              <div
-                key={doc.key}
-                className={`rounded-lg border-2 transition-colors ${acked ? 'border-status-complete/40 bg-status-complete/5' : 'border-border bg-background'}`}
-              >
-                {/* Card row */}
-                <div className="flex items-center gap-3 px-4 py-3.5">
-                  <span className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${acked ? 'bg-status-complete/15' : 'bg-muted'}`}>
-                    <FileText className={`h-4 w-4 ${acked ? 'text-status-complete' : 'text-muted-foreground'}`} />
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground leading-snug">{doc.title}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">{doc.description}</p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!url}
-                    onClick={() => url && setPreviewDoc({ title: doc.title, url })}
-                    className="shrink-0 text-xs h-8 px-3"
-                  >
-                    View
-                  </Button>
-                </div>
-                {/* Acknowledgment toggle */}
-                <div className="border-t border-border/60 px-4 py-3 flex items-center gap-3">
-                  <Switch
-                    id={`ack-${doc.key}`}
-                    checked={acked}
-                    onCheckedChange={val =>
-                      setDocAcknowledged(prev => ({ ...prev, [doc.key]: val }))
-                    }
-                    className="shrink-0"
-                  />
-                  <label htmlFor={`ack-${doc.key}`} className="flex-1 cursor-pointer">
-                    <p className={`text-xs font-semibold ${acked ? 'text-status-complete' : 'text-foreground'}`}>
-                      I have read and acknowledged this document
-                    </p>
-                  </label>
-                  {acked && <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       {/* ── TERMS & CONDITIONS TOGGLE ── */}
       <div className={`rounded-xl border-2 p-5 transition-colors ${
         termsAccepted ? 'border-status-complete/40 bg-status-complete/5' : 'border-border bg-card'
