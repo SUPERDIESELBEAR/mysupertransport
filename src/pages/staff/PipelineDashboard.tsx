@@ -254,6 +254,8 @@ function StageTrack({
       >
         {pct}%
       </span>
+      {/* Temperature badge */}
+      <TemperatureBadge op={op} configs={stageConfigs} />
     </div>
   );
 }
