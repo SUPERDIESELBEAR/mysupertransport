@@ -307,8 +307,7 @@ export default function ICABuilderModal({
     if (guardDemo()) return;
     setSaving(true);
     try {
-      const { equipment_location_city: _city3, equipment_location_state: _state3, ...restData3 } = data;
-      const payload = { operator_id: operatorId, ...restData3, equipment_location: [_city3, _state3].filter(Boolean).join(', ') || null, lease_effective_date: data.lease_effective_date || null, lease_termination_date: data.lease_termination_date || null, status: 'draft' };
+      const payload = { operator_id: operatorId, ...data, equipment_location: null, lease_effective_date: data.lease_effective_date || null, lease_termination_date: data.lease_termination_date || null, status: 'draft' };
       let result;
       if (contractId) {
         result = await supabase.from('ica_contracts' as any).update(payload).eq('id', contractId).select().single();
