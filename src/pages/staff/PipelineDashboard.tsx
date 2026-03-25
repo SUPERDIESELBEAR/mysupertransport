@@ -1129,6 +1129,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         paper_logbook_approved: os.paper_logbook_approved ?? false,
         temp_decal_approved: os.temp_decal_approved ?? false,
         pay_setup_submitted: paySetupSubmitted,
+        registration_status: os.registration_status ?? null,
         progress_pct: 0, // placeholder; real % computed in StageTrack from pipeline_config
         onboarding_updated_at: os.updated_at ?? null,
         on_hold: op.on_hold ?? false,
