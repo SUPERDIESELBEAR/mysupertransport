@@ -48,7 +48,7 @@ export default function Step5Accidents({ data, onChange, errors }: Props) {
           />
         </FormField>
         {data.moving_violations === 'yes' && (
-          <FormField label="Describe each violation (date, location, type of violation)">
+          <FormField label="Describe each violation (date, location, type of violation)" required error={errors.moving_violations_description}>
             <AppTextarea
               value={data.moving_violations_description}
               onChange={e => onChange('moving_violations_description', e.target.value)}
