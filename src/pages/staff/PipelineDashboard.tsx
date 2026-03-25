@@ -1616,118 +1616,6 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
 
 
-      {/* Stage breakdown — compact single-line ribbon */}
-      <div className="bg-white border border-border rounded-lg px-3 py-2 shadow-sm flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-semibold text-muted-foreground shrink-0 mr-1">Stages:</span>
-        {STAGES.map((stage, i) => (
-          <button
-            key={stage}
-            onClick={() => setStageFilter(stageFilter === stage ? 'all' : stage)}
-            className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium transition-colors shrink-0 ${
-              stageFilter === stage
-                ? 'border-gold bg-gold/10 text-gold'
-                : 'border-border hover:border-gold/40 text-foreground bg-muted/40'
-            }`}
-          >
-            <span className="font-bold">{stageCounts[stage] ?? 0}</span>
-            <span className="text-muted-foreground">{STAGE_ABBR[stage] ?? `S${stage.match(/Stage (\d+)/)?.[1] ?? i + 1}`}</span>
-          </button>
-        ))}
-        <span className="w-px h-4 bg-border shrink-0 mx-1" />
-        {/* Dispatch + Compliance quick-filter chips */}
-        <div className="flex items-center gap-2 flex-wrap">
-            {((['dispatched', 'home'] as DispatchStatus[]).map(status => {
-              const badge = DISPATCH_BADGE[status];
-              const count = operators.filter(op => op.dispatch_status === status).length;
-              if (count === 0) return null;
-              const isActive = dispatchFilter === status;
-              return (
-                <button
-                  key={status}
-                  onClick={() => setDispatchFilter(isActive ? 'all' : status)}
-                  className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
-                    isActive
-                      ? 'bg-foreground text-background border-foreground'
-                      : 'bg-muted text-muted-foreground border-border hover:border-foreground/30 hover:text-foreground'
-                  }`}
-                >
-                  <span className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-background' : badge.dot}`} />
-                  {badge.label}
-                  <span className={`font-bold ${isActive ? 'text-background' : ''}`}>{count}</span>
-                </button>
-              );
-            }))}
-            {/* Compliance filter chips */}
-            {(() => {
-              const criticalCount = operators.filter(op => {
-                const a = complianceByOperator[op.id];
-                return a != null && a.days_until <= 30;
-              }).length;
-              const warningCount = operators.filter(op => {
-                const a = complianceByOperator[op.id];
-                return a != null && a.days_until > 30 && a.days_until <= 90;
-              }).length;
-              return (
-                <>
-                  {(criticalCount > 0 || complianceFilter === 'critical') && (
-                    <button
-                      onClick={() => setComplianceFilter(complianceFilter === 'critical' ? 'all' : 'critical')}
-                      className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
-                        complianceFilter === 'critical'
-                          ? 'bg-destructive text-destructive-foreground border-destructive'
-                          : 'bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20'
-                      }`}
-                    >
-                      <ShieldAlert className={`h-3 w-3 ${complianceFilter === 'critical' ? 'text-destructive-foreground' : 'text-destructive'}`} />
-                      Critical Expiry
-                      <span className="font-bold">{criticalCount}</span>
-                    </button>
-                  )}
-                  {(warningCount > 0 || complianceFilter === 'warning') && (
-                    <button
-                      onClick={() => setComplianceFilter(complianceFilter === 'warning' ? 'all' : 'warning')}
-                      className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
-                        complianceFilter === 'warning'
-                          ? 'bg-yellow-500 text-white border-yellow-500'
-                          : 'bg-yellow-50 text-yellow-700 border-yellow-300 hover:bg-yellow-100'
-                      }`}
-                    >
-                      <ShieldAlert className={`h-3 w-3 ${complianceFilter === 'warning' ? 'text-white' : 'text-yellow-600'}`} />
-                      Expiry Warning
-                      <span className="font-bold">{warningCount}</span>
-                    </button>
-                  )}
-                </>
-              );
-            })()}
-            {/* Idle 14d+ chip */}
-            {idleCount > 0 && (
-              <TooltipProvider delayDuration={100}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => setIdleFilter(v => !v)}
-                      className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
-                        idleFilter
-                          ? 'bg-warning text-warning-foreground border-warning'
-                          : 'bg-warning/10 text-warning-foreground border-warning/30 hover:bg-warning/20'
-                      }`}
-                      style={idleFilter ? {} : { color: 'hsl(var(--warning))' }}
-                    >
-                      <Clock className={`h-3 w-3 ${idleFilter ? 'text-warning-foreground' : ''}`} style={idleFilter ? {} : { color: 'hsl(var(--warning))' }} />
-                      Idle 14d+
-                      <span className="font-bold">{idleCount}</span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs max-w-[220px] text-center">
-                    Show only operators whose onboarding status hasn't changed in 14+ days
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </div>
-      </div>
-
       {/* Search + filter toolbar */}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -2154,6 +2042,118 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           )}
         </div>
       )}
+      {/* Stage breakdown — compact single-line ribbon */}
+      <div className="bg-white border border-border rounded-lg px-3 py-2 shadow-sm flex items-center gap-2 flex-wrap">
+        <span className="text-xs font-semibold text-muted-foreground shrink-0 mr-1">Stages:</span>
+        {STAGES.map((stage, i) => (
+          <button
+            key={stage}
+            onClick={() => setStageFilter(stageFilter === stage ? 'all' : stage)}
+            className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium transition-colors shrink-0 ${
+              stageFilter === stage
+                ? 'border-gold bg-gold/10 text-gold'
+                : 'border-border hover:border-gold/40 text-foreground bg-muted/40'
+            }`}
+          >
+            <span className="font-bold">{stageCounts[stage] ?? 0}</span>
+            <span className="text-muted-foreground">{STAGE_ABBR[stage] ?? `S${stage.match(/Stage (\d+)/)?.[1] ?? i + 1}`}</span>
+          </button>
+        ))}
+        <span className="w-px h-4 bg-border shrink-0 mx-1" />
+        {/* Dispatch + Compliance quick-filter chips */}
+        <div className="flex items-center gap-2 flex-wrap">
+            {((['dispatched', 'home'] as DispatchStatus[]).map(status => {
+              const badge = DISPATCH_BADGE[status];
+              const count = operators.filter(op => op.dispatch_status === status).length;
+              if (count === 0) return null;
+              const isActive = dispatchFilter === status;
+              return (
+                <button
+                  key={status}
+                  onClick={() => setDispatchFilter(isActive ? 'all' : status)}
+                  className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                    isActive
+                      ? 'bg-foreground text-background border-foreground'
+                      : 'bg-muted text-muted-foreground border-border hover:border-foreground/30 hover:text-foreground'
+                  }`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-background' : badge.dot}`} />
+                  {badge.label}
+                  <span className={`font-bold ${isActive ? 'text-background' : ''}`}>{count}</span>
+                </button>
+              );
+            }))}
+            {/* Compliance filter chips */}
+            {(() => {
+              const criticalCount = operators.filter(op => {
+                const a = complianceByOperator[op.id];
+                return a != null && a.days_until <= 30;
+              }).length;
+              const warningCount = operators.filter(op => {
+                const a = complianceByOperator[op.id];
+                return a != null && a.days_until > 30 && a.days_until <= 90;
+              }).length;
+              return (
+                <>
+                  {(criticalCount > 0 || complianceFilter === 'critical') && (
+                    <button
+                      onClick={() => setComplianceFilter(complianceFilter === 'critical' ? 'all' : 'critical')}
+                      className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                        complianceFilter === 'critical'
+                          ? 'bg-destructive text-destructive-foreground border-destructive'
+                          : 'bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20'
+                      }`}
+                    >
+                      <ShieldAlert className={`h-3 w-3 ${complianceFilter === 'critical' ? 'text-destructive-foreground' : 'text-destructive'}`} />
+                      Critical Expiry
+                      <span className="font-bold">{criticalCount}</span>
+                    </button>
+                  )}
+                  {(warningCount > 0 || complianceFilter === 'warning') && (
+                    <button
+                      onClick={() => setComplianceFilter(complianceFilter === 'warning' ? 'all' : 'warning')}
+                      className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                        complianceFilter === 'warning'
+                          ? 'bg-yellow-500 text-white border-yellow-500'
+                          : 'bg-yellow-50 text-yellow-700 border-yellow-300 hover:bg-yellow-100'
+                      }`}
+                    >
+                      <ShieldAlert className={`h-3 w-3 ${complianceFilter === 'warning' ? 'text-white' : 'text-yellow-600'}`} />
+                      Expiry Warning
+                      <span className="font-bold">{warningCount}</span>
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+            {/* Idle 14d+ chip */}
+            {idleCount > 0 && (
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setIdleFilter(v => !v)}
+                      className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                        idleFilter
+                          ? 'bg-warning text-warning-foreground border-warning'
+                          : 'bg-warning/10 text-warning-foreground border-warning/30 hover:bg-warning/20'
+                      }`}
+                      style={idleFilter ? {} : { color: 'hsl(var(--warning))' }}
+                    >
+                      <Clock className={`h-3 w-3 ${idleFilter ? 'text-warning-foreground' : ''}`} style={idleFilter ? {} : { color: 'hsl(var(--warning))' }} />
+                      Idle 14d+
+                      <span className="font-bold">{idleCount}</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs max-w-[220px] text-center">
+                    Show only operators whose onboarding status hasn't changed in 14+ days
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+      </div>
+
 
       {/* Legend-stage banner — shown when arriving from Management workload card */}
       {legendStageFilter && stageFilter === legendStageFilter && (() => {
