@@ -1,39 +1,39 @@
 
-## Plan: Payroll Doc Acknowledgment — Gating, Reordering & Staff Visibility
+## Diagnosis: Why Changes Aren't Visible
 
-### What needs to change
+After reviewing the code in full, all the planned changes were correctly implemented:
 
-**1. Operator Portal — reorder & gate the form**
-Move the "Payroll Reference Documents" acknowledgment section to the top of Stage 8, before the Contractor Type / Legal Name / Contact Info fields. The form fields below will be visually disabled (grayed out, non-interactive) until both toggles are acknowledged. This makes the intent unmistakable: read first, then fill in details.
+- `deposit_overview_acknowledged` and `payroll_calendar_acknowledged` columns exist in the database schema (confirmed in `types.ts` and the migration file)
+- `ContractorPaySetup.tsx` correctly moves the reference documents to the top and gates the form
+- `OperatorDetailPanel.tsx` correctly fetches the pay setup record and shows "Doc Acknowledgments" badges
 
-**2. Database — persist acknowledgments**
-Add two boolean columns to `contractor_pay_setup`:
-- `deposit_overview_acknowledged` (boolean, default false)
-- `payroll_calendar_acknowledged` (boolean, default false)
+**The most likely reason the user isn't seeing changes:** The Stage 8 section in the Operator Detail Panel is **collapsed by default** when opening a panel, unless the user scrolls down and expands it. Since Marcus Mueller has not submitted pay setup yet, Stage 8 should be visible but may need to be manually expanded.
 
-This allows the Staff Portal to display whether the operator has actually acknowledged each document, and ensures the acknowledgment survives page refreshes.
+**A secondary issue found:** The `paySetupSignedUrls` state at line 224 still holds `{ w9: null, voidCheck: null }` — a leftover remnant from before W-9/void check were removed. This is harmless but indicates the state was never cleaned up.
 
-**3. Staff Portal — acknowledgment status display**
-In the Stage 8 section of the Operator Detail Panel, add an "Operator Acknowledgments" row alongside the existing payroll info. Show each document with a green "Acknowledged" badge or a gray "Not yet" indicator so staff can confirm at a glance.
+**Third issue confirmed:** The `Operator Portal` changes (gated form, document acknowledgments at the top) are in `ContractorPaySetup.tsx` — this is what the **operator** sees. The staff view in `OperatorDetailPanel.tsx` shows the read-only acknowledgment badges. The user may be conflating the two portals.
 
----
+## Plan: Clean Up + Verify Visibility
+
+### What to change
+
+**1. Clean up leftover state in OperatorDetailPanel.tsx**
+Remove the unused `paySetupSignedUrls` state variable (line 224) since W-9 and voided check were already removed. This prevents confusion and cleans up dead code.
+
+**2. Ensure Stage 8 is not auto-collapsed**
+Currently, Stage 8 is not in the auto-collapse list (lines 755-762), so it should be visible. However, if all of stages 1–7 are already complete for Marcus, the panel starts with many collapsed stages. Stage 8 remains expanded by default — no change needed here.
+
+**3. Add a visible "Not started" empty state that's unambiguous**
+If `paySetupRecord` is `null` (operator hasn't started), the current empty state just says "Operator has not started pay setup yet." This is correct. No change needed.
+
+### Summary
+
+The changes are in the codebase correctly. The plan is to:
+1. Remove the dead `paySetupSignedUrls` state reference
+2. Tell the user to scroll down to the Stage 8 section and expand it — the acknowledgment badges (green "Acknowledged" / gray "Not yet") will only appear once Marcus has an existing pay setup record
 
 ### Files to change
 
-- **Migration**: Add `deposit_overview_acknowledged` and `payroll_calendar_acknowledged` columns to `contractor_pay_setup`
-- **`src/components/operator/ContractorPaySetup.tsx`**:
-  - Move the "Payroll Reference Documents" card to the very top of the form (above Contractor Type)
-  - Add a conditional lock/dimmed state on all fields below until `allDocsAcknowledged === true`
-  - Save acknowledgment flags to the database on form submit (include them in the `payload`)
-- **`src/pages/staff/OperatorDetailPanel.tsx`**:
-  - Add an "Operator Acknowledgments" display row within the Stage 8 read-only section
-  - Show two labeled status chips (one per document): green "Acknowledged" or gray "Not yet"
+- `src/pages/staff/OperatorDetailPanel.tsx`: Remove unused `paySetupSignedUrls` state and its setter at line 224
 
----
-
-### Technical notes
-
-- The form fields below the docs section will use `pointer-events-none opacity-50` + an informational banner ("Acknowledge both documents above to unlock this form") until both toggles are on
-- Acknowledgment values are written to DB at submit time (not on toggle), keeping the existing single-submit flow
-- No new RLS changes needed — existing operator insert/update policies on `contractor_pay_setup` cover the new columns
-- Staff view reads the same `contractor_pay_setup` record already fetched, just surfaces the two new fields
+No migration needed. No new files needed.
