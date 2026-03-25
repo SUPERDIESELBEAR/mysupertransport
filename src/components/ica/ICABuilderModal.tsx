@@ -129,7 +129,7 @@ export default function ICABuilderModal({
         truck_plate: row.truck_plate ?? '',
         truck_plate_state: row.truck_plate_state ?? applicationData?.address_state ?? 'MO',
         trailer_number: row.trailer_number ?? '',
-        owner_name: row.owner_name ?? `${applicationData?.first_name ?? ''} ${applicationData?.last_name ?? ''}`.trim() || operatorName,
+        owner_name: row.owner_name ?? (`${applicationData?.first_name ?? ''} ${applicationData?.last_name ?? ''}`.trim() || operatorName),
         owner_business_name: row.owner_business_name ?? '',
         owner_ein: isEin ? storedEinSsn : '',
         owner_ssn: !isEin && storedEinSsn ? storedEinSsn : '',
