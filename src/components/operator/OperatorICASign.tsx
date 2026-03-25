@@ -15,7 +15,7 @@ interface ICAData {
   owner_address: string; owner_city: string; owner_state: string; owner_zip: string;
   owner_phone: string; owner_email: string;
   linehaul_split_pct: number;
-  lease_effective_date: string; lease_termination_date: string; equipment_location_city: string; equipment_location_state: string;
+  lease_effective_date: string; lease_termination_date: string;
   status: string;
   carrier_typed_name: string; carrier_title: string;
   carrier_signature_url: string | null; carrier_signed_at: string | null;
