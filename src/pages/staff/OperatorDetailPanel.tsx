@@ -24,6 +24,7 @@ import ICAViewModal from '@/components/ica/ICAViewModal';
 import OperatorBinderPanel from '@/components/inspection/OperatorBinderPanel';
 import TruckPhotoGridModal from '@/components/staff/TruckPhotoGridModal';
 import { formatDistanceToNow, format, differenceInDays, parseISO, startOfDay } from 'date-fns';
+import TruckInfoCard, { TruckInfo, TruckInfoCardEditPayload } from '@/components/operator/TruckInfoCard';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -231,6 +232,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   // Stage 8 — Contractor Pay Setup
   const [paySetupRecord, setPaySetupRecord] = useState<any>(null);
   const [paySetupLoaded, setPaySetupLoaded] = useState(false);
+
+  // ICA truck info for TruckInfoCard
+  const [icaTruckInfo, setIcaTruckInfo] = useState<TruckInfo | null>(null);
   
   const [companyDocUrls, setCompanyDocUrls] = useState<{ overview: string | null; calendar: string | null }>({ overview: null, calendar: null });
   const [previewDoc, setPreviewDoc] = useState<{ title: string; url: string } | null>(null);
@@ -786,6 +790,29 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setInsuranceEmailRecipients((insSettings as any).recipient_emails ?? []);
     }
 
+    // Fetch ICA truck info for TruckInfoCard
+    const { data: icaData } = await supabase
+      .from('ica_contracts' as any)
+      .select('truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number')
+      .eq('operator_id', operatorId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (icaData) {
+      const ica = icaData as any;
+      setIcaTruckInfo({
+        truck_year: ica.truck_year ?? null,
+        truck_make: ica.truck_make ?? null,
+        truck_model: ica.truck_model ?? null,
+        truck_vin: ica.truck_vin ?? null,
+        truck_plate: ica.truck_plate ?? null,
+        truck_plate_state: ica.truck_plate_state ?? null,
+        trailer_number: ica.trailer_number ?? null,
+      });
+    } else {
+      setIcaTruckInfo(null);
+    }
+
     setLoading(false);
   };
 
@@ -1297,6 +1324,31 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     setStatus(prev => ({ ...prev, [field]: value }));
   };
 
+  // Handle editing device numbers from TruckInfoCard
+  const handleTruckDeviceEdit = async (payload: TruckInfoCardEditPayload) => {
+    if (!statusId) return;
+    const { error } = await supabase
+      .from('onboarding_status')
+      .update({
+        unit_number: payload.unit_number,
+        eld_serial_number: payload.eld_serial_number,
+        dash_cam_number: payload.dash_cam_number,
+        bestpass_number: payload.bestpass_number,
+        fuel_card_number: payload.fuel_card_number,
+      })
+      .eq('id', statusId);
+    if (error) throw error;
+    setStatus(prev => ({
+      ...prev,
+      unit_number: payload.unit_number,
+      eld_serial_number: payload.eld_serial_number,
+      dash_cam_number: payload.dash_cam_number,
+      bestpass_number: payload.bestpass_number,
+      fuel_card_number: payload.fuel_card_number,
+    }));
+    toast({ title: 'Device numbers saved' });
+  };
+
   // Track which doc fields are currently being "requested" (for button loading state)
   const [requestingDoc, setRequestingDoc] = useState<string | null>(null);
   const [markingReceived, setMarkingReceived] = useState<string | null>(null);
@@ -1661,6 +1713,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           </div>
         );
       })()}
+
+      {/* ── Truck & Equipment Card ── */}
+      <TruckInfoCard
+        truckInfo={icaTruckInfo}
+        deviceInfo={{
+          unit_number: status.unit_number,
+          eld_serial_number: status.eld_serial_number,
+          dash_cam_number: status.dash_cam_number,
+          bestpass_number: status.bestpass_number,
+          fuel_card_number: status.fuel_card_number,
+        }}
+        onEdit={handleTruckDeviceEdit}
+      />
 
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
       {(() => {

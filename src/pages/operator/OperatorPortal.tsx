@@ -27,6 +27,7 @@ import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
 import OperatorInspectionBinder from '@/components/inspection/OperatorInspectionBinder';
 import ContractorPaySetup from '@/components/operator/ContractorPaySetup';
+import TruckInfoCard, { TruckInfo } from '@/components/operator/TruckInfoCard';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'pay-setup';
@@ -91,6 +92,7 @@ export default function OperatorPortal() {
   const [ackLoading, setAckLoading] = useState(false);
   const [cdlExpiration, setCdlExpiration] = useState<string | null>(null);
   const [medicalCertExpiration, setMedicalCertExpiration] = useState<string | null>(null);
+  const [icaTruckInfo, setIcaTruckInfo] = useState<TruckInfo | null>(null);
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
 
@@ -185,12 +187,19 @@ export default function OperatorPortal() {
         setMedicalCertExpiration((app as any)?.medical_cert_expiration ?? null);
       }
 
-      // Fetch current dispatch status + assigned dispatcher
-      const [dispatchResult] = await Promise.all([
+      // Fetch current dispatch status + ICA truck info in parallel
+      const [dispatchResult, icaResult] = await Promise.all([
         supabase
           .from('active_dispatch')
           .select('dispatch_status, assigned_dispatcher, updated_at')
           .eq('operator_id', opId)
+          .maybeSingle(),
+        supabase
+          .from('ica_contracts' as any)
+          .select('truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number')
+          .eq('operator_id', opId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
           .maybeSingle(),
       ]);
       const dispatch = dispatchResult.data;
@@ -206,6 +215,22 @@ export default function OperatorPortal() {
         setTruckDownAcked(false);
       }
       fetchDispatcherInfo((dispatch as any)?.assigned_dispatcher ?? null);
+
+      // Store ICA truck info
+      const ica = icaResult.data as any;
+      if (ica) {
+        setIcaTruckInfo({
+          truck_year: ica.truck_year ?? null,
+          truck_make: ica.truck_make ?? null,
+          truck_model: ica.truck_model ?? null,
+          truck_vin: ica.truck_vin ?? null,
+          truck_plate: ica.truck_plate ?? null,
+          truck_plate_state: ica.truck_plate_state ?? null,
+          trailer_number: ica.trailer_number ?? null,
+        });
+      } else {
+        setIcaTruckInfo(null);
+      }
     }
   }, [user, fetchDispatcherInfo, fetchCoordinatorInfo]);
 
@@ -1019,74 +1044,17 @@ export default function OperatorPortal() {
               }}
             />
 
-            {/* ── MY EQUIPMENT INFO CARD ── */}
-            {(onboardingStatus.eld_serial_number || onboardingStatus.dash_cam_number || onboardingStatus.bestpass_number || onboardingStatus.fuel_card_number) && (
-              <div className="rounded-xl border border-border bg-card overflow-hidden">
-                <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border bg-muted/30">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 shrink-0">
-                    <Truck className="h-4 w-4 text-primary" />
-                  </span>
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground leading-none">My Equipment Info</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">Your assigned device numbers — save these for reference</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-border">
-                  {onboardingStatus.eld_serial_number && (
-                    <div className="bg-card px-5 py-4 flex items-start gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
-                        <Cpu className="h-4 w-4 text-primary" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide leading-none mb-1.5">ELD Serial #</p>
-                        <p className="font-mono text-base font-bold text-foreground tracking-widest break-all leading-tight">
-                          {onboardingStatus.eld_serial_number}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {onboardingStatus.dash_cam_number && (
-                    <div className="bg-card px-5 py-4 flex items-start gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
-                        <Camera className="h-4 w-4 text-primary" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide leading-none mb-1.5">Dash Cam #</p>
-                        <p className="font-mono text-base font-bold text-foreground tracking-widest break-all leading-tight">
-                          {onboardingStatus.dash_cam_number}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {onboardingStatus.bestpass_number && (
-                    <div className="bg-card px-5 py-4 flex items-start gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
-                        <Gauge className="h-4 w-4 text-primary" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide leading-none mb-1.5">BestPass #</p>
-                        <p className="font-mono text-base font-bold text-foreground tracking-widest break-all leading-tight">
-                          {onboardingStatus.bestpass_number}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {onboardingStatus.fuel_card_number && (
-                    <div className="bg-card px-5 py-4 flex items-start gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
-                        <CreditCard className="h-4 w-4 text-primary" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide leading-none mb-1.5">Fuel Card #</p>
-                        <p className="font-mono text-base font-bold text-foreground tracking-widest break-all leading-tight">
-                          {onboardingStatus.fuel_card_number}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            {/* ── TRUCK & EQUIPMENT CARD ── */}
+            <TruckInfoCard
+              truckInfo={icaTruckInfo}
+              deviceInfo={{
+                unit_number: onboardingStatus.unit_number as string | null,
+                eld_serial_number: onboardingStatus.eld_serial_number as string | null,
+                dash_cam_number: onboardingStatus.dash_cam_number as string | null,
+                bestpass_number: onboardingStatus.bestpass_number as string | null,
+                fuel_card_number: onboardingStatus.fuel_card_number as string | null,
+              }}
+            />
 
             {/* ── CONTACT SECTION ── */}
             <div className="rounded-xl border border-border bg-card p-5 space-y-4">
