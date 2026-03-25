@@ -3182,6 +3182,86 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         </div>
       </div>
 
+      {/* ─── On Hold Section ──────────────────────────────────────────────── */}
+      {(() => {
+        const onHoldOps = operators.filter(op => op.on_hold);
+        if (onHoldOps.length === 0) return null;
+        return (
+          <div className="rounded-xl border border-border shadow-sm overflow-hidden">
+            {/* Header */}
+            <button
+              onClick={() => setOnHoldExpanded(v => !v)}
+              className="w-full flex items-center gap-3 px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
+            >
+              <PauseCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-sm font-semibold text-foreground">On Hold</span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-muted text-muted-foreground border border-border ml-0.5">
+                {onHoldOps.length}
+              </span>
+              <span className="ml-2 text-xs text-muted-foreground font-normal">
+                Operators paused — not currently progressing through onboarding
+              </span>
+              <div className="ml-auto shrink-0">
+                {onHoldExpanded
+                  ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </div>
+            </button>
+
+            {onHoldExpanded && (
+              <div className="divide-y divide-border bg-background">
+                {onHoldOps.map(op => {
+                  const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Unknown Operator';
+                  return (
+                    <div key={op.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/20 transition-colors">
+                      {/* Pause icon */}
+                      <PauseCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+
+                      {/* Name */}
+                      <button
+                        onClick={() => onOpenOperator(op.id)}
+                        className="font-medium text-sm text-foreground hover:text-gold hover:underline underline-offset-2 transition-colors text-left shrink-0"
+                      >
+                        {name}
+                      </button>
+
+                      {/* Hold date */}
+                      {op.on_hold_date && (
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          Since {format(parseISO(op.on_hold_date), 'MMM d, yyyy')}
+                        </span>
+                      )}
+
+                      {/* Reason */}
+                      {op.on_hold_reason && (
+                        <span className="text-xs text-muted-foreground italic truncate max-w-xs">
+                          "{op.on_hold_reason}"
+                        </span>
+                      )}
+
+                      {/* Progress track */}
+                      <div className="ml-auto shrink-0 hidden lg:block">
+                        <StageTrack op={op} stageConfigs={stageConfigs} onNodeClick={onOpenOperatorAtStage} />
+                      </div>
+
+                      {/* Open button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onOpenOperator(op.id)}
+                        className="text-gold hover:text-gold-light hover:bg-gold/10 text-xs shrink-0"
+                      >
+                        Open →
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
     </div>
   );
 }
