@@ -1167,6 +1167,7 @@ export type Database = {
       mo_plates: {
         Row: {
           created_at: string
+          expires_at: string | null
           id: string
           notes: string | null
           plate_number: string
@@ -1176,6 +1177,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          expires_at?: string | null
           id?: string
           notes?: string | null
           plate_number: string
@@ -1185,6 +1187,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          expires_at?: string | null
           id?: string
           notes?: string | null
           plate_number?: string
