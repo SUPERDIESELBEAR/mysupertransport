@@ -64,6 +64,7 @@ export default function MoPlateRegistry() {
   const [editPlate, setEditPlate] = useState<MoPlate | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignPlate, setAssignPlate] = useState<MoPlate | null>(null);
+  const [transferFromDriver, setTransferFromDriver] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyPlate, setHistoryPlate] = useState<MoPlate | null>(null);
 
