@@ -15,6 +15,7 @@ export type MoPlate = {
   registration_number: string | null;
   notes: string | null;
   status: 'available' | 'assigned' | 'lost_stolen' | 'retired';
+  expires_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -34,6 +35,7 @@ export default function MoPlateFormModal({ open, onClose, onSaved, plate }: Prop
     registration_number: '',
     notes: '',
     status: 'available' as MoPlate['status'],
+    expires_at: '',
   });
 
   useEffect(() => {
@@ -43,9 +45,10 @@ export default function MoPlateFormModal({ open, onClose, onSaved, plate }: Prop
         registration_number: plate.registration_number ?? '',
         notes: plate.notes ?? '',
         status: plate.status,
+        expires_at: plate.expires_at ?? '',
       });
     } else {
-      setForm({ plate_number: '', registration_number: '', notes: '', status: 'available' });
+      setForm({ plate_number: '', registration_number: '', notes: '', status: 'available', expires_at: '' });
     }
   }, [plate, open]);
 
@@ -61,6 +64,7 @@ export default function MoPlateFormModal({ open, onClose, onSaved, plate }: Prop
         registration_number: form.registration_number.trim() || null,
         notes: form.notes.trim() || null,
         status: form.status,
+        expires_at: form.expires_at || null,
       };
       if (plate) {
         const { error } = await supabase.from('mo_plates').update(payload).eq('id', plate.id);
@@ -104,6 +108,16 @@ export default function MoPlateFormModal({ open, onClose, onSaved, plate }: Prop
               value={form.registration_number}
               onChange={e => setForm(f => ({ ...f, registration_number: e.target.value }))}
             />
+          </div>
+          <div>
+            <Label>Registration Expiration Date</Label>
+            <Input
+              type="date"
+              className="mt-1"
+              value={form.expires_at}
+              onChange={e => setForm(f => ({ ...f, expires_at: e.target.value }))}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">Used to surface upcoming renewal reminders.</p>
           </div>
           <div>
             <Label>Status</Label>

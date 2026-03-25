@@ -1,0 +1,1 @@
+ALTER TABLE public.mo_plates ADD COLUMN IF NOT EXISTS expires_at date;

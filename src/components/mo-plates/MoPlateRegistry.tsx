@@ -15,8 +15,22 @@ import { format } from 'date-fns';
 import {
   Plus, Search, Loader2, Car, CheckCircle2, UserCheck,
   AlertTriangle, Archive, History, Pencil, RotateCcw,
-  RefreshCcw, Trash2, UserX,
+  RefreshCcw, Trash2, UserX, CalendarClock,
 } from 'lucide-react';
+
+// ── Expiry helpers (mirrors Inspection Binder logic) ──────────────────────────
+function getExpiryStatus(expiresAt: string | null): 'valid' | 'expiring_soon' | 'expired' | null {
+  if (!expiresAt) return null;
+  const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+  if (days < 0) return 'expired';
+  if (days <= 30) return 'expiring_soon';
+  return 'valid';
+}
+
+function daysUntilExpiry(expiresAt: string | null): number | null {
+  if (!expiresAt) return null;
+  return Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+}
 import MoPlateFormModal, { type MoPlate } from './MoPlateFormModal';
 import MoPlateAssignModal from './MoPlateAssignModal';
 import MoPlateHistoryModal from './MoPlateHistoryModal';
@@ -234,6 +248,7 @@ export default function MoPlateRegistry() {
     assigned: plates.filter(p => p.status === 'assigned').length,
     lost_stolen: plates.filter(p => p.status === 'lost_stolen').length,
     retired: plates.filter(p => p.status === 'retired').length,
+    expiring_soon: plates.filter(p => getExpiryStatus(p.expires_at) === 'expiring_soon' || getExpiryStatus(p.expires_at) === 'expired').length,
   };
 
   const FILTERS: { key: StatusFilter; label: string; count: number }[] = [
@@ -265,11 +280,11 @@ export default function MoPlateRegistry() {
 
       {/* Summary counts */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Total Plates',  value: counts.all,        color: 'text-foreground',         bg: 'bg-muted/50' },
-          { label: 'Assigned',      value: counts.assigned,   color: 'text-primary',            bg: 'bg-primary/8' },
-          { label: 'Available',     value: counts.available,  color: 'text-status-complete',    bg: 'bg-status-complete/10' },
-          { label: 'Lost/Stolen',   value: counts.lost_stolen,color: 'text-destructive',        bg: 'bg-destructive/10' },
+      {[
+          { label: 'Total Plates',   value: counts.all,          color: 'text-foreground',         bg: 'bg-muted/50' },
+          { label: 'Assigned',       value: counts.assigned,     color: 'text-primary',            bg: 'bg-primary/8' },
+          { label: 'Available',      value: counts.available,    color: 'text-status-complete',    bg: 'bg-status-complete/10' },
+          { label: 'Exp. / Renewing',value: counts.expiring_soon,color: 'text-status-warning',     bg: 'bg-status-warning/10' },
         ].map(s => (
           <div key={s.label} className={`rounded-xl border border-border p-3 sm:p-4 ${s.bg}`}>
             <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -337,6 +352,28 @@ export default function MoPlateRegistry() {
                     {plate.registration_number && (
                       <p className="text-xs text-muted-foreground">Reg #{plate.registration_number}</p>
                     )}
+                    {/* Expiry indicator */}
+                    {(() => {
+                      const status = getExpiryStatus(plate.expires_at);
+                      const days = daysUntilExpiry(plate.expires_at);
+                      if (!status) return null;
+                      const expiryClasses = {
+                        valid: 'text-status-complete',
+                        expiring_soon: 'text-status-warning',
+                        expired: 'text-destructive',
+                      };
+                      const expiryLabel = status === 'expired'
+                        ? `Expired ${format(new Date(plate.expires_at!), 'MMM d, yyyy')}`
+                        : status === 'expiring_soon'
+                          ? `Expires in ${days}d — ${format(new Date(plate.expires_at!), 'MMM d, yyyy')}`
+                          : `Expires ${format(new Date(plate.expires_at!), 'MMM d, yyyy')}`;
+                      return (
+                        <p className={`text-[11px] flex items-center gap-1 mt-0.5 font-medium ${expiryClasses[status]}`}>
+                          <CalendarClock className="h-3 w-3" />
+                          {expiryLabel}
+                        </p>
+                      );
+                    })()}
                   </div>
                   <Badge className={`text-[10px] font-semibold border flex items-center gap-1 shrink-0 ${cfg.badge}`}>
                     {cfg.icon}
