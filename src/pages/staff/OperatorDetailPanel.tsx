@@ -528,7 +528,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           operator_name: operatorName,
         },
       });
-      if (auditErr) console.error('[audit] cert_renewed:', auditErr);
+      if (auditErr) {}
       // Optimistically update 'Renewed by' indicator
       const docTypeKey = label === 'CDL' ? 'CDL' : 'Medical Cert';
       const renewedNow = new Date().toISOString();
@@ -1047,7 +1047,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               description: `${operatorName}: ${m.label}`,
             });
           } catch (notifErr) {
-            console.error('Milestone notification error:', notifErr);
+            // silent — notification failure should not block the save
           }
         }
       }
@@ -1103,7 +1103,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           metadata: {
             milestones: triggeredMilestones.map(m => m.label),
           },
-        }).then(({ error }) => { if (error) console.error('[audit] operator_status_updated:', error); });
+        }).then(({ error }) => { if (error) {} });
       }
       // ── Write a dedicated onboarding_completed entry ─────────────
       if (isNewlyFullyOnboarded) {
@@ -1119,7 +1119,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             insurance_added_date: status.insurance_added_date,
             unit_number: status.unit_number ?? null,
           },
-        }).then(({ error }) => { if (error) console.error('[audit] onboarding_completed:', error); });
+        }).then(({ error }) => { if (error) {} });
       }
 
       // ── Write audit log for insurance field changes ───────────────────
@@ -1132,7 +1132,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           entity_id: operatorId,
           entity_label: operatorName,
           metadata: { changes: insuranceChanges },
-        }).then(({ error }) => { if (error) console.error('[audit] insurance_fields_updated:', error); });
+        }).then(({ error }) => { if (error) {} });
       }
 
       // ── Write audit log when exceptions are first approved ────────────
@@ -1150,7 +1150,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             exception_notes: status.exception_notes ?? null,
             approved_at: new Date().toISOString(),
           },
-        }).then(({ error }) => { if (error) console.error('[audit] exception_approved:', error); });
+        }).then(({ error }) => { if (error) {} });
       }
 
       // ── Write audit log when go-live date is set or changed ───────────
@@ -1171,7 +1171,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             is_first_go_live: isNewlyGoLive,
             previous_go_live_date: prevGoLive,
           },
-        }).then(({ error }) => { if (error) console.error('[audit] go_live_updated:', error); });
+        }).then(({ error }) => { if (error) {} });
       }
     }
 

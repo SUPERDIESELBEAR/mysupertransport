@@ -82,6 +82,10 @@ export default function MoPlateRegistry() {
   const [replacementDialogPlate, setReplacementDialogPlate] = useState<PlateWithAssignee | null>(null);
   const [replacementLoading, setReplacementLoading] = useState(false);
 
+  // Retire dialog
+  const [retireDialogPlate, setRetireDialogPlate] = useState<PlateWithAssignee | null>(null);
+  const [retireLoading, setRetireLoading] = useState(false);
+
   // Delete dialog
   const [deleteDialogPlate, setDeleteDialogPlate] = useState<PlateWithAssignee | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -216,9 +220,33 @@ export default function MoPlateRegistry() {
   };
 
   // ---------- RETIRE / REACTIVATE ----------
-  const handleSetStatus = async (plate: PlateWithAssignee, newStatus: 'retired' | 'available') => {
+  const handleRetire = async () => {
+    if (!retireDialogPlate) return;
+    setRetireLoading(true);
+    try {
+      // If currently assigned, close the open assignment first
+      if (retireDialogPlate.status === 'assigned') {
+        await supabase
+          .from('mo_plate_assignments')
+          .update({ returned_at: new Date().toISOString(), returned_by: session?.user?.id, notes: 'Plate retired' })
+          .eq('plate_id', retireDialogPlate.id)
+          .is('returned_at', null)
+          .eq('event_type', 'assignment');
+      }
+      await supabase.from('mo_plates').update({ status: 'retired' }).eq('id', retireDialogPlate.id);
+      toast({ title: 'Plate retired', description: `${retireDialogPlate.plate_number} has been retired.` });
+      setRetireDialogPlate(null);
+      fetchPlates();
+    } catch (err: unknown) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setRetireLoading(false);
+    }
+  };
+
+  const handleSetStatus = async (plate: PlateWithAssignee, newStatus: 'available') => {
     await supabase.from('mo_plates').update({ status: newStatus }).eq('id', plate.id);
-    toast({ title: newStatus === 'retired' ? 'Plate retired' : 'Plate reactivated' });
+    toast({ title: 'Plate reactivated' });
     fetchPlates();
   };
 
@@ -472,7 +500,7 @@ export default function MoPlateRegistry() {
                       size="sm"
                       variant="ghost"
                       className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                      onClick={() => handleSetStatus(plate, 'retired')}
+                      onClick={() => setRetireDialogPlate(plate)}
                     >
                       <Archive className="h-3 w-3" /> Retire
                     </Button>
@@ -586,6 +614,37 @@ export default function MoPlateRegistry() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>
               {deleteLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Delete Permanently
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Retire dialog */}
+      <AlertDialog open={!!retireDialogPlate} onOpenChange={(o) => { if (!o) setRetireDialogPlate(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Archive className="h-5 w-5 text-muted-foreground" />
+              Retire Plate {retireDialogPlate?.plate_number}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This plate will be marked as retired and removed from active circulation.
+              {retireDialogPlate?.status === 'assigned' && (
+                <span className="block mt-1 font-medium text-foreground">
+                  This plate is currently assigned to {retireDialogPlate.current_driver}. The assignment will be automatically closed first.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              variant="ghost"
+              className="border border-border hover:bg-muted"
+              onClick={handleRetire}
+              disabled={retireLoading}
+            >
+              {retireLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Confirm Retire
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

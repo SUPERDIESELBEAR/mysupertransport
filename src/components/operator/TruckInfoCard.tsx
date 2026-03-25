@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Truck, Cpu, Camera, Gauge, CreditCard, Pencil, Save, X, Hash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,6 +68,17 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit }: TruckIn
     bestpass_number: deviceInfo?.bestpass_number ?? null,
     fuel_card_number: deviceInfo?.fuel_card_number ?? null,
   });
+
+  // Re-sync draft when deviceInfo prop updates from parent
+  useEffect(() => {
+    setDraft({
+      unit_number: deviceInfo?.unit_number ?? null,
+      eld_serial_number: deviceInfo?.eld_serial_number ?? null,
+      dash_cam_number: deviceInfo?.dash_cam_number ?? null,
+      bestpass_number: deviceInfo?.bestpass_number ?? null,
+      fuel_card_number: deviceInfo?.fuel_card_number ?? null,
+    });
+  }, [deviceInfo]);
 
   // Build display name for the truck
   const truckYearMakeModel = [truckInfo?.truck_year, truckInfo?.truck_make, truckInfo?.truck_model]
