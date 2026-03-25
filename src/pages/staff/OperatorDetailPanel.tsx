@@ -790,6 +790,29 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setInsuranceEmailRecipients((insSettings as any).recipient_emails ?? []);
     }
 
+    // Fetch ICA truck info for TruckInfoCard
+    const { data: icaData } = await supabase
+      .from('ica_contracts' as any)
+      .select('truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number')
+      .eq('operator_id', operatorId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (icaData) {
+      const ica = icaData as any;
+      setIcaTruckInfo({
+        truck_year: ica.truck_year ?? null,
+        truck_make: ica.truck_make ?? null,
+        truck_model: ica.truck_model ?? null,
+        truck_vin: ica.truck_vin ?? null,
+        truck_plate: ica.truck_plate ?? null,
+        truck_plate_state: ica.truck_plate_state ?? null,
+        trailer_number: ica.trailer_number ?? null,
+      });
+    } else {
+      setIcaTruckInfo(null);
+    }
+
     setLoading(false);
   };
 
