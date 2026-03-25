@@ -90,6 +90,8 @@ interface PaySetupRow {
   terms_accepted: boolean;
   terms_accepted_at: string | null;
   submitted_at: string | null;
+  deposit_overview_acknowledged: boolean;
+  payroll_calendar_acknowledged: boolean;
 }
 
 export default function ContractorPaySetup({ operatorId, onSubmitted }: ContractorPaySetupProps) {
