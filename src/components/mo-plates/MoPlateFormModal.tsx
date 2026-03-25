@@ -15,6 +15,7 @@ export type MoPlate = {
   registration_number: string | null;
   notes: string | null;
   status: 'available' | 'assigned' | 'lost_stolen' | 'retired';
+  expires_at: string | null;
   created_at: string;
   updated_at: string;
 };
