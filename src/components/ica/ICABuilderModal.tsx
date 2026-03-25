@@ -465,9 +465,9 @@ export default function ICABuilderModal({
                 <h3 className="text-sm font-semibold text-foreground mb-4">Owner / Business Info</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <FormField label="Owner Name *" value={data.owner_name} onChange={v => set('owner_name', v)} placeholder="John Doe" />
+                  <MaskedField label="SSN" value={data.owner_ssn} onChange={v => set('owner_ssn', v)} mask="ssn" placeholder="123-45-6789" />
                   <FormField label="Business Name" value={data.owner_business_name} onChange={v => set('owner_business_name', v)} placeholder="John Doe LLC" />
                   <MaskedField label="EIN" value={data.owner_ein} onChange={v => set('owner_ein', v)} mask="ein" placeholder="12-3456789" />
-                  <MaskedField label="SSN" value={data.owner_ssn} onChange={v => set('owner_ssn', v)} mask="ssn" placeholder="123-45-6789" />
                   <FormField label="Address" value={data.owner_address} onChange={v => set('owner_address', v)} placeholder="123 Main St" span={2} />
                   <FormField label="City" value={data.owner_city} onChange={v => set('owner_city', v)} placeholder="Kansas City" />
                   <FormField label="State" value={data.owner_state} onChange={v => set('owner_state', v)} placeholder="MO" />
