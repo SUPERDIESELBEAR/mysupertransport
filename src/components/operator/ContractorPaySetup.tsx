@@ -463,6 +463,81 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
         )}
       </div>
 
+      {/* ── PAYROLL REFERENCE DOCUMENTS (gates the form below) ── */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-border bg-muted/30 flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Payroll Reference Documents</p>
+          {allDocsAcknowledged && (
+            <span className="flex items-center gap-1 text-[11px] font-semibold text-status-complete">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Both acknowledged
+            </span>
+          )}
+        </div>
+        <div className="p-4 space-y-3">
+          <p className="text-xs text-muted-foreground leading-relaxed px-1">
+            Please review both documents below and toggle each acknowledgment to confirm you have read them. <span className="font-semibold text-foreground">You must acknowledge both documents before you can fill in the setup form below.</span>
+          </p>
+          {COMPANY_DOCS.map(doc => {
+            const acked = docAcknowledged[doc.key];
+            const url = docUrls[doc.key];
+            return (
+              <div
+                key={doc.key}
+                className={`rounded-lg border-2 transition-colors ${acked ? 'border-status-complete/40 bg-status-complete/5' : 'border-border bg-background'}`}
+              >
+                <div className="flex items-center gap-3 px-4 py-3.5">
+                  <span className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${acked ? 'bg-status-complete/15' : 'bg-muted'}`}>
+                    <FileText className={`h-4 w-4 ${acked ? 'text-status-complete' : 'text-muted-foreground'}`} />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground leading-snug">{doc.title}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{doc.description}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!url}
+                    onClick={() => url && setPreviewDoc({ title: doc.title, url })}
+                    className="shrink-0 text-xs h-8 px-3"
+                  >
+                    View
+                  </Button>
+                </div>
+                <div className="border-t border-border/60 px-4 py-3 flex items-center gap-3">
+                  <Switch
+                    id={`ack-${doc.key}`}
+                    checked={acked}
+                    onCheckedChange={val =>
+                      setDocAcknowledged(prev => ({ ...prev, [doc.key]: val }))
+                    }
+                    className="shrink-0"
+                  />
+                  <label htmlFor={`ack-${doc.key}`} className="flex-1 cursor-pointer">
+                    <p className={`text-xs font-semibold ${acked ? 'text-status-complete' : 'text-foreground'}`}>
+                      I have read and acknowledged this document
+                    </p>
+                  </label>
+                  {acked && <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── GATE BANNER ── */}
+      {!allDocsAcknowledged && (
+        <div className="rounded-xl border border-amber-400/50 bg-amber-50/70 px-5 py-4 flex items-start gap-3">
+          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-800 leading-relaxed font-medium">
+            Acknowledge both documents above to unlock the setup form.
+          </p>
+        </div>
+      )}
+
+      {/* ── GATED FORM SECTION ── */}
+      <div className={`space-y-5 transition-opacity duration-200 ${allDocsAcknowledged ? '' : 'opacity-40 pointer-events-none select-none'}`}>
+
       {/* ── CONTRACTOR TYPE ── */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="px-5 py-3.5 border-b border-border bg-muted/30">
