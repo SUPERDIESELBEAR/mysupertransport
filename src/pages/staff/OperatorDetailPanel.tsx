@@ -723,6 +723,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
     if (op) {
       setIsActive((op as any).is_active ?? true);
+      setIsOnHold((op as any).on_hold ?? false);
+      setOnHoldReason((op as any).on_hold_reason ?? '');
+      setOnHoldDate((op as any).on_hold_date ?? null);
       // Fetch profile separately to avoid FK hint issues
       const { data: profile } = await supabase
         .from('profiles')
