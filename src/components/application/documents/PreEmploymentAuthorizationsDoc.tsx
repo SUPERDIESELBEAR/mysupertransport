@@ -96,24 +96,23 @@ export default function PreEmploymentAuthorizationsDoc({ app }: Props) {
         </div>
       </div>
 
-      {/* Signature block — Row 1: Signature + Date side by side */}
-      <div style={{ marginTop: '0.4in', display: 'flex', gap: '40px', alignItems: 'flex-end' }}>
-        <div style={{ flex: 2 }}>
-          {app.signature_image_url ? (
-            <img src={app.signature_image_url} alt="Signature" style={{ height: '48px', maxWidth: '100%', display: 'block', marginBottom: '2px' }} />
-          ) : (
-            <div style={{ borderBottom: '1px solid #000', height: '48px' }} />
-          )}
-          <div style={{ paddingTop: '4px', fontSize: '11px', color: '#444' }}>Signature</div>
+      {/* Signature block — Row 1: Date */}
+      <div style={{ marginTop: '0.4in', maxWidth: '40%' }}>
+        <div style={{ borderBottom: '1px solid #000', paddingBottom: '4px', fontWeight: 'bold', fontSize: '12px' }}>
+          {signedDate}
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ borderBottom: '1px solid #000', paddingBottom: '4px', fontWeight: 'bold', fontSize: '12px' }}>
-            {signedDate}
-          </div>
-          <div style={{ paddingTop: '4px', fontSize: '11px', color: '#444' }}>Date</div>
-        </div>
+        <div style={{ paddingTop: '4px', fontSize: '11px', color: '#444' }}>Date</div>
       </div>
-      {/* Row 2: Name (Please Print) */}
+      {/* Row 2: Signature */}
+      <div style={{ marginTop: '0.2in' }}>
+        {app.signature_image_url ? (
+          <img src={app.signature_image_url} alt="Signature" style={{ height: '48px', maxWidth: '100%', display: 'block', marginBottom: '2px' }} />
+        ) : (
+          <div style={{ borderBottom: '1px solid #000', height: '48px' }} />
+        )}
+        <div style={{ paddingTop: '4px', fontSize: '11px', color: '#444' }}>Signature</div>
+      </div>
+      {/* Row 3: Name (Please Print) */}
       <div style={{ marginTop: '0.2in' }}>
         <div style={{ borderBottom: '1px solid #000', paddingBottom: '4px', fontWeight: 'bold', fontSize: '12px' }}>
           {app.typed_full_name || fullName}
