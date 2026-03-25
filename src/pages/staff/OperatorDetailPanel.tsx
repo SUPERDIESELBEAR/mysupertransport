@@ -1324,6 +1324,31 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     setStatus(prev => ({ ...prev, [field]: value }));
   };
 
+  // Handle editing device numbers from TruckInfoCard
+  const handleTruckDeviceEdit = async (payload: TruckInfoCardEditPayload) => {
+    if (!statusId) return;
+    const { error } = await supabase
+      .from('onboarding_status')
+      .update({
+        unit_number: payload.unit_number,
+        eld_serial_number: payload.eld_serial_number,
+        dash_cam_number: payload.dash_cam_number,
+        bestpass_number: payload.bestpass_number,
+        fuel_card_number: payload.fuel_card_number,
+      })
+      .eq('id', statusId);
+    if (error) throw error;
+    setStatus(prev => ({
+      ...prev,
+      unit_number: payload.unit_number,
+      eld_serial_number: payload.eld_serial_number,
+      dash_cam_number: payload.dash_cam_number,
+      bestpass_number: payload.bestpass_number,
+      fuel_card_number: payload.fuel_card_number,
+    }));
+    toast({ title: 'Device numbers saved' });
+  };
+
   // Track which doc fields are currently being "requested" (for button loading state)
   const [requestingDoc, setRequestingDoc] = useState<string | null>(null);
   const [markingReceived, setMarkingReceived] = useState<string | null>(null);
