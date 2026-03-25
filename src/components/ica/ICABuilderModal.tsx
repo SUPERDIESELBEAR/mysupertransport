@@ -38,8 +38,10 @@ type ICAData = {
   truck_plate: string;
   truck_plate_state: string;
   trailer_number: string;
+  owner_name: string;
   owner_business_name: string;
-  owner_ein_ssn: string;
+  owner_ein: string;
+  owner_ssn: string;
   owner_address: string;
   owner_city: string;
   owner_state: string;
