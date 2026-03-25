@@ -1719,12 +1719,26 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
 
 
-      {/* Stage breakdown (clickable) */}
-      <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
-        <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-          <p className="text-sm font-semibold text-foreground">Pipeline by Stage</p>
-          {/* Dispatch + Compliance quick-filter chips */}
-          <div className="flex items-center gap-2 flex-wrap">
+      {/* Stage breakdown — compact single-line ribbon */}
+      <div className="bg-white border border-border rounded-lg px-3 py-2 shadow-sm flex items-center gap-2 flex-wrap">
+        <span className="text-xs font-semibold text-muted-foreground shrink-0 mr-1">Stages:</span>
+        {STAGES.map((stage, i) => (
+          <button
+            key={stage}
+            onClick={() => setStageFilter(stageFilter === stage ? 'all' : stage)}
+            className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border font-medium transition-colors shrink-0 ${
+              stageFilter === stage
+                ? 'border-gold bg-gold/10 text-gold'
+                : 'border-border hover:border-gold/40 text-foreground bg-muted/40'
+            }`}
+          >
+            <span className="font-bold">{stageCounts[stage] ?? 0}</span>
+            <span className="text-muted-foreground">S{i + 1}</span>
+          </button>
+        ))}
+        <span className="w-px h-4 bg-border shrink-0 mx-1" />
+        {/* Dispatch + Compliance quick-filter chips */}
+        <div className="flex items-center gap-2 flex-wrap">
             {((['dispatched', 'home'] as DispatchStatus[]).map(status => {
               const badge = DISPATCH_BADGE[status];
               const count = operators.filter(op => op.dispatch_status === status).length;
