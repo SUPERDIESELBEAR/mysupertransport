@@ -97,35 +97,14 @@ export default function PreEmploymentAuthorizationsDoc({ app }: Props) {
       </div>
 
       {/* Signature block */}
-      <div style={{ marginTop: '0.4in' }}>
-        <div style={{ display: 'flex', gap: '60px', alignItems: 'flex-end' }}>
-          <div style={{ flex: 2 }}>
-            {app.signature_image_url ? (
-              <div>
-                <img
-                  src={app.signature_image_url}
-                  alt="Applicant signature"
-                  style={{ maxHeight: '64px', maxWidth: '280px', objectFit: 'contain', display: 'block', marginBottom: '4px' }}
-                />
-                <div style={{ borderTop: '1px solid #000', paddingTop: '4px', fontSize: '11px', color: '#444' }}>
-                  Signature
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div style={{ borderBottom: '1px solid #000', height: '50px' }} />
-                <div style={{ paddingTop: '4px', fontSize: '11px', color: '#444' }}>Signature</div>
-              </div>
-            )}
+      <div style={{ marginTop: '0.4in', display: 'flex', gap: '60px', alignItems: 'flex-end' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ borderBottom: '1px solid #000', paddingBottom: '4px', fontWeight: 'bold', fontSize: '12px' }}>
+            {signedDate}
           </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ borderBottom: '1px solid #000', paddingBottom: '4px', fontWeight: 'bold', fontSize: '12px' }}>
-              {signedDate}
-            </div>
-            <div style={{ paddingTop: '4px', fontSize: '11px', color: '#444' }}>Date</div>
-          </div>
+          <div style={{ paddingTop: '4px', fontSize: '11px', color: '#444' }}>Date</div>
         </div>
-        <div style={{ marginTop: '24px' }}>
+        <div style={{ flex: 2 }}>
           <div style={{ borderBottom: '1px solid #000', paddingBottom: '4px', fontWeight: 'bold', fontSize: '12px' }}>
             {app.typed_full_name || fullName}
           </div>
