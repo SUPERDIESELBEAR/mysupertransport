@@ -254,6 +254,8 @@ function StageTrack({
       >
         {pct}%
       </span>
+      {/* Temperature badge */}
+      <TemperatureBadge op={op} configs={stageConfigs} />
     </div>
   );
 }
@@ -304,12 +306,94 @@ interface OperatorRow {
   paper_logbook_approved: boolean;
   temp_decal_approved: boolean;
   pay_setup_submitted: string;
+  registration_status: string | null;
   progress_pct: number;
   onboarding_updated_at: string | null;
   // On Hold fields
   on_hold: boolean;
   on_hold_reason: string | null;
   on_hold_date: string | null;
+}
+
+// ─── Temperature ─────────────────────────────────────────────────────────────
+type TemperatureLevel = 'cold' | 'cool' | 'warm' | 'hot';
+
+const TEMPERATURE_META: Record<TemperatureLevel, { label: string; dot: string; text: string; bg: string; border: string; tooltip: string }> = {
+  cold: {
+    label: 'Cold',
+    dot: 'bg-slate-400',
+    text: 'text-slate-500',
+    bg: 'bg-slate-100',
+    border: 'border-slate-300',
+    tooltip: 'Stages 1 & 2 not yet fully complete',
+  },
+  cool: {
+    label: 'Cool',
+    dot: 'bg-blue-400',
+    text: 'text-blue-600',
+    bg: 'bg-blue-50',
+    border: 'border-blue-200',
+    tooltip: 'Stages 1 & 2 fully complete',
+  },
+  warm: {
+    label: 'Warm',
+    dot: 'bg-amber-400',
+    text: 'text-amber-600',
+    bg: 'bg-amber-50',
+    border: 'border-amber-200',
+    tooltip: 'Stages 1, 2 & 3 fully complete',
+  },
+  hot: {
+    label: 'Hot',
+    dot: 'bg-red-400',
+    text: 'text-red-600',
+    bg: 'bg-red-50',
+    border: 'border-red-200',
+    tooltip: 'Stages 1–3 complete + MO docs submitted or O/O has own registration',
+  },
+};
+
+function computeTemperature(op: OperatorRow, configs: PipelineStageConfig[]): TemperatureLevel {
+  const activeConfigs = configs.filter(c => c.is_active).sort((a, b) => a.stage_order - b.stage_order);
+
+  const isStageComplete = (stageKey: string) => {
+    const cfg = activeConfigs.find(c => c.stage_key === stageKey);
+    if (!cfg || cfg.items.length === 0) return false;
+    return cfg.items.every(item => evalItem(op, item.field, item.complete_value));
+  };
+
+  const stage1Done = isStageComplete('bg');
+  const stage2Done = isStageComplete('docs');
+  const stage3Done = isStageComplete('ica');
+  const moSubmitted = op.mo_docs_submitted === 'submitted';
+  const ownReg = op.registration_status === 'own_registration';
+
+  if (stage1Done && stage2Done && stage3Done && (moSubmitted || ownReg)) return 'hot';
+  if (stage1Done && stage2Done && stage3Done) return 'warm';
+  if (stage1Done && stage2Done) return 'cool';
+  return 'cold';
+}
+
+function TemperatureBadge({ op, configs }: { op: OperatorRow; configs: PipelineStageConfig[] }) {
+  const level = computeTemperature(op, configs);
+  const meta = TEMPERATURE_META[level];
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={`ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-wide cursor-default shrink-0 ${meta.bg} ${meta.border} ${meta.text}`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${meta.dot}`} />
+            {meta.label}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs max-w-[200px]">
+          {meta.tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 interface StaffOption {
@@ -910,6 +994,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           truck_inspection,
           mo_docs_submitted,
           mo_reg_received,
+          registration_status,
           updated_at
         ),
         contractor_pay_setup ( submitted_at, terms_accepted )
@@ -1046,6 +1131,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         paper_logbook_approved: os.paper_logbook_approved ?? false,
         temp_decal_approved: os.temp_decal_approved ?? false,
         pay_setup_submitted: paySetupSubmitted,
+        registration_status: os.registration_status ?? null,
         progress_pct: 0, // placeholder; real % computed in StageTrack from pipeline_config
         onboarding_updated_at: os.updated_at ?? null,
         on_hold: op.on_hold ?? false,
