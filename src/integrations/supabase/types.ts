@@ -1107,6 +1107,93 @@ export type Database = {
         }
         Relationships: []
       }
+      mo_plate_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          driver_name: string
+          event_type: string
+          id: string
+          notes: string | null
+          operator_id: string | null
+          plate_id: string
+          returned_at: string | null
+          returned_by: string | null
+          unit_number: string | null
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          driver_name: string
+          event_type?: string
+          id?: string
+          notes?: string | null
+          operator_id?: string | null
+          plate_id: string
+          returned_at?: string | null
+          returned_by?: string | null
+          unit_number?: string | null
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          driver_name?: string
+          event_type?: string
+          id?: string
+          notes?: string | null
+          operator_id?: string | null
+          plate_id?: string
+          returned_at?: string | null
+          returned_by?: string | null
+          unit_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mo_plate_assignments_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mo_plate_assignments_plate_id_fkey"
+            columns: ["plate_id"]
+            isOneToOne: false
+            referencedRelation: "mo_plates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mo_plates: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          plate_number: string
+          registration_number: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          plate_number: string
+          registration_number?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          plate_number?: string
+          registration_number?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           email_enabled: boolean
