@@ -69,7 +69,11 @@ function validateStep(step: number, data: ApplicationFormData): Partial<Record<k
 
   if (step === 5) {
     if (!data.dot_accidents) errs.dot_accidents = 'Please answer this question';
+    if (data.dot_accidents === 'yes' && !data.dot_accidents_description?.trim())
+      errs.dot_accidents_description = 'Please describe each accident';
     if (!data.moving_violations) errs.moving_violations = 'Please answer this question';
+    if (data.moving_violations === 'yes' && !data.moving_violations_description?.trim())
+      errs.moving_violations_description = 'Please describe each violation';
   }
 
   if (step === 6) {
