@@ -82,6 +82,10 @@ export default function MoPlateRegistry() {
   const [replacementDialogPlate, setReplacementDialogPlate] = useState<PlateWithAssignee | null>(null);
   const [replacementLoading, setReplacementLoading] = useState(false);
 
+  // Retire dialog
+  const [retireDialogPlate, setRetireDialogPlate] = useState<PlateWithAssignee | null>(null);
+  const [retireLoading, setRetireLoading] = useState(false);
+
   // Delete dialog
   const [deleteDialogPlate, setDeleteDialogPlate] = useState<PlateWithAssignee | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
