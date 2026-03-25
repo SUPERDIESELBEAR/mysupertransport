@@ -220,9 +220,33 @@ export default function MoPlateRegistry() {
   };
 
   // ---------- RETIRE / REACTIVATE ----------
-  const handleSetStatus = async (plate: PlateWithAssignee, newStatus: 'retired' | 'available') => {
+  const handleRetire = async () => {
+    if (!retireDialogPlate) return;
+    setRetireLoading(true);
+    try {
+      // If currently assigned, close the open assignment first
+      if (retireDialogPlate.status === 'assigned') {
+        await supabase
+          .from('mo_plate_assignments')
+          .update({ returned_at: new Date().toISOString(), returned_by: session?.user?.id, notes: 'Plate retired' })
+          .eq('plate_id', retireDialogPlate.id)
+          .is('returned_at', null)
+          .eq('event_type', 'assignment');
+      }
+      await supabase.from('mo_plates').update({ status: 'retired' }).eq('id', retireDialogPlate.id);
+      toast({ title: 'Plate retired', description: `${retireDialogPlate.plate_number} has been retired.` });
+      setRetireDialogPlate(null);
+      fetchPlates();
+    } catch (err: unknown) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setRetireLoading(false);
+    }
+  };
+
+  const handleSetStatus = async (plate: PlateWithAssignee, newStatus: 'available') => {
     await supabase.from('mo_plates').update({ status: newStatus }).eq('id', plate.id);
-    toast({ title: newStatus === 'retired' ? 'Plate retired' : 'Plate reactivated' });
+    toast({ title: 'Plate reactivated' });
     fetchPlates();
   };
 
