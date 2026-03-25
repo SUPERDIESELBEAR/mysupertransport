@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ChevronLeft, ChevronRight, Eye, FileText, ClipboardList } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, FileText, ClipboardList, ScrollText } from 'lucide-react';
 import FormProgress from '@/components/application/FormProgress';
 import Step1Personal from '@/components/application/Step1Personal';
 import Step2CDL from '@/components/application/Step2CDL';
@@ -14,6 +14,7 @@ import Step7Documents from '@/components/application/Step7Documents';
 import Step8Disclosures from '@/components/application/Step8Disclosures';
 import Step9Signature from '@/components/application/Step9Signature';
 import { defaultFormData } from '@/components/application/types';
+import ICADocumentView from '@/components/ica/ICADocumentView';
 
 const STEP_LABELS = [
   'Personal Info',
@@ -91,6 +92,30 @@ interface FormEntry {
   icon: React.ReactNode;
 }
 
+// ─── Sample ICA data for preview ─────────────────────────────────────────────
+const ICA_SAMPLE_DATA = {
+  truck_year: '2021',
+  truck_make: 'Freightliner',
+  truck_model: 'Cascadia',
+  truck_vin: '3AKJHHDR7MSXYZ123',
+  truck_plate: 'AB1234',
+  truck_plate_state: 'MO',
+  trailer_number: '',
+  owner_name: 'John Smith',
+  owner_business_name: 'Smith Transport LLC',
+  owner_ein: '12-3456789',
+  owner_ssn: '',
+  owner_address: '1234 Highway 70 W',
+  owner_city: 'Kansas City',
+  owner_state: 'MO',
+  owner_zip: '64111',
+  owner_phone: '816-555-0100',
+  owner_email: 'john.smith@example.com',
+  linehaul_split_pct: 72,
+  lease_effective_date: '2026-04-01',
+  lease_termination_date: '',
+};
+
 const FORMS: FormEntry[] = [
   {
     id: 'driver-application',
@@ -100,6 +125,15 @@ const FORMS: FormEntry[] = [
     badgeVariant: 'secondary',
     steps: 9,
     icon: <ClipboardList className="h-5 w-5 text-primary" />,
+  },
+  {
+    id: 'ica-contract',
+    title: 'Independent Contractor Agreement',
+    description: 'Full ICA document presented to operators during onboarding. Includes all standard clauses (compensation, insurance, equipment lease, termination) plus Appendices A–D with equipment identification, pay schedule, and drug & alcohol policy.',
+    badge: 'Single View',
+    badgeVariant: 'outline',
+    steps: 1,
+    icon: <ScrollText className="h-5 w-5 text-primary" />,
   },
 ];
 
@@ -124,6 +158,7 @@ function PreviewStep({ step }: { step: number }) {
 function FormPreviewModal({ form, onClose }: { form: FormEntry; onClose: () => void }) {
   const [step, setStep] = useState(1);
   const totalSteps = form.steps;
+  const isICA = form.id === 'ica-contract';
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
@@ -137,7 +172,9 @@ function FormPreviewModal({ form, onClose }: { form: FormEntry; onClose: () => v
               </div>
               <div className="min-w-0">
                 <DialogTitle className="text-base font-semibold leading-tight truncate">{form.title}</DialogTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Read-only preview · {totalSteps} steps</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Read-only preview{!isICA && ` · ${totalSteps} steps`}
+                </p>
               </div>
             </div>
             <Badge variant="outline" className="shrink-0 text-xs text-muted-foreground">
@@ -146,42 +183,61 @@ function FormPreviewModal({ form, onClose }: { form: FormEntry; onClose: () => v
           </div>
         </DialogHeader>
 
-        {/* Progress bar */}
-        <div className="shrink-0 px-6 pt-4 pb-2">
-          <FormProgress currentStep={step} totalSteps={totalSteps} stepLabels={STEP_LABELS} />
-        </div>
+        {/* Progress bar — application only */}
+        {!isICA && (
+          <div className="shrink-0 px-6 pt-4 pb-2">
+            <FormProgress currentStep={step} totalSteps={totalSteps} stepLabels={STEP_LABELS} />
+          </div>
+        )}
 
-        {/* Scrollable step content */}
+        {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          <PreviewStep step={step} />
+          {isICA ? (
+            <div className="pointer-events-none select-none">
+              <ICADocumentView
+                data={ICA_SAMPLE_DATA}
+                operatorName="John Smith"
+                previewMode
+                carrierTypedName="Sarah Johnson"
+                carrierTitle="Operations Manager"
+                carrierSignedAt="2026-04-01"
+                contractorTypedName="John Smith"
+                contractorSignedAt="2026-04-01"
+              />
+            </div>
+          ) : (
+            <PreviewStep step={step} />
+          )}
         </div>
 
-        {/* Navigation footer */}
-        <div className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-t border-border bg-secondary/40">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setStep(s => Math.max(1, s - 1))}
-            disabled={step === 1}
-            className="gap-1.5"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Previous
-          </Button>
-          <span className="text-xs text-muted-foreground font-medium">
-            Step {step} of {totalSteps} — {STEP_LABELS[step - 1]}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setStep(s => Math.min(totalSteps, s + 1))}
-            disabled={step === totalSteps}
-            className="gap-1.5"
-          >
-            Next
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        {/* Navigation footer — application only */}
+        {!isICA && (
+          <div className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-t border-border bg-secondary/40">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStep(s => Math.max(1, s - 1))}
+              disabled={step === 1}
+              className="gap-1.5"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <span className="text-xs text-muted-foreground font-medium">
+              Step {step} of {totalSteps} — {STEP_LABELS[step - 1]}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStep(s => Math.min(totalSteps, s + 1))}
+              disabled={step === totalSteps}
+              className="gap-1.5"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
