@@ -306,6 +306,10 @@ interface OperatorRow {
   pay_setup_submitted: string;
   progress_pct: number;
   onboarding_updated_at: string | null;
+  // On Hold fields
+  on_hold: boolean;
+  on_hold_reason: string | null;
+  on_hold_date: string | null;
 }
 
 interface StaffOption {
