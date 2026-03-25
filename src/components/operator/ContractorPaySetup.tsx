@@ -207,6 +207,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
     if (!requiredFilled || !user) return;
     setSaving(true);
     try {
+      const now = new Date().toISOString();
       const payload: Record<string, unknown> = {
         operator_id: operatorId,
         contractor_type: contractorType,
@@ -216,11 +217,13 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
         phone: phone.trim(),
         email: email.trim(),
         terms_accepted: true,
-        terms_accepted_at: new Date().toISOString(),
-        submitted_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        terms_accepted_at: now,
+        submitted_at: now,
+        updated_at: now,
         deposit_overview_acknowledged: docAcknowledged.deposit_overview,
         payroll_calendar_acknowledged: docAcknowledged.payroll_calendar,
+        deposit_overview_acknowledged_at: docAcknowledged.deposit_overview ? now : null,
+        payroll_calendar_acknowledged_at: docAcknowledged.payroll_calendar ? now : null,
       };
 
       let error: any;
