@@ -618,6 +618,37 @@ export default function MoPlateRegistry() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Retire dialog */}
+      <AlertDialog open={!!retireDialogPlate} onOpenChange={(o) => { if (!o) setRetireDialogPlate(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Archive className="h-5 w-5 text-muted-foreground" />
+              Retire Plate {retireDialogPlate?.plate_number}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This plate will be marked as retired and removed from active circulation.
+              {retireDialogPlate?.status === 'assigned' && (
+                <span className="block mt-1 font-medium text-foreground">
+                  This plate is currently assigned to {retireDialogPlate.current_driver}. The assignment will be automatically closed first.
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              variant="ghost"
+              className="border border-border hover:bg-muted"
+              onClick={handleRetire}
+              disabled={retireLoading}
+            >
+              {retireLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Confirm Retire
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

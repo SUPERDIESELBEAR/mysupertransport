@@ -1047,7 +1047,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               description: `${operatorName}: ${m.label}`,
             });
           } catch (notifErr) {
-            console.error('Milestone notification error:', notifErr);
+            // silent — notification failure should not block the save
           }
         }
       }
