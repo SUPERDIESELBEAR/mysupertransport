@@ -15,7 +15,7 @@ import { format } from 'date-fns';
 import {
   Plus, Search, Loader2, Car, CheckCircle2, UserCheck,
   AlertTriangle, Archive, History, Pencil, RotateCcw,
-  RefreshCcw, Trash2, UserX, CalendarClock,
+  RefreshCcw, Trash2, UserX, CalendarClock, ArrowLeftRight, User, Hash,
 } from 'lucide-react';
 
 // ── Expiry helpers (mirrors Inspection Binder logic) ──────────────────────────
