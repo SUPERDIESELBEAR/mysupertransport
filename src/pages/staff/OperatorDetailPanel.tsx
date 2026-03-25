@@ -218,6 +218,16 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [deactivateReason, setDeactivateReason] = useState<string>('');
   const { isManagement } = useAuth();
 
+  // On Hold state
+  const [isOnHold, setIsOnHold] = useState(false);
+  const [onHoldReason, setOnHoldReason] = useState('');
+  const [onHoldDate, setOnHoldDate] = useState<string | null>(null);
+  const [showOnHoldModal, setShowOnHoldModal] = useState(false);
+  const [onHoldModalReason, setOnHoldModalReason] = useState('');
+  const [onHoldModalDate, setOnHoldModalDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [onHoldModalDateOpen, setOnHoldModalDateOpen] = useState(false);
+  const [savingOnHold, setSavingOnHold] = useState(false);
+
   // Stage 8 — Contractor Pay Setup
   const [paySetupRecord, setPaySetupRecord] = useState<any>(null);
   const [paySetupLoaded, setPaySetupLoaded] = useState(false);
