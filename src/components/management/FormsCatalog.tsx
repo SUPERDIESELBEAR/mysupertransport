@@ -148,7 +148,7 @@ function FormPreviewModal({ form, onClose }: { form: FormEntry; onClose: () => v
 
         {/* Progress bar */}
         <div className="shrink-0 px-6 pt-4 pb-2">
-          <FormProgress step={step} totalSteps={totalSteps} stepLabels={STEP_LABELS} />
+          <FormProgress currentStep={step} totalSteps={totalSteps} stepLabels={STEP_LABELS} />
         </div>
 
         {/* Scrollable step content */}
