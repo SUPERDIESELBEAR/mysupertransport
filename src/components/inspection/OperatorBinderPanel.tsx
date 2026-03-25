@@ -350,10 +350,42 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
 
             {/* Driver Uploads */}
             {activeTab === 'uploads' && (
-              <div className="space-y-3">
+              <div className="space-y-4">
+                {/* Staff Upload Section */}
+                <div className="rounded-xl border border-border bg-secondary/40 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-foreground">Upload on behalf of driver</p>
+                  <div className="flex flex-wrap gap-2">
+                    {STAFF_UPLOAD_SECTIONS.map(({ key, label }) => (
+                      <div key={key}>
+                        <input
+                          ref={el => { staffUploadRefs.current[key] = el; }}
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          className="hidden"
+                          onChange={e => { const f = e.target.files?.[0]; if (f) handleStaffUpload(key, f); e.target.value = ''; }}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 gap-1.5 text-xs"
+                          disabled={staffUploading === key}
+                          onClick={() => staffUploadRefs.current[key]?.click()}
+                        >
+                          {staffUploading === key
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <Plus className="h-3 w-3" />
+                          }
+                          {label}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Uploads list */}
                 {driverUploads.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground text-sm border border-dashed border-border rounded-xl">
-                    No uploads from this driver yet.
+                    No uploads yet.
                   </div>
                 ) : (
                   driverUploads.map(upload => (
