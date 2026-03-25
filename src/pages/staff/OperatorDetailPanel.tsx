@@ -1714,6 +1714,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         );
       })()}
 
+      {/* ── Truck & Equipment Card ── */}
+      <TruckInfoCard
+        truckInfo={icaTruckInfo}
+        deviceInfo={{
+          unit_number: status.unit_number,
+          eld_serial_number: status.eld_serial_number,
+          dash_cam_number: status.dash_cam_number,
+          bestpass_number: status.bestpass_number,
+          fuel_card_number: status.fuel_card_number,
+        }}
+        onEdit={handleTruckDeviceEdit}
+      />
+
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
       {(() => {
         const exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
