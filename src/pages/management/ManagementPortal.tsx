@@ -31,6 +31,7 @@ import {
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
 import DocumentHub from '@/components/documents/DocumentHub';
 import EmailCatalog from '@/components/management/EmailCatalog';
+import FormsCatalog from '@/components/management/FormsCatalog';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
 import DriverHubView from '@/components/drivers/DriverHubView';
