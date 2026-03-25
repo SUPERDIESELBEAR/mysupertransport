@@ -135,13 +135,47 @@ function toInlineUrl(url: string): string {
 const ZOOM_STEPS = [50, 75, 100, 125, 150, 175, 200];
 const DEFAULT_ZOOM_IDX = 2; // 100%
 
+/** Fetches a remote URL as a blob object URL to bypass X-Frame-Options restrictions */
+function useBlobUrl(remoteUrl: string) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    setBlobUrl(null);
+    setError(false);
+
+    fetch(remoteUrl)
+      .then(r => {
+        if (!r.ok) throw new Error('fetch failed');
+        return r.blob();
+      })
+      .then(blob => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setBlobUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [remoteUrl]);
+
+  return { blobUrl, error };
+}
+
 /** Generic in-app file preview modal — no new tab required */
 export function FilePreviewModal({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
   const [loaded, setLoaded] = useState(false);
   const [zoomIdx, setZoomIdx] = useState(DEFAULT_ZOOM_IDX);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const handleLoad = useCallback(() => setLoaded(true), []);
-  const inlineUrl = toInlineUrl(url);
+  const { blobUrl, error } = useBlobUrl(toInlineUrl(url));
 
   const zoom = ZOOM_STEPS[zoomIdx];
   const canZoomIn = zoomIdx < ZOOM_STEPS.length - 1;
@@ -159,6 +193,7 @@ export function FilePreviewModal({ url, name, onClose }: { url: string; name: st
   }, []);
 
   const scale = zoom / 100;
+  const isLoading = !blobUrl && !error;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/90" onClick={onClose}>
@@ -234,29 +269,37 @@ export function FilePreviewModal({ url, name, onClose }: { url: string; name: st
 
       {/* Document area */}
       <div className="flex-1 relative overflow-auto" onClick={e => e.stopPropagation()}>
-        {!loaded && (
+        {isLoading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 z-10">
             <Loader2 className="h-8 w-8 text-gold animate-spin" />
             <span className="text-sm text-muted-foreground">Loading document…</span>
           </div>
         )}
-        <div
-          style={{
-            width: `${scale * 100}%`,
-            height: `${scale * 100}%`,
-            minWidth: scale <= 1 ? '100%' : undefined,
-            minHeight: scale <= 1 ? '100%' : undefined,
-          }}
-        >
-          <iframe
-            ref={iframeRef}
-            src={`${inlineUrl}#toolbar=0`}
-            style={{ width: `${100 / scale}%`, height: `${100 / scale}%`, transform: `scale(${scale})`, transformOrigin: 'top left', transition: 'transform 0.2s ease-out' }}
-            className={`transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-            title={name}
-            onLoad={handleLoad}
-          />
-        </div>
+        {error && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
+            <span className="text-sm text-muted-foreground">Could not load document inline.</span>
+            <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-gold underline">Open in new tab</a>
+          </div>
+        )}
+        {blobUrl && (
+          <div
+            style={{
+              width: `${scale * 100}%`,
+              height: `${scale * 100}%`,
+              minWidth: scale <= 1 ? '100%' : undefined,
+              minHeight: scale <= 1 ? '100%' : undefined,
+            }}
+          >
+            <iframe
+              ref={iframeRef}
+              src={`${blobUrl}#toolbar=0`}
+              style={{ width: `${100 / scale}%`, height: `${100 / scale}%`, transform: `scale(${scale})`, transformOrigin: 'top left', transition: 'transform 0.2s ease-out' }}
+              className={`transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+              title={name}
+              onLoad={handleLoad}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -267,12 +310,13 @@ function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => vo
   const [zoomIdx, setZoomIdx] = useState(DEFAULT_ZOOM_IDX);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const handleLoad = useCallback(() => setLoaded(true), []);
-  const inlineUrl = doc.file_url ? toInlineUrl(doc.file_url) : null;
+  const { blobUrl, error } = useBlobUrl(doc.file_url ? toInlineUrl(doc.file_url) : '');
 
   const zoom = ZOOM_STEPS[zoomIdx];
   const canZoomIn = zoomIdx < ZOOM_STEPS.length - 1;
   const canZoomOut = zoomIdx > 0;
   const scale = zoom / 100;
+  const isLoading = !!doc.file_url && !blobUrl && !error;
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -360,34 +404,39 @@ function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => vo
         </div>
       </div>
       <div className="flex-1 relative overflow-auto" onClick={e => e.stopPropagation()}>
-        {inlineUrl ? (
-          <>
-            {!loaded && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 z-10">
-                <Loader2 className="h-8 w-8 text-gold animate-spin" />
-                <span className="text-sm text-muted-foreground">Loading document…</span>
-              </div>
-            )}
-            <div
-              style={{
-                width: `${scale * 100}%`,
-                height: `${scale * 100}%`,
-                minWidth: scale <= 1 ? '100%' : undefined,
-                minHeight: scale <= 1 ? '100%' : undefined,
-              }}
-            >
-              <iframe
-                ref={iframeRef}
-                src={`${inlineUrl}#toolbar=0`}
-                style={{ width: `${100 / scale}%`, height: `${100 / scale}%`, transform: `scale(${scale})`, transformOrigin: 'top left', transition: 'transform 0.2s ease-out' }}
-                className={`transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-                title={doc.name}
-                onLoad={handleLoad}
-              />
-            </div>
-          </>
-        ) : (
+        {isLoading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 z-10">
+            <Loader2 className="h-8 w-8 text-gold animate-spin" />
+            <span className="text-sm text-muted-foreground">Loading document…</span>
+          </div>
+        )}
+        {error && doc.file_url && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
+            <span className="text-sm text-muted-foreground">Could not load document inline.</span>
+            <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="text-xs text-gold underline">Open in new tab</a>
+          </div>
+        )}
+        {!doc.file_url && (
           <div className="flex items-center justify-center h-full text-muted-foreground">No file available.</div>
+        )}
+        {blobUrl && (
+          <div
+            style={{
+              width: `${scale * 100}%`,
+              height: `${scale * 100}%`,
+              minWidth: scale <= 1 ? '100%' : undefined,
+              minHeight: scale <= 1 ? '100%' : undefined,
+            }}
+          >
+            <iframe
+              ref={iframeRef}
+              src={`${blobUrl}#toolbar=0`}
+              style={{ width: `${100 / scale}%`, height: `${100 / scale}%`, transform: `scale(${scale})`, transformOrigin: 'top left', transition: 'transform 0.2s ease-out' }}
+              className={`transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+              title={doc.name}
+              onLoad={handleLoad}
+            />
+          </div>
         )}
       </div>
     </div>
