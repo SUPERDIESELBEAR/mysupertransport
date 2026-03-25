@@ -528,7 +528,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           operator_name: operatorName,
         },
       });
-      if (auditErr) console.error('[audit] cert_renewed:', auditErr);
+      if (auditErr) {}
       // Optimistically update 'Renewed by' indicator
       const docTypeKey = label === 'CDL' ? 'CDL' : 'Medical Cert';
       const renewedNow = new Date().toISOString();
