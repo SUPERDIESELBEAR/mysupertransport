@@ -1036,6 +1036,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         pay_setup_submitted: paySetupSubmitted,
         progress_pct: 0, // placeholder; real % computed in StageTrack from pipeline_config
         onboarding_updated_at: os.updated_at ?? null,
+        on_hold: op.on_hold ?? false,
+        on_hold_reason: op.on_hold_reason ?? null,
+        on_hold_date: op.on_hold_date ?? null,
       };
     });
     setOperators(rows);
