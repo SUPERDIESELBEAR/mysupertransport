@@ -1,0 +1,257 @@
+import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ChevronLeft, ChevronRight, Eye, FileText, ClipboardList } from 'lucide-react';
+import FormProgress from '@/components/application/FormProgress';
+import Step1Personal from '@/components/application/Step1Personal';
+import Step2CDL from '@/components/application/Step2CDL';
+import Step3Employment from '@/components/application/Step3Employment';
+import Step4Driving from '@/components/application/Step4Driving';
+import Step5Accidents from '@/components/application/Step5Accidents';
+import Step6DrugAlcohol from '@/components/application/Step6DrugAlcohol';
+import Step7Documents from '@/components/application/Step7Documents';
+import Step8Disclosures from '@/components/application/Step8Disclosures';
+import Step9Signature from '@/components/application/Step9Signature';
+import { defaultFormData } from '@/components/application/types';
+
+const STEP_LABELS = [
+  'Personal Info',
+  'CDL Info',
+  'Employment',
+  'Experience',
+  'Accidents',
+  'Drug & Alcohol',
+  'Documents',
+  'Disclosures',
+  'Signature',
+];
+
+// ─── Sample data for preview ────────────────────────────────────────────────
+const SAMPLE_DATA = {
+  ...defaultFormData,
+  first_name: 'John',
+  last_name: 'Smith',
+  dob: '1985-06-15',
+  phone: '816-555-0100',
+  email: 'john.smith@example.com',
+  address_street: '1234 Highway 70 W',
+  address_city: 'Kansas City',
+  address_state: 'MO',
+  address_zip: '64111',
+  address_duration: '3_or_more',
+  cdl_state: 'MO',
+  cdl_number: 'F123456789',
+  cdl_class: 'CDL-A',
+  cdl_expiration: '2027-03-01',
+  endorsements: ['H', 'N'],
+  cdl_10_years: 'yes',
+  referral_source: 'referral',
+  years_experience: '8_10',
+  equipment_operated: ['dry_van', 'temp_controlled'],
+  dot_accidents: 'no',
+  moving_violations: 'no',
+  sap_process: 'no',
+  dl_front_url: 'https://placehold.co/400x250?text=DL+Front',
+  dl_rear_url: 'https://placehold.co/400x250?text=DL+Rear',
+  medical_cert_url: 'https://placehold.co/400x250?text=Med+Cert',
+  auth_safety_history: true,
+  auth_drug_alcohol: true,
+  auth_previous_employers: true,
+  dot_positive_test_past_2yr: 'no',
+  testing_policy_accepted: true,
+  typed_full_name: 'John Smith',
+  signed_date: 'March 25, 2026',
+  employer_1: {
+    name: 'ABC Trucking Co.',
+    city: 'St. Louis',
+    state: 'MO',
+    position: 'OTR Driver',
+    reason_leaving: 'Better opportunity',
+    cmv_position: 'yes',
+    start_date: '2019-01-01',
+    end_date: '2024-06-01',
+  },
+  has_additional_employers: 'no',
+  employment_gaps: 'no',
+};
+
+// ─── No-op onChange — form is read-only in preview ───────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const noop = (_field: any, _value: any) => {};
+
+// ─── Form catalog entry ───────────────────────────────────────────────────────
+interface FormEntry {
+  id: string;
+  title: string;
+  description: string;
+  badge: string;
+  badgeVariant: 'default' | 'secondary' | 'outline';
+  steps: number;
+  icon: React.ReactNode;
+}
+
+const FORMS: FormEntry[] = [
+  {
+    id: 'driver-application',
+    title: 'Driver Application',
+    description: 'FMCSA-compliant multi-step application form completed by prospective owner-operators. Covers personal info, CDL, employment history, driving experience, accident record, drug & alcohol status, documents, disclosures, and e-signature.',
+    badge: '9 Steps',
+    badgeVariant: 'secondary',
+    steps: 9,
+    icon: <ClipboardList className="h-5 w-5 text-primary" />,
+  },
+];
+
+// ─── Step renderer (read-only via pointer-events-none overlay) ────────────────
+function PreviewStep({ step }: { step: number }) {
+  return (
+    <div className="relative pointer-events-none select-none">
+      {step === 1 && <Step1Personal data={SAMPLE_DATA} onChange={noop} errors={{}} />}
+      {step === 2 && <Step2CDL data={SAMPLE_DATA} onChange={noop} errors={{}} />}
+      {step === 3 && <Step3Employment data={SAMPLE_DATA} onChange={noop} errors={{}} />}
+      {step === 4 && <Step4Driving data={SAMPLE_DATA} onChange={noop} errors={{}} />}
+      {step === 5 && <Step5Accidents data={SAMPLE_DATA} onChange={noop} errors={{}} />}
+      {step === 6 && <Step6DrugAlcohol data={SAMPLE_DATA} onChange={noop} errors={{}} />}
+      {step === 7 && <Step7Documents data={SAMPLE_DATA} onChange={noop} errors={{}} />}
+      {step === 8 && <Step8Disclosures data={SAMPLE_DATA} onChange={noop} errors={{}} />}
+      {step === 9 && <Step9Signature data={SAMPLE_DATA} onChange={noop} errors={{}} />}
+    </div>
+  );
+}
+
+// ─── Preview modal ────────────────────────────────────────────────────────────
+function FormPreviewModal({ form, onClose }: { form: FormEntry; onClose: () => void }) {
+  const [step, setStep] = useState(1);
+  const totalSteps = form.steps;
+
+  return (
+    <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-2xl w-full max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+        {/* Header */}
+        <DialogHeader className="shrink-0 px-6 pt-5 pb-3 border-b border-border">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                {form.icon}
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-base font-semibold leading-tight truncate">{form.title}</DialogTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Read-only preview · {totalSteps} steps</p>
+              </div>
+            </div>
+            <Badge variant="outline" className="shrink-0 text-xs text-muted-foreground">
+              Preview Only
+            </Badge>
+          </div>
+        </DialogHeader>
+
+        {/* Progress bar */}
+        <div className="shrink-0 px-6 pt-4 pb-2">
+          <FormProgress currentStep={step} totalSteps={totalSteps} stepLabels={STEP_LABELS} />
+        </div>
+
+        {/* Scrollable step content */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <PreviewStep step={step} />
+        </div>
+
+        {/* Navigation footer */}
+        <div className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-t border-border bg-secondary/40">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setStep(s => Math.max(1, s - 1))}
+            disabled={step === 1}
+            className="gap-1.5"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Previous
+          </Button>
+          <span className="text-xs text-muted-foreground font-medium">
+            Step {step} of {totalSteps} — {STEP_LABELS[step - 1]}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setStep(s => Math.min(totalSteps, s + 1))}
+            disabled={step === totalSteps}
+            className="gap-1.5"
+          >
+            Next
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+export default function FormsCatalog() {
+  const [previewForm, setPreviewForm] = useState<FormEntry | null>(null);
+
+  return (
+    <div className="space-y-5 animate-fade-in">
+      {/* Header */}
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Forms Catalog</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Browse and preview all operational forms. Click a form to page through its sections with sample data.
+        </p>
+      </div>
+
+      {/* Forms grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        {FORMS.map(form => (
+          <div
+            key={form.id}
+            className="bg-white border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col gap-4"
+          >
+            {/* Icon + title row */}
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                {form.icon}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-sm font-semibold text-foreground leading-tight">{form.title}</h2>
+                  <Badge variant={form.badgeVariant} className="text-[10px] px-1.5 py-0">
+                    {form.badge}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <p className="text-xs text-muted-foreground leading-relaxed flex-1">{form.description}</p>
+
+            {/* Action */}
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full gap-2 text-xs"
+              onClick={() => setPreviewForm(form)}
+            >
+              <Eye className="h-3.5 w-3.5" />
+              Preview Form
+            </Button>
+          </div>
+        ))}
+
+        {/* Placeholder card — more forms coming */}
+        <div className="bg-secondary/50 border border-dashed border-border rounded-xl p-5 flex flex-col items-center justify-center gap-2 min-h-[180px]">
+          <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
+            <FileText className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <p className="text-xs text-muted-foreground text-center">Additional forms will appear here as they are added to the system.</p>
+        </div>
+      </div>
+
+      {/* Preview modal */}
+      {previewForm && (
+        <FormPreviewModal form={previewForm} onClose={() => setPreviewForm(null)} />
+      )}
+    </div>
+  );
+}
