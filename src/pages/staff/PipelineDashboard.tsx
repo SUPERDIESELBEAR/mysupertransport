@@ -1622,6 +1622,13 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         const cmp = a.doc_count - b.doc_count;
         return sortDir === 'asc' ? cmp : -cmp;
       }
+      if (sortKey === 'temperature') {
+        const TEMP_ORDER: Record<TemperatureLevel, number> = { cold: 0, cool: 1, warm: 2, hot: 3 };
+        const aTemp = computeTemperature(a, stageConfigs);
+        const bTemp = computeTemperature(b, stageConfigs);
+        const cmp = TEMP_ORDER[aTemp] - TEMP_ORDER[bTemp];
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
       if (sortKey === 'progress') {
         const cmp = computeProgressFromConfig(a, stageConfigs) - computeProgressFromConfig(b, stageConfigs);
         return sortDir === 'asc' ? cmp : -cmp;
