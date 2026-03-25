@@ -621,10 +621,10 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                 },
                 {
                   id: 'doc-preauth-print',
-                  title: 'Pre-Employment Authorizations',
-                  description: 'Safety history, drug/alcohol, and employer record releases',
+                  title: 'PSP Authorization',
+                  description: 'FMCSA PSP disclosure, crash & inspection history release',
                   component: <PreEmploymentAuthorizationsDoc app={app} />,
-                  docTitle: `Pre-Employment Authorizations — ${fullName}`,
+                  docTitle: `PSP Authorization — ${fullName}`,
                 },
                 {
                   id: 'doc-dot-print',
