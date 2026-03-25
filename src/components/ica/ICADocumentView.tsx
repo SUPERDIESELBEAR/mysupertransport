@@ -264,8 +264,10 @@ export default function ICADocumentView({
               <AppRow label="VIN" value={fmt(data.truck_vin)} />
               <AppRow label="License Plate & State" value={[data.truck_plate, data.truck_plate_state].filter(Boolean).join(' / ') || fmt(null)} />
               <AppRow label="Trailer Number / VIN (if leased)" value={fmt(data.trailer_number)} />
-              <AppRow label="Owner / Business Name" value={fmt(data.owner_business_name)} />
-              <AppRow label="EIN or SSN" value={fmt(data.owner_ein_ssn)} />
+              <AppRow label="Owner Name" value={fmt(data.owner_name)} />
+              <AppRow label="Business Name" value={fmt(data.owner_business_name)} />
+              {data.owner_ein && <AppRow label="EIN" value={fmt(data.owner_ein)} />}
+              {data.owner_ssn && <AppRow label="SSN" value={fmt(data.owner_ssn)} />}
               <AppRow label="Address" value={fmt(data.owner_address)} />
               <AppRow label="City / State / ZIP" value={ownerAddr || fmt(null)} />
               <AppRow label="Phone / Email" value={[data.owner_phone, data.owner_email].filter(Boolean).join(' / ') || fmt(null)} />
