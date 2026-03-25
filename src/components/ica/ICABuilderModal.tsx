@@ -172,9 +172,12 @@ export default function ICABuilderModal({
       }
 
 
+      const { owner_ein, owner_ssn, owner_name, ...restData } = data;
       const payload = {
         operator_id: operatorId,
-        ...data,
+        ...restData,
+        owner_name,
+        owner_ein_ssn: owner_ein || owner_ssn || null,
         equipment_location: null,
         lease_effective_date: data.lease_effective_date || null,
         lease_termination_date: data.lease_termination_date || null,
