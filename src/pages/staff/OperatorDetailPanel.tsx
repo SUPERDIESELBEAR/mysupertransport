@@ -4416,8 +4416,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           </div>
         );
       })()}
-          );
-        })()}
 
       {/* Inspection Binder — per-driver docs & uploads */}
       {operatorUserId && (
