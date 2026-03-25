@@ -1475,8 +1475,8 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{upload.file_name ?? 'Document'}</p>
-                          <p className="text-xs text-muted-foreground capitalize">
-                            {upload.category.replace(/_/g, ' ')} · {new Date(upload.uploaded_at).toLocaleDateString()}
+                          <p className="text-xs text-muted-foreground">
+                            {UPLOAD_CATEGORY_LABELS[upload.category] ?? upload.category.replace(/_/g, ' ')} · {new Date(upload.uploaded_at).toLocaleDateString()}
                           </p>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
