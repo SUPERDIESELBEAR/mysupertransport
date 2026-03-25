@@ -1733,7 +1733,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             }`}
           >
             <span className="font-bold">{stageCounts[stage] ?? 0}</span>
-            <span className="text-muted-foreground">S{i + 1}</span>
+            <span className="text-muted-foreground">S{stage.match(/Stage (\d+)/)?.[1] ?? i + 1}</span>
           </button>
         ))}
         <span className="w-px h-4 bg-border shrink-0 mx-1" />
