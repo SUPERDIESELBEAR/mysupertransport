@@ -1,73 +1,125 @@
 
-## What exists today
+## MO Registration & License Plate Tracker — Revised Plan
 
-**Operator-facing portal** (`OperatorPortal.tsx` lines 1022–1088): A "My Equipment Info" card already shows `eld_serial_number`, `dash_cam_number`, `bestpass_number`, and `fuel_card_number` — but only once those fields are populated. Truck details (year/make/model/VIN/plate) from `ica_contracts` are not shown at all.
-
-**Staff/Management "Operator Detail Panel"** (`OperatorDetailPanel.tsx`): Equipment device numbers are buried inside the Stage 5 admin section as editable inputs. There is no combined "Truck & Equipment" summary card anywhere in the panel.
-
-**Management Portal** (`ManagementPortal.tsx`): Renders `OperatorDetailPanel` directly — it shares the same component as Staff, so any change to the panel appears in both places automatically.
+### Overview
+Same as before, with one addition: a **Lost/Stolen** status and its replacement workflow. When a plate is reported lost or stolen, staff mark it accordingly. Missouri re-issues the same plate number as a replacement. The registry tracks this as a continuous lifecycle on the same plate record, with the lost/stolen event logged in the history timeline.
 
 ---
 
-## Plan
+### Database — 2 new tables (unchanged schema, updated status enum)
 
-### 1. Add a `TruckInfoCard` component
-Create `src/components/operator/TruckInfoCard.tsx` — a shared read-only display card showing two grouped sections:
-
-```text
-┌─────────────────────────────────────┐
-│  🚛  Truck & Equipment              │
-├─────────────────────────────────────┤
-│  TRUCK INFO (from ICA)              │
-│  Year / Make / Model  VIN           │
-│  License Plate        Plate State   │
-│  Unit Number          Trailer #     │
-├─────────────────────────────────────┤
-│  DEVICES & CARDS                    │
-│  ELD Serial #         Dash Cam #    │
-│  BestPass #           Fuel Card #   │
-└─────────────────────────────────────┘
+**`mo_plates`** — status column now includes 5 values:
+```
+'available' | 'assigned' | 'lost_stolen' | 'retired'
 ```
 
-Fields shown only when populated. If nothing is filled in yet, the card is hidden entirely.
+**`mo_plate_assignments`** — history table (unchanged):
+```
+id, plate_id, operator_id (nullable), driver_name, assigned_at,
+returned_at, notes, assigned_by, returned_by
+```
+
+A "lost/stolen" event is recorded as a special assignment row with `driver_name = 'LOST/STOLEN'` and `returned_at = NULL` until the replacement arrives (or the row can be closed when the replacement is received). An optional `event_type` text column can differentiate assignment rows from event rows — this keeps the timeline coherent.
+
+Revised `mo_plate_assignments` schema:
+```
+...
+event_type  text  -- 'assignment' | 'lost_stolen' | 'replacement_received'
+```
 
 ---
 
-### 2. Update the Operator Portal
-**File:** `src/pages/operator/OperatorPortal.tsx`
+### New Files (unchanged)
 
-- Extend the `fetchData` query to also fetch the operator's `ica_contracts` record (truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number).
-- Add a `icaTruckInfo` state object.
-- **Replace** the existing inline "My Equipment Info" card (lines 1022–1088) with `<TruckInfoCard>`, passing both `onboardingStatus` fields and `icaTruckInfo`.
-
----
-
-### 3. Update the Operator Detail Panel (Staff / Management)
-**File:** `src/pages/staff/OperatorDetailPanel.tsx`
-
-- Extend the existing `ica_contracts` query (already used for draft status) to also pull truck fields.
-- Add an `icaTruckInfo` state object populated on data load.
-- Insert `<TruckInfoCard>` as a **new collapsible stage section** titled "Truck & Equipment Info" placed between Stage 5 (Equipment) and Stage 6 (Insurance) in the stage list — or as a standalone non-collapsible summary card near the top of the panel beside the progress bar. The top summary card placement is preferred since it gives coordinators an at-a-glance reference without scrolling into stage 5.
+- `src/components/mo-plates/MoPlateRegistry.tsx`
+- `src/components/mo-plates/MoPlateFormModal.tsx`
+- `src/components/mo-plates/MoPlateAssignModal.tsx`
+- `src/components/mo-plates/MoPlateHistoryModal.tsx`
 
 ---
 
-### 4. Editable fields (staff only)
-The `TruckInfoCard` component will accept an optional `onEdit` prop. When provided (staff/management view), a small "Edit" icon button appears in the card header opening an inline edit popover for the device numbers (unit #, ELD, dash cam, BestPass, fuel card). Truck details (year/make/model/VIN/plate) remain read-only in this card since they are managed through the ICA builder.
+### UI Design — Plate Card Actions
+
+Each plate card has action buttons that adapt based on current status:
+
+**Status: Available**
+- `Assign` (blue)
+- `Edit` (ghost)
+- `History` (ghost)
+- `Mark Lost/Stolen` (destructive ghost — small)
+- `Retire` (ghost — small)
+
+**Status: Assigned**
+- `Return` (outline)
+- `Edit` (ghost)
+- `History` (ghost)
+- `Mark Lost/Stolen` (destructive ghost — small)
+
+**Status: Lost/Stolen**
+- `Replacement Received` (green — primary action) — closes the lost/stolen event, sets plate back to `available`, logs a "Replacement received" history entry
+- `History` (ghost)
+- `Edit` (ghost)
+
+**Status: Retired**
+- `History` (ghost)
+- `Reactivate` (ghost — management only)
 
 ---
 
-### Files to change
-| File | Change |
+### Lost/Stolen Workflow
+
+1. Staff clicks **Mark Lost/Stolen** on any plate (available or assigned)
+2. A small confirmation dialog appears with an optional notes field ("Reported lost on route 44, driver John Smith")
+3. On confirm:
+   - If currently assigned: the open assignment row is closed (`returned_at = now()`)
+   - A new `mo_plate_assignments` row is inserted with `event_type = 'lost_stolen'`, no `operator_id`, notes from the dialog, `returned_at = NULL`
+   - `mo_plates.status` is set to `'lost_stolen'`
+4. Plate card shows **Lost/Stolen** badge (red) with the date reported
+5. When replacement arrives, staff clicks **Replacement Received**:
+   - Closes the lost/stolen event row (`returned_at = now()`)
+   - Inserts a new `mo_plate_assignments` row with `event_type = 'replacement_received'` and a note ("Replacement plate received from MO — same number")
+   - Sets `mo_plates.status = 'available'`
+   - Plate is now ready to be assigned again
+
+---
+
+### History Timeline — Event Types
+
+The history modal shows a unified vertical timeline for all event types:
+
+```
+● [blue]   ASSIGNED            → John Smith    May 1 2024 – Aug 12 2024
+● [muted]  RETURNED            → (same row, closed)
+● [red]    LOST / STOLEN       → Reported Aug 13 2024 — "Lost during relay"
+● [green]  REPLACEMENT REC'D   → Aug 28 2024 — "New plate from MO"
+● [blue]   ASSIGNED            → Maria Gonzalez  Sep 3 2024 – present
+```
+
+---
+
+### Status Badge Colors
+
+| Status | Badge Color |
 |---|---|
-| `src/components/operator/TruckInfoCard.tsx` | **New** shared display card |
-| `src/pages/operator/OperatorPortal.tsx` | Fetch ICA truck fields; replace inline card with `TruckInfoCard` |
-| `src/pages/staff/OperatorDetailPanel.tsx` | Fetch ICA truck fields; add `TruckInfoCard` to summary area |
-
-No database migration needed — all data already exists in `ica_contracts` and `onboarding_status`.
+| Available | Green |
+| Assigned | Blue |
+| Lost/Stolen | Red |
+| Retired | Muted gray |
 
 ---
 
-### Portals affected
-- **Staff Portal** — Driver Hub → Operator Detail Panel ✓
-- **Management Portal** — Driver Hub → same `OperatorDetailPanel` component ✓
-- **Operator Portal** — "My Progress" tab, below the stage cards ✓
+### Management Portal Integration
+
+- Add `'mo-plates'` to the `ManagementView` union type in `ManagementPortal.tsx`
+- Add nav item under the **Admin** divider (after Equipment)
+- Render `<MoPlateRegistry />` when view is `'mo-plates'`
+
+---
+
+### Technical Details
+
+- No edge functions needed — all CRUD is direct queries
+- `mark_lost_stolen` and `replacement_received` are client-side functions that run 2–3 sequential Supabase mutations
+- RLS: `is_staff()` for SELECT/INSERT/UPDATE; `has_role(management)` for DELETE
+- Driver dropdown for assignment pulls from the same `operators` + `applications` join used in Equipment Inventory
+- Migration creates both tables + RLS policies in a single SQL file
