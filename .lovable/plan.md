@@ -1,125 +1,91 @@
 
-## MO Registration & License Plate Tracker — Revised Plan
+## Code Review Findings — Pre-Publish Cleanup
 
-### Overview
-Same as before, with one addition: a **Lost/Stolen** status and its replacement workflow. When a plate is reported lost or stolen, staff mark it accordingly. Missouri re-issues the same plate number as a replacement. The registry tracks this as a continuous lifecycle on the same plate record, with the lost/stolen event logged in the history timeline.
-
----
-
-### Database — 2 new tables (unchanged schema, updated status enum)
-
-**`mo_plates`** — status column now includes 5 values:
-```
-'available' | 'assigned' | 'lost_stolen' | 'retired'
-```
-
-**`mo_plate_assignments`** — history table (unchanged):
-```
-id, plate_id, operator_id (nullable), driver_name, assigned_at,
-returned_at, notes, assigned_by, returned_by
-```
-
-A "lost/stolen" event is recorded as a special assignment row with `driver_name = 'LOST/STOLEN'` and `returned_at = NULL` until the replacement arrives (or the row can be closed when the replacement is received). An optional `event_type` text column can differentiate assignment rows from event rows — this keeps the timeline coherent.
-
-Revised `mo_plate_assignments` schema:
-```
-...
-event_type  text  -- 'assignment' | 'lost_stolen' | 'replacement_received'
-```
+### Summary
+The app is in very good shape overall. I found **4 real bugs** and **3 minor cleanup items** worth fixing before publishing.
 
 ---
 
-### New Files (unchanged)
+### Bug 1 — `DriverUpload` type in `InspectionBinderTypes.ts` is missing `'miscellaneous'`
 
-- `src/components/mo-plates/MoPlateRegistry.tsx`
-- `src/components/mo-plates/MoPlateFormModal.tsx`
-- `src/components/mo-plates/MoPlateAssignModal.tsx`
-- `src/components/mo-plates/MoPlateHistoryModal.tsx`
-
----
-
-### UI Design — Plate Card Actions
-
-Each plate card has action buttons that adapt based on current status:
-
-**Status: Available**
-- `Assign` (blue)
-- `Edit` (ghost)
-- `History` (ghost)
-- `Mark Lost/Stolen` (destructive ghost — small)
-- `Retire` (ghost — small)
-
-**Status: Assigned**
-- `Return` (outline)
-- `Edit` (ghost)
-- `History` (ghost)
-- `Mark Lost/Stolen` (destructive ghost — small)
-
-**Status: Lost/Stolen**
-- `Replacement Received` (green — primary action) — closes the lost/stolen event, sets plate back to `available`, logs a "Replacement received" history entry
-- `History` (ghost)
-- `Edit` (ghost)
-
-**Status: Retired**
-- `History` (ghost)
-- `Reactivate` (ghost — management only)
-
----
-
-### Lost/Stolen Workflow
-
-1. Staff clicks **Mark Lost/Stolen** on any plate (available or assigned)
-2. A small confirmation dialog appears with an optional notes field ("Reported lost on route 44, driver John Smith")
-3. On confirm:
-   - If currently assigned: the open assignment row is closed (`returned_at = now()`)
-   - A new `mo_plate_assignments` row is inserted with `event_type = 'lost_stolen'`, no `operator_id`, notes from the dialog, `returned_at = NULL`
-   - `mo_plates.status` is set to `'lost_stolen'`
-4. Plate card shows **Lost/Stolen** badge (red) with the date reported
-5. When replacement arrives, staff clicks **Replacement Received**:
-   - Closes the lost/stolen event row (`returned_at = now()`)
-   - Inserts a new `mo_plate_assignments` row with `event_type = 'replacement_received'` and a note ("Replacement plate received from MO — same number")
-   - Sets `mo_plates.status = 'available'`
-   - Plate is now ready to be assigned again
-
----
-
-### History Timeline — Event Types
-
-The history modal shows a unified vertical timeline for all event types:
-
+**File:** `src/components/inspection/InspectionBinderTypes.ts` — line 19
+**Problem:** The `DriverUpload` interface still defines `category` as only the original two values:
+```ts
+category: 'roadside_inspection_report' | 'repairs_maintenance_receipt';
 ```
-● [blue]   ASSIGNED            → John Smith    May 1 2024 – Aug 12 2024
-● [muted]  RETURNED            → (same row, closed)
-● [red]    LOST / STOLEN       → Reported Aug 13 2024 — "Lost during relay"
-● [green]  REPLACEMENT REC'D   → Aug 28 2024 — "New plate from MO"
-● [blue]   ASSIGNED            → Maria Gonzalez  Sep 3 2024 – present
+The `miscellaneous` value was added to the database enum and is used in `OperatorBinderPanel.tsx` and `OperatorInspectionBinder.tsx`, but the TypeScript type was never updated. This means TypeScript would be okay with casting but any runtime mapping or type guard against `DriverUpload.category` would miss `miscellaneous` silently.
+
+**Fix:** Add `| 'miscellaneous'` to the `category` union in the `DriverUpload` interface.
+
+---
+
+### Bug 2 — `Retire` action has no confirmation dialog
+
+**File:** `src/components/mo-plates/MoPlateRegistry.tsx` — line 471–478
+**Problem:** Clicking "Retire" immediately calls `handleSetStatus(plate, 'retired')` without any confirmation. Every other destructive action (Return, Lost/Stolen, Delete, Replacement) uses an `AlertDialog`. This is an accidental click risk.
+
+**Fix:** Add a small `AlertDialog` confirmation for the Retire action (same pattern as the Return dialog — single confirm button, no extra fields needed).
+
+---
+
+### Bug 3 — `Retire` action also missing for `assigned` plates
+
+**File:** `src/components/mo-plates/MoPlateRegistry.tsx` — line 470
+**Problem:** The current logic `plate.status !== 'retired' && plate.status !== 'lost_stolen'` shows "Retire" for `assigned` plates. Retiring an assigned plate does NOT close the open assignment row first, leaving a dangling record in `mo_plate_assignments`. 
+
+**Fix:** In the retire handler (`handleSetStatus`), when the new status is `'retired'` and the plate is currently `'assigned'`, also close the open assignment row by setting `returned_at = now()` before updating `mo_plates.status`.
+
+---
+
+### Bug 4 — `TruckInfoCard` draft state doesn't refresh when `deviceInfo` prop changes
+
+**File:** `src/components/operator/TruckInfoCard.tsx` — lines 64–70
+**Problem:** The `draft` state is initialized once from `deviceInfo` props but never re-synced when the parent re-renders with fresh data (e.g. after staff save edits). The popover would still show stale values until the page is reloaded.
+
+**Fix:** Add a `useEffect` that resets `draft` whenever `deviceInfo` changes:
+```ts
+useEffect(() => {
+  setDraft({
+    unit_number: deviceInfo?.unit_number ?? null,
+    eld_serial_number: deviceInfo?.eld_serial_number ?? null,
+    dash_cam_number: deviceInfo?.dash_cam_number ?? null,
+    bestpass_number: deviceInfo?.bestpass_number ?? null,
+    fuel_card_number: deviceInfo?.fuel_card_number ?? null,
+  });
+}, [deviceInfo]);
 ```
 
 ---
 
-### Status Badge Colors
+### Cleanup 1 — Remove leftover `console.log` / `console.error` from UI components
 
-| Status | Badge Color |
+**Files:** `src/pages/staff/OperatorDetailPanel.tsx` (lines 531, 1050, 1106, 1122, 1135, 1153, 1174)
+**Problem:** Several `console.error('[audit]...')` and `console.error('Milestone notification error...')` calls are scattered in the UI layer. These are debug traces that leak internal operation names in the browser console for any logged-in user.
+
+**Fix:** Replace all UI-layer `console.error` / `console.warn` audit-log calls with silent failures (remove the log or replace with a no-op). Edge function `console.log` calls are fine to keep since they only appear in server logs.
+
+---
+
+### Cleanup 2 — `DriverUpload` type used in `OperatorInspectionBinder` is cast to the stale type
+
+**File:** `src/components/inspection/OperatorInspectionBinder.tsx` — line 102
+**Problem:** `setDriverUploads((uploadsRes.data ?? []) as DriverUpload[])` — because `DriverUpload.category` doesn't include `'miscellaneous'`, TypeScript would infer a type mismatch here. This is resolved by Bug Fix 1 above.
+
+---
+
+### Cleanup 3 — `MoPlateRegistry` Retire button appears on `assigned` plates (UX confusion)
+
+Already covered in Bug 3 — but also worth noting the UX message in the Retire dialog should clarify when a plate is currently assigned it will also be automatically returned first.
+
+---
+
+### Files to Change
+
+| File | Change |
 |---|---|
-| Available | Green |
-| Assigned | Blue |
-| Lost/Stolen | Red |
-| Retired | Muted gray |
+| `src/components/inspection/InspectionBinderTypes.ts` | Add `\| 'miscellaneous'` to `DriverUpload.category` |
+| `src/components/operator/TruckInfoCard.tsx` | Add `useEffect` to re-sync draft when `deviceInfo` changes |
+| `src/components/mo-plates/MoPlateRegistry.tsx` | Add Retire confirmation dialog; close open assignment before retiring an assigned plate |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Remove/silence UI-layer `console.error` audit log calls |
 
----
-
-### Management Portal Integration
-
-- Add `'mo-plates'` to the `ManagementView` union type in `ManagementPortal.tsx`
-- Add nav item under the **Admin** divider (after Equipment)
-- Render `<MoPlateRegistry />` when view is `'mo-plates'`
-
----
-
-### Technical Details
-
-- No edge functions needed — all CRUD is direct queries
-- `mark_lost_stolen` and `replacement_received` are client-side functions that run 2–3 sequential Supabase mutations
-- RLS: `is_staff()` for SELECT/INSERT/UPDATE; `has_role(management)` for DELETE
-- Driver dropdown for assignment pulls from the same `operators` + `applications` join used in Equipment Inventory
-- Migration creates both tables + RLS policies in a single SQL file
+No database migrations needed. No new components needed.
