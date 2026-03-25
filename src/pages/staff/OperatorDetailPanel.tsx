@@ -4292,7 +4292,76 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               {isCollapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />}
             </button>
             {!isCollapsed && (
-              <div className="border-t border-border">
+              <div className="border-t border-border divide-y divide-border/60">
+
+                {/* ── Payroll Reference Documents (always visible) ── */}
+                <div className="px-5 py-4 space-y-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">Payroll Reference Documents</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2.5 text-xs gap-1.5"
+                      disabled={sendingPayrollDocs}
+                      onClick={async () => {
+                        setSendingPayrollDocs(true);
+                        try {
+                          const session = (await supabase.auth.getSession()).data.session;
+                          const res = await fetch(
+                            `https://qgxpkcudwjmacrdcyvhj.supabase.co/functions/v1/send-payroll-docs`,
+                            {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${session?.access_token ?? ''}`,
+                              },
+                              body: JSON.stringify({ operator_id: operatorId }),
+                            }
+                          );
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.error ?? 'Failed to send');
+                          toast({ title: 'Payroll docs sent ✓', description: `Email sent to ${data.sent_to}` });
+                        } catch (err) {
+                          toast({ title: 'Failed to send', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
+                        } finally {
+                          setSendingPayrollDocs(false);
+                        }
+                      }}
+                    >
+                      {sendingPayrollDocs ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                      Send Payroll Docs
+                    </Button>
+                  </div>
+                  {[
+                    { title: 'Payroll Deposit Overview', url: companyDocUrls.overview, subtitle: 'Direct deposit policy & pay structure' },
+                    { title: 'Payroll Calendar', url: companyDocUrls.calendar, subtitle: 'Pay schedule & settlement dates' },
+                  ].map(doc => (
+                    <div key={doc.title} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0 bg-primary/10">
+                        <BookOpen className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-foreground">{doc.title}</p>
+                        <p className="text-[11px] text-muted-foreground">{doc.subtitle}</p>
+                      </div>
+                      {doc.url ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0 h-7 px-2.5 text-xs gap-1"
+                          onClick={() => setPreviewDoc({ title: doc.title, url: doc.url! })}
+                        >
+                          <ZoomIn className="h-3 w-3" />
+                          View
+                        </Button>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground italic">Loading…</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── Operator pay setup data (only when a record exists) ── */}
                 {!paySetupLoaded ? (
                   <div className="px-5 py-4 text-xs text-muted-foreground">Loading…</div>
                 ) : !ps ? (
@@ -4301,7 +4370,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <p>Operator has not started pay setup yet.</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-border/60">
+                  <>
                     {([
                       { label: 'Contractor Type', value: ps.contractor_type === 'business' ? 'Business' : 'Individual' },
                       { label: 'Legal First Name', value: ps.legal_first_name },
@@ -4318,7 +4387,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       </div>
                     ))}
 
-                    {/* ── Operator Acknowledgments ── */}
+                    {/* ── Doc Acknowledgments ── */}
                     <div className="flex items-start gap-3 px-5 py-3">
                       <span className="text-xs text-muted-foreground w-36 shrink-0 pt-0.5">Doc Acknowledgments</span>
                       <div className="flex flex-wrap gap-2">
@@ -4340,81 +4409,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         ))}
                       </div>
                     </div>
-
-                    {/* ── Uploaded Documents ── */}
-                    <div className="px-5 py-4 space-y-3">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Uploaded Documents</p>
-
-                      {/* ── Payroll Reference Documents ── */}
-                      <div className="flex items-center justify-between mb-1.5 mt-1">
-                        <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">Payroll Reference Documents</p>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2.5 text-xs gap-1.5"
-                          disabled={sendingPayrollDocs}
-                          onClick={async () => {
-                            setSendingPayrollDocs(true);
-                            try {
-                              const session = (await supabase.auth.getSession()).data.session;
-                              const res = await fetch(
-                                `https://qgxpkcudwjmacrdcyvhj.supabase.co/functions/v1/send-payroll-docs`,
-                                {
-                                  method: 'POST',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${session?.access_token ?? ''}`,
-                                  },
-                                  body: JSON.stringify({ operator_id: operatorId }),
-                                }
-                              );
-                              const data = await res.json();
-                              if (!res.ok) throw new Error(data.error ?? 'Failed to send');
-                              toast({ title: 'Payroll docs sent ✓', description: `Email sent to ${data.sent_to}` });
-                            } catch (err) {
-                              toast({ title: 'Failed to send', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
-                            } finally {
-                              setSendingPayrollDocs(false);
-                            }
-                          }}
-                        >
-                          {sendingPayrollDocs ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
-                          Send Payroll Docs
-                        </Button>
-                      </div>
-                      {[
-                        { title: 'Payroll Deposit Overview', url: companyDocUrls.overview, subtitle: 'Direct deposit policy & pay structure' },
-                        { title: 'Payroll Calendar', url: companyDocUrls.calendar, subtitle: 'Pay schedule & settlement dates' },
-                      ].map(doc => (
-                        <div key={doc.title} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0 bg-primary/10">
-                            <BookOpen className="h-4 w-4 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-foreground">{doc.title}</p>
-                            <p className="text-[11px] text-muted-foreground">{doc.subtitle}</p>
-                          </div>
-                          {doc.url ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="shrink-0 h-7 px-2.5 text-xs gap-1"
-                              onClick={() => setPreviewDoc({ title: doc.title, url: doc.url! })}
-                            >
-                              <ZoomIn className="h-3 w-3" />
-                              View
-                            </Button>
-                          ) : (
-                            <span className="text-[11px] text-muted-foreground italic">Loading…</span>
-                          )}
-                        </div>
-                      ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
           );
         })()}
 
