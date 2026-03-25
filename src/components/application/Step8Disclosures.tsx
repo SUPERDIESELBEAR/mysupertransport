@@ -45,15 +45,20 @@ export default function Step8Disclosures({ data, onChange, errors }: Props) {
         </div>
       </section>
 
-      {/* Pre-Employment Authorizations */}
+      {/* PSP Authorization */}
       <section className="space-y-3">
-        <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Pre-Employment Authorizations</h3>
+        <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">PSP Authorization</h3>
+        <div className="p-4 bg-secondary border border-border rounded-xl text-xs text-muted-foreground leading-relaxed max-h-40 overflow-y-auto">
+          <p className="font-semibold text-foreground mb-2">Important Disclosure Regarding Background Reports from the PSP Online Service</p>
+          <p className="mb-2">In connection with your application for employment with SUPERTRANSPORT, LLC, we may obtain one or more reports regarding your driving and safety inspection history from the Federal Motor Carrier Safety Administration (FMCSA). If any adverse employment decision is made based on this information, you will be notified and provided a copy of the report.</p>
+          <p>Neither the Prospective Employer nor the FMCSA contractor has the capability to correct safety data. You may challenge the accuracy of the data at https://dataqs.fmcsa.dot.gov.</p>
+        </div>
         <div className="space-y-3">
           <CheckItem
             id="auth_safety"
             checked={data.auth_safety_history}
             onChange={v => onChange('auth_safety_history', v)}
-            label="I authorize this motor carrier to investigate my safety performance history with previous employers as required by FMCSA regulations (49 CFR Part 391)."
+            label="I authorize SUPERTRANSPORT, LLC to access the FMCSA Pre-Employment Screening Program (PSP) system to seek information regarding my commercial driving safety record and safety inspection history, including crash data from the previous five (5) years and inspection history from the previous three (3) years."
             error={errors.auth_safety_history}
           />
           <CheckItem
@@ -67,7 +72,7 @@ export default function Step8Disclosures({ data, onChange, errors }: Props) {
             id="auth_employers"
             checked={data.auth_previous_employers}
             onChange={v => onChange('auth_previous_employers', v)}
-            label="I authorize the release of employment records, performance information, and other relevant data from previous employers and government agencies to SUPERTRANSPORT."
+            label="I have read the above Disclosure Regarding Background Reports and I hereby authorize Prospective Employer and its employees, authorized agents, and/or affiliates to obtain the information authorized above."
             error={errors.auth_previous_employers}
           />
         </div>

@@ -131,8 +131,8 @@ const FORMS: FormEntry[] = [
   },
   {
     id: 'pre-employment-authorizations',
-    title: 'Pre-Employment Authorizations',
-    description: 'Three individual release authorizations: safety performance history (49 CFR § 391), DOT drug & alcohol records, and previous employer records.',
+    title: 'PSP Authorization',
+    description: 'FMCSA Pre-Employment Screening Program (PSP) disclosure and authorization form, including crash data and inspection history release.',
     badge: 'Standalone Doc',
     badgeVariant: 'outline',
     steps: 1,
