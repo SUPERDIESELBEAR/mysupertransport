@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, User,
-  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, FolderOpen,
+  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, FolderOpen, Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,20 @@ import {
 } from '@/components/ui/alert-dialog';
 import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS } from './InspectionBinderTypes';
 import { ExpiryBadge, FilePreviewModal } from './DocRow';
+
+type DriverUploadCategory = 'roadside_inspection_report' | 'repairs_maintenance_receipt' | 'miscellaneous';
+
+const UPLOAD_CATEGORY_LABELS: Record<DriverUploadCategory, string> = {
+  roadside_inspection_report: 'Roadside Inspection Report',
+  repairs_maintenance_receipt: 'Repairs & Maintenance Receipt',
+  miscellaneous: 'Miscellaneous',
+};
+
+const STAFF_UPLOAD_SECTIONS: { key: DriverUploadCategory; label: string }[] = [
+  { key: 'roadside_inspection_report', label: 'Roadside Inspection Report' },
+  { key: 'repairs_maintenance_receipt', label: 'Repairs & Maintenance Receipt' },
+  { key: 'miscellaneous', label: 'Miscellaneous Document' },
+];
 
 interface Props {
   /** auth.uid() of the operator/driver */

@@ -20,11 +20,12 @@ interface Props {
   operatorId: string | null;
 }
 
-type UploadCategory = 'roadside_inspection_report' | 'repairs_maintenance_receipt';
+type UploadCategory = 'roadside_inspection_report' | 'repairs_maintenance_receipt' | 'miscellaneous';
 
 const UPLOAD_SECTIONS: { key: UploadCategory; label: string; desc: string }[] = [
   { key: 'roadside_inspection_report', label: 'Roadside Inspection Reports', desc: 'Upload DOT/CVSA inspection reports you receive at roadside.' },
   { key: 'repairs_maintenance_receipt', label: 'Repairs & Maintenance Receipts', desc: 'Upload repair receipts and maintenance records for your truck.' },
+  { key: 'miscellaneous', label: 'Miscellaneous Documents', desc: 'Upload any other documents such as repair invoices, permits, or one-off records.' },
 ];
 
 function DriverUploadRow({ upload, onPreview }: { upload: DriverUpload; onPreview: (url: string, name: string) => void }) {
