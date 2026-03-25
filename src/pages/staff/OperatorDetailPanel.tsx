@@ -1103,7 +1103,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           metadata: {
             milestones: triggeredMilestones.map(m => m.label),
           },
-        }).then(({ error }) => { if (error) console.error('[audit] operator_status_updated:', error); });
+        }).then(({ error }) => { if (error) {} });
       }
       // ── Write a dedicated onboarding_completed entry ─────────────
       if (isNewlyFullyOnboarded) {
