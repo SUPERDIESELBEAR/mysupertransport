@@ -42,6 +42,15 @@ export function ExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
   );
 }
 
+/** Shown for uploaded docs that have no expiry date to track */
+export function OnFileBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] bg-info/10 text-info border border-info/30 rounded-full px-2 py-0.5 font-semibold shrink-0">
+      <CheckCircle2 className="h-3 w-3" /> On File
+    </span>
+  );
+}
+
 function ShareModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => void }) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
@@ -499,6 +508,9 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
             )}
             {hasFile && hasExpiry && !doc?.expires_at && (
               <span className="text-[10px] bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-medium shrink-0">No expiry set</span>
+            )}
+            {hasFile && !hasExpiry && (
+              <OnFileBadge />
             )}
           </div>
           {hasFile && doc?.expires_at && (

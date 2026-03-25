@@ -31,7 +31,7 @@ import {
   InspectionDocument, DriverUpload,
   COMPANY_WIDE_DOCS, PER_DRIVER_DOCS,
 } from './InspectionBinderTypes';
-import { ExpiryBadge, FilePreviewModal } from './DocRow';
+import { ExpiryBadge, OnFileBadge, FilePreviewModal } from './DocRow';
 
 /** Returns true if a reminder was sent within the last 24 hours */
 function isOnCooldown(sentAt: string | undefined): boolean {
@@ -837,6 +837,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                   <Badge variant="secondary" className="text-[10px]">No file</Badge>
                 )}
                 {doc?.file_url && hasExpiry && <ExpiryBadge expiresAt={doc.expires_at} />}
+                {doc?.file_url && !hasExpiry && <OnFileBadge />}
                 {doc?.shared_with_fleet && (
                   <span className="inline-flex items-center gap-1 text-[10px] bg-info/10 text-info border border-info/30 rounded-full px-2 py-0.5 font-semibold">
                     <Users className="h-3 w-3" />Fleet
@@ -1196,6 +1197,16 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           })}
         </div>
       </TooltipProvider>
+
+      {/* Status color key — staff reference */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-1">
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mr-1">Key:</span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-status-complete font-medium"><span className="h-2 w-2 rounded-full bg-status-complete inline-block" />Valid — uploaded, not expired</span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-info font-medium"><span className="h-2 w-2 rounded-full bg-info inline-block" />On File — uploaded, no expiry tracked</span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-warning font-medium"><span className="h-2 w-2 rounded-full bg-warning inline-block" />Expiring Soon — within 30 days</span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-destructive font-medium"><span className="h-2 w-2 rounded-full bg-destructive inline-block" />Expired</span>
+        <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground font-medium"><span className="h-2 w-2 rounded-full bg-muted-foreground/40 inline-block" />No File — awaiting upload</span>
+      </div>
 
       {loading ? (
         <div className="space-y-2">
