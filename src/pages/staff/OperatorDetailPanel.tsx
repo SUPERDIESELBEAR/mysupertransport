@@ -4307,6 +4307,29 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       </div>
                     ))}
 
+                    {/* ── Operator Acknowledgments ── */}
+                    <div className="flex items-start gap-3 px-5 py-3">
+                      <span className="text-xs text-muted-foreground w-36 shrink-0 pt-0.5">Doc Acknowledgments</span>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { label: 'Payroll Deposit Overview', acked: !!ps.deposit_overview_acknowledged },
+                          { label: 'Payroll Calendar', acked: !!ps.payroll_calendar_acknowledged },
+                        ].map(({ label, acked }) => (
+                          <span
+                            key={label}
+                            className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${
+                              acked
+                                ? 'bg-status-complete/10 text-status-complete border-status-complete/30'
+                                : 'bg-muted text-muted-foreground border-border'
+                            }`}
+                          >
+                            {acked ? <CheckCircle2 className="h-3 w-3 shrink-0" /> : <Clock className="h-3 w-3 shrink-0" />}
+                            {label} — {acked ? 'Acknowledged' : 'Not yet'}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
                     {/* ── Uploaded Documents ── */}
                     <div className="px-5 py-4 space-y-3">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Uploaded Documents</p>
