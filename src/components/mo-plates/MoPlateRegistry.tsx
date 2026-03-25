@@ -500,7 +500,7 @@ export default function MoPlateRegistry() {
                       size="sm"
                       variant="ghost"
                       className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                      onClick={() => handleSetStatus(plate, 'retired')}
+                      onClick={() => setRetireDialogPlate(plate)}
                     >
                       <Archive className="h-3 w-3" /> Retire
                     </Button>
