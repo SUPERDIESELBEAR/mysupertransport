@@ -439,8 +439,7 @@ export default function ICABuilderModal({
                 <div className="grid grid-cols-2 gap-3">
                   <FormField label="Lease Effective Date" value={data.lease_effective_date} onChange={v => set('lease_effective_date', v)} type="date" />
                   <FormField label="Lease Termination Date (optional)" value={data.lease_termination_date} onChange={v => set('lease_termination_date', v)} type="date" />
-                  <FormField label="Equipment Location — City" value={data.equipment_location_city} onChange={v => set('equipment_location_city', v)} placeholder="Pleasant Hill" />
-                  <FormField label="Equipment Location — State" value={data.equipment_location_state} onChange={v => set('equipment_location_state', v)} placeholder="MO" />
+                
                 </div>
               </div>
             </div>
