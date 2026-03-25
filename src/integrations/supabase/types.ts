@@ -2047,6 +2047,7 @@ export type Database = {
       driver_upload_category:
         | "roadside_inspection_report"
         | "repairs_maintenance_receipt"
+        | "miscellaneous"
       driver_upload_status: "pending_review" | "reviewed" | "needs_attention"
       faq_category:
         | "application_process"
@@ -2235,6 +2236,7 @@ export const Constants = {
       driver_upload_category: [
         "roadside_inspection_report",
         "repairs_maintenance_receipt",
+        "miscellaneous",
       ],
       driver_upload_status: ["pending_review", "reviewed", "needs_attention"],
       faq_category: [
