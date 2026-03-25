@@ -248,6 +248,7 @@ export default function MoPlateRegistry() {
     assigned: plates.filter(p => p.status === 'assigned').length,
     lost_stolen: plates.filter(p => p.status === 'lost_stolen').length,
     retired: plates.filter(p => p.status === 'retired').length,
+    expiring_soon: plates.filter(p => getExpiryStatus(p.expires_at) === 'expiring_soon' || getExpiryStatus(p.expires_at) === 'expired').length,
   };
 
   const FILTERS: { key: StatusFilter; label: string; count: number }[] = [
