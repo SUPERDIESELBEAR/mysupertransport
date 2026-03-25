@@ -361,6 +361,16 @@ const STAGES = [
   'Stage 8 — Pay Setup',
 ];
 
+const STAGE_ABBR: Record<string, string> = {
+  'Stage 1 — Background':     'BG',
+  'Stage 2 — Documents':      'Docs',
+  'Stage 3 — ICA':            'ICA',
+  'Stage 4 — MO Registration':'MO',
+  'Stage 5 — Equipment':      'Equip',
+  'Stage 6 — Insurance':      'Ins',
+  'Stage 8 — Pay Setup':      'Pay',
+};
+
 // ─── MultiBlockedCallout ─────────────────────────────────────────────────────
 
 function MultiBlockedCallout({
