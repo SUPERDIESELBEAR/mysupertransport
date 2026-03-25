@@ -29,6 +29,7 @@ import {
   MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap,
 } from 'lucide-react';
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
+import MoPlateRegistry from '@/components/mo-plates/MoPlateRegistry';
 import DocumentHub from '@/components/documents/DocumentHub';
 import EmailCatalog from '@/components/management/EmailCatalog';
 import FormsCatalog from '@/components/management/FormsCatalog';
