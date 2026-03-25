@@ -158,6 +158,7 @@ function PreviewStep({ step }: { step: number }) {
 function FormPreviewModal({ form, onClose }: { form: FormEntry; onClose: () => void }) {
   const [step, setStep] = useState(1);
   const totalSteps = form.steps;
+  const isICA = form.id === 'ica-contract';
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
@@ -171,7 +172,9 @@ function FormPreviewModal({ form, onClose }: { form: FormEntry; onClose: () => v
               </div>
               <div className="min-w-0">
                 <DialogTitle className="text-base font-semibold leading-tight truncate">{form.title}</DialogTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Read-only preview · {totalSteps} steps</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Read-only preview{!isICA && ` · ${totalSteps} steps`}
+                </p>
               </div>
             </div>
             <Badge variant="outline" className="shrink-0 text-xs text-muted-foreground">
@@ -180,42 +183,61 @@ function FormPreviewModal({ form, onClose }: { form: FormEntry; onClose: () => v
           </div>
         </DialogHeader>
 
-        {/* Progress bar */}
-        <div className="shrink-0 px-6 pt-4 pb-2">
-          <FormProgress currentStep={step} totalSteps={totalSteps} stepLabels={STEP_LABELS} />
-        </div>
+        {/* Progress bar — application only */}
+        {!isICA && (
+          <div className="shrink-0 px-6 pt-4 pb-2">
+            <FormProgress currentStep={step} totalSteps={totalSteps} stepLabels={STEP_LABELS} />
+          </div>
+        )}
 
-        {/* Scrollable step content */}
+        {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          <PreviewStep step={step} />
+          {isICA ? (
+            <div className="pointer-events-none select-none">
+              <ICADocumentView
+                data={ICA_SAMPLE_DATA}
+                operatorName="John Smith"
+                previewMode
+                carrierTypedName="Sarah Johnson"
+                carrierTitle="Operations Manager"
+                carrierSignedAt="2026-04-01"
+                contractorTypedName="John Smith"
+                contractorSignedAt="2026-04-01"
+              />
+            </div>
+          ) : (
+            <PreviewStep step={step} />
+          )}
         </div>
 
-        {/* Navigation footer */}
-        <div className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-t border-border bg-secondary/40">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setStep(s => Math.max(1, s - 1))}
-            disabled={step === 1}
-            className="gap-1.5"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Previous
-          </Button>
-          <span className="text-xs text-muted-foreground font-medium">
-            Step {step} of {totalSteps} — {STEP_LABELS[step - 1]}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setStep(s => Math.min(totalSteps, s + 1))}
-            disabled={step === totalSteps}
-            className="gap-1.5"
-          >
-            Next
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        {/* Navigation footer — application only */}
+        {!isICA && (
+          <div className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-t border-border bg-secondary/40">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStep(s => Math.max(1, s - 1))}
+              disabled={step === 1}
+              className="gap-1.5"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <span className="text-xs text-muted-foreground font-medium">
+              Step {step} of {totalSteps} — {STEP_LABELS[step - 1]}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStep(s => Math.min(totalSteps, s + 1))}
+              disabled={step === totalSteps}
+              className="gap-1.5"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
