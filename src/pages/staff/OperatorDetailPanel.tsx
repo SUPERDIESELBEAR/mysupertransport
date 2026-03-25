@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn, DollarSign } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn, DollarSign, PauseCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
@@ -217,6 +217,16 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [deactivateReason, setDeactivateReason] = useState<string>('');
   const { isManagement } = useAuth();
+
+  // On Hold state
+  const [isOnHold, setIsOnHold] = useState(false);
+  const [onHoldReason, setOnHoldReason] = useState('');
+  const [onHoldDate, setOnHoldDate] = useState<string | null>(null);
+  const [showOnHoldModal, setShowOnHoldModal] = useState(false);
+  const [onHoldModalReason, setOnHoldModalReason] = useState('');
+  const [onHoldModalDate, setOnHoldModalDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [onHoldModalDateOpen, setOnHoldModalDateOpen] = useState(false);
+  const [savingOnHold, setSavingOnHold] = useState(false);
 
   // Stage 8 — Contractor Pay Setup
   const [paySetupRecord, setPaySetupRecord] = useState<any>(null);
@@ -693,7 +703,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const [{ data: op }, { data: opDocs }] = await Promise.all([
       supabase
         .from('operators')
-        .select(`id, user_id, notes, onboarding_status (*), applications (email, first_name, last_name, phone, address_street, address_city, address_state, address_zip, cdl_expiration, medical_cert_expiration)`)
+        .select(`id, user_id, notes, is_active, on_hold, on_hold_reason, on_hold_date, onboarding_status (*), applications (email, first_name, last_name, phone, address_street, address_city, address_state, address_zip, cdl_expiration, medical_cert_expiration)`)
         .eq('id', operatorId)
         .single(),
       supabase
@@ -713,6 +723,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
     if (op) {
       setIsActive((op as any).is_active ?? true);
+      setIsOnHold((op as any).on_hold ?? false);
+      setOnHoldReason((op as any).on_hold_reason ?? '');
+      setOnHoldDate((op as any).on_hold_date ?? null);
       // Fetch profile separately to avoid FK hint issues
       const { data: profile } = await supabase
         .from('profiles')
@@ -1216,6 +1229,67 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
       setDeactivating(false);
+    }
+  };
+
+  const handleSaveOnHold = async () => {
+    if (!onHoldModalReason.trim()) {
+      toast({ title: 'Reason required', description: 'Please enter a reason for placing this operator on hold.', variant: 'destructive' });
+      return;
+    }
+    setSavingOnHold(true);
+    try {
+      const { error } = await supabase
+        .from('operators')
+        .update({ on_hold: true, on_hold_reason: onHoldModalReason.trim(), on_hold_date: onHoldModalDate } as any)
+        .eq('id', operatorId);
+      if (error) throw error;
+      setIsOnHold(true);
+      setOnHoldReason(onHoldModalReason.trim());
+      setOnHoldDate(onHoldModalDate);
+      setShowOnHoldModal(false);
+      void supabase.from('audit_log' as any).insert({
+        actor_id: session?.user?.id ?? null,
+        actor_name: null,
+        action: 'operator_placed_on_hold',
+        entity_type: 'operator',
+        entity_id: operatorId,
+        entity_label: operatorName,
+        metadata: { reason: onHoldModalReason.trim(), on_hold_date: onHoldModalDate },
+      });
+      toast({ title: 'Operator placed on hold', description: `${operatorName} is now marked as On Hold.` });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingOnHold(false);
+    }
+  };
+
+  const handleRemoveOnHold = async () => {
+    setSavingOnHold(true);
+    try {
+      const { error } = await supabase
+        .from('operators')
+        .update({ on_hold: false, on_hold_reason: null, on_hold_date: null } as any)
+        .eq('id', operatorId);
+      if (error) throw error;
+      setIsOnHold(false);
+      setOnHoldReason('');
+      setOnHoldDate(null);
+      void supabase.from('audit_log' as any).insert({
+        actor_id: session?.user?.id ?? null,
+        actor_name: null,
+        action: 'operator_removed_from_hold',
+        entity_type: 'operator',
+        entity_id: operatorId,
+        entity_label: operatorName,
+        metadata: {},
+      });
+      toast({ title: 'On Hold status removed', description: `${operatorName} has been returned to the active pipeline.` });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingOnHold(false);
     }
   };
 
@@ -1933,6 +2007,30 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </div>
         <TooltipProvider delayDuration={150}>
           <div className="flex items-center gap-2 shrink-0">
+            {/* On Hold toggle — all staff */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => isOnHold ? handleRemoveOnHold() : (() => { setOnHoldModalReason(''); setOnHoldModalDate(new Date().toISOString().split('T')[0]); setShowOnHoldModal(true); })()}
+                  disabled={savingOnHold}
+                  className={isOnHold
+                    ? 'gap-2 text-blue-600 border-blue-400 bg-blue-50 hover:bg-blue-100 hover:text-blue-700'
+                    : 'gap-2 text-muted-foreground border-border hover:text-blue-600 hover:border-blue-400'
+                  }
+                >
+                  {savingOnHold
+                    ? <span className="h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent" />
+                    : <PauseCircle className="h-3.5 w-3.5" />
+                  }
+                  <span className="hidden sm:inline">{isOnHold ? 'Remove Hold' : 'Place On Hold'}</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {isOnHold ? 'Remove On Hold status and return to active pipeline' : 'Place operator on hold with a reason'}
+              </TooltipContent>
+            </Tooltip>
             {/* Deactivate / Reactivate — management only */}
             {isManagement && (
               <Tooltip>
@@ -2001,14 +2099,83 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </TooltipProvider>
       </div>
 
+      {/* On Hold Banner */}
+      {isOnHold && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-blue-300 bg-blue-50">
+          <PauseCircle className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-blue-800">On Hold</p>
+            {onHoldReason && <p className="text-xs text-blue-700 mt-0.5">{onHoldReason}</p>}
+            {onHoldDate && <p className="text-xs text-blue-600 mt-0.5">Since {new Date(onHoldDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>}
+          </div>
+        </div>
+      )}
+
       {/* Status overview */}
       <div className="flex flex-wrap gap-2">
         {!isActive && <Badge className="bg-muted text-muted-foreground border text-xs">⊘ Inactive</Badge>}
+        {isOnHold && <Badge className="bg-blue-100 text-blue-700 border border-blue-300 text-xs">⏸ On Hold</Badge>}
         {isAlert && <Badge className="status-action border text-xs">⚠ Alert — Review Required</Badge>}
         {status.fully_onboarded && <Badge className="status-complete border text-xs">✓ Fully Onboarded</Badge>}
         {status.ica_status === 'complete' && <Badge className="status-complete border text-xs">ICA Signed</Badge>}
         {status.pe_screening_result === 'clear' && <Badge className="status-complete border text-xs">PE Clear</Badge>}
       </div>
+
+      {/* ── On Hold Modal ── */}
+      <Dialog open={showOnHoldModal} onOpenChange={setShowOnHoldModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PauseCircle className="h-4 w-4 text-blue-600" />
+              Place Operator On Hold
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Reason <span className="text-destructive">*</span></Label>
+              <Textarea
+                placeholder="e.g. Awaiting insurance, personal situation, truck repairs…"
+                value={onHoldModalReason}
+                onChange={e => setOnHoldModalReason(e.target.value)}
+                className="resize-none min-h-[80px] text-sm"
+                maxLength={300}
+              />
+              <p className="text-xs text-muted-foreground text-right">{onHoldModalReason.length}/300</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Date Placed On Hold</Label>
+              <Popover open={onHoldModalDateOpen} onOpenChange={setOnHoldModalDateOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start font-normal text-sm h-9">
+                    <CalendarIcon className="h-4 w-4 mr-2 text-muted-foreground" />
+                    {onHoldModalDate ? new Date(onHoldModalDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Pick a date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={onHoldModalDate ? new Date(onHoldModalDate + 'T12:00:00') : undefined}
+                    onSelect={d => { if (d) { setOnHoldModalDate(d.toISOString().split('T')[0]); } setOnHoldModalDateOpen(false); }}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setShowOnHoldModal(false)} disabled={savingOnHold}>Cancel</Button>
+            <Button
+              onClick={handleSaveOnHold}
+              disabled={savingOnHold || !onHoldModalReason.trim()}
+              className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+            >
+              {savingOnHold ? <Loader2 className="h-4 w-4 animate-spin" /> : <PauseCircle className="h-4 w-4" />}
+              Place On Hold
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Deactivate Confirmation Dialog ── */}
       <AlertDialog open={showDeactivateConfirm} onOpenChange={open => { if (!open) setDeactivateReason(''); setShowDeactivateConfirm(open); }}>
