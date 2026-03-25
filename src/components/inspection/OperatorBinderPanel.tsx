@@ -163,6 +163,36 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
     fetchDocs();
   };
 
+  const staffUploadRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [staffUploading, setStaffUploading] = useState<string | null>(null);
+
+  const handleStaffUpload = async (category: DriverUploadCategory, file: File) => {
+    if (!user) return;
+    if (guardDemo()) return;
+    setStaffUploading(category);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${driverUserId}/${category}/${Date.now()}.${ext}`;
+      const { error: storageErr } = await supabase.storage.from('driver-uploads').upload(path, file);
+      if (storageErr) throw storageErr;
+      const { data: urlData } = await supabase.storage.from('driver-uploads').createSignedUrl(path, 60 * 60 * 24 * 365);
+      await supabase.from('driver_uploads').insert({
+        driver_id: driverUserId,
+        category,
+        file_url: urlData?.signedUrl ?? null,
+        file_path: path,
+        file_name: file.name,
+        status: 'reviewed',
+      });
+      toast({ title: 'Uploaded!', description: `${UPLOAD_CATEGORY_LABELS[category]} uploaded successfully.` });
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setStaffUploading(null);
+    }
+  };
+
   const DocRow = ({ docName, hasExpiry }: { docName: string; hasExpiry: boolean }) => {
     const doc = perDriverDocs.find(d => d.name === docName);
     const key = `per_driver-${docName}`;
