@@ -992,6 +992,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           truck_inspection,
           mo_docs_submitted,
           mo_reg_received,
+          registration_status,
           updated_at
         ),
         contractor_pay_setup ( submitted_at, terms_accepted )
