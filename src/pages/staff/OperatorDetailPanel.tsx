@@ -1497,7 +1497,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         return (
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-base leading-none">💰</span>
+              <DollarSign className="h-4 w-4 text-amber-600" />
               <h3 className="text-sm font-semibold text-gray-900">Upfront Costs Paid by SUPERTRANSPORT</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
