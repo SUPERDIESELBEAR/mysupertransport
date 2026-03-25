@@ -8,11 +8,16 @@ import { format, parseISO, differenceInDays, startOfDay } from 'date-fns';
 import {
   X, CheckCircle2, XCircle, User, MapPin, CalendarIcon,
   Briefcase, Car, FileText, ShieldAlert, AlertTriangle, Loader2, Printer,
-  Eye, EyeOff, Lock, Save
+  Eye, EyeOff, Lock, Save, Download
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { printDocumentById } from '@/lib/printDocument';
+import FCRAAuthorizationDoc from '@/components/application/documents/FCRAAuthorizationDoc';
+import PreEmploymentAuthorizationsDoc from '@/components/application/documents/PreEmploymentAuthorizationsDoc';
+import DOTDrugAlcoholQuestionsDoc from '@/components/application/documents/DOTDrugAlcoholQuestionsDoc';
+import CompanyTestingPolicyCertDoc from '@/components/application/documents/CompanyTestingPolicyCertDoc';
 
 interface ApplicationReviewDrawerProps {
   app: FullApplication | null;
@@ -199,9 +204,12 @@ const STATUS_COLORS: Record<string, string> = {
   denied: 'bg-destructive/15 text-destructive',
 };
 
+type DrawerTab = 'overview' | 'documents';
+
 export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated, focusField }: ApplicationReviewDrawerProps) {
   const { roles } = useAuth();
   const isManagement = roles.includes('management');
+  const [activeTab, setActiveTab] = useState<DrawerTab>('overview');
   const [notes, setNotes] = useState('');
   const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | null>(null);
   const [loading, setLoading] = useState(false);
@@ -388,186 +396,286 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           </div>
         </div>
 
+        {/* Tab Navigation */}
+        <div className="flex border-b border-border bg-surface-dark/5 shrink-0">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === 'overview'
+                ? 'text-gold border-b-2 border-gold bg-gold/5'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('documents')}
+            className={`flex-1 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+              activeTab === 'documents'
+                ? 'text-gold border-b-2 border-gold bg-gold/5'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <FileText className="h-3.5 w-3.5" />
+            Documents
+          </button>
+        </div>
+
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-7">
+        <div className="flex-1 overflow-y-auto">
 
-          {/* Personal Info */}
-          <Section title="Personal Information" icon={<User className="h-4 w-4" />}>
-            <Field label="Full Name" value={fullName} />
-            <Field label="Email" value={app.email} />
-            <Field label="Phone" value={app.phone} />
-            <Field label="Date of Birth" value={app.dob ? new Date(app.dob).toLocaleDateString() : null} />
-            <Field label="How they heard" value={app.referral_source} />
-          </Section>
+          {/* ── OVERVIEW TAB ── */}
+          {activeTab === 'overview' && (
+            <div className="p-6 space-y-7">
 
-          {/* Address */}
-          <Section title="Address" icon={<MapPin className="h-4 w-4" />}>
-            <Field label="Current Address" value={[app.address_street, app.address_city, app.address_state, app.address_zip].filter(Boolean).join(', ')} />
-            <Field label="Time at Address" value={app.address_duration} />
-            {(app.prev_address_street || app.prev_address_city) && (
-              <Field label="Previous Address" value={[app.prev_address_street, app.prev_address_city, app.prev_address_state, app.prev_address_zip].filter(Boolean).join(', ')} />
-            )}
-          </Section>
+              {/* Personal Info */}
+              <Section title="Personal Information" icon={<User className="h-4 w-4" />}>
+                <Field label="Full Name" value={fullName} />
+                <Field label="Email" value={app.email} />
+                <Field label="Phone" value={app.phone} />
+                <Field label="Date of Birth" value={app.dob ? new Date(app.dob).toLocaleDateString() : null} />
+                <Field label="How they heard" value={app.referral_source} />
+              </Section>
 
-          {/* CDL Info */}
-          <Section title="CDL Information" icon={<Car className="h-4 w-4" />}>
-            <Field label="CDL Number" value={app.cdl_number} />
-            <Field label="State" value={app.cdl_state} />
-            <Field label="Class" value={app.cdl_class} />
-            {/* Staff-editable CDL expiration */}
-            <div ref={cdlFieldRef} className={focusField === 'cdl' ? 'ring-2 ring-gold/40 rounded-lg p-1 -mx-1 transition-all' : ''}>
-              <EditableDateField
-                label="CDL Expiry"
-                date={cdlExpDate}
-                open={cdlExpOpen}
-                saving={savingCdlExp}
-                isDirty={
-                  (cdlExpDate ? format(cdlExpDate, 'yyyy-MM-dd') : null) !== originalCdlExp
-                }
-                onOpenChange={setCdlExpOpen}
-                onSelect={d => { setCdlExpDate(d); setCdlExpOpen(false); }}
-                onSave={saveCdlExpiration}
-              />
-            </div>
-            <Field label="10-Year CDL History" value={<YesNoBadge value={app.cdl_10_years} />} />
-            <Field label="Endorsements" value={app.endorsements?.join(', ')} />
-            <Field label="Equipment" value={app.equipment_operated?.join(', ')} />
-            <Field label="Years Experience" value={app.years_experience} />
-            {/* Staff-editable medical cert expiration */}
-            <div className={`border-t border-border pt-2 mt-1 ${focusField === 'medcert' ? 'ring-2 ring-gold/40 rounded-lg p-1 -mx-1 transition-all' : ''}`} ref={medCertFieldRef}>
-              <EditableDateField
-                label="Med. Cert. Expiry"
-                date={medCertDate}
-                open={medCertOpen}
-                saving={savingMedCert}
-                isDirty={
-                  (medCertDate ? format(medCertDate, 'yyyy-MM-dd') : null) !== originalMedCertExp
-                }
-                onOpenChange={setMedCertOpen}
-                onSelect={d => { setMedCertDate(d); setMedCertOpen(false); }}
-                onSave={saveMedCertExpiration}
-              />
-            </div>
-          </Section>
-
-          {/* Employment */}
-          <Section title="Employment History" icon={<Briefcase className="h-4 w-4" />}>
-            <EmployerBlock employer={app.employer_1 as Record<string, string>} label="Current / Last Employer" />
-            <EmployerBlock employer={app.employer_2 as Record<string, string>} label="2nd to Last" />
-            <EmployerBlock employer={app.employer_3 as Record<string, string>} label="3rd to Last" />
-            <EmployerBlock employer={app.employer_4 as Record<string, string>} label="4th to Last" />
-            {app.additional_employers && (
-              <div className="bg-secondary/50 rounded-lg p-3 text-sm">
-                <p className="font-semibold text-foreground mb-1">Additional Employers</p>
-                <p className="text-muted-foreground whitespace-pre-wrap text-xs">{app.additional_employers}</p>
-              </div>
-            )}
-            <Field label="Employment Gaps" value={<YesNoBadge value={app.employment_gaps} />} />
-            {app.employment_gaps_explanation && (
-              <Field label="Gap Explanation" value={app.employment_gaps_explanation} />
-            )}
-          </Section>
-
-          {/* Driving Record */}
-          <Section title="Driving Record & Disclosures" icon={<ShieldAlert className="h-4 w-4" />}>
-            <Field label="DOT Accidents (3yr)" value={<YesNoBadge value={app.dot_accidents} />} />
-            {app.dot_accidents_description && <Field label="Accident Details" value={app.dot_accidents_description} />}
-            <Field label="Moving Violations (3yr)" value={<YesNoBadge value={app.moving_violations} />} />
-            {app.moving_violations_description && <Field label="Violation Details" value={app.moving_violations_description} />}
-            <Field label="Positive Drug Test (2yr)" value={<YesNoBadge value={app.dot_positive_test_past_2yr} />} />
-            {app.dot_return_to_duty_docs && <Field label="Return to Duty Docs" value={<YesNoBadge value={app.dot_return_to_duty_docs} />} />}
-            <Field label="SAP Process" value={<YesNoBadge value={app.sap_process} />} />
-          </Section>
-
-          {/* Authorizations */}
-          <Section title="Authorizations & Signature" icon={<FileText className="h-4 w-4" />}>
-            <Field label="Auth: Safety History" value={<YesNoBadge value={app.auth_safety_history} />} />
-            <Field label="Auth: Drug/Alcohol" value={<YesNoBadge value={app.auth_drug_alcohol} />} />
-            <Field label="Auth: Previous Employers" value={<YesNoBadge value={app.auth_previous_employers} />} />
-            <Field label="Testing Policy Accepted" value={<YesNoBadge value={app.testing_policy_accepted} />} />
-            <Field label="Signed By" value={app.typed_full_name} />
-            <Field label="Signed Date" value={app.signed_date ? new Date(app.signed_date).toLocaleDateString() : null} />
-            {app.signature_image_url && (
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Signature</p>
-                <div className="border border-border rounded-lg p-2 bg-secondary/30 inline-block">
-                  <img src={app.signature_image_url} alt="Applicant signature" className="h-16 w-auto" />
-                </div>
-              </div>
-            )}
-
-            {/* SSN Reveal — management only */}
-            {isManagement && (
-              <div className="pt-2 border-t border-border mt-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                    <Lock className="h-3.5 w-3.5 text-gold" />
-                    Social Security Number
-                  </div>
-                  {!ssnVisible ? (
-                    <button
-                      onClick={revealSSN}
-                      disabled={ssnLoading}
-                      className="flex items-center gap-1.5 text-xs text-gold hover:text-gold-light font-medium transition-colors disabled:opacity-50"
-                    >
-                      {ssnLoading
-                        ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Decrypting…</>
-                        : <><Eye className="h-3.5 w-3.5" /> Reveal SSN</>
-                      }
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => { setSsnVisible(false); setSsnValue(null); }}
-                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
-                    >
-                      <EyeOff className="h-3.5 w-3.5" /> Hide
-                    </button>
-                  )}
-                </div>
-                {ssnError && (
-                  <p className="text-xs text-destructive mt-1">{ssnError}</p>
+              {/* Address */}
+              <Section title="Address" icon={<MapPin className="h-4 w-4" />}>
+                <Field label="Current Address" value={[app.address_street, app.address_city, app.address_state, app.address_zip].filter(Boolean).join(', ')} />
+                <Field label="Time at Address" value={app.address_duration} />
+                {(app.prev_address_street || app.prev_address_city) && (
+                  <Field label="Previous Address" value={[app.prev_address_street, app.prev_address_city, app.prev_address_state, app.prev_address_zip].filter(Boolean).join(', ')} />
                 )}
-                {ssnVisible && ssnValue && (
-                  <div className="mt-2 px-3 py-2 bg-gold/10 border border-gold/30 rounded-lg">
-                    <span className="text-sm font-mono font-semibold text-foreground tracking-widest">{ssnValue}</span>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">This view is logged to the audit trail.</p>
+              </Section>
+
+              {/* CDL Info */}
+              <Section title="CDL Information" icon={<Car className="h-4 w-4" />}>
+                <Field label="CDL Number" value={app.cdl_number} />
+                <Field label="State" value={app.cdl_state} />
+                <Field label="Class" value={app.cdl_class} />
+                <div ref={cdlFieldRef} className={focusField === 'cdl' ? 'ring-2 ring-gold/40 rounded-lg p-1 -mx-1 transition-all' : ''}>
+                  <EditableDateField
+                    label="CDL Expiry"
+                    date={cdlExpDate}
+                    open={cdlExpOpen}
+                    saving={savingCdlExp}
+                    isDirty={(cdlExpDate ? format(cdlExpDate, 'yyyy-MM-dd') : null) !== originalCdlExp}
+                    onOpenChange={setCdlExpOpen}
+                    onSelect={d => { setCdlExpDate(d); setCdlExpOpen(false); }}
+                    onSave={saveCdlExpiration}
+                  />
+                </div>
+                <Field label="10-Year CDL History" value={<YesNoBadge value={app.cdl_10_years} />} />
+                <Field label="Endorsements" value={app.endorsements?.join(', ')} />
+                <Field label="Equipment" value={app.equipment_operated?.join(', ')} />
+                <Field label="Years Experience" value={app.years_experience} />
+                <div className={`border-t border-border pt-2 mt-1 ${focusField === 'medcert' ? 'ring-2 ring-gold/40 rounded-lg p-1 -mx-1 transition-all' : ''}`} ref={medCertFieldRef}>
+                  <EditableDateField
+                    label="Med. Cert. Expiry"
+                    date={medCertDate}
+                    open={medCertOpen}
+                    saving={savingMedCert}
+                    isDirty={(medCertDate ? format(medCertDate, 'yyyy-MM-dd') : null) !== originalMedCertExp}
+                    onOpenChange={setMedCertOpen}
+                    onSelect={d => { setMedCertDate(d); setMedCertOpen(false); }}
+                    onSave={saveMedCertExpiration}
+                  />
+                </div>
+              </Section>
+
+              {/* Employment */}
+              <Section title="Employment History" icon={<Briefcase className="h-4 w-4" />}>
+                <EmployerBlock employer={app.employer_1 as Record<string, string>} label="Current / Last Employer" />
+                <EmployerBlock employer={app.employer_2 as Record<string, string>} label="2nd to Last" />
+                <EmployerBlock employer={app.employer_3 as Record<string, string>} label="3rd to Last" />
+                <EmployerBlock employer={app.employer_4 as Record<string, string>} label="4th to Last" />
+                {app.additional_employers && (
+                  <div className="bg-secondary/50 rounded-lg p-3 text-sm">
+                    <p className="font-semibold text-foreground mb-1">Additional Employers</p>
+                    <p className="text-muted-foreground whitespace-pre-wrap text-xs">{app.additional_employers}</p>
                   </div>
                 )}
-              </div>
-            )}
-          </Section>
+                <Field label="Employment Gaps" value={<YesNoBadge value={app.employment_gaps} />} />
+                {app.employment_gaps_explanation && (
+                  <Field label="Gap Explanation" value={app.employment_gaps_explanation} />
+                )}
+              </Section>
 
-          {/* Uploaded Documents */}
-          {(app.dl_front_url || app.dl_rear_url || app.medical_cert_url) && (
-            <Section title="Uploaded Documents" icon={<FileText className="h-4 w-4" />}>
-              <div className="flex flex-wrap gap-2">
-                {app.dl_front_url && (
-                  <a href={app.dl_front_url} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg">
-                    <FileText className="h-3.5 w-3.5" /> DL Front
-                  </a>
+              {/* Driving Record */}
+              <Section title="Driving Record & Disclosures" icon={<ShieldAlert className="h-4 w-4" />}>
+                <Field label="DOT Accidents (3yr)" value={<YesNoBadge value={app.dot_accidents} />} />
+                {app.dot_accidents_description && <Field label="Accident Details" value={app.dot_accidents_description} />}
+                <Field label="Moving Violations (3yr)" value={<YesNoBadge value={app.moving_violations} />} />
+                {app.moving_violations_description && <Field label="Violation Details" value={app.moving_violations_description} />}
+                <Field label="Positive Drug Test (2yr)" value={<YesNoBadge value={app.dot_positive_test_past_2yr} />} />
+                {app.dot_return_to_duty_docs && <Field label="Return to Duty Docs" value={<YesNoBadge value={app.dot_return_to_duty_docs} />} />}
+                <Field label="SAP Process" value={<YesNoBadge value={app.sap_process} />} />
+              </Section>
+
+              {/* Authorizations */}
+              <Section title="Authorizations & Signature" icon={<FileText className="h-4 w-4" />}>
+                <Field label="Auth: Safety History" value={<YesNoBadge value={app.auth_safety_history} />} />
+                <Field label="Auth: Drug/Alcohol" value={<YesNoBadge value={app.auth_drug_alcohol} />} />
+                <Field label="Auth: Previous Employers" value={<YesNoBadge value={app.auth_previous_employers} />} />
+                <Field label="Testing Policy Accepted" value={<YesNoBadge value={app.testing_policy_accepted} />} />
+                <Field label="Signed By" value={app.typed_full_name} />
+                <Field label="Signed Date" value={app.signed_date ? new Date(app.signed_date).toLocaleDateString() : null} />
+                {app.signature_image_url && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Signature</p>
+                    <div className="border border-border rounded-lg p-2 bg-secondary/30 inline-block">
+                      <img src={app.signature_image_url} alt="Applicant signature" className="h-16 w-auto" />
+                    </div>
+                  </div>
                 )}
-                {app.dl_rear_url && (
-                  <a href={app.dl_rear_url} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg">
-                    <FileText className="h-3.5 w-3.5" /> DL Rear
-                  </a>
+
+                {/* SSN Reveal — management only */}
+                {isManagement && (
+                  <div className="pt-2 border-t border-border mt-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                        <Lock className="h-3.5 w-3.5 text-gold" />
+                        Social Security Number
+                      </div>
+                      {!ssnVisible ? (
+                        <button
+                          onClick={revealSSN}
+                          disabled={ssnLoading}
+                          className="flex items-center gap-1.5 text-xs text-gold hover:text-gold-light font-medium transition-colors disabled:opacity-50"
+                        >
+                          {ssnLoading
+                            ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Decrypting…</>
+                            : <><Eye className="h-3.5 w-3.5" /> Reveal SSN</>
+                          }
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => { setSsnVisible(false); setSsnValue(null); }}
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
+                        >
+                          <EyeOff className="h-3.5 w-3.5" /> Hide
+                        </button>
+                      )}
+                    </div>
+                    {ssnError && (
+                      <p className="text-xs text-destructive mt-1">{ssnError}</p>
+                    )}
+                    {ssnVisible && ssnValue && (
+                      <div className="mt-2 px-3 py-2 bg-gold/10 border border-gold/30 rounded-lg">
+                        <span className="text-sm font-mono font-semibold text-foreground tracking-widest">{ssnValue}</span>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">This view is logged to the audit trail.</p>
+                      </div>
+                    )}
+                  </div>
                 )}
-                {app.medical_cert_url && (
-                  <a href={app.medical_cert_url} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg">
-                    <FileText className="h-3.5 w-3.5" /> Medical Cert
-                  </a>
-                )}
-              </div>
-            </Section>
+              </Section>
+
+              {/* Uploaded Documents */}
+              {(app.dl_front_url || app.dl_rear_url || app.medical_cert_url) && (
+                <Section title="Uploaded Documents" icon={<FileText className="h-4 w-4" />}>
+                  <div className="flex flex-wrap gap-2">
+                    {app.dl_front_url && (
+                      <a href={app.dl_front_url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg">
+                        <FileText className="h-3.5 w-3.5" /> DL Front
+                      </a>
+                    )}
+                    {app.dl_rear_url && (
+                      <a href={app.dl_rear_url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg">
+                        <FileText className="h-3.5 w-3.5" /> DL Rear
+                      </a>
+                    )}
+                    {app.medical_cert_url && (
+                      <a href={app.medical_cert_url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg">
+                        <FileText className="h-3.5 w-3.5" /> Medical Cert
+                      </a>
+                    )}
+                  </div>
+                </Section>
+              )}
+
+              {/* Existing reviewer notes */}
+              {app.reviewer_notes && (
+                <div className="bg-status-progress/10 border border-status-progress/30 rounded-lg p-3">
+                  <p className="text-xs font-semibold text-status-progress mb-1">Previous Reviewer Notes</p>
+                  <p className="text-sm text-foreground">{app.reviewer_notes}</p>
+                </div>
+              )}
+            </div>
           )}
 
-          {/* Existing reviewer notes */}
-          {app.reviewer_notes && (
-            <div className="bg-status-progress/10 border border-status-progress/30 rounded-lg p-3">
-              <p className="text-xs font-semibold text-status-progress mb-1">Previous Reviewer Notes</p>
-              <p className="text-sm text-foreground">{app.reviewer_notes}</p>
+          {/* ── DOCUMENTS TAB ── */}
+          {activeTab === 'documents' && (
+            <div className="p-6 space-y-3">
+              <p className="text-xs text-muted-foreground mb-4">
+                Click a document below to open the browser's print dialog — choose <strong>Save as PDF</strong> to download.
+              </p>
+
+              {[
+                {
+                  id: 'doc-fcra-print',
+                  title: 'Fair Credit Reporting Act Authorization',
+                  description: 'FCRA disclosure and background check authorization',
+                  component: <FCRAAuthorizationDoc app={app} />,
+                  docTitle: `FCRA Authorization — ${fullName}`,
+                },
+                {
+                  id: 'doc-preauth-print',
+                  title: 'Pre-Employment Authorizations',
+                  description: 'Safety history, drug/alcohol, and employer record releases',
+                  component: <PreEmploymentAuthorizationsDoc app={app} />,
+                  docTitle: `Pre-Employment Authorizations — ${fullName}`,
+                },
+                {
+                  id: 'doc-dot-print',
+                  title: 'DOT Drug & Alcohol Pre-Employment Questions',
+                  description: '49 CFR § 40.25(j) mandatory disclosure and responses',
+                  component: <DOTDrugAlcoholQuestionsDoc app={app} />,
+                  docTitle: `DOT Drug & Alcohol Questions — ${fullName}`,
+                },
+                {
+                  id: 'doc-cert-print',
+                  title: 'Certificate of Receipt — Company Testing Policy',
+                  description: '49 CFR § 382.601 policy receipt and application certification',
+                  component: <CompanyTestingPolicyCertDoc app={app} />,
+                  docTitle: `Company Testing Policy Certificate — ${fullName}`,
+                },
+              ].map((doc) => (
+                <div key={doc.id} className="flex items-center justify-between gap-4 p-4 border border-border rounded-xl bg-secondary/20 hover:bg-secondary/40 transition-colors">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="mt-0.5 shrink-0">
+                      <FileText className="h-5 w-5 text-gold" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{doc.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{doc.description}</p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0 border-gold/40 text-gold hover:bg-gold/10 hover:border-gold gap-1.5"
+                    onClick={() => printDocumentById(doc.id, doc.docTitle)}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download PDF
+                  </Button>
+                </div>
+              ))}
+
+              {/* Hidden print containers — rendered off-screen so they're ready when needed */}
+              <div className="fixed left-[-9999px] top-0 pointer-events-none" aria-hidden="true">
+                {[
+                  { id: 'doc-fcra-print', component: <FCRAAuthorizationDoc app={app} /> },
+                  { id: 'doc-preauth-print', component: <PreEmploymentAuthorizationsDoc app={app} /> },
+                  { id: 'doc-dot-print', component: <DOTDrugAlcoholQuestionsDoc app={app} /> },
+                  { id: 'doc-cert-print', component: <CompanyTestingPolicyCertDoc app={app} /> },
+                ].map((doc) => (
+                  <div key={doc.id} id={doc.id} style={{ display: 'none' }}>
+                    {doc.component}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
