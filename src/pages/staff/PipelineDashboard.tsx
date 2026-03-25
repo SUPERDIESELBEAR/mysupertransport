@@ -1725,12 +1725,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           <p className="text-sm font-semibold text-foreground">Pipeline by Stage</p>
           {/* Dispatch + Compliance quick-filter chips */}
           <div className="flex items-center gap-2 flex-wrap">
-            {((['truck_down', 'dispatched', 'home', 'not_dispatched'] as DispatchStatus[]).map(status => {
+            {((['dispatched', 'home'] as DispatchStatus[]).map(status => {
               const badge = DISPATCH_BADGE[status];
-              const count = operators.filter(op =>
-                op.dispatch_status === status || (status === 'not_dispatched' && op.dispatch_status === null)
-              ).length;
-              if (count === 0 && status !== 'truck_down') return null;
+              const count = operators.filter(op => op.dispatch_status === status).length;
+              if (count === 0) return null;
               const isActive = dispatchFilter === status;
               return (
                 <button
@@ -1738,17 +1736,13 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                   onClick={() => setDispatchFilter(isActive ? 'all' : status)}
                   className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
                     isActive
-                      ? status === 'truck_down'
-                        ? 'bg-destructive text-destructive-foreground border-destructive'
-                        : 'bg-foreground text-background border-foreground'
-                      : status === 'truck_down' && count > 0
-                        ? 'bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20'
-                        : 'bg-muted text-muted-foreground border-border hover:border-foreground/30 hover:text-foreground'
+                      ? 'bg-foreground text-background border-foreground'
+                      : 'bg-muted text-muted-foreground border-border hover:border-foreground/30 hover:text-foreground'
                   }`}
                 >
-                  <span className={`h-1.5 w-1.5 rounded-full ${isActive && status !== 'truck_down' ? 'bg-background' : badge.dot}`} />
+                  <span className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-background' : badge.dot}`} />
                   {badge.label}
-                  <span className={`font-bold ${isActive && status !== 'truck_down' ? 'text-background' : ''}`}>{count}</span>
+                  <span className={`font-bold ${isActive ? 'text-background' : ''}`}>{count}</span>
                 </button>
               );
             }))}
