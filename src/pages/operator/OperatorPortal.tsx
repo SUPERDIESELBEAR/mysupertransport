@@ -92,6 +92,7 @@ export default function OperatorPortal() {
   const [ackLoading, setAckLoading] = useState(false);
   const [cdlExpiration, setCdlExpiration] = useState<string | null>(null);
   const [medicalCertExpiration, setMedicalCertExpiration] = useState<string | null>(null);
+  const [icaTruckInfo, setIcaTruckInfo] = useState<TruckInfo | null>(null);
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
 
