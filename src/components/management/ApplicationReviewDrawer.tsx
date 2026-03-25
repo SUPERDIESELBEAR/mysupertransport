@@ -204,9 +204,12 @@ const STATUS_COLORS: Record<string, string> = {
   denied: 'bg-destructive/15 text-destructive',
 };
 
+type DrawerTab = 'overview' | 'documents';
+
 export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated, focusField }: ApplicationReviewDrawerProps) {
   const { roles } = useAuth();
   const isManagement = roles.includes('management');
+  const [activeTab, setActiveTab] = useState<DrawerTab>('overview');
   const [notes, setNotes] = useState('');
   const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | null>(null);
   const [loading, setLoading] = useState(false);
