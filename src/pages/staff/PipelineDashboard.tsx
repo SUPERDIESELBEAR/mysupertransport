@@ -1829,23 +1829,6 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               </TooltipProvider>
             )}
           </div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-          {STAGES.map((stage, i) => (
-            <button
-              key={stage}
-              onClick={() => setStageFilter(stageFilter === stage ? 'all' : stage)}
-              className={`text-center p-3 rounded-lg border transition-colors ${
-                stageFilter === stage
-                  ? 'border-gold bg-gold/10 text-gold'
-                  : 'border-border hover:border-gold/40 text-foreground'
-              }`}
-            >
-              <p className="text-xl font-bold">{stageCounts[stage] ?? 0}</p>
-              <p className="text-xs text-muted-foreground mt-0.5 leading-tight">Stage {i + 1}</p>
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Search + filter toolbar */}
