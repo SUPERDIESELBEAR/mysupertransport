@@ -1834,6 +1834,29 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             <Button
               variant="outline"
               size="sm"
+              onClick={() => handleSort('temperature')}
+              className={`gap-1.5 shrink-0 ${sortKey === 'temperature' ? 'border-red-400 text-red-600 bg-red-50' : ''}`}
+              title="Sort Cold → Hot (ascending) or Hot → Cold (descending)"
+            >
+              {sortKey === 'temperature' && sortDir === 'desc' ? (
+                <>
+                  <span className="text-xs">🔥</span>
+                  <span className="hidden sm:inline text-xs font-semibold">Hot → Cold</span>
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </>
+              ) : (
+                <>
+                  <span className="text-xs">🌡️</span>
+                  <span className="hidden sm:inline text-xs font-semibold">
+                    {sortKey === 'temperature' ? 'Cold → Hot' : 'Temp'}
+                  </span>
+                  {sortKey === 'temperature' && <ArrowUp className="h-3.5 w-3.5" />}
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setShowFilters(v => !v)}
               className={`gap-2 ${showFilters || activeFilterCount > 0 ? 'border-gold text-gold bg-gold/5' : ''}`}
             >
