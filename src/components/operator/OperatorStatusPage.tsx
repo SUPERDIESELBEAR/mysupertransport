@@ -69,7 +69,7 @@ function MilestoneNode({ stage, isLast, onNavigateTo }: { stage: Stage; isLast: 
   const isNotStarted = stage.status === 'not_started';
 
   return (
-    <div className="flex gap-4">
+    <div id={stage.number === 1 ? 'stage-1-bg' : undefined} className="flex gap-4">
       {/* Timeline spine */}
       <div className="flex flex-col items-center shrink-0">
         {/* Node — wrapped in tooltip showing stage sub-item status */}
@@ -487,7 +487,12 @@ export default function OperatorStatusPage({
                 </p>
                 <Button
                   size="sm"
-                  onClick={() => onNavigateTo('checklist')}
+                  onClick={() => {
+                    onNavigateTo('progress');
+                    setTimeout(() => {
+                      document.getElementById('stage-1-bg')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                  }}
                   className="mt-3 text-xs h-8 gap-1.5 font-semibold"
                 >
                   <Upload className="h-3.5 w-3.5" />
@@ -643,7 +648,9 @@ export default function OperatorStatusPage({
               </p>
               <Button
                 size="sm"
-                onClick={() => onNavigateTo('checklist')}
+                onClick={() => {
+                  document.getElementById('stage-1-bg')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
                 className="mt-3 text-xs h-8 gap-1.5 font-semibold"
               >
                 <Upload className="h-3.5 w-3.5" />
