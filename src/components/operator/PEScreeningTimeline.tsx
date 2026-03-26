@@ -2,11 +2,12 @@ import { useState, useRef } from 'react';
 import {
   CheckCircle2, Clock, Circle, Download, Upload,
   Loader2, FileText, ExternalLink, FlaskConical, AlertTriangle,
-  XCircle, ChevronDown, ChevronUp,
+  XCircle, ChevronDown, ChevronUp, Eye,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { validateFile } from '@/lib/validateFile';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
 
 interface PEScreeningTimelineProps {
   onboardingStatus: Record<string, string | null>;
