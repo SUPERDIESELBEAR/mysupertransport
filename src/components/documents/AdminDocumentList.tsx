@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   DndContext,
   closestCenter,
