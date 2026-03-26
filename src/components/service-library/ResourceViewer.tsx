@@ -35,6 +35,7 @@ export default function ResourceViewer({ resource, service, onBack, onCompletion
   const [helpOpen, setHelpOpen] = useState(false);
   const [externalLinkOpen, setExternalLinkOpen] = useState(false);
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
 
   const isOutdated = resource.last_verified_at
     ? differenceInDays(new Date(), parseISO(resource.last_verified_at)) > 90

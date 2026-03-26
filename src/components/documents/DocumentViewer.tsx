@@ -18,6 +18,7 @@ interface DocumentViewerProps {
 export default function DocumentViewer({ doc, userId, acknowledgment, onBack, onAcknowledged }: DocumentViewerProps) {
   const { toast } = useToast();
   const [acknowledging, setAcknowledging] = useState(false);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
 
   const isAcknowledged = !!acknowledgment && acknowledgment.document_version === doc.version;
   const isUpdated = !!acknowledgment && acknowledgment.document_version < doc.version;
