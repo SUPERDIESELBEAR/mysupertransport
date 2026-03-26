@@ -175,6 +175,10 @@ function QPassportUploader({
       if (updateErr) throw updateErr;
       onUploaded(fileUrl);
       toast({ title: 'QPassport uploaded', description: 'The operator can now download it from their portal.' });
+      // Fire-and-forget: notify operator that QPassport is ready
+      supabase.functions.invoke('send-notification', {
+        body: { type: 'qpassport_uploaded', operator_id: operatorId },
+      }).catch((e) => console.warn('qpassport_uploaded notification failed:', e));
     } catch (err: unknown) {
       toast({ title: 'Upload failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
     } finally {
