@@ -2,11 +2,12 @@ import { useState, useRef } from 'react';
 import {
   CheckCircle2, Clock, Circle, Download, Upload,
   Loader2, FileText, ExternalLink, FlaskConical, AlertTriangle,
-  XCircle, ChevronDown, ChevronUp,
+  XCircle, ChevronDown, ChevronUp, Eye,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { validateFile } from '@/lib/validateFile';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
 
 interface PEScreeningTimelineProps {
   onboardingStatus: Record<string, string | null>;
@@ -63,6 +64,7 @@ export default function PEScreeningTimeline({
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [expanded, setExpanded] = useState(true);
+  const [viewingQPassport, setViewingQPassport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const peScreening = onboardingStatus.pe_screening as string | null;
@@ -158,15 +160,23 @@ export default function PEScreeningTimeline({
         : undefined,
       state: qpassportUrl ? 'complete' : isScheduled ? 'active' : 'pending',
       action: qpassportUrl ? (
-        <a
-          href={qpassportUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-gold border border-gold/30 bg-gold/10 hover:bg-gold/20 transition-colors px-3 py-1.5 rounded-lg"
-        >
-          <Download className="h-3.5 w-3.5" />
-          Download QPassport
-        </a>
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setViewingQPassport(true)}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-gold border border-gold/30 bg-gold/10 hover:bg-gold/20 transition-colors px-3 py-1.5 rounded-lg"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            View QPassport
+          </button>
+          <a
+            href={qpassportUrl}
+            download="QPassport.pdf"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border bg-muted/50 hover:bg-muted transition-colors px-3 py-1.5 rounded-lg"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Download
+          </a>
+        </div>
       ) : undefined,
     },
     // Step 3: Receipt Uploaded
@@ -277,6 +287,14 @@ export default function PEScreeningTimeline({
           {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
         </span>
       </button>
+
+      {viewingQPassport && qpassportUrl && (
+        <FilePreviewModal
+          url={qpassportUrl}
+          name="QPassport.pdf"
+          onClose={() => setViewingQPassport(false)}
+        />
+      )}
 
       {expanded && (
         <div className="px-3 pb-3">

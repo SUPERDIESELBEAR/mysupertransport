@@ -1,9 +1,10 @@
-import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText, Truck, ArrowRight, Upload, Mail, Phone, Hash, User, CalendarClock, ShieldAlert, X, CreditCard } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText, Truck, ArrowRight, Upload, Mail, Phone, Hash, User, CalendarClock, ShieldAlert, X, CreditCard, Download, Eye } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import OnboardingChecklist from '@/components/operator/OnboardingChecklist';
 import SmartProgressWidget from '@/components/operator/SmartProgressWidget';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 
@@ -288,6 +289,7 @@ export default function OperatorStatusPage({
     sessionStorage.setItem('cert_expiry_banner_dismissed', 'true');
     setBannerDismissed(true);
   };
+  const [viewingQPassport, setViewingQPassport] = useState(false);
 
   // ── Expiry helpers ──────────────────────────────────────────────────────────
   const getDaysUntil = (dateStr: string | null | undefined): number | null => {
@@ -358,6 +360,11 @@ export default function OperatorStatusPage({
   // Highest urgency level across critical docs
   const bannerIsExpired = criticalDocs.some(d => d.level === 'expired');
 
+  // QPassport banner: show when screening is scheduled and QPassport has been uploaded
+  const qpassportUrl = onboardingStatus.qpassport_url;
+  const peScreening = onboardingStatus.pe_screening;
+  const showQPassportBanner = peScreening === 'scheduled' && !!qpassportUrl;
+
   return (
     <>
     {/* ── MOBILE: Checklist view (< md) ── */}
@@ -414,6 +421,45 @@ export default function OperatorStatusPage({
                   Upload Updated Document
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── QPASSPORT BANNER ── */}
+      {showQPassportBanner && (
+        <div className="mx-4 mt-3">
+          <div className="rounded-2xl border-2 border-gold/40 bg-gold/8 p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <span className="shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center rounded-full border-2 border-gold bg-gold/15">
+                <FileText className="h-4 w-4 text-gold" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-gold mb-0.5">
+                  Action Required — QPassport Ready
+                </p>
+                <p className="text-sm font-semibold text-foreground leading-tight">Your QPassport has been uploaded</p>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  Download or view your QPassport and bring it to your drug screening appointment. The barcode confirms your identity at the facility.
+                  After your appointment, upload your receipt in the Stage 1 card below.
+                </p>
+                <div className="mt-3 flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => setViewingQPassport(true)}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-gold border border-gold/40 bg-gold/10 hover:bg-gold/20 transition-colors px-3 py-1.5 rounded-lg"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    View QPassport
+                  </button>
+                  <a
+                    href={qpassportUrl!}
+                    download="QPassport.pdf"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border bg-muted/50 hover:bg-muted transition-colors px-3 py-1.5 rounded-lg"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -503,6 +549,44 @@ export default function OperatorStatusPage({
                 Upload Updated Document
                 <ArrowRight className="h-3.5 w-3.5" />
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── QPASSPORT BANNER (desktop) ── */}
+      {showQPassportBanner && (
+        <div className="rounded-2xl border-2 border-gold/40 bg-gold/8 p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <span className="shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center rounded-full border-2 border-gold bg-gold/15">
+              <FileText className="h-4 w-4 text-gold" />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-gold mb-0.5">
+                Action Required — QPassport Ready
+              </p>
+              <p className="text-sm font-semibold text-foreground leading-tight">Your QPassport has been uploaded</p>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                Download or view your QPassport and bring it to your drug screening appointment. The barcode confirms your identity at the facility.
+                After your appointment, upload your receipt in the Stage 1 card below.
+              </p>
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setViewingQPassport(true)}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-gold border border-gold/40 bg-gold/10 hover:bg-gold/20 transition-colors px-3 py-1.5 rounded-lg"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  View QPassport
+                </button>
+                <a
+                  href={qpassportUrl!}
+                  download="QPassport.pdf"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border bg-muted/50 hover:bg-muted transition-colors px-3 py-1.5 rounded-lg"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Download
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -755,6 +839,13 @@ export default function OperatorStatusPage({
       </div>
     </div>
     </div> {/* end desktop md:block */}
+    {viewingQPassport && qpassportUrl && (
+      <FilePreviewModal
+        url={qpassportUrl}
+        name="QPassport.pdf"
+        onClose={() => setViewingQPassport(false)}
+      />
+    )}
     </> 
   );
 }
