@@ -426,6 +426,45 @@ export default function OperatorStatusPage({
           </div>
         </div>
       )}
+      {/* ── QPASSPORT BANNER ── */}
+      {showQPassportBanner && (
+        <div className="mx-4 mt-3">
+          <div className="rounded-2xl border-2 border-gold/40 bg-gold/8 p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <span className="shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center rounded-full border-2 border-gold bg-gold/15">
+                <FileText className="h-4 w-4 text-gold" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-gold mb-0.5">
+                  Action Required — QPassport Ready
+                </p>
+                <p className="text-sm font-semibold text-foreground leading-tight">Your QPassport has been uploaded</p>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  Download or view your QPassport and bring it to your drug screening appointment. The barcode confirms your identity at the facility.
+                  After your appointment, upload your receipt in the Stage 1 card below.
+                </p>
+                <div className="mt-3 flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => setViewingQPassport(true)}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-gold border border-gold/40 bg-gold/10 hover:bg-gold/20 transition-colors px-3 py-1.5 rounded-lg"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    View QPassport
+                  </button>
+                  <a
+                    href={qpassportUrl!}
+                    download="QPassport.pdf"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border bg-muted/50 hover:bg-muted transition-colors px-3 py-1.5 rounded-lg"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <OnboardingChecklist
         stages={stages}
         isFullyOnboarded={isFullyOnboarded}
