@@ -344,6 +344,19 @@ export default function PEScreeningTimeline({
               ))}
             </div>
           </div>
+
+          {/* Receipt submitted confirmation */}
+          {receiptDoc && !hasResult && (
+            <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-status-complete/8 border border-status-complete/25 px-3.5 py-3">
+              <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-status-complete leading-tight">Receipt received</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                  Your coordinator has been notified and will process your screening results. We'll update this section once results are in.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
