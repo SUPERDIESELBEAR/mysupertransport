@@ -54,11 +54,25 @@ interface SortableRowProps {
   isDragging?: boolean;
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function toEmbedUrl(url: string): string {
+  // YouTube: watch?v=ID or youtu.be/ID → embed/ID
+  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?/]+)/);
+  if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1`;
+  // Vimeo: vimeo.com/ID → player.vimeo.com/video/ID
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+  if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1`;
+  // Return as-is for Loom or other embeddable sources
+  return url;
+}
+
 function SortableRow({
   doc, ackCount, totalDrivers, toggling,
   onToggle, onEdit, onDelete, isDragging = false,
 }: SortableRowProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
   const {
     attributes,
     listeners,
@@ -175,6 +189,11 @@ function SortableRow({
             <Eye className="h-3.5 w-3.5" />
           </Button>
         )}
+        {doc.content_type === 'video' && doc.video_url && (
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setVideoOpen(true)} title="Preview Video">
+            <Video className="h-3.5 w-3.5" />
+          </Button>
+        )}
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(doc)}>
           <Edit2 className="h-3.5 w-3.5" />
         </Button>
@@ -189,8 +208,30 @@ function SortableRow({
           <DemoLockIcon badge />
         </div>
       </div>
+
+      {/* PDF preview */}
       {previewOpen && doc.pdf_url && (
         <FilePreviewModal url={doc.pdf_url} name={doc.title} onClose={() => setPreviewOpen(false)} />
+      )}
+
+      {/* Video preview */}
+      {doc.video_url && (
+        <Dialog open={videoOpen} onOpenChange={setVideoOpen}>
+          <DialogContent className="max-w-3xl w-full p-0 overflow-hidden">
+            <DialogHeader className="px-4 pt-4 pb-2">
+              <DialogTitle className="text-sm font-medium truncate">{doc.title}</DialogTitle>
+            </DialogHeader>
+            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+              <iframe
+                src={toEmbedUrl(doc.video_url)}
+                className="absolute inset-0 w-full h-full"
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowFullScreen
+                title={doc.title}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
