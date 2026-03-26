@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   Shield, FileCheck, FileText, Truck, CreditCard,
-  Upload, ArrowRight, ChevronDown, ChevronUp, Phone, MessageSquare, Download,
+  Upload, ArrowRight, ChevronDown, ChevronUp, Phone, MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import SmartProgressWidget from '@/components/operator/SmartProgressWidget';
+import PEScreeningTimeline from '@/components/operator/PEScreeningTimeline';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 
