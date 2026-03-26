@@ -57,6 +57,7 @@ function SortableRow({
   doc, ackCount, totalDrivers, toggling,
   onToggle, onEdit, onDelete, isDragging = false,
 }: SortableRowProps) {
+  const [previewOpen, setPreviewOpen] = useState(false);
   const {
     attributes,
     listeners,
