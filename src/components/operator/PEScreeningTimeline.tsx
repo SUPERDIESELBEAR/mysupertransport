@@ -64,6 +64,7 @@ export default function PEScreeningTimeline({
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [expanded, setExpanded] = useState(true);
+  const [viewingQPassport, setViewingQPassport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const peScreening = onboardingStatus.pe_screening as string | null;
