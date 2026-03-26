@@ -360,6 +360,11 @@ export default function OperatorStatusPage({
   // Highest urgency level across critical docs
   const bannerIsExpired = criticalDocs.some(d => d.level === 'expired');
 
+  // QPassport banner: show when screening is scheduled and QPassport has been uploaded
+  const qpassportUrl = onboardingStatus.qpassport_url;
+  const peScreening = onboardingStatus.pe_screening;
+  const showQPassportBanner = peScreening === 'scheduled' && !!qpassportUrl;
+
   return (
     <>
     {/* ── MOBILE: Checklist view (< md) ── */}
