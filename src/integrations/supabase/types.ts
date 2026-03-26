@@ -1326,10 +1326,12 @@ export type Database = {
           operator_id: string
           operator_type: string | null
           paper_logbook_approved: boolean
+          pe_receipt_url: string | null
           pe_results_date: string | null
           pe_scheduled_date: string | null
           pe_screening: Database["public"]["Enums"]["screening_status"]
           pe_screening_result: Database["public"]["Enums"]["screening_result"]
+          qpassport_url: string | null
           registration_status:
             | Database["public"]["Enums"]["registration_type"]
             | null
@@ -1406,10 +1408,12 @@ export type Database = {
           operator_id: string
           operator_type?: string | null
           paper_logbook_approved?: boolean
+          pe_receipt_url?: string | null
           pe_results_date?: string | null
           pe_scheduled_date?: string | null
           pe_screening?: Database["public"]["Enums"]["screening_status"]
           pe_screening_result?: Database["public"]["Enums"]["screening_result"]
+          qpassport_url?: string | null
           registration_status?:
             | Database["public"]["Enums"]["registration_type"]
             | null
@@ -1486,10 +1490,12 @@ export type Database = {
           operator_id?: string
           operator_type?: string | null
           paper_logbook_approved?: boolean
+          pe_receipt_url?: string | null
           pe_results_date?: string | null
           pe_scheduled_date?: string | null
           pe_screening?: Database["public"]["Enums"]["screening_status"]
           pe_screening_result?: Database["public"]["Enums"]["screening_result"]
+          qpassport_url?: string | null
           registration_status?:
             | Database["public"]["Enums"]["registration_type"]
             | null
@@ -2173,6 +2179,7 @@ export type Database = {
         | "truck_title"
         | "truck_photos"
         | "truck_inspection"
+        | "pe_receipt"
       pandadoc_status: "sent" | "viewed" | "completed"
       registration_type: "own_registration" | "needs_mo_reg"
       resource_category:
@@ -2366,6 +2373,7 @@ export const Constants = {
         "truck_title",
         "truck_photos",
         "truck_inspection",
+        "pe_receipt",
       ],
       pandadoc_status: ["sent", "viewed", "completed"],
       registration_type: ["own_registration", "needs_mo_reg"],
