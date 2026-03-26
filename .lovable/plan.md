@@ -1,44 +1,50 @@
 
-## Add "View" + "Download" buttons for QPassport
+## Current State of Receipt Reminders
 
-### What changes
+Here is what is **already in place** today:
 
-**Only `src/components/operator/PEScreeningTimeline.tsx`**
+**On the home screen (OperatorStatusPage):**
+- The gold QPassport banner (shown when `pe_screening === 'scheduled'` and `qpassport_url` is set) includes the line: *"After your appointment, upload your receipt in the Stage 1 card below."*
 
-The QPassport step currently renders a single gold "Download QPassport" anchor. Replace it with two side-by-side buttons:
-- **"View QPassport"** — opens the existing `FilePreviewModal` (in-app, full-screen, blob-based viewer with zoom/print/download) 
-- **"Download"** — direct `<a href download>` link, same as the current button
+**Inside the Stage 1 checklist (PEScreeningTimeline):**
+- Step 3 "Receipt Submitted" shows an active "Upload Receipt" button when the screening is scheduled and no receipt has been uploaded yet
+- The sublabel says: *"After your appointment, upload the receipt you received from the facility."*
+- Once uploaded, a green confirmation banner appears: *"Your coordinator has been notified and will process your screening results."*
 
-The `FilePreviewModal` is already exported from `src/components/inspection/DocRow.tsx` and used throughout the app (InspectionBinderAdmin, OperatorBinderPanel, OperatorInspectionBinder). Zero new infrastructure needed.
+---
 
-### Implementation detail
+## The Gap
 
-1. Import `FilePreviewModal` from `@/components/inspection/DocRow`.
-2. Add local state: `const [viewingQPassport, setViewingQPassport] = useState(false)`.
-3. In Step 2's `action`, replace the single anchor with:
-   ```tsx
-   <div className="mt-2 flex items-center gap-2">
-     {/* View button */}
-     <button onClick={() => setViewingQPassport(true)} className="...gold outlined style...">
-       <Eye className="h-3.5 w-3.5" /> View QPassport
-     </button>
-     {/* Download button */}
-     <a href={qpassportUrl} download="QPassport.pdf" className="...ghost small style...">
-       <Download className="h-3.5 w-3.5" /> Download
-     </a>
-   </div>
-   ```
-4. Render `FilePreviewModal` at the bottom of the component (conditionally):
-   ```tsx
-   {viewingQPassport && qpassportUrl && (
-     <FilePreviewModal url={qpassportUrl} name="QPassport.pdf" onClose={() => setViewingQPassport(false)} />
-   )}
-   ```
+The QPassport banner is only shown while `pe_screening === 'scheduled'`. Once the coordinator marks the screening as `results_in` or `complete`, that banner disappears. However, if the operator goes to their appointment and comes back — but before results are entered — there is no dedicated home-screen prompt specifically asking them to upload the receipt. The only reminder is buried inside the Stage 1 card.
 
-The same two-button pattern (View + Download) should also be applied to the **OperatorStatusPage** QPassport banner that was planned but not yet built — that banner will be implemented as part of this change.
+Additionally, if the operator closes the QPassport banner area without noticing the receipt instruction, they may not know to go back and upload it.
 
-### OperatorStatusPage banner (same message)
+---
 
-Since the QPassport banner for `OperatorStatusPage` was approved in the previous plan but never implemented, it makes sense to build it in this same pass with the View+Download button pattern baked in from the start. No extra files needed — `OperatorStatusPage.tsx` already imports from `@/components/operator/OnboardingChecklist` so adding a `FilePreviewModal` import is straightforward.
+## What to Add
 
-**Files changed:** `src/components/operator/PEScreeningTimeline.tsx` and `src/components/operator/OperatorStatusPage.tsx`
+**A dedicated "Upload Your Receipt" home-screen banner** that is separate from the QPassport banner, targeting the post-appointment window:
+
+- **Trigger:** `pe_screening === 'scheduled'` AND `qpassport_url` is set AND **no `pe_receipt` doc exists yet**
+- **Position:** Shown directly below the QPassport banner (or replacing it if QPassport has already been acted on)
+- **Color:** Blue/info tone to distinguish it from the gold QPassport banner — visually it reads as "next step after the QPassport"
+- **Content:**
+  - Headline: *"Don't forget to upload your receipt"*
+  - Body: *"After your drug screening appointment, take a photo of your receipt and upload it here. Your coordinator needs it to process your results."*
+  - CTA button: "Upload Receipt" → clicking it scrolls/navigates to Stage 1 where the upload input lives (using `onNavigateTo('checklist')` or a scroll anchor)
+- **Dismisses automatically** once `receiptDoc` is present (same as the QPassport banner disappears on status change)
+
+**File to change:** `src/components/operator/OperatorStatusPage.tsx` only.
+
+The condition logic will be:
+
+```text
+showReceiptReminderBanner =
+  peScreening === 'scheduled'
+  && qpassportUrl present          ← they've already received & (likely) used the QPassport
+  && no pe_receipt doc uploaded yet
+```
+
+This complements the existing in-timeline upload button — it just surfaces it prominently on the home screen so operators don't miss it after returning from their appointment.
+
+No database changes, no new components, no edge functions needed.
