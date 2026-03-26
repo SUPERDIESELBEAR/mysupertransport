@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { differenceInDays, parseISO } from 'date-fns';
 import { parseVideoEmbedUrl } from '@/components/documents/DocumentHubTypes';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
 
 interface ResourceViewerProps {
   resource: ServiceResource;
