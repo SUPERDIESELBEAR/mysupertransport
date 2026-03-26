@@ -699,6 +699,91 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case 'pe_receipt_uploaded': {
+        const operatorId = payload.operator_id;
+        if (!operatorId) break;
+
+        // Resolve operator name
+        const { data: opRow } = await supabaseAdmin
+          .from('operators')
+          .select('assigned_onboarding_staff, application_id')
+          .eq('id', operatorId)
+          .single();
+
+        let operatorName = 'An operator';
+        if (opRow?.application_id) {
+          const { data: appRow } = await supabaseAdmin
+            .from('applications')
+            .select('first_name, last_name')
+            .eq('id', opRow.application_id)
+            .single();
+          if (appRow) {
+            operatorName = [appRow.first_name, appRow.last_name].filter(Boolean).join(' ') || operatorName;
+          }
+        }
+
+        // In-app: notify assigned staff
+        if (opRow?.assigned_onboarding_staff) {
+          const inAppOk = await userInAppEnabled(opRow.assigned_onboarding_staff, 'onboarding_milestone');
+          if (inAppOk) {
+            await supabaseAdmin.from('notifications').insert({
+              user_id: opRow.assigned_onboarding_staff,
+              type: 'pe_receipt_uploaded',
+              title: `📄 PE Receipt Uploaded — ${operatorName}`,
+              body: `${operatorName} has uploaded their PE screening receipt. Log in to review.`,
+              channel: 'in_app',
+              link: `/staff?operator=${operatorId}`,
+            });
+          }
+        }
+
+        // In-app: notify management
+        const { data: mgmtRows } = await supabaseAdmin
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'management');
+        if (mgmtRows?.length) {
+          const mgmtIds = mgmtRows.map(r => r.user_id);
+          const { data: optedOut } = await supabaseAdmin
+            .from('notification_preferences')
+            .select('user_id')
+            .in('user_id', mgmtIds)
+            .eq('event_type', 'onboarding_milestone')
+            .eq('in_app_enabled', false);
+          const optedOutIds = new Set((optedOut ?? []).map(r => r.user_id));
+          const filtered = mgmtRows.filter(r => !optedOutIds.has(r.user_id));
+          if (filtered.length) {
+            await supabaseAdmin.from('notifications').insert(
+              filtered.map(r => ({
+                user_id: r.user_id,
+                type: 'pe_receipt_uploaded',
+                title: `📄 PE Receipt Uploaded — ${operatorName}`,
+                body: `${operatorName} has uploaded their PE screening receipt. Log in to review.`,
+                channel: 'in_app',
+                link: `/staff?operator=${operatorId}`,
+              }))
+            );
+          }
+        }
+
+        // Email: notify assigned staff + management
+        const staffEmail = await getAssignedStaffEmail(operatorId);
+        const mgmtEmails = await getManagementEmails('onboarding_milestone');
+        const recipients = [...new Set([...(staffEmail ? [staffEmail] : []), ...mgmtEmails])];
+        if (recipients.length) {
+          const subject = `PE Receipt Uploaded — ${operatorName}`;
+          const html = buildEmail(
+            subject,
+            '📄 PE Screening Receipt Uploaded',
+            `<p><strong>${operatorName}</strong> has uploaded their PE screening receipt and it is ready for review.</p>
+             <p>Log in to the Staff Portal to view the receipt and update their screening status.</p>`,
+            { label: 'View in Pipeline', url: `${appUrl}/staff?operator=${operatorId}` }
+          );
+          await Promise.all(recipients.map(e => sendEmail(e, subject, html, RESEND_API_KEY)));
+        }
+        break;
+      }
+
       default:
         return new Response(JSON.stringify({ error: `Unknown notification type: ${type}` }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
