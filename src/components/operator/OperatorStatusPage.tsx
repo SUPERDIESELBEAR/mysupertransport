@@ -365,6 +365,10 @@ export default function OperatorStatusPage({
   const peScreening = onboardingStatus.pe_screening;
   const showQPassportBanner = peScreening === 'scheduled' && !!qpassportUrl;
 
+  // Receipt reminder banner: show when QPassport is available but receipt not yet uploaded
+  const hasReceiptDoc = uploadedDocs?.some(d => d.document_type === 'pe_receipt') ?? false;
+  const showReceiptReminderBanner = peScreening === 'scheduled' && !!qpassportUrl && !hasReceiptDoc;
+
   return (
     <>
     {/* ── MOBILE: Checklist view (< md) ── */}
@@ -460,6 +464,36 @@ export default function OperatorStatusPage({
                     Download
                   </a>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── RECEIPT REMINDER BANNER (mobile) ── */}
+      {showReceiptReminderBanner && (
+        <div className="mx-4 mt-3">
+          <div className="rounded-2xl border-2 border-primary/40 bg-primary/8 p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <span className="shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center rounded-full border-2 border-primary/60 bg-primary/10">
+                <Upload className="h-4 w-4 text-primary" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-primary mb-0.5">
+                  Next Step — Upload Receipt
+                </p>
+                <p className="text-sm font-semibold text-foreground leading-tight">Don't forget to upload your receipt</p>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  After your drug screening appointment, take a photo of your receipt and upload it below. Your coordinator needs it to process your results.
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => onNavigateTo('checklist')}
+                  className="mt-3 text-xs h-8 gap-1.5 font-semibold"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Upload Receipt
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </div>
           </div>
@@ -587,6 +621,35 @@ export default function OperatorStatusPage({
                   Download
                 </a>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── RECEIPT REMINDER BANNER (desktop) ── */}
+      {showReceiptReminderBanner && (
+        <div className="rounded-2xl border-2 border-primary/40 bg-primary/8 p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <span className="shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center rounded-full border-2 border-primary/60 bg-primary/10">
+              <Upload className="h-4 w-4 text-primary" />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-primary mb-0.5">
+                Next Step — Upload Receipt
+              </p>
+              <p className="text-sm font-semibold text-foreground leading-tight">Don't forget to upload your receipt</p>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                After your drug screening appointment, take a photo of your receipt and upload it in Stage 1. Your coordinator needs it to process your results.
+              </p>
+              <Button
+                size="sm"
+                onClick={() => onNavigateTo('checklist')}
+                className="mt-3 text-xs h-8 gap-1.5 font-semibold"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Upload Receipt
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
         </div>
