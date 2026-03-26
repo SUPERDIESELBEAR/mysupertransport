@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { differenceInDays, parseISO } from 'date-fns';
 import { parseVideoEmbedUrl } from '@/components/documents/DocumentHubTypes';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
 
 interface ResourceViewerProps {
   resource: ServiceResource;
@@ -34,6 +35,7 @@ export default function ResourceViewer({ resource, service, onBack, onCompletion
   const [helpOpen, setHelpOpen] = useState(false);
   const [externalLinkOpen, setExternalLinkOpen] = useState(false);
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
 
   const isOutdated = resource.last_verified_at
     ? differenceInDays(new Date(), parseISO(resource.last_verified_at)) > 90
@@ -145,24 +147,21 @@ export default function ResourceViewer({ resource, service, onBack, onCompletion
 
     if (resource_type === 'PDF' && url) {
       return (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 p-4 rounded-xl border border-border bg-muted/30">
-            <FileText className="h-6 w-6 text-orange-600 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-foreground text-sm truncate">{resource.title}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">PDF Document</p>
-            </div>
-            <Button size="sm" variant="outline" onClick={() => window.open(url, '_blank')} className="gap-1.5 shrink-0">
-              <ExternalLink className="h-3.5 w-3.5" />
-              Open PDF
-            </Button>
+        <div className="flex flex-col items-center gap-4 py-12 text-center">
+          <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center">
+            <FileText className="h-8 w-8 text-muted-foreground" />
           </div>
-          <iframe
-            src={`${url}#view=FitH`}
-            className="w-full rounded-xl border border-border"
-            style={{ height: '600px' }}
-            title={resource.title}
-          />
+          <div>
+            <p className="text-foreground font-medium mb-1">{resource.title}</p>
+            <p className="text-muted-foreground text-sm">PDF Document</p>
+          </div>
+          <Button onClick={() => setPdfPreviewOpen(true)} className="gap-2">
+            <FileText className="h-4 w-4" />
+            View PDF
+          </Button>
+          {pdfPreviewOpen && (
+            <FilePreviewModal url={url} name={resource.title} onClose={() => setPdfPreviewOpen(false)} />
+          )}
         </div>
       );
     }

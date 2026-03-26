@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { DriverDocument, CATEGORY_COLORS, parseVideoEmbedUrl } from './DocumentHubTypes';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
 
 interface DocumentViewerProps {
   doc: DriverDocument;
@@ -17,6 +18,7 @@ interface DocumentViewerProps {
 export default function DocumentViewer({ doc, userId, acknowledgment, onBack, onAcknowledged }: DocumentViewerProps) {
   const { toast } = useToast();
   const [acknowledging, setAcknowledging] = useState(false);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
 
   const isAcknowledged = !!acknowledgment && acknowledgment.document_version === doc.version;
   const isUpdated = !!acknowledgment && acknowledgment.document_version < doc.version;
@@ -145,13 +147,21 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
           )
         ) : isPdf ? (
           doc.pdf_url ? (
-            <div className="rounded-xl overflow-hidden border border-border bg-muted/20">
-              <iframe
-                src={doc.pdf_url}
-                title={doc.title}
-                className="w-full"
-                style={{ height: '620px' }}
-              />
+            <div className="flex flex-col items-center gap-4 py-12 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center">
+                <FileText className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-foreground font-medium mb-1">{doc.title}</p>
+                <p className="text-muted-foreground text-sm">PDF Document</p>
+              </div>
+              <Button onClick={() => setPdfPreviewOpen(true)} className="gap-2">
+                <FileText className="h-4 w-4" />
+                View PDF
+              </Button>
+              {pdfPreviewOpen && (
+                <FilePreviewModal url={doc.pdf_url} name={doc.title} onClose={() => setPdfPreviewOpen(false)} />
+              )}
             </div>
           ) : (
             <div className="py-12 text-center text-muted-foreground">
