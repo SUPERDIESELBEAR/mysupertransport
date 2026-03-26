@@ -235,6 +235,7 @@ export default function TipTapEditor({ content, onChange, placeholder = 'Start w
       TextStyle,
       Color,
       FontFamily,
+      FontSize,
     ],
     content,
     onUpdate({ editor }) {
