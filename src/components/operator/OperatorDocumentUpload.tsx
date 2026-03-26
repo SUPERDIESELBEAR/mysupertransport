@@ -420,6 +420,92 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
         );
       })()}
 
+      {/* ── PE Screening Receipt Upload ──────────────────────────────── */}
+      {(onboardingStatus.pe_screening === 'scheduled' || onboardingStatus.pe_screening === 'results_in') && (() => {
+        const slot = PE_RECEIPT_SLOT;
+        const uploaded = getUploaded(slot.key);
+        const isUploading = uploading === slot.key;
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Camera className="h-4 w-4 text-gold" />
+              <h3 className="font-semibold text-foreground text-sm">PE Screening Receipt</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              After completing your drug screening, you'll receive a receipt from the testing facility. Please upload a photo or scan of that receipt here.
+            </p>
+            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+              <div className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${uploaded.length > 0 ? 'bg-status-complete/10' : 'bg-secondary'}`}>
+                    {uploaded.length > 0
+                      ? <CheckCircle2 className="h-4 w-4 text-status-complete" />
+                      : <Camera className="h-4 w-4 text-muted-foreground" />
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                        <p className="font-medium text-foreground text-sm leading-tight">{slot.label}</p>
+                        {!uploaded.length && (
+                          <span className="text-[10px] bg-gold/15 text-gold-muted px-1.5 py-0.5 rounded font-medium">Action Required</span>
+                        )}
+                        {uploaded.length > 0 && (
+                          <span className="text-[10px] bg-status-complete/15 text-status-complete px-1.5 py-0.5 rounded font-medium">Submitted</span>
+                        )}
+                      </div>
+                      <div className="shrink-0">
+                        <input
+                          ref={el => { fileInputRefs.current[slot.key] = el; }}
+                          type="file"
+                          accept={slot.accept}
+                          className="hidden"
+                          onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) handleUpload(slot, file);
+                            e.target.value = '';
+                          }}
+                        />
+                        <Button
+                          size="sm"
+                          variant={uploaded.length > 0 ? 'outline' : 'default'}
+                          disabled={isUploading}
+                          onClick={() => fileInputRefs.current[slot.key]?.click()}
+                          className={`text-xs gap-1.5 h-9 px-3 min-w-[80px] ${uploaded.length === 0 ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
+                        >
+                          {isUploading
+                            ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /><span>Uploading…</span></>
+                            : <><Upload className="h-3.5 w-3.5" /><span>{uploaded.length > 0 ? 'Add More' : 'Upload'}</span></>
+                          }
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{slot.description}</p>
+                    {uploaded.length > 0 && (
+                      <div className="mt-2 space-y-1.5">
+                        {uploaded.map(doc => (
+                          <div key={doc.id} className="flex items-center gap-1.5 text-xs flex-wrap">
+                            <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-muted-foreground truncate min-w-0 flex-1">{doc.file_name ?? 'receipt'}</span>
+                            <span className="text-muted-foreground shrink-0">{new Date(doc.uploaded_at).toLocaleDateString()}</span>
+                            {doc.file_url && (
+                              <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                                className="text-gold hover:underline flex items-center gap-0.5 shrink-0">
+                                View <ExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── Decal Install Photos ─────────────────────────────────────── */}
       {decalApplied && (
         <div className="space-y-3">

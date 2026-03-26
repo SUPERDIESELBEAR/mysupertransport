@@ -215,7 +215,7 @@ function StageCard({
             </div>
           ))}
 
-          {/* CTAs inside expanded card */}
+        {/* CTAs inside expanded card */}
           {showDocsCTA && (
             <div className="px-3 py-2.5">
               <Button
@@ -240,6 +240,22 @@ function StageCard({
                 Sign ICA Agreement
                 <ArrowRight className="h-3.5 w-3.5" />
               </Button>
+            </div>
+          )}
+          {/* QPassport Download CTA — Stage 1, when screening is scheduled and QPassport is available */}
+          {stage.number === 1
+            && onboardingStatus.pe_screening === 'scheduled'
+            && onboardingStatus.qpassport_url && (
+            <div className="px-3 py-2.5">
+              <a
+                href={onboardingStatus.qpassport_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 w-full bg-gold/15 border border-gold/30 text-gold hover:bg-gold/25 transition-colors rounded-lg text-xs h-8 font-semibold"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download Your QPassport
+              </a>
             </div>
           )}
         </div>
