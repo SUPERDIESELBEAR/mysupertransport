@@ -69,7 +69,7 @@ function MilestoneNode({ stage, isLast, onNavigateTo }: { stage: Stage; isLast: 
   const isNotStarted = stage.status === 'not_started';
 
   return (
-    <div className="flex gap-4">
+    <div id={stage.number === 1 ? 'stage-1-bg' : undefined} className="flex gap-4">
       {/* Timeline spine */}
       <div className="flex flex-col items-center shrink-0">
         {/* Node — wrapped in tooltip showing stage sub-item status */}
