@@ -648,7 +648,9 @@ export default function OperatorStatusPage({
               </p>
               <Button
                 size="sm"
-                onClick={() => onNavigateTo('progress')}
+                onClick={() => {
+                  document.getElementById('stage-1-bg')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
                 className="mt-3 text-xs h-8 gap-1.5 font-semibold"
               >
                 <Upload className="h-3.5 w-3.5" />
