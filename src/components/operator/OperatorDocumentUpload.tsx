@@ -111,6 +111,18 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
         file_url: fileUrl,
       });
 
+      // For PE receipt, fire a notification to staff
+      if (slot.key === 'pe_receipt') {
+        try {
+          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+          await supabase.functions.invoke('send-notification', {
+            body: { type: 'pe_receipt_uploaded', operator_id: operatorId },
+          });
+        } catch {
+          // non-critical — don't block the upload success
+        }
+      }
+
       toast({ title: 'Document uploaded', description: `${slot.label} has been submitted for review.` });
       onUploadComplete();
     } catch (err: unknown) {
