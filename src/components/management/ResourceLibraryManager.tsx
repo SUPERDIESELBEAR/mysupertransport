@@ -45,12 +45,14 @@ import {
   X,
   Clock,
   User,
+  ScanEye,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import DemoLockIcon from '@/components/DemoLockIcon';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
 
 type ResourceCategory = Database['public']['Enums']['resource_category'];
 
