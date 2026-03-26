@@ -144,7 +144,7 @@ export default function TipTapEditor({ content, onChange, placeholder = 'Start w
       {/* Editor area */}
       <EditorContent
         editor={editor}
-        className="prose prose-sm max-w-none px-4 py-3 min-h-[280px] focus:outline-none [&_.tiptap]:outline-none [&_.tiptap_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_p.is-editor-empty:first-child::before]:float-left [&_.tiptap_p.is-editor-empty:first-child::before]:pointer-events-none [&_.tiptap_p.is-editor-empty:first-child::before]:h-0 [&_.tiptap_u]:underline [&_.tiptap_s]:line-through [&_.tiptap_mark]:bg-yellow-200 dark:[&_.tiptap_mark]:bg-yellow-800/50"
+        className="prose prose-sm max-w-none px-4 py-3 min-h-[280px] focus:outline-none [&_.tiptap]:outline-none [&_.tiptap_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_p.is-editor-empty:first-child::before]:float-left [&_.tiptap_p.is-editor-empty:first-child::before]:pointer-events-none [&_.tiptap_p.is-editor-empty:first-child::before]:h-0 [&_.tiptap_u]:underline [&_.tiptap_s]:line-through [&_.tiptap_mark]:bg-accent [&_.tiptap_mark]:text-accent-foreground"
       />
     </div>
   );
