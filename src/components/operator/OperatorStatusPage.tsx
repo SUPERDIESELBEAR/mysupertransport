@@ -900,8 +900,8 @@ export default function OperatorStatusPage({
             <p className="text-sm font-semibold text-foreground">Questions about your onboarding?</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               Contact your coordinator or reach us at{' '}
-              <a href="mailto:support@mysupertransport.com" className="text-gold hover:underline font-medium">
-                support@mysupertransport.com
+              <a href="mailto:onboarding@mysupertransport.com" className="text-gold hover:underline font-medium">
+                onboarding@mysupertransport.com
               </a>
             </p>
           </div>
