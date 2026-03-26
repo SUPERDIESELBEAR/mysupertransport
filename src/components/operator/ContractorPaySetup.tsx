@@ -8,11 +8,10 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import {
   CreditCard, CheckCircle2, User, Building2, Phone, Mail,
-  AlertTriangle, Info, Loader2, ChevronDown, ChevronUp,
-  FileText, Download, ExternalLink, X,
+  AlertTriangle, Info, Loader2, ChevronDown, ChevronUp, FileText,
 } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 import PayrollCalendar from '@/components/operator/PayrollCalendar';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
 
 // ── Company payroll reference documents ──────────────────────────────────────
 const COMPANY_DOCS = [
@@ -31,48 +30,6 @@ const COMPANY_DOCS = [
 ] as const;
 
 type DocKey = typeof COMPANY_DOCS[number]['key'];
-
-// ── Inline PDF lightbox ───────────────────────────────────────────────────────
-function DocPreviewModal({
-  title, url, onClose,
-}: { title: string; url: string; onClose: () => void }) {
-  return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-4xl w-full h-[90vh] flex flex-col p-0 gap-0">
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border bg-muted/30 shrink-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-            <span className="text-sm font-semibold text-foreground truncate">{title}</span>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <a
-              href={url}
-              download
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1.5 rounded hover:bg-muted transition-colors"
-            >
-              <Download className="h-3.5 w-3.5" /> Download
-            </a>
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1.5 rounded hover:bg-muted transition-colors"
-            >
-              <ExternalLink className="h-3.5 w-3.5" /> Open
-            </a>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-        <iframe src={url} title={title} className="w-full flex-1 border-0" />
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 interface ContractorPaySetupProps {
   operatorId: string;
@@ -702,9 +659,9 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
 
       {/* ── PDF PREVIEW MODAL ── */}
       {previewDoc && (
-        <DocPreviewModal
-          title={previewDoc.title}
+        <FilePreviewModal
           url={previewDoc.url}
+          name={previewDoc.title}
           onClose={() => setPreviewDoc(null)}
         />
       )}
