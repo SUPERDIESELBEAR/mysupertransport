@@ -3181,97 +3181,27 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       />
                     )}
                     {/* QPassport Upload — visible when screening is scheduled or results_in */}
-                    {(status.pe_screening === 'scheduled' || status.pe_screening === 'results_in') && (() => {
-                      const [qpUploading, setQpUploading] = React.useState(false);
-                      const qpRef = React.useRef<HTMLInputElement | null>(null);
-
-                      const handleQPassportUpload = async (file: File) => {
-                        if (!file) return;
-                        if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
-                          toast({ title: 'PDF only', description: 'QPassport must be a PDF file.', variant: 'destructive' });
-                          return;
-                        }
-                        if (file.size > 10 * 1024 * 1024) {
-                          toast({ title: 'File too large', description: 'Max 10 MB.', variant: 'destructive' });
-                          return;
-                        }
-                        setQpUploading(true);
-                        try {
-                          const path = `${operatorId}/qpassport/${Date.now()}.pdf`;
-                          const { error: upErr } = await supabase.storage.from('operator-documents').upload(path, file, { upsert: false });
-                          if (upErr) throw upErr;
-                          const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365);
-                          const fileUrl = sd?.signedUrl ?? '';
-                          const { error: updateErr } = await supabase.from('onboarding_status').update({ qpassport_url: fileUrl }).eq('operator_id', operatorId);
-                          if (updateErr) throw updateErr;
-                          setStatus(prev => ({ ...prev, qpassport_url: fileUrl }));
-                          toast({ title: 'QPassport uploaded', description: 'The operator can now download it from their portal.' });
-                        } catch (err: unknown) {
-                          toast({ title: 'Upload failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
-                        } finally {
-                          setQpUploading(false);
-                        }
-                      };
-
-                      return (
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">QPassport PDF</Label>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {status.qpassport_url && (
-                              <a
-                                href={status.qpassport_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-xs text-gold hover:underline"
-                              >
-                                <ExternalLink className="h-3 w-3" /> View QPassport PDF
-                              </a>
-                            )}
-                            <input
-                              ref={qpRef}
-                              type="file"
-                              accept=".pdf,application/pdf"
-                              className="hidden"
-                              onChange={e => {
-                                const f = e.target.files?.[0];
-                                if (f) handleQPassportUpload(f);
-                                e.target.value = '';
-                              }}
-                            />
-                            <Button
-                              size="sm"
-                              variant={status.qpassport_url ? 'outline' : 'default'}
-                              disabled={qpUploading}
-                              onClick={() => qpRef.current?.click()}
-                              className={`text-xs gap-1 h-7 px-2.5 ${!status.qpassport_url ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
-                            >
-                              {qpUploading
-                                ? <><Loader2 className="h-3 w-3 animate-spin" /> Uploading…</>
-                                : <><Upload className="h-3 w-3" /> {status.qpassport_url ? 'Replace PDF' : 'Upload QPassport'}</>
-                              }
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })()}
+                    {(status.pe_screening === 'scheduled' || status.pe_screening === 'results_in') && (
+                      <QPassportUploader
+                        operatorId={operatorId}
+                        currentUrl={status.qpassport_url}
+                        onUploaded={url => setStatus(prev => ({ ...prev, qpassport_url: url }))}
+                      />
+                    )}
                     {/* PE Receipt — read-only view link from operator upload */}
-                    {(() => {
-                      const peReceiptDoc = docFiles['pe_receipt']?.[0];
-                      if (!peReceiptDoc) return null;
-                      return (
-                        <div className="space-y-1">
-                          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Receipt (from operator)</Label>
-                          <a
-                            href={peReceiptDoc.file_url ?? '#'}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-gold hover:underline"
-                          >
-                            <ExternalLink className="h-3 w-3" /> View Receipt
-                          </a>
-                        </div>
-                      );
-                    })()}
+                    {docFiles['pe_receipt']?.[0] && (
+                      <div className="space-y-1">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Receipt (from operator)</Label>
+                        <a
+                          href={docFiles['pe_receipt'][0].file_url ?? '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-gold hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" /> View Receipt
+                        </a>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Screening Result</Label>
