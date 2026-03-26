@@ -1,51 +1,44 @@
 
-## QPassport Uploaded — Operator Notification
+## Add "View" + "Download" buttons for QPassport
 
-### What this adds
+### What changes
 
-When a coordinator uploads a QPassport PDF in the staff portal, the operator receives:
-- **In-app notification** (bell icon): "📋 Your QPassport is Ready" — with a link to their Stage 1 checklist
-- **Email** (respecting operator's `onboarding_update` preference): branded email telling them to download the QPassport before going to the testing facility
+**Only `src/components/operator/PEScreeningTimeline.tsx`**
 
----
+The QPassport step currently renders a single gold "Download QPassport" anchor. Replace it with two side-by-side buttons:
+- **"View QPassport"** — opens the existing `FilePreviewModal` (in-app, full-screen, blob-based viewer with zoom/print/download) 
+- **"Download"** — direct `<a href download>` link, same as the current button
 
-### Files to Change
+The `FilePreviewModal` is already exported from `src/components/inspection/DocRow.tsx` and used throughout the app (InspectionBinderAdmin, OperatorBinderPanel, OperatorInspectionBinder). Zero new infrastructure needed.
 
-**1. `src/pages/staff/OperatorDetailPanel.tsx`**
+### Implementation detail
 
-After the `onboarding_status` update succeeds in `QPassportUploader.handleFile` (line ~175), call `send-notification`:
+1. Import `FilePreviewModal` from `@/components/inspection/DocRow`.
+2. Add local state: `const [viewingQPassport, setViewingQPassport] = useState(false)`.
+3. In Step 2's `action`, replace the single anchor with:
+   ```tsx
+   <div className="mt-2 flex items-center gap-2">
+     {/* View button */}
+     <button onClick={() => setViewingQPassport(true)} className="...gold outlined style...">
+       <Eye className="h-3.5 w-3.5" /> View QPassport
+     </button>
+     {/* Download button */}
+     <a href={qpassportUrl} download="QPassport.pdf" className="...ghost small style...">
+       <Download className="h-3.5 w-3.5" /> Download
+     </a>
+   </div>
+   ```
+4. Render `FilePreviewModal` at the bottom of the component (conditionally):
+   ```tsx
+   {viewingQPassport && qpassportUrl && (
+     <FilePreviewModal url={qpassportUrl} name="QPassport.pdf" onClose={() => setViewingQPassport(false)} />
+   )}
+   ```
 
-```ts
-await supabase.functions.invoke('send-notification', {
-  body: { type: 'qpassport_uploaded', operator_id: operatorId },
-});
-```
-This is fire-and-forget (wrapped in try/catch, non-blocking) — same pattern as the receipt upload in `PEScreeningTimeline`.
+The same two-button pattern (View + Download) should also be applied to the **OperatorStatusPage** QPassport banner that was planned but not yet built — that banner will be implemented as part of this change.
 
-**2. `supabase/functions/send-notification/index.ts`**
+### OperatorStatusPage banner (same message)
 
-Add a new `case 'qpassport_uploaded'` before the `default` case. It will:
+Since the QPassport banner for `OperatorStatusPage` was approved in the previous plan but never implemented, it makes sense to build it in this same pass with the View+Download button pattern baked in from the start. No extra files needed — `OperatorStatusPage.tsx` already imports from `@/components/operator/OnboardingChecklist` so adding a `FilePreviewModal` import is straightforward.
 
-- Look up the operator's `user_id` and `application_id` to resolve their name
-- Look up the operator's `user_id` to get their auth email
-- **In-app**: insert a notification for the operator's `user_id`:
-  - title: `"📋 Your QPassport is Ready"`
-  - body: `"Your QPassport has been uploaded by your coordinator. Download it and bring it to your drug screening appointment."`
-  - link: `"/operator"` (where the Stage 1 card lives)
-  - Respect operator's `onboarding_update` in-app preference (default: enabled)
-- **Email**: send to operator's email address using `buildEmail` + `sendEmail`:
-  - subject: `"Action Required: Download Your QPassport"`
-  - heading: `"📋 Your QPassport is Ready"`
-  - body: explains they need to download and bring it to the facility, with a CTA button linking to their portal
-  - Respect operator's `onboarding_update` email preference (default: enabled)
-
-No migration needed. No new tables. No new edge function needed.
-
----
-
-### Technical Details
-
-- The `NotificationPayload` type at the top of `send-notification/index.ts` needs `'qpassport_uploaded'` added to the `type` union.
-- Uses the existing `getOperatorEmail` and `userEmailEnabled` / `userInAppEnabled` helpers — no new code needed there.
-- The notification flow exactly mirrors the existing `dispatch_status_change` operator notification pattern.
-- After changing `send-notification`, the edge function must be redeployed.
+**Files changed:** `src/components/operator/PEScreeningTimeline.tsx` and `src/components/operator/OperatorStatusPage.tsx`
