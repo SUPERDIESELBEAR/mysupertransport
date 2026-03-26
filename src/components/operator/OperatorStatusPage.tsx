@@ -487,7 +487,7 @@ export default function OperatorStatusPage({
                 </p>
                 <Button
                   size="sm"
-                  onClick={() => onNavigateTo('checklist')}
+                  onClick={() => onNavigateTo('progress')}
                   className="mt-3 text-xs h-8 gap-1.5 font-semibold"
                 >
                   <Upload className="h-3.5 w-3.5" />
