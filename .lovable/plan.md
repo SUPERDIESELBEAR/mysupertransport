@@ -1,59 +1,48 @@
 
-## Add Font Color, Font Size, and Font Family to TipTap Editor
+## Fix Font Size, Font Family, and Font Color in TipTap Editor
 
-### What's needed
+### Root causes found
 
-Three new TipTap extensions, all at `^2.27.2`:
+**Problem 1 — Font size does nothing**
+`@tiptap/extension-text-style` does not have a `fontSize` attribute built in. Only `Color` (adds `color`) and `FontFamily` (adds `fontFamily`) register attributes on it. Calling `setMark('textStyle', { fontSize: val })` stores the value but the extension never renders it as an inline CSS `style`. The correct fix is to add `@tiptap/extension-font-size` — a dedicated package that registers `fontSize` on `TextStyle` so it outputs `style="font-size: 14px"` in the HTML.
 
-| Feature | Package |
-|---|---|
-| Font color | `@tiptap/extension-color` + `@tiptap/extension-text-style` (required peer) |
-| Font size | `@tiptap/extension-text-style` (already needed above) + custom size attribute via `TextStyle` |
-| Font family | `@tiptap/extension-font-family` |
+**Problem 2 — Font family and color render but Tailwind Typography overrides them**
+The `EditorContent` wrapper has `className="prose prose-sm …"`. Tailwind Typography (`@tailwindcss/typography`) sets aggressive CSS on all elements inside `.prose`, including overriding `font-family` on `p`, `li`, headings etc. This means even when TipTap correctly outputs `<span style="font-family: Georgia">`, the `.prose` styles win. The fix is to remove `prose prose-sm` from the `EditorContent` wrapper and replace it with explicit manual utility classes for the styles we actually want (line height, list bullets, heading sizes, etc.).
 
-`@tiptap/extension-text-style` is a shared peer that all three features depend on — install it once.
+### Changes — two files only
 
-### Toolbar controls
-
-All three use `<select>` dropdowns in the toolbar (not icon buttons, since they carry values):
-
-**Font family** — a compact select:
+**1. `package.json`**
+Add one new dependency:
 ```
-Sans-serif (default) | Serif | Monospace | Georgia | Arial
+"@tiptap/extension-font-size": "^2.27.2"
 ```
 
-**Font size** — a compact select:
-```
-Default | 12 | 14 | 16 | 18 | 20 | 24 | 28 | 32 | 36
-```
+**2. `src/components/documents/TipTapEditor.tsx`**
 
-**Font color** — a native `<input type="color">` disguised as a toolbar button (a colored "A" icon), no external color picker library needed.
+- Import `FontSize` from `@tiptap/extension-font-size`
+- Replace the manual `setMark('textStyle', { fontSize })` in the font-size select with the proper `FontSize` extension command:
+  ```ts
+  editor.chain().focus().setFontSize(val).run()   // or unsetFontSize() for default
+  ```
+- Register `FontSize` in the extensions array
+- Remove `prose prose-sm max-w-none` from `EditorContent`'s `className` and replace with manual utility classes that don't override inline styles:
+  ```
+  px-4 py-3 min-h-[280px] text-sm leading-relaxed
+  [&_.tiptap]:outline-none
+  [&_.tiptap_h1]:text-xl [&_.tiptap_h1]:font-bold [&_.tiptap_h1]:mb-2
+  [&_.tiptap_h2]:text-lg [&_.tiptap_h2]:font-bold [&_.tiptap_h2]:mb-2
+  [&_.tiptap_h3]:text-base [&_.tiptap_h3]:font-semibold [&_.tiptap_h3]:mb-1
+  [&_.tiptap_p]:mb-2
+  [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-5 [&_.tiptap_ul]:mb-2
+  [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-5 [&_.tiptap_ol]:mb-2
+  [&_.tiptap_blockquote]:border-l-4 [&_.tiptap_blockquote]:border-border [&_.tiptap_blockquote]:pl-4 [&_.tiptap_blockquote]:italic [&_.tiptap_blockquote]:text-muted-foreground
+  [&_.tiptap_hr]:border-border [&_.tiptap_hr]:my-3
+  [&_.tiptap_u]:underline [&_.tiptap_s]:line-through
+  [&_.tiptap_mark]:bg-accent [&_.tiptap_mark]:text-accent-foreground
+  [&_.tiptap_a]:text-primary [&_.tiptap_a]:underline
+  [&_.tiptap_p.is-editor-empty:first-child::before]:text-muted-foreground ...
+  ```
 
-### Changes
-
-**`package.json`** — add:
-- `@tiptap/extension-color@^2.27.2`
-- `@tiptap/extension-text-style@^2.27.2`
-- `@tiptap/extension-font-family@^2.27.2`
-
-**`src/components/documents/TipTapEditor.tsx`** — single file:
-1. Import the three new extensions
-2. Register in `useEditor`:
-   ```ts
-   TextStyle,
-   Color,
-   FontFamily,
-   ```
-3. Add a new toolbar group after headings, before bold/italic (since these are character-level properties that make sense to set first):
-   - `FontFamilySelect` — small inline `<select>` calling `editor.chain().focus().setFontFamily(val).run()`
-   - `FontSizeSelect` — small inline `<select>` calling `editor.chain().focus().setMark('textStyle', { fontSize: val }).run()`
-   - `ColorPicker` — a button wrapping a hidden `<input type="color">`, showing a colored "A" with the current color underneath; calls `editor.chain().focus().setColor(hex).run()`
-4. Add a "remove color" / "clear formatting" reset option in the color picker
-5. Add `[&_.tiptap_[style*="font-family"]]:font-[inherit]` and similar CSS passthrough so the editor area renders the inline styles
-
-### Toolbar layout after change
-```
-H1 H2 H3 | [Font Family ▾] [Size ▾] [A color] | Bold Italic Underline Strike Highlight Link | • 1. " — | ← ↑ → ↔ | ↩ ↪
-```
+This approach keeps all the visual styling of the editor intact while allowing inline `style` attributes (font-family, font-size, color) to render without being overridden by the Typography plugin.
 
 ### No database changes. No edge functions. No new components.
