@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileText, CheckCircle2, Loader2, ExternalLink, AlertCircle, Clock, Camera, Image, Shield } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, Loader2, ExternalLink, AlertCircle, Clock, Camera, Image, Shield, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { validateFile } from '@/lib/validateFile';
 import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
@@ -29,6 +29,14 @@ const PHYSICAL_DAMAGE_SLOT: DocumentSlot = {
   description: 'Copy of your own Physical Damage insurance policy certificate',
   required: true,
   accept: '.pdf,.jpg,.jpeg,.png',
+};
+
+const PE_RECEIPT_SLOT: DocumentSlot = {
+  key: 'pe_receipt',
+  label: 'PE Screening Receipt',
+  description: 'Photo or scan of your drug screening receipt from the testing facility',
+  required: false,
+  accept: '.pdf,.jpg,.jpeg,.png,.heic',
 };
 
 interface UploadedDoc {
