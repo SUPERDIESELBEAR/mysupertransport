@@ -41,6 +41,7 @@ import ResourceFormModal from './ResourceFormModal';
 import HelpRequestsPanel from './HelpRequestsPanel';
 import LibraryAnalytics from './LibraryAnalytics';
 import ResourceTypeBadge from './ResourceTypeBadge';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
 import type { Service, ServiceResource, ResourceType } from './ServiceLibraryTypes';
 
 // ─── Sortable Service Row wrapper ────────────────────────────────────────────
