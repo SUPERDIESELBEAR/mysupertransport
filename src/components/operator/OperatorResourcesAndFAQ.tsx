@@ -25,6 +25,7 @@ export function OperatorResourceLibrary() {
   const [resources, setResources] = useState<ResourceDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [previewDoc, setPreviewDoc] = useState<ResourceDoc | null>(null);
 
   useEffect(() => {
     supabase
