@@ -45,12 +45,14 @@ import {
   X,
   Clock,
   User,
+  ScanEye,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import DemoLockIcon from '@/components/DemoLockIcon';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
 
 type ResourceCategory = Database['public']['Enums']['resource_category'];
 
@@ -113,6 +115,8 @@ export default function ResourceLibraryManager() {
   const { guardDemo } = useDemoMode();
   const [resources, setResources] = useState<ResourceRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState<string>('');
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<ResourceCategory | 'all'>('all');
 
@@ -460,15 +464,13 @@ export default function ResourceLibraryManager() {
               {/* Actions */}
               <div className="flex items-center gap-1 shrink-0">
                 {r.file_url && (
-                  <a
-                    href={r.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    onClick={() => { setPreviewUrl(r.file_url); setPreviewTitle(r.title); }}
                     title="Preview file"
                     className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                   >
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
+                    <ScanEye className="h-4 w-4" />
+                  </button>
                 )}
                 <button
                   onClick={() => loadHistory(r)}
@@ -512,6 +514,14 @@ export default function ResourceLibraryManager() {
             </div>
           ))}
         </div>
+      )}
+
+      {previewUrl && (
+        <FilePreviewModal
+          url={previewUrl}
+          name={previewTitle}
+          onClose={() => { setPreviewUrl(null); setPreviewTitle(''); }}
+        />
       )}
 
       {/* Create / Edit Dialog */}
