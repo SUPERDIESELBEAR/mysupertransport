@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import {
   CreditCard, CheckCircle2, User, Building2, Phone, Mail,
-  AlertTriangle, Info, Loader2, ChevronDown, ChevronUp,
+  AlertTriangle, Info, Loader2, ChevronDown, ChevronUp, FileText,
 } from 'lucide-react';
 import PayrollCalendar from '@/components/operator/PayrollCalendar';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
