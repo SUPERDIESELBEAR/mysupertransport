@@ -369,10 +369,37 @@ export default function TipTapEditor({ content, onChange, placeholder = 'Start w
         </ToolbarButton>
       </div>
 
-      {/* Editor area */}
+      {/* Editor area — prose class intentionally removed so inline font-family/font-size/color styles are not overridden */}
       <EditorContent
         editor={editor}
-        className="prose prose-sm max-w-none px-4 py-3 min-h-[280px] focus:outline-none [&_.tiptap]:outline-none [&_.tiptap_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_p.is-editor-empty:first-child::before]:float-left [&_.tiptap_p.is-editor-empty:first-child::before]:pointer-events-none [&_.tiptap_p.is-editor-empty:first-child::before]:h-0 [&_.tiptap_u]:underline [&_.tiptap_s]:line-through [&_.tiptap_mark]:bg-accent [&_.tiptap_mark]:text-accent-foreground [&_.tiptap_a]:text-primary [&_.tiptap_a]:underline"
+        className={[
+          'px-4 py-3 min-h-[280px] text-sm leading-relaxed focus:outline-none',
+          '[&_.tiptap]:outline-none',
+          // Headings
+          '[&_.tiptap_h1]:text-xl [&_.tiptap_h1]:font-bold [&_.tiptap_h1]:mb-2 [&_.tiptap_h1]:mt-3',
+          '[&_.tiptap_h2]:text-lg [&_.tiptap_h2]:font-bold [&_.tiptap_h2]:mb-2 [&_.tiptap_h2]:mt-3',
+          '[&_.tiptap_h3]:text-base [&_.tiptap_h3]:font-semibold [&_.tiptap_h3]:mb-1 [&_.tiptap_h3]:mt-2',
+          // Paragraphs
+          '[&_.tiptap_p]:mb-2',
+          // Lists
+          '[&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-5 [&_.tiptap_ul]:mb-2',
+          '[&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-5 [&_.tiptap_ol]:mb-2',
+          '[&_.tiptap_li]:mb-0.5',
+          // Blockquote & HR
+          '[&_.tiptap_blockquote]:border-l-4 [&_.tiptap_blockquote]:border-border [&_.tiptap_blockquote]:pl-4 [&_.tiptap_blockquote]:italic [&_.tiptap_blockquote]:text-muted-foreground [&_.tiptap_blockquote]:my-2',
+          '[&_.tiptap_hr]:border-border [&_.tiptap_hr]:my-3',
+          // Inline marks
+          '[&_.tiptap_u]:underline',
+          '[&_.tiptap_s]:line-through',
+          '[&_.tiptap_mark]:bg-accent [&_.tiptap_mark]:text-accent-foreground',
+          '[&_.tiptap_a]:text-primary [&_.tiptap_a]:underline',
+          // Placeholder
+          '[&_.tiptap_p.is-editor-empty:first-child::before]:text-muted-foreground',
+          '[&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
+          '[&_.tiptap_p.is-editor-empty:first-child::before]:float-left',
+          '[&_.tiptap_p.is-editor-empty:first-child::before]:pointer-events-none',
+          '[&_.tiptap_p.is-editor-empty:first-child::before]:h-0',
+        ].join(' ')}
       />
     </div>
   );
