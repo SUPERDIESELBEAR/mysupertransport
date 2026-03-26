@@ -365,6 +365,10 @@ export default function OperatorStatusPage({
   const peScreening = onboardingStatus.pe_screening;
   const showQPassportBanner = peScreening === 'scheduled' && !!qpassportUrl;
 
+  // Receipt reminder banner: show when QPassport is available but receipt not yet uploaded
+  const hasReceiptDoc = uploadedDocs?.some(d => d.document_type === 'pe_receipt') ?? false;
+  const showReceiptReminderBanner = peScreening === 'scheduled' && !!qpassportUrl && !hasReceiptDoc;
+
   return (
     <>
     {/* ── MOBILE: Checklist view (< md) ── */}
