@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   Shield, FileCheck, FileText, Truck, CreditCard,
-  Upload, ArrowRight, ChevronDown, ChevronUp, Phone, MessageSquare, Download,
+  Upload, ArrowRight, ChevronDown, ChevronUp, Phone, MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import SmartProgressWidget from '@/components/operator/SmartProgressWidget';
+import PEScreeningTimeline from '@/components/operator/PEScreeningTimeline';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 
@@ -112,10 +113,16 @@ function StageCard({
   stage,
   onNavigateTo,
   onboardingStatus,
+  operatorId,
+  uploadedDocs,
+  onUploadComplete,
 }: {
   stage: Stage;
   onNavigateTo: (view: string) => void;
   onboardingStatus: Record<string, string | null>;
+  operatorId?: string | null;
+  uploadedDocs?: { id: string; document_type: string; file_name: string | null; file_url: string | null; uploaded_at: string }[];
+  onUploadComplete?: () => void;
 }) {
   const colors = STAGE_COLORS[stage.status];
   const isNotStarted = stage.status === 'not_started';
@@ -130,6 +137,9 @@ function StageCard({
   const showDocsCTA = stage.number === 2 && (stage.status === 'in_progress' || stage.status === 'not_started');
   const showIcaCTA = stage.number === 3 && onboardingStatus.ica_status === 'sent_for_signature';
   const showPaySetupCTA = stage.number === 8 && (stage.status === 'not_started' || stage.status === 'in_progress');
+
+  // Show PE timeline in Stage 1 when screening has started
+  const showPETimeline = stage.number === 1 && onboardingStatus.pe_screening && onboardingStatus.pe_screening !== 'not_started';
 
   return (
     <div
@@ -215,7 +225,7 @@ function StageCard({
             </div>
           ))}
 
-        {/* CTAs inside expanded card */}
+          {/* CTAs inside expanded card */}
           {showDocsCTA && (
             <div className="px-3 py-2.5">
               <Button
@@ -242,23 +252,27 @@ function StageCard({
               </Button>
             </div>
           )}
-          {/* QPassport Download CTA — Stage 1, when screening is scheduled and QPassport is available */}
-          {stage.number === 1
-            && onboardingStatus.pe_screening === 'scheduled'
-            && onboardingStatus.qpassport_url && (
-            <div className="px-3 py-2.5">
-              <a
-                href={onboardingStatus.qpassport_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 w-full bg-gold/15 border border-gold/30 text-gold hover:bg-gold/25 transition-colors rounded-lg text-xs h-8 font-semibold"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Download Your QPassport
-              </a>
-            </div>
+
+          {/* PE Screening Timeline — Stage 1 */}
+          {showPETimeline && (
+            <PEScreeningTimeline
+              onboardingStatus={onboardingStatus}
+              operatorId={operatorId}
+              uploadedDocs={uploadedDocs}
+              onUploadComplete={onUploadComplete}
+            />
           )}
         </div>
+      )}
+
+      {/* PE Screening Timeline when stage has NO substeps but screening is active */}
+      {showPETimeline && !showSubsteps && (
+        <PEScreeningTimeline
+          onboardingStatus={onboardingStatus}
+          operatorId={operatorId}
+          uploadedDocs={uploadedDocs}
+          onUploadComplete={onUploadComplete}
+        />
       )}
     </div>
   );
@@ -431,6 +445,9 @@ export default function OnboardingChecklist({
             stage={stage}
             onNavigateTo={onNavigateTo}
             onboardingStatus={onboardingStatus}
+            operatorId={operatorId}
+            uploadedDocs={uploadedDocs}
+            onUploadComplete={onUploadComplete}
           />
         ))}
       </div>
