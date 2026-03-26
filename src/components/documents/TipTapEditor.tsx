@@ -7,6 +7,9 @@ import TextAlign from '@tiptap/extension-text-align';
 import Underline from '@tiptap/extension-underline';
 import Highlight from '@tiptap/extension-highlight';
 import Link from '@tiptap/extension-link';
+import TextStyle from '@tiptap/extension-text-style';
+import Color from '@tiptap/extension-color';
+import FontFamily from '@tiptap/extension-font-family';
 import { useState, useRef, useEffect } from 'react';
 import {
   Bold, Italic, List, ListOrdered, Quote, Minus,
@@ -25,6 +28,27 @@ interface TipTapEditorProps {
   onChange: (html: string) => void;
   placeholder?: string;
 }
+
+const FONT_FAMILIES = [
+  { label: 'Sans-serif', value: '' },
+  { label: 'Serif', value: 'Georgia, serif' },
+  { label: 'Monospace', value: 'ui-monospace, monospace' },
+  { label: 'Arial', value: 'Arial, sans-serif' },
+  { label: 'Georgia', value: 'Georgia, serif' },
+];
+
+const FONT_SIZES = [
+  { label: 'Default', value: '' },
+  { label: '12', value: '12px' },
+  { label: '14', value: '14px' },
+  { label: '16', value: '16px' },
+  { label: '18', value: '18px' },
+  { label: '20', value: '20px' },
+  { label: '24', value: '24px' },
+  { label: '28', value: '28px' },
+  { label: '32', value: '32px' },
+  { label: '36', value: '36px' },
+];
 
 function ToolbarButton({
   onClick, active, title, children,
@@ -57,7 +81,6 @@ function LinkPopover({ editor }: { editor: any }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const isActive = editor.isActive('link');
 
-  // When opening, pre-fill with existing href if cursor is on a link
   useEffect(() => {
     if (open) {
       const existing = editor.getAttributes('link').href ?? '';
@@ -133,6 +156,41 @@ function LinkPopover({ editor }: { editor: any }) {
   );
 }
 
+function ColorPicker({ editor }: { editor: any }) {
+  const colorInputRef = useRef<HTMLInputElement>(null);
+  const currentColor = editor.getAttributes('textStyle').color ?? '#000000';
+
+  return (
+    <div className="relative flex items-center gap-0.5">
+      <button
+        type="button"
+        title="Font color"
+        onClick={() => colorInputRef.current?.click()}
+        className="p-1.5 rounded text-sm transition-colors text-muted-foreground hover:text-foreground hover:bg-muted flex flex-col items-center gap-0.5"
+      >
+        <span className="text-xs font-bold leading-none" style={{ color: currentColor }}>A</span>
+        <span className="block h-1 w-4 rounded-sm" style={{ backgroundColor: currentColor }} />
+      </button>
+      <input
+        ref={colorInputRef}
+        type="color"
+        value={currentColor}
+        onChange={e => editor.chain().focus().setColor(e.target.value).run()}
+        className="absolute opacity-0 w-0 h-0 pointer-events-none"
+        tabIndex={-1}
+      />
+      <button
+        type="button"
+        title="Remove color"
+        onClick={() => editor.chain().focus().unsetColor().run()}
+        className="p-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-muted leading-none"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 export default function TipTapEditor({ content, onChange, placeholder = 'Start writing…' }: TipTapEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -144,6 +202,9 @@ export default function TipTapEditor({ content, onChange, placeholder = 'Start w
       Underline,
       Highlight.configure({ multicolor: false }),
       Link.configure({ openOnClick: false, autolink: true }),
+      TextStyle,
+      Color,
+      FontFamily,
     ],
     content,
     onUpdate({ editor }) {
@@ -152,6 +213,9 @@ export default function TipTapEditor({ content, onChange, placeholder = 'Start w
   });
 
   if (!editor) return null;
+
+  const currentFontFamily = editor.getAttributes('textStyle').fontFamily ?? '';
+  const currentFontSize = editor.getAttributes('textStyle').fontSize ?? '';
 
   return (
     <div className="border border-border rounded-lg overflow-hidden">
@@ -167,6 +231,49 @@ export default function TipTapEditor({ content, onChange, placeholder = 'Start w
         <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={editor.isActive('heading', { level: 3 })} title="Heading 3">
           <Heading3 className="h-4 w-4" />
         </ToolbarButton>
+
+        <span className="w-px h-5 bg-border mx-1" />
+
+        {/* Font family */}
+        <select
+          value={currentFontFamily}
+          onChange={e => {
+            const val = e.target.value;
+            if (val) {
+              editor.chain().focus().setFontFamily(val).run();
+            } else {
+              editor.chain().focus().unsetFontFamily().run();
+            }
+          }}
+          title="Font family"
+          className="h-7 text-xs rounded border border-border bg-background text-foreground px-1 cursor-pointer hover:bg-muted transition-colors"
+        >
+          {FONT_FAMILIES.map(f => (
+            <option key={f.label} value={f.value}>{f.label}</option>
+          ))}
+        </select>
+
+        {/* Font size */}
+        <select
+          value={currentFontSize}
+          onChange={e => {
+            const val = e.target.value;
+            if (val) {
+              editor.chain().focus().setMark('textStyle', { fontSize: val }).run();
+            } else {
+              editor.chain().focus().unsetMark('textStyle').run();
+            }
+          }}
+          title="Font size"
+          className="h-7 w-16 text-xs rounded border border-border bg-background text-foreground px-1 cursor-pointer hover:bg-muted transition-colors"
+        >
+          {FONT_SIZES.map(s => (
+            <option key={s.label} value={s.value}>{s.label}</option>
+          ))}
+        </select>
+
+        {/* Color picker */}
+        <ColorPicker editor={editor} />
 
         <span className="w-px h-5 bg-border mx-1" />
 
