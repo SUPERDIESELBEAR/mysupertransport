@@ -176,6 +176,11 @@
   border-color: hsl(var(--status-neutral) / 0.3);
 }
 
+/* TipTap alignment passthrough — ensures inline text-align styles are never suppressed */
+.tiptap [style*="text-align: center"] { text-align: center !important; }
+.tiptap [style*="text-align: right"]  { text-align: right  !important; }
+.tiptap [style*="text-align: justify"]{ text-align: justify !important; }
+
 /* Scrollbar styling */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: hsl(var(--muted)); }

@@ -228,7 +228,29 @@ export default function TipTapEditor({ content, onChange, placeholder = 'Start w
         heading: { levels: [1, 2, 3] },
       }),
       Placeholder.configure({ placeholder }),
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TextAlign.extend({
+        addGlobalAttributes() {
+          return [
+            {
+              types: this.options.types,
+              attributes: {
+                textAlign: {
+                  default: this.options.defaultAlignment,
+                  parseHTML: (el: HTMLElement) => el.style.textAlign || this.options.defaultAlignment,
+                  renderHTML: (attrs: Record<string, string>) => {
+                    if (!attrs.textAlign) return {};
+                    return { style: `text-align: ${attrs.textAlign}` };
+                  },
+                },
+              },
+            },
+          ];
+        },
+      }).configure({
+        types: ['heading', 'paragraph'],
+        alignments: ['left', 'center', 'right', 'justify'],
+        defaultAlignment: 'left',
+      }),
       Underline,
       Highlight.configure({ multicolor: false }),
       Link.configure({ openOnClick: false, autolink: true }),
