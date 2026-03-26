@@ -23,6 +23,13 @@ interface AddDriverModalProps {
   onAdded: () => void;
 }
 
+const formatPhone = (value: string): string => {
+  const digits = value.replace(/\D/g, '').slice(0, 10);
+  if (digits.length <= 3) return digits.length ? `(${digits}` : '';
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+};
+
 export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModalProps) {
   const { session } = useAuth();
   const { toast } = useToast();
@@ -168,7 +175,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="add-phone">Phone</Label>
-              <Input id="add-phone" type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="(555) 000-0000" />
+              <Input id="add-phone" type="tel" value={form.phone} onChange={e => set('phone', formatPhone(e.target.value))} placeholder="(555) 000-0000" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="add-unit">Unit #</Label>
