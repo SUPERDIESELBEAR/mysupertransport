@@ -92,15 +92,21 @@ export function OperatorResourceLibrary() {
                     {doc.description && <p className="text-xs text-muted-foreground mt-0.5 truncate">{doc.description}</p>}
                   </div>
                   {doc.file_url && (
-                    <a
-                      href={doc.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      download={doc.file_name ?? undefined}
-                      className="flex items-center gap-1.5 text-xs font-medium text-gold hover:text-gold-light bg-gold/10 hover:bg-gold/15 px-3 py-1.5 rounded-lg transition-colors shrink-0"
-                    >
-                      <Download className="h-3.5 w-3.5" /> Download
-                    </a>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => setPreviewDoc(doc)}
+                        className="flex items-center gap-1.5 text-xs font-medium text-gold hover:text-gold-light bg-gold/10 hover:bg-gold/15 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> View
+                      </button>
+                      <a
+                        href={doc.file_url}
+                        download={doc.file_name ?? undefined}
+                        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-secondary hover:bg-secondary/80 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        <Download className="h-3.5 w-3.5" /> Download
+                      </a>
+                    </div>
                   )}
                 </div>
               ))}
@@ -109,6 +115,14 @@ export function OperatorResourceLibrary() {
         ))
       )}
     </div>
+
+    {previewDoc && (
+      <FilePreviewModal
+        url={previewDoc.file_url!}
+        name={previewDoc.title}
+        onClose={() => setPreviewDoc(null)}
+      />
+    )}
   );
 }
 
