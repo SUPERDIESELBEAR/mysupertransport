@@ -659,9 +659,9 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
 
       {/* ── PDF PREVIEW MODAL ── */}
       {previewDoc && (
-        <DocPreviewModal
-          title={previewDoc.title}
+        <FilePreviewModal
           url={previewDoc.url}
+          name={previewDoc.title}
           onClose={() => setPreviewDoc(null)}
         />
       )}
