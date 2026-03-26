@@ -169,6 +169,11 @@ function SortableRow({
 
       {/* Actions */}
       <div className="flex items-center gap-1 shrink-0">
+        {doc.content_type === 'pdf' && doc.pdf_url && (
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewOpen(true)} title="Preview PDF">
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
+        )}
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(doc)}>
           <Edit2 className="h-3.5 w-3.5" />
         </Button>
@@ -183,6 +188,9 @@ function SortableRow({
           <DemoLockIcon badge />
         </div>
       </div>
+      {previewOpen && doc.pdf_url && (
+        <FilePreviewModal url={doc.pdf_url} name={doc.title} onClose={() => setPreviewOpen(false)} />
+      )}
     </div>
   );
 }
