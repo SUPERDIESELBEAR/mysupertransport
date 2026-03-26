@@ -289,6 +289,7 @@ export default function OperatorStatusPage({
     sessionStorage.setItem('cert_expiry_banner_dismissed', 'true');
     setBannerDismissed(true);
   };
+  const [viewingQPassport, setViewingQPassport] = useState(false);
 
   // ── Expiry helpers ──────────────────────────────────────────────────────────
   const getDaysUntil = (dateStr: string | null | undefined): number | null => {
