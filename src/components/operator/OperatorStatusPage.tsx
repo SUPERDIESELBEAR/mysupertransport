@@ -839,6 +839,13 @@ export default function OperatorStatusPage({
       </div>
     </div>
     </div> {/* end desktop md:block */}
+    {viewingQPassport && qpassportUrl && (
+      <FilePreviewModal
+        url={qpassportUrl}
+        name="QPassport.pdf"
+        onClose={() => setViewingQPassport(false)}
+      />
+    )}
     </> 
   );
 }
