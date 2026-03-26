@@ -175,7 +175,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="add-phone">Phone</Label>
-              <Input id="add-phone" type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="(555) 000-0000" />
+              <Input id="add-phone" type="tel" value={form.phone} onChange={e => set('phone', formatPhone(e.target.value))} placeholder="(555) 000-0000" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="add-unit">Unit #</Label>
