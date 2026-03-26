@@ -1,41 +1,32 @@
 
-## Add PDF Viewer to All Resource Library Items
+## Root Cause
 
-### What the request means
+The "ELD Quick Start Guide" lives in the **Resource Library** tab of the Operator Portal — rendered by `OperatorResourcesAndFAQ.tsx` (`OperatorResourceLibrary` component). This is a **separate** component from the Service Library (`ResourceViewer.tsx`) that was fixed earlier.
 
-Currently:
-- **Operator portal** (`ResourceViewer.tsx`): Only resources explicitly typed as "PDF" get a "View PDF" button. All other types (Setup Guide, FAQ, Contact & Support) that have a PDF URL show nothing or just an open-link button.
-- **Management portal** (`ServiceLibraryManager.tsx` → `ResourceAdminRow`): Staff have no way to preview any PDF at all — only edit/delete buttons exist.
+In `OperatorResourcesAndFAQ.tsx` (lines 92–102), every document card renders a plain `<a href={doc.file_url} target="_blank" download>` anchor tag. That's what opens the new browser tab — it was never updated to use `FilePreviewModal`.
 
-The goal: any resource that has a URL pointing to a PDF should be openable in the in-app `FilePreviewModal` PDF viewer, in both portals.
+The Management Portal's `ResourceLibraryManager.tsx` (lines 462–471) has the same issue: its "Preview file" button is also a plain `<a href target="_blank">` link.
 
 ---
 
-### Changes
+## Fix
 
-**File 1: `src/components/service-library/ResourceViewer.tsx`**
+**File 1: `src/components/operator/OperatorResourcesAndFAQ.tsx`**
 
-The `renderContent()` function has separate branches for `Tutorial Video`, `External Link`, `PDF`, and a rich-text fallback. The `PDF` branch already uses `FilePreviewModal`.
+Replace the `<a href target="_blank" download>` "Download" link with two side-by-side buttons:
+- **View** — opens `FilePreviewModal` (in-app PDF viewer)
+- **Download** — keeps a direct download link (useful for saving to device)
 
-Add a secondary "View PDF" button to the `External Link` branch and any other branch where `url` is set and does not parse as a video embed. This covers Setup Guide, FAQ, and Contact & Support resources that have a PDF stored at their URL. Specifically:
-- In the `External Link` block: add a second "View PDF" button below "Open Link" when `url` ends in `.pdf` or has a PDF content indicator (or simply always offer it as a fallback — simplest is always show it for any URL that isn't a video).
-- Add a catch-all: if `resource_type` is not `Tutorial Video` and not `External Link` and `url` is present (covers Setup Guide, FAQ, Contact & Support), render a "View PDF" button + `FilePreviewModal`.
+Add `FilePreviewModal` import, add `previewDoc` state to track which document is open.
 
-The cleanest implementation: after each branch that has a `url`, check if a PDF viewer button should appear. Since staff can upload PDFs to any resource type, the rule is: **if `url` is present and not a video embed URL, show a "View PDF" button**.
+**File 2: `src/components/management/ResourceLibraryManager.tsx`**
 
-**File 2: `src/components/service-library/ServiceLibraryManager.tsx`**
-
-The `ResourceAdminRow` component (lines 626–687) has no preview. Add:
-- Import `FilePreviewModal` from `@/components/inspection/DocRow`
-- Add local state `const [previewUrl, setPreviewUrl] = useState<string|null>(null)` inside `ResourceAdminRow`
-- Add a "Preview" button (eye icon) in the action bar, only shown when `resource.url` is set
-- Render `FilePreviewModal` when `previewUrl` is set
+Replace the `<a href target="_blank">` "Preview file" anchor (lines 462–471) with a button that opens `FilePreviewModal`. Import `FilePreviewModal` and add `previewUrl`/`previewTitle` state at the top of `ResourceLibraryManager`.
 
 ---
 
-### Files changed
+## What won't change
 
-1. `src/components/service-library/ResourceViewer.tsx` — make all resource types with a URL open in `FilePreviewModal`
-2. `src/components/service-library/ServiceLibraryManager.tsx` — add PDF preview button to `ResourceAdminRow`
-
-**No database changes. No new components. No edge functions.**
+- Download behaviour is preserved alongside the View button in the Operator Portal
+- All other actions (edit, delete, visibility toggle, history) in the Management list are untouched
+- No database changes, no new components, no edge functions
