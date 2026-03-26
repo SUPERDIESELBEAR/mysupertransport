@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
 import {
   DndContext,
   closestCenter,
