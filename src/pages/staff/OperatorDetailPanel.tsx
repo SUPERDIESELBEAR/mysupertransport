@@ -141,6 +141,80 @@ const DISPATCH_STATUS_CONFIG: Record<string, { label: string; dotClass: string; 
   truck_down:     { label: 'Truck Down',     dotClass: 'bg-destructive',       badgeClass: 'bg-destructive/10 text-destructive border-destructive/30', emoji: '🔴' },
 };
 
+// ── QPassport Uploader sub-component ────────────────────────────────────────
+function QPassportUploader({
+  operatorId,
+  currentUrl,
+  onUploaded,
+}: {
+  operatorId: string;
+  currentUrl: string | null | undefined;
+  onUploaded: (url: string) => void;
+}) {
+  const { toast } = useToast();
+  const [uploading, setUploading] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleFile = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+      toast({ title: 'PDF only', description: 'QPassport must be a PDF file.', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Max 10 MB.', variant: 'destructive' });
+      return;
+    }
+    setUploading(true);
+    try {
+      const path = `${operatorId}/qpassport/${Date.now()}.pdf`;
+      const { error: upErr } = await supabase.storage.from('operator-documents').upload(path, file, { upsert: false });
+      if (upErr) throw upErr;
+      const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365);
+      const fileUrl = sd?.signedUrl ?? '';
+      const { error: updateErr } = await supabase.from('onboarding_status').update({ qpassport_url: fileUrl }).eq('operator_id', operatorId);
+      if (updateErr) throw updateErr;
+      onUploaded(fileUrl);
+      toast({ title: 'QPassport uploaded', description: 'The operator can now download it from their portal.' });
+    } catch (err: unknown) {
+      toast({ title: 'Upload failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">QPassport PDF</Label>
+      <div className="flex items-center gap-2 flex-wrap">
+        {currentUrl && (
+          <a href={currentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
+            <ExternalLink className="h-3 w-3" /> View QPassport PDF
+          </a>
+        )}
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".pdf,application/pdf"
+          className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
+        />
+        <Button
+          size="sm"
+          variant={currentUrl ? 'outline' : 'default'}
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+          className={`text-xs gap-1 h-7 px-2.5 ${!currentUrl ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
+        >
+          {uploading
+            ? <><Loader2 className="h-3 w-3 animate-spin" /> Uploading…</>
+            : <><Upload className="h-3 w-3" /> {currentUrl ? 'Replace PDF' : 'Upload QPassport'}</>
+          }
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator, onUnsavedChangesChange, onOpenAppReview, expiryOverride, scrollToInspectionBinder, scrollToStageKey }: OperatorDetailPanelProps) {
   const { toast } = useToast();
   const { session } = useAuth();
