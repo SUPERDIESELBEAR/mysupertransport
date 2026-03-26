@@ -3,7 +3,7 @@ import { differenceInDays, parseISO } from 'date-fns';
 import {
   Plus, Pencil, Trash2, GripVertical,
   CheckCircle, AlertTriangle, ChevronDown, ChevronUp,
-  BookOpen, HelpCircle, BarChart3,
+  BookOpen, HelpCircle, BarChart3, Eye, FileText,
 } from 'lucide-react';
 import {
   DndContext,
