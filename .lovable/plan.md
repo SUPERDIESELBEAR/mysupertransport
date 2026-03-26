@@ -1,91 +1,90 @@
 
-## Code Review Findings — Pre-Publish Cleanup
+## PE Screening — QPassport Upload (Staff) + Receipt Upload (Operator)
 
-### Summary
-The app is in very good shape overall. I found **4 real bugs** and **3 minor cleanup items** worth fixing before publishing.
+### What this feature does
 
----
+**Staff side (Stage 1 — Background Check in OperatorDetailPanel):**
+- When `pe_screening` is set to `scheduled`, a new "QPassport" upload button appears below the date picker. Staff upload the QPassport PDF directly to storage. The URL is saved on `onboarding_status.qpassport_url`.
+- If a QPassport has already been uploaded, it shows as a small "View PDF" chip with a link. Staff can re-upload to replace it.
 
-### Bug 1 — `DriverUpload` type in `InspectionBinderTypes.ts` is missing `'miscellaneous'`
-
-**File:** `src/components/inspection/InspectionBinderTypes.ts` — line 19
-**Problem:** The `DriverUpload` interface still defines `category` as only the original two values:
-```ts
-category: 'roadside_inspection_report' | 'repairs_maintenance_receipt';
-```
-The `miscellaneous` value was added to the database enum and is used in `OperatorBinderPanel.tsx` and `OperatorInspectionBinder.tsx`, but the TypeScript type was never updated. This means TypeScript would be okay with casting but any runtime mapping or type guard against `DriverUpload.category` would miss `miscellaneous` silently.
-
-**Fix:** Add `| 'miscellaneous'` to the `category` union in the `DriverUpload` interface.
+**Operator side (Stage 1 progress card + Documents tab):**
+- When `pe_screening === 'scheduled'` AND `qpassport_url` is set, a "Download Your QPassport" card appears in the operator's Stage 1 background check section inside `OnboardingChecklist`. This is a link to open/download the PDF directly.
+- A new "PE Screening Receipt" card appears in `OperatorDocumentUpload`. It only surfaces when `pe_screening === 'scheduled'` or `pe_screening === 'results_in'`. The operator can take a photo or upload a file (image or PDF). Accepts `.pdf,.jpg,.jpeg,.png,.heic`.
+- On successful upload, the system triggers the `send-notification` edge function with a new `pe_receipt_uploaded` type, sending an in-app notification (and email if enabled) to the assigned staff coordinator and management users.
 
 ---
 
-### Bug 2 — `Retire` action has no confirmation dialog
+### Schema Changes (1 migration)
 
-**File:** `src/components/mo-plates/MoPlateRegistry.tsx` — line 471–478
-**Problem:** Clicking "Retire" immediately calls `handleSetStatus(plate, 'retired')` without any confirmation. Every other destructive action (Return, Lost/Stolen, Delete, Replacement) uses an `AlertDialog`. This is an accidental click risk.
+```sql
+-- Add two URL columns to onboarding_status
+ALTER TABLE public.onboarding_status
+  ADD COLUMN IF NOT EXISTS qpassport_url TEXT,
+  ADD COLUMN IF NOT EXISTS pe_receipt_url TEXT;
 
-**Fix:** Add a small `AlertDialog` confirmation for the Retire action (same pattern as the Return dialog — single confirm button, no extra fields needed).
-
----
-
-### Bug 3 — `Retire` action also missing for `assigned` plates
-
-**File:** `src/components/mo-plates/MoPlateRegistry.tsx` — line 470
-**Problem:** The current logic `plate.status !== 'retired' && plate.status !== 'lost_stolen'` shows "Retire" for `assigned` plates. Retiring an assigned plate does NOT close the open assignment row first, leaving a dangling record in `mo_plate_assignments`. 
-
-**Fix:** In the retire handler (`handleSetStatus`), when the new status is `'retired'` and the plate is currently `'assigned'`, also close the open assignment row by setting `returned_at = now()` before updating `mo_plates.status`.
-
----
-
-### Bug 4 — `TruckInfoCard` draft state doesn't refresh when `deviceInfo` prop changes
-
-**File:** `src/components/operator/TruckInfoCard.tsx` — lines 64–70
-**Problem:** The `draft` state is initialized once from `deviceInfo` props but never re-synced when the parent re-renders with fresh data (e.g. after staff save edits). The popover would still show stale values until the page is reloaded.
-
-**Fix:** Add a `useEffect` that resets `draft` whenever `deviceInfo` changes:
-```ts
-useEffect(() => {
-  setDraft({
-    unit_number: deviceInfo?.unit_number ?? null,
-    eld_serial_number: deviceInfo?.eld_serial_number ?? null,
-    dash_cam_number: deviceInfo?.dash_cam_number ?? null,
-    bestpass_number: deviceInfo?.bestpass_number ?? null,
-    fuel_card_number: deviceInfo?.fuel_card_number ?? null,
-  });
-}, [deviceInfo]);
+-- Add pe_receipt to operator_doc_type enum
+ALTER TYPE public.operator_doc_type ADD VALUE IF NOT EXISTS 'pe_receipt';
 ```
 
----
-
-### Cleanup 1 — Remove leftover `console.log` / `console.error` from UI components
-
-**Files:** `src/pages/staff/OperatorDetailPanel.tsx` (lines 531, 1050, 1106, 1122, 1135, 1153, 1174)
-**Problem:** Several `console.error('[audit]...')` and `console.error('Milestone notification error...')` calls are scattered in the UI layer. These are debug traces that leak internal operation names in the browser console for any logged-in user.
-
-**Fix:** Replace all UI-layer `console.error` / `console.warn` audit-log calls with silent failures (remove the log or replace with a no-op). Edge function `console.log` calls are fine to keep since they only appear in server logs.
-
----
-
-### Cleanup 2 — `DriverUpload` type used in `OperatorInspectionBinder` is cast to the stale type
-
-**File:** `src/components/inspection/OperatorInspectionBinder.tsx` — line 102
-**Problem:** `setDriverUploads((uploadsRes.data ?? []) as DriverUpload[])` — because `DriverUpload.category` doesn't include `'miscellaneous'`, TypeScript would infer a type mismatch here. This is resolved by Bug Fix 1 above.
-
----
-
-### Cleanup 3 — `MoPlateRegistry` Retire button appears on `assigned` plates (UX confusion)
-
-Already covered in Bug 3 — but also worth noting the UX message in the Retire dialog should clarify when a plate is currently assigned it will also be automatically returned first.
+No new tables needed. The QPassport URL lives on `onboarding_status` (staff-managed, not operator-uploaded). The PE receipt is stored as an `operator_documents` row with `document_type = 'pe_receipt'`, consistent with how `insurance_cert` and `truck_inspection` are handled.
 
 ---
 
 ### Files to Change
 
-| File | Change |
-|---|---|
-| `src/components/inspection/InspectionBinderTypes.ts` | Add `\| 'miscellaneous'` to `DriverUpload.category` |
-| `src/components/operator/TruckInfoCard.tsx` | Add `useEffect` to re-sync draft when `deviceInfo` changes |
-| `src/components/mo-plates/MoPlateRegistry.tsx` | Add Retire confirmation dialog; close open assignment before retiring an assigned plate |
-| `src/pages/staff/OperatorDetailPanel.tsx` | Remove/silence UI-layer `console.error` audit log calls |
+**1. `supabase/migrations/[timestamp].sql`**
+Add `qpassport_url TEXT` and `pe_receipt_url TEXT` to `onboarding_status`, and `pe_receipt` to `operator_doc_type` enum.
 
-No database migrations needed. No new components needed.
+**2. `src/pages/staff/OperatorDetailPanel.tsx`**
+- Add `qpassport_url: string | null` and `pe_receipt_url: string | null` to the `OnboardingStatus` type.
+- In Stage 1's PE Screening section (lines ~3090–3106), add a file upload control below the PE Scheduled Date picker that only renders when `pe_screening === 'scheduled' || pe_screening === 'results_in'`. Staff upload goes to `operator-documents` bucket at `{operatorId}/qpassport/{timestamp}.pdf`, then `onboarding_status.qpassport_url` is updated.
+- Show a "View QPassport" chip link when `qpassport_url` is set.
+- Add a `pe_receipt_url` read-only display row below PE Results — if set, show a "View Receipt" link that the operator uploaded.
+
+**3. `src/components/operator/OperatorDocumentUpload.tsx`**
+- Add a conditional "PE Screening Receipt" document slot. It renders only when `onboardingStatus.pe_screening === 'scheduled' || onboardingStatus.pe_screening === 'results_in'`.
+- Uses the same upload pattern as other slots: uploads to `operator-documents` bucket, inserts an `operator_documents` row with `document_type = 'pe_receipt'`.
+- On success, calls the `send-notification` edge function with `type: 'pe_receipt_uploaded'`.
+
+**4. `src/components/operator/OnboardingChecklist.tsx`**
+- In Stage 1's rendered substeps section, add a conditional "Download Your QPassport" action card. Renders when `onboardingStatus.pe_screening === 'scheduled'` AND `onboardingStatus.qpassport_url` is set. Styled as a gold action card with a download icon link.
+
+**5. `supabase/functions/send-notification/index.ts`**
+- Add a new `case 'pe_receipt_uploaded'` in the switch. It notifies the assigned staff + management users (same pattern as `onboarding_milestone`) with:
+  - In-app: "📄 PE Receipt Uploaded — [Name]"
+  - Email: "Operator has uploaded their PE screening receipt. Log in to review."
+
+---
+
+### Data Flow
+
+```text
+Staff schedules PE screening
+  └─> pe_screening = 'scheduled'
+  └─> Staff uploads QPassport PDF → onboarding_status.qpassport_url
+
+Operator logs into portal
+  └─> Stage 1 shows "Download Your QPassport" card (links to PDF)
+  └─> Documents tab shows "PE Screening Receipt" upload slot
+
+Operator uploads receipt
+  └─> operator_documents row inserted (document_type='pe_receipt')
+  └─> send-notification(pe_receipt_uploaded) fires
+       ├─> In-app notification → assigned staff + management
+       └─> Email → assigned staff + management (pref-gated)
+
+Staff reviews in OperatorDetailPanel Stage 1
+  └─> "View Receipt" link appears below PE Results
+```
+
+---
+
+### Technical Details
+
+- **QPassport storage path:** `{operatorId}/qpassport/{timestamp}.pdf` in `operator-documents` bucket (already has correct staff RLS)
+- **Receipt storage path:** `{operatorId}/pe_receipt/{timestamp}.{ext}` in `operator-documents` bucket (operator INSERT is already allowed)
+- **Notification event type:** `'pe_receipt_uploaded'` — added to the `send-notification` edge function
+- **No new edge function** needed — piggybacking on `send-notification`
+- **No new storage bucket** — `operator-documents` bucket already handles both staff and operator uploads
+- The QPassport download link will be a signed URL (1-year expiry) stored at `qpassport_url`, same as other document URLs in the app
+- The `pe_receipt_url` display on the staff side reads from `operator_documents` table (most recent `pe_receipt` row), not a separate column — consistent with how `form_2290`, `truck_inspection`, etc. are shown in the `docFiles` state
