@@ -1,32 +1,30 @@
 
-## Root Cause
+## Add PDF Viewer to Document Hub Admin List
 
-The "ELD Quick Start Guide" lives in the **Resource Library** tab of the Operator Portal — rendered by `OperatorResourcesAndFAQ.tsx` (`OperatorResourceLibrary` component). This is a **separate** component from the Service Library (`ResourceViewer.tsx`) that was fixed earlier.
+### What's missing
 
-In `OperatorResourcesAndFAQ.tsx` (lines 92–102), every document card renders a plain `<a href={doc.file_url} target="_blank" download>` anchor tag. That's what opens the new browser tab — it was never updated to use `FilePreviewModal`.
+In the Management Portal's Document Hub (`AdminDocumentList.tsx`), each document row has Edit and Delete buttons but no way to preview a PDF. Staff must open the editor just to see the file. The fix adds a preview button to each PDF row.
 
-The Management Portal's `ResourceLibraryManager.tsx` (lines 462–471) has the same issue: its "Preview file" button is also a plain `<a href target="_blank">` link.
+### Change — one file only: `AdminDocumentList.tsx`
 
----
+**Inside `SortableRow`:**
 
-## Fix
+1. Add local state: `const [previewOpen, setPreviewOpen] = useState(false)`
+2. Import `FilePreviewModal` from `@/components/inspection/DocRow`
+3. In the Actions section (alongside the existing Edit/Delete buttons), add an eye-icon `Button` that is only rendered when `doc.content_type === 'pdf' && doc.pdf_url`:
+   ```tsx
+   {doc.content_type === 'pdf' && doc.pdf_url && (
+     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewOpen(true)} title="Preview PDF">
+       <Eye className="h-3.5 w-3.5" />
+     </Button>
+   )}
+   ```
+   (`Eye` is already imported in the file.)
+4. Render `FilePreviewModal` below when open:
+   ```tsx
+   {previewOpen && (
+     <FilePreviewModal url={doc.pdf_url!} name={doc.title} onClose={() => setPreviewOpen(false)} />
+   )}
+   ```
 
-**File 1: `src/components/operator/OperatorResourcesAndFAQ.tsx`**
-
-Replace the `<a href target="_blank" download>` "Download" link with two side-by-side buttons:
-- **View** — opens `FilePreviewModal` (in-app PDF viewer)
-- **Download** — keeps a direct download link (useful for saving to device)
-
-Add `FilePreviewModal` import, add `previewDoc` state to track which document is open.
-
-**File 2: `src/components/management/ResourceLibraryManager.tsx`**
-
-Replace the `<a href target="_blank">` "Preview file" anchor (lines 462–471) with a button that opens `FilePreviewModal`. Import `FilePreviewModal` and add `previewUrl`/`previewTitle` state at the top of `ResourceLibraryManager`.
-
----
-
-## What won't change
-
-- Download behaviour is preserved alongside the View button in the Operator Portal
-- All other actions (edit, delete, visibility toggle, history) in the Management list are untouched
-- No database changes, no new components, no edge functions
+**No database changes. No new components. No edge functions. One file changed.**
