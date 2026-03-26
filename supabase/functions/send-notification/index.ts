@@ -784,6 +784,67 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case 'qpassport_uploaded': {
+        const operatorId = payload.operator_id;
+        if (!operatorId) break;
+
+        // Resolve operator row (user_id + application_id)
+        const { data: opRow } = await supabaseAdmin
+          .from('operators')
+          .select('user_id, application_id')
+          .eq('id', operatorId)
+          .single();
+
+        if (!opRow?.user_id) break;
+        const opUserId = opRow.user_id;
+
+        let operatorName = 'Driver';
+        if (opRow.application_id) {
+          const { data: appRow } = await supabaseAdmin
+            .from('applications')
+            .select('first_name, last_name')
+            .eq('id', opRow.application_id)
+            .single();
+          if (appRow) {
+            operatorName = [appRow.first_name, appRow.last_name].filter(Boolean).join(' ') || operatorName;
+          }
+        }
+
+        // ── In-app notification for operator ─────────────────────────────
+        const inAppOk = await userInAppEnabled(opUserId, 'onboarding_update');
+        if (inAppOk) {
+          await supabaseAdmin.from('notifications').insert({
+            user_id: opUserId,
+            type: 'onboarding_update',
+            title: '📋 Your QPassport is Ready',
+            body: 'Your QPassport has been uploaded by your coordinator. Download it and bring it to your drug screening appointment.',
+            channel: 'in_app',
+            link: '/operator',
+          });
+        }
+
+        // ── Email notification for operator ───────────────────────────────
+        const emailOk = await userEmailEnabled(opUserId, 'onboarding_update');
+        if (emailOk) {
+          const operatorEmail = await getOperatorEmail(operatorId);
+          if (operatorEmail) {
+            const subject = 'Action Required: Download Your QPassport';
+            const html = buildEmail(
+              subject,
+              '📋 Your QPassport is Ready',
+              `<p>Hi ${operatorName},</p>
+               <p>Your <strong>QPassport</strong> has been uploaded by your onboarding coordinator and is now available for download in your portal.</p>
+               <p><strong>Important:</strong> You must bring this document to your drug screening appointment. The facility will scan the barcode to verify your identity before the test.</p>
+               <p>Please log in to your portal, open the <strong>Stage 1 — Background Check</strong> section, and download your QPassport now.</p>
+               <p style="margin-top:16px;">If you have any questions, contact us at <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a>.</p>`,
+              { label: 'Download My QPassport', url: `${appUrl}/operator` }
+            );
+            await sendEmail(operatorEmail, subject, html, RESEND_API_KEY);
+          }
+        }
+        break;
+      }
+
       default:
         return new Response(JSON.stringify({ error: `Unknown notification type: ${type}` }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
