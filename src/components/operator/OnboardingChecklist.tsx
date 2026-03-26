@@ -113,10 +113,16 @@ function StageCard({
   stage,
   onNavigateTo,
   onboardingStatus,
+  operatorId,
+  uploadedDocs,
+  onUploadComplete,
 }: {
   stage: Stage;
   onNavigateTo: (view: string) => void;
   onboardingStatus: Record<string, string | null>;
+  operatorId?: string | null;
+  uploadedDocs?: { id: string; document_type: string; file_name: string | null; file_url: string | null; uploaded_at: string }[];
+  onUploadComplete?: () => void;
 }) {
   const colors = STAGE_COLORS[stage.status];
   const isNotStarted = stage.status === 'not_started';
@@ -131,6 +137,9 @@ function StageCard({
   const showDocsCTA = stage.number === 2 && (stage.status === 'in_progress' || stage.status === 'not_started');
   const showIcaCTA = stage.number === 3 && onboardingStatus.ica_status === 'sent_for_signature';
   const showPaySetupCTA = stage.number === 8 && (stage.status === 'not_started' || stage.status === 'in_progress');
+
+  // Show PE timeline in Stage 1 when screening has started
+  const showPETimeline = stage.number === 1 && onboardingStatus.pe_screening && onboardingStatus.pe_screening !== 'not_started';
 
   return (
     <div
