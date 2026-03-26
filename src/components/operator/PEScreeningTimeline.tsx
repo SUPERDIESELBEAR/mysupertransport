@@ -288,6 +288,14 @@ export default function PEScreeningTimeline({
         </span>
       </button>
 
+      {viewingQPassport && qpassportUrl && (
+        <FilePreviewModal
+          url={qpassportUrl}
+          name="QPassport.pdf"
+          onClose={() => setViewingQPassport(false)}
+        />
+      )}
+
       {expanded && (
         <div className="px-3 pb-3">
           {/* Info bar */}
