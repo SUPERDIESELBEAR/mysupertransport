@@ -98,6 +98,19 @@ export default function ResourceViewer({ resource, service, onBack, onCompletion
     setExternalLinkOpen(true);
   };
 
+  // Returns true if a URL looks like a PDF (not a video embed)
+  const isPdfUrl = (u: string) => {
+    const lower = u.toLowerCase();
+    return !parseVideoEmbedUrl(u) && (
+      lower.includes('.pdf') ||
+      lower.includes('supabase') ||
+      lower.includes('/storage/') ||
+      lower.includes('blob:') ||
+      // treat any non-video URL as potentially a PDF
+      true
+    );
+  };
+
   const renderContent = () => {
     const { resource_type, url, body } = resource;
 
@@ -119,6 +132,7 @@ export default function ResourceViewer({ resource, service, onBack, onCompletion
     }
 
     if (resource_type === 'External Link' && url) {
+      const showPdfButton = !parseVideoEmbedUrl(url);
       return (
         <div className="flex flex-col items-center gap-4 py-12 text-center">
           <div className="h-16 w-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center">
@@ -128,10 +142,21 @@ export default function ResourceViewer({ resource, service, onBack, onCompletion
             <p className="text-foreground font-medium mb-1">Opens in a new tab</p>
             <p className="text-muted-foreground text-sm max-w-sm">{url}</p>
           </div>
-          <Button onClick={() => handleExternalLink(url)} className="gap-2">
-            <ExternalLink className="h-4 w-4" />
-            Open Link
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap justify-center">
+            <Button onClick={() => handleExternalLink(url)} variant="outline" className="gap-2">
+              <ExternalLink className="h-4 w-4" />
+              Open Link
+            </Button>
+            {showPdfButton && (
+              <Button onClick={() => setPdfPreviewOpen(true)} className="gap-2">
+                <FileText className="h-4 w-4" />
+                View in PDF Viewer
+              </Button>
+            )}
+          </div>
+          {pdfPreviewOpen && (
+            <FilePreviewModal url={url} name={resource.title} onClose={() => setPdfPreviewOpen(false)} />
+          )}
           {body && (
             <div
               className="mt-6 text-left prose prose-sm max-w-none text-foreground
@@ -166,20 +191,45 @@ export default function ResourceViewer({ resource, service, onBack, onCompletion
       );
     }
 
-    if (body) {
+    // For any other type (Setup Guide, FAQ, Contact & Support) that has a URL — offer PDF viewer
+    const hasViewableUrl = url && !parseVideoEmbedUrl(url);
+
+    if (body || hasViewableUrl) {
       return (
-        <div
-          className="prose prose-sm max-w-none text-foreground
-            prose-headings:font-bold prose-headings:text-foreground
-            prose-h1:text-xl prose-h2:text-lg prose-h3:text-base
-            prose-p:text-foreground prose-p:leading-relaxed
-            prose-li:text-foreground prose-li:leading-relaxed
-            prose-blockquote:border-l-4 prose-blockquote:border-primary/40 prose-blockquote:text-muted-foreground prose-blockquote:pl-4 prose-blockquote:italic
-            prose-hr:border-border
-            prose-strong:text-foreground prose-strong:font-semibold
-            [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
-          dangerouslySetInnerHTML={{ __html: body }}
-        />
+        <div className="space-y-6">
+          {hasViewableUrl && (
+            <div className="flex flex-col items-center gap-4 py-8 text-center border border-dashed border-border rounded-xl bg-muted/20">
+              <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
+                <FileText className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-foreground font-medium text-sm mb-0.5">Document attached</p>
+                <p className="text-muted-foreground text-xs max-w-xs truncate">{url}</p>
+              </div>
+              <Button onClick={() => setPdfPreviewOpen(true)} className="gap-2">
+                <FileText className="h-4 w-4" />
+                View Document
+              </Button>
+              {pdfPreviewOpen && (
+                <FilePreviewModal url={url} name={resource.title} onClose={() => setPdfPreviewOpen(false)} />
+              )}
+            </div>
+          )}
+          {body && (
+            <div
+              className="prose prose-sm max-w-none text-foreground
+                prose-headings:font-bold prose-headings:text-foreground
+                prose-h1:text-xl prose-h2:text-lg prose-h3:text-base
+                prose-p:text-foreground prose-p:leading-relaxed
+                prose-li:text-foreground prose-li:leading-relaxed
+                prose-blockquote:border-l-4 prose-blockquote:border-primary/40 prose-blockquote:text-muted-foreground prose-blockquote:pl-4 prose-blockquote:italic
+                prose-hr:border-border
+                prose-strong:text-foreground prose-strong:font-semibold
+                [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+              dangerouslySetInnerHTML={{ __html: body }}
+            />
+          )}
+        </div>
       );
     }
 

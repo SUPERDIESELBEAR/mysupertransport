@@ -3,7 +3,7 @@ import { differenceInDays, parseISO } from 'date-fns';
 import {
   Plus, Pencil, Trash2, GripVertical,
   CheckCircle, AlertTriangle, ChevronDown, ChevronUp,
-  BookOpen, HelpCircle, BarChart3,
+  BookOpen, HelpCircle, BarChart3, Eye, FileText,
 } from 'lucide-react';
 import {
   DndContext,
@@ -41,6 +41,7 @@ import ResourceFormModal from './ResourceFormModal';
 import HelpRequestsPanel from './HelpRequestsPanel';
 import LibraryAnalytics from './LibraryAnalytics';
 import ResourceTypeBadge from './ResourceTypeBadge';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
 import type { Service, ServiceResource, ResourceType } from './ServiceLibraryTypes';
 
 // ─── Sortable Service Row wrapper ────────────────────────────────────────────
@@ -633,55 +634,67 @@ function ResourceAdminRow({ resource, onEdit, onDelete, onToggleVisible, onToggl
   dragHandleProps?: React.HTMLAttributes<HTMLElement>;
   isDragOverlay?: boolean;
 }) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
   const isOutdated = resource.last_verified_at
     ? differenceInDays(new Date(), parseISO(resource.last_verified_at)) > 90
     : true;
 
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-lg border border-border bg-card ${isDragOverlay ? 'shadow-2xl ring-2 ring-primary/30 rotate-1' : ''}`}>
-      <span
-        {...dragHandleProps}
-        className="cursor-grab active:cursor-grabbing touch-none shrink-0 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
-        title="Drag to reorder"
-      >
-        <GripVertical className="h-4 w-4" />
-      </span>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <ResourceTypeBadge type={resource.resource_type} />
-          {resource.is_start_here && <Badge className="text-xs bg-primary/10 text-primary border-primary/30 border">⭐ Start Here</Badge>}
-          {isOutdated && <Badge className="text-xs bg-warning/10 text-warning border-warning/30 border gap-1"><AlertTriangle className="h-2.5 w-2.5" />Outdated</Badge>}
+    <>
+      {previewUrl && (
+        <FilePreviewModal url={previewUrl} name={resource.title} onClose={() => setPreviewUrl(null)} />
+      )}
+      <div className={`flex items-center gap-3 p-3 rounded-lg border border-border bg-card ${isDragOverlay ? 'shadow-2xl ring-2 ring-primary/30 rotate-1' : ''}`}>
+        <span
+          {...dragHandleProps}
+          className="cursor-grab active:cursor-grabbing touch-none shrink-0 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+          title="Drag to reorder"
+        >
+          <GripVertical className="h-4 w-4" />
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <ResourceTypeBadge type={resource.resource_type} />
+            {resource.is_start_here && <Badge className="text-xs bg-primary/10 text-primary border-primary/30 border">⭐ Start Here</Badge>}
+            {isOutdated && <Badge className="text-xs bg-warning/10 text-warning border-warning/30 border gap-1"><AlertTriangle className="h-2.5 w-2.5" />Outdated</Badge>}
+          </div>
+          <p className="text-sm font-medium text-foreground mt-0.5 truncate">{resource.title}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {resource.last_verified_at
+              ? `Verified ${new Date(resource.last_verified_at).toLocaleDateString()}`
+              : 'Not yet verified'}
+          </p>
         </div>
-        <p className="text-sm font-medium text-foreground mt-0.5 truncate">{resource.title}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {resource.last_verified_at
-            ? `Verified ${new Date(resource.last_verified_at).toLocaleDateString()}`
-            : 'Not yet verified'}
-        </p>
-      </div>
 
-      <div className="flex items-center gap-3 shrink-0">
-        <div className="relative inline-flex">
-          <Switch checked={resource.is_visible} onCheckedChange={onToggleVisible} />
-          <DemoLockIcon badge />
-        </div>
-        <div className="relative inline-flex">
-          <Switch checked={resource.is_start_here} onCheckedChange={onToggleStartHere} />
-          <DemoLockIcon badge />
-        </div>
-        <Button size="sm" variant="outline" onClick={onMarkVerified} className="h-7 text-xs gap-1 hidden sm:flex">
-          <CheckCircle className="h-3 w-3" />Verified
-        </Button>
-        <Button size="sm" variant="ghost" onClick={onEdit} className="h-7 w-7 p-0">
-          <Pencil className="h-3.5 w-3.5" />
-        </Button>
-        <div className="relative inline-flex">
-          <Button size="sm" variant="ghost" onClick={onDelete} className="h-7 w-7 p-0 text-destructive hover:text-destructive">
-            <Trash2 className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="relative inline-flex">
+            <Switch checked={resource.is_visible} onCheckedChange={onToggleVisible} />
+            <DemoLockIcon badge />
+          </div>
+          <div className="relative inline-flex">
+            <Switch checked={resource.is_start_here} onCheckedChange={onToggleStartHere} />
+            <DemoLockIcon badge />
+          </div>
+          <Button size="sm" variant="outline" onClick={onMarkVerified} className="h-7 text-xs gap-1 hidden sm:flex">
+            <CheckCircle className="h-3 w-3" />Verified
           </Button>
-          <DemoLockIcon badge />
+          {resource.url && (
+            <Button size="sm" variant="ghost" onClick={() => setPreviewUrl(resource.url!)} className="h-7 w-7 p-0" title="Preview document">
+              <Eye className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" onClick={onEdit} className="h-7 w-7 p-0">
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <div className="relative inline-flex">
+            <Button size="sm" variant="ghost" onClick={onDelete} className="h-7 w-7 p-0 text-destructive hover:text-destructive">
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+            <DemoLockIcon badge />
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
