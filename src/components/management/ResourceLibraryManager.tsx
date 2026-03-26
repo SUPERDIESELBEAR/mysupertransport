@@ -113,6 +113,8 @@ export default function ResourceLibraryManager() {
   const { guardDemo } = useDemoMode();
   const [resources, setResources] = useState<ResourceRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState<string>('');
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<ResourceCategory | 'all'>('all');
 
