@@ -290,9 +290,9 @@ export default function TipTapEditor({ content, onChange, placeholder = 'Start w
           onChange={e => {
             const val = e.target.value;
             if (val) {
-              editor.chain().focus().setMark('textStyle', { fontSize: val }).run();
+              editor.chain().focus().setFontSize(val).run();
             } else {
-              editor.chain().focus().unsetMark('textStyle').run();
+              editor.chain().focus().unsetFontSize().run();
             }
           }}
           title="Font size"
