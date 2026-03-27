@@ -195,6 +195,11 @@ function SortableRow({
             <Video className="h-3.5 w-3.5" />
           </Button>
         )}
+        {doc.content_type === 'rich_text' && doc.body && (
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setRichTextOpen(true)} title="Preview Document">
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
+        )}
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(doc)}>
           <Edit2 className="h-3.5 w-3.5" />
         </Button>
