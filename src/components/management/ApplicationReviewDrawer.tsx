@@ -224,6 +224,16 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [ssnLoading, setSsnLoading] = useState(false);
   const [ssnError, setSsnError] = useState<string | null>(null);
 
+  // Background Verification
+  const [bgMvrStatus, setBgMvrStatus] = useState(app?.mvr_status ?? 'not_started');
+  const [bgChStatus, setBgChStatus] = useState(app?.ch_status ?? 'not_started');
+  const [bgNotes, setBgNotes] = useState(app?.background_verification_notes ?? '');
+  const [savingBg, setSavingBg] = useState(false);
+  const bgIsDirty = bgMvrStatus !== (app?.mvr_status ?? 'not_started')
+    || bgChStatus !== (app?.ch_status ?? 'not_started')
+    || bgNotes !== (app?.background_verification_notes ?? '');
+  const bgVerificationComplete = bgMvrStatus === 'received' && bgChStatus === 'received';
+
   const cdlFieldRef = useRef<HTMLDivElement>(null);
   const medCertFieldRef = useRef<HTMLDivElement>(null);
 
