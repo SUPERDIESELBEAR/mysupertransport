@@ -73,6 +73,7 @@ function SortableRow({
 }: SortableRowProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
+  const [richTextOpen, setRichTextOpen] = useState(false);
   const {
     attributes,
     listeners,
