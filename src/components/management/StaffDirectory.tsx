@@ -61,7 +61,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 const ALL_STAFF_ROLES: StaffRole[] = ['onboarding_staff', 'dispatcher', 'management'];
 
 export default function StaffDirectory() {
-  const { session, user } = useAuth();
+  const { session, user, isOwner } = useAuth();
   const { toast } = useToast();
   const { guardDemo } = useDemoMode();
 
@@ -332,9 +332,10 @@ export default function StaffDirectory() {
     setDeleting(true);
     try {
       const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
-      const { data, error } = await supabase.functions.invoke('get-staff-list', {
-        method: 'POST',
-        body: { action: 'delete_user', user_id: managingMember.user_id, target_name: memberName },
+      
+      // Use the owner-only delete-user-account edge function
+      const { data, error } = await supabase.functions.invoke('delete-user-account', {
+        body: { user_id: managingMember.user_id },
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
       if (error) throw error;
@@ -343,7 +344,7 @@ export default function StaffDirectory() {
       setStaff(prev => prev.filter(m => m.user_id !== managingMember.user_id));
       setManagingMember(null);
       setDeleteConfirmPending(false);
-      toast({ title: '✅ Staff Member Removed', description: `${memberName} has been permanently deleted.` });
+      toast({ title: '✅ Account Deleted', description: `${memberName} has been permanently deleted.` });
     } catch (err) {
       toast({ title: 'Delete Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
     } finally {
@@ -559,6 +560,12 @@ export default function StaffDirectory() {
 
                     {/* Roles */}
                     <div className="col-span-2 flex flex-wrap gap-1">
+                      {member.roles.includes('owner') && (
+                        <Badge className="text-xs border gap-1 bg-amber-500/15 text-amber-600 border-amber-400/30">
+                          <Shield className="h-3 w-3" />
+                          <span className="hidden lg:inline">Owner</span>
+                        </Badge>
+                      )}
                       {member.roles
                         .filter(r => ALL_STAFF_ROLES.includes(r as StaffRole))
                         .map(r => {
@@ -1062,7 +1069,7 @@ export default function StaffDirectory() {
               </div>
 
               {/* ── Danger Zone: Deactivate + Delete ── */}
-              {managingMember.user_id !== user?.id && (
+              {managingMember.user_id !== user?.id && !managingMember.roles.includes('owner') && (
                 <div className="pt-1 border-t border-destructive/20 space-y-2">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Danger Zone</p>
 
@@ -1101,7 +1108,9 @@ export default function StaffDirectory() {
                     </button>
                   )}
 
-                  {/* Delete */}
+                  {/* Delete — owner only */}
+                  {isOwner && (
+                  <>
                   {!deleteConfirmPending ? (
                     <button
                       type="button"
@@ -1110,9 +1119,9 @@ export default function StaffDirectory() {
                     >
                       <div className="flex items-center gap-2 text-sm font-medium">
                         <Trash2 className="h-4 w-4 shrink-0" />
-                        Delete Staff Member
+                        Delete Account Permanently
                       </div>
-                      <span className="text-xs text-destructive/60 group-hover:text-destructive transition-colors">Permanent</span>
+                      <span className="text-xs text-destructive/60 group-hover:text-destructive transition-colors">Owner only</span>
                     </button>
                   ) : (
                     <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-3 space-y-3">
@@ -1153,6 +1162,8 @@ export default function StaffDirectory() {
                         </Button>
                       </div>
                     </div>
+                  )}
+                  </>
                   )}
                 </div>
               )}

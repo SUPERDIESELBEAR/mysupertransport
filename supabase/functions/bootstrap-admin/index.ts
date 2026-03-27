@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email, first_name, last_name, bootstrap_secret, set_password, user_id } = await req.json();
+    const { email, first_name, last_name, bootstrap_secret, set_password, user_id, role } = await req.json();
 
     const BOOTSTRAP_SECRET = Deno.env.get('BOOTSTRAP_SECRET') || 'supertransport-bootstrap-2026';
     if (bootstrap_secret !== BOOTSTRAP_SECRET) {
@@ -75,8 +75,9 @@ Deno.serve(async (req) => {
       account_status: 'active',
     }, { onConflict: 'user_id' });
 
+    const assignRole = role === 'owner' ? 'owner' : 'management';
     await supabaseAdmin.from('user_roles').upsert(
-      { user_id: userId, role: 'management' },
+      { user_id: userId, role: assignRole },
       { onConflict: 'user_id,role' }
     );
 

@@ -45,6 +45,7 @@ interface StaffLayoutProps {
 }
 
 const roleColors: Record<AppRole, string> = {
+  owner: 'bg-amber-500 text-white',
   management: 'bg-gold text-surface-dark',
   onboarding_staff: 'bg-blue-600 text-white',
   dispatcher: 'bg-green-600 text-white',
@@ -53,6 +54,7 @@ const roleColors: Record<AppRole, string> = {
 };
 
 const roleLabels: Record<AppRole, string> = {
+  owner: 'Owner',
   management: 'Management',
   onboarding_staff: 'Onboarding',
   dispatcher: 'Dispatcher',

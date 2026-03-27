@@ -16,6 +16,7 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  isOwner: boolean;
   isManagement: boolean;
   isOnboardingStaff: boolean;
   isDispatcher: boolean;
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRoles(userRoles);
       
       // Set default active role based on priority
-      const rolePriority: AppRole[] = ['management', 'onboarding_staff', 'dispatcher', 'operator', 'applicant'];
+      const rolePriority: AppRole[] = ['owner', 'management', 'onboarding_staff', 'dispatcher', 'operator', 'applicant'];
       const defaultRole = rolePriority.find(r => userRoles.includes(r)) || userRoles[0] || null;
       
       // Restore saved role preference if still valid
@@ -138,7 +139,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
-  const isManagement = roles.includes('management');
+  const isOwner = roles.includes('owner');
+  const isManagement = roles.includes('management') || isOwner;
   const isOnboardingStaff = roles.includes('onboarding_staff');
   const isDispatcher = roles.includes('dispatcher');
   const isOperator = roles.includes('operator');
@@ -150,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user, session, roles, activeRole, setActiveRole,
       profile, loading, refreshProfile,
       signIn, signOut,
-      isManagement, isOnboardingStaff, isDispatcher,
+      isOwner, isManagement, isOnboardingStaff, isDispatcher,
       isOperator, isApplicant, isStaff,
     }}>
       {children}
