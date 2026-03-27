@@ -85,6 +85,9 @@ export interface FullApplication {
   medical_cert_url: string | null;
   medical_cert_expiration: string | null;
   signature_image_url: string | null;
+  mvr_status?: string;
+  ch_status?: string;
+  background_verification_notes?: string | null;
 }
 
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
