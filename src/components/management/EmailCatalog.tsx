@@ -738,7 +738,7 @@ export default function EmailCatalog() {
     {
       name: 'Splash Page',
       description: 'The branded public landing page applicants see before starting their application.',
-      route: '/',
+      route: '/splash',
       icon: <Globe className="h-5 w-5 text-primary" />,
     },
     {
