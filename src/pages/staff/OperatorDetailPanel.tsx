@@ -2268,9 +2268,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         const pct = Math.round((completedCount / stages.length) * 100);
         return (
           <div
-            className={`sticky top-0 z-30 -mx-6 px-6 transition-all duration-300 ${
-              showStickyBar ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'
-            }`}
+            className="sticky top-0 z-30 -mx-6 px-6"
           >
             <div className="bg-white/95 backdrop-blur border-b border-border shadow-sm py-2 px-4">
               <div className="flex items-center gap-3 max-w-4xl">
