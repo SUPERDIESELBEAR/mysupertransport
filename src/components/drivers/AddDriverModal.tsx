@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Loader2 } from 'lucide-react';
+import { UserPlus, Loader2, Truck } from 'lucide-react';
 import DemoLockIcon from '@/components/DemoLockIcon';
 
 const US_STATES = [
@@ -30,22 +31,32 @@ const formatPhone = (value: string): string => {
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
 };
 
+const INITIAL_FORM = {
+  first_name: '',
+  last_name: '',
+  email: '',
+  phone: '',
+  unit_number: '',
+  cdl_number: '',
+  cdl_state: '',
+  cdl_expiration: '',
+  medical_cert_expiration: '',
+  truck_year: '',
+  truck_make: '',
+  truck_model: '',
+  truck_vin: '',
+  truck_plate: '',
+  truck_plate_state: '',
+  trailer_number: '',
+};
+
 export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModalProps) {
   const { session } = useAuth();
   const { toast } = useToast();
   const { guardDemo } = useDemoMode();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    phone: '',
-    unit_number: '',
-    cdl_number: '',
-    cdl_state: '',
-    cdl_expiration: '',
-    medical_cert_expiration: '',
-  });
+  const [isPreExisting, setIsPreExisting] = useState(true);
+  const [form, setForm] = useState(INITIAL_FORM);
 
   const set = (key: keyof typeof form, val: string) => setForm(prev => ({ ...prev, [key]: val }));
 
@@ -98,7 +109,11 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
 
       // 2. Invite the user via the existing edge function
       const { data: inviteData, error: inviteErr } = await supabase.functions.invoke('invite-operator', {
-        body: { application_id: app.id, reviewer_notes: 'Manually added as active driver' },
+        body: {
+          application_id: app.id,
+          reviewer_notes: isPreExisting ? 'Pre-existing operator added directly' : 'Manually added as active driver',
+          skip_invite: isPreExisting,
+        },
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
 
@@ -137,15 +152,36 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
             .from('active_dispatch')
             .insert({ operator_id: operator.id, dispatch_status: 'not_dispatched', updated_by: session?.user?.id ?? null });
         }
+
+        // If truck info was provided, create an ICA contract record to hold it
+        const hasTruckInfo = form.truck_year || form.truck_make || form.truck_model || form.truck_vin || form.truck_plate;
+        if (hasTruckInfo) {
+          await supabase
+            .from('ica_contracts')
+            .insert({
+              operator_id: operator.id,
+              truck_year: form.truck_year.trim() || null,
+              truck_make: form.truck_make.trim() || null,
+              truck_model: form.truck_model.trim() || null,
+              truck_vin: form.truck_vin.trim() || null,
+              truck_plate: form.truck_plate.trim() || null,
+              truck_plate_state: form.truck_plate_state || null,
+              trailer_number: form.trailer_number.trim() || null,
+              status: 'complete',
+            });
+        }
       }
 
       toast({
         title: 'Driver added ✓',
-        description: `${form.first_name} ${form.last_name} has been added and will receive a portal invite.`,
+        description: isPreExisting
+          ? `${form.first_name} ${form.last_name} has been added to the Driver Hub.`
+          : `${form.first_name} ${form.last_name} has been added and will receive a portal invite.`,
       });
 
       // Reset form
-      setForm({ first_name: '', last_name: '', email: '', phone: '', unit_number: '', cdl_number: '', cdl_state: '', cdl_expiration: '', medical_cert_expiration: '' });
+      setForm(INITIAL_FORM);
+      setIsPreExisting(true);
       onAdded();
       onClose();
     } catch (err: unknown) {
@@ -170,9 +206,22 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <p className="text-sm text-muted-foreground">
-            Manually register an active driver. They'll receive a portal invitation and appear immediately in the Driver Hub.
-          </p>
+          {/* Pre-existing toggle */}
+          <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-muted/30">
+            <div className="space-y-0.5">
+              <Label htmlFor="pre-existing-toggle" className="text-sm font-medium">Pre-existing operator</Label>
+              <p className="text-xs text-muted-foreground">
+                {isPreExisting
+                  ? 'No portal invite will be sent. Driver is added directly to the roster.'
+                  : 'A portal invite email will be sent to the driver.'}
+              </p>
+            </div>
+            <Switch
+              id="pre-existing-toggle"
+              checked={isPreExisting}
+              onCheckedChange={setIsPreExisting}
+            />
+          </div>
 
           {/* Name row */}
           <div className="grid grid-cols-2 gap-3">
@@ -235,6 +284,57 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
             <div className="space-y-1.5">
               <Label htmlFor="add-med-exp">Med Cert Expiration</Label>
               <Input id="add-med-exp" type="date" value={form.medical_cert_expiration} onChange={e => set('medical_cert_expiration', e.target.value)} />
+            </div>
+          </div>
+
+          <hr className="border-border" />
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+            <Truck className="h-3.5 w-3.5" />
+            Truck Information
+          </p>
+
+          {/* Truck Year / Make / Model */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="add-truck-year">Year</Label>
+              <Input id="add-truck-year" value={form.truck_year} onChange={e => set('truck_year', e.target.value)} placeholder="2022" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-truck-make">Make</Label>
+              <Input id="add-truck-make" value={form.truck_make} onChange={e => set('truck_make', e.target.value)} placeholder="Freightliner" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-truck-model">Model</Label>
+              <Input id="add-truck-model" value={form.truck_model} onChange={e => set('truck_model', e.target.value)} placeholder="Cascadia" />
+            </div>
+          </div>
+
+          {/* VIN */}
+          <div className="space-y-1.5">
+            <Label htmlFor="add-truck-vin">VIN</Label>
+            <Input id="add-truck-vin" value={form.truck_vin} onChange={e => set('truck_vin', e.target.value)} placeholder="1FUJGLDR0CLBP8834" />
+          </div>
+
+          {/* Plate + State + Trailer */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="add-truck-plate">Plate #</Label>
+              <Input id="add-truck-plate" value={form.truck_plate} onChange={e => set('truck_plate', e.target.value)} placeholder="ABC1234" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-truck-plate-state">Plate State</Label>
+              <Select value={form.truck_plate_state} onValueChange={v => set('truck_plate_state', v)}>
+                <SelectTrigger id="add-truck-plate-state">
+                  <SelectValue placeholder="State" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {US_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-trailer">Trailer #</Label>
+              <Input id="add-trailer" value={form.trailer_number} onChange={e => set('trailer_number', e.target.value)} placeholder="T-001" />
             </div>
           </div>
         </div>
