@@ -1,11 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut } from 'lucide-react';
+import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { QRCodeSVG } from 'qrcode.react';
 import { InspectionDocument, getExpiryStatus, daysUntilExpiry } from './InspectionBinderTypes';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DocumentEditor } from '@/components/shared/DocumentEditor';
 
 interface DocRowProps {
   doc: InspectionDocument | null;
@@ -19,6 +20,14 @@ interface DocRowProps {
   canUpload?: boolean;
   /** When true, the Upload/Replace button is disabled with a tooltip explaining it's managed from Company Docs */
   isManagedByCompany?: boolean;
+  /** When true, show Edit button in the file preview modal */
+  canEdit?: boolean;
+  /** Storage bucket name for saving edits */
+  editBucketName?: string;
+  /** Storage file path for saving edits */
+  editFilePath?: string;
+  /** Called after an edit is saved with the new URL */
+  onEditSave?: (newUrl: string) => void;
 }
 
 export function ExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
@@ -179,7 +188,7 @@ function useBlobUrl(remoteUrl: string) {
 }
 
 /** Generic in-app file preview modal — no new tab required */
-export function FilePreviewModal({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
+export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; name: string; onClose: () => void; onEdit?: () => void }) {
   const [loaded, setLoaded] = useState(false);
   const [zoomIdx, setZoomIdx] = useState(DEFAULT_ZOOM_IDX);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -239,6 +248,15 @@ export function FilePreviewModal({ url, name, onClose }: { url: string; name: st
           </button>
           {/* Divider */}
           <span className="w-px h-5 bg-white/15 mx-1" />
+          {onEdit && (
+            <button
+              onClick={e => { e.stopPropagation(); onEdit(); }}
+              className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+              title="Edit document"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          )}
           <button
             onClick={handlePrint}
             disabled={!loaded}
@@ -314,7 +332,7 @@ export function FilePreviewModal({ url, name, onClose }: { url: string; name: st
   );
 }
 
-function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => void }) {
+function PDFModal({ doc, onClose, onEdit }: { doc: InspectionDocument; onClose: () => void; onEdit?: () => void }) {
   const [loaded, setLoaded] = useState(false);
   const [zoomIdx, setZoomIdx] = useState(DEFAULT_ZOOM_IDX);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -372,6 +390,15 @@ function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => vo
             <ZoomIn className="h-4 w-4" />
           </button>
           <span className="w-px h-5 bg-white/15 mx-1" />
+          {onEdit && (
+            <button
+              onClick={e => { e.stopPropagation(); onEdit(); }}
+              className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+              title="Edit document"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          )}
           {doc.file_url && (
             <>
               <button
@@ -452,10 +479,11 @@ function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => vo
   );
 }
 
-export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSelect, onUpload, isUploading, canUpload, isManagedByCompany }: DocRowProps) {
+export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSelect, onUpload, isUploading, canUpload, isManagedByCompany, canEdit, editBucketName, editFilePath, onEditSave }: DocRowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const { toast } = useToast();
 
@@ -625,7 +653,23 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
       </div>
 
       {shareOpen && doc && <ShareModal doc={doc} onClose={() => setShareOpen(false)} />}
-      {pdfOpen && doc && <PDFModal doc={doc} onClose={() => setPdfOpen(false)} />}
+      {pdfOpen && doc && (
+        <PDFModal
+          doc={doc}
+          onClose={() => setPdfOpen(false)}
+          onEdit={canEdit && doc.file_url ? () => { setPdfOpen(false); setEditorOpen(true); } : undefined}
+        />
+      )}
+      {editorOpen && doc?.file_url && (
+        <DocumentEditor
+          fileUrl={doc.file_url}
+          fileName={doc.name}
+          bucketName={editBucketName}
+          filePath={editFilePath || doc.file_path || undefined}
+          onSave={(newUrl) => { setEditorOpen(false); onEditSave?.(newUrl); }}
+          onClose={() => setEditorOpen(false)}
+        />
+      )}
     </>
   );
 }
