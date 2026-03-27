@@ -5,9 +5,17 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-// Configure PDF.js worker
-import * as pdfjsLib from 'pdfjs-dist';
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Lazy-load pdfjs-dist only when needed
+let pdfjsPromise: Promise<typeof import('pdfjs-dist')> | null = null;
+function getPdfjs() {
+  if (!pdfjsPromise) {
+    pdfjsPromise = import('pdfjs-dist').then(lib => {
+      lib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${lib.version}/pdf.worker.min.mjs`;
+      return lib;
+    });
+  }
+  return pdfjsPromise;
+}
 
 interface DocumentEditorProps {
   fileUrl: string;
@@ -22,9 +30,10 @@ interface DocumentEditorProps {
 
 /** Renders a single PDF page to a data URL */
 async function renderPdfPage(pdfUrl: string, pageNum: number): Promise<{ dataUrl: string; totalPages: number }> {
+  const pdfjs = await getPdfjs();
   const response = await fetch(pdfUrl);
   const arrayBuffer = await response.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
   const page = await pdf.getPage(pageNum);
   const scale = 2; // High resolution
   const viewport = page.getViewport({ scale });
