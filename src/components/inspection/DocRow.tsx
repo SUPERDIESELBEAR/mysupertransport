@@ -653,7 +653,23 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
       </div>
 
       {shareOpen && doc && <ShareModal doc={doc} onClose={() => setShareOpen(false)} />}
-      {pdfOpen && doc && <PDFModal doc={doc} onClose={() => setPdfOpen(false)} />}
+      {pdfOpen && doc && (
+        <PDFModal
+          doc={doc}
+          onClose={() => setPdfOpen(false)}
+          onEdit={canEdit && doc.file_url ? () => { setPdfOpen(false); setEditorOpen(true); } : undefined}
+        />
+      )}
+      {editorOpen && doc?.file_url && (
+        <DocumentEditor
+          fileUrl={doc.file_url}
+          fileName={doc.name}
+          bucketName={editBucketName}
+          filePath={editFilePath || doc.file_path || undefined}
+          onSave={(newUrl) => { setEditorOpen(false); onEditSave?.(newUrl); }}
+          onClose={() => setEditorOpen(false)}
+        />
+      )}
     </>
   );
 }
