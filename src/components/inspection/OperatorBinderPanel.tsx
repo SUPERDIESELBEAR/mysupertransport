@@ -341,7 +341,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
             {/* Driver Docs */}
             {activeTab === 'driver' && (
               <div className="space-y-3">
-                <p className="text-xs text-muted-foreground">Personal documents for this driver. CDL, Med Cert, DOT Inspections, and Lease Agreement.</p>
+                <p className="text-xs text-muted-foreground"><p className="text-xs text-muted-foreground">Personal documents for this driver. CDL, Med Cert, Periodic DOT Inspections, and Lease Agreement.</p></p>
                 {PER_DRIVER_DOCS.map(({ key, hasExpiry }) => (
                   <DocRow key={key} docName={key} hasExpiry={hasExpiry} />
                 ))}
