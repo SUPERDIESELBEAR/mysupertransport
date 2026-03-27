@@ -1,41 +1,37 @@
 
 
-## Pre-Publish Review
+## Rename "Email Catalog" to "Content Manager" and Add Page Previews
 
-### Console Warnings (Low severity)
-- **React `forwardRef` warning** in `ManagementPortal` — a component is being passed a `ref` it can't accept. Cosmetic only; no user-facing impact. Fix: wrap the offending child component with `React.forwardRef`.
+### What changes
 
-### Security Findings (5 issues)
+Rename the "Email Catalog" nav item and component to **"Content Manager"** (or similar — see options below), then add a new "Pages" tab alongside the existing email templates tab. The Pages tab will list the app's public-facing pages (Splash Page, Welcome Operator, Application Form) with preview and edit capabilities.
 
-| # | Severity | Issue | Recommended Fix |
-|---|----------|-------|-----------------|
-| 1 | **ERROR** | **Applications with `user_id = NULL` are readable by anyone** — the SELECT RLS policy has `OR (user_id IS NULL)`, exposing SSNs, CDL numbers, DOB, etc. | Remove `OR (user_id IS NULL)` from the policy. Handle anonymous drafts via a secure token-based lookup instead. |
-| 2 | **WARN** | **Operators can update ANY field on `onboarding_status`** — the "update own decal photos" policy has no column restriction, so an operator could set `mvr_ch_approval`, `pe_screening_result`, `fully_onboarded`, etc. | Restrict the UPDATE policy to only the columns operators should modify (decal photos, specific self-service fields), or use column-level privileges. |
-| 3 | **WARN** | **Potential privilege escalation via `user_roles`** — INSERT policy relies on `has_role(auth.uid(), 'management')`, which itself reads `user_roles`. If any timing gap exists, a user could grant themselves roles. | Move role assignment to a `SECURITY DEFINER` function callable only by management, and remove the direct INSERT policy. |
-| 4 | **WARN** | **Leaked password protection disabled** | Enable it via the auth settings (or the `enable-leaked-password-protection` edge function that already exists in the project). |
-| 5 | **WARN** | **Extension in `public` schema** | Move extensions (likely `pgcrypto` or `uuid-ossp`) to the `extensions` schema. Low priority — no user-facing risk. |
+### Naming options
 
-### Linter (2 issues)
-Same as findings #4 and #5 above — no additional issues.
+A few candidates for the renamed section:
+- **Content Manager** — broad, covers emails + pages
+- **Pages & Emails** — literal and clear
+- **Content Catalog** — keeps the "catalog" convention
 
-### Network
-No failing requests detected.
+### How it works
 
-### Architecture
-- Routing and auth gating look correct — role-based redirects are in place.
-- Demo mode provider is properly positioned in the component tree.
-- Edge functions have appropriate `verify_jwt = false` where needed.
+1. **Rename in sidebar nav**: Change `Email Catalog` → `Content Manager` in the Management Portal nav items array (line ~694). Update the icon to something broader (e.g. `LayoutTemplate` or `PanelTop`).
 
----
+2. **Add tabs inside EmailCatalog component**: The component already uses `Tabs` for filtering email categories. Add a top-level tab switcher: **Emails** | **Pages**. The existing email catalog content goes under the Emails tab.
 
-### Recommended Priority Order
+3. **Pages tab content**: A simple card list showing:
+   - **Splash Page** (`/`) — the public application landing page
+   - **Welcome Operator** (`/welcome`) — the invited operator setup page
+   - **Application Form** (`/apply`) — the multi-step application
+   
+   Each card shows the page name, description, route, and a "Preview" button that opens the page in a new browser tab (or an iframe dialog).
 
-1. **Fix the applications SELECT RLS policy** (finding #1) — this is a data exposure error and should be fixed before publishing.
-2. **Restrict operator UPDATE on `onboarding_status`** (finding #2) — prevents operators from self-approving onboarding steps.
-3. **Harden `user_roles` INSERT** (finding #3) — move to a SECURITY DEFINER function.
-4. **Enable leaked password protection** (finding #4) — quick toggle.
-5. **Fix `forwardRef` console warning** — cosmetic cleanup.
-6. **Move extensions from `public` schema** (finding #5) — lowest priority.
+4. **No breaking changes**: The nav `path` stays `email-catalog` to avoid URL breakage, or we update it to `content-manager` and update all references (type union, URL param checks, view conditionals).
 
-Would you like me to proceed with fixing these issues, starting with the critical ones (#1 and #2)?
+### Files changed
+
+| File | Change |
+|------|--------|
+| `src/pages/management/ManagementPortal.tsx` | Rename nav label + icon, update view path references if desired |
+| `src/components/management/EmailCatalog.tsx` | Add top-level Emails/Pages tab switcher; add Pages card list with preview links |
 
