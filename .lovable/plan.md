@@ -1,33 +1,41 @@
 
 
-## Add Rich Text Preview to Document Hub Admin List
+## Pre-Publish Review
 
-### What changes
-Add a preview button for rich text documents in the admin document list, matching the existing PDF and Video preview pattern.
+### Console Warnings (Low severity)
+- **React `forwardRef` warning** in `ManagementPortal` — a component is being passed a `ref` it can't accept. Cosmetic only; no user-facing impact. Fix: wrap the offending child component with `React.forwardRef`.
 
-### Current behavior
-- **PDF docs**: Eye icon button → opens `FilePreviewModal`
-- **Video docs**: Video icon button → opens embed dialog
-- **Rich text docs**: No preview button — staff must click Edit to see content
+### Security Findings (5 issues)
 
-### New behavior
-- **Rich text docs**: Eye icon button → opens a dialog modal that renders the HTML body in the same prose styling used by the operator-facing `DocumentViewer`
+| # | Severity | Issue | Recommended Fix |
+|---|----------|-------|-----------------|
+| 1 | **ERROR** | **Applications with `user_id = NULL` are readable by anyone** — the SELECT RLS policy has `OR (user_id IS NULL)`, exposing SSNs, CDL numbers, DOB, etc. | Remove `OR (user_id IS NULL)` from the policy. Handle anonymous drafts via a secure token-based lookup instead. |
+| 2 | **WARN** | **Operators can update ANY field on `onboarding_status`** — the "update own decal photos" policy has no column restriction, so an operator could set `mvr_ch_approval`, `pe_screening_result`, `fully_onboarded`, etc. | Restrict the UPDATE policy to only the columns operators should modify (decal photos, specific self-service fields), or use column-level privileges. |
+| 3 | **WARN** | **Potential privilege escalation via `user_roles`** — INSERT policy relies on `has_role(auth.uid(), 'management')`, which itself reads `user_roles`. If any timing gap exists, a user could grant themselves roles. | Move role assignment to a `SECURITY DEFINER` function callable only by management, and remove the direct INSERT policy. |
+| 4 | **WARN** | **Leaked password protection disabled** | Enable it via the auth settings (or the `enable-leaked-password-protection` edge function that already exists in the project). |
+| 5 | **WARN** | **Extension in `public` schema** | Move extensions (likely `pgcrypto` or `uuid-ossp`) to the `extensions` schema. Low priority — no user-facing risk. |
 
-### Technical detail
+### Linter (2 issues)
+Same as findings #4 and #5 above — no additional issues.
 
-In `src/components/documents/AdminDocumentList.tsx`:
+### Network
+No failing requests detected.
 
-1. Add a `richTextPreviewOpen` state (like `previewOpen` and `videoOpen`)
-2. After the video preview button (line ~194), add a condition for rich text:
-   ```
-   if content_type is not 'pdf' and not 'video' and doc.body exists → show Eye button
-   ```
-3. After the video preview dialog (line ~230), add a `Dialog` that renders `doc.body` via `dangerouslySetInnerHTML` with the same prose classes used in `DocumentViewer.tsx`
+### Architecture
+- Routing and auth gating look correct — role-based redirects are in place.
+- Demo mode provider is properly positioned in the component tree.
+- Edge functions have appropriate `verify_jwt = false` where needed.
 
-No new components or dependencies needed — reuses existing `Dialog` and prose styling.
+---
 
-### Files changed
-| File | Change |
-|------|--------|
-| `src/components/documents/AdminDocumentList.tsx` | Add rich text preview button + dialog in `SortableRow` |
+### Recommended Priority Order
+
+1. **Fix the applications SELECT RLS policy** (finding #1) — this is a data exposure error and should be fixed before publishing.
+2. **Restrict operator UPDATE on `onboarding_status`** (finding #2) — prevents operators from self-approving onboarding steps.
+3. **Harden `user_roles` INSERT** (finding #3) — move to a SECURITY DEFINER function.
+4. **Enable leaked password protection** (finding #4) — quick toggle.
+5. **Fix `forwardRef` console warning** — cosmetic cleanup.
+6. **Move extensions from `public` schema** (finding #5) — lowest priority.
+
+Would you like me to proceed with fixing these issues, starting with the critical ones (#1 and #2)?
 
