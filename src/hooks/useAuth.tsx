@@ -139,7 +139,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
-  const isManagement = roles.includes('management');
+  const isOwner = roles.includes('owner');
+  const isManagement = roles.includes('management') || isOwner;
   const isOnboardingStaff = roles.includes('onboarding_staff');
   const isDispatcher = roles.includes('dispatcher');
   const isOperator = roles.includes('operator');
@@ -151,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user, session, roles, activeRole, setActiveRole,
       profile, loading, refreshProfile,
       signIn, signOut,
-      isManagement, isOnboardingStaff, isDispatcher,
+      isOwner, isManagement, isOnboardingStaff, isDispatcher,
       isOperator, isApplicant, isStaff,
     }}>
       {children}
