@@ -1,40 +1,44 @@
 
 
-## Support Front & Back CDL in the Inspection Binder
+## Fix: Expiration Dates Showing One Day Earlier Than Entered
 
-### Current state
-- **Application form** already captures `dl_front_url` and `dl_rear_url` separately — no changes needed there.
-- **Inspection Binder** stores one row per document name per driver in `inspection_documents`. The "CDL" slot holds a single file. There's no way to attach a second image (back side).
+### Root cause
 
-### Proposed approach
+This is a timezone bug. When you enter `2026-10-10` in the date picker, it's saved correctly as `2026-10-10` in the database. But when **displaying** or **calculating** with that date, the code does `new Date('2026-10-10')` — which JavaScript interprets as **midnight UTC**. In US Central time, that's **October 9th at 7 PM**, so `toLocaleDateString()` shows October 9th instead of October 10th.
 
-Split the single "CDL" slot into two slots: **"CDL (Front)"** and **"CDL (Back)"**. Both share the same expiry date behavior.
+This affects every place dates are displayed or compared in the inspection binder (and potentially elsewhere).
 
-**1. Update `src/components/inspection/InspectionBinderTypes.ts`**
-Replace the `CDL` entry in `PER_DRIVER_DOCS` with:
+### Fix
+
+Add `T00:00:00` when parsing date-only strings so JavaScript treats them as **local midnight** instead of UTC midnight. Alternatively, split the date string and construct the display directly without going through `Date` at all.
+
+The safest, most consistent approach: create a small utility function that parses `YYYY-MM-DD` strings correctly, then use it everywhere.
+
+**1. Add a utility to `src/components/inspection/InspectionBinderTypes.ts`**
+
+```ts
+/** Parse a YYYY-MM-DD date string as local midnight (not UTC) */
+export function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
 ```
-{ key: 'CDL (Front)', hasExpiry: true },
-{ key: 'CDL (Back)', hasExpiry: true },
-```
 
-**2. Update `src/components/inspection/InspectionComplianceSummary.tsx`**
-- Update the `DocKey` type and compliance logic to reference `'CDL (Front)'` instead of `'CDL'`
-- The compliance summary can treat either front or back as the CDL expiry source (front is sufficient since the expiry date is the same on both sides)
+**2. Update all `new Date(expiresAt)` calls in inspection files**
 
-**3. Update `src/components/inspection/ComplianceAlertsPanel.tsx`**
-- Update the `doc_type` references from `'CDL'` to `'CDL (Front)'` (or handle both)
+Replace every `new Date(expiresAt)` or `new Date(doc.expires_at)` with `parseLocalDate(expiresAt)` in:
 
-**4. Existing data migration**
-- Any existing `inspection_documents` rows with `name = 'CDL'` should be renamed to `'CDL (Front)'` via a one-time data update so they aren't orphaned
+| File | Occurrences |
+|------|-------------|
+| `InspectionBinderTypes.ts` | `getExpiryStatus()`, `daysUntilExpiry()` |
+| `DocRow.tsx` | Display line (~547) |
+| `InspectionBinderAdmin.tsx` | Display (~1071), days calculations (~645, ~1369, ~1873, ~1911) |
+| `OperatorBinderPanel.tsx` | Display (~259) |
 
-### No schema changes needed
-The `inspection_documents` table already supports arbitrary `name` values — this is purely a UI/constant change plus a small data rename.
+**3. Also check `ComplianceAlertsPanel.tsx` and `InspectionComplianceSummary.tsx`**
 
-### Files changed
-| File | Change |
-|------|--------|
-| `src/components/inspection/InspectionBinderTypes.ts` | Split CDL into CDL (Front) + CDL (Back) |
-| `src/components/inspection/InspectionComplianceSummary.tsx` | Update CDL references |
-| `src/components/inspection/ComplianceAlertsPanel.tsx` | Update CDL doc_type references |
-| Data update | Rename existing `name='CDL'` rows to `'CDL (Front)'` |
+These files also parse date strings for compliance calculations — apply the same fix.
+
+### No database changes needed
+The dates are stored correctly. This is purely a display/parsing fix.
 
