@@ -29,7 +29,7 @@ const valueProps = [
 
 const checkpoints = [
   'Class A CDL required',
-  'Own truck or lease-to-own eligible',
+   'Bring your own power unit',
   'Clean MVR & background',
   'Ready to run OTR or regional lanes',
 ];
