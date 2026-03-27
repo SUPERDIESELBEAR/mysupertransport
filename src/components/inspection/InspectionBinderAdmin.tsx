@@ -1870,7 +1870,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                   const isMissing = !singleDoc?.file_url;
                   const expiresAt = singleDoc?.expires_at ?? null;
                   const daysLeft = expiresAt
-                    ? Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000)
+                    ? Math.ceil((parseLocalDate(expiresAt).getTime() - Date.now()) / 86400000)
                     : null;
                   return (
                     <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5 flex items-center gap-3">
