@@ -258,7 +258,9 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
               </div>
             ) : (
               <div className="space-y-2">
-                {COMPANY_WIDE_DOCS.map(({ key, hasExpiry }) => {
+                {companyOrder.map((key) => {
+                  const spec = COMPANY_WIDE_DOCS.find(d => d.key === key);
+                  if (!spec) return null;
                   const doc = findCompanyDoc(key);
                   if (!doc) return null;
                   return (
@@ -266,7 +268,7 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
                       key={key}
                       name={key}
                       doc={doc}
-                      hasExpiry={hasExpiry}
+                      hasExpiry={spec.hasExpiry}
                       selected={selected.has(doc.id)}
                       selectMode={selectMode}
                       onToggleSelect={() => toggleSelect(doc.id)}
