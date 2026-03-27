@@ -2088,6 +2088,89 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      assign_user_role: {
+        Args: {
+          p_role: Database["public"]["Enums"]["app_role"]
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      get_application_by_draft_token: {
+        Args: { p_token: string }
+        Returns: {
+          additional_employers: string | null
+          address_city: string | null
+          address_duration: string | null
+          address_line2: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip: string | null
+          auth_drug_alcohol: boolean | null
+          auth_previous_employers: boolean | null
+          auth_safety_history: boolean | null
+          background_verification_notes: string | null
+          cdl_10_years: boolean | null
+          cdl_class: string | null
+          cdl_expiration: string | null
+          cdl_number: string | null
+          cdl_state: string | null
+          ch_status: Database["public"]["Enums"]["mvr_status"]
+          created_at: string
+          dl_front_url: string | null
+          dl_rear_url: string | null
+          dob: string | null
+          dot_accidents: boolean | null
+          dot_accidents_description: string | null
+          dot_positive_test_past_2yr: boolean | null
+          dot_return_to_duty_docs: boolean | null
+          draft_token: string | null
+          email: string
+          employer_1: Json | null
+          employer_2: Json | null
+          employer_3: Json | null
+          employer_4: Json | null
+          employment_gaps: boolean | null
+          employment_gaps_explanation: string | null
+          endorsements: string[] | null
+          equipment_operated: string[] | null
+          first_name: string | null
+          id: string
+          is_draft: boolean | null
+          last_name: string | null
+          medical_cert_expiration: string | null
+          medical_cert_url: string | null
+          moving_violations: boolean | null
+          moving_violations_description: string | null
+          mvr_status: Database["public"]["Enums"]["mvr_status"]
+          phone: string | null
+          prev_address_city: string | null
+          prev_address_line2: string | null
+          prev_address_state: string | null
+          prev_address_street: string | null
+          prev_address_zip: string | null
+          referral_source: string | null
+          review_status: Database["public"]["Enums"]["review_status"]
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_notes: string | null
+          sap_process: boolean | null
+          signature_image_url: string | null
+          signed_date: string | null
+          ssn_encrypted: string | null
+          submitted_at: string | null
+          testing_policy_accepted: boolean | null
+          typed_full_name: string | null
+          updated_at: string
+          user_id: string | null
+          years_experience: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "applications"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_inspection_doc_by_token: {
         Args: { p_token: string }
         Returns: {
@@ -2109,6 +2192,13 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      remove_user_role: {
+        Args: {
+          p_role: Database["public"]["Enums"]["app_role"]
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       search_audit_log: {
         Args: {
           p_action?: string
