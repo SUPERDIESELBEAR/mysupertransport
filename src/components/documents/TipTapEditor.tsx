@@ -10,6 +10,10 @@ import Link from '@tiptap/extension-link';
 import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import FontFamily from '@tiptap/extension-font-family';
+import Table from '@tiptap/extension-table';
+import TableRow from '@tiptap/extension-table-row';
+import TableCell from '@tiptap/extension-table-cell';
+import TableHeader from '@tiptap/extension-table-header';
 import { useState, useRef, useEffect } from 'react';
 
 // Custom FontSize extension for TipTap v2 (no v2-compatible package exists)
@@ -46,7 +50,8 @@ import {
   Heading1, Heading2, Heading3, Undo, Redo,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Underline as UnderlineIcon, Strikethrough, Highlighter,
-  Link as LinkIcon, Unlink,
+  Link as LinkIcon, Unlink, TableIcon, Plus, Trash2,
+  ArrowUpFromLine, ArrowDownFromLine, ArrowLeftFromLine, ArrowRightFromLine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
