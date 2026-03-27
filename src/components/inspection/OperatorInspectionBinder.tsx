@@ -63,6 +63,7 @@ function DriverUploadRow({ upload, onPreview }: { upload: DriverUpload; onPrevie
 export default function OperatorInspectionBinder({ userId, operatorId }: Props) {
   const { profile, user } = useAuth();
   const { toast } = useToast();
+  const { companyOrder, driverOrder } = useBinderOrder();
   const [companyDocs, setCompanyDocs] = useState<InspectionDocument[]>([]);
   const [perDriverDocs, setPerDriverDocs] = useState<InspectionDocument[]>([]);
   const [driverUploads, setDriverUploads] = useState<DriverUpload[]>([]);
