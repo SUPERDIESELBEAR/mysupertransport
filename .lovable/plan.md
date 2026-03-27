@@ -1,21 +1,28 @@
 
 
-## Keep Headline on One Line (Mobile-Safe)
+## Fix "In Onboarding" Count — Exclude Fully Onboarded Operators
 
-### Change
-**File:** `src/pages/SplashPage.tsx` (line 89)
+### Problem
+The "In Onboarding" metric on the Overview card counts **all** operators (`SELECT count(*) FROM operators`), including those already fully onboarded. It should only count operators still going through onboarding.
 
-Replace the current responsive text classes with a fluid `clamp()` size and `whitespace-nowrap`:
+### Fix
+**File:** `src/pages/management/ManagementPortal.tsx` (line 495)
 
+Change the query from:
+```typescript
+supabase.from('operators').select('id', { count: 'exact' })
 ```
-className="text-[clamp(1.6rem,5.5vw,3.75rem)] whitespace-nowrap font-bold text-surface-dark-foreground leading-tight tracking-tight mb-6"
+to:
+```typescript
+supabase.from('operators').select('id, onboarding_status!inner(fully_onboarded)', { count: 'exact', head: true })
+  .or('fully_onboarded.is.null,fully_onboarded.eq.false', { referencedTable: 'onboarding_status' })
 ```
 
-This scales the font smoothly from ~25px on a 320px screen up to 60px on desktop, keeping "Drive with purpose. Build your future." on a single line at all viewport widths without overflow.
+This joins `onboarding_status` and excludes operators where `fully_onboarded = true`, matching the same logic the Pipeline Dashboard uses.
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/pages/SplashPage.tsx` | Replace fixed breakpoint text sizes with `clamp()` + `whitespace-nowrap` on the `<h1>` |
+| `src/pages/management/ManagementPortal.tsx` | Filter `onboarding` metric to exclude fully onboarded operators |
 
