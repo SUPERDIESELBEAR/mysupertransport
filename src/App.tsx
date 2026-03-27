@@ -45,6 +45,7 @@ function AppRoutes() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/welcome" element={<WelcomeOperator />} />
       <Route path="/inspect/:token" element={<InspectionSharePage />} />
+      <Route path="/splash" element={<SplashPage />} />
 
       {/* Protected routes */}
       <Route path="/dashboard" element={
