@@ -1,31 +1,15 @@
 
 
-## Fix: Pre-existing Operators Landing in Pipeline
+## Fix: Move Johnathan Pratt Out of the Pipeline
 
-### Root Cause
+Johnathan Pratt's operator record exists but `fully_onboarded` is still `false`, which is why he appears in the Applicant Pipeline. His `active_dispatch` row already exists.
 
-Two problems combine to send pre-existing operators into the pipeline:
+### Data fix (no code changes)
 
-1. **The `invite-operator` edge function** creates the operator and inserts a blank `onboarding_status` row (all defaults: `fully_onboarded = null`). It does NOT know about the pre-existing flag, so it never sets `fully_onboarded = true`.
+Run two UPDATE statements using the insert tool:
 
-2. **The client-side code** in `AddDriverModal.tsx` tries to update `fully_onboarded = true` afterward, but this is a race — the operator already exists with incomplete status. If anything goes wrong (timing, RLS, network), the operator stays in the pipeline permanently.
+1. **Set `fully_onboarded = true`** on `onboarding_status` for operator `f2051752-5311-4c1f-b88c-79773e7ed9e5`
+2. Optionally confirm the `active_dispatch` row is correct (it already exists with `not_dispatched` status, which is fine for a pre-existing operator)
 
-3. **The pipeline query** shows ALL operators regardless of onboarded status, so even a brief gap means the operator appears there.
-
-### Fix — Two changes
-
-**1. Edge function (`supabase/functions/invite-operator/index.ts`)**
-
-When `skip_invite` is true, the function should:
-- Insert `onboarding_status` with `fully_onboarded: true` instead of defaults
-- Create the `active_dispatch` row server-side
-- Skip the "Application Approved" notification and approval email (these are irrelevant for pre-existing operators)
-
-This makes it atomic — the operator is fully onboarded the moment they're created.
-
-**2. Client-side cleanup (`src/components/drivers/AddDriverModal.tsx`)**
-
-Remove the post-invite steps that redundantly set `fully_onboarded`, create `active_dispatch`, etc. for pre-existing operators, since the edge function now handles it. Keep the truck info ICA insert (which the edge function doesn't know about) and the unit number update.
-
-### No database changes required.
+This is a one-time data correction for an operator created before the edge function fix was deployed. No schema or code changes needed.
 
