@@ -26,7 +26,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Layers, Shield, Users2, AlertCircle, FileX,
   MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2, FileText,
-  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car,
+  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car, LayoutTemplate,
 } from 'lucide-react';
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
 import MoPlateRegistry from '@/components/mo-plates/MoPlateRegistry';
@@ -66,7 +66,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'email-catalog' | 'forms-catalog' | 'mo-plates';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'email-catalog' | 'content-manager' | 'forms-catalog' | 'mo-plates';
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -97,7 +97,7 @@ export default function ManagementPortal() {
   const [searchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const v = searchParams.get('view') as ManagementView | null;
-    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','forms-catalog','mo-plates'].includes(v)) ? v : 'overview';
+    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates'].includes(v)) ? v : 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [scrollToStageKeyMgmt, setScrollToStageKeyMgmt] = useState<string | undefined>(undefined);
@@ -164,7 +164,7 @@ export default function ManagementPortal() {
   useEffect(() => {
     const v = searchParams.get('view') as ManagementView | null;
     const s = searchParams.get('status') as StatusFilter | null;
-    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','forms-catalog','mo-plates'].includes(v)) {
+    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates'].includes(v)) {
       setView(v);
     }
     if (s && ['pending','approved','denied','all'].includes(s)) {
@@ -691,7 +691,7 @@ export default function ManagementPortal() {
     { label: 'Activity',          icon: <ScrollText className="h-4 w-4" />,      path: 'activity' },
     { label: 'Equipment',         icon: <HardDrive className="h-4 w-4" />,       path: 'equipment' },
     { label: 'MO Plate Registry', icon: <Car className="h-4 w-4" />,             path: 'mo-plates' },
-    { label: 'Email Catalog',     icon: <Mail className="h-4 w-4" />,            path: 'email-catalog' },
+    { label: 'Content Manager',   icon: <LayoutTemplate className="h-4 w-4" />,  path: 'content-manager' },
     { label: 'Forms Catalog',     icon: <FileText className="h-4 w-4" />,         path: 'forms-catalog' },
     { label: 'Demo Mode',         icon: <GraduationCap className="h-4 w-4" />,   path: '__demo__' },
   ];
@@ -1775,7 +1775,7 @@ export default function ManagementPortal() {
           <MoPlateRegistry />
         )}
 
-        {view === 'email-catalog' && (
+        {(view === 'email-catalog' || view === 'content-manager') && (
           <EmailCatalog />
         )}
 

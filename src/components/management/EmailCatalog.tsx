@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, Mail, Send, Loader2, CheckCircle2 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
+import { Eye, Mail, Send, Loader2, CheckCircle2, Globe, ExternalLink, FileEdit, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -733,14 +734,87 @@ export default function EmailCatalog() {
     }
   };
 
+  const APP_PAGES = [
+    {
+      name: 'Splash Page',
+      description: 'The branded public landing page applicants see before starting their application.',
+      route: '/',
+      icon: <Globe className="h-5 w-5 text-primary" />,
+    },
+    {
+      name: 'Welcome Operator',
+      description: 'The password setup page for newly invited operators joining the platform.',
+      route: '/welcome',
+      icon: <UserPlus className="h-5 w-5 text-primary" />,
+    },
+    {
+      name: 'Application Form',
+      description: 'The multi-step CDL driver application form with document uploads and e-signature.',
+      route: '/apply',
+      icon: <FileEdit className="h-5 w-5 text-primary" />,
+    },
+  ];
+
   return (
     <div className="space-y-5 animate-fade-in">
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Email Catalog</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Content Manager</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Browse every automated email the system sends — {TEMPLATES.length} templates across {Object.keys(CATEGORY_LABELS).length - 1} categories
+          Browse app pages and automated email templates
         </p>
       </div>
+
+      <Tabs defaultValue="emails" className="space-y-4">
+        <TabsList className="bg-muted p-1">
+          <TabsTrigger value="emails" className="gap-2 text-sm">
+            <Mail className="h-4 w-4" />
+            Emails
+            <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-semibold rounded-full bg-background/60 px-1">
+              {TEMPLATES.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="pages" className="gap-2 text-sm">
+            <Globe className="h-4 w-4" />
+            Pages
+            <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] text-[10px] font-semibold rounded-full bg-background/60 px-1">
+              {APP_PAGES.length}
+            </span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pages">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {APP_PAGES.map(page => (
+              <Card key={page.route} className="flex flex-col hover:shadow-md transition-shadow">
+                <CardContent className="p-5 flex flex-col gap-3 flex-1">
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      {page.icon}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">{page.name}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{page.route}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{page.description}</p>
+                  <div className="mt-auto pt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-2 text-xs w-full"
+                      onClick={() => window.open(page.route, '_blank')}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Preview Page
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="emails" className="space-y-4">
 
       {/* Category filter tabs */}
       <Tabs value={activeCategory} onValueChange={v => setActiveCategory(v as Category | 'all')}>
@@ -885,6 +959,8 @@ export default function EmailCatalog() {
           </div>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
