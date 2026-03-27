@@ -6,6 +6,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { InspectionDocument, getExpiryStatus, daysUntilExpiry } from './InspectionBinderTypes';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DocumentEditor } from '@/components/shared/DocumentEditor';
 
 interface DocRowProps {
   doc: InspectionDocument | null;
