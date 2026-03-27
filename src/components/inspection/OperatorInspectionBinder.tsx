@@ -284,14 +284,16 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
           <div>
             <SectionHeader title="My Documents" icon={<FileText className="h-3.5 w-3.5 text-gold" />} />
             <div className="space-y-2">
-              {PER_DRIVER_DOCS.map(({ key, hasExpiry }) => {
+              {driverOrder.map((key) => {
+                const spec = PER_DRIVER_DOCS.find(d => d.key === key);
+                if (!spec) return null;
                 const doc = findDriverDoc(key);
                 return (
                   <DocRow
                     key={key}
                     name={key}
                     doc={doc}
-                    hasExpiry={hasExpiry}
+                    hasExpiry={spec.hasExpiry}
                     selected={doc ? selected.has(doc.id) : false}
                     selectMode={selectMode}
                     onToggleSelect={() => doc && toggleSelect(doc.id)}
