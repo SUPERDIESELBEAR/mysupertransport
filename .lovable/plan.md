@@ -1,50 +1,30 @@
 
 
-## Move Driver Name & Action Buttons to the Top of the Operator Detail Panel
+## Add Collapse All, Copy Email, and Message Driver to the Header Row
 
-### What changes
+### Problem
+The sticky mini-bar (only visible on scroll) has three useful quick-actions — Collapse/Expand All Stages, Copy Email, and Message Driver — that are not available in the always-visible header row at the top of the driver detail panel.
 
-The driver name row with action buttons (Place on Hold, Deactivate, Resend Invite, Save Changes) currently renders **after** the stages completion summary, upfront costs card, and truck & equipment card. This plan moves that header block to the very top of the panel — the first thing staff sees when opening a driver.
+### Solution
+Add these three icon buttons to the header action row (next to Place on Hold, Deactivate, Resend Invite, Save Changes) so they're always accessible.
 
-### Current order (top to bottom)
+### Layout
+The new buttons will be inserted between "Resend Invite" and "Save Changes":
+
 ```text
-1. Stages completion summary card
-2. Upfront Costs card
-3. Truck & Equipment card
-4. Sticky mini-bar (hidden until scroll)
-5. ← Header: Back button + Driver Name + Action Buttons ←
-6. On Hold banner
-7. Status badges
-8. Compliance banners / pills
-9. Cert expiry history
-10. Onboarding progress (second card)
-11. Stage dot row + Collapse All
-12. Stages 1–7
+[← Pipeline]  Driver Name / email
+       [Place on Hold] [Deactivate] [Resend Invite] [↕ Collapse All] [📋 Copy Email] [💬 Message] [Save Changes]
 ```
 
-### New order
-```text
-1. ← Header: Back button + Driver Name + Action Buttons ←
-2. On Hold banner
-3. Status badges
-4. Stages completion summary card
-5. Compliance banners / pills
-6. Upfront Costs card
-7. Truck & Equipment card
-8. Sticky mini-bar (hidden until scroll)
-9. Cert expiry history
-10. Onboarding progress (second card)
-11. Stage dot row + Collapse All
-12. Stages 1–7
-```
+Each button will be an icon-only `Button variant="outline" size="sm"` with a tooltip (matching the existing style), keeping the header compact.
 
-### Technical detail
-In `src/pages/staff/OperatorDetailPanel.tsx`, the header block (lines ~2140–2247) and the On Hold banner + status badges (lines ~2249–2269) will be cut from their current position and pasted immediately after the opening `<div className="space-y-6 ...">` at line 1565 — before the stages completion summary.
-
-The compliance alert banner and compliance pills will also move up to sit right after the status badges, providing immediate visibility into urgent issues.
+### Details
+- **Collapse/Expand All**: Toggles all 7 stage sections collapsed/expanded — same logic already in the sticky bar
+- **Copy Email**: Copies `operatorEmail` to clipboard with a checkmark confirmation — same logic already in the sticky bar
+- **Message Driver**: Calls `onMessageOperator(operatorUserId)` through `guardedNavigate` — same logic already in the sticky bar
 
 ### Files changed
 | File | Change |
 |------|--------|
-| `src/pages/staff/OperatorDetailPanel.tsx` | Reorder JSX blocks: move header + on-hold banner + status badges + compliance sections above the summary/costs/truck cards |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Add 3 icon buttons to the header action row (~lines 1655–1669) |
 
