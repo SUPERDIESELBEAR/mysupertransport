@@ -263,6 +263,10 @@ export default function TipTapEditor({ content, onChange, placeholder = 'Start w
       Color,
       FontFamily,
       FontSize,
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
     ],
     content,
     onUpdate({ editor }) {
