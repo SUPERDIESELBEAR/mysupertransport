@@ -1,37 +1,35 @@
 
 
-## Fix: "Forbidden: insufficient role" when Adding a Driver
+## Fix: Duplicate Email Error When Adding a Driver
 
-### Root cause
+### Problem
 
-In `supabase/functions/invite-operator/index.ts` (line 35-41), the role check queries `user_roles` for rows matching `management` OR `onboarding_staff`, but uses `.maybeSingle()`. Your account holds **both** roles, so the query returns multiple rows. `.maybeSingle()` treats multiple results as an error and returns `null` for data, triggering the 403 response.
+When adding a driver whose email already exists in a submitted (non-draft) application, the database unique constraint `applications_email_non_draft_unique` rejects the insert. The raw database error is shown to the user instead of a helpful message.
 
-### Fix — one file: `supabase/functions/invite-operator/index.ts`
+### Fix — one file: `src/components/drivers/AddDriverModal.tsx`
 
-Change the role check from:
+**Before inserting** into `applications`, query for an existing non-draft application with the same email:
+
 ```ts
-const { data: roleCheck } = await supabaseAdmin
-  .from('user_roles')
-  .select('role')
-  .eq('user_id', callerUser.id)
-  .in('role', ['management', 'onboarding_staff'])
+const { data: existing } = await supabase
+  .from('applications')
+  .select('id')
+  .eq('email', form.email.trim().toLowerCase())
+  .eq('is_draft', false)
   .maybeSingle();
+
+if (existing) {
+  toast({
+    title: 'Email already in use',
+    description: 'A driver with this email address already exists. Please use a different email.',
+    variant: 'destructive',
+  });
+  setSaving(false);
+  return;
+}
 ```
 
-to:
-
-```ts
-const { data: roleCheck } = await supabaseAdmin
-  .from('user_roles')
-  .select('role')
-  .eq('user_id', callerUser.id)
-  .in('role', ['management', 'onboarding_staff'])
-  .limit(1);
-```
-
-And update the guard check from `if (!roleCheck)` to `if (!roleCheck || roleCheck.length === 0)`.
-
-This returns an array and checks for at least one matching role, regardless of how many the user holds.
+This goes at the top of the `try` block in `handleSubmit`, before the `applications` insert (line 62). It catches the duplicate early and gives a clear, actionable message instead of the raw constraint error.
 
 ### No database changes. No new files.
 
