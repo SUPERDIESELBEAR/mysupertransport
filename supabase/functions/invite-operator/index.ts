@@ -166,7 +166,22 @@ Deno.serve(async (req) => {
         console.error('Operator create error:', opError.message);
       } else if (newOp) {
         operatorId = newOp.id;
-        await supabaseAdmin.from('onboarding_status').insert({ operator_id: newOp.id });
+
+        if (skip_invite) {
+          // Pre-existing operator: mark fully onboarded atomically
+          await supabaseAdmin.from('onboarding_status').insert({
+            operator_id: newOp.id,
+            fully_onboarded: true,
+          });
+          // Create active_dispatch row server-side
+          await supabaseAdmin.from('active_dispatch').insert({
+            operator_id: newOp.id,
+            dispatch_status: 'not_dispatched',
+            updated_by: callerUser.id,
+          });
+        } else {
+          await supabaseAdmin.from('onboarding_status').insert({ operator_id: newOp.id });
+        }
       }
     }
 
