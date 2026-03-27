@@ -60,7 +60,7 @@ export default function SplashPage() {
 
       {/* HEADER */}
       <header className="relative z-10 flex items-center justify-between px-6 py-5 max-w-6xl mx-auto w-full">
-        <img src={logo} alt="SUPERTRANSPORT" className="h-10 max-w-[180px] object-contain shrink-0" />
+        <img src={logo} alt="SUPERTRANSPORT" className="h-14 max-w-[240px] object-contain shrink-0" />
         <div className="flex items-center gap-4">
           <Link
             to="/status"
