@@ -5,9 +5,14 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-// Configure PDF.js worker
-import * as pdfjsLib from 'pdfjs-dist';
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Configure PDF.js worker (guarded to prevent build crashes)
+let pdfjsLib: typeof import('pdfjs-dist') | null = null;
+try {
+  pdfjsLib = await import('pdfjs-dist');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+} catch (e) {
+  console.warn('pdfjs-dist failed to load, PDF editing will be unavailable', e);
+}
 
 interface DocumentEditorProps {
   fileUrl: string;

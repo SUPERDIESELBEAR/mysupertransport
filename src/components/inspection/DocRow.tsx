@@ -6,7 +6,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { InspectionDocument, getExpiryStatus, daysUntilExpiry } from './InspectionBinderTypes';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { DocumentEditor } from '@/components/shared/DocumentEditor';
+import React, { Suspense } from 'react';
+const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
 
 interface DocRowProps {
   doc: InspectionDocument | null;
