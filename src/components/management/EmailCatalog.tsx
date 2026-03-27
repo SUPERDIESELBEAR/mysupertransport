@@ -958,6 +958,7 @@ export default function EmailCatalog() {
             )}
           </div>
         </DialogContent>
+      </Dialog>
         </TabsContent>
       </Tabs>
     </div>
