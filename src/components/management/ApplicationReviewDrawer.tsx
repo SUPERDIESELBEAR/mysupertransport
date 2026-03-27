@@ -809,12 +809,26 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   >
                     <XCircle className="h-4 w-4 mr-2" /> Deny Application
                   </Button>
-                  <Button
-                    onClick={() => setConfirmAction('approve')}
-                    className="flex-1 bg-status-complete text-white hover:bg-status-complete/90"
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-2" /> Approve & Invite
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex-1">
+                          <Button
+                            onClick={() => setConfirmAction('approve')}
+                            disabled={!bgVerificationComplete}
+                            className="w-full bg-status-complete text-white hover:bg-status-complete/90 disabled:opacity-50"
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-2" /> Approve & Invite
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      {!bgVerificationComplete && (
+                        <TooltipContent>
+                          <p>MVR and Clearinghouse must both be "Received" before approving.</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </>
             ) : (
