@@ -48,6 +48,10 @@ const INITIAL_FORM = {
   truck_plate: '',
   truck_plate_state: '',
   trailer_number: '',
+  eld_serial_number: '',
+  dash_cam_number: '',
+  bestpass_number: '',
+  fuel_card_number: '',
 };
 
 export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModalProps) {
