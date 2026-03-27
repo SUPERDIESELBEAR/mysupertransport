@@ -122,10 +122,7 @@ export default function ApplicationForm() {
     const token = localStorage.getItem(DRAFT_TOKEN_KEY);
     if (!token) { setDraftLoaded(true); return; }
     supabase
-      .from('applications')
-      .select('*')
-      .eq('draft_token', token)
-      .eq('is_draft', true)
+      .rpc('get_application_by_draft_token', { p_token: token })
       .single()
       .then(({ data }) => {
         if (data) {
