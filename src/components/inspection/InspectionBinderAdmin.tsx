@@ -1308,11 +1308,45 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 </div>
               )}
 
-              {COMPANY_WIDE_DOCS.map(({ key, hasExpiry }) => (
-                <div key={key} ref={el => { companyDocRowRefs.current[key] = el; }}>
-                  <AdminDocRow docName={key} scope="company_wide" hasExpiry={hasExpiry} />
-                </div>
-              ))}
+              <DragDropContext onDragEnd={(result: DropResult) => {
+                if (!result.destination) return;
+                const items = [...companyOrder];
+                const [moved] = items.splice(result.source.index, 1);
+                items.splice(result.destination.index, 0, moved);
+                saveOrder('company_wide', items);
+              }}>
+                <Droppable droppableId="company-docs">
+                  {(provided) => (
+                    <div ref={provided.innerRef} {...provided.droppableProps}>
+                      {companyOrder.map((key, index) => {
+                        const spec = COMPANY_WIDE_DOCS.find(d => d.key === key);
+                        if (!spec) return null;
+                        return (
+                          <Draggable key={key} draggableId={`company-${key}`} index={index}>
+                            {(dragProvided, snapshot) => (
+                              <div
+                                ref={(el) => { dragProvided.innerRef(el); companyDocRowRefs.current[key] = el; }}
+                                {...dragProvided.draggableProps}
+                                className={snapshot.isDragging ? 'opacity-90 shadow-lg rounded-xl' : ''}
+                              >
+                                <div className="flex items-center gap-1">
+                                  <div {...dragProvided.dragHandleProps} className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground/40 hover:text-muted-foreground">
+                                    <GripVertical className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <AdminDocRow docName={key} scope="company_wide" hasExpiry={spec.hasExpiry} />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </Draggable>
+                        );
+                      })}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
             </div>
             );
           })()}
