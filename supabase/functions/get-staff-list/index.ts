@@ -342,7 +342,7 @@ Deno.serve(async (req) => {
     const { data: roleRows } = await supabaseAdmin
       .from('user_roles')
       .select('user_id, role')
-      .in('role', ['management', 'onboarding_staff', 'dispatcher']);
+      .in('role', ['owner', 'management', 'onboarding_staff', 'dispatcher']);
 
     if (!roleRows?.length) {
       return new Response(JSON.stringify({ staff: [] }), {
