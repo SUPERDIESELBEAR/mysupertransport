@@ -479,10 +479,11 @@ function PDFModal({ doc, onClose, onEdit }: { doc: InspectionDocument; onClose: 
   );
 }
 
-export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSelect, onUpload, isUploading, canUpload, isManagedByCompany }: DocRowProps) {
+export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSelect, onUpload, isUploading, canUpload, isManagedByCompany, canEdit, editBucketName, editFilePath, onEditSave }: DocRowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const { toast } = useToast();
 
