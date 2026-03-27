@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
           // Pre-existing operator: mark fully onboarded atomically
           await supabaseAdmin.from('onboarding_status').insert({
             operator_id: newOp.id,
-            fully_onboarded: true,
+            insurance_added_date: new Date().toISOString().split('T')[0],
           });
           // Create active_dispatch row server-side
           await supabaseAdmin.from('active_dispatch').insert({
