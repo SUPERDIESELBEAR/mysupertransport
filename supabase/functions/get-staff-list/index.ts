@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
       .in('role', ['management', 'owner'])
       .limit(1);
 
-    if (!roleCheck) {
+    if (!roleCheck?.length) {
       return new Response(JSON.stringify({ error: 'Forbidden: management only' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
