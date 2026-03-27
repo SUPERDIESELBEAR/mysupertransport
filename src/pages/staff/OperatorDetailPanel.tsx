@@ -1564,6 +1564,135 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl w-full">
 
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <Button variant="ghost" size="sm" onClick={() => guardedNavigate(onBack)} className="gap-1.5 text-muted-foreground hover:text-foreground shrink-0">
+            <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Pipeline</span>
+          </Button>
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-foreground flex items-center gap-2 flex-wrap">
+              <span className="truncate">{operatorName}</span>
+              {isAlert && <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />}
+              {status.fully_onboarded && <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />}
+            </h1>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">{operatorEmail}</p>
+          </div>
+        </div>
+        <TooltipProvider delayDuration={150}>
+          <div className="flex items-center gap-2 shrink-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => isOnHold ? handleRemoveOnHold() : (() => { setOnHoldModalReason(''); setOnHoldModalDate(new Date().toISOString().split('T')[0]); setShowOnHoldModal(true); })()}
+                  disabled={savingOnHold}
+                  className={isOnHold
+                    ? 'gap-2 text-blue-600 border-blue-400 bg-blue-50 hover:bg-blue-100 hover:text-blue-700'
+                    : 'gap-2 text-muted-foreground border-border hover:text-blue-600 hover:border-blue-400'
+                  }
+                >
+                  {savingOnHold
+                    ? <span className="h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent" />
+                    : <PauseCircle className="h-3.5 w-3.5" />
+                  }
+                  <span className="hidden sm:inline">{isOnHold ? 'Remove Hold' : 'Place On Hold'}</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {isOnHold ? 'Remove On Hold status and return to active pipeline' : 'Place operator on hold with a reason'}
+              </TooltipContent>
+            </Tooltip>
+            {isManagement && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDeactivateConfirm(true)}
+                    disabled={deactivating}
+                    className={isActive
+                      ? 'gap-2 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive'
+                      : 'gap-2 text-status-complete border-status-complete/40 hover:bg-status-complete/10 hover:text-status-complete'
+                    }
+                  >
+                    {isActive
+                      ? <UserX className="h-3.5 w-3.5" />
+                      : <UserCheck className="h-3.5 w-3.5" />
+                    }
+                    <span className="hidden sm:inline">{isActive ? 'Deactivate' : 'Reactivate'}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {isActive ? 'Remove from active roster' : 'Restore to active roster'}
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {operatorEmail && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResendInvite}
+                    disabled={resendingInvite}
+                    className="gap-2 text-muted-foreground hover:text-foreground"
+                  >
+                    {resendingInvite
+                      ? <span className="h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent" />
+                      : inviteResent
+                      ? <Check className="h-3.5 w-3.5 text-status-complete" />
+                      : <Send className="h-3.5 w-3.5" />
+                    }
+                    <span className="hidden sm:inline">{inviteResent ? 'Invite Sent' : 'Resend Invite'}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {inviteResent ? '✓ Invitation sent to ' + operatorEmail : 'Resend invitation email to ' + operatorEmail}
+                </TooltipContent>
+              </Tooltip>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={handleSave} disabled={saving} className="bg-gold text-surface-dark font-semibold hover:bg-gold-light gap-2 shrink-0">
+                  <Save className="h-4 w-4" />
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs flex items-center gap-1.5">
+                <span className="text-muted-foreground">Keyboard shortcut:</span>
+                <kbd className="px-1 py-0.5 rounded border border-border bg-muted text-foreground font-mono text-[10px] leading-none">
+                  {navigator.platform.startsWith('Mac') ? '⌘S' : 'Ctrl+S'}
+                </kbd>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
+      </div>
+
+      {/* On Hold Banner */}
+      {isOnHold && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-blue-300 bg-blue-50">
+          <PauseCircle className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-blue-800">On Hold</p>
+            {onHoldReason && <p className="text-xs text-blue-700 mt-0.5">{onHoldReason}</p>}
+            {onHoldDate && <p className="text-xs text-blue-600 mt-0.5">Since {new Date(onHoldDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>}
+          </div>
+        </div>
+      )}
+
+      {/* Status overview */}
+      <div className="flex flex-wrap gap-2">
+        {!isActive && <Badge className="bg-muted text-muted-foreground border text-xs">⊘ Inactive</Badge>}
+        {isOnHold && <Badge className="bg-blue-100 text-blue-700 border border-blue-300 text-xs">⏸ On Hold</Badge>}
+        {isAlert && <Badge className="status-action border text-xs">⚠ Alert — Review Required</Badge>}
+        {status.fully_onboarded && <Badge className="status-complete border text-xs">✓ Fully Onboarded</Badge>}
+        {status.ica_status === 'complete' && <Badge className="status-complete border text-xs">ICA Signed</Badge>}
+        {status.pe_screening_result === 'clear' && <Badge className="status-complete border text-xs">PE Clear</Badge>}
+      </div>
+
       {/* ── Top Completion Summary ── */}
       {(() => {
         const _exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
@@ -1621,6 +1750,226 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </button>
               ))}
             </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Compliance Alert Banner ─────────────────────────────────────── */}
+      {(() => {
+        type Issue = {
+          label: string;
+          severity: 'expired' | 'critical' | 'missing';
+          focusField: 'cdl' | 'medcert';
+          daysLabel?: string;
+        };
+        const issues: Issue[] = [];
+
+        const checkDoc = (label: string, dateStr: string | null, focusField: 'cdl' | 'medcert') => {
+          if (!dateStr) {
+            issues.push({ label, severity: 'missing', focusField });
+            return;
+          }
+          const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
+          if (days < 0) {
+            issues.push({ label, severity: 'expired', focusField, daysLabel: `${Math.abs(days)}d ago` });
+          } else if (days <= 30) {
+            issues.push({ label, severity: 'critical', focusField, daysLabel: `${days}d left` });
+          }
+        };
+
+        checkDoc('CDL', cdlExpiration, 'cdl');
+        checkDoc('Med Cert', medCertExpiration, 'medcert');
+
+        if (issues.length === 0) return null;
+
+        const hasExpired  = issues.some(i => i.severity === 'expired');
+        const hasCritical = issues.some(i => i.severity === 'critical');
+        const hasMissing  = issues.some(i => i.severity === 'missing');
+
+        const bannerBg   = hasExpired || hasCritical
+          ? 'bg-destructive/5 border-destructive/25'
+          : 'bg-yellow-50 border-yellow-200';
+        const iconColor  = hasExpired || hasCritical ? 'text-destructive' : 'text-yellow-600';
+        const titleColor = hasExpired || hasCritical ? 'text-destructive' : 'text-yellow-800';
+        const tagBg: Record<Issue['severity'], string> = {
+          expired:  'bg-destructive/10 text-destructive border-destructive/30',
+          critical: 'bg-destructive/10 text-destructive border-destructive/25',
+          missing:  'bg-muted text-muted-foreground border-border',
+        };
+        const tagLabel: Record<Issue['severity'], string> = {
+          expired:  'Expired',
+          critical: 'Critical',
+          missing:  'No date on file',
+        };
+
+        const title = hasMissing && !hasExpired && !hasCritical
+          ? 'Missing compliance dates'
+          : hasExpired
+          ? 'Expired compliance document'
+          : 'Critical compliance expiry';
+
+        return (
+          <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${bannerBg}`}>
+            <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${iconColor}`} />
+            <div className="flex-1 min-w-0">
+              <p className={`text-xs font-semibold ${titleColor}`}>{title}</p>
+              <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                {issues.map(issue => (
+                  <button
+                    key={issue.focusField}
+                    onClick={onOpenAppReview ? () => onOpenAppReview(issue.focusField) : undefined}
+                    className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border transition-all ${tagBg[issue.severity]} ${onOpenAppReview ? 'hover:opacity-75 cursor-pointer' : 'cursor-default'}`}
+                  >
+                    <span>{issue.label}</span>
+                    <span className="opacity-60">·</span>
+                    <span>{issue.daysLabel ?? tagLabel[issue.severity]}</span>
+                    {onOpenAppReview && <span className="opacity-50 text-[10px]">✎</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {onOpenAppReview && (
+              <button
+                onClick={() => onOpenAppReview(issues[0].focusField)}
+                className={`text-[10px] font-semibold shrink-0 mt-0.5 ${titleColor} opacity-60 hover:opacity-100 transition-opacity`}
+              >
+                Update →
+              </button>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Compliance expiry row */}
+      {(cdlExpiration || medCertExpiration) && (() => {
+        const buildPill = (label: string, dateStr: string, focusField: 'cdl' | 'medcert') => {
+          const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
+          const expired  = days < 0;
+          const critical = !expired && days <= 30;
+          const warning  = !expired && days <= 90;
+          const needsRenew = expired || critical || warning;
+          const colorClass = expired || critical
+            ? 'bg-destructive/10 text-destructive border-destructive/30'
+            : warning
+            ? 'bg-yellow-50 text-yellow-700 border-yellow-300'
+            : 'bg-status-complete/10 text-status-complete border-status-complete/30';
+          const dotClass = expired || critical ? 'bg-destructive' : warning ? 'bg-yellow-500' : 'bg-status-complete';
+          const renewBtnClass = expired || critical
+            ? 'text-destructive hover:bg-destructive/10 border-destructive/30'
+            : 'text-yellow-700 hover:bg-yellow-100 border-yellow-300';
+          const dayLabel = expired
+            ? `Expired ${Math.abs(days)}d ago`
+            : days === 0 ? 'Expires today'
+            : `${days}d left`;
+          const isClickable = !!onOpenAppReview;
+          const isRenewing = renewingField === focusField;
+          const docType = focusField === 'cdl' ? 'CDL' : 'Medical Cert' as 'CDL' | 'Medical Cert';
+          const isSending = !!reminderSending[docType];
+          const isSent = !!reminderSent[docType];
+          const lastReminderAt = lastReminded[docType];
+          const renewedAt = lastRenewed[docType];
+          const renewedByName = lastRenewedBy[docType];
+          const pill = (
+            <span
+              onClick={isClickable ? () => onOpenAppReview(focusField) : undefined}
+              className={`inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-lg border font-medium ${colorClass} ${isClickable ? 'cursor-pointer hover:opacity-80 hover:shadow-sm transition-all' : 'cursor-default'}`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotClass} ${expired ? 'animate-pulse' : ''}`} />
+              <span className="font-semibold">{label}</span>
+              <span className="opacity-70">·</span>
+              <span>{dayLabel}</span>
+              {isClickable && <span className="opacity-50 ml-0.5">✎</span>}
+            </span>
+          );
+          const tooltipMsg = label + ' expires ' + format(parseISO(dateStr), 'MMM d, yyyy') + (expired ? ' — already expired' : critical ? ' — critical, renew immediately' : warning ? ' — follow up soon' : ' — on track');
+          return (
+            <span key={label} className="inline-flex items-center gap-1">
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>{pill}</TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {tooltipMsg}{isClickable ? '. Click to edit.' : ''}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {needsRenew && (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => handleMarkRenewed(focusField)}
+                        disabled={isRenewing || renewingField !== null}
+                        className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${renewBtnClass}`}
+                      >
+                        <RotateCcw className={`h-2.5 w-2.5 ${isRenewing ? 'animate-spin' : ''}`} />
+                        {isRenewing ? '…' : 'Renew'}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      Mark as renewed — sets expiry to {new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString()}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {needsRenew && (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => handleSendReminder(docType, dateStr)}
+                        disabled={isSending || isSent}
+                        className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                          isSent
+                            ? 'text-status-complete border-status-complete/40 bg-status-complete/10'
+                            : 'text-info border-info/40 hover:bg-info/10'
+                        }`}
+                      >
+                        {isSending ? (
+                          <span className="h-2.5 w-2.5 animate-spin rounded-full border border-current border-t-transparent" />
+                        ) : isSent ? (
+                          <CheckCheck className="h-2.5 w-2.5" />
+                        ) : (
+                          <Send className="h-2.5 w-2.5" />
+                        )}
+                        {isSending ? '…' : isSent ? 'Sent' : 'Remind'}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      {isSent
+                        ? '✓ Reminder email sent'
+                        : lastReminderAt
+                        ? `Send renewal reminder email · Last sent ${format(new Date(lastReminderAt), 'MMM d')}`
+                        : 'Send renewal reminder email to operator'}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {/* Renewed by indicator */}
+              {renewedAt && (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border bg-status-complete/10 text-status-complete border-status-complete/25 cursor-default shrink-0">
+                        <RotateCcw className="h-2.5 w-2.5" />
+                        {format(new Date(renewedAt), 'MMM d')}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs space-y-0.5">
+                      <p className="font-semibold">Last renewed</p>
+                      <p>{format(new Date(renewedAt), 'MMM d, yyyy · h:mm a')}</p>
+                      {renewedByName && <p className="text-muted-foreground">by {renewedByName}</p>}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </span>
+          );
+        };
+        return (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide shrink-0">Compliance</span>
+            {cdlExpiration && buildPill('CDL', cdlExpiration, 'cdl')}
+            {medCertExpiration && buildPill('Med Cert', medCertExpiration, 'medcert')}
           </div>
         );
       })()}
@@ -2137,136 +2486,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           </div>
         );
       })()}
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <Button variant="ghost" size="sm" onClick={() => guardedNavigate(onBack)} className="gap-1.5 text-muted-foreground hover:text-foreground shrink-0">
-            <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Pipeline</span>
-          </Button>
-          <div className="min-w-0">
-            <h1 className="text-lg sm:text-xl font-bold text-foreground flex items-center gap-2 flex-wrap">
-              <span className="truncate">{operatorName}</span>
-              {isAlert && <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />}
-              {status.fully_onboarded && <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />}
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground truncate">{operatorEmail}</p>
-          </div>
-        </div>
-        <TooltipProvider delayDuration={150}>
-          <div className="flex items-center gap-2 shrink-0">
-            {/* On Hold toggle — all staff */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => isOnHold ? handleRemoveOnHold() : (() => { setOnHoldModalReason(''); setOnHoldModalDate(new Date().toISOString().split('T')[0]); setShowOnHoldModal(true); })()}
-                  disabled={savingOnHold}
-                  className={isOnHold
-                    ? 'gap-2 text-blue-600 border-blue-400 bg-blue-50 hover:bg-blue-100 hover:text-blue-700'
-                    : 'gap-2 text-muted-foreground border-border hover:text-blue-600 hover:border-blue-400'
-                  }
-                >
-                  {savingOnHold
-                    ? <span className="h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent" />
-                    : <PauseCircle className="h-3.5 w-3.5" />
-                  }
-                  <span className="hidden sm:inline">{isOnHold ? 'Remove Hold' : 'Place On Hold'}</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                {isOnHold ? 'Remove On Hold status and return to active pipeline' : 'Place operator on hold with a reason'}
-              </TooltipContent>
-            </Tooltip>
-            {/* Deactivate / Reactivate — management only */}
-            {isManagement && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowDeactivateConfirm(true)}
-                    disabled={deactivating}
-                    className={isActive
-                      ? 'gap-2 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive'
-                      : 'gap-2 text-status-complete border-status-complete/40 hover:bg-status-complete/10 hover:text-status-complete'
-                    }
-                  >
-                    {isActive
-                      ? <UserX className="h-3.5 w-3.5" />
-                      : <UserCheck className="h-3.5 w-3.5" />
-                    }
-                    <span className="hidden sm:inline">{isActive ? 'Deactivate' : 'Reactivate'}</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {isActive ? 'Remove from active roster' : 'Restore to active roster'}
-                </TooltipContent>
-              </Tooltip>
-            )}
-            {operatorEmail && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleResendInvite}
-                    disabled={resendingInvite}
-                    className="gap-2 text-muted-foreground hover:text-foreground"
-                  >
-                    {resendingInvite
-                      ? <span className="h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent" />
-                      : inviteResent
-                      ? <Check className="h-3.5 w-3.5 text-status-complete" />
-                      : <Send className="h-3.5 w-3.5" />
-                    }
-                    <span className="hidden sm:inline">{inviteResent ? 'Invite Sent' : 'Resend Invite'}</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {inviteResent ? '✓ Invitation sent to ' + operatorEmail : 'Resend invitation email to ' + operatorEmail}
-                </TooltipContent>
-              </Tooltip>
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={handleSave} disabled={saving} className="bg-gold text-surface-dark font-semibold hover:bg-gold-light gap-2 shrink-0">
-                  <Save className="h-4 w-4" />
-                  {saving ? 'Saving…' : 'Save Changes'}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs flex items-center gap-1.5">
-                <span className="text-muted-foreground">Keyboard shortcut:</span>
-                <kbd className="px-1 py-0.5 rounded border border-border bg-muted text-foreground font-mono text-[10px] leading-none">
-                  {navigator.platform.startsWith('Mac') ? '⌘S' : 'Ctrl+S'}
-                </kbd>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </TooltipProvider>
-      </div>
-
-      {/* On Hold Banner */}
-      {isOnHold && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-blue-300 bg-blue-50">
-          <PauseCircle className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-blue-800">On Hold</p>
-            {onHoldReason && <p className="text-xs text-blue-700 mt-0.5">{onHoldReason}</p>}
-            {onHoldDate && <p className="text-xs text-blue-600 mt-0.5">Since {new Date(onHoldDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>}
-          </div>
-        </div>
-      )}
-
-      {/* Status overview */}
-      <div className="flex flex-wrap gap-2">
-        {!isActive && <Badge className="bg-muted text-muted-foreground border text-xs">⊘ Inactive</Badge>}
-        {isOnHold && <Badge className="bg-blue-100 text-blue-700 border border-blue-300 text-xs">⏸ On Hold</Badge>}
-        {isAlert && <Badge className="status-action border text-xs">⚠ Alert — Review Required</Badge>}
-        {status.fully_onboarded && <Badge className="status-complete border text-xs">✓ Fully Onboarded</Badge>}
-        {status.ica_status === 'complete' && <Badge className="status-complete border text-xs">ICA Signed</Badge>}
-        {status.pe_screening_result === 'clear' && <Badge className="status-complete border text-xs">PE Clear</Badge>}
-      </div>
 
       {/* ── On Hold Modal ── */}
       <Dialog open={showOnHoldModal} onOpenChange={setShowOnHoldModal}>
@@ -2389,225 +2608,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       </AlertDialog>
 
 
-      {/* ── Compliance Alert Banner ─────────────────────────────────────── */}
-      {(() => {
-        type Issue = {
-          label: string;
-          severity: 'expired' | 'critical' | 'missing';
-          focusField: 'cdl' | 'medcert';
-          daysLabel?: string;
-        };
-        const issues: Issue[] = [];
-
-        const checkDoc = (label: string, dateStr: string | null, focusField: 'cdl' | 'medcert') => {
-          if (!dateStr) {
-            issues.push({ label, severity: 'missing', focusField });
-            return;
-          }
-          const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
-          if (days < 0) {
-            issues.push({ label, severity: 'expired', focusField, daysLabel: `${Math.abs(days)}d ago` });
-          } else if (days <= 30) {
-            issues.push({ label, severity: 'critical', focusField, daysLabel: `${days}d left` });
-          }
-        };
-
-        checkDoc('CDL', cdlExpiration, 'cdl');
-        checkDoc('Med Cert', medCertExpiration, 'medcert');
-
-        if (issues.length === 0) return null;
-
-        const hasExpired  = issues.some(i => i.severity === 'expired');
-        const hasCritical = issues.some(i => i.severity === 'critical');
-        const hasMissing  = issues.some(i => i.severity === 'missing');
-
-        const bannerBg   = hasExpired || hasCritical
-          ? 'bg-destructive/5 border-destructive/25'
-          : 'bg-yellow-50 border-yellow-200';
-        const iconColor  = hasExpired || hasCritical ? 'text-destructive' : 'text-yellow-600';
-        const titleColor = hasExpired || hasCritical ? 'text-destructive' : 'text-yellow-800';
-        const tagBg: Record<Issue['severity'], string> = {
-          expired:  'bg-destructive/10 text-destructive border-destructive/30',
-          critical: 'bg-destructive/10 text-destructive border-destructive/25',
-          missing:  'bg-muted text-muted-foreground border-border',
-        };
-        const tagLabel: Record<Issue['severity'], string> = {
-          expired:  'Expired',
-          critical: 'Critical',
-          missing:  'No date on file',
-        };
-
-        const title = hasMissing && !hasExpired && !hasCritical
-          ? 'Missing compliance dates'
-          : hasExpired
-          ? 'Expired compliance document'
-          : 'Critical compliance expiry';
-
-        return (
-          <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${bannerBg}`}>
-            <AlertTriangle className={`h-4 w-4 mt-0.5 shrink-0 ${iconColor}`} />
-            <div className="flex-1 min-w-0">
-              <p className={`text-xs font-semibold ${titleColor}`}>{title}</p>
-              <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                {issues.map(issue => (
-                  <button
-                    key={issue.focusField}
-                    onClick={onOpenAppReview ? () => onOpenAppReview(issue.focusField) : undefined}
-                    className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border transition-all ${tagBg[issue.severity]} ${onOpenAppReview ? 'hover:opacity-75 cursor-pointer' : 'cursor-default'}`}
-                  >
-                    <span>{issue.label}</span>
-                    <span className="opacity-60">·</span>
-                    <span>{issue.daysLabel ?? tagLabel[issue.severity]}</span>
-                    {onOpenAppReview && <span className="opacity-50 text-[10px]">✎</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {onOpenAppReview && (
-              <button
-                onClick={() => onOpenAppReview(issues[0].focusField)}
-                className={`text-[10px] font-semibold shrink-0 mt-0.5 ${titleColor} opacity-60 hover:opacity-100 transition-opacity`}
-              >
-                Update →
-              </button>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* Compliance expiry row */}
-      {(cdlExpiration || medCertExpiration) && (() => {
-        const buildPill = (label: string, dateStr: string, focusField: 'cdl' | 'medcert') => {
-          const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
-          const expired  = days < 0;
-          const critical = !expired && days <= 30;
-          const warning  = !expired && days <= 90;
-          const needsRenew = expired || critical || warning;
-          const colorClass = expired || critical
-            ? 'bg-destructive/10 text-destructive border-destructive/30'
-            : warning
-            ? 'bg-yellow-50 text-yellow-700 border-yellow-300'
-            : 'bg-status-complete/10 text-status-complete border-status-complete/30';
-          const dotClass = expired || critical ? 'bg-destructive' : warning ? 'bg-yellow-500' : 'bg-status-complete';
-          const renewBtnClass = expired || critical
-            ? 'text-destructive hover:bg-destructive/10 border-destructive/30'
-            : 'text-yellow-700 hover:bg-yellow-100 border-yellow-300';
-          const dayLabel = expired
-            ? `Expired ${Math.abs(days)}d ago`
-            : days === 0 ? 'Expires today'
-            : `${days}d left`;
-          const isClickable = !!onOpenAppReview;
-          const isRenewing = renewingField === focusField;
-          const docType = focusField === 'cdl' ? 'CDL' : 'Medical Cert' as 'CDL' | 'Medical Cert';
-          const isSending = !!reminderSending[docType];
-          const isSent = !!reminderSent[docType];
-          const lastReminderAt = lastReminded[docType];
-          const renewedAt = lastRenewed[docType];
-          const renewedByName = lastRenewedBy[docType];
-          const pill = (
-            <span
-              onClick={isClickable ? () => onOpenAppReview(focusField) : undefined}
-              className={`inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-lg border font-medium ${colorClass} ${isClickable ? 'cursor-pointer hover:opacity-80 hover:shadow-sm transition-all' : 'cursor-default'}`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dotClass} ${expired ? 'animate-pulse' : ''}`} />
-              <span className="font-semibold">{label}</span>
-              <span className="opacity-70">·</span>
-              <span>{dayLabel}</span>
-              {isClickable && <span className="opacity-50 ml-0.5">✎</span>}
-            </span>
-          );
-          const tooltipMsg = label + ' expires ' + format(parseISO(dateStr), 'MMM d, yyyy') + (expired ? ' — already expired' : critical ? ' — critical, renew immediately' : warning ? ' — follow up soon' : ' — on track');
-          return (
-            <span key={label} className="inline-flex items-center gap-1">
-              <TooltipProvider delayDuration={100}>
-                <Tooltip>
-                  <TooltipTrigger asChild>{pill}</TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">
-                    {tooltipMsg}{isClickable ? '. Click to edit.' : ''}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              {needsRenew && (
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={() => handleMarkRenewed(focusField)}
-                        disabled={isRenewing || renewingField !== null}
-                        className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${renewBtnClass}`}
-                      >
-                        <RotateCcw className={`h-2.5 w-2.5 ${isRenewing ? 'animate-spin' : ''}`} />
-                        {isRenewing ? '…' : 'Renew'}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs">
-                      Mark as renewed — sets expiry to {new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString()}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              {needsRenew && (
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={() => handleSendReminder(docType, dateStr)}
-                        disabled={isSending || isSent}
-                        className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                          isSent
-                            ? 'text-status-complete border-status-complete/40 bg-status-complete/10'
-                            : 'text-info border-info/40 hover:bg-info/10'
-                        }`}
-                      >
-                        {isSending ? (
-                          <span className="h-2.5 w-2.5 animate-spin rounded-full border border-current border-t-transparent" />
-                        ) : isSent ? (
-                          <CheckCheck className="h-2.5 w-2.5" />
-                        ) : (
-                          <Send className="h-2.5 w-2.5" />
-                        )}
-                        {isSending ? '…' : isSent ? 'Sent' : 'Remind'}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs">
-                      {isSent
-                        ? '✓ Reminder email sent'
-                        : lastReminderAt
-                        ? `Send renewal reminder email · Last sent ${format(new Date(lastReminderAt), 'MMM d')}`
-                        : 'Send renewal reminder email to operator'}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              {/* Renewed by indicator */}
-              {renewedAt && (
-                <TooltipProvider delayDuration={100}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border bg-status-complete/10 text-status-complete border-status-complete/25 cursor-default shrink-0">
-                        <RotateCcw className="h-2.5 w-2.5" />
-                        {format(new Date(renewedAt), 'MMM d')}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs space-y-0.5">
-                      <p className="font-semibold">Last renewed</p>
-                      <p>{format(new Date(renewedAt), 'MMM d, yyyy · h:mm a')}</p>
-                      {renewedByName && <p className="text-muted-foreground">by {renewedByName}</p>}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </span>
-          );
-        };
-        return (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide shrink-0">Compliance</span>
-            {cdlExpiration && buildPill('CDL', cdlExpiration, 'cdl')}
-            {medCertExpiration && buildPill('Med Cert', medCertExpiration, 'medcert')}
-          </div>
-        );
-      })()}
 
       {/* ── Cert Expiry History Timeline ─────────────────────── */}
       {(cdlExpiration || medCertExpiration) && (
