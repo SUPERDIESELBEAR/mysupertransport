@@ -327,6 +327,27 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     }
   };
 
+  const saveBgVerification = async () => {
+    if (!app) return;
+    setSavingBg(true);
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update({
+          mvr_status: bgMvrStatus as any,
+          ch_status: bgChStatus as any,
+          background_verification_notes: bgNotes || null,
+        })
+        .eq('id', app.id);
+      if (error) throw error;
+      toast.success('Background verification saved.');
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to save.');
+    } finally {
+      setSavingBg(false);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
