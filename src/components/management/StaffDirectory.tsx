@@ -332,9 +332,10 @@ export default function StaffDirectory() {
     setDeleting(true);
     try {
       const memberName = [managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
-      const { data, error } = await supabase.functions.invoke('get-staff-list', {
-        method: 'POST',
-        body: { action: 'delete_user', user_id: managingMember.user_id, target_name: memberName },
+      
+      // Use the owner-only delete-user-account edge function
+      const { data, error } = await supabase.functions.invoke('delete-user-account', {
+        body: { user_id: managingMember.user_id },
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
       if (error) throw error;
@@ -343,7 +344,7 @@ export default function StaffDirectory() {
       setStaff(prev => prev.filter(m => m.user_id !== managingMember.user_id));
       setManagingMember(null);
       setDeleteConfirmPending(false);
-      toast({ title: '✅ Staff Member Removed', description: `${memberName} has been permanently deleted.` });
+      toast({ title: '✅ Account Deleted', description: `${memberName} has been permanently deleted.` });
     } catch (err) {
       toast({ title: 'Delete Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
     } finally {
