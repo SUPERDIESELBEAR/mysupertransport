@@ -42,7 +42,8 @@ export const COMPANY_WIDE_DOCS = [
 // Per-driver document slots
 export const PER_DRIVER_DOCS = [
   { key: 'IRP Registration (cab card)', hasExpiry: true },
-  { key: 'CDL', hasExpiry: true },
+  { key: 'CDL (Front)', hasExpiry: true },
+  { key: 'CDL (Back)', hasExpiry: true },
   { key: 'Medical Certificate', hasExpiry: true },
   { key: 'DOT Inspections', hasExpiry: true },
   { key: 'Lease Agreement', hasExpiry: false },
