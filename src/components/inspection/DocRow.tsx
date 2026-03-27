@@ -20,6 +20,14 @@ interface DocRowProps {
   canUpload?: boolean;
   /** When true, the Upload/Replace button is disabled with a tooltip explaining it's managed from Company Docs */
   isManagedByCompany?: boolean;
+  /** When true, show Edit button in the file preview modal */
+  canEdit?: boolean;
+  /** Storage bucket name for saving edits */
+  editBucketName?: string;
+  /** Storage file path for saving edits */
+  editFilePath?: string;
+  /** Called after an edit is saved with the new URL */
+  onEditSave?: (newUrl: string) => void;
 }
 
 export function ExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
