@@ -334,6 +334,30 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
               <Input id="add-trailer" value={form.trailer_number} onChange={e => set('trailer_number', e.target.value)} placeholder="T-001" />
             </div>
           </div>
+
+          <hr className="border-border" />
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Equipment &amp; Cards</p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="add-eld">ELD Serial #</Label>
+              <Input id="add-eld" value={form.eld_serial_number} onChange={e => set('eld_serial_number', e.target.value)} placeholder="ELD serial" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-dashcam">Dash Cam #</Label>
+              <Input id="add-dashcam" value={form.dash_cam_number} onChange={e => set('dash_cam_number', e.target.value)} placeholder="Dash cam #" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="add-bestpass">BestPass #</Label>
+              <Input id="add-bestpass" value={form.bestpass_number} onChange={e => set('bestpass_number', e.target.value)} placeholder="BestPass #" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-fuelcard">Fuel Card #</Label>
+              <Input id="add-fuelcard" value={form.fuel_card_number} onChange={e => set('fuel_card_number', e.target.value)} placeholder="Fuel card #" />
+            </div>
+          </div>
         </div>
 
         <DialogFooter className="gap-2">
