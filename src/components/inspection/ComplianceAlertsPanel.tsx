@@ -123,7 +123,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       (['cdl_expiration', 'medical_cert_expiration'] as const).forEach(field => {
         const dateStr: string | null = app[field];
         if (!dateStr) return;
-        const days = differenceInDays(parseISO(dateStr), today);
+        const days = differenceInDays(parseLocalDate(dateStr), today);
         if (days <= 90) {
           newAlerts.push({
             operator_id: op.id,
@@ -591,7 +591,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                   {!renewedAt && <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-destructive/10 text-destructive border border-destructive/25 shrink-0"><span className="h-1.5 w-1.5 rounded-full bg-destructive inline-block" />Never Renewed</span>}
                 </div>
                 {/* Expiry date */}
-                <span className="text-xs text-muted-foreground hidden sm:block shrink-0">{format(parseISO(alert.expiration_date), 'MMM d, yyyy')}</span>
+                <span className="text-xs text-muted-foreground hidden sm:block shrink-0">{format(parseLocalDate(alert.expiration_date), 'MMM d, yyyy')}</span>
                 {/* Urgency badge */}
                 <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border shrink-0 ${expired || critical ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-yellow-50 text-yellow-700 border-yellow-300'}`}>
                   {expired ? `Expired ${Math.abs(alert.days_until)}d ago` : alert.days_until === 0 ? 'Expires today' : `${alert.days_until}d left`}

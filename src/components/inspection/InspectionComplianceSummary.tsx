@@ -127,7 +127,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       const key = INSPECTION_NAMES[doc.name];
       if (!key) return;
       const daysUntil = doc.expires_at
-        ? differenceInDays(parseISO(doc.expires_at), today)
+        ? differenceInDays(parseLocalDate(doc.expires_at), today)
         : null;
       companyDocMap[key] = { id: doc.id, expiresAt: doc.expires_at, daysUntil };
     });
@@ -153,10 +153,10 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       const name = opNames[op.id];
 
       const cdlDays = app.cdl_expiration
-        ? differenceInDays(parseISO(app.cdl_expiration), today)
+        ? differenceInDays(parseLocalDate(app.cdl_expiration), today)
         : null;
       const medDays = app.medical_cert_expiration
-        ? differenceInDays(parseISO(app.medical_cert_expiration), today)
+        ? differenceInDays(parseLocalDate(app.medical_cert_expiration), today)
         : null;
 
       result.push({
@@ -531,7 +531,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                               )}
                               <span className={cn(isSaved && 'text-status-complete font-medium')}>
                                 {entry.expiresAt
-                                  ? format(parseISO(entry.expiresAt), 'MMM d, yyyy')
+                                  ? format(parseLocalDate(entry.expiresAt), 'MMM d, yyyy')
                                   : <span className="italic opacity-50">Set date</span>
                                 }
                               </span>
@@ -544,7 +544,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                             </div>
                             <Calendar
                               mode="single"
-                              selected={entry.expiresAt ? parseISO(entry.expiresAt) : undefined}
+                              selected={entry.expiresAt ? parseLocalDate(entry.expiresAt) : undefined}
                               onSelect={date => handleFleetDateChange(docId, entry.docKey, date)}
                               initialFocus
                               className={cn('p-3 pointer-events-auto')}
@@ -554,7 +554,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                       ) : (
                         <span className="text-xs text-muted-foreground">
                           {entry.expiresAt
-                            ? format(parseISO(entry.expiresAt), 'MMM d, yyyy')
+                            ? format(parseLocalDate(entry.expiresAt), 'MMM d, yyyy')
                             : <span className="italic text-muted-foreground/50">Not set</span>
                           }
                         </span>
