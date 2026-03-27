@@ -993,6 +993,30 @@ export type Database = {
           },
         ]
       }
+      inspection_binder_order: {
+        Row: {
+          doc_order: Json
+          id: string
+          scope: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          doc_order?: Json
+          id?: string
+          scope: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          doc_order?: Json
+          id?: string
+          scope?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       inspection_documents: {
         Row: {
           driver_id: string | null
