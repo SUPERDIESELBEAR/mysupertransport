@@ -75,8 +75,9 @@ Deno.serve(async (req) => {
       account_status: 'active',
     }, { onConflict: 'user_id' });
 
+    const assignRole = role === 'owner' ? 'owner' : 'management';
     await supabaseAdmin.from('user_roles').upsert(
-      { user_id: userId, role: 'management' },
+      { user_id: userId, role: assignRole },
       { onConflict: 'user_id,role' }
     );
 
