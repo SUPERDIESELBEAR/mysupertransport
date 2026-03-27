@@ -37,8 +37,8 @@ Deno.serve(async (req) => {
       .from('user_roles')
       .select('role')
       .eq('user_id', callerUser.id)
-      .eq('role', 'management')
-      .maybeSingle();
+      .in('role', ['management', 'owner'])
+      .limit(1);
 
     if (!roleCheck) {
       return new Response(JSON.stringify({ error: 'Forbidden: management only' }), {
