@@ -50,6 +50,7 @@ function AppRoutes() {
       {/* Protected routes */}
       <Route path="/dashboard" element={
         !user ? <Navigate to="/login" replace /> :
+        activeRole === 'owner' ? <ManagementPortal /> :
         activeRole === 'management' ? <ManagementPortal /> :
         activeRole === 'onboarding_staff' ? <StaffPortal /> :
         activeRole === 'dispatcher' ? <Navigate to="/dispatch" replace /> :
