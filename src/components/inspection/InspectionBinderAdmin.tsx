@@ -1366,7 +1366,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     const doc = perDriverDocs.find(d => d.name === key);
                     const isMissing = !doc?.file_url;
                     const isExpired = hasExpiry && doc?.expires_at
-                      ? Math.ceil((new Date(doc.expires_at).getTime() - Date.now()) / 86400000) < 0
+                      ? Math.ceil((parseLocalDate(doc.expires_at).getTime() - Date.now()) / 86400000) < 0
                       : false;
                     const needsReminder = isMissing || isExpired;
                     const docCooldown = isOnCooldown(lastReminders[key]?.sent_at);
