@@ -544,7 +544,7 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
           </div>
           {hasFile && doc?.expires_at && (
             <p className="text-xs text-muted-foreground mt-0.5">
-              Expires {new Date(doc.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              Expires {parseLocalDate(doc.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </p>
           )}
         </div>
