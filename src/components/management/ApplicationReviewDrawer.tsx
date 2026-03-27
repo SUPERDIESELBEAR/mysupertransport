@@ -8,8 +8,11 @@ import { format, parseISO, differenceInDays, startOfDay } from 'date-fns';
 import {
   X, CheckCircle2, XCircle, User, MapPin, CalendarIcon,
   Briefcase, Car, FileText, ShieldAlert, AlertTriangle, Loader2, Printer,
-  Eye, EyeOff, Lock, Save, Download
+  Eye, EyeOff, Lock, Save, Download, ShieldCheck
 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -82,6 +85,9 @@ export interface FullApplication {
   medical_cert_url: string | null;
   medical_cert_expiration: string | null;
   signature_image_url: string | null;
+  mvr_status?: string;
+  ch_status?: string;
+  background_verification_notes?: string | null;
 }
 
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
@@ -218,6 +224,16 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [ssnLoading, setSsnLoading] = useState(false);
   const [ssnError, setSsnError] = useState<string | null>(null);
 
+  // Background Verification
+  const [bgMvrStatus, setBgMvrStatus] = useState(app?.mvr_status ?? 'not_started');
+  const [bgChStatus, setBgChStatus] = useState(app?.ch_status ?? 'not_started');
+  const [bgNotes, setBgNotes] = useState(app?.background_verification_notes ?? '');
+  const [savingBg, setSavingBg] = useState(false);
+  const bgIsDirty = bgMvrStatus !== (app?.mvr_status ?? 'not_started')
+    || bgChStatus !== (app?.ch_status ?? 'not_started')
+    || bgNotes !== (app?.background_verification_notes ?? '');
+  const bgVerificationComplete = bgMvrStatus === 'received' && bgChStatus === 'received';
+
   const cdlFieldRef = useRef<HTMLDivElement>(null);
   const medCertFieldRef = useRef<HTMLDivElement>(null);
 
@@ -308,6 +324,27 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
       toast.error(err.message ?? 'Failed to save.');
     } finally {
       setSavingMedCert(false);
+    }
+  };
+
+  const saveBgVerification = async () => {
+    if (!app) return;
+    setSavingBg(true);
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update({
+          mvr_status: bgMvrStatus as any,
+          ch_status: bgChStatus as any,
+          background_verification_notes: bgNotes || null,
+        })
+        .eq('id', app.id);
+      if (error) throw error;
+      toast.success('Background verification saved.');
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to save.');
+    } finally {
+      setSavingBg(false);
     }
   };
 
@@ -480,6 +517,73 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   />
                 </div>
               </Section>
+
+              {/* Background Verification */}
+              {app.review_status === 'pending' && (
+                <Section title="Background Verification" icon={<ShieldCheck className="h-4 w-4" />}>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-5 gap-2 text-sm">
+                      <span className="col-span-2 text-muted-foreground self-center">MVR Status</span>
+                      <div className="col-span-3">
+                        <Select value={bgMvrStatus} onValueChange={setBgMvrStatus}>
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="not_started">Not Started</SelectItem>
+                            <SelectItem value="requested">Requested</SelectItem>
+                            <SelectItem value="received">Received</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-5 gap-2 text-sm">
+                      <span className="col-span-2 text-muted-foreground self-center">Clearinghouse Status</span>
+                      <div className="col-span-3">
+                        <Select value={bgChStatus} onValueChange={setBgChStatus}>
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="not_started">Not Started</SelectItem>
+                            <SelectItem value="requested">Requested</SelectItem>
+                            <SelectItem value="received">Received</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-5 gap-2 text-sm">
+                      <span className="col-span-2 text-muted-foreground self-start mt-2">Notes</span>
+                      <div className="col-span-3">
+                        <Textarea
+                          value={bgNotes}
+                          onChange={e => setBgNotes(e.target.value)}
+                          placeholder="MVR/Clearinghouse findings..."
+                          rows={2}
+                          className="text-xs resize-none"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={saveBgVerification}
+                        disabled={savingBg || !bgIsDirty}
+                        className="h-8 px-3 border-gold/40 text-gold hover:bg-gold/10 disabled:opacity-40 gap-1.5"
+                      >
+                        {savingBg ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                        Save
+                      </Button>
+                    </div>
+                    {!bgVerificationComplete && (
+                      <p className="text-xs text-status-progress bg-status-progress/10 rounded-lg px-3 py-2">
+                        ℹ️ Both MVR and Clearinghouse must be <strong>Received</strong> before this application can be approved.
+                      </p>
+                    )}
+                  </div>
+                </Section>
+              )}
 
               {/* Employment */}
               <Section title="Employment History" icon={<Briefcase className="h-4 w-4" />}>
@@ -705,12 +809,26 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   >
                     <XCircle className="h-4 w-4 mr-2" /> Deny Application
                   </Button>
-                  <Button
-                    onClick={() => setConfirmAction('approve')}
-                    className="flex-1 bg-status-complete text-white hover:bg-status-complete/90"
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-2" /> Approve & Invite
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex-1">
+                          <Button
+                            onClick={() => setConfirmAction('approve')}
+                            disabled={!bgVerificationComplete}
+                            className="w-full bg-status-complete text-white hover:bg-status-complete/90 disabled:opacity-50"
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-2" /> Approve & Invite
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      {!bgVerificationComplete && (
+                        <TooltipContent>
+                          <p>MVR and Clearinghouse must both be "Received" before approving.</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </>
             ) : (
