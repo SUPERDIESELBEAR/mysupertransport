@@ -61,7 +61,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 const ALL_STAFF_ROLES: StaffRole[] = ['onboarding_staff', 'dispatcher', 'management'];
 
 export default function StaffDirectory() {
-  const { session, user } = useAuth();
+  const { session, user, isOwner } = useAuth();
   const { toast } = useToast();
   const { guardDemo } = useDemoMode();
 
