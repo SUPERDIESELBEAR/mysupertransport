@@ -1,17 +1,25 @@
 
 
-## Fix Owner Role Assignment — Marcus Mueller
+## Fix: Owner Role Not Routed to Management Portal
 
 ### Problem
-The previous migration incorrectly assigned the `owner` role to Omar Tarar. You (Marcus Mueller) are the actual owner of SUPERTRANSPORT and this app.
+When you log in, your `activeRole` is `owner` (the highest-priority role). But the `/dashboard` route in `App.tsx` only checks for `management`, `onboarding_staff`, `dispatcher`, and `operator` — it doesn't handle `owner`. So it falls through to `<ApplicationStatus />`, showing the "Application Approved" screen.
 
 ### Fix
-A single data operation to:
-1. **Remove** the `owner` role from Omar Tarar's account
-2. **Assign** the `owner` role to Marcus Mueller's account
+**File:** `src/App.tsx` (line 53)
 
-Marcus will keep the existing `management` role as well, so all admin features continue working. Omar will retain `management` but no longer have `owner` privileges (account deletion).
+Add `owner` to the dashboard routing logic so it routes to `ManagementPortal`:
+
+```
+activeRole === 'owner' ? <ManagementPortal /> :
+activeRole === 'management' ? <ManagementPortal /> :
+```
+
+This single change ensures that when you log in as owner, you land on the Management Portal as expected.
 
 ### Files changed
-None — this is a data-only fix using the database insert tool (no schema/code changes needed).
+
+| File | Change |
+|------|--------|
+| `src/App.tsx` | Add `activeRole === 'owner'` case to dashboard route |
 
