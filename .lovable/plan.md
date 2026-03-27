@@ -1,35 +1,31 @@
 
 
-## Fix: Duplicate Email Error When Adding a Driver
+## Fix: Pre-existing Operators Landing in Pipeline
 
-### Problem
+### Root Cause
 
-When adding a driver whose email already exists in a submitted (non-draft) application, the database unique constraint `applications_email_non_draft_unique` rejects the insert. The raw database error is shown to the user instead of a helpful message.
+Two problems combine to send pre-existing operators into the pipeline:
 
-### Fix — one file: `src/components/drivers/AddDriverModal.tsx`
+1. **The `invite-operator` edge function** creates the operator and inserts a blank `onboarding_status` row (all defaults: `fully_onboarded = null`). It does NOT know about the pre-existing flag, so it never sets `fully_onboarded = true`.
 
-**Before inserting** into `applications`, query for an existing non-draft application with the same email:
+2. **The client-side code** in `AddDriverModal.tsx` tries to update `fully_onboarded = true` afterward, but this is a race — the operator already exists with incomplete status. If anything goes wrong (timing, RLS, network), the operator stays in the pipeline permanently.
 
-```ts
-const { data: existing } = await supabase
-  .from('applications')
-  .select('id')
-  .eq('email', form.email.trim().toLowerCase())
-  .eq('is_draft', false)
-  .maybeSingle();
+3. **The pipeline query** shows ALL operators regardless of onboarded status, so even a brief gap means the operator appears there.
 
-if (existing) {
-  toast({
-    title: 'Email already in use',
-    description: 'A driver with this email address already exists. Please use a different email.',
-    variant: 'destructive',
-  });
-  setSaving(false);
-  return;
-}
-```
+### Fix — Two changes
 
-This goes at the top of the `try` block in `handleSubmit`, before the `applications` insert (line 62). It catches the duplicate early and gives a clear, actionable message instead of the raw constraint error.
+**1. Edge function (`supabase/functions/invite-operator/index.ts`)**
 
-### No database changes. No new files.
+When `skip_invite` is true, the function should:
+- Insert `onboarding_status` with `fully_onboarded: true` instead of defaults
+- Create the `active_dispatch` row server-side
+- Skip the "Application Approved" notification and approval email (these are irrelevant for pre-existing operators)
+
+This makes it atomic — the operator is fully onboarded the moment they're created.
+
+**2. Client-side cleanup (`src/components/drivers/AddDriverModal.tsx`)**
+
+Remove the post-invite steps that redundantly set `fully_onboarded`, create `active_dispatch`, etc. for pre-existing operators, since the edge function now handles it. Keep the truck info ICA insert (which the edge function doesn't know about) and the unit number update.
+
+### No database changes required.
 
