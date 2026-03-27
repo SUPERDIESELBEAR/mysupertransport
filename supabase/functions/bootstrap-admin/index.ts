@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email, first_name, last_name, bootstrap_secret, set_password, user_id } = await req.json();
+    const { email, first_name, last_name, bootstrap_secret, set_password, user_id, role } = await req.json();
 
     const BOOTSTRAP_SECRET = Deno.env.get('BOOTSTRAP_SECRET') || 'supertransport-bootstrap-2026';
     if (bootstrap_secret !== BOOTSTRAP_SECRET) {
