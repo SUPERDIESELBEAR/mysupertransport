@@ -1,34 +1,50 @@
 
 
-## Revised: Add Background Verification to Application Review
+## Move Driver Name & Action Buttons to the Top of the Operator Detail Panel
 
-Same plan as previously approved, with the section renamed from **"Pre-Screening"** to **"Background Verification"** throughout to avoid confusion with the PE Screening (drug & alcohol test) step.
+### What changes
 
-### Database changes
-Add 3 columns to `public.applications`:
+The driver name row with action buttons (Place on Hold, Deactivate, Resend Invite, Save Changes) currently renders **after** the stages completion summary, upfront costs card, and truck & equipment card. This plan moves that header block to the very top of the panel — the first thing staff sees when opening a driver.
 
-| Column | Type | Default |
-|--------|------|---------|
-| `mvr_status` | `mvr_status` enum | `'not_started'` |
-| `ch_status` | `mvr_status` enum | `'not_started'` |
-| `background_verification_notes` | `text` | `null` |
+### Current order (top to bottom)
+```text
+1. Stages completion summary card
+2. Upfront Costs card
+3. Truck & Equipment card
+4. Sticky mini-bar (hidden until scroll)
+5. ← Header: Back button + Driver Name + Action Buttons ←
+6. On Hold banner
+7. Status badges
+8. Compliance banners / pills
+9. Cert expiry history
+10. Onboarding progress (second card)
+11. Stage dot row + Collapse All
+12. Stages 1–7
+```
 
-### UI changes — ApplicationReviewDrawer.tsx
-1. Add a **"Background Verification"** section in the Overview tab with:
-   - MVR Status dropdown (Not Started / Requested / Received)
-   - Clearinghouse Status dropdown (Not Started / Requested / Received)
-   - Background Verification Notes textarea
-   - Save button
-2. **Approve & Invite** button disabled until both MVR and CH are `received`
+### New order
+```text
+1. ← Header: Back button + Driver Name + Action Buttons ←
+2. On Hold banner
+3. Status badges
+4. Stages completion summary card
+5. Compliance banners / pills
+6. Upfront Costs card
+7. Truck & Equipment card
+8. Sticky mini-bar (hidden until scroll)
+9. Cert expiry history
+10. Onboarding progress (second card)
+11. Stage dot row + Collapse All
+12. Stages 1–7
+```
 
-### Approval carry-forward — invite-operator/index.ts
-- Initialize `onboarding_status.mvr_status` and `ch_status` from the application values
-- If both are `received`, auto-set `mvr_ch_approval = 'approved'`
+### Technical detail
+In `src/pages/staff/OperatorDetailPanel.tsx`, the header block (lines ~2140–2247) and the On Hold banner + status badges (lines ~2249–2269) will be cut from their current position and pasted immediately after the opening `<div className="space-y-6 ...">` at line 1565 — before the stages completion summary.
+
+The compliance alert banner and compliance pills will also move up to sit right after the status badges, providing immediate visibility into urgent issues.
 
 ### Files changed
 | File | Change |
 |------|--------|
-| Migration | Add 3 columns to `applications` |
-| `ApplicationReviewDrawer.tsx` | Add Background Verification section; gate Approve button |
-| `invite-operator/index.ts` | Carry forward MVR/CH statuses on approval |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Reorder JSX blocks: move header + on-hold banner + status badges + compliance sections above the summary/costs/truck cards |
 
