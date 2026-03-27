@@ -37,10 +37,10 @@ Deno.serve(async (req) => {
       .from('user_roles')
       .select('role')
       .eq('user_id', callerUser.id)
-      .eq('role', 'management')
-      .maybeSingle();
+      .in('role', ['management', 'owner'])
+      .limit(1);
 
-    if (!roleCheck) {
+    if (!roleCheck?.length) {
       return new Response(JSON.stringify({ error: 'Forbidden: management only' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -342,7 +342,7 @@ Deno.serve(async (req) => {
     const { data: roleRows } = await supabaseAdmin
       .from('user_roles')
       .select('user_id, role')
-      .in('role', ['management', 'onboarding_staff', 'dispatcher']);
+      .in('role', ['owner', 'management', 'onboarding_staff', 'dispatcher']);
 
     if (!roleRows?.length) {
       return new Response(JSON.stringify({ staff: [] }), {
