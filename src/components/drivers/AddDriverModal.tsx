@@ -58,6 +58,24 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
 
     setSaving(true);
     try {
+      // Check for existing non-draft application with same email
+      const { data: existing } = await supabase
+        .from('applications')
+        .select('id')
+        .eq('email', form.email.trim().toLowerCase())
+        .eq('is_draft', false)
+        .maybeSingle();
+
+      if (existing) {
+        toast({
+          title: 'Email already in use',
+          description: 'A driver with this email address already exists. Please use a different email.',
+          variant: 'destructive',
+        });
+        setSaving(false);
+        return;
+      }
+
       // 1. Create a minimal application record
       const { data: app, error: appErr } = await supabase
         .from('applications')
