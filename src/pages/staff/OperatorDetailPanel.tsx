@@ -1653,6 +1653,68 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </TooltipContent>
               </Tooltip>
             )}
+            {/* Collapse/Expand All Stages */}
+            {(() => {
+              const allKeys = ['stage1','stage2','stage3','stage4','stage5','stage6','stage7'];
+              const allCollapsed = allKeys.every(k => collapsedStages.has(k));
+              return (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCollapsedStages(allCollapsed ? new Set() : new Set(allKeys))}
+                      className="gap-1 text-muted-foreground hover:text-foreground"
+                    >
+                      {allCollapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {allCollapsed ? 'Expand all stages' : 'Collapse all stages'}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })()}
+            {/* Copy Email */}
+            {operatorEmail && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(operatorEmail);
+                      setCopiedEmail(true);
+                      setTimeout(() => setCopiedEmail(false), 2000);
+                    }}
+                    className="gap-1 text-muted-foreground hover:text-foreground"
+                  >
+                    {copiedEmail ? <Check className="h-3.5 w-3.5 text-status-complete" /> : <Copy className="h-3.5 w-3.5" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {copiedEmail ? '✓ Copied!' : `Copy email — ${operatorEmail}`}
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {/* Message Driver */}
+            {onMessageOperator && operatorUserId && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => guardedNavigate(() => onMessageOperator(operatorUserId))}
+                    className="gap-1 text-muted-foreground hover:text-foreground"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  Message driver
+                </TooltipContent>
+              </Tooltip>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button onClick={handleSave} disabled={saving} className="bg-gold text-surface-dark font-semibold hover:bg-gold-light gap-2 shrink-0">
