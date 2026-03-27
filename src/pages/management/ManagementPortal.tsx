@@ -1775,7 +1775,7 @@ export default function ManagementPortal() {
           <MoPlateRegistry />
         )}
 
-        {view === 'email-catalog' && (
+        {(view === 'email-catalog' || view === 'content-manager') && (
           <EmailCatalog />
         )}
 
