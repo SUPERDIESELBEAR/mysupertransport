@@ -1108,7 +1108,9 @@ export default function StaffDirectory() {
                     </button>
                   )}
 
-                  {/* Delete */}
+                  {/* Delete — owner only */}
+                  {isOwner && (
+                  <>
                   {!deleteConfirmPending ? (
                     <button
                       type="button"
@@ -1117,9 +1119,9 @@ export default function StaffDirectory() {
                     >
                       <div className="flex items-center gap-2 text-sm font-medium">
                         <Trash2 className="h-4 w-4 shrink-0" />
-                        Delete Staff Member
+                        Delete Account Permanently
                       </div>
-                      <span className="text-xs text-destructive/60 group-hover:text-destructive transition-colors">Permanent</span>
+                      <span className="text-xs text-destructive/60 group-hover:text-destructive transition-colors">Owner only</span>
                     </button>
                   ) : (
                     <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-3 space-y-3">
