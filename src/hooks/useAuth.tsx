@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRoles(userRoles);
       
       // Set default active role based on priority
-      const rolePriority: AppRole[] = ['management', 'onboarding_staff', 'dispatcher', 'operator', 'applicant'];
+      const rolePriority: AppRole[] = ['owner', 'management', 'onboarding_staff', 'dispatcher', 'operator', 'applicant'];
       const defaultRole = rolePriority.find(r => userRoles.includes(r)) || userRoles[0] || null;
       
       // Restore saved role preference if still valid
