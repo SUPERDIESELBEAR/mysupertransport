@@ -323,7 +323,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
   );
 }
 
-function PDFModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => void }) {
+function PDFModal({ doc, onClose, onEdit }: { doc: InspectionDocument; onClose: () => void; onEdit?: () => void }) {
   const [loaded, setLoaded] = useState(false);
   const [zoomIdx, setZoomIdx] = useState(DEFAULT_ZOOM_IDX);
   const iframeRef = useRef<HTMLIFrameElement>(null);
