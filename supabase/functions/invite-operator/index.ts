@@ -64,8 +64,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (app.review_status !== 'pending') {
-      return new Response(JSON.stringify({ error: 'Application is not in pending status' }), {
+    if (app.review_status !== 'pending' && app.review_status !== 'approved') {
+      return new Response(JSON.stringify({ error: 'Application is not in pending or approved status' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
