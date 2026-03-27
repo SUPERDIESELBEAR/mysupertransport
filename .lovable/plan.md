@@ -1,47 +1,34 @@
 
 
-## Auto-Sync Application Docs to Inspection Binder
+## Revised: Add Background Verification to Application Review
 
-### What changes
-**Single file**: `supabase/functions/invite-operator/index.ts`
+Same plan as previously approved, with the section renamed from **"Pre-Screening"** to **"Background Verification"** throughout to avoid confusion with the PE Screening (drug & alcohol test) step.
 
-After the operator + onboarding_status creation block (after line 210), add a block that inserts `inspection_documents` rows for any application uploads that exist.
+### Database changes
+Add 3 columns to `public.applications`:
 
-### Logic
+| Column | Type | Default |
+|--------|------|---------|
+| `mvr_status` | `mvr_status` enum | `'not_started'` |
+| `ch_status` | `mvr_status` enum | `'not_started'` |
+| `background_verification_notes` | `text` | `null` |
 
-```text
-if (operatorId && invitedUserId) {
-  const docRows = [];
-  
-  if (app.dl_front_url)
-    → { name: 'CDL (Front)', scope: 'per_driver', driver_id: invitedUserId,
-        file_url: app.dl_front_url, uploaded_by: callerUser.id,
-        expires_at: app.cdl_expiration ?? null }
+### UI changes — ApplicationReviewDrawer.tsx
+1. Add a **"Background Verification"** section in the Overview tab with:
+   - MVR Status dropdown (Not Started / Requested / Received)
+   - Clearinghouse Status dropdown (Not Started / Requested / Received)
+   - Background Verification Notes textarea
+   - Save button
+2. **Approve & Invite** button disabled until both MVR and CH are `received`
 
-  if (app.dl_rear_url)
-    → { name: 'CDL (Back)', scope: 'per_driver', driver_id: invitedUserId,
-        file_url: app.dl_rear_url, uploaded_by: callerUser.id,
-        expires_at: app.cdl_expiration ?? null }
-
-  if (app.medical_cert_url)
-    → { name: 'Medical Certificate', scope: 'per_driver', driver_id: invitedUserId,
-        file_url: app.medical_cert_url, uploaded_by: callerUser.id,
-        expires_at: app.medical_cert_expiration ?? null }
-
-  if (docRows.length > 0)
-    supabaseAdmin.from('inspection_documents').insert(docRows)
-}
-```
-
-This runs for both standard approvals and pre-existing operator imports — both paths have the application data and a resolved `operatorId` + `invitedUserId`.
-
-### Why it's safe
-- No schema changes needed — `inspection_documents` already accepts arbitrary `name` values and `per_driver` scope
-- If a binder doc with the same name already exists for that driver, it just creates another row (harmless; staff can remove duplicates)
-- Uses `file_url` from the application (pointing to `application-documents` bucket) — no file copy needed since staff have read access to that bucket
+### Approval carry-forward — invite-operator/index.ts
+- Initialize `onboarding_status.mvr_status` and `ch_status` from the application values
+- If both are `received`, auto-set `mvr_ch_approval = 'approved'`
 
 ### Files changed
 | File | Change |
 |------|--------|
-| `supabase/functions/invite-operator/index.ts` | Add inspection doc sync block (~10 lines) after line 210 |
+| Migration | Add 3 columns to `applications` |
+| `ApplicationReviewDrawer.tsx` | Add Background Verification section; gate Approve button |
+| `invite-operator/index.ts` | Carry forward MVR/CH statuses on approval |
 
