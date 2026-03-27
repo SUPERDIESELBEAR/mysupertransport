@@ -1,25 +1,21 @@
 
 
-## Fix: Owner Role Not Routed to Management Portal
+## Keep Headline on One Line (Mobile-Safe)
 
-### Problem
-When you log in, your `activeRole` is `owner` (the highest-priority role). But the `/dashboard` route in `App.tsx` only checks for `management`, `onboarding_staff`, `dispatcher`, and `operator` — it doesn't handle `owner`. So it falls through to `<ApplicationStatus />`, showing the "Application Approved" screen.
+### Change
+**File:** `src/pages/SplashPage.tsx` (line 89)
 
-### Fix
-**File:** `src/App.tsx` (line 53)
-
-Add `owner` to the dashboard routing logic so it routes to `ManagementPortal`:
+Replace the current responsive text classes with a fluid `clamp()` size and `whitespace-nowrap`:
 
 ```
-activeRole === 'owner' ? <ManagementPortal /> :
-activeRole === 'management' ? <ManagementPortal /> :
+className="text-[clamp(1.6rem,5.5vw,3.75rem)] whitespace-nowrap font-bold text-surface-dark-foreground leading-tight tracking-tight mb-6"
 ```
 
-This single change ensures that when you log in as owner, you land on the Management Portal as expected.
+This scales the font smoothly from ~25px on a 320px screen up to 60px on desktop, keeping "Drive with purpose. Build your future." on a single line at all viewport widths without overflow.
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/App.tsx` | Add `activeRole === 'owner'` case to dashboard route |
+| `src/pages/SplashPage.tsx` | Replace fixed breakpoint text sizes with `clamp()` + `whitespace-nowrap` on the `<h1>` |
 
