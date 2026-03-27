@@ -1163,6 +1163,8 @@ export default function StaffDirectory() {
                       </div>
                     </div>
                   )}
+                  </>
+                  )}
                 </div>
               )}
             </div>
