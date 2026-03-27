@@ -123,7 +123,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
         throw new Error(inviteErr?.message || inviteData?.error);
       }
 
-      // 3. Find the newly-created operator and mark as fully_onboarded
+      // 3. Find the newly-created operator for post-invite setup
       const { data: operator } = await supabase
         .from('operators')
         .select('id')
@@ -131,26 +131,12 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
         .maybeSingle();
 
       if (operator?.id) {
-        // Set unit number and fully_onboarded flag
-        await supabase
-          .from('onboarding_status')
-          .update({
-            fully_onboarded: true,
-            unit_number: form.unit_number.trim() || null,
-          })
-          .eq('operator_id', operator.id);
-
-        // Ensure active_dispatch row exists
-        const { data: existingDispatch } = await supabase
-          .from('active_dispatch')
-          .select('id')
-          .eq('operator_id', operator.id)
-          .maybeSingle();
-
-        if (!existingDispatch) {
+        // Update unit number on onboarding_status (fully_onboarded + active_dispatch handled server-side for pre-existing)
+        if (form.unit_number.trim()) {
           await supabase
-            .from('active_dispatch')
-            .insert({ operator_id: operator.id, dispatch_status: 'not_dispatched', updated_by: session?.user?.id ?? null });
+            .from('onboarding_status')
+            .update({ unit_number: form.unit_number.trim() })
+            .eq('operator_id', operator.id);
         }
 
         // If truck info was provided, create an ICA contract record to hold it
