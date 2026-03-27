@@ -196,81 +196,52 @@ Deno.serve(async (req) => {
       : callerUser.email;
     const applicantName = `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || app.email;
 
-    // ── In-app notifications → management users who want them ─────────
-    const { data: mgmtRoles } = await supabaseAdmin
-      .from('user_roles')
-      .select('user_id')
-      .eq('role', 'management');
-
-    if (mgmtRoles && mgmtRoles.length > 0 && operatorId) {
-      const notifLink = `/staff?operator=${operatorId}`;
-
-      // Filter to users with in_app enabled (default = enabled if no row)
-      const { data: optedOut } = await supabaseAdmin
-        .from('notification_preferences')
+    // ── In-app notifications & approval email (skip for pre-existing) ──
+    if (!skip_invite) {
+      const { data: mgmtRoles } = await supabaseAdmin
+        .from('user_roles')
         .select('user_id')
-        .in('user_id', mgmtRoles.map(r => r.user_id))
-        .eq('event_type', 'application_approved')
-        .eq('in_app_enabled', false);
-      const optedOutIds = new Set((optedOut ?? []).map(r => r.user_id));
+        .eq('role', 'management');
 
-      const notifRows = mgmtRoles
-        .filter(({ user_id }) => !optedOutIds.has(user_id))
-        .map(({ user_id }) => ({
-          user_id,
-          title: 'Application Approved',
-          body: `${applicantName} has been approved and invited as an Operator.`,
-          type: 'application_approved',
-          channel: 'in_app' as const,
-          link: notifLink,
-        }));
-      if (notifRows.length > 0) {
-        supabaseAdmin.from('notifications').insert(notifRows)
-          .then(({ error }) => { if (error) console.error('Mgmt notification error:', error.message); });
+      if (mgmtRoles && mgmtRoles.length > 0 && operatorId) {
+        const notifLink = `/staff?operator=${operatorId}`;
+        const { data: optedOut } = await supabaseAdmin
+          .from('notification_preferences')
+          .select('user_id')
+          .in('user_id', mgmtRoles.map(r => r.user_id))
+          .eq('event_type', 'application_approved')
+          .eq('in_app_enabled', false);
+        const optedOutIds = new Set((optedOut ?? []).map(r => r.user_id));
+
+        const notifRows = mgmtRoles
+          .filter(({ user_id }) => !optedOutIds.has(user_id))
+          .map(({ user_id }) => ({
+            user_id,
+            title: 'Application Approved',
+            body: `${applicantName} has been approved and invited as an Operator.`,
+            type: 'application_approved',
+            channel: 'in_app' as const,
+            link: notifLink,
+          }));
+        if (notifRows.length > 0) {
+          supabaseAdmin.from('notifications').insert(notifRows)
+            .then(({ error }) => { if (error) console.error('Mgmt notification error:', error.message); });
+        }
       }
-    }
 
-    // ── Audit log ──────────────────────────────────────────────────────
-    // Write both audit entries in parallel (fire-and-forget)
-    Promise.all([
-      supabaseAdmin.from('audit_log').insert({
-        actor_id: callerUser.id,
-        actor_name: actorName,
-        action: 'application_approved',
-        entity_type: 'application',
-        entity_id: application_id,
-        entity_label: applicantName,
-        metadata: { applicant_email: app.email, reviewer_notes: reviewer_notes ?? null },
-      }),
-      supabaseAdmin.from('audit_log').insert({
-        actor_id: callerUser.id,
-        actor_name: actorName,
-        action: 'operator_invited',
-        entity_type: 'operator',
-        entity_id: invitedUserId,
-        entity_label: applicantName,
-        metadata: {
-          email: app.email,
-          application_id,
-          first_name: app.first_name ?? null,
-          last_name: app.last_name ?? null,
+      // Fire approval notification email (fire-and-forget)
+      const notifUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`;
+      fetch(notifUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+        body: JSON.stringify({
+          type: 'application_approved',
+          applicant_name: applicantName,
+          applicant_email: app.email,
           reviewer_notes: reviewer_notes ?? null,
-        },
-      }),
-    ]).catch(e => console.error('Audit log error:', e));
-
-    // Fire approval notification email (fire-and-forget)
-    const notifUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`;
-    fetch(notifUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
-      body: JSON.stringify({
-        type: 'application_approved',
-        applicant_name: applicantName,
-        applicant_email: app.email,
-        reviewer_notes: reviewer_notes ?? null,
-      }),
-    }).catch(e => console.error('Notification fire-and-forget error:', e));
+        }),
+      }).catch(e => console.error('Notification fire-and-forget error:', e));
+    }
 
     return new Response(JSON.stringify({ success: true, user_id: invitedUserId }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
