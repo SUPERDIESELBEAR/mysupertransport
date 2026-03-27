@@ -518,6 +518,73 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                 </div>
               </Section>
 
+              {/* Background Verification */}
+              {app.review_status === 'pending' && (
+                <Section title="Background Verification" icon={<ShieldCheck className="h-4 w-4" />}>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-5 gap-2 text-sm">
+                      <span className="col-span-2 text-muted-foreground self-center">MVR Status</span>
+                      <div className="col-span-3">
+                        <Select value={bgMvrStatus} onValueChange={setBgMvrStatus}>
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="not_started">Not Started</SelectItem>
+                            <SelectItem value="requested">Requested</SelectItem>
+                            <SelectItem value="received">Received</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-5 gap-2 text-sm">
+                      <span className="col-span-2 text-muted-foreground self-center">Clearinghouse Status</span>
+                      <div className="col-span-3">
+                        <Select value={bgChStatus} onValueChange={setBgChStatus}>
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="not_started">Not Started</SelectItem>
+                            <SelectItem value="requested">Requested</SelectItem>
+                            <SelectItem value="received">Received</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-5 gap-2 text-sm">
+                      <span className="col-span-2 text-muted-foreground self-start mt-2">Notes</span>
+                      <div className="col-span-3">
+                        <Textarea
+                          value={bgNotes}
+                          onChange={e => setBgNotes(e.target.value)}
+                          placeholder="MVR/Clearinghouse findings..."
+                          rows={2}
+                          className="text-xs resize-none"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={saveBgVerification}
+                        disabled={savingBg || !bgIsDirty}
+                        className="h-8 px-3 border-gold/40 text-gold hover:bg-gold/10 disabled:opacity-40 gap-1.5"
+                      >
+                        {savingBg ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                        Save
+                      </Button>
+                    </div>
+                    {!bgVerificationComplete && (
+                      <p className="text-xs text-status-progress bg-status-progress/10 rounded-lg px-3 py-2">
+                        ℹ️ Both MVR and Clearinghouse must be <strong>Received</strong> before this application can be approved.
+                      </p>
+                    )}
+                  </div>
+                </Section>
+              )}
+
               {/* Employment */}
               <Section title="Employment History" icon={<Briefcase className="h-4 w-4" />}>
                 <EmployerBlock employer={app.employer_1 as Record<string, string>} label="Current / Last Employer" />
