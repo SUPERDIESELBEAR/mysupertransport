@@ -1139,7 +1139,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         on_hold_date: op.on_hold_date ?? null,
       };
     });
-    setOperators(rows);
+    setOperators(rows.filter(r => !r.fully_onboarded));
     setLoading(false);
   };
 
