@@ -1,30 +1,33 @@
 
 
-## Add Collapse All, Copy Email, and Message Driver to the Header Row
+## Add Rich Text Preview to Document Hub Admin List
 
-### Problem
-The sticky mini-bar (only visible on scroll) has three useful quick-actions — Collapse/Expand All Stages, Copy Email, and Message Driver — that are not available in the always-visible header row at the top of the driver detail panel.
+### What changes
+Add a preview button for rich text documents in the admin document list, matching the existing PDF and Video preview pattern.
 
-### Solution
-Add these three icon buttons to the header action row (next to Place on Hold, Deactivate, Resend Invite, Save Changes) so they're always accessible.
+### Current behavior
+- **PDF docs**: Eye icon button → opens `FilePreviewModal`
+- **Video docs**: Video icon button → opens embed dialog
+- **Rich text docs**: No preview button — staff must click Edit to see content
 
-### Layout
-The new buttons will be inserted between "Resend Invite" and "Save Changes":
+### New behavior
+- **Rich text docs**: Eye icon button → opens a dialog modal that renders the HTML body in the same prose styling used by the operator-facing `DocumentViewer`
 
-```text
-[← Pipeline]  Driver Name / email
-       [Place on Hold] [Deactivate] [Resend Invite] [↕ Collapse All] [📋 Copy Email] [💬 Message] [Save Changes]
-```
+### Technical detail
 
-Each button will be an icon-only `Button variant="outline" size="sm"` with a tooltip (matching the existing style), keeping the header compact.
+In `src/components/documents/AdminDocumentList.tsx`:
 
-### Details
-- **Collapse/Expand All**: Toggles all 7 stage sections collapsed/expanded — same logic already in the sticky bar
-- **Copy Email**: Copies `operatorEmail` to clipboard with a checkmark confirmation — same logic already in the sticky bar
-- **Message Driver**: Calls `onMessageOperator(operatorUserId)` through `guardedNavigate` — same logic already in the sticky bar
+1. Add a `richTextPreviewOpen` state (like `previewOpen` and `videoOpen`)
+2. After the video preview button (line ~194), add a condition for rich text:
+   ```
+   if content_type is not 'pdf' and not 'video' and doc.body exists → show Eye button
+   ```
+3. After the video preview dialog (line ~230), add a `Dialog` that renders `doc.body` via `dangerouslySetInnerHTML` with the same prose classes used in `DocumentViewer.tsx`
+
+No new components or dependencies needed — reuses existing `Dialog` and prose styling.
 
 ### Files changed
 | File | Change |
 |------|--------|
-| `src/pages/staff/OperatorDetailPanel.tsx` | Add 3 icon buttons to the header action row (~lines 1655–1669) |
+| `src/components/documents/AdminDocumentList.tsx` | Add rich text preview button + dialog in `SortableRow` |
 
