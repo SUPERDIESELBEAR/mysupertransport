@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   InspectionDocument, DriverUpload,
-  COMPANY_WIDE_DOCS, PER_DRIVER_DOCS,
+  COMPANY_WIDE_DOCS, PER_DRIVER_DOCS, parseLocalDate,
 } from './InspectionBinderTypes';
 import { ExpiryBadge, OnFileBadge, FilePreviewModal } from './DocRow';
 
@@ -642,7 +642,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     const doc = perDriverDocs.find(d => d.name === key);
     if (!doc?.file_url) return true;
     if (hasExpiry && doc.expires_at) {
-      const days = Math.ceil((new Date(doc.expires_at).getTime() - Date.now()) / 86400000);
+      const days = Math.ceil((parseLocalDate(doc.expires_at).getTime() - Date.now()) / 86400000);
       if (days < 0) return true;
     }
     return false;
@@ -1068,7 +1068,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     onClick={() => { if (doc) { setExpiryEditing(doc.id); setExpiryValue(doc.expires_at ?? ''); } }}
                   >
                     <Calendar className="h-3.5 w-3.5" />
-                    {doc?.expires_at ? `Expires ${new Date(doc.expires_at).toLocaleDateString()}` : 'Set expiry date'}
+                    {doc?.expires_at ? `Expires ${parseLocalDate(doc.expires_at).toLocaleDateString()}` : 'Set expiry date'}
                   </button>
                 )}
               </div>
@@ -1366,7 +1366,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     const doc = perDriverDocs.find(d => d.name === key);
                     const isMissing = !doc?.file_url;
                     const isExpired = hasExpiry && doc?.expires_at
-                      ? Math.ceil((new Date(doc.expires_at).getTime() - Date.now()) / 86400000) < 0
+                      ? Math.ceil((parseLocalDate(doc.expires_at).getTime() - Date.now()) / 86400000) < 0
                       : false;
                     const needsReminder = isMissing || isExpired;
                     const docCooldown = isOnCooldown(lastReminders[key]?.sent_at);
@@ -1870,7 +1870,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                   const isMissing = !singleDoc?.file_url;
                   const expiresAt = singleDoc?.expires_at ?? null;
                   const daysLeft = expiresAt
-                    ? Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000)
+                    ? Math.ceil((parseLocalDate(expiresAt).getTime() - Date.now()) / 86400000)
                     : null;
                   return (
                     <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5 flex items-center gap-3">
@@ -1908,7 +1908,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                       const isMissing = !doc?.file_url;
                       const expiresAt = doc?.expires_at ?? null;
                       const daysLeft = expiresAt
-                        ? Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000)
+                        ? Math.ceil((parseLocalDate(expiresAt).getTime() - Date.now()) / 86400000)
                         : null;
                       return (
                         <div key={d.key} className="flex items-center gap-3 px-3 py-2.5">

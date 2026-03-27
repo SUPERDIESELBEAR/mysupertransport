@@ -53,9 +53,15 @@ export type DocName =
   | (typeof COMPANY_WIDE_DOCS)[number]['key']
   | (typeof PER_DRIVER_DOCS)[number]['key'];
 
+/** Parse a YYYY-MM-DD date string as local midnight (not UTC) */
+export function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 export function getExpiryStatus(expiresAt: string | null): 'valid' | 'expiring_soon' | 'expired' | null {
   if (!expiresAt) return null;
-  const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+  const days = Math.ceil((parseLocalDate(expiresAt).getTime() - Date.now()) / 86400000);
   if (days < 0) return 'expired';
   if (days <= 30) return 'expiring_soon';
   return 'valid';
@@ -63,5 +69,5 @@ export function getExpiryStatus(expiresAt: string | null): 'valid' | 'expiring_s
 
 export function daysUntilExpiry(expiresAt: string | null): number | null {
   if (!expiresAt) return null;
-  return Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+  return Math.ceil((parseLocalDate(expiresAt).getTime() - Date.now()) / 86400000);
 }

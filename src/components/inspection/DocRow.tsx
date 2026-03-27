@@ -3,7 +3,7 @@ import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { QRCodeSVG } from 'qrcode.react';
-import { InspectionDocument, getExpiryStatus, daysUntilExpiry } from './InspectionBinderTypes';
+import { InspectionDocument, getExpiryStatus, daysUntilExpiry, parseLocalDate } from './InspectionBinderTypes';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React, { Suspense } from 'react';
@@ -544,7 +544,7 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
           </div>
           {hasFile && doc?.expires_at && (
             <p className="text-xs text-muted-foreground mt-0.5">
-              Expires {new Date(doc.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              Expires {parseLocalDate(doc.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </p>
           )}
         </div>

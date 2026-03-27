@@ -26,7 +26,7 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS } from './InspectionBinderTypes';
+import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS, parseLocalDate } from './InspectionBinderTypes';
 import { ExpiryBadge, FilePreviewModal } from './DocRow';
 
 type DriverUploadCategory = 'roadside_inspection_report' | 'repairs_maintenance_receipt' | 'miscellaneous';
@@ -256,7 +256,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
                     onClick={() => { if (doc) { setExpiryEditing(doc.id); setExpiryValue(doc.expires_at ?? ''); } }}
                   >
                     <Calendar className="h-3.5 w-3.5" />
-                    {doc?.expires_at ? `Expires ${new Date(doc.expires_at).toLocaleDateString()}` : 'Set expiry date'}
+                    {doc?.expires_at ? `Expires ${parseLocalDate(doc.expires_at).toLocaleDateString()}` : 'Set expiry date'}
                   </button>
                 )}
               </div>
