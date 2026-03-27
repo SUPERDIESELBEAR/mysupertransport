@@ -239,6 +239,15 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
           </button>
           {/* Divider */}
           <span className="w-px h-5 bg-white/15 mx-1" />
+          {onEdit && (
+            <button
+              onClick={e => { e.stopPropagation(); onEdit(); }}
+              className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+              title="Edit document"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          )}
           <button
             onClick={handlePrint}
             disabled={!loaded}
