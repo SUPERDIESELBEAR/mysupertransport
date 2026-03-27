@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useBinderOrder } from '@/hooks/useBinderOrder';
 import {
   FileText, Truck, Shield, CheckSquare, Square, Send, Mail, MessageSquare,
   Upload, Loader2, AlertTriangle, Clock, X, QrCode,
