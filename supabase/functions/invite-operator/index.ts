@@ -168,10 +168,34 @@ Deno.serve(async (req) => {
         operatorId = newOp.id;
 
         if (skip_invite) {
-          // Pre-existing operator: mark fully onboarded atomically
+          const today = new Date().toISOString().split('T')[0];
+          // Pre-existing operator: mark all 8 stages complete atomically
           await supabaseAdmin.from('onboarding_status').insert({
             operator_id: newOp.id,
-            insurance_added_date: new Date().toISOString().split('T')[0],
+            // Stage 1 — Background
+            mvr_status: 'received',
+            ch_status: 'received',
+            mvr_ch_approval: 'approved',
+            pe_screening: 'results_in',
+            pe_screening_result: 'clear',
+            // Stage 2 — Documents
+            form_2290: 'received',
+            truck_title: 'received',
+            truck_photos: 'received',
+            truck_inspection: 'received',
+            // Stage 3 — ICA
+            ica_status: 'complete',
+            // Stage 4 — MO Registration
+            mo_docs_submitted: 'submitted',
+            mo_reg_received: 'yes',
+            // Stage 5 — Equipment
+            decal_applied: 'yes',
+            eld_installed: 'yes',
+            fuel_card_issued: 'yes',
+            // Stage 6 — Insurance (triggers fully_onboarded)
+            insurance_added_date: today,
+            // Stage 7 — Go Live
+            go_live_date: today,
           });
           // Create active_dispatch row server-side
           await supabaseAdmin.from('active_dispatch').insert({
