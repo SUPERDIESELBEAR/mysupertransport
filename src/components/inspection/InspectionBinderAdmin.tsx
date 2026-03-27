@@ -1908,7 +1908,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                       const isMissing = !doc?.file_url;
                       const expiresAt = doc?.expires_at ?? null;
                       const daysLeft = expiresAt
-                        ? Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000)
+                        ? Math.ceil((parseLocalDate(expiresAt).getTime() - Date.now()) / 86400000)
                         : null;
                       return (
                         <div key={d.key} className="flex items-center gap-3 px-3 py-2.5">
