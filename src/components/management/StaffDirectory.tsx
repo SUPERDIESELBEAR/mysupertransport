@@ -1069,7 +1069,7 @@ export default function StaffDirectory() {
               </div>
 
               {/* ── Danger Zone: Deactivate + Delete ── */}
-              {managingMember.user_id !== user?.id && (
+              {managingMember.user_id !== user?.id && !managingMember.roles.includes('owner') && (
                 <div className="pt-1 border-t border-destructive/20 space-y-2">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Danger Zone</p>
 
