@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useBinderOrder } from '@/hooks/useBinderOrder';
 import {
   FileText, Truck, Shield, CheckSquare, Square, Send, Mail, MessageSquare,
   Upload, Loader2, AlertTriangle, Clock, X, QrCode,
@@ -62,6 +63,7 @@ function DriverUploadRow({ upload, onPreview }: { upload: DriverUpload; onPrevie
 export default function OperatorInspectionBinder({ userId, operatorId }: Props) {
   const { profile, user } = useAuth();
   const { toast } = useToast();
+  const { companyOrder, driverOrder } = useBinderOrder();
   const [companyDocs, setCompanyDocs] = useState<InspectionDocument[]>([]);
   const [perDriverDocs, setPerDriverDocs] = useState<InspectionDocument[]>([]);
   const [driverUploads, setDriverUploads] = useState<DriverUpload[]>([]);
@@ -256,7 +258,9 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
               </div>
             ) : (
               <div className="space-y-2">
-                {COMPANY_WIDE_DOCS.map(({ key, hasExpiry }) => {
+                {companyOrder.map((key) => {
+                  const spec = COMPANY_WIDE_DOCS.find(d => d.key === key);
+                  if (!spec) return null;
                   const doc = findCompanyDoc(key);
                   if (!doc) return null;
                   return (
@@ -264,7 +268,7 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
                       key={key}
                       name={key}
                       doc={doc}
-                      hasExpiry={hasExpiry}
+                      hasExpiry={spec.hasExpiry}
                       selected={selected.has(doc.id)}
                       selectMode={selectMode}
                       onToggleSelect={() => toggleSelect(doc.id)}
@@ -280,14 +284,16 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
           <div>
             <SectionHeader title="My Documents" icon={<FileText className="h-3.5 w-3.5 text-gold" />} />
             <div className="space-y-2">
-              {PER_DRIVER_DOCS.map(({ key, hasExpiry }) => {
+              {driverOrder.map((key) => {
+                const spec = PER_DRIVER_DOCS.find(d => d.key === key);
+                if (!spec) return null;
                 const doc = findDriverDoc(key);
                 return (
                   <DocRow
                     key={key}
                     name={key}
                     doc={doc}
-                    hasExpiry={hasExpiry}
+                    hasExpiry={spec.hasExpiry}
                     selected={doc ? selected.has(doc.id) : false}
                     selectMode={selectMode}
                     onToggleSelect={() => doc && toggleSelect(doc.id)}

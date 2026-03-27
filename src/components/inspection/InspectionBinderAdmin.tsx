@@ -4,11 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
+import { useBinderOrder } from '@/hooks/useBinderOrder';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2, Bell,
-  Inbox, UserCheck, X, Pencil, ArrowRight, CheckSquare, Copy, Check,
+  Inbox, UserCheck, X, Pencil, ArrowRight, CheckSquare, Copy, Check, GripVertical,
 } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -94,6 +96,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const { user } = useAuth();
   const { toast } = useToast();
   const { guardDemo } = useDemoMode();
+  const { companyOrder, driverOrder, saveOrder } = useBinderOrder();
   const [searchParams] = useSearchParams();
 
   // Support deep-link: ?driver=<userId>&tab=driver|company|uploads
@@ -1305,11 +1308,45 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 </div>
               )}
 
-              {COMPANY_WIDE_DOCS.map(({ key, hasExpiry }) => (
-                <div key={key} ref={el => { companyDocRowRefs.current[key] = el; }}>
-                  <AdminDocRow docName={key} scope="company_wide" hasExpiry={hasExpiry} />
-                </div>
-              ))}
+              <DragDropContext onDragEnd={(result: DropResult) => {
+                if (!result.destination) return;
+                const items = [...companyOrder];
+                const [moved] = items.splice(result.source.index, 1);
+                items.splice(result.destination.index, 0, moved);
+                saveOrder('company_wide', items);
+              }}>
+                <Droppable droppableId="company-docs">
+                  {(provided) => (
+                    <div ref={provided.innerRef} {...provided.droppableProps}>
+                      {companyOrder.map((key, index) => {
+                        const spec = COMPANY_WIDE_DOCS.find(d => d.key === key);
+                        if (!spec) return null;
+                        return (
+                          <Draggable key={key} draggableId={`company-${key}`} index={index}>
+                            {(dragProvided, snapshot) => (
+                              <div
+                                ref={(el) => { dragProvided.innerRef(el); companyDocRowRefs.current[key] = el; }}
+                                {...dragProvided.draggableProps}
+                                className={snapshot.isDragging ? 'opacity-90 shadow-lg rounded-xl' : ''}
+                              >
+                                <div className="flex items-center gap-1">
+                                  <div {...dragProvided.dragHandleProps} className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground/40 hover:text-muted-foreground">
+                                    <GripVertical className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <AdminDocRow docName={key} scope="company_wide" hasExpiry={spec.hasExpiry} />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </Draggable>
+                        );
+                      })}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
             </div>
             );
           })()}
@@ -1362,27 +1399,60 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                       );
                     })()}
                   </div>
-                  {PER_DRIVER_DOCS.map(({ key, hasExpiry }) => {
-                    const doc = perDriverDocs.find(d => d.name === key);
-                    const isMissing = !doc?.file_url;
-                    const isExpired = hasExpiry && doc?.expires_at
-                      ? Math.ceil((parseLocalDate(doc.expires_at).getTime() - Date.now()) / 86400000) < 0
-                      : false;
-                    const needsReminder = isMissing || isExpired;
-                    const docCooldown = isOnCooldown(lastReminders[key]?.sent_at);
-                    return (
-                      <AdminDocRow
-                        key={key}
-                        docName={key}
-                        scope="per_driver"
-                        hasExpiry={hasExpiry}
-                        onRemind={needsReminder ? () => setReminderDialogDoc(key) : undefined}
-                        remindLoading={sendingReminder === key}
-                        lastReminder={lastReminders[key]}
-                        cooldown={docCooldown}
-                      />
-                    );
-                  })}
+                  <DragDropContext onDragEnd={(result: DropResult) => {
+                    if (!result.destination) return;
+                    const items = [...driverOrder];
+                    const [moved] = items.splice(result.source.index, 1);
+                    items.splice(result.destination.index, 0, moved);
+                    saveOrder('per_driver', items);
+                  }}>
+                    <Droppable droppableId="driver-docs">
+                      {(provided) => (
+                        <div ref={provided.innerRef} {...provided.droppableProps}>
+                          {driverOrder.map((key, index) => {
+                            const spec = PER_DRIVER_DOCS.find(d => d.key === key);
+                            if (!spec) return null;
+                            const doc = perDriverDocs.find(d => d.name === key);
+                            const isMissing = !doc?.file_url;
+                            const isExpired = spec.hasExpiry && doc?.expires_at
+                              ? Math.ceil((parseLocalDate(doc.expires_at).getTime() - Date.now()) / 86400000) < 0
+                              : false;
+                            const needsReminder = isMissing || isExpired;
+                            const docCooldown = isOnCooldown(lastReminders[key]?.sent_at);
+                            return (
+                              <Draggable key={key} draggableId={`driver-${key}`} index={index}>
+                                {(dragProvided, snapshot) => (
+                                  <div
+                                    ref={dragProvided.innerRef}
+                                    {...dragProvided.draggableProps}
+                                    className={snapshot.isDragging ? 'opacity-90 shadow-lg rounded-xl' : ''}
+                                  >
+                                    <div className="flex items-center gap-1">
+                                      <div {...dragProvided.dragHandleProps} className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground/40 hover:text-muted-foreground">
+                                        <GripVertical className="h-4 w-4" />
+                                      </div>
+                                      <div className="flex-1">
+                                        <AdminDocRow
+                                          docName={key}
+                                          scope="per_driver"
+                                          hasExpiry={spec.hasExpiry}
+                                          onRemind={needsReminder ? () => setReminderDialogDoc(key) : undefined}
+                                          remindLoading={sendingReminder === key}
+                                          lastReminder={lastReminders[key]}
+                                          cooldown={docCooldown}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            );
+                          })}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </DragDropContext>
 
                   {/* Extra per-driver docs shared from company (name matches a company doc with a file) */}
                   {(() => {
