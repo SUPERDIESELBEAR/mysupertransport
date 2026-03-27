@@ -48,6 +48,10 @@ const INITIAL_FORM = {
   truck_plate: '',
   truck_plate_state: '',
   trailer_number: '',
+  eld_serial_number: '',
+  dash_cam_number: '',
+  bestpass_number: '',
+  fuel_card_number: '',
 };
 
 export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModalProps) {
@@ -131,11 +135,18 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
         .maybeSingle();
 
       if (operator?.id) {
-        // Update unit number on onboarding_status (fully_onboarded + active_dispatch handled server-side for pre-existing)
-        if (form.unit_number.trim()) {
+        // Update onboarding_status with unit number + equipment fields
+        const onboardingUpdate: Record<string, string> = {};
+        if (form.unit_number.trim()) onboardingUpdate.unit_number = form.unit_number.trim();
+        if (form.eld_serial_number.trim()) onboardingUpdate.eld_serial_number = form.eld_serial_number.trim();
+        if (form.dash_cam_number.trim()) onboardingUpdate.dash_cam_number = form.dash_cam_number.trim();
+        if (form.bestpass_number.trim()) onboardingUpdate.bestpass_number = form.bestpass_number.trim();
+        if (form.fuel_card_number.trim()) onboardingUpdate.fuel_card_number = form.fuel_card_number.trim();
+
+        if (Object.keys(onboardingUpdate).length > 0) {
           await supabase
             .from('onboarding_status')
-            .update({ unit_number: form.unit_number.trim() })
+            .update(onboardingUpdate)
             .eq('operator_id', operator.id);
         }
 
@@ -321,6 +332,30 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
             <div className="space-y-1.5">
               <Label htmlFor="add-trailer">Trailer #</Label>
               <Input id="add-trailer" value={form.trailer_number} onChange={e => set('trailer_number', e.target.value)} placeholder="T-001" />
+            </div>
+          </div>
+
+          <hr className="border-border" />
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Equipment &amp; Cards</p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="add-eld">ELD Serial #</Label>
+              <Input id="add-eld" value={form.eld_serial_number} onChange={e => set('eld_serial_number', e.target.value)} placeholder="ELD serial" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-dashcam">Dash Cam #</Label>
+              <Input id="add-dashcam" value={form.dash_cam_number} onChange={e => set('dash_cam_number', e.target.value)} placeholder="Dash cam #" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="add-bestpass">BestPass #</Label>
+              <Input id="add-bestpass" value={form.bestpass_number} onChange={e => set('bestpass_number', e.target.value)} placeholder="BestPass #" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-fuelcard">Fuel Card #</Label>
+              <Input id="add-fuelcard" value={form.fuel_card_number} onChange={e => set('fuel_card_number', e.target.value)} placeholder="Fuel card #" />
             </div>
           </div>
         </div>
