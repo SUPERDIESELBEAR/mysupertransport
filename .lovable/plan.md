@@ -1,28 +1,37 @@
 
 
-## Auto-Format Phone Number in Add Driver Modal
+## Fix: "Forbidden: insufficient role" when Adding a Driver
 
-### Change — one file: `src/components/drivers/AddDriverModal.tsx`
+### Root cause
 
-Add a phone formatting helper that strips non-digits and applies `(XXX) XXX-XXXX` as the user types:
+In `supabase/functions/invite-operator/index.ts` (line 35-41), the role check queries `user_roles` for rows matching `management` OR `onboarding_staff`, but uses `.maybeSingle()`. Your account holds **both** roles, so the query returns multiple rows. `.maybeSingle()` treats multiple results as an error and returns `null` for data, triggering the 403 response.
 
+### Fix — one file: `supabase/functions/invite-operator/index.ts`
+
+Change the role check from:
 ```ts
-const formatPhone = (value: string): string => {
-  const digits = value.replace(/\D/g, '').slice(0, 10);
-  if (digits.length <= 3) return digits.length ? `(${digits}` : '';
-  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-};
+const { data: roleCheck } = await supabaseAdmin
+  .from('user_roles')
+  .select('role')
+  .eq('user_id', callerUser.id)
+  .in('role', ['management', 'onboarding_staff'])
+  .maybeSingle();
 ```
 
-Replace the phone `onChange` from:
-```ts
-onChange={e => set('phone', e.target.value)}
-```
 to:
+
 ```ts
-onChange={e => set('phone', formatPhone(e.target.value))}
+const { data: roleCheck } = await supabaseAdmin
+  .from('user_roles')
+  .select('role')
+  .eq('user_id', callerUser.id)
+  .in('role', ['management', 'onboarding_staff'])
+  .limit(1);
 ```
 
-No other files changed. No database changes.
+And update the guard check from `if (!roleCheck)` to `if (!roleCheck || roleCheck.length === 0)`.
+
+This returns an array and checks for at least one matching role, regardless of how many the user holds.
+
+### No database changes. No new files.
 
