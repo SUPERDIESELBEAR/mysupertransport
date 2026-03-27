@@ -209,6 +209,53 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Auto-sync application docs to Inspection Binder ──
+    if (operatorId && invitedUserId) {
+      const docRows: Array<{
+        name: string;
+        scope: 'per_driver';
+        driver_id: string;
+        file_url: string;
+        uploaded_by: string;
+        expires_at: string | null;
+      }> = [];
+
+      if (app.dl_front_url) {
+        docRows.push({
+          name: 'CDL (Front)',
+          scope: 'per_driver',
+          driver_id: invitedUserId,
+          file_url: app.dl_front_url,
+          uploaded_by: callerUser.id,
+          expires_at: app.cdl_expiration ?? null,
+        });
+      }
+      if (app.dl_rear_url) {
+        docRows.push({
+          name: 'CDL (Back)',
+          scope: 'per_driver',
+          driver_id: invitedUserId,
+          file_url: app.dl_rear_url,
+          uploaded_by: callerUser.id,
+          expires_at: app.cdl_expiration ?? null,
+        });
+      }
+      if (app.medical_cert_url) {
+        docRows.push({
+          name: 'Medical Certificate',
+          scope: 'per_driver',
+          driver_id: invitedUserId,
+          file_url: app.medical_cert_url,
+          uploaded_by: callerUser.id,
+          expires_at: app.medical_cert_expiration ?? null,
+        });
+      }
+
+      if (docRows.length > 0) {
+        await supabaseAdmin.from('inspection_documents').insert(docRows);
+      }
+    }
+
     // ── Resolve actor name & applicant name (shared by audit + notifs) ──
     const callerProfile = await supabaseAdmin
       .from('profiles')
