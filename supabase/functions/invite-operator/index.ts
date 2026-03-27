@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { application_id, reviewer_notes } = await req.json();
+    const { application_id, reviewer_notes, skip_invite } = await req.json();
     if (!application_id) {
       return new Response(JSON.stringify({ error: 'application_id is required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
