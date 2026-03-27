@@ -86,7 +86,7 @@ export default function SplashPage() {
         </div>
 
         {/* Headline */}
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-surface-dark-foreground leading-tight tracking-tight mb-6">
+        <h1 className="text-[clamp(1.6rem,5.5vw,3.75rem)] whitespace-nowrap font-bold text-surface-dark-foreground leading-tight tracking-tight mb-6">
           Drive with purpose.{' '}
           <span className="text-gold">Build your future.</span>
         </h1>
