@@ -1,44 +1,47 @@
 
 
-## Fix: Expiration Dates Showing One Day Earlier Than Entered
+## Auto-Sync Application Docs to Inspection Binder
 
-### Root cause
+### What changes
+**Single file**: `supabase/functions/invite-operator/index.ts`
 
-This is a timezone bug. When you enter `2026-10-10` in the date picker, it's saved correctly as `2026-10-10` in the database. But when **displaying** or **calculating** with that date, the code does `new Date('2026-10-10')` — which JavaScript interprets as **midnight UTC**. In US Central time, that's **October 9th at 7 PM**, so `toLocaleDateString()` shows October 9th instead of October 10th.
+After the operator + onboarding_status creation block (after line 210), add a block that inserts `inspection_documents` rows for any application uploads that exist.
 
-This affects every place dates are displayed or compared in the inspection binder (and potentially elsewhere).
+### Logic
 
-### Fix
+```text
+if (operatorId && invitedUserId) {
+  const docRows = [];
+  
+  if (app.dl_front_url)
+    → { name: 'CDL (Front)', scope: 'per_driver', driver_id: invitedUserId,
+        file_url: app.dl_front_url, uploaded_by: callerUser.id,
+        expires_at: app.cdl_expiration ?? null }
 
-Add `T00:00:00` when parsing date-only strings so JavaScript treats them as **local midnight** instead of UTC midnight. Alternatively, split the date string and construct the display directly without going through `Date` at all.
+  if (app.dl_rear_url)
+    → { name: 'CDL (Back)', scope: 'per_driver', driver_id: invitedUserId,
+        file_url: app.dl_rear_url, uploaded_by: callerUser.id,
+        expires_at: app.cdl_expiration ?? null }
 
-The safest, most consistent approach: create a small utility function that parses `YYYY-MM-DD` strings correctly, then use it everywhere.
+  if (app.medical_cert_url)
+    → { name: 'Medical Certificate', scope: 'per_driver', driver_id: invitedUserId,
+        file_url: app.medical_cert_url, uploaded_by: callerUser.id,
+        expires_at: app.medical_cert_expiration ?? null }
 
-**1. Add a utility to `src/components/inspection/InspectionBinderTypes.ts`**
-
-```ts
-/** Parse a YYYY-MM-DD date string as local midnight (not UTC) */
-export function parseLocalDate(dateStr: string): Date {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d);
+  if (docRows.length > 0)
+    supabaseAdmin.from('inspection_documents').insert(docRows)
 }
 ```
 
-**2. Update all `new Date(expiresAt)` calls in inspection files**
+This runs for both standard approvals and pre-existing operator imports — both paths have the application data and a resolved `operatorId` + `invitedUserId`.
 
-Replace every `new Date(expiresAt)` or `new Date(doc.expires_at)` with `parseLocalDate(expiresAt)` in:
+### Why it's safe
+- No schema changes needed — `inspection_documents` already accepts arbitrary `name` values and `per_driver` scope
+- If a binder doc with the same name already exists for that driver, it just creates another row (harmless; staff can remove duplicates)
+- Uses `file_url` from the application (pointing to `application-documents` bucket) — no file copy needed since staff have read access to that bucket
 
-| File | Occurrences |
-|------|-------------|
-| `InspectionBinderTypes.ts` | `getExpiryStatus()`, `daysUntilExpiry()` |
-| `DocRow.tsx` | Display line (~547) |
-| `InspectionBinderAdmin.tsx` | Display (~1071), days calculations (~645, ~1369, ~1873, ~1911) |
-| `OperatorBinderPanel.tsx` | Display (~259) |
-
-**3. Also check `ComplianceAlertsPanel.tsx` and `InspectionComplianceSummary.tsx`**
-
-These files also parse date strings for compliance calculations — apply the same fix.
-
-### No database changes needed
-The dates are stored correctly. This is purely a display/parsing fix.
+### Files changed
+| File | Change |
+|------|--------|
+| `supabase/functions/invite-operator/index.ts` | Add inspection doc sync block (~10 lines) after line 210 |
 
