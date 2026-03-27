@@ -560,6 +560,12 @@ export default function StaffDirectory() {
 
                     {/* Roles */}
                     <div className="col-span-2 flex flex-wrap gap-1">
+                      {member.roles.includes('owner') && (
+                        <Badge className="text-xs border gap-1 bg-amber-500/15 text-amber-600 border-amber-400/30">
+                          <Shield className="h-3 w-3" />
+                          <span className="hidden lg:inline">Owner</span>
+                        </Badge>
+                      )}
                       {member.roles
                         .filter(r => ALL_STAFF_ROLES.includes(r as StaffRole))
                         .map(r => {
