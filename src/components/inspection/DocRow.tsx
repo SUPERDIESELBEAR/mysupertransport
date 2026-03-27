@@ -662,14 +662,16 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
         />
       )}
       {editorOpen && doc?.file_url && (
-        <DocumentEditor
-          fileUrl={doc.file_url}
-          fileName={doc.name}
-          bucketName={editBucketName}
-          filePath={editFilePath || doc.file_path || undefined}
-          onSave={(newUrl) => { setEditorOpen(false); onEditSave?.(newUrl); }}
-          onClose={() => setEditorOpen(false)}
-        />
+        <Suspense fallback={<div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+          <DocumentEditor
+            fileUrl={doc.file_url}
+            fileName={doc.name}
+            bucketName={editBucketName}
+            filePath={editFilePath || doc.file_path || undefined}
+            onSave={(newUrl) => { setEditorOpen(false); onEditSave?.(newUrl); }}
+            onClose={() => setEditorOpen(false)}
+          />
+        </Suspense>
       )}
     </>
   );

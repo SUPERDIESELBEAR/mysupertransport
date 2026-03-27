@@ -30,9 +30,10 @@ interface DocumentEditorProps {
 
 /** Renders a single PDF page to a data URL */
 async function renderPdfPage(pdfUrl: string, pageNum: number): Promise<{ dataUrl: string; totalPages: number }> {
+  const pdfjs = await getPdfjs();
   const response = await fetch(pdfUrl);
   const arrayBuffer = await response.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
   const page = await pdf.getPage(pageNum);
   const scale = 2; // High resolution
   const viewport = page.getViewport({ scale });
