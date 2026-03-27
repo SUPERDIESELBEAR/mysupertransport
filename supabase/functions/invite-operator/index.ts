@@ -37,9 +37,9 @@ Deno.serve(async (req) => {
       .select('role')
       .eq('user_id', callerUser.id)
       .in('role', ['management', 'onboarding_staff'])
-      .maybeSingle();
+      .limit(1);
 
-    if (!roleCheck) {
+    if (!roleCheck || roleCheck.length === 0) {
       return new Response(JSON.stringify({ error: 'Forbidden: insufficient role' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
