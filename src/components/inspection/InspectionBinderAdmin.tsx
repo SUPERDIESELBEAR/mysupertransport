@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   InspectionDocument, DriverUpload,
-  COMPANY_WIDE_DOCS, PER_DRIVER_DOCS,
+  COMPANY_WIDE_DOCS, PER_DRIVER_DOCS, parseLocalDate,
 } from './InspectionBinderTypes';
 import { ExpiryBadge, OnFileBadge, FilePreviewModal } from './DocRow';
 

@@ -3,7 +3,7 @@ import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { QRCodeSVG } from 'qrcode.react';
-import { InspectionDocument, getExpiryStatus, daysUntilExpiry } from './InspectionBinderTypes';
+import { InspectionDocument, getExpiryStatus, daysUntilExpiry, parseLocalDate } from './InspectionBinderTypes';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React, { Suspense } from 'react';

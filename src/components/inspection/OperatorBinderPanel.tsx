@@ -26,7 +26,7 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS } from './InspectionBinderTypes';
+import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS, parseLocalDate } from './InspectionBinderTypes';
 import { ExpiryBadge, FilePreviewModal } from './DocRow';
 
 type DriverUploadCategory = 'roadside_inspection_report' | 'repairs_maintenance_receipt' | 'miscellaneous';
