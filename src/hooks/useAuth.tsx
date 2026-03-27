@@ -16,6 +16,7 @@ interface AuthContextType {
   refreshProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  isOwner: boolean;
   isManagement: boolean;
   isOnboardingStaff: boolean;
   isDispatcher: boolean;
