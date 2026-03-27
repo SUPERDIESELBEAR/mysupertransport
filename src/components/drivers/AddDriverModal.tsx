@@ -135,11 +135,18 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
         .maybeSingle();
 
       if (operator?.id) {
-        // Update unit number on onboarding_status (fully_onboarded + active_dispatch handled server-side for pre-existing)
-        if (form.unit_number.trim()) {
+        // Update onboarding_status with unit number + equipment fields
+        const onboardingUpdate: Record<string, string> = {};
+        if (form.unit_number.trim()) onboardingUpdate.unit_number = form.unit_number.trim();
+        if (form.eld_serial_number.trim()) onboardingUpdate.eld_serial_number = form.eld_serial_number.trim();
+        if (form.dash_cam_number.trim()) onboardingUpdate.dash_cam_number = form.dash_cam_number.trim();
+        if (form.bestpass_number.trim()) onboardingUpdate.bestpass_number = form.bestpass_number.trim();
+        if (form.fuel_card_number.trim()) onboardingUpdate.fuel_card_number = form.fuel_card_number.trim();
+
+        if (Object.keys(onboardingUpdate).length > 0) {
           await supabase
             .from('onboarding_status')
-            .update({ unit_number: form.unit_number.trim() })
+            .update(onboardingUpdate)
             .eq('operator_id', operator.id);
         }
 
