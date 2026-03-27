@@ -2235,6 +2235,7 @@ export type Database = {
         | "onboarding_staff"
         | "dispatcher"
         | "management"
+        | "owner"
       approval_status: "pending" | "approved" | "denied"
       dispatch_status: "not_dispatched" | "dispatched" | "home" | "truck_down"
       doc_review_status: "pending" | "approved" | "rejected"
@@ -2424,6 +2425,7 @@ export const Constants = {
         "onboarding_staff",
         "dispatcher",
         "management",
+        "owner",
       ],
       approval_status: ["pending", "approved", "denied"],
       dispatch_status: ["not_dispatched", "dispatched", "home", "truck_down"],
