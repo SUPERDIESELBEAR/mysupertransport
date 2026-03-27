@@ -391,6 +391,59 @@ export default function TipTapEditor({ content, onChange, placeholder = 'Start w
 
         <span className="w-px h-5 bg-border mx-1" />
 
+        {/* Table */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              title="Table"
+              className={cn(
+                'p-1.5 rounded text-sm transition-colors',
+                editor.isActive('table')
+                  ? 'bg-foreground text-background'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+              )}
+            >
+              <TableIcon className="h-4 w-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-2" side="bottom" align="start">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Table</p>
+            <div className="flex flex-col gap-1">
+              <Button variant="ghost" size="sm" className="justify-start text-xs h-7" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>
+                <Plus className="h-3 w-3 mr-1.5" /> Insert 3×3 Table
+              </Button>
+              {editor.isActive('table') && (
+                <>
+                  <Button variant="ghost" size="sm" className="justify-start text-xs h-7" onClick={() => editor.chain().focus().addColumnAfter().run()}>
+                    <ArrowRightFromLine className="h-3 w-3 mr-1.5" /> Add Column After
+                  </Button>
+                  <Button variant="ghost" size="sm" className="justify-start text-xs h-7" onClick={() => editor.chain().focus().addColumnBefore().run()}>
+                    <ArrowLeftFromLine className="h-3 w-3 mr-1.5" /> Add Column Before
+                  </Button>
+                  <Button variant="ghost" size="sm" className="justify-start text-xs h-7" onClick={() => editor.chain().focus().addRowAfter().run()}>
+                    <ArrowDownFromLine className="h-3 w-3 mr-1.5" /> Add Row After
+                  </Button>
+                  <Button variant="ghost" size="sm" className="justify-start text-xs h-7" onClick={() => editor.chain().focus().addRowBefore().run()}>
+                    <ArrowUpFromLine className="h-3 w-3 mr-1.5" /> Add Row Before
+                  </Button>
+                  <Button variant="ghost" size="sm" className="justify-start text-xs h-7" onClick={() => editor.chain().focus().deleteColumn().run()}>
+                    <Trash2 className="h-3 w-3 mr-1.5" /> Delete Column
+                  </Button>
+                  <Button variant="ghost" size="sm" className="justify-start text-xs h-7" onClick={() => editor.chain().focus().deleteRow().run()}>
+                    <Trash2 className="h-3 w-3 mr-1.5" /> Delete Row
+                  </Button>
+                  <Button variant="ghost" size="sm" className="justify-start text-xs h-7 text-destructive hover:text-destructive" onClick={() => editor.chain().focus().deleteTable().run()}>
+                    <Trash2 className="h-3 w-3 mr-1.5" /> Delete Table
+                  </Button>
+                </>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        <span className="w-px h-5 bg-border mx-1" />
+
         {/* History */}
         <ToolbarButton onClick={() => editor.chain().focus().undo().run()} active={false} title="Undo">
           <Undo className="h-4 w-4" />
@@ -424,6 +477,13 @@ export default function TipTapEditor({ content, onChange, placeholder = 'Start w
           '[&_.tiptap_s]:line-through',
           '[&_.tiptap_mark]:bg-accent [&_.tiptap_mark]:text-accent-foreground',
           '[&_.tiptap_a]:text-primary [&_.tiptap_a]:underline',
+          // Table
+          '[&_.tiptap_table]:border-collapse [&_.tiptap_table]:w-full [&_.tiptap_table]:my-3',
+          '[&_.tiptap_td]:border [&_.tiptap_td]:border-border [&_.tiptap_td]:p-2 [&_.tiptap_td]:min-w-[80px]',
+          '[&_.tiptap_th]:border [&_.tiptap_th]:border-border [&_.tiptap_th]:p-2 [&_.tiptap_th]:min-w-[80px] [&_.tiptap_th]:bg-muted [&_.tiptap_th]:font-semibold',
+          '[&_.tiptap_.selectedCell]:bg-primary/10',
+          '[&_.tiptap_.column-resize-handle]:bg-primary [&_.tiptap_.column-resize-handle]:w-0.5',
+          '[&_.tiptap_.tableWrapper]:overflow-x-auto [&_.tiptap_.tableWrapper]:my-3',
           // Placeholder
           '[&_.tiptap_p.is-editor-empty:first-child::before]:text-muted-foreground',
           '[&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
