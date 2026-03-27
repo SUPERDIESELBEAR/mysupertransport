@@ -642,7 +642,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     const doc = perDriverDocs.find(d => d.name === key);
     if (!doc?.file_url) return true;
     if (hasExpiry && doc.expires_at) {
-      const days = Math.ceil((new Date(doc.expires_at).getTime() - Date.now()) / 86400000);
+      const days = Math.ceil((parseLocalDate(doc.expires_at).getTime() - Date.now()) / 86400000);
       if (days < 0) return true;
     }
     return false;
