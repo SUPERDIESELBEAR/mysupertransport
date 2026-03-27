@@ -179,7 +179,7 @@ function useBlobUrl(remoteUrl: string) {
 }
 
 /** Generic in-app file preview modal — no new tab required */
-export function FilePreviewModal({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
+export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; name: string; onClose: () => void; onEdit?: () => void }) {
   const [loaded, setLoaded] = useState(false);
   const [zoomIdx, setZoomIdx] = useState(DEFAULT_ZOOM_IDX);
   const iframeRef = useRef<HTMLIFrameElement>(null);
