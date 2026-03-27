@@ -102,8 +102,11 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
 
-      if (inviteErr) throw new Error(inviteErr.message);
-      if (inviteData?.error) throw new Error(inviteData.error);
+      if (inviteErr || inviteData?.error) {
+        // Clean up the orphaned application so the user can retry
+        await supabase.from('applications').delete().eq('id', app.id);
+        throw new Error(inviteErr?.message || inviteData?.error);
+      }
 
       // 3. Find the newly-created operator and mark as fully_onboarded
       const { data: operator } = await supabase
