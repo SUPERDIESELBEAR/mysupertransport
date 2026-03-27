@@ -115,11 +115,13 @@ export type Database = {
           auth_drug_alcohol: boolean | null
           auth_previous_employers: boolean | null
           auth_safety_history: boolean | null
+          background_verification_notes: string | null
           cdl_10_years: boolean | null
           cdl_class: string | null
           cdl_expiration: string | null
           cdl_number: string | null
           cdl_state: string | null
+          ch_status: Database["public"]["Enums"]["mvr_status"]
           created_at: string
           dl_front_url: string | null
           dl_rear_url: string | null
@@ -146,6 +148,7 @@ export type Database = {
           medical_cert_url: string | null
           moving_violations: boolean | null
           moving_violations_description: string | null
+          mvr_status: Database["public"]["Enums"]["mvr_status"]
           phone: string | null
           prev_address_city: string | null
           prev_address_line2: string | null
@@ -179,11 +182,13 @@ export type Database = {
           auth_drug_alcohol?: boolean | null
           auth_previous_employers?: boolean | null
           auth_safety_history?: boolean | null
+          background_verification_notes?: string | null
           cdl_10_years?: boolean | null
           cdl_class?: string | null
           cdl_expiration?: string | null
           cdl_number?: string | null
           cdl_state?: string | null
+          ch_status?: Database["public"]["Enums"]["mvr_status"]
           created_at?: string
           dl_front_url?: string | null
           dl_rear_url?: string | null
@@ -210,6 +215,7 @@ export type Database = {
           medical_cert_url?: string | null
           moving_violations?: boolean | null
           moving_violations_description?: string | null
+          mvr_status?: Database["public"]["Enums"]["mvr_status"]
           phone?: string | null
           prev_address_city?: string | null
           prev_address_line2?: string | null
@@ -243,11 +249,13 @@ export type Database = {
           auth_drug_alcohol?: boolean | null
           auth_previous_employers?: boolean | null
           auth_safety_history?: boolean | null
+          background_verification_notes?: string | null
           cdl_10_years?: boolean | null
           cdl_class?: string | null
           cdl_expiration?: string | null
           cdl_number?: string | null
           cdl_state?: string | null
+          ch_status?: Database["public"]["Enums"]["mvr_status"]
           created_at?: string
           dl_front_url?: string | null
           dl_rear_url?: string | null
@@ -274,6 +282,7 @@ export type Database = {
           medical_cert_url?: string | null
           moving_violations?: boolean | null
           moving_violations_description?: string | null
+          mvr_status?: Database["public"]["Enums"]["mvr_status"]
           phone?: string | null
           prev_address_city?: string | null
           prev_address_line2?: string | null
