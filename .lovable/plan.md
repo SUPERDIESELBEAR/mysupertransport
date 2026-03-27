@@ -1,34 +1,42 @@
 
 
-## Delete Test Operator: David Thompson
+## Add Drag-to-Reorder in Inspection Binder
 
-### Data Found
-David Thompson (test operator) has records across these tables:
+### Current State
+The Inspection Binder document rows are rendered from two hardcoded arrays in `InspectionBinderTypes.ts`: `COMPANY_WIDE_DOCS` (9 items) and `PER_DRIVER_DOCS` (6 items). There is no sort order stored in the database — the display order is fixed by array position.
 
-| Table | Records | Key ID |
-|-------|---------|--------|
-| `applications` | 1 | `9be11770-fffc-4470-940d-8f8337ff68e8` |
-| `operators` | 1 | `fc298f76-69c3-48d3-a556-c2e01d3583ef` |
-| `onboarding_status` | 1 | operator_id reference |
-| `active_dispatch` | 1 | operator_id reference |
-| `dispatch_status_history` | 1 | operator_id reference |
-| `profiles` | 1 | user_id `5c20d324-c609-4eca-9b32-0dee6cd37968` |
-| `user_roles` | 1 | user_id reference |
+### Approach
+Use `@hello-pangea/dnd` (the maintained fork of react-beautiful-dnd) for drag-and-drop, and persist custom ordering in the database via a new `sort_order` column on `inspection_documents`. For the slot-based ordering (since documents may not exist yet), we'll store the preferred order in a lightweight JSON column or a separate small config table.
 
-No data in: messages, notifications, documents, ICA contracts, MO plates, equipment, driver uploads, inspection docs, or audit log.
+Since the document slots are static templates (not all have actual DB rows), the simplest approach is to store the ordering as a JSON preference per section, persisted in a new `inspection_binder_order` table with two rows (one for `company_wide`, one for `per_driver`), each holding an ordered array of doc-name keys.
 
-### Deletion Plan (order matters for referential integrity)
-Using the data insert tool for each DELETE, executed in dependency order:
+### Changes
 
-1. **Delete `onboarding_status`** where `operator_id = fc298f76-...`
-2. **Delete `dispatch_status_history`** where `operator_id = fc298f76-...`
-3. **Delete `active_dispatch`** where `operator_id = fc298f76-...`
-4. **Delete `user_roles`** where `user_id = 5c20d324-...`
-5. **Delete `profiles`** where `user_id = 5c20d324-...`
-6. **Delete `operators`** where `id = fc298f76-...`
-7. **Delete `applications`** where `id = 9be11770-...`
-8. **Delete auth user** via the `delete-user-account` edge function for user `5c20d324-c609-4eca-9b32-0dee6cd37968`
+**1. Database migration** — Create `inspection_binder_order` table:
+- Columns: `id`, `scope` (company_wide / per_driver), `doc_order` (jsonb array of key strings), `updated_at`, `updated_by`
+- RLS: staff can read/write; operators read-only
+- Seed with default order matching current arrays
+
+**2. Install dependency** — `@hello-pangea/dnd`
+
+**3. `src/components/inspection/InspectionBinderTypes.ts`** — Export default order arrays as mutable (they become fallbacks when no DB order exists)
+
+**4. `src/components/inspection/InspectionBinderAdmin.tsx`**:
+- Fetch `inspection_binder_order` on mount; use it to sort `COMPANY_WIDE_DOCS` and `PER_DRIVER_DOCS` before rendering
+- Wrap each document list section in `<DragDropContext>` + `<Droppable>` + `<Draggable>`
+- Add a grip/drag handle icon to each document row
+- On drag end, reorder the local state and persist the new `doc_order` array to the DB
+- Only staff/admin see drag handles; operator view uses the saved order but without drag capability
+
+**5. `src/components/inspection/OperatorInspectionBinder.tsx`** — Fetch and apply the saved order so operators see the same sequence
 
 ### Files changed
-None — this is a data-only operation.
+
+| File | Change |
+|------|--------|
+| `package.json` | Add `@hello-pangea/dnd` |
+| New migration | Create `inspection_binder_order` table with RLS |
+| `src/components/inspection/InspectionBinderAdmin.tsx` | Add DnD wrappers, fetch/save order |
+| `src/components/inspection/OperatorInspectionBinder.tsx` | Fetch and apply saved order |
+| `src/components/inspection/InspectionBinderTypes.ts` | Minor: export default arrays for fallback use |
 
