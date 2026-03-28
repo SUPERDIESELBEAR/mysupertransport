@@ -774,6 +774,7 @@ export default function DriverRoster({
                 <TableHead className="w-20">Unit #</TableHead>
                 <TableHead>Driver</TableHead>
                 {!dispatchMode && <TableHead className="hidden sm:table-cell">Phone</TableHead>}
+                {!dispatchMode && <TableHead className="hidden lg:table-cell">Email</TableHead>}
                 {!dispatchMode && <TableHead className="hidden md:table-cell">State</TableHead>}
                 <TableHead>Status</TableHead>
                 {!dispatchMode && <TableHead className="hidden lg:table-cell">Compliance</TableHead>}
