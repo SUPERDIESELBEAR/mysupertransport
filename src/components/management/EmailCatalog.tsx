@@ -658,6 +658,27 @@ const TEMPLATES: EmailTemplate[] = [
       { label: 'View Message', url: `${SAMPLE_APP_URL}/dashboard?tab=messages` }
     ),
   },
+  {
+    id: 'request_ssn',
+    category: 'notifications',
+    title: 'Request Missing SSN',
+    subject: 'Action Needed: Please Update Your Application — SUPERTRANSPORT',
+    recipient: 'applicant',
+    sender: `${BRAND_NAME} <${ONBOARDING_EMAIL}>`,
+    renderHtml: () => buildEmail(
+      'Action Needed: Please Update Your Application — SUPERTRANSPORT',
+      '📋 Action Needed — Update Your Application',
+      `<p>Dear ${SAMPLE_NAME},</p>
+       <p>Thank you for submitting your driver application with <strong>SUPERTRANSPORT</strong>.</p>
+       <p>We experienced a minor technical issue during the submission process, and unfortunately your <strong>Social Security Number</strong> was not captured. We sincerely apologize for the inconvenience.</p>
+       <p>To complete your application, please click the button below. You will be taken to a secure page where you can enter your SSN — no need to re-fill your entire application.</p>
+       <p>Your information is encrypted and stored securely. This should only take a moment.</p>
+       <p style="margin-top:16px;">If you have any questions or need assistance, please reach out to us at <a href="mailto:${ONBOARDING_EMAIL}" style="color:${BRAND_COLOR};">${ONBOARDING_EMAIL}</a>.</p>
+       <p>Thank you for your patience and understanding!</p>`,
+      { label: 'Update My Application', url: `${SAMPLE_APP_URL}/apply/ssn?id=sample-app-id` },
+      ONBOARDING_EMAIL
+    ),
+  },
 ];
 
 // ─── Category helpers ─────────────────────────────────────────────────────────
