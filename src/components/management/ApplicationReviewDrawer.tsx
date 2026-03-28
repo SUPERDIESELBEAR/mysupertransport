@@ -497,6 +497,39 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     }
   };
 
+  const sendSsnRequestEmail = async () => {
+    if (!app) return;
+    setSsnEmailSending(true);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/send-notification`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${anonKey}`,
+          },
+          body: JSON.stringify({
+            type: 'request_ssn',
+            applicant_name: [app.first_name, app.last_name].filter(Boolean).join(' ') || 'Applicant',
+            applicant_email: app.email,
+            application_id: app.id,
+          }),
+        }
+      );
+      if (!res.ok) throw new Error('Failed to send email');
+      toast.success(`SSN request email sent to ${app.first_name || app.email}`);
+      setSsnEmailCooldown(true);
+      setTimeout(() => setSsnEmailCooldown(false), 60_000);
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to send email');
+    } finally {
+      setSsnEmailSending(false);
+    }
+  };
+
   const handleAction = async (action: 'approve' | 'deny') => {
     setLoading(true);
     try {
