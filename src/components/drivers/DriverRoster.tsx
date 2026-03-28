@@ -872,6 +872,37 @@ export default function DriverRoster({
                       </TableCell>
                     )}
 
+                    {/* Email */}
+                    {!dispatchMode && (
+                      <TableCell className="hidden lg:table-cell">
+                        {driver.email ? (
+                          <div className="flex items-center gap-1 max-w-[180px]" onClick={e => e.stopPropagation()}>
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="text-sm text-muted-foreground truncate">{driver.email}</span>
+                                </TooltipTrigger>
+                                <TooltipContent>{driver.email}</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <button
+                              className="shrink-0 p-0.5 rounded hover:bg-muted transition-colors"
+                              title="Copy email"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(driver.email!);
+                                toast({ title: 'Email copied', description: driver.email! });
+                              }}
+                            >
+                              <Copy className="h-3 w-3 text-muted-foreground hover:text-primary" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
+                    )}
+
                     {/* State */}
                     {!dispatchMode && (
                       <TableCell className="hidden md:table-cell">
