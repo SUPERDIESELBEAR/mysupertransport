@@ -2069,7 +2069,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         {US_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">ZIP</Label>
