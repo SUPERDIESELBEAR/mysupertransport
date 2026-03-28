@@ -724,6 +724,39 @@ export type Database = {
         }
         Relationships: []
       }
+      email_templates: {
+        Row: {
+          body_html: string
+          cta_label: string
+          heading: string
+          id: string
+          milestone_key: string
+          subject: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          body_html: string
+          cta_label?: string
+          heading: string
+          id?: string
+          milestone_key: string
+          subject: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          body_html?: string
+          cta_label?: string
+          heading?: string
+          id?: string
+          milestone_key?: string
+          subject?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       equipment_assignments: {
         Row: {
           assigned_at: string
