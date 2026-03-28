@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import NotificationPreferencesModal from '@/components/management/NotificationPreferencesModal';
 import InviteApplicantModal from '@/components/management/InviteApplicantModal';
+import StaffApplicationModal from '@/components/management/StaffApplicationModal';
 import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -130,6 +131,7 @@ export default function ManagementPortal() {
   const [deleteInviteId, setDeleteInviteId] = useState<string | null>(null);
 
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
+  const [staffAppModalOpen, setStaffAppModalOpen] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [criticalExpiryCount, setCriticalExpiryCount] = useState(0);
   const [drawerFocusField, setDrawerFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
@@ -708,6 +710,11 @@ export default function ManagementPortal() {
   return (
     <>
       <NotificationPreferencesModal open={notifPrefsOpen} onClose={() => setNotifPrefsOpen(false)} />
+      <StaffApplicationModal
+        open={staffAppModalOpen}
+        onClose={() => setStaffAppModalOpen(false)}
+        onSuccess={() => fetchApplications()}
+      />
       <BulkMessageModal
         open={bulkMessageOpen}
         onClose={() => { setBulkMessageOpen(false); setBulkMessagePreselected([]); }}
@@ -1433,6 +1440,15 @@ export default function ManagementPortal() {
                 <p className="text-sm text-muted-foreground mt-1">Review applications and manage outreach invites</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setStaffAppModalOpen(true)}
+                  className="gap-1.5"
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  New Application
+                </Button>
                 <Button
                   size="sm"
                   onClick={() => setInviteModalOpen(true)}

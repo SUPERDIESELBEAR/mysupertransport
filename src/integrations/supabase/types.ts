@@ -165,6 +165,7 @@ export type Database = {
           signed_date: string | null
           ssn_encrypted: string | null
           submitted_at: string | null
+          submitted_by_staff: boolean | null
           testing_policy_accepted: boolean | null
           typed_full_name: string | null
           updated_at: string
@@ -232,6 +233,7 @@ export type Database = {
           signed_date?: string | null
           ssn_encrypted?: string | null
           submitted_at?: string | null
+          submitted_by_staff?: boolean | null
           testing_policy_accepted?: boolean | null
           typed_full_name?: string | null
           updated_at?: string
@@ -299,6 +301,7 @@ export type Database = {
           signed_date?: string | null
           ssn_encrypted?: string | null
           submitted_at?: string | null
+          submitted_by_staff?: boolean | null
           testing_policy_accepted?: boolean | null
           typed_full_name?: string | null
           updated_at?: string
@@ -2215,6 +2218,7 @@ export type Database = {
           signed_date: string | null
           ssn_encrypted: string | null
           submitted_at: string | null
+          submitted_by_staff: boolean | null
           testing_policy_accepted: boolean | null
           typed_full_name: string | null
           updated_at: string
