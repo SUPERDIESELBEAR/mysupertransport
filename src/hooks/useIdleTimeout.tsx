@@ -16,7 +16,7 @@ interface IdleState {
 const ACTIVITY_EVENTS = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll', 'click'];
 
 export function useIdleTimeout({
-  idleMs = 25 * 60 * 1000,      // 25 minutes idle before warning
+  idleMs = 120 * 60 * 1000,     // 120 minutes idle before warning
   warningMs = 5 * 60 * 1000,    // 5 minute countdown
   onSignOut,
 }: UseIdleTimeoutOptions): IdleState & { resetIdle: () => void } {
