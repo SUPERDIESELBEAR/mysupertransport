@@ -2099,6 +2099,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     className="h-8 text-sm"
                   />
                 </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Start Date (Anniversary)</Label>
+                  <Input
+                    type="date"
+                    value={contactDraft.go_live_date ?? ''}
+                    onChange={e => setContactDraft(prev => ({ ...prev, go_live_date: e.target.value || null }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
               </div>
             ) : (
               <div className="space-y-2">
