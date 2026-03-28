@@ -100,6 +100,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
           last_name: form.last_name.trim(),
           email: form.email.trim().toLowerCase(),
           phone: form.phone.trim() || null,
+          address_state: form.home_state || null,
           cdl_number: form.cdl_number.trim() || null,
           cdl_state: form.cdl_state || null,
           cdl_expiration: form.cdl_expiration || null,
