@@ -20,6 +20,7 @@ import DispatchPortal from "./pages/dispatch/DispatchPortal";
 import NotFound from "./pages/NotFound";
 import SplashPage from "./pages/SplashPage";
 import InspectionSharePage from "./pages/InspectionSharePage";
+import SubmitSSN from "./pages/SubmitSSN";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ function AppRoutes() {
     <Routes>
       {/* Public routes */}
       <Route path="/apply" element={<ApplicationForm />} />
+      <Route path="/apply/ssn" element={<SubmitSSN />} />
       <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/dashboard" replace />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/welcome" element={<WelcomeOperator />} />

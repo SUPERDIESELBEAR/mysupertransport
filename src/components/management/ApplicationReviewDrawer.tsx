@@ -8,7 +8,7 @@ import { format, parseISO, differenceInDays, startOfDay } from 'date-fns';
 import {
   X, CheckCircle2, XCircle, User, MapPin, CalendarIcon,
   Briefcase, Car, FileText, ShieldAlert, AlertTriangle, Loader2, Printer,
-  Eye, EyeOff, Lock, Save, Download, ShieldCheck
+  Eye, EyeOff, Lock, Save, Download, ShieldCheck, Mail
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -225,6 +225,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [ssnError, setSsnError] = useState<string | null>(null);
   const [manualSsn, setManualSsn] = useState('');
   const [ssnSaving, setSsnSaving] = useState(false);
+  const [ssnEmailSending, setSsnEmailSending] = useState(false);
+  const [ssnEmailCooldown, setSsnEmailCooldown] = useState(false);
 
   // Signed URLs for private bucket files
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
@@ -492,6 +494,39 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
       toast.error(err.message ?? 'Failed to save SSN');
     } finally {
       setSsnSaving(false);
+    }
+  };
+
+  const sendSsnRequestEmail = async () => {
+    if (!app) return;
+    setSsnEmailSending(true);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/send-notification`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${anonKey}`,
+          },
+          body: JSON.stringify({
+            type: 'request_ssn',
+            applicant_name: [app.first_name, app.last_name].filter(Boolean).join(' ') || 'Applicant',
+            applicant_email: app.email,
+            application_id: app.id,
+          }),
+        }
+      );
+      if (!res.ok) throw new Error('Failed to send email');
+      toast.success(`SSN request email sent to ${app.first_name || app.email}`);
+      setSsnEmailCooldown(true);
+      setTimeout(() => setSsnEmailCooldown(false), 60_000);
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to send email');
+    } finally {
+      setSsnEmailSending(false);
     }
   };
 
@@ -794,6 +829,16 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                             Save SSN
                           </Button>
                         </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={sendSsnRequestEmail}
+                          disabled={ssnEmailSending || ssnEmailCooldown}
+                          className="h-8 text-xs gap-1.5 mt-2 text-gold hover:text-gold-light hover:bg-gold/10"
+                        >
+                          {ssnEmailSending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                          {ssnEmailCooldown ? 'Email Sent ✓' : 'Email Applicant to Request SSN'}
+                        </Button>
                       </div>
                     )}
                     {ssnVisible && ssnValue && (
