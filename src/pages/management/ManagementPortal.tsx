@@ -131,6 +131,7 @@ export default function ManagementPortal() {
   const [deleteInviteId, setDeleteInviteId] = useState<string | null>(null);
 
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
+  const [staffAppModalOpen, setStaffAppModalOpen] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [criticalExpiryCount, setCriticalExpiryCount] = useState(0);
   const [drawerFocusField, setDrawerFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
