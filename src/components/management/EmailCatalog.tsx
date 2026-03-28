@@ -1031,7 +1031,7 @@ export default function EmailCatalog() {
                     From: {previewTemplate.sender}
                   </Badge>
                   <Badge variant="outline" className="text-[10px] font-medium border-border text-muted-foreground max-w-xs truncate">
-                    Subject: {previewTemplate.subject}
+                    Subject: {dbTemplates[previewTemplate.id]?.subject || previewTemplate.subject}
                   </Badge>
                   <Button
                     size="sm"
