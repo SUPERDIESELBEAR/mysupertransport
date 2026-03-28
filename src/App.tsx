@@ -42,6 +42,7 @@ function AppRoutes() {
     <Routes>
       {/* Public routes */}
       <Route path="/apply" element={<ApplicationForm />} />
+      <Route path="/apply/ssn" element={<SubmitSSN />} />
       <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/dashboard" replace />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/welcome" element={<WelcomeOperator />} />
