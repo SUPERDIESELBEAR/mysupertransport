@@ -265,6 +265,12 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
             </div>
           </div>
 
+          {/* Start Date (Anniversary) */}
+          <div className="space-y-1.5">
+            <Label htmlFor="add-start-date">Start Date (Anniversary)</Label>
+            <Input id="add-start-date" type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} />
+          </div>
+
           <hr className="border-border" />
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">CDL &amp; Compliance</p>
 
