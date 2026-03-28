@@ -720,19 +720,19 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                 <Section title="Uploaded Documents" icon={<FileText className="h-4 w-4" />}>
                   <div className="flex flex-wrap gap-2">
                     {app.dl_front_url && (
-                      <a href={app.dl_front_url} target="_blank" rel="noopener noreferrer"
+                      <a href={signedUrls.dl_front_url || app.dl_front_url} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg">
                         <FileText className="h-3.5 w-3.5" /> DL Front
                       </a>
                     )}
                     {app.dl_rear_url && (
-                      <a href={app.dl_rear_url} target="_blank" rel="noopener noreferrer"
+                      <a href={signedUrls.dl_rear_url || app.dl_rear_url} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg">
                         <FileText className="h-3.5 w-3.5" /> DL Rear
                       </a>
                     )}
                     {app.medical_cert_url && (
-                      <a href={app.medical_cert_url} target="_blank" rel="noopener noreferrer"
+                      <a href={signedUrls.medical_cert_url || app.medical_cert_url} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg">
                         <FileText className="h-3.5 w-3.5" /> Medical Cert
                       </a>
