@@ -5066,8 +5066,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Inspection Binder — per-driver docs & uploads */}
       {operatorUserId && (
-        <div ref={inspectionBinderRef}>
-          <OperatorBinderPanel driverUserId={operatorUserId} operatorName={operatorName} />
+        <div ref={inspectionBinderRef} className="bg-white border border-border rounded-xl shadow-sm">
+          <button onClick={() => toggleStage('inspection_binder')} className="w-full flex items-center justify-between px-5 py-4 text-left">
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-gold" />
+              <h3 className="font-semibold text-foreground text-sm">Inspection Binder</h3>
+            </div>
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${collapsedStages.has('inspection_binder') ? '-rotate-90' : ''}`} />
+          </button>
+          {!collapsedStages.has('inspection_binder') && (
+            <OperatorBinderPanel driverUserId={operatorUserId} operatorName={operatorName} />
+          )}
         </div>
       )}
 
