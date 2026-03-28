@@ -1,25 +1,45 @@
 
 
-## Add Email Column to Driver Hub Roster
+## Editable Contact Info + Birthday & Anniversary Features
 
-### Approach
-Add a truncated email column between Phone and State with a one-click copy button. Hidden on mobile for clean responsive behavior.
+### Part 1: Editable Contact Info in OperatorDetailPanel
 
-### Changes
+**File: `src/pages/staff/OperatorDetailPanel.tsx`**
 
-**1. `src/components/drivers/DriverRoster.tsx`**
-- Add `email: string | null` to the `DriverRow` interface
-- Fetch email from the `profiles` join (it's already joined for avatar — add `email` to the select)
-- Add a new `<TableHead>` for "Email" between Phone and State, with class `hidden lg:table-cell`
-- Add a new `<TableCell>` with:
-  - `max-w-[180px] truncate` for the email text
-  - Tooltip showing the full email on hover
-  - A small `Copy` (clipboard) icon button that copies to clipboard with a toast confirmation
-  - Class `hidden lg:table-cell` to hide on smaller screens
+Add a new "Contact Info" card below the header, above Stage 1, with an edit/save toggle:
+- Phone (auto-formatted `(XXX) XXX-XXXX`)
+- Email
+- Street address, city, state, zip
+- Birthday (from `applications.dob`, displayed with cake icon; celebratory badge if today)
+- Anniversary (from `onboarding_status.go_live_date`, shows years of service; celebratory badge if today)
 
-### Files changed
+Edit mode: pencil icon toggles inputs. Save writes to `applications` table (phone, email, address fields, dob). Anniversary is read-only (derived from go_live_date).
+
+### Part 2: Daily Birthday & Anniversary Edge Function
+
+**New file: `supabase/functions/send-birthday-anniversary/index.ts`**
+
+Runs daily via `pg_cron` at 9 AM UTC. Logic:
+1. Query active operators where `applications.dob` month/day matches today OR `onboarding_status.go_live_date` month/day matches today
+2. For each match, check `notification_preferences` for `birthday_anniversary` event type
+3. Send personalized **email** via Resend (hardcoded template using `email-layout.ts`)
+4. Insert **in-app notification** so the operator sees it in their portal
+5. No SMS for now (can add Twilio later)
+
+Birthday email: warm "Happy Birthday from the SUPERTRANSPORT family" message.
+Anniversary email: "Congratulations on X year(s) with SUPERTRANSPORT" message.
+
+### Part 3: Database — Schedule the Cron Job
+
+**Via SQL insert** (not migration, contains project-specific URLs):
+- Enable `pg_cron` and `pg_net` extensions
+- Schedule `cron.schedule` to call `send-birthday-anniversary` daily at 9 AM UTC
+
+### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/drivers/DriverRoster.tsx` | Add email to interface, fetch, column header, and cell with truncation + copy |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Add editable Contact Info section with birthday + anniversary display |
+| `supabase/functions/send-birthday-anniversary/index.ts` | New edge function with hardcoded greeting templates |
+| SQL insert | Schedule daily cron job at 9 AM UTC |
 
