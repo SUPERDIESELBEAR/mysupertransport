@@ -225,6 +225,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [ssnError, setSsnError] = useState<string | null>(null);
   const [manualSsn, setManualSsn] = useState('');
   const [ssnSaving, setSsnSaving] = useState(false);
+  const [ssnEmailSending, setSsnEmailSending] = useState(false);
+  const [ssnEmailCooldown, setSsnEmailCooldown] = useState(false);
 
   // Signed URLs for private bucket files
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
