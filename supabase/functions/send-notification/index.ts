@@ -845,6 +845,36 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case 'request_ssn': {
+        const name = payload.applicant_name || 'Applicant';
+        const email = payload.applicant_email;
+        const applicationId = payload.application_id;
+        if (!email || !applicationId) {
+          return new Response(JSON.stringify({ error: 'Missing applicant_email or application_id' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const ssnLink = `${appUrl}/apply/ssn?id=${applicationId}`;
+        const subject = 'Action Needed: Please Update Your Application — SUPERTRANSPORT';
+        const html = buildEmail(
+          subject,
+          '📋 Action Needed — Update Your Application',
+          `<p>Dear ${name},</p>
+           <p>Thank you for submitting your driver application with <strong>SUPERTRANSPORT</strong>.</p>
+           <p>We experienced a minor technical issue during the submission process, and unfortunately your <strong>Social Security Number</strong> was not captured. We sincerely apologize for the inconvenience.</p>
+           <p>To complete your application, please click the button below. You will be taken to a secure page where you can enter your SSN — no need to re-fill your entire application.</p>
+           <p>Your information is encrypted and stored securely. This should only take a moment.</p>
+           <p style="margin-top:16px;">If you have any questions or need assistance, please reach out to us at <a href="mailto:${ONBOARDING_EMAIL}" style="color:#C9A84C;">${ONBOARDING_EMAIL}</a>.</p>
+           <p>Thank you for your patience and understanding!</p>`,
+          { label: 'Update My Application', url: ssnLink },
+          ONBOARDING_EMAIL
+        );
+
+        await sendEmail(email, subject, html, RESEND_API_KEY);
+        break;
+      }
+
       default:
         return new Response(JSON.stringify({ error: `Unknown notification type: ${type}` }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
