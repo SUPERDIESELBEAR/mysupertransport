@@ -1,29 +1,36 @@
 
 
-## Add Anniversary (Start Date) Support for Pre-Existing Drivers
+## Fix "Application Under Review" Flash on Login
 
 ### Root Cause
 
-The anniversary line in Contact Info uses `onboarding_status.go_live_date`. The Add Driver modal (used for pre-existing drivers) never sets `go_live_date`, so Johnathan has no value and the anniversary row doesn't appear.
+In `App.tsx` line 51-58, the `/dashboard` route uses a chain of `activeRole` checks:
+```
+activeRole === 'owner' ? <ManagementPortal /> :
+activeRole === 'management' ? <ManagementPortal /> :
+...
+activeRole === 'operator' ? <OperatorPortal /> :
+<ApplicationStatus />   // ← fallback when no role matches
+```
 
-### Solution
+When `onAuthStateChange` fires during sign-in, `user` is set immediately but `fetchRoles` runs asynchronously. For ~200ms, `activeRole` is `null`, so none of the checks match and `<ApplicationStatus />` renders briefly.
 
-Two changes:
+### Fix
 
-**1. Add a "Start Date" field to the Add Driver modal** (`src/components/drivers/AddDriverModal.tsx`)
-- Add a date input labeled "Start Date (Anniversary)" to the pre-existing driver form
-- When saving, include `go_live_date` in the `onboarding_status` update (alongside unit_number, eld_serial_number, etc.)
-- This sets the anniversary for pre-existing drivers at creation time
+**File: `src/App.tsx`** — In the `/dashboard` route, before falling through to `<ApplicationStatus />`, check if the user exists but roles haven't loaded yet. If so, show the loading spinner instead of the application status page.
 
-**2. Make anniversary editable in the Operator Detail Panel** (`src/pages/staff/OperatorDetailPanel.tsx`)
-- For drivers who were added without a start date (like Johnathan), staff need a way to set it after the fact
-- Add the anniversary/start date as an editable field in the Contact Info section so staff can backfill it
-- This writes to `onboarding_status.go_live_date`
+```
+!user ? <Navigate to="/login" replace /> :
+(user && roles.length === 0 && !activeRole) ? <loading spinner> :
+activeRole === 'owner' ? <ManagementPortal /> :
+...
+```
+
+This requires destructuring `roles` from `useAuth()` on line 27 (it's already exposed by the context). The spinner is the same one already used in the `if (loading)` block.
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/drivers/AddDriverModal.tsx` | Add "Start Date" field, save as `go_live_date` in onboarding_status |
-| `src/pages/staff/OperatorDetailPanel.tsx` | Add editable anniversary date field in Contact Info section |
+| `src/App.tsx` | Add `roles` to destructured auth values; add roles-loading guard before `<ApplicationStatus />` fallback |
 
