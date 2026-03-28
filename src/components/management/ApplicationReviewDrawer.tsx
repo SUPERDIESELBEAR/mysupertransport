@@ -223,6 +223,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [ssnValue, setSsnValue] = useState<string | null>(null);
   const [ssnLoading, setSsnLoading] = useState(false);
   const [ssnError, setSsnError] = useState<string | null>(null);
+  const [manualSsn, setManualSsn] = useState('');
+  const [ssnSaving, setSsnSaving] = useState(false);
 
   // Signed URLs for private bucket files
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
