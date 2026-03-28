@@ -224,6 +224,49 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [ssnLoading, setSsnLoading] = useState(false);
   const [ssnError, setSsnError] = useState<string | null>(null);
 
+  // Signed URLs for private bucket files
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+
+  const extractStoragePath = useCallback((url: string | null, bucket: string): string | null => {
+    if (!url) return null;
+    // If it's already just a path (no http), return as-is
+    if (!url.startsWith('http')) return url;
+    // Extract path after /object/public/<bucket>/
+    const publicMarker = `/object/public/${bucket}/`;
+    const idx = url.indexOf(publicMarker);
+    if (idx !== -1) return url.slice(idx + publicMarker.length);
+    // Try /storage/v1/object/public/<bucket>/
+    const storageMarker = `/storage/v1/object/public/${bucket}/`;
+    const idx2 = url.indexOf(storageMarker);
+    if (idx2 !== -1) return url.slice(idx2 + storageMarker.length);
+    return null;
+  }, []);
+
+  useEffect(() => {
+    if (!app) return;
+    const entries: { key: string; bucket: string; rawUrl: string | null }[] = [
+      { key: 'signature_image_url', bucket: 'signatures', rawUrl: app.signature_image_url },
+      { key: 'dl_front_url', bucket: 'application-documents', rawUrl: app.dl_front_url },
+      { key: 'dl_rear_url', bucket: 'application-documents', rawUrl: app.dl_rear_url },
+      { key: 'medical_cert_url', bucket: 'application-documents', rawUrl: app.medical_cert_url },
+    ];
+
+    const generateSignedUrls = async () => {
+      const result: Record<string, string> = {};
+      await Promise.all(
+        entries.map(async ({ key, bucket, rawUrl }) => {
+          if (!rawUrl) return;
+          const path = extractStoragePath(rawUrl, bucket) ?? rawUrl;
+          const { data } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+          if (data?.signedUrl) result[key] = data.signedUrl;
+        })
+      );
+      setSignedUrls(result);
+    };
+
+    generateSignedUrls();
+  }, [app?.id, app?.signature_image_url, app?.dl_front_url, app?.dl_rear_url, app?.medical_cert_url, extractStoragePath]);
+
   // Background Verification
   const [bgMvrStatus, setBgMvrStatus] = useState(app?.mvr_status ?? 'not_started');
   const [bgChStatus, setBgChStatus] = useState(app?.ch_status ?? 'not_started');
