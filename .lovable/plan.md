@@ -1,36 +1,40 @@
 
 
-## Fix "Application Under Review" Flash on Login
+## Consolidate Service Library + Resources into "Resource Center"
 
-### Root Cause
+### Summary
 
-In `App.tsx` line 51-58, the `/dashboard` route uses a chain of `activeRole` checks:
-```
-activeRole === 'owner' ? <ManagementPortal /> :
-activeRole === 'management' ? <ManagementPortal /> :
-...
-activeRole === 'operator' ? <OperatorPortal /> :
-<ApplicationStatus />   // ← fallback when no role matches
-```
+Merge the two separate sidebar items ("Service Library" and "Resources") into a single "Resource Center" item across all three portals. Inside, a tabbed interface provides two tabs: **Services & Tools** and **Company Documents**.
 
-When `onAuthStateChange` fires during sign-in, `user` is set immediately but `fetchRoles` runs asynchronously. For ~200ms, `activeRole` is `null`, so none of the checks match and `<ApplicationStatus />` renders briefly.
+### Changes by File
 
-### Fix
+**1. `src/pages/management/ManagementPortal.tsx`**
+- Remove the separate `service-library` and `resources` nav items
+- Add a single `resource-center` nav item (icon: `BookOpen`, placed where Service Library was)
+- Update the `ManagementView` type to replace both with `resource-center`
+- Update all view-string arrays (URL parsing, validation)
+- Replace the two render blocks with one that renders a tabbed Resource Center:
+  - Tab 1: "Services & Tools" → renders `<ServiceLibraryManager />`
+  - Tab 2: "Company Documents" → renders `<ResourceLibraryManager />`
 
-**File: `src/App.tsx`** — In the `/dashboard` route, before falling through to `<ApplicationStatus />`, check if the user exists but roles haven't loaded yet. If so, show the loading spinner instead of the application status page.
+**2. `src/pages/staff/StaffPortal.tsx`**
+- Same pattern: remove `service-library` and `resources` nav items, add `resource-center`
+- Update the `StaffView` type and view-string arrays
+- Replace two render blocks with one tabbed Resource Center (same two tabs)
 
-```
-!user ? <Navigate to="/login" replace /> :
-(user && roles.length === 0 && !activeRole) ? <loading spinner> :
-activeRole === 'owner' ? <ManagementPortal /> :
-...
-```
+**3. `src/pages/operator/OperatorPortal.tsx`**
+- Remove separate `service-library` and `resources` nav items
+- Add single `resource-center` nav item (label: "Resource Center", icon: `BookOpen`)
+- Update the `OperatorView` type and view-string arrays
+- Replace two render blocks with one tabbed view:
+  - Tab 1: "Services & Tools" → renders `<DriverServiceLibrary />`
+  - Tab 2: "Company Documents" → renders `<OperatorResourceLibrary />`
 
-This requires destructuring `roles` from `useAuth()` on line 27 (it's already exposed by the context). The spinner is the same one already used in the `if (loading)` block.
+### No Database or Backend Changes
 
-### Files Changed
+All existing tables (`services`, `service_resources`, `resource_documents`) remain unchanged. This is purely a navigation/UI consolidation.
 
-| File | Change |
-|------|--------|
-| `src/App.tsx` | Add `roles` to destructured auth values; add roles-loading guard before `<ApplicationStatus />` fallback |
+### Technical Detail
+
+Each portal's Resource Center will use the existing `Tabs` / `TabsList` / `TabsTrigger` / `TabsContent` components from `@/components/ui/tabs`. The default tab will be "Services & Tools". URL deep-linking to the Resource Center will use `?view=resource-center` (staff/management) or `?tab=resource-center` (operator).
 
