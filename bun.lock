@@ -255,7 +255,7 @@
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.10", "", {}, "sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ=="],
 
-    "@hello-pangea/dnd": ["@hello-pangea/dnd@18.0.1", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@hello-pangea/dnd/-/dnd-18.0.1.tgz", { "dependencies": { "@babel/runtime": "^7.26.7", "css-box-model": "^1.2.1", "raf-schd": "^4.0.3", "react-redux": "^9.2.0", "redux": "^5.0.1" }, "peerDependencies": { "react": "^18.0.0 || ^19.0.0", "react-dom": "^18.0.0 || ^19.0.0" } }, "sha512-xojVWG8s/TGrKT1fC8K2tIWeejJYTAeJuj36zM//yEm/ZrnZUSFGS15BpO+jGZT1ybWvyXmeDJwPYb4dhWlbZQ=="],
+    "@hello-pangea/dnd": ["@hello-pangea/dnd@18.0.1", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@hello-pangea/dnd/-/dnd-18.0.1.tgz", { "dependencies": { "@babel/runtime": "^7.26.7", "css-box-model": "^1.2.1", "raf-schd": "^4.0.3", "react-redux": "^9.2.0", "redux": "^5.0.1" }, "peerDependencies": { "react": "^18.0.0 || ^19.0.0", "react-dom": "^18.0.0 || ^19.0.0" } }, "sha512-xojVWG8s/TGrKT1fC8K2tIWeejJYTAeJuj36zM//yEm/ZrnZUSFGS15BpO+jGZT1ybWvyXmeDJwPYb4dhWlbZQ=="],
 
     "@hookform/resolvers": ["@hookform/resolvers@3.10.0", "", { "peerDependencies": { "react-hook-form": "^7.0.0" } }, "sha512-79Dv+3mDF7i+2ajj7SkypSKHhl1cbln1OGavqrsF7p6mbUv11xpqpacPsGDCTRvCSjEEIez2ef1NveSVL3b0Ag=="],
 
@@ -791,7 +791,7 @@
 
     "cross-spawn": ["cross-spawn@7.0.6", "", { "dependencies": { "path-key": "^3.1.0", "shebang-command": "^2.0.0", "which": "^2.0.1" } }, "sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA=="],
 
-    "css-box-model": ["css-box-model@1.2.1", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/css-box-model/-/css-box-model-1.2.1.tgz", { "dependencies": { "tiny-invariant": "^1.0.6" } }, "sha512-a7Vr4Q/kd/aw96bnJG332W9V9LkJO69JRcaCYDUqjp6/z0w6VcZjgAcTbgFxEPfBgdnAwlh3iwu+hLopa+flJw=="],
+    "css-box-model": ["css-box-model@1.2.1", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/css-box-model/-/css-box-model-1.2.1.tgz", { "dependencies": { "tiny-invariant": "^1.0.6" } }, "sha512-a7Vr4Q/kd/aw96bnJG332W9V9LkJO69JRcaCYDUqjp6/z0w6VcZjgAcTbgFxEPfBgdnAwlh3iwu+hLopa+flJw=="],
 
     "css-color-keywords": ["css-color-keywords@1.0.0", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/css-color-keywords/-/css-color-keywords-1.0.0.tgz", {}, "sha512-FyyrDHZKEjXDpNJYvVsV960FiqQyXc/LlYmsxl2BcdMb2WPx0OGRVgTg55rPSyLSNMqP52R9r8geSp7apN3Ofg=="],
 
@@ -1235,7 +1235,7 @@
 
     "queue-microtask": ["queue-microtask@1.2.3", "", {}, "sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A=="],
 
-    "raf-schd": ["raf-schd@4.0.3", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/raf-schd/-/raf-schd-4.0.3.tgz", {}, "sha512-tQkJl2GRWh83ui2DiPTJz9wEiMN20syf+5oKfB03yYP7ioZcJwsIK8FjrtLwH1m7C7e+Tt2yYBlrOpdT+dyeIQ=="],
+    "raf-schd": ["raf-schd@4.0.3", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/raf-schd/-/raf-schd-4.0.3.tgz", {}, "sha512-tQkJl2GRWh83ui2DiPTJz9wEiMN20syf+5oKfB03yYP7ioZcJwsIK8FjrtLwH1m7C7e+Tt2yYBlrOpdT+dyeIQ=="],
 
     "rb-tippyjs-react": ["rb-tippyjs-react@4.3.1", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/rb-tippyjs-react/-/rb-tippyjs-react-4.3.1.tgz", { "dependencies": { "@babel/core": "^7.26.9", "react-is": "^19.0.0", "tippy.js": "^6.3.7" }, "peerDependencies": { "react": "^19.0", "react-dom": "^19.0" } }, "sha512-zC9Y571x3ILE9fVfJzWBHOKI4t/SYBbrH26aSCnQOlCEa6Vk4aKTozcuBRC1M3wcnP+rAnK5EEhhGhuCser8xg=="],
 
@@ -1259,7 +1259,7 @@
 
     "react-reconciler": ["react-reconciler@0.33.0", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-reconciler/-/react-reconciler-0.33.0.tgz", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.0" } }, "sha512-KetWRytFv1epdpJc3J4G75I4WrplZE5jOL7Yq0p34+OVOKF4Se7WrdIdVC45XsSSmUTlht2FM/fM1FZb1mfQeA=="],
 
-    "react-redux": ["react-redux@9.2.0", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-redux/-/react-redux-9.2.0.tgz", { "dependencies": { "@types/use-sync-external-store": "^0.0.6", "use-sync-external-store": "^1.4.0" }, "peerDependencies": { "@types/react": "^18.2.25 || ^19", "react": "^18.0 || ^19", "redux": "^5.0.0" }, "optionalPeers": ["@types/react", "redux"] }, "sha512-ROY9fvHhwOD9ySfrF0wmvu//bKCQ6AeZZq1nJNtbDC+kk5DuSuNX/n6YWYF/SYy7bSba4D4FSz8DJeKY/S/r+g=="],
+    "react-redux": ["react-redux@9.2.0", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-redux/-/react-redux-9.2.0.tgz", { "dependencies": { "@types/use-sync-external-store": "^0.0.6", "use-sync-external-store": "^1.4.0" }, "peerDependencies": { "@types/react": "^18.2.25 || ^19", "react": "^18.0 || ^19", "redux": "^5.0.0" }, "optionalPeers": ["@types/react", "redux"] }, "sha512-ROY9fvHhwOD9ySfrF0wmvu//bKCQ6AeZZq1nJNtbDC+kk5DuSuNX/n6YWYF/SYy7bSba4D4FSz8DJeKY/S/r+g=="],
 
     "react-refresh": ["react-refresh@0.17.0", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/react-refresh/-/react-refresh-0.17.0.tgz", {}, "sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ=="],
 
@@ -1291,7 +1291,7 @@
 
     "redent": ["redent@3.0.0", "", { "dependencies": { "indent-string": "^4.0.0", "strip-indent": "^3.0.0" } }, "sha512-6tDA8g98We0zd0GvVeMT9arEOnTw9qM03L9cJXaCjrip1OO764RDBLBfrB4cwzNGDj5OA5ioymC9GkizgWJDUg=="],
 
-    "redux": ["redux@5.0.1", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/redux/-/redux-5.0.1.tgz", {}, "sha512-M9/ELqF6fy8FwmkpnF0S3YKOqMyoWJ4+CS5Efg2ct3oY9daQvd/Pc71FpGZsVsbl3Cpb+IIcjBDUnnyBdQbq4w=="],
+    "redux": ["redux@5.0.1", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/redux/-/redux-5.0.1.tgz", {}, "sha512-M9/ELqF6fy8FwmkpnF0S3YKOqMyoWJ4+CS5Efg2ct3oY9daQvd/Pc71FpGZsVsbl3Cpb+IIcjBDUnnyBdQbq4w=="],
 
     "requires-port": ["requires-port@1.0.0", "", {}, "sha512-KigOCHcocU3XODJxsu8i/j8T9tzT4adHiecwORRQ0ZZFcp7ahwXuRU1m+yuO90C5ZUyGeGfocHDI14M3L3yDAQ=="],
 
