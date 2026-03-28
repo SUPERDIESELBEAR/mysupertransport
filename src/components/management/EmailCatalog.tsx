@@ -798,8 +798,8 @@ export default function EmailCatalog() {
             'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            subject: template.subject,
-            html: template.renderHtml(),
+            subject: dbTemplates[template.id]?.subject || template.subject,
+            html: getPreviewHtml(template),
           }),
         }
       );
