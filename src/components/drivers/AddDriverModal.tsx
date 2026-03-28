@@ -37,6 +37,7 @@ const INITIAL_FORM = {
   email: '',
   phone: '',
   home_state: '',
+  start_date: '',
   unit_number: '',
   cdl_number: '',
   cdl_state: '',
@@ -144,6 +145,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
         if (form.dash_cam_number.trim()) onboardingUpdate.dash_cam_number = form.dash_cam_number.trim();
         if (form.bestpass_number.trim()) onboardingUpdate.bestpass_number = form.bestpass_number.trim();
         if (form.fuel_card_number.trim()) onboardingUpdate.fuel_card_number = form.fuel_card_number.trim();
+        if (form.start_date) onboardingUpdate.go_live_date = form.start_date;
 
         if (Object.keys(onboardingUpdate).length > 0) {
           await supabase
@@ -261,6 +263,12 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
               <Label htmlFor="add-unit">Unit #</Label>
               <Input id="add-unit" value={form.unit_number} onChange={e => set('unit_number', e.target.value)} placeholder="e.g. 1042" />
             </div>
+          </div>
+
+          {/* Start Date (Anniversary) */}
+          <div className="space-y-1.5">
+            <Label htmlFor="add-start-date">Start Date (Anniversary)</Label>
+            <Input id="add-start-date" type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} />
           </div>
 
           <hr className="border-border" />

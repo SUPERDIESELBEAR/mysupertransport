@@ -265,6 +265,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     address_state: '',
     address_zip: '',
     dob: '' as string | null,
+    go_live_date: '' as string | null,
   });
 
   // Stage 6 Insurance email settings
@@ -1935,6 +1936,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             address_state: applicationData.address_state ?? '',
             address_zip: applicationData.address_zip ?? '',
             dob: applicationData.dob ?? null,
+            go_live_date: status.go_live_date ?? null,
           });
           setContactEditing(true);
         };
@@ -1956,6 +1958,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               })
               .eq('id', applicationData.id);
             if (error) throw error;
+            // Save go_live_date to onboarding_status if changed
+            if (operatorId && contactDraft.go_live_date !== (status.go_live_date ?? null)) {
+              await supabase
+                .from('onboarding_status')
+                .update({ go_live_date: contactDraft.go_live_date || null })
+                .eq('operator_id', operatorId);
+              setStatus((prev: any) => ({ ...prev, go_live_date: contactDraft.go_live_date || null }));
+            }
             // Update local state
             setApplicationData((prev: any) => ({
               ...prev,
@@ -2086,6 +2096,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     type="date"
                     value={contactDraft.dob ?? ''}
                     onChange={e => setContactDraft(prev => ({ ...prev, dob: e.target.value || null }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Start Date (Anniversary)</Label>
+                  <Input
+                    type="date"
+                    value={contactDraft.go_live_date ?? ''}
+                    onChange={e => setContactDraft(prev => ({ ...prev, go_live_date: e.target.value || null }))}
                     className="h-8 text-sm"
                   />
                 </div>
