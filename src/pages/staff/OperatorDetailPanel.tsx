@@ -1936,6 +1936,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             address_state: applicationData.address_state ?? '',
             address_zip: applicationData.address_zip ?? '',
             dob: applicationData.dob ?? null,
+            go_live_date: status.go_live_date ?? null,
           });
           setContactEditing(true);
         };
