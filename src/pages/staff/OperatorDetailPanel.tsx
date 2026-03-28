@@ -1958,6 +1958,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               })
               .eq('id', applicationData.id);
             if (error) throw error;
+            // Save go_live_date to onboarding_status if changed
+            if (operatorId && contactDraft.go_live_date !== (status.go_live_date ?? null)) {
+              await supabase
+                .from('onboarding_status')
+                .update({ go_live_date: contactDraft.go_live_date || null })
+                .eq('operator_id', operatorId);
+              setStatus((prev: any) => ({ ...prev, go_live_date: contactDraft.go_live_date || null }));
+            }
             // Update local state
             setApplicationData((prev: any) => ({
               ...prev,
