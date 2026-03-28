@@ -36,6 +36,7 @@ const INITIAL_FORM = {
   last_name: '',
   email: '',
   phone: '',
+  home_state: '',
   unit_number: '',
   cdl_number: '',
   cdl_state: '',
@@ -99,6 +100,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
           last_name: form.last_name.trim(),
           email: form.email.trim().toLowerCase(),
           phone: form.phone.trim() || null,
+          address_state: form.home_state || null,
           cdl_number: form.cdl_number.trim() || null,
           cdl_state: form.cdl_state || null,
           cdl_expiration: form.cdl_expiration || null,
@@ -238,11 +240,22 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
             <Input id="add-email" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="jane@example.com" />
           </div>
 
-          {/* Phone + Unit row */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Phone + Home State + Unit row */}
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="add-phone">Phone</Label>
               <Input id="add-phone" type="tel" value={form.phone} onChange={e => set('phone', formatPhone(e.target.value))} placeholder="(555) 000-0000" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-home-state">Home State</Label>
+              <Select value={form.home_state} onValueChange={v => set('home_state', v)}>
+                <SelectTrigger id="add-home-state">
+                  <SelectValue placeholder="State" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {US_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="add-unit">Unit #</Label>

@@ -77,7 +77,7 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
         unit_number,
         updated_at,
         onboarding_status (fully_onboarded, unit_number),
-        applications (first_name, last_name, phone, address_state, cdl_expiration, medical_cert_expiration)
+        applications (first_name, last_name, phone, email, address_state, cdl_expiration, medical_cert_expiration)
       `)
       .eq('is_active', false);
 
