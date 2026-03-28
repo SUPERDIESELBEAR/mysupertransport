@@ -1,66 +1,64 @@
 
 
-## Add Reusable "Request Missing SSN" Email with Send Button
+## Staff-Assisted Application Feature
 
 ### Summary
 
-Add a new reusable email template to the Email Catalog and a dedicated "Request SSN" button in the Application Review Drawer. The email includes a direct link to a new lightweight public page (`/apply/ssn`) where the applicant can submit just their SSN without re-filling the entire application.
+Add a "New Application" button in the Management Portal's Applications section that opens the full 9-step application form in a modal/drawer. Staff fills out the form on behalf of an applicant, and on submit it creates a completed application record in the pipeline — identical to one submitted by the applicant themselves.
+
+### Approach
+
+Rather than duplicating the entire 680-line `ApplicationForm.tsx`, create a new modal component that **reuses the existing step components** (Step1Personal through Step9Signature) and the existing `buildPayload` logic, but runs within the management context (authenticated user, no draft token logic).
 
 ### Changes
 
-**1. New public page: `src/pages/SubmitSSN.tsx`**
+**1. Extract `buildPayload` and `validateStep` into shared utilities**
 
-A simple standalone page at `/apply/ssn?id=<application_id>` that:
-- Shows the SUPERTRANSPORT branding (same header as the application form)
-- Displays a single SSN input field with XXX-XX-XXXX masking
-- On submit: calls `encrypt-ssn`, updates `applications.ssn_encrypted`, shows a success message
-- No auth required (same anonymous access pattern as the application form)
-- Validates the application ID exists before showing the form
+Move the `buildPayload` function and `validateStep` function from `src/pages/ApplicationForm.tsx` into `src/components/application/utils.ts` so both the public form and the staff-assisted modal can import them. Update `ApplicationForm.tsx` to import from the new location.
 
-**2. Route registration: `src/App.tsx`**
+**2. New component: `src/components/management/StaffApplicationModal.tsx`**
 
-Add `<Route path="/apply/ssn" element={<SubmitSSN />} />` as a public route.
+A full-screen dialog (Sheet) containing:
+- The same 9 step components (Step1–Step9) with FormProgress
+- Same validation logic per step
+- On submit: builds the payload using `buildPayload`, inserts into `applications` with `is_draft: false` and `submitted_at`, encrypts SSN via the existing `encrypt-ssn` edge function (using the staff member's auth token)
+- Marks the application with a metadata field `submitted_by_staff: true` so it is distinguishable
+- Fires the `new_application` notification
+- Document uploads in Step 7 use the existing anonymous upload pattern (application-documents bucket)
+- Signature in Step 9 uses the existing signature canvas and uploads to the signatures bucket
+- Skips draft token / localStorage logic entirely
+- Skips the duplicate email check (staff may intentionally re-enter)
+- Logs the action to `audit_log`
 
-**3. New notification type in `supabase/functions/send-notification/index.ts`**
+**3. `src/pages/management/ManagementPortal.tsx`**
 
-Add a `request_ssn` case that:
-- Accepts `applicant_name`, `applicant_email`, and `application_id`
-- Builds the branded email with the professional wording (apology for the inconvenience, link to submit SSN)
-- CTA button links to `{appUrl}/apply/ssn?id={application_id}`
+- Import `StaffApplicationModal`
+- Add state: `staffAppModalOpen`
+- Add a "New Application" button next to the existing "Invite Someone" button in the Applications header
+- Wire the modal open/close and refresh applications list on successful submit
 
-**4. Email template in `src/components/management/EmailCatalog.tsx`**
+**4. Database: Add `submitted_by_staff` column to `applications`**
 
-Add a new template entry (`id: 'request_ssn'`) in the TEMPLATES array under a new "notifications" or "documents" category so it appears in the Content Manager for preview.
+A nullable boolean column defaulting to `false`, so staff-submitted applications can be identified in the review drawer.
 
-**5. "Request SSN" button in `src/components/management/ApplicationReviewDrawer.tsx`**
+### No Other File Changes
 
-In the SSN section, when SSN is missing (the manual entry area), add a secondary button: **"Email Applicant to Request SSN"** that:
-- Calls `send-notification` with `type: 'request_ssn'`
-- Passes the applicant's name, email, and application ID
-- Shows a toast on success: "SSN request email sent to {name}"
-- Disables for 60 seconds after sending to prevent spam
+The existing step components (Step1–Step9) already accept `data`, `onChange`, and `errors` props — they work without modification. The `ApplicationReviewDrawer` already renders all application fields and will display staff-submitted applications identically.
 
-### Email Content
+### Security
 
-Subject: `Action Needed: Please Update Your Application — SUPERTRANSPORT`
-
-Body: Professional apology email explaining a minor technical issue prevented their SSN from being saved, with a CTA button "Update My Application" linking to `/apply/ssn?id=...`.
-
-### How You'll Send It
-
-From the Management Portal → Applications → open any applicant's review drawer → scroll to the SSN section. If no SSN is on file, you'll see both:
-- A manual SSN entry field (already built)
-- A new **"Email Applicant to Request SSN"** button
-
-One click sends the branded email to the applicant's email address on file.
+- Staff authentication is verified via the existing session token
+- SSN encryption uses the same `encrypt-ssn` edge function
+- Document uploads use the existing `application-documents` bucket (which has anon insert policies already for the public form)
+- Audit log entry records who submitted the application
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/SubmitSSN.tsx` | New lightweight SSN submission page |
-| `src/App.tsx` | Add `/apply/ssn` route |
-| `supabase/functions/send-notification/index.ts` | Add `request_ssn` notification type |
-| `src/components/management/ApplicationReviewDrawer.tsx` | Add "Email Applicant to Request SSN" button |
-| `src/components/management/EmailCatalog.tsx` | Add template preview entry |
+| `src/components/application/utils.ts` | New — extracted `buildPayload` and `validateStep` |
+| `src/pages/ApplicationForm.tsx` | Import `buildPayload`/`validateStep` from utils instead of inline |
+| `src/components/management/StaffApplicationModal.tsx` | New — full 9-step form in a Sheet dialog |
+| `src/pages/management/ManagementPortal.tsx` | Add "New Application" button + modal state |
+| Database migration | Add `submitted_by_staff` boolean column to `applications` |
 
