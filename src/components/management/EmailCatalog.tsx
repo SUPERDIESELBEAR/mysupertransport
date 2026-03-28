@@ -1055,7 +1055,7 @@ export default function EmailCatalog() {
           <div className="flex-1 min-h-0 overflow-auto p-3 sm:p-4 bg-muted/30">
             {previewTemplate && (
               <iframe
-                srcDoc={previewTemplate.renderHtml()}
+                srcDoc={getPreviewHtml(previewTemplate)}
                 title={previewTemplate.title}
                 className="w-full rounded-lg border border-border bg-white"
                 style={{ height: '600px', minHeight: '400px' }}
