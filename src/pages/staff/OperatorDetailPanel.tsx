@@ -253,6 +253,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [truckPhotoGridOpen, setTruckPhotoGridOpen] = useState(false);
 
+  // Contact Info editing state
+  const [contactEditing, setContactEditing] = useState(false);
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactDraft, setContactDraft] = useState({
+    phone: '',
+    email: '',
+    address_street: '',
+    address_city: '',
+    address_state: '',
+    address_zip: '',
+    dob: '' as string | null,
+  });
+
   // Stage 6 Insurance email settings
   const [insuranceEmailRecipients, setInsuranceEmailRecipients] = useState<string[]>([]);
   const [insuranceEmailInput, setInsuranceEmailInput] = useState('');
