@@ -36,6 +36,7 @@ const INITIAL_FORM = {
   last_name: '',
   email: '',
   phone: '',
+  home_state: '',
   unit_number: '',
   cdl_number: '',
   cdl_state: '',

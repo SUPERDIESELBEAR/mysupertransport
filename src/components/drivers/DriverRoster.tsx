@@ -382,7 +382,7 @@ export default function DriverRoster({
           unit_number,
           onboarding_status!inner (fully_onboarded, unit_number),
           active_dispatch (dispatch_status),
-          applications (first_name, last_name, phone, address_state, cdl_expiration, medical_cert_expiration)
+          applications (first_name, last_name, phone, email, address_state, cdl_expiration, medical_cert_expiration)
         `)
         .eq('onboarding_status.fully_onboarded', true),
       supabase
