@@ -1,52 +1,66 @@
 
 
-## Add Manual SSN Entry to Application Review Drawer
+## Add Reusable "Request Missing SSN" Email with Send Button
 
 ### Summary
 
-When an applicant's SSN is missing (`ssn_encrypted` is null), show a manual entry form in the review drawer so management can type, encrypt, and save it.
+Add a new reusable email template to the Email Catalog and a dedicated "Request SSN" button in the Application Review Drawer. The email includes a direct link to a new lightweight public page (`/apply/ssn`) where the applicant can submit just their SSN without re-filling the entire application.
 
 ### Changes
 
-**`src/components/management/ApplicationReviewDrawer.tsx`**
+**1. New public page: `src/pages/SubmitSSN.tsx`**
 
-In the SSN section (around lines 680-714), after the existing "Reveal SSN" / display logic:
+A simple standalone page at `/apply/ssn?id=<application_id>` that:
+- Shows the SUPERTRANSPORT branding (same header as the application form)
+- Displays a single SSN input field with XXX-XX-XXXX masking
+- On submit: calls `encrypt-ssn`, updates `applications.ssn_encrypted`, shows a success message
+- No auth required (same anonymous access pattern as the application form)
+- Validates the application ID exists before showing the form
 
-1. Add new state variables: `manualSsn` (string), `ssnSaving` (boolean)
-2. Add a `saveManualSSN` async function that:
-   - Calls the `encrypt-ssn` edge function with the entered SSN
-   - Updates the `applications` table: `UPDATE applications SET ssn_encrypted = encrypted WHERE id = app.id`
-   - Logs to `audit_log` with action `manual_ssn_entry`
-   - On success, sets `ssnValue` to the formatted SSN and shows it as revealed
-3. Modify the SSN display section:
-   - When `revealSSN` fails with an error indicating no SSN exists (or `ssn_encrypted` is null on the app object), show a manual entry form instead of just an error
-   - The form: a masked input field for 9-digit SSN with `(XXX-XX-XXXX)` formatting + a "Save SSN" button
-   - Only visible to management users (already implied by drawer access)
+**2. Route registration: `src/App.tsx`**
 
-### Flow
+Add `<Route path="/apply/ssn" element={<SubmitSSN />} />` as a public route.
 
-```text
-User clicks "Reveal SSN"
-  → decrypt-ssn returns error (no SSN stored)
-    → Show "No SSN on file" message + manual entry form
-      → User types SSN → clicks Save
-        → encrypt-ssn → update applications.ssn_encrypted
-          → Show formatted SSN as revealed
-```
+**3. New notification type in `supabase/functions/send-notification/index.ts`**
 
-### Security
+Add a `request_ssn` case that:
+- Accepts `applicant_name`, `applicant_email`, and `application_id`
+- Builds the branded email with the professional wording (apology for the inconvenience, link to submit SSN)
+- CTA button links to `{appUrl}/apply/ssn?id={application_id}`
 
-- Encryption uses the existing `encrypt-ssn` edge function (server-side, uses `SSN_ENCRYPTION_KEY`)
-- Audit log entry created for accountability
-- Only accessible to authenticated staff/management who can already open the drawer
+**4. Email template in `src/components/management/EmailCatalog.tsx`**
 
-### No Database Changes
+Add a new template entry (`id: 'request_ssn'`) in the TEMPLATES array under a new "notifications" or "documents" category so it appears in the Content Manager for preview.
 
-Uses existing `applications.ssn_encrypted` column and `audit_log` table.
+**5. "Request SSN" button in `src/components/management/ApplicationReviewDrawer.tsx`**
+
+In the SSN section, when SSN is missing (the manual entry area), add a secondary button: **"Email Applicant to Request SSN"** that:
+- Calls `send-notification` with `type: 'request_ssn'`
+- Passes the applicant's name, email, and application ID
+- Shows a toast on success: "SSN request email sent to {name}"
+- Disables for 60 seconds after sending to prevent spam
+
+### Email Content
+
+Subject: `Action Needed: Please Update Your Application — SUPERTRANSPORT`
+
+Body: Professional apology email explaining a minor technical issue prevented their SSN from being saved, with a CTA button "Update My Application" linking to `/apply/ssn?id=...`.
+
+### How You'll Send It
+
+From the Management Portal → Applications → open any applicant's review drawer → scroll to the SSN section. If no SSN is on file, you'll see both:
+- A manual SSN entry field (already built)
+- A new **"Email Applicant to Request SSN"** button
+
+One click sends the branded email to the applicant's email address on file.
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/management/ApplicationReviewDrawer.tsx` | Add manual SSN entry UI + save logic when SSN is missing |
+| `src/pages/SubmitSSN.tsx` | New lightweight SSN submission page |
+| `src/App.tsx` | Add `/apply/ssn` route |
+| `supabase/functions/send-notification/index.ts` | Add `request_ssn` notification type |
+| `src/components/management/ApplicationReviewDrawer.tsx` | Add "Email Applicant to Request SSN" button |
+| `src/components/management/EmailCatalog.tsx` | Add template preview entry |
 
