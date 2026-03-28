@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
 import DriverServiceLibrary from '@/components/service-library/DriverServiceLibrary';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import NotificationHistory from '@/components/management/NotificationHistory';
 import logo from '@/assets/supertransport-logo.png';
@@ -30,7 +31,7 @@ import ContractorPaySetup from '@/components/operator/ContractorPaySetup';
 import TruckInfoCard, { TruckInfo } from '@/components/operator/TruckInfoCard';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'progress' | 'documents' | 'messages' | 'resources' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'pay-setup';
+type OperatorView = 'progress' | 'documents' | 'messages' | 'resource-center' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'pay-setup';
 
 interface Stage {
   number: number;
@@ -57,7 +58,7 @@ export default function OperatorPortal() {
   const [view, setView] = useState<OperatorView>(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications','docs-hub','service-library','inspection-binder','pay-setup'].includes(tab)) return tab;
+    if (tab && ['progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup'].includes(tab)) return tab;
     return 'progress';
   });
   const [paySetupData, setPaySetupData] = useState<{ submitted_at: string | null; terms_accepted: boolean } | null>(null);
@@ -71,7 +72,7 @@ export default function OperatorPortal() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resources','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup'].includes(tab)) setView(tab);
+    if (tab && ['progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup'].includes(tab)) setView(tab);
   }, [location.search]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [operatorId, setOperatorId] = useState<string | null>(null);
@@ -629,12 +630,11 @@ export default function OperatorPortal() {
     { view: 'documents' as OperatorView, label: 'Documents', icon: <Upload className="h-5 w-5" /> },
     { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
     { view: 'inspection-binder' as OperatorView, label: 'Inspection Binder', icon: <Shield className="h-5 w-5" /> },
-    { view: 'service-library' as OperatorView, label: 'Service Library', icon: <BookOpen className="h-5 w-5" /> },
+    { view: 'resource-center' as OperatorView, label: 'Resource Center', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
     { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete', icaDot: icaActionDot },
     { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
-    { view: 'resources' as OperatorView, label: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> },
     { view: 'notifications' as OperatorView, label: 'Notifications', icon: <Bell className="h-5 w-5" />, badge: unreadNotifCount },
   ].filter(item => {
@@ -1112,39 +1112,30 @@ export default function OperatorPortal() {
           <div className="py-16 text-center text-muted-foreground text-sm">Loading your operator profile…</div>
         )}
 
-        {/* ── RESOURCES VIEW ── */}
-        {view === 'resources' && <OperatorResourceLibrary />}
+        {/* ── RESOURCE CENTER VIEW ── */}
+        {view === 'resource-center' && (
+          <div className="space-y-4 animate-fade-in">
+            <div>
+              <h2 className="text-base font-bold text-foreground">Resource Center</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Service guides and company documents</p>
+            </div>
+            <Tabs defaultValue="services" className="w-full">
+              <TabsList className="w-full sm:w-auto">
+                <TabsTrigger value="services" className="flex-1 sm:flex-none">Services & Tools</TabsTrigger>
+                <TabsTrigger value="documents" className="flex-1 sm:flex-none">Company Documents</TabsTrigger>
+              </TabsList>
+              <TabsContent value="services">
+                <DriverServiceLibrary />
+              </TabsContent>
+              <TabsContent value="documents">
+                <OperatorResourceLibrary />
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
 
         {/* ── FAQ VIEW ── */}
         {view === 'faq' && <OperatorFAQ />}
-
-        {/* ── DOCUMENT HUB VIEW ── */}
-        {view === 'docs-hub' && <DocumentHub isAdmin={false} onAcknowledged={fetchUnackedDocs} />}
-
-        {/* ── MESSAGES VIEW ── */}
-        {view === 'messages' && (
-          <OperatorMessagesView
-            initialUserId={messageInitialUserId ?? undefined}
-            onThreadSelected={() => setMessageInitialUserId(null)}
-          />
-        )}
-
-        {/* ── DISPATCH STATUS VIEW ── */}
-        {view === 'dispatch' && operatorId && (
-          <OperatorDispatchStatus
-            operatorId={operatorId}
-            onMessageDispatcher={(dispatcherUserId) => {
-              setMessageInitialUserId(dispatcherUserId);
-              setView('messages');
-            }}
-          />
-        )}
-
-        {/* ── ICA SIGNING VIEW ── */}
-        {view === 'ica' && <OperatorICASign />}
-
-        {/* ── SERVICE LIBRARY VIEW ── */}
-        {view === 'service-library' && <DriverServiceLibrary />}
 
         {/* ── PAY SETUP VIEW ── */}
         {view === 'pay-setup' && operatorId && (

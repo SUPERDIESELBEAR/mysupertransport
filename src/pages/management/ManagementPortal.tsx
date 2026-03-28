@@ -24,7 +24,7 @@ import InspectionComplianceSummary from '@/components/inspection/InspectionCompl
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
-  Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Layers, Shield, Users2, AlertCircle, FileX,
+  Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Shield, Users2, AlertCircle, FileX,
   MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2, FileText,
   MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car, LayoutTemplate,
 } from 'lucide-react';
@@ -34,6 +34,7 @@ import DocumentHub from '@/components/documents/DocumentHub';
 import EmailCatalog from '@/components/management/EmailCatalog';
 import FormsCatalog from '@/components/management/FormsCatalog';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
 import DriverHubView from '@/components/drivers/DriverHubView';
 import type { ComplianceCounts, ComplianceFilter } from '@/components/drivers/DriverRoster';
@@ -66,7 +67,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resources' | 'activity' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'email-catalog' | 'content-manager' | 'forms-catalog' | 'mo-plates';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'email-catalog' | 'content-manager' | 'forms-catalog' | 'mo-plates';
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -97,7 +98,7 @@ export default function ManagementPortal() {
   const [searchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const v = searchParams.get('view') as ManagementView | null;
-    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates'].includes(v)) ? v : 'overview';
+    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates'].includes(v)) ? v : 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [scrollToStageKeyMgmt, setScrollToStageKeyMgmt] = useState<string | undefined>(undefined);
@@ -164,7 +165,7 @@ export default function ManagementPortal() {
   useEffect(() => {
     const v = searchParams.get('view') as ManagementView | null;
     const s = searchParams.get('status') as StatusFilter | null;
-    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resources','activity','notifications','docs-hub','service-library','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates'].includes(v)) {
+    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates'].includes(v)) {
       setView(v);
     }
     if (s && ['pending','approved','denied','all'].includes(s)) {
@@ -683,8 +684,7 @@ export default function ManagementPortal() {
     { label: 'Driver Hub',        icon: <Users2 className="h-4 w-4" />,          path: 'drivers' },
     { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />,          path: 'inspection-binder' },
     { label: 'Document Hub',      icon: <Library className="h-4 w-4" />,         path: 'docs-hub' },
-    { label: 'Service Library',   icon: <Layers className="h-4 w-4" />,          path: 'service-library',   dividerBefore: 'Admin' },
-    { label: 'Resources',         icon: <BookOpen className="h-4 w-4" />,        path: 'resources' },
+    { label: 'Resource Center',   icon: <BookOpen className="h-4 w-4" />,         path: 'resource-center',   dividerBefore: 'Admin' },
     { label: 'Staff',             icon: <UserPlus className="h-4 w-4" />,        path: 'staff' },
     { label: 'FAQ Manager',       icon: <HelpCircle className="h-4 w-4" />,      path: 'faq' },
     { label: 'Pipeline Config',   icon: <Settings2 className="h-4 w-4" />,       path: 'pipeline-config' },
@@ -1733,17 +1733,31 @@ export default function ManagementPortal() {
           <FaqManager />
         )}
 
-        {view === 'resources' && (
-          <ResourceLibraryManager />
+        {view === 'resource-center' && (
+          <div className="space-y-4 animate-fade-in">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Resource Center</h1>
+              <p className="text-muted-foreground text-sm mt-1">Manage service guides and company documents in one place</p>
+            </div>
+            <Tabs defaultValue="services" className="w-full">
+              <TabsList className="w-full sm:w-auto">
+                <TabsTrigger value="services" className="flex-1 sm:flex-none">Services & Tools</TabsTrigger>
+                <TabsTrigger value="documents" className="flex-1 sm:flex-none">Company Documents</TabsTrigger>
+              </TabsList>
+              <TabsContent value="services">
+                <ServiceLibraryManager />
+              </TabsContent>
+              <TabsContent value="documents">
+                <ResourceLibraryManager />
+              </TabsContent>
+            </Tabs>
+          </div>
         )}
 
         {view === 'docs-hub' && (
           <DocumentHub isAdmin={true} />
         )}
 
-        {view === 'service-library' && (
-          <ServiceLibraryManager />
-        )}
 
         {view === 'inspection-binder' && (
           <InspectionBinderAdmin />

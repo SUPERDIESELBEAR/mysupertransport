@@ -14,9 +14,10 @@ import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Wrench, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff, HardDrive, GraduationCap } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff, HardDrive, GraduationCap } from 'lucide-react';
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import DriverHubView from '@/components/drivers/DriverHubView';
 import DocumentHub from '@/components/documents/DocumentHub';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
@@ -29,7 +30,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resources' | 'notifications' | 'docs-hub' | 'service-library' | 'inspection-binder' | 'drivers' | 'compliance' | 'equipment';
+type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resource-center' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'compliance' | 'equipment';
 
 export default function StaffPortal() {
   const { user } = useAuth();
@@ -68,7 +69,7 @@ export default function StaffPortal() {
     } else if (operatorId) {
       setSelectedOperatorId(operatorId);
       setCurrentView('operator-detail');
-    } else if (view && ['pipeline','messages','faq','resources','notifications','docs-hub','service-library','inspection-binder','drivers','compliance','equipment'].includes(view)) {
+    } else if (view && ['pipeline','messages','faq','resource-center','notifications','docs-hub','inspection-binder','drivers','compliance','equipment'].includes(view)) {
       setCurrentView(view);
     }
   }, [searchParams]);
@@ -152,9 +153,8 @@ export default function StaffPortal() {
     { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />, path: 'inspection-binder' },
     { label: 'Document Hub', icon: <Library className="h-4 w-4" />, path: 'docs-hub' },
     { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'messages', badge: unreadCount, dividerBefore: 'Tools' },
-    { label: 'Service Library', icon: <Wrench className="h-4 w-4" />, path: 'service-library' },
+    { label: 'Resource Center', icon: <BookOpen className="h-4 w-4" />, path: 'resource-center' },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
-    { label: 'Resources', icon: <BookOpen className="h-4 w-4" />, path: 'resources' },
     { label: 'Equipment', icon: <HardDrive className="h-4 w-4" />, path: 'equipment' },
     { label: 'Notifications', icon: <Bell className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount, dividerBefore: 'Admin' },
     { label: 'Demo Mode', icon: <GraduationCap className="h-4 w-4" />, path: '__demo__' },
@@ -583,14 +583,28 @@ export default function StaffPortal() {
       {currentView === 'faq' && (
         <FaqManager />
       )}
-      {currentView === 'resources' && (
-        <ResourceLibraryManager />
+      {currentView === 'resource-center' && (
+        <div className="space-y-4 animate-fade-in">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Resource Center</h1>
+            <p className="text-muted-foreground text-sm mt-1">Manage service guides and company documents in one place</p>
+          </div>
+          <Tabs defaultValue="services" className="w-full">
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="services" className="flex-1 sm:flex-none">Services & Tools</TabsTrigger>
+              <TabsTrigger value="documents" className="flex-1 sm:flex-none">Company Documents</TabsTrigger>
+            </TabsList>
+            <TabsContent value="services">
+              <ServiceLibraryManager />
+            </TabsContent>
+            <TabsContent value="documents">
+              <ResourceLibraryManager />
+            </TabsContent>
+          </Tabs>
+        </div>
       )}
       {currentView === 'docs-hub' && (
         <DocumentHub isAdmin={true} />
-      )}
-      {currentView === 'service-library' && (
-        <ServiceLibraryManager />
       )}
       {currentView === 'compliance' && (
         <div className="flex flex-col gap-4">
