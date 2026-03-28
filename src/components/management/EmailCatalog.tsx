@@ -688,6 +688,96 @@ export default function EmailCatalog() {
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
 
+  // ── Editable DB templates ────────────────────────────────────────────────
+  // Maps milestone_key → { subject, heading, body_html, cta_label }
+  const [dbTemplates, setDbTemplates] = useState<Record<string, { subject: string; heading: string; body_html: string; cta_label: string }>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ subject: '', heading: '', body_html: '', cta_label: '' });
+  const [saving, setSaving] = useState(false);
+
+  // Which template IDs are editable (have a DB record)
+  const EDITABLE_MILESTONE_KEYS = ['mo_reg_filed'];
+
+  const fetchDbTemplates = useCallback(async () => {
+    const { data } = await supabase
+      .from('email_templates')
+      .select('milestone_key, subject, heading, body_html, cta_label');
+    if (data) {
+      const map: Record<string, { subject: string; heading: string; body_html: string; cta_label: string }> = {};
+      data.forEach(row => { map[row.milestone_key] = row; });
+      setDbTemplates(map);
+    }
+  }, []);
+
+  useEffect(() => { fetchDbTemplates(); }, [fetchDbTemplates]);
+
+  const handleOpenEdit = (templateId: string) => {
+    const dbRow = dbTemplates[templateId];
+    if (dbRow) {
+      setEditForm({ subject: dbRow.subject, heading: dbRow.heading, body_html: dbRow.body_html, cta_label: dbRow.cta_label });
+    }
+    setEditingId(templateId);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('email_templates')
+        .update({
+          subject: editForm.subject,
+          heading: editForm.heading,
+          body_html: editForm.body_html,
+          cta_label: editForm.cta_label,
+          updated_at: new Date().toISOString(),
+          updated_by: user?.id ?? null,
+        })
+        .eq('milestone_key', editingId);
+      if (error) throw error;
+      toast({ title: 'Email template saved', description: 'Your changes are live and will be used for future emails.' });
+      await fetchDbTemplates();
+      setEditingId(null);
+    } catch (err) {
+      toast({ title: 'Failed to save', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResetToDefault = async () => {
+    if (!editingId) return;
+    const defaultTemplate = TEMPLATES.find(t => t.id === editingId);
+    if (!defaultTemplate) return;
+    // Extract default values from the hardcoded MILESTONE_COPY equivalent
+    const defaults: Record<string, { subject: string; heading: string; body_html: string; cta_label: string }> = {
+      mo_reg_filed: {
+        subject: 'Missouri Registration Filed — SUPERTRANSPORT',
+        heading: '📋 Missouri Registration Submitted',
+        body_html: '<p>Hi {{name}},</p><p>Your <strong>Missouri apportioned registration</strong> documents have been submitted to the state on your behalf.</p><p>State approval typically takes <strong>2–4 weeks</strong>. We\'ll notify you as soon as it\'s received.</p><p>In the meantime, you can check your onboarding status in your portal.</p>',
+        cta_label: 'View My Onboarding Progress',
+      },
+    };
+    const def = defaults[editingId];
+    if (def) setEditForm(def);
+  };
+
+  // Build preview HTML using DB values when available
+  const getPreviewHtml = (template: EmailTemplate): string => {
+    const dbRow = dbTemplates[template.id];
+    if (dbRow) {
+      const bodyWithName = dbRow.body_html.replace(/\{\{name\}\}/g, SAMPLE_NAME).replace(/\{\{extra\}\}/g, SAMPLE_DATE);
+      return buildEmail(
+        dbRow.subject,
+        dbRow.heading,
+        bodyWithName,
+        { label: dbRow.cta_label, url: `${SAMPLE_APP_URL}/dashboard` },
+        ONBOARDING_EMAIL
+      );
+    }
+    return template.renderHtml();
+  };
+
   const filtered = activeCategory === 'all'
     ? TEMPLATES
     : TEMPLATES.filter(t => t.category === activeCategory);
