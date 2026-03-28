@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2 } from 'lucide-react';
+import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2, Copy } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 
 interface DriverRow {
   operator_id: string;
@@ -17,6 +18,7 @@ interface DriverRow {
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
+  email: string | null;
   home_state: string | null;
   unit_number: string | null;
   dispatch_status: 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
@@ -440,7 +442,7 @@ export default function DriverRoster({
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('user_id, first_name, last_name, phone, home_state')
+          .select('user_id, first_name, last_name, phone, home_state, avatar_url')
           .in('user_id', userIds);
         (profiles ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
       }
@@ -456,6 +458,7 @@ export default function DriverRoster({
           first_name: profile.first_name ?? app?.first_name ?? null,
           last_name: profile.last_name ?? app?.last_name ?? null,
           phone: profile.phone ?? app?.phone ?? null,
+          email: app?.email ?? null,
           home_state: profile.home_state ?? app?.address_state ?? null,
           unit_number: os?.unit_number ?? op.unit_number ?? null,
           dispatch_status: (ad?.dispatch_status ?? 'not_dispatched') as DriverRow['dispatch_status'],
@@ -771,6 +774,7 @@ export default function DriverRoster({
                 <TableHead className="w-20">Unit #</TableHead>
                 <TableHead>Driver</TableHead>
                 {!dispatchMode && <TableHead className="hidden sm:table-cell">Phone</TableHead>}
+                {!dispatchMode && <TableHead className="hidden lg:table-cell">Email</TableHead>}
                 {!dispatchMode && <TableHead className="hidden md:table-cell">State</TableHead>}
                 <TableHead>Status</TableHead>
                 {!dispatchMode && <TableHead className="hidden lg:table-cell">Compliance</TableHead>}
@@ -865,6 +869,37 @@ export default function DriverRoster({
                         {driver.phone
                           ? <a href={`tel:${driver.phone}`} className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1" onClick={e => e.stopPropagation()}><Phone className="h-3 w-3" />{driver.phone}</a>
                           : <span className="text-muted-foreground text-xs">—</span>}
+                      </TableCell>
+                    )}
+
+                    {/* Email */}
+                    {!dispatchMode && (
+                      <TableCell className="hidden lg:table-cell">
+                        {driver.email ? (
+                          <div className="flex items-center gap-1 max-w-[180px]" onClick={e => e.stopPropagation()}>
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="text-sm text-muted-foreground truncate">{driver.email}</span>
+                                </TooltipTrigger>
+                                <TooltipContent>{driver.email}</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <button
+                              className="shrink-0 p-0.5 rounded hover:bg-muted transition-colors"
+                              title="Copy email"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(driver.email!);
+                                toast({ title: 'Email copied', description: driver.email! });
+                              }}
+                            >
+                              <Copy className="h-3 w-3 text-muted-foreground hover:text-primary" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
                       </TableCell>
                     )}
 
