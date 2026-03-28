@@ -62,8 +62,7 @@ export default function Step9Signature({ data, onChange, errors }: Props) {
       const path = `signatures/${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
       const { error } = await supabase.storage.from('signatures').upload(path, blob, { contentType: 'image/png' });
       if (error) throw error;
-      const { data: { publicUrl } } = supabase.storage.from('signatures').getPublicUrl(path);
-      onChange('signature_image_url', publicUrl || path);
+      onChange('signature_image_url', path);
       setSigSaved(true);
     } catch {
       // keep trying
