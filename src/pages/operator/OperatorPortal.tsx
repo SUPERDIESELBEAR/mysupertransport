@@ -1111,39 +1111,30 @@ export default function OperatorPortal() {
           <div className="py-16 text-center text-muted-foreground text-sm">Loading your operator profile…</div>
         )}
 
-        {/* ── RESOURCES VIEW ── */}
-        {view === 'resources' && <OperatorResourceLibrary />}
+        {/* ── RESOURCE CENTER VIEW ── */}
+        {view === 'resource-center' && (
+          <div className="space-y-4 animate-fade-in">
+            <div>
+              <h2 className="text-base font-bold text-foreground">Resource Center</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Service guides and company documents</p>
+            </div>
+            <Tabs defaultValue="services" className="w-full">
+              <TabsList className="w-full sm:w-auto">
+                <TabsTrigger value="services" className="flex-1 sm:flex-none">Services & Tools</TabsTrigger>
+                <TabsTrigger value="documents" className="flex-1 sm:flex-none">Company Documents</TabsTrigger>
+              </TabsList>
+              <TabsContent value="services">
+                <DriverServiceLibrary />
+              </TabsContent>
+              <TabsContent value="documents">
+                <OperatorResourceLibrary />
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
 
         {/* ── FAQ VIEW ── */}
         {view === 'faq' && <OperatorFAQ />}
-
-        {/* ── DOCUMENT HUB VIEW ── */}
-        {view === 'docs-hub' && <DocumentHub isAdmin={false} onAcknowledged={fetchUnackedDocs} />}
-
-        {/* ── MESSAGES VIEW ── */}
-        {view === 'messages' && (
-          <OperatorMessagesView
-            initialUserId={messageInitialUserId ?? undefined}
-            onThreadSelected={() => setMessageInitialUserId(null)}
-          />
-        )}
-
-        {/* ── DISPATCH STATUS VIEW ── */}
-        {view === 'dispatch' && operatorId && (
-          <OperatorDispatchStatus
-            operatorId={operatorId}
-            onMessageDispatcher={(dispatcherUserId) => {
-              setMessageInitialUserId(dispatcherUserId);
-              setView('messages');
-            }}
-          />
-        )}
-
-        {/* ── ICA SIGNING VIEW ── */}
-        {view === 'ica' && <OperatorICASign />}
-
-        {/* ── SERVICE LIBRARY VIEW ── */}
-        {view === 'service-library' && <DriverServiceLibrary />}
 
         {/* ── PAY SETUP VIEW ── */}
         {view === 'pay-setup' && operatorId && (

@@ -1732,8 +1732,25 @@ export default function ManagementPortal() {
           <FaqManager />
         )}
 
-        {view === 'resources' && (
-          <ResourceLibraryManager />
+        {view === 'resource-center' && (
+          <div className="space-y-4 animate-fade-in">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Resource Center</h1>
+              <p className="text-muted-foreground text-sm mt-1">Manage service guides and company documents in one place</p>
+            </div>
+            <Tabs defaultValue="services" className="w-full">
+              <TabsList className="w-full sm:w-auto">
+                <TabsTrigger value="services" className="flex-1 sm:flex-none">Services & Tools</TabsTrigger>
+                <TabsTrigger value="documents" className="flex-1 sm:flex-none">Company Documents</TabsTrigger>
+              </TabsList>
+              <TabsContent value="services">
+                <ServiceLibraryManager />
+              </TabsContent>
+              <TabsContent value="documents">
+                <ResourceLibraryManager />
+              </TabsContent>
+            </Tabs>
+          </div>
         )}
 
         {view === 'docs-hub' && (

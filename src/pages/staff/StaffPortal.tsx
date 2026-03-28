@@ -582,14 +582,28 @@ export default function StaffPortal() {
       {currentView === 'faq' && (
         <FaqManager />
       )}
-      {currentView === 'resources' && (
-        <ResourceLibraryManager />
+      {currentView === 'resource-center' && (
+        <div className="space-y-4 animate-fade-in">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Resource Center</h1>
+            <p className="text-muted-foreground text-sm mt-1">Manage service guides and company documents in one place</p>
+          </div>
+          <Tabs defaultValue="services" className="w-full">
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="services" className="flex-1 sm:flex-none">Services & Tools</TabsTrigger>
+              <TabsTrigger value="documents" className="flex-1 sm:flex-none">Company Documents</TabsTrigger>
+            </TabsList>
+            <TabsContent value="services">
+              <ServiceLibraryManager />
+            </TabsContent>
+            <TabsContent value="documents">
+              <ResourceLibraryManager />
+            </TabsContent>
+          </Tabs>
+        </div>
       )}
       {currentView === 'docs-hub' && (
         <DocumentHub isAdmin={true} />
-      )}
-      {currentView === 'service-library' && (
-        <ServiceLibraryManager />
       )}
       {currentView === 'compliance' && (
         <div className="flex flex-col gap-4">
