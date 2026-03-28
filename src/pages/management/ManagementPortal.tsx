@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import NotificationPreferencesModal from '@/components/management/NotificationPreferencesModal';
 import InviteApplicantModal from '@/components/management/InviteApplicantModal';
+import StaffApplicationModal from '@/components/management/StaffApplicationModal';
 import { useSearchParams } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import { supabase } from '@/integrations/supabase/client';
