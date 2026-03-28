@@ -18,6 +18,7 @@ interface DriverRow {
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
+  email: string | null;
   home_state: string | null;
   unit_number: string | null;
   dispatch_status: 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
