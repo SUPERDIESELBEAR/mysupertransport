@@ -17,10 +17,15 @@ Deno.serve(async (req) => {
     const resendKey = Deno.env.get('RESEND_API_KEY');
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    const day = now.getDate();
-    const currentYear = now.getFullYear();
+    // Use US Central Time for date logic
+    const ctFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago',
+      year: 'numeric', month: 'numeric', day: 'numeric',
+    });
+    const ctParts = ctFormatter.formatToParts(new Date());
+    const month = Number(ctParts.find(p => p.type === 'month')!.value);
+    const day = Number(ctParts.find(p => p.type === 'day')!.value);
+    const currentYear = Number(ctParts.find(p => p.type === 'year')!.value);
 
     // 1. Find active operators with birthday or anniversary today
     const { data: operators, error: opErr } = await supabase

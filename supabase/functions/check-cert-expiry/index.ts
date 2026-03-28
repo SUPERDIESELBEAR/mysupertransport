@@ -59,7 +59,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const today = new Date();
+    // Use US Central Time for "today"
+    const ctStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
+    const today = new Date(ctStr);
     today.setHours(0, 0, 0, 0);
 
     const ALERT_DAYS = [90, 60, 30];
