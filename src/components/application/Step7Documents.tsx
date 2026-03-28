@@ -44,10 +44,7 @@ function FileUploader({ label, hint, value, onUploaded, accept = 'image/*,applic
         .from('application-documents')
         .upload(path, file, { upsert: false });
       if (upErr) throw upErr;
-      const { data: { publicUrl } } = supabase.storage
-        .from('application-documents')
-        .getPublicUrl(path);
-      onUploaded(publicUrl || path);
+      onUploaded(path);
     } catch (e: any) {
       setUploadError(e.message || 'Upload failed. Please try again.');
     } finally {
