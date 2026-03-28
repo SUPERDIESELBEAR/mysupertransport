@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Wrench, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff, HardDrive, GraduationCap } from 'lucide-react';
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import DriverHubView from '@/components/drivers/DriverHubView';
 import DocumentHub from '@/components/documents/DocumentHub';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';

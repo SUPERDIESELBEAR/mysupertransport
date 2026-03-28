@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
 import DriverServiceLibrary from '@/components/service-library/DriverServiceLibrary';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import NotificationHistory from '@/components/management/NotificationHistory';
 import logo from '@/assets/supertransport-logo.png';
