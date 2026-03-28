@@ -145,6 +145,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
         if (form.dash_cam_number.trim()) onboardingUpdate.dash_cam_number = form.dash_cam_number.trim();
         if (form.bestpass_number.trim()) onboardingUpdate.bestpass_number = form.bestpass_number.trim();
         if (form.fuel_card_number.trim()) onboardingUpdate.fuel_card_number = form.fuel_card_number.trim();
+        if (form.start_date) onboardingUpdate.go_live_date = form.start_date;
 
         if (Object.keys(onboardingUpdate).length > 0) {
           await supabase
