@@ -26,6 +26,7 @@ import OperatorBinderPanel from '@/components/inspection/OperatorBinderPanel';
 import TruckPhotoGridModal from '@/components/staff/TruckPhotoGridModal';
 import { formatDistanceToNow, format, differenceInDays, parseISO, startOfDay } from 'date-fns';
 import TruckInfoCard, { TruckInfo, TruckInfoCardEditPayload } from '@/components/operator/TruckInfoCard';
+import { US_STATES } from '@/components/application/types';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -2060,12 +2061,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">State</Label>
-                    <Input
-                      value={contactDraft.address_state}
-                      onChange={e => setContactDraft(prev => ({ ...prev, address_state: e.target.value }))}
-                      maxLength={2}
-                      className="h-8 text-sm uppercase"
-                    />
+                    <Select value={contactDraft.address_state} onValueChange={v => setContactDraft(prev => ({ ...prev, address_state: v }))}>
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="State" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {US_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">ZIP</Label>
@@ -2457,7 +2460,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         }}
         onEdit={handleTruckDeviceEdit}
       />
-
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
       {(() => {
         const exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
