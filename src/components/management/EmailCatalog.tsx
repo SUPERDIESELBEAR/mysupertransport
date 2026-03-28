@@ -970,31 +970,44 @@ export default function EmailCatalog() {
               </div>
 
               {/* Action buttons */}
-              <div className="mt-auto flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1 gap-2 text-xs"
-                  onClick={() => setPreviewTemplate(template)}
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  Preview
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className={`flex-1 gap-2 text-xs transition-colors ${isSent ? 'border-green-500 text-green-600 hover:bg-green-50' : ''}`}
-                  disabled={isSending || !!sendingId}
-                  onClick={() => handleSendTest(template)}
-                >
-                  {isSending ? (
-                    <><Loader2 className="h-3.5 w-3.5 animate-spin" />Sending…</>
-                  ) : isSent ? (
-                    <><CheckCircle2 className="h-3.5 w-3.5" />Sent!</>
-                  ) : (
-                    <><Send className="h-3.5 w-3.5" />Send Test</>
-                  )}
-                </Button>
+              <div className="mt-auto flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 gap-2 text-xs"
+                    onClick={() => setPreviewTemplate(template)}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    Preview
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={`flex-1 gap-2 text-xs transition-colors ${isSent ? 'border-green-500 text-green-600 hover:bg-green-50' : ''}`}
+                    disabled={isSending || !!sendingId}
+                    onClick={() => handleSendTest(template)}
+                  >
+                    {isSending ? (
+                      <><Loader2 className="h-3.5 w-3.5 animate-spin" />Sending…</>
+                    ) : isSent ? (
+                      <><CheckCircle2 className="h-3.5 w-3.5" />Sent!</>
+                    ) : (
+                      <><Send className="h-3.5 w-3.5" />Send Test</>
+                    )}
+                  </Button>
+                </div>
+                {EDITABLE_MILESTONE_KEYS.includes(template.id) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 text-xs w-full border-gold/40 text-gold hover:bg-gold/10"
+                    onClick={() => handleOpenEdit(template.id)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit Template
+                  </Button>
+                )}
               </div>
             </div>
           );
