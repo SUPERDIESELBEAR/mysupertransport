@@ -20,6 +20,7 @@ import DispatchPortal from "./pages/dispatch/DispatchPortal";
 import NotFound from "./pages/NotFound";
 import SplashPage from "./pages/SplashPage";
 import InspectionSharePage from "./pages/InspectionSharePage";
+import SubmitSSN from "./pages/SubmitSSN";
 
 const queryClient = new QueryClient();
 
