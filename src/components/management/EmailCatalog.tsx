@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { Eye, Mail, Send, Loader2, CheckCircle2, Globe, ExternalLink, FileEdit, UserPlus } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Eye, Mail, Send, Loader2, CheckCircle2, Globe, ExternalLink, FileEdit, UserPlus, Pencil, Save, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
