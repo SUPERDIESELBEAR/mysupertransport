@@ -1,19 +1,25 @@
 
 
-## Rename "DOT Inspections" to "Periodic DOT Inspections"
+## Add Email Column to Driver Hub Roster
 
-### Problem
-The Visual Edits tool likely duplicated text across cards. The actual source of truth is the `PER_DRIVER_DOCS` array in `InspectionBinderTypes.ts`. We also need to update the description text in `OperatorBinderPanel.tsx`.
+### Approach
+Add a truncated email column between Phone and State with a one-click copy button. Hidden on mobile for clean responsive behavior.
 
 ### Changes
 
+**1. `src/components/drivers/DriverRoster.tsx`**
+- Add `email: string | null` to the `DriverRow` interface
+- Fetch email from the `profiles` join (it's already joined for avatar — add `email` to the select)
+- Add a new `<TableHead>` for "Email" between Phone and State, with class `hidden lg:table-cell`
+- Add a new `<TableCell>` with:
+  - `max-w-[180px] truncate` for the email text
+  - Tooltip showing the full email on hover
+  - A small `Copy` (clipboard) icon button that copies to clipboard with a toast confirmation
+  - Class `hidden lg:table-cell` to hide on smaller screens
+
+### Files changed
+
 | File | Change |
 |------|--------|
-| `src/components/inspection/InspectionBinderTypes.ts` (line 48) | Change `'DOT Inspections'` → `'Periodic DOT Inspections'` |
-| `src/components/inspection/OperatorBinderPanel.tsx` (line 344) | Update description text to say "Periodic DOT Inspections" |
-
-Also need to update the seeded default order in the database's `inspection_binder_order` table (the `doc_order` jsonb array for `per_driver` scope) to match the new key name — otherwise the drag-to-reorder hook won't match the key. This will be done via a migration that updates the jsonb value.
-
-### Note
-Any Visual Edits artifacts that duplicated text should be reverted by this change since the cards render from this single array.
+| `src/components/drivers/DriverRoster.tsx` | Add email to interface, fetch, column header, and cell with truncation + copy |
 
