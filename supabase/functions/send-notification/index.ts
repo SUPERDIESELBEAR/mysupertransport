@@ -6,6 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const ONBOARDING_EMAIL = 'onboarding@mysupertransport.com';
+
 // ─── Milestone copy for operator-facing emails ───────────────────────────────
 const MILESTONE_OPERATOR_COPY: Record<string, { heading: string; body: (name: string) => string }> = {
   ica_sent: {
