@@ -665,11 +665,11 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                 <Field label="Testing Policy Accepted" value={<YesNoBadge value={app.testing_policy_accepted} />} />
                 <Field label="Signed By" value={app.typed_full_name} />
                 <Field label="Signed Date" value={app.signed_date ? new Date(app.signed_date).toLocaleDateString() : null} />
-                {app.signature_image_url && (
+                {(app.signature_image_url || signedUrls.signature_image_url) && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Signature</p>
                     <div className="border border-border rounded-lg p-2 bg-secondary/30 inline-block">
-                      <img src={app.signature_image_url} alt="Applicant signature" className="h-16 w-auto" />
+                      <img src={signedUrls.signature_image_url || app.signature_image_url!} alt="Applicant signature" className="h-16 w-auto" />
                     </div>
                   </div>
                 )}
