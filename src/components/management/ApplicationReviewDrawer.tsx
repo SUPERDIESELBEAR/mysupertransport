@@ -829,6 +829,16 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                             Save SSN
                           </Button>
                         </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={sendSsnRequestEmail}
+                          disabled={ssnEmailSending || ssnEmailCooldown}
+                          className="h-8 text-xs gap-1.5 mt-2 text-gold hover:text-gold-light hover:bg-gold/10"
+                        >
+                          {ssnEmailSending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                          {ssnEmailCooldown ? 'Email Sent ✓' : 'Email Applicant to Request SSN'}
+                        </Button>
                       </div>
                     )}
                     {ssnVisible && ssnValue && (
