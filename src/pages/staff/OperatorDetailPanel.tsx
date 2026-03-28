@@ -4755,9 +4755,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         const presentStatuses = new Set(dispatchHistory.map(e => e.dispatch_status));
 
         return (
-          <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
+          <div className="bg-white border border-border rounded-xl shadow-sm">
             {/* Header */}
-            <div className="flex items-center justify-between mb-3">
+            <button onClick={() => toggleStage('dispatch_history')} className="w-full flex items-center justify-between px-5 py-4 text-left">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-gold" />
                 <h3 className="font-semibold text-foreground text-sm">Dispatch Status History</h3>
@@ -4767,13 +4767,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   </span>
                 )}
               </div>
-              {currentDispatchStatus && DISPATCH_STATUS_CONFIG[currentDispatchStatus] && (
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${DISPATCH_STATUS_CONFIG[currentDispatchStatus].badgeClass}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${DISPATCH_STATUS_CONFIG[currentDispatchStatus].dotClass}`} />
-                  Current: {DISPATCH_STATUS_CONFIG[currentDispatchStatus].label}
-                </span>
-              )}
-            </div>
+              <div className="flex items-center gap-2">
+                {currentDispatchStatus && DISPATCH_STATUS_CONFIG[currentDispatchStatus] && (
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${DISPATCH_STATUS_CONFIG[currentDispatchStatus].badgeClass}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${DISPATCH_STATUS_CONFIG[currentDispatchStatus].dotClass}`} />
+                    Current: {DISPATCH_STATUS_CONFIG[currentDispatchStatus].label}
+                  </span>
+                )}
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${collapsedStages.has('dispatch_history') ? '-rotate-90' : ''}`} />
+              </div>
+            </button>
+            {!collapsedStages.has('dispatch_history') && <div className="px-5 pb-5">
 
             {/* Filter chips — only show when there is history */}
             {dispatchHistory.length > 0 && (
