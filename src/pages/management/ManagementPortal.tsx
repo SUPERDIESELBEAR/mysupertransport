@@ -1442,6 +1442,15 @@ export default function ManagementPortal() {
               <div className="flex items-center gap-2 shrink-0">
                 <Button
                   size="sm"
+                  variant="outline"
+                  onClick={() => setStaffAppModalOpen(true)}
+                  className="gap-1.5"
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  New Application
+                </Button>
+                <Button
+                  size="sm"
                   onClick={() => setInviteModalOpen(true)}
                   className="gap-1.5"
                 >
