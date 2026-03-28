@@ -771,7 +771,30 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                       )}
                     </div>
                     {ssnError && (
-                      <p className="text-xs text-destructive mt-1">{ssnError}</p>
+                      <div className="mt-2">
+                        <p className="text-xs text-destructive mb-2">{ssnError}</p>
+                        <p className="text-xs text-muted-foreground mb-2">You can manually enter the SSN below:</p>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder="XXX-XX-XXXX"
+                            value={manualSsn}
+                            onChange={(e) => setManualSsn(formatManualSsnInput(e.target.value))}
+                            className="flex h-8 w-40 rounded-md border border-input bg-background px-2 py-1 text-sm font-mono tracking-widest ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                            maxLength={11}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={saveManualSSN}
+                            disabled={ssnSaving || manualSsn.replace(/\D/g, '').length !== 9}
+                            className="h-8 text-xs gap-1"
+                          >
+                            {ssnSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                            Save SSN
+                          </Button>
+                        </div>
+                      </div>
                     )}
                     {ssnVisible && ssnValue && (
                       <div className="mt-2 px-3 py-2 bg-gold/10 border border-gold/30 rounded-lg">
