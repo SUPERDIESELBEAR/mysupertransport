@@ -1065,6 +1065,104 @@ export default function EmailCatalog() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit template modal */}
+      <Dialog open={!!editingId} onOpenChange={open => { if (!open) setEditingId(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4 text-gold" />
+              Edit Email Template
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-subject" className="text-sm font-medium">Subject Line</Label>
+              <Input
+                id="edit-subject"
+                value={editForm.subject}
+                onChange={e => setEditForm(prev => ({ ...prev, subject: e.target.value }))}
+                placeholder="Email subject line"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-heading" className="text-sm font-medium">Email Heading</Label>
+              <Input
+                id="edit-heading"
+                value={editForm.heading}
+                onChange={e => setEditForm(prev => ({ ...prev, heading: e.target.value }))}
+                placeholder="e.g. 📋 Missouri Registration Submitted"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-body" className="text-sm font-medium">
+                Body HTML
+                <span className="text-muted-foreground font-normal ml-2 text-xs">
+                  Use {'{{name}}'} for the operator's name
+                </span>
+              </Label>
+              <Textarea
+                id="edit-body"
+                value={editForm.body_html}
+                onChange={e => setEditForm(prev => ({ ...prev, body_html: e.target.value }))}
+                placeholder="<p>Hi {{name}},</p><p>Your email content here...</p>"
+                className="font-mono text-xs min-h-[200px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-cta" className="text-sm font-medium">Button Label</Label>
+              <Input
+                id="edit-cta"
+                value={editForm.cta_label}
+                onChange={e => setEditForm(prev => ({ ...prev, cta_label: e.target.value }))}
+                placeholder="e.g. View My Onboarding Progress"
+              />
+            </div>
+
+            {/* Live preview */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Live Preview</Label>
+              <iframe
+                srcDoc={buildEmail(
+                  editForm.subject,
+                  editForm.heading,
+                  editForm.body_html.replace(/\{\{name\}\}/g, SAMPLE_NAME).replace(/\{\{extra\}\}/g, SAMPLE_DATE),
+                  { label: editForm.cta_label, url: `${SAMPLE_APP_URL}/dashboard` },
+                  ONBOARDING_EMAIL
+                )}
+                title="Edit Preview"
+                className="w-full rounded-lg border border-border bg-white"
+                style={{ height: '400px' }}
+                sandbox="allow-same-origin"
+              />
+            </div>
+
+            <div className="flex gap-2 justify-between pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 text-xs"
+                onClick={handleResetToDefault}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset to Default
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>Cancel</Button>
+                <Button
+                  size="sm"
+                  className="gap-2 bg-gold text-surface-dark hover:bg-gold/90"
+                  disabled={saving}
+                  onClick={handleSaveEdit}
+                >
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
         </TabsContent>
       </Tabs>
     </div>
