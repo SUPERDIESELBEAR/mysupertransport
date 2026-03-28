@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { Eye, Mail, Send, Loader2, CheckCircle2, Globe, ExternalLink, FileEdit, UserPlus } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Eye, Mail, Send, Loader2, CheckCircle2, Globe, ExternalLink, FileEdit, UserPlus, Pencil, Save, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -685,6 +688,96 @@ export default function EmailCatalog() {
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
 
+  // ── Editable DB templates ────────────────────────────────────────────────
+  // Maps milestone_key → { subject, heading, body_html, cta_label }
+  const [dbTemplates, setDbTemplates] = useState<Record<string, { subject: string; heading: string; body_html: string; cta_label: string }>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ subject: '', heading: '', body_html: '', cta_label: '' });
+  const [saving, setSaving] = useState(false);
+
+  // Which template IDs are editable (have a DB record)
+  const EDITABLE_MILESTONE_KEYS = ['mo_reg_filed'];
+
+  const fetchDbTemplates = useCallback(async () => {
+    const { data } = await supabase
+      .from('email_templates')
+      .select('milestone_key, subject, heading, body_html, cta_label');
+    if (data) {
+      const map: Record<string, { subject: string; heading: string; body_html: string; cta_label: string }> = {};
+      data.forEach(row => { map[row.milestone_key] = row; });
+      setDbTemplates(map);
+    }
+  }, []);
+
+  useEffect(() => { fetchDbTemplates(); }, [fetchDbTemplates]);
+
+  const handleOpenEdit = (templateId: string) => {
+    const dbRow = dbTemplates[templateId];
+    if (dbRow) {
+      setEditForm({ subject: dbRow.subject, heading: dbRow.heading, body_html: dbRow.body_html, cta_label: dbRow.cta_label });
+    }
+    setEditingId(templateId);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('email_templates')
+        .update({
+          subject: editForm.subject,
+          heading: editForm.heading,
+          body_html: editForm.body_html,
+          cta_label: editForm.cta_label,
+          updated_at: new Date().toISOString(),
+          updated_by: user?.id ?? null,
+        })
+        .eq('milestone_key', editingId);
+      if (error) throw error;
+      toast({ title: 'Email template saved', description: 'Your changes are live and will be used for future emails.' });
+      await fetchDbTemplates();
+      setEditingId(null);
+    } catch (err) {
+      toast({ title: 'Failed to save', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResetToDefault = async () => {
+    if (!editingId) return;
+    const defaultTemplate = TEMPLATES.find(t => t.id === editingId);
+    if (!defaultTemplate) return;
+    // Extract default values from the hardcoded MILESTONE_COPY equivalent
+    const defaults: Record<string, { subject: string; heading: string; body_html: string; cta_label: string }> = {
+      mo_reg_filed: {
+        subject: 'Missouri Registration Filed — SUPERTRANSPORT',
+        heading: '📋 Missouri Registration Submitted',
+        body_html: '<p>Hi {{name}},</p><p>Your <strong>Missouri apportioned registration</strong> documents have been submitted to the state on your behalf.</p><p>State approval typically takes <strong>2–4 weeks</strong>. We\'ll notify you as soon as it\'s received.</p><p>In the meantime, you can check your onboarding status in your portal.</p>',
+        cta_label: 'View My Onboarding Progress',
+      },
+    };
+    const def = defaults[editingId];
+    if (def) setEditForm(def);
+  };
+
+  // Build preview HTML using DB values when available
+  const getPreviewHtml = (template: EmailTemplate): string => {
+    const dbRow = dbTemplates[template.id];
+    if (dbRow) {
+      const bodyWithName = dbRow.body_html.replace(/\{\{name\}\}/g, SAMPLE_NAME).replace(/\{\{extra\}\}/g, SAMPLE_DATE);
+      return buildEmail(
+        dbRow.subject,
+        dbRow.heading,
+        bodyWithName,
+        { label: dbRow.cta_label, url: `${SAMPLE_APP_URL}/dashboard` },
+        ONBOARDING_EMAIL
+      );
+    }
+    return template.renderHtml();
+  };
+
   const filtered = activeCategory === 'all'
     ? TEMPLATES
     : TEMPLATES.filter(t => t.category === activeCategory);
@@ -705,8 +798,8 @@ export default function EmailCatalog() {
             'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            subject: template.subject,
-            html: template.renderHtml(),
+            subject: dbTemplates[template.id]?.subject || template.subject,
+            html: getPreviewHtml(template),
           }),
         }
       );
@@ -877,31 +970,44 @@ export default function EmailCatalog() {
               </div>
 
               {/* Action buttons */}
-              <div className="mt-auto flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1 gap-2 text-xs"
-                  onClick={() => setPreviewTemplate(template)}
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  Preview
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className={`flex-1 gap-2 text-xs transition-colors ${isSent ? 'border-green-500 text-green-600 hover:bg-green-50' : ''}`}
-                  disabled={isSending || !!sendingId}
-                  onClick={() => handleSendTest(template)}
-                >
-                  {isSending ? (
-                    <><Loader2 className="h-3.5 w-3.5 animate-spin" />Sending…</>
-                  ) : isSent ? (
-                    <><CheckCircle2 className="h-3.5 w-3.5" />Sent!</>
-                  ) : (
-                    <><Send className="h-3.5 w-3.5" />Send Test</>
-                  )}
-                </Button>
+              <div className="mt-auto flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 gap-2 text-xs"
+                    onClick={() => setPreviewTemplate(template)}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    Preview
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={`flex-1 gap-2 text-xs transition-colors ${isSent ? 'border-green-500 text-green-600 hover:bg-green-50' : ''}`}
+                    disabled={isSending || !!sendingId}
+                    onClick={() => handleSendTest(template)}
+                  >
+                    {isSending ? (
+                      <><Loader2 className="h-3.5 w-3.5 animate-spin" />Sending…</>
+                    ) : isSent ? (
+                      <><CheckCircle2 className="h-3.5 w-3.5" />Sent!</>
+                    ) : (
+                      <><Send className="h-3.5 w-3.5" />Send Test</>
+                    )}
+                  </Button>
+                </div>
+                {EDITABLE_MILESTONE_KEYS.includes(template.id) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 text-xs w-full border-gold/40 text-gold hover:bg-gold/10"
+                    onClick={() => handleOpenEdit(template.id)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit Template
+                  </Button>
+                )}
               </div>
             </div>
           );
@@ -925,7 +1031,7 @@ export default function EmailCatalog() {
                     From: {previewTemplate.sender}
                   </Badge>
                   <Badge variant="outline" className="text-[10px] font-medium border-border text-muted-foreground max-w-xs truncate">
-                    Subject: {previewTemplate.subject}
+                    Subject: {dbTemplates[previewTemplate.id]?.subject || previewTemplate.subject}
                   </Badge>
                   <Button
                     size="sm"
@@ -949,13 +1055,111 @@ export default function EmailCatalog() {
           <div className="flex-1 min-h-0 overflow-auto p-3 sm:p-4 bg-muted/30">
             {previewTemplate && (
               <iframe
-                srcDoc={previewTemplate.renderHtml()}
+                srcDoc={getPreviewHtml(previewTemplate)}
                 title={previewTemplate.title}
                 className="w-full rounded-lg border border-border bg-white"
                 style={{ height: '600px', minHeight: '400px' }}
                 sandbox="allow-same-origin"
               />
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit template modal */}
+      <Dialog open={!!editingId} onOpenChange={open => { if (!open) setEditingId(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-4 w-4 text-gold" />
+              Edit Email Template
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-subject" className="text-sm font-medium">Subject Line</Label>
+              <Input
+                id="edit-subject"
+                value={editForm.subject}
+                onChange={e => setEditForm(prev => ({ ...prev, subject: e.target.value }))}
+                placeholder="Email subject line"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-heading" className="text-sm font-medium">Email Heading</Label>
+              <Input
+                id="edit-heading"
+                value={editForm.heading}
+                onChange={e => setEditForm(prev => ({ ...prev, heading: e.target.value }))}
+                placeholder="e.g. 📋 Missouri Registration Submitted"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-body" className="text-sm font-medium">
+                Body HTML
+                <span className="text-muted-foreground font-normal ml-2 text-xs">
+                  Use {'{{name}}'} for the operator's name
+                </span>
+              </Label>
+              <Textarea
+                id="edit-body"
+                value={editForm.body_html}
+                onChange={e => setEditForm(prev => ({ ...prev, body_html: e.target.value }))}
+                placeholder="<p>Hi {{name}},</p><p>Your email content here...</p>"
+                className="font-mono text-xs min-h-[200px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-cta" className="text-sm font-medium">Button Label</Label>
+              <Input
+                id="edit-cta"
+                value={editForm.cta_label}
+                onChange={e => setEditForm(prev => ({ ...prev, cta_label: e.target.value }))}
+                placeholder="e.g. View My Onboarding Progress"
+              />
+            </div>
+
+            {/* Live preview */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Live Preview</Label>
+              <iframe
+                srcDoc={buildEmail(
+                  editForm.subject,
+                  editForm.heading,
+                  editForm.body_html.replace(/\{\{name\}\}/g, SAMPLE_NAME).replace(/\{\{extra\}\}/g, SAMPLE_DATE),
+                  { label: editForm.cta_label, url: `${SAMPLE_APP_URL}/dashboard` },
+                  ONBOARDING_EMAIL
+                )}
+                title="Edit Preview"
+                className="w-full rounded-lg border border-border bg-white"
+                style={{ height: '400px' }}
+                sandbox="allow-same-origin"
+              />
+            </div>
+
+            <div className="flex gap-2 justify-between pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 text-xs"
+                onClick={handleResetToDefault}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset to Default
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>Cancel</Button>
+                <Button
+                  size="sm"
+                  className="gap-2 bg-gold text-surface-dark hover:bg-gold/90"
+                  disabled={saving}
+                  onClick={handleSaveEdit}
+                >
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  Save Changes
+                </Button>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

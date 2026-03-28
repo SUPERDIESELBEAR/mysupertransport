@@ -137,12 +137,35 @@ Deno.serve(async (req) => {
       });
     }
 
-    const copy = MILESTONE_COPY[milestone_key];
-    if (!copy) {
+    const defaultCopy = MILESTONE_COPY[milestone_key];
+    if (!defaultCopy) {
       return new Response(JSON.stringify({ skipped: true, reason: 'no copy for milestone_key' }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    // Check for a custom DB-managed template override
+    const { data: dbTemplate } = await supabaseAdmin
+      .from('email_templates')
+      .select('subject, heading, body_html, cta_label')
+      .eq('milestone_key', milestone_key)
+      .maybeSingle();
+
+    // Build a merged copy object — DB values override defaults
+    const copy = dbTemplate ? {
+      subject: dbTemplate.subject,
+      heading: dbTemplate.heading,
+      body: (name: string, extra?: string) => {
+        // Replace {{name}} and {{extra}} placeholders in DB template
+        let html = dbTemplate.body_html.replace(/\{\{name\}\}/g, name);
+        if (extra) html = html.replace(/\{\{extra\}\}/g, extra);
+        return html;
+      },
+      cta: (appUrl: string) => ({
+        label: dbTemplate.cta_label || defaultCopy.cta(appUrl).label,
+        url: defaultCopy.cta(appUrl).url, // URL always uses the default routing
+      }),
+    } : defaultCopy;
 
     // ── Resolve operator's user_id, email, and name ───────────────────────
     const { data: opRow } = await supabaseAdmin
