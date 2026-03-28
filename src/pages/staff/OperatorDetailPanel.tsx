@@ -265,6 +265,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     address_state: '',
     address_zip: '',
     dob: '' as string | null,
+    go_live_date: '' as string | null,
   });
 
   // Stage 6 Insurance email settings
