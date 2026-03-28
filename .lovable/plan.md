@@ -1,32 +1,35 @@
 
 
-## Standardize Timezone to US Central Time
+## Fix Email + State Display in Driver Hub
 
-### Problem
-The birthday/anniversary cron job was scheduled at 9 AM UTC. The app operates on US Central Time (as evidenced by existing `America/Chicago` usage in `send-notification`). The cron job and the edge function's date logic both need to use Central Time.
+### Root Cause
+
+1. **Email not showing**: The email *is* saved in the `applications` table, but the Driver Roster query omits `email` from its select list. Simple fix — add it to the query.
+
+2. **State not showing**: When you added Johnathan as a pre-existing driver, the only "State" field available was **CDL State** (which saves to `cdl_state`). The Driver Roster displays `address_state`, which was never populated. The Add Driver form needs a "Home State" field that saves to `address_state`.
 
 ### Changes
 
-**1. Edge function: `supabase/functions/send-birthday-anniversary/index.ts`**
-- Change `new Date()` to use Central Time when extracting month/day, so the function checks "today in Central Time" rather than UTC:
-  ```ts
-  const now = new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
-  ```
-- This ensures birthday/anniversary matching is correct even when UTC date differs from Central date.
+**1. `src/components/drivers/DriverRoster.tsx`**
+- Add `email` to the `applications` select on line 385:
+  `applications (first_name, last_name, phone, email, address_state, cdl_expiration, medical_cert_expiration)`
 
-**2. Re-schedule the cron job**
-- Delete the existing `send-birthday-anniversary-daily` cron entry
-- Re-create it at `0 15 * * *` (3 PM UTC = 9 AM CT during CDT) or `0 14 * * *` (2 PM UTC = 9 AM CT during CST, 10 AM during CDT)
-- Since `pg_cron` runs in UTC, a fixed offset is needed. Using `0 15 * * *` (15:00 UTC) gives 9 AM CDT / 8 AM CST — close enough for a daily greeting. Alternatively `0 14 * * *` gives 9 AM CST / 10 AM CDT.
-- Recommend **`0 15 * * *`** so greetings arrive by 9 AM during the majority of the year (CDT runs March–November).
+**2. `src/components/drivers/AddDriverModal.tsx`**
+- Add a `home_state` field to `INITIAL_FORM`
+- Add a "Home State" dropdown in the form UI (in the basic info section, next to Phone/Unit)
+- Save it as `address_state` in the `applications` insert
 
-**3. Verify other cron jobs**
-- `check-cert-expiry` and `check-inspection-expiry` — if they have cron schedules set via SQL inserts, update them to Central Time equivalents as well.
+**3. `src/components/drivers/ArchivedDriversView.tsx`**
+- Also add `email` to the `applications` select for consistency
+
+**4. Backfill Johnathan's data**
+- Use the new editable Contact Info section in the Operator Detail Panel to set his `address_state` (since it's already editable there). No migration needed.
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `supabase/functions/send-birthday-anniversary/index.ts` | Use `America/Chicago` timezone for date logic |
-| SQL (via insert tool) | Reschedule cron job to `0 15 * * *` (9 AM CDT); update any other existing cron jobs similarly |
+| `src/components/drivers/DriverRoster.tsx` | Add `email` to applications select |
+| `src/components/drivers/ArchivedDriversView.tsx` | Add `email` to applications select |
+| `src/components/drivers/AddDriverModal.tsx` | Add Home State field + save to `address_state` |
 
