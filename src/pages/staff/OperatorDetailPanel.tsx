@@ -1915,6 +1915,231 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         );
       })()}
 
+      {/* ── Contact Info Card ── */}
+      {applicationData && (() => {
+        const formatPhoneInput = (val: string) => {
+          const digits = val.replace(/\D/g, '').slice(0, 10);
+          if (digits.length === 0) return '';
+          if (digits.length <= 3) return `(${digits}`;
+          if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+          return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+        };
+
+        const handleContactEdit = () => {
+          setContactDraft({
+            phone: applicationData.phone ?? '',
+            email: applicationData.email ?? '',
+            address_street: applicationData.address_street ?? '',
+            address_city: applicationData.address_city ?? '',
+            address_state: applicationData.address_state ?? '',
+            address_zip: applicationData.address_zip ?? '',
+            dob: applicationData.dob ?? null,
+          });
+          setContactEditing(true);
+        };
+
+        const handleContactSave = async () => {
+          if (!applicationData?.id) return;
+          setContactSaving(true);
+          try {
+            const { error } = await supabase
+              .from('applications')
+              .update({
+                phone: contactDraft.phone || null,
+                email: contactDraft.email,
+                address_street: contactDraft.address_street || null,
+                address_city: contactDraft.address_city || null,
+                address_state: contactDraft.address_state || null,
+                address_zip: contactDraft.address_zip || null,
+                dob: contactDraft.dob || null,
+              })
+              .eq('id', applicationData.id);
+            if (error) throw error;
+            // Update local state
+            setApplicationData((prev: any) => ({
+              ...prev,
+              phone: contactDraft.phone || null,
+              email: contactDraft.email,
+              address_street: contactDraft.address_street || null,
+              address_city: contactDraft.address_city || null,
+              address_state: contactDraft.address_state || null,
+              address_zip: contactDraft.address_zip || null,
+              dob: contactDraft.dob || null,
+            }));
+            if (contactDraft.email) setOperatorEmail(contactDraft.email);
+            setContactEditing(false);
+            toast({ title: 'Contact info updated' });
+          } catch (err: any) {
+            toast({ title: 'Failed to save contact info', description: err.message, variant: 'destructive' });
+          } finally {
+            setContactSaving(false);
+          }
+        };
+
+        const dobStr = applicationData.dob;
+        const goLiveStr = status.go_live_date;
+        const today = new Date();
+        const isBirthdayToday = dobStr && (() => {
+          const d = new Date(dobStr + 'T12:00:00');
+          return d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+        })();
+        const isAnniversaryToday = goLiveStr && (() => {
+          const d = new Date(goLiveStr + 'T12:00:00');
+          return d.getMonth() === today.getMonth() && d.getDate() === today.getDate() && d.getFullYear() !== today.getFullYear();
+        })();
+        const yearsOfService = goLiveStr ? (() => {
+          const d = new Date(goLiveStr + 'T12:00:00');
+          let y = today.getFullYear() - d.getFullYear();
+          if (today.getMonth() < d.getMonth() || (today.getMonth() === d.getMonth() && today.getDate() < d.getDate())) y--;
+          return y;
+        })() : null;
+
+        const addressParts = [applicationData.address_street, applicationData.address_city, applicationData.address_state, applicationData.address_zip].filter(Boolean);
+
+        return (
+          <div className="bg-white border border-border rounded-xl px-5 py-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                Contact Info
+              </h3>
+              {!contactEditing ? (
+                <Button variant="ghost" size="sm" onClick={handleContactEdit} className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground">
+                  <Pencil className="h-3 w-3" /> Edit
+                </Button>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <Button variant="ghost" size="sm" onClick={() => setContactEditing(false)} className="h-7 px-2 text-xs text-muted-foreground" disabled={contactSaving}>
+                    Cancel
+                  </Button>
+                  <Button size="sm" onClick={handleContactSave} disabled={contactSaving} className="h-7 px-3 text-xs bg-gold text-surface-dark hover:bg-gold-light gap-1">
+                    {contactSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                    Save
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {contactEditing ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Phone</Label>
+                  <Input
+                    value={contactDraft.phone}
+                    onChange={e => setContactDraft(prev => ({ ...prev, phone: formatPhoneInput(e.target.value) }))}
+                    placeholder="(555) 123-4567"
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Email</Label>
+                  <Input
+                    type="email"
+                    value={contactDraft.email}
+                    onChange={e => setContactDraft(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="driver@email.com"
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs text-muted-foreground">Street Address</Label>
+                  <Input
+                    value={contactDraft.address_street}
+                    onChange={e => setContactDraft(prev => ({ ...prev, address_street: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">City</Label>
+                  <Input
+                    value={contactDraft.address_city}
+                    onChange={e => setContactDraft(prev => ({ ...prev, address_city: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">State</Label>
+                    <Input
+                      value={contactDraft.address_state}
+                      onChange={e => setContactDraft(prev => ({ ...prev, address_state: e.target.value }))}
+                      maxLength={2}
+                      className="h-8 text-sm uppercase"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">ZIP</Label>
+                    <Input
+                      value={contactDraft.address_zip}
+                      onChange={e => setContactDraft(prev => ({ ...prev, address_zip: e.target.value }))}
+                      maxLength={10}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Birthday</Label>
+                  <Input
+                    type="date"
+                    value={contactDraft.dob ?? ''}
+                    onChange={e => setContactDraft(prev => ({ ...prev, dob: e.target.value || null }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-foreground">{applicationData.phone || <span className="text-muted-foreground italic">No phone</span>}</span>
+                  </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-foreground truncate">{applicationData.email || <span className="text-muted-foreground italic">No email</span>}</span>
+                  </div>
+                  {addressParts.length > 0 && (
+                    <div className="flex items-start gap-2 sm:col-span-2">
+                      <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                      <span className="text-foreground">{addressParts.join(', ')}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Birthday & Anniversary row */}
+                <div className="flex flex-wrap items-center gap-3 pt-1.5 border-t border-border/50 mt-2">
+                  {dobStr && (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Cake className={`h-3.5 w-3.5 ${isBirthdayToday ? 'text-pink-500' : 'text-muted-foreground'}`} />
+                      <span>{format(new Date(dobStr + 'T12:00:00'), 'MMM d, yyyy')}</span>
+                      {isBirthdayToday && (
+                        <Badge className="bg-pink-100 text-pink-700 border-pink-200 text-[10px] px-1.5 py-0 h-4">
+                          🎂 Birthday today!
+                        </Badge>
+                      )}
+                    </span>
+                  )}
+                  {goLiveStr && (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <PartyPopper className={`h-3.5 w-3.5 ${isAnniversaryToday ? 'text-gold' : 'text-muted-foreground'}`} />
+                      <span>Active since {format(new Date(goLiveStr + 'T12:00:00'), 'MMM d, yyyy')}</span>
+                      {yearsOfService !== null && yearsOfService > 0 && (
+                        <span className="text-foreground font-medium">({yearsOfService} yr{yearsOfService !== 1 ? 's' : ''})</span>
+                      )}
+                      {isAnniversaryToday && (
+                        <Badge className="bg-gold/10 text-gold border-gold/30 text-[10px] px-1.5 py-0 h-4">
+                          🎉 Anniversary!
+                        </Badge>
+                      )}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Compliance expiry row */}
       {(cdlExpiration || medCertExpiration) && (() => {
         const buildPill = (label: string, dateStr: string, focusField: 'cdl' | 'medcert') => {
