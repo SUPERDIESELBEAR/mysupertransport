@@ -26,6 +26,7 @@ import OperatorBinderPanel from '@/components/inspection/OperatorBinderPanel';
 import TruckPhotoGridModal from '@/components/staff/TruckPhotoGridModal';
 import { formatDistanceToNow, format, differenceInDays, parseISO, startOfDay } from 'date-fns';
 import TruckInfoCard, { TruckInfo, TruckInfoCardEditPayload } from '@/components/operator/TruckInfoCard';
+import { US_STATES } from '@/components/application/types';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
