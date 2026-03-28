@@ -24,7 +24,7 @@ import InspectionSharePage from "./pages/InspectionSharePage";
 const queryClient = new QueryClient();
 
 function AppRoutes() {
-  const { user, loading, isManagement, isOnboardingStaff, isDispatcher, isOperator, activeRole } = useAuth();
+  const { user, loading, roles, isManagement, isOnboardingStaff, isDispatcher, isOperator, activeRole } = useAuth();
 
   if (loading) {
     return (
