@@ -1,45 +1,32 @@
 
 
-## Editable Contact Info + Birthday & Anniversary Features
+## Standardize Timezone to US Central Time
 
-### Part 1: Editable Contact Info in OperatorDetailPanel
+### Problem
+The birthday/anniversary cron job was scheduled at 9 AM UTC. The app operates on US Central Time (as evidenced by existing `America/Chicago` usage in `send-notification`). The cron job and the edge function's date logic both need to use Central Time.
 
-**File: `src/pages/staff/OperatorDetailPanel.tsx`**
+### Changes
 
-Add a new "Contact Info" card below the header, above Stage 1, with an edit/save toggle:
-- Phone (auto-formatted `(XXX) XXX-XXXX`)
-- Email
-- Street address, city, state, zip
-- Birthday (from `applications.dob`, displayed with cake icon; celebratory badge if today)
-- Anniversary (from `onboarding_status.go_live_date`, shows years of service; celebratory badge if today)
+**1. Edge function: `supabase/functions/send-birthday-anniversary/index.ts`**
+- Change `new Date()` to use Central Time when extracting month/day, so the function checks "today in Central Time" rather than UTC:
+  ```ts
+  const now = new Date().toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
+  ```
+- This ensures birthday/anniversary matching is correct even when UTC date differs from Central date.
 
-Edit mode: pencil icon toggles inputs. Save writes to `applications` table (phone, email, address fields, dob). Anniversary is read-only (derived from go_live_date).
+**2. Re-schedule the cron job**
+- Delete the existing `send-birthday-anniversary-daily` cron entry
+- Re-create it at `0 15 * * *` (3 PM UTC = 9 AM CT during CDT) or `0 14 * * *` (2 PM UTC = 9 AM CT during CST, 10 AM during CDT)
+- Since `pg_cron` runs in UTC, a fixed offset is needed. Using `0 15 * * *` (15:00 UTC) gives 9 AM CDT / 8 AM CST — close enough for a daily greeting. Alternatively `0 14 * * *` gives 9 AM CST / 10 AM CDT.
+- Recommend **`0 15 * * *`** so greetings arrive by 9 AM during the majority of the year (CDT runs March–November).
 
-### Part 2: Daily Birthday & Anniversary Edge Function
-
-**New file: `supabase/functions/send-birthday-anniversary/index.ts`**
-
-Runs daily via `pg_cron` at 9 AM UTC. Logic:
-1. Query active operators where `applications.dob` month/day matches today OR `onboarding_status.go_live_date` month/day matches today
-2. For each match, check `notification_preferences` for `birthday_anniversary` event type
-3. Send personalized **email** via Resend (hardcoded template using `email-layout.ts`)
-4. Insert **in-app notification** so the operator sees it in their portal
-5. No SMS for now (can add Twilio later)
-
-Birthday email: warm "Happy Birthday from the SUPERTRANSPORT family" message.
-Anniversary email: "Congratulations on X year(s) with SUPERTRANSPORT" message.
-
-### Part 3: Database — Schedule the Cron Job
-
-**Via SQL insert** (not migration, contains project-specific URLs):
-- Enable `pg_cron` and `pg_net` extensions
-- Schedule `cron.schedule` to call `send-birthday-anniversary` daily at 9 AM UTC
+**3. Verify other cron jobs**
+- `check-cert-expiry` and `check-inspection-expiry` — if they have cron schedules set via SQL inserts, update them to Central Time equivalents as well.
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/OperatorDetailPanel.tsx` | Add editable Contact Info section with birthday + anniversary display |
-| `supabase/functions/send-birthday-anniversary/index.ts` | New edge function with hardcoded greeting templates |
-| SQL insert | Schedule daily cron job at 9 AM UTC |
+| `supabase/functions/send-birthday-anniversary/index.ts` | Use `America/Chicago` timezone for date logic |
+| SQL (via insert tool) | Reschedule cron job to `0 15 * * *` (9 AM CDT); update any other existing cron jobs similarly |
 
