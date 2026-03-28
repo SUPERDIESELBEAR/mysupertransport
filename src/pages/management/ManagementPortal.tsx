@@ -710,6 +710,11 @@ export default function ManagementPortal() {
   return (
     <>
       <NotificationPreferencesModal open={notifPrefsOpen} onClose={() => setNotifPrefsOpen(false)} />
+      <StaffApplicationModal
+        open={staffAppModalOpen}
+        onClose={() => setStaffAppModalOpen(false)}
+        onSuccess={() => fetchApplications()}
+      />
       <BulkMessageModal
         open={bulkMessageOpen}
         onClose={() => { setBulkMessageOpen(false); setBulkMessagePreselected([]); }}
