@@ -442,7 +442,7 @@ export default function DriverRoster({
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('user_id, first_name, last_name, phone, home_state')
+          .select('user_id, first_name, last_name, phone, home_state, avatar_url')
           .in('user_id', userIds);
         (profiles ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
       }
