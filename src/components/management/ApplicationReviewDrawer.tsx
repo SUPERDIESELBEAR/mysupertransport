@@ -429,6 +429,72 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     }
   };
 
+  const formatManualSsnInput = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 9);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 5) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+  };
+
+  const saveManualSSN = async () => {
+    const digits = manualSsn.replace(/\D/g, '');
+    if (digits.length !== 9) {
+      toast.error('Please enter a valid 9-digit SSN');
+      return;
+    }
+    setSsnSaving(true);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token ?? anonKey;
+
+      // Encrypt via edge function
+      const res = await fetch(`${supabaseUrl}/functions/v1/encrypt-ssn`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+          'apikey': anonKey,
+        },
+        body: JSON.stringify({ ssn: digits }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Encryption failed');
+
+      // Save to applications table
+      const { error: updateError } = await supabase
+        .from('applications')
+        .update({ ssn_encrypted: data.encrypted })
+        .eq('id', app.id);
+      if (updateError) throw updateError;
+
+      // Audit log
+      const profile = session?.user;
+      await supabase.from('audit_log').insert({
+        actor_id: profile?.id ?? null,
+        actor_name: profile?.user_metadata?.first_name
+          ? `${profile.user_metadata.first_name} ${profile.user_metadata.last_name ?? ''}`.trim()
+          : profile?.email ?? 'Unknown',
+        action: 'manual_ssn_entry',
+        entity_type: 'application',
+        entity_id: app.id,
+        entity_label: fullName,
+      });
+
+      // Show the SSN as revealed
+      setSsnValue(`${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`);
+      setSsnVisible(true);
+      setSsnError(null);
+      setManualSsn('');
+      toast.success('SSN saved and encrypted successfully');
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to save SSN');
+    } finally {
+      setSsnSaving(false);
+    }
+  };
+
   const handleAction = async (action: 'approve' | 'deny') => {
     setLoading(true);
     try {
