@@ -55,20 +55,32 @@ export function printDocumentById(elementId: string, documentTitle?: string) {
   if (documentTitle) document.title = documentTitle;
 
   const el = document.getElementById(elementId);
-  if (el) el.style.display = 'block';
+  if (!el) {
+    document.title = prevTitle;
+    return;
+  }
+
+  // Clone the element into a top-level wrapper so it's not trapped
+  // inside a fixed/off-screen parent container.
+  const wrapper = document.createElement('div');
+  wrapper.id = '__print_clone_wrapper__';
+  wrapper.appendChild(el.cloneNode(true));
+  // Make the clone's root visible (original may be display:none)
+  const cloneRoot = wrapper.firstElementChild as HTMLElement;
+  if (cloneRoot) cloneRoot.style.display = 'block';
+  document.body.appendChild(wrapper);
 
   const style = document.createElement('style');
   style.id = '__print_scope_style__';
   style.innerHTML = `
     @media print {
-      body * { visibility: hidden !important; }
-      #${elementId}, #${elementId} * { visibility: visible !important; }
-      #${elementId} {
-        position: absolute !important;
-        left: 0 !important;
-        top: 0 !important;
+      body > *:not(#__print_clone_wrapper__) { display: none !important; }
+      #__print_clone_wrapper__ {
+        display: block !important;
+        position: static !important;
         width: 100% !important;
       }
+      #__print_clone_wrapper__ * { visibility: visible !important; }
       @page { size: letter; margin: 0; }
     }
   `;
@@ -77,6 +89,6 @@ export function printDocumentById(elementId: string, documentTitle?: string) {
   window.print();
 
   document.head.removeChild(style);
-  if (el) el.style.display = 'none';
+  document.body.removeChild(wrapper);
   document.title = prevTitle;
 }
