@@ -38,12 +38,7 @@ export interface ApplicationFormData {
   referral_source: string;
 
   // Employment
-  employer_1: EmployerRecord;
-  employer_2: EmployerRecord;
-  employer_3: EmployerRecord;
-  employer_4: EmployerRecord;
-  additional_employers: string;
-  has_additional_employers: string; // 'yes' | 'no'
+  employers: EmployerRecord[];
   employment_gaps: string; // 'yes' | 'no'
   employment_gaps_explanation: string;
 
