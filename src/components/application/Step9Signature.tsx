@@ -16,6 +16,7 @@ export default function Step9Signature({ data, onChange, errors }: Props) {
   const sigWrapRef = useRef<HTMLDivElement>(null);
   const [savingSig, setSavingSig] = useState(false);
   const [sigSaved, setSigSaved] = useState(!!data.signature_image_url);
+  const [showSSN, setShowSSN] = useState(false);
 
   // ── DPR-aware canvas sizing ──────────────────────────────────────────────
   useEffect(() => {
