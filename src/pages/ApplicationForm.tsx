@@ -384,11 +384,6 @@ export default function ApplicationForm() {
         )}
 
         {/* Error summary */}
-        {Object.keys(errors).length > 0 && (
-          <div className="mb-5 p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-xs text-destructive font-medium">
-            Please fix the highlighted fields before continuing.
-          </div>
-        )}
 
         {/* Step content — swipeable on mobile */}
         <div
