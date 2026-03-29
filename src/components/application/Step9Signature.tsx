@@ -113,8 +113,6 @@ export default function Step9Signature({ data, onChange, errors }: Props) {
           </button>
         </div>
       </FormField>
-        />
-      </FormField>
 
       {/* Typed Full Name */}
       <FormField
