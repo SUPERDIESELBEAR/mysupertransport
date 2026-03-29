@@ -57,13 +57,9 @@ export interface FullApplication {
   equipment_operated: string[] | null;
   years_experience: string | null;
   referral_source: string | null;
-  employer_1: Record<string, string> | null;
-  employer_2: Record<string, string> | null;
-  employer_3: Record<string, string> | null;
-  employer_4: Record<string, string> | null;
+  employers: Record<string, string>[] | null;
   employment_gaps: boolean | null;
   employment_gaps_explanation: string | null;
-  additional_employers: string | null;
   dot_accidents: boolean | null;
   dot_accidents_description: string | null;
   moving_violations: boolean | null;
