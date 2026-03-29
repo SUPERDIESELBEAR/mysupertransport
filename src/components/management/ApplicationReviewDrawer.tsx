@@ -924,7 +924,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   id: 'doc-cert-print',
                   title: 'Certificate of Receipt — Company Testing Policy',
                   description: '49 CFR § 382.601 policy receipt and application certification',
-                  component: <CompanyTestingPolicyCertDoc app={app} />,
+                  component: <CompanyTestingPolicyCertDoc app={app} signatureDataUrl={signatureDataUrl} />,
                   docTitle: `Company Testing Policy Certificate — ${fullName}`,
                 },
               ].map((doc) => (
