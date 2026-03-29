@@ -270,6 +270,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     };
 
     generateSignedUrls();
+
+    // Pre-load signature as data URL for PDF printing
+    preloadSignatureDataUrl(app.signature_image_url, 'signatures').then(setSignatureDataUrl);
   }, [app?.id, app?.signature_image_url, app?.dl_front_url, app?.dl_rear_url, app?.medical_cert_url, extractStoragePath]);
 
   // Background Verification
