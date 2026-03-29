@@ -21,6 +21,12 @@ interface EmployerBlockProps {
   onChange: (v: EmployerRecord) => void;
 }
 
+function formatMonthYear(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 6);
+  if (digits.length <= 2) return digits;
+  return digits.slice(0, 2) + '/' + digits.slice(2);
+}
+
 function EmployerBlock({ index, value, onChange }: EmployerBlockProps) {
   const set = (field: keyof EmployerRecord, v: string) => onChange({ ...value, [field]: v });
   const isOptional = index > 0;
@@ -89,15 +95,17 @@ function EmployerBlock({ index, value, onChange }: EmployerBlockProps) {
         <FormField label="Start Date (MM/YYYY)">
           <AppInput
             value={value.start_date}
-            onChange={e => set('start_date', e.target.value)}
+            onChange={e => set('start_date', formatMonthYear(e.target.value))}
             placeholder="01/2020"
+            maxLength={7}
           />
         </FormField>
         <FormField label="End Date (MM/YYYY)">
           <AppInput
             value={isCurrentlyEmployed ? 'Present' : value.end_date}
-            onChange={e => set('end_date', e.target.value)}
+            onChange={e => set('end_date', formatMonthYear(e.target.value))}
             placeholder="12/2023"
+            maxLength={7}
             disabled={isCurrentlyEmployed}
             className={isCurrentlyEmployed ? 'bg-secondary text-muted-foreground' : ''}
           />
