@@ -917,7 +917,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   id: 'doc-dot-print',
                   title: 'DOT Drug & Alcohol Pre-Employment Questions',
                   description: '49 CFR § 40.25(j) mandatory disclosure and responses',
-                  component: <DOTDrugAlcoholQuestionsDoc app={app} />,
+                  component: <DOTDrugAlcoholQuestionsDoc app={app} signatureDataUrl={signatureDataUrl} />,
                   docTitle: `DOT Drug & Alcohol Questions — ${fullName}`,
                 },
                 {
