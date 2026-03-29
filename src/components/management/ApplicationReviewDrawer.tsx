@@ -733,16 +733,13 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
               {/* Employment */}
               <Section title="Employment History" icon={<Briefcase className="h-4 w-4" />}>
-                <EmployerBlock employer={app.employer_1 as Record<string, string>} label="Current / Last Employer" />
-                <EmployerBlock employer={app.employer_2 as Record<string, string>} label="2nd to Last" />
-                <EmployerBlock employer={app.employer_3 as Record<string, string>} label="3rd to Last" />
-                <EmployerBlock employer={app.employer_4 as Record<string, string>} label="4th to Last" />
-                {app.additional_employers && (
-                  <div className="bg-secondary/50 rounded-lg p-3 text-sm">
-                    <p className="font-semibold text-foreground mb-1">Additional Employers</p>
-                    <p className="text-muted-foreground whitespace-pre-wrap text-xs">{app.additional_employers}</p>
-                  </div>
-                )}
+                {Array.isArray(app.employers) && app.employers.map((emp, i) => (
+                  <EmployerBlock
+                    key={i}
+                    employer={emp as Record<string, string>}
+                    label={i === 0 ? 'Current / Last Employer' : `Employer ${i + 1}`}
+                  />
+                ))}
                 <Field label="Employment Gaps" value={<YesNoBadge value={app.employment_gaps} />} />
                 {app.employment_gaps_explanation && (
                   <Field label="Gap Explanation" value={app.employment_gaps_explanation} />
