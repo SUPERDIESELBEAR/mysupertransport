@@ -16,7 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { printDocumentById } from '@/lib/printDocument';
+import { printDocumentById, preloadSignatureDataUrl } from '@/lib/printDocument';
 import FCRAAuthorizationDoc from '@/components/application/documents/FCRAAuthorizationDoc';
 import PreEmploymentAuthorizationsDoc from '@/components/application/documents/PreEmploymentAuthorizationsDoc';
 import DOTDrugAlcoholQuestionsDoc from '@/components/application/documents/DOTDrugAlcoholQuestionsDoc';
