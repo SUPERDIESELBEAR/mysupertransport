@@ -95,15 +95,17 @@ function EmployerBlock({ index, value, onChange }: EmployerBlockProps) {
         <FormField label="Start Date (MM/YYYY)">
           <AppInput
             value={value.start_date}
-            onChange={e => set('start_date', e.target.value)}
+            onChange={e => set('start_date', formatMonthYear(e.target.value))}
             placeholder="01/2020"
+            maxLength={7}
           />
         </FormField>
         <FormField label="End Date (MM/YYYY)">
           <AppInput
             value={isCurrentlyEmployed ? 'Present' : value.end_date}
-            onChange={e => set('end_date', e.target.value)}
+            onChange={e => set('end_date', formatMonthYear(e.target.value))}
             placeholder="12/2023"
+            maxLength={7}
             disabled={isCurrentlyEmployed}
             className={isCurrentlyEmployed ? 'bg-secondary text-muted-foreground' : ''}
           />
