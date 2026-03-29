@@ -28,8 +28,22 @@ export function validateStep(step: number, data: ApplicationFormData): Partial<R
   }
 
   if (step === 3) {
-    if (!data.employer_1.name.trim()) errs.employer_1 = 'Current/last employer name is required' as any;
-    if (!data.has_additional_employers) errs.has_additional_employers = 'Please answer this question';
+    const emp0 = data.employers[0];
+    if (!emp0 || !emp0.name.trim()) errs.employers = 'Current/last employer name is required' as any;
+    else if (!emp0.position.trim()) errs.employers = 'Position held is required for the current employer' as any;
+    else if (!emp0.reason_leaving.trim() && emp0.end_date !== 'Present') errs.employers = 'Reason for leaving is required for the current employer' as any;
+    // Check all employers have position and reason_leaving
+    for (let i = 1; i < data.employers.length; i++) {
+      const emp = data.employers[i];
+      if (emp.name.trim() && !emp.position.trim()) {
+        errs.employers = `Position held is required for employer ${i + 1}` as any;
+        break;
+      }
+      if (emp.name.trim() && !emp.reason_leaving.trim() && emp.end_date !== 'Present') {
+        errs.employers = `Reason for leaving is required for employer ${i + 1}` as any;
+        break;
+      }
+    }
     if (!data.employment_gaps) errs.employment_gaps = 'Please answer this question';
   }
 
