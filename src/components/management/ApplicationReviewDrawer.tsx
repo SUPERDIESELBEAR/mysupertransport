@@ -230,6 +230,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
   // Signed URLs for private bucket files
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
 
   const extractStoragePath = useCallback((url: string | null, bucket: string): string | null => {
     if (!url) return null;
