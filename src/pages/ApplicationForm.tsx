@@ -80,12 +80,9 @@ export default function ApplicationForm() {
             endorsements: (data.endorsements as string[]) ?? [],
             cdl_10_years: data.cdl_10_years === true ? 'yes' : data.cdl_10_years === false ? 'no' : '',
             referral_source: data.referral_source ?? '',
-            employer_1: (data.employer_1 as any) ?? defaultFormData.employer_1,
-            employer_2: (data.employer_2 as any) ?? defaultFormData.employer_2,
-            employer_3: (data.employer_3 as any) ?? defaultFormData.employer_3,
-            employer_4: (data.employer_4 as any) ?? defaultFormData.employer_4,
-            additional_employers: data.additional_employers ?? '',
-            has_additional_employers: '',
+            employers: Array.isArray(data.employers) && (data.employers as any[]).length > 0
+              ? (data.employers as any[]).map((e: any) => ({ ...defaultFormData.employers[0], ...e }))
+              : [{ ...defaultFormData.employers[0] }],
             employment_gaps: data.employment_gaps === true ? 'yes' : data.employment_gaps === false ? 'no' : '',
             employment_gaps_explanation: data.employment_gaps_explanation ?? '',
             years_experience: data.years_experience ?? '',

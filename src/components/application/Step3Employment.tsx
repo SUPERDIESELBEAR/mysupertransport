@@ -1,5 +1,6 @@
 import { ApplicationFormData, EmployerRecord, US_STATES, defaultEmployer } from './types';
 import { FormField, AppInput, AppSelect, RadioGroup, AppTextarea } from './FormField';
+import { Plus, Trash2 } from 'lucide-react';
 
 interface Props {
   data: ApplicationFormData;
@@ -7,7 +8,6 @@ interface Props {
   errors: Partial<Record<keyof ApplicationFormData, string>>;
 }
 
-const EMPLOYER_KEYS = ['employer_1', 'employer_2', 'employer_3', 'employer_4'] as const;
 const EMPLOYER_LABELS = [
   'Current or Last Employer',
   'Second to Last Employer',
@@ -15,10 +15,17 @@ const EMPLOYER_LABELS = [
   'Fourth to Last Employer',
 ];
 
+function getEmployerLabel(index: number): string {
+  if (index < EMPLOYER_LABELS.length) return EMPLOYER_LABELS[index];
+  return `Employer ${index + 1}`;
+}
+
 interface EmployerBlockProps {
   index: number;
+  total: number;
   value: EmployerRecord;
   onChange: (v: EmployerRecord) => void;
+  onRemove?: () => void;
 }
 
 function formatMonthYear(raw: string): string {
@@ -27,9 +34,8 @@ function formatMonthYear(raw: string): string {
   return digits.slice(0, 2) + '/' + digits.slice(2);
 }
 
-function EmployerBlock({ index, value, onChange }: EmployerBlockProps) {
+function EmployerBlock({ index, total, value, onChange, onRemove }: EmployerBlockProps) {
   const set = (field: keyof EmployerRecord, v: string) => onChange({ ...value, [field]: v });
-  const isOptional = index > 0;
   const isCurrentEmployer = index === 0;
   const isCurrentlyEmployed = value.end_date === 'Present';
 
@@ -45,18 +51,23 @@ function EmployerBlock({ index, value, onChange }: EmployerBlockProps) {
     <div className="border border-border rounded-xl p-4 sm:p-5 space-y-4 bg-secondary/30">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">
-          ({index + 1}) {EMPLOYER_LABELS[index]}
+          ({index + 1}) {getEmployerLabel(index)}
         </h3>
-        {isOptional && (
-          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-            Enter "NA" in each field if not applicable
-          </span>
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="flex items-center gap-1 text-xs text-destructive hover:text-destructive/80 transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Remove
+          </button>
         )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FormField label="Employer Name" required={!isOptional}>
-          <AppInput value={value.name} onChange={e => set('name', e.target.value)} placeholder={isOptional ? 'NA or employer name' : 'Company name'} />
+        <FormField label="Employer Name" required>
+          <AppInput value={value.name} onChange={e => set('name', e.target.value)} placeholder="Company name" />
         </FormField>
         <FormField label="City">
           <AppInput value={value.city} onChange={e => set('city', e.target.value)} placeholder="City" />
@@ -67,12 +78,12 @@ function EmployerBlock({ index, value, onChange }: EmployerBlockProps) {
             {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
           </AppSelect>
         </FormField>
-        <FormField label="Position Held">
+        <FormField label="Position Held" required>
           <AppInput value={value.position} onChange={e => set('position', e.target.value)} placeholder="Job title / position" />
         </FormField>
       </div>
 
-      <FormField label="Reason for Leaving">
+      <FormField label="Reason for Leaving" required>
         <AppTextarea
           value={isCurrentlyEmployed ? 'Currently Employed' : value.reason_leaving}
           onChange={e => set('reason_leaving', e.target.value)}
@@ -135,6 +146,23 @@ function EmployerBlock({ index, value, onChange }: EmployerBlockProps) {
 }
 
 export default function Step3Employment({ data, onChange, errors }: Props) {
+  const employers = data.employers;
+
+  const updateEmployer = (index: number, value: EmployerRecord) => {
+    const updated = [...employers];
+    updated[index] = value;
+    onChange('employers', updated);
+  };
+
+  const addEmployer = () => {
+    onChange('employers', [...employers, { ...defaultEmployer }]);
+  };
+
+  const removeEmployer = (index: number) => {
+    const updated = employers.filter((_, i) => i !== index);
+    onChange('employers', updated);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -146,37 +174,31 @@ export default function Step3Employment({ data, onChange, errors }: Props) {
         </div>
       </div>
 
-      {EMPLOYER_KEYS.map((key, i) => (
+      {employers.map((emp, i) => (
         <EmployerBlock
-          key={key}
+          key={i}
           index={i}
-          value={data[key] as EmployerRecord}
-          onChange={v => onChange(key, v)}
+          total={employers.length}
+          value={emp}
+          onChange={v => updateEmployer(i, v)}
+          onRemove={i > 0 ? () => removeEmployer(i) : undefined}
         />
       ))}
 
+      <button
+        type="button"
+        onClick={addEmployer}
+        className="w-full flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-border rounded-xl text-sm font-medium text-muted-foreground hover:text-gold hover:border-gold/40 transition-colors"
+      >
+        <Plus className="h-4 w-4" />
+        Add Previous Employer
+      </button>
+
+      {errors.employers && (
+        <p className="text-xs text-destructive">{errors.employers}</p>
+      )}
+
       <div className="border-t border-border pt-5 space-y-5">
-        <FormField label="Do you have additional employers within the past 10 years not listed above?" required error={errors.has_additional_employers}>
-          <RadioGroup
-            name="has_additional_employers"
-            value={data.has_additional_employers}
-            onChange={v => onChange('has_additional_employers', v)}
-            options={[{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }]}
-            error={!!errors.has_additional_employers}
-          />
-        </FormField>
-
-        {data.has_additional_employers === 'yes' && (
-          <FormField label="Additional Employers" hint="Format: Employer Name, City & State, CMV (yes/no), Start Date / End Date">
-            <AppTextarea
-              value={data.additional_employers}
-              onChange={e => onChange('additional_employers', e.target.value)}
-              placeholder="ABC Trucking, Dallas TX, CMV yes, 01/2010 - 06/2012&#10;XYZ Logistics, Memphis TN, CMV yes, 07/2012 - 03/2014"
-              rows={4}
-            />
-          </FormField>
-        )}
-
         <FormField label="Were there any gaps in employment longer than 30 days?" required error={errors.employment_gaps}>
           <RadioGroup
             name="employment_gaps"
