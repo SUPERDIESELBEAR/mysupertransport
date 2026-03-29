@@ -92,14 +92,26 @@ export default function Step9Signature({ data, onChange, errors }: Props) {
         error={errors.ssn}
         hint="Required by FMCSA per 49 CFR § 391.21. Your SSN is encrypted and stored securely."
       >
-        <AppInput
-          type="password"
-          value={data.ssn}
-          onChange={e => onChange('ssn', e.target.value)}
-          placeholder="XXX-XX-XXXX"
-          error={!!errors.ssn}
-          maxLength={11}
-          autoComplete="off"
+        <div className="relative">
+          <AppInput
+            type={showSSN ? 'text' : 'password'}
+            value={data.ssn}
+            onChange={e => onChange('ssn', e.target.value)}
+            placeholder="XXX-XX-XXXX"
+            error={!!errors.ssn}
+            maxLength={11}
+            autoComplete="off"
+          />
+          <button
+            type="button"
+            onClick={() => setShowSSN(prev => !prev)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label={showSSN ? 'Hide SSN' : 'Show SSN'}
+          >
+            {showSSN ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+      </FormField>
         />
       </FormField>
 
