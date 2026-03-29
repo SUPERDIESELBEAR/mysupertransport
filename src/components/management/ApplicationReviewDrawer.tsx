@@ -16,7 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { printDocumentById } from '@/lib/printDocument';
+import { printDocumentById, preloadSignatureDataUrl } from '@/lib/printDocument';
 import FCRAAuthorizationDoc from '@/components/application/documents/FCRAAuthorizationDoc';
 import PreEmploymentAuthorizationsDoc from '@/components/application/documents/PreEmploymentAuthorizationsDoc';
 import DOTDrugAlcoholQuestionsDoc from '@/components/application/documents/DOTDrugAlcoholQuestionsDoc';
@@ -230,6 +230,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
   // Signed URLs for private bucket files
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
 
   const extractStoragePath = useCallback((url: string | null, bucket: string): string | null => {
     if (!url) return null;
@@ -269,6 +270,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     };
 
     generateSignedUrls();
+
+    // Pre-load signature as data URL for PDF printing
+    preloadSignatureDataUrl(app.signature_image_url, 'signatures').then(setSignatureDataUrl);
   }, [app?.id, app?.signature_image_url, app?.dl_front_url, app?.dl_rear_url, app?.medical_cert_url, extractStoragePath]);
 
   // Background Verification
@@ -899,28 +903,28 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   id: 'doc-fcra-print',
                   title: 'Fair Credit Reporting Act Authorization',
                   description: 'FCRA disclosure and background check authorization',
-                  component: <FCRAAuthorizationDoc app={app} />,
+                  component: <FCRAAuthorizationDoc app={app} signatureDataUrl={signatureDataUrl} />,
                   docTitle: `FCRA Authorization — ${fullName}`,
                 },
                 {
                   id: 'doc-preauth-print',
                   title: 'PSP Authorization',
                   description: 'FMCSA PSP disclosure, crash & inspection history release',
-                  component: <PreEmploymentAuthorizationsDoc app={app} />,
+                  component: <PreEmploymentAuthorizationsDoc app={app} signatureDataUrl={signatureDataUrl} />,
                   docTitle: `PSP Authorization — ${fullName}`,
                 },
                 {
                   id: 'doc-dot-print',
                   title: 'DOT Drug & Alcohol Pre-Employment Questions',
                   description: '49 CFR § 40.25(j) mandatory disclosure and responses',
-                  component: <DOTDrugAlcoholQuestionsDoc app={app} />,
+                  component: <DOTDrugAlcoholQuestionsDoc app={app} signatureDataUrl={signatureDataUrl} />,
                   docTitle: `DOT Drug & Alcohol Questions — ${fullName}`,
                 },
                 {
                   id: 'doc-cert-print',
                   title: 'Certificate of Receipt — Company Testing Policy',
                   description: '49 CFR § 382.601 policy receipt and application certification',
-                  component: <CompanyTestingPolicyCertDoc app={app} />,
+                  component: <CompanyTestingPolicyCertDoc app={app} signatureDataUrl={signatureDataUrl} />,
                   docTitle: `Company Testing Policy Certificate — ${fullName}`,
                 },
               ].map((doc) => (
@@ -949,10 +953,10 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
               {/* Hidden print containers — rendered off-screen so they're ready when needed */}
               <div className="fixed left-[-9999px] top-0 pointer-events-none" aria-hidden="true">
                 {[
-                  { id: 'doc-fcra-print', component: <FCRAAuthorizationDoc app={app} /> },
-                  { id: 'doc-preauth-print', component: <PreEmploymentAuthorizationsDoc app={app} /> },
-                  { id: 'doc-dot-print', component: <DOTDrugAlcoholQuestionsDoc app={app} /> },
-                  { id: 'doc-cert-print', component: <CompanyTestingPolicyCertDoc app={app} /> },
+                  { id: 'doc-fcra-print', component: <FCRAAuthorizationDoc app={app} signatureDataUrl={signatureDataUrl} /> },
+                  { id: 'doc-preauth-print', component: <PreEmploymentAuthorizationsDoc app={app} signatureDataUrl={signatureDataUrl} /> },
+                  { id: 'doc-dot-print', component: <DOTDrugAlcoholQuestionsDoc app={app} signatureDataUrl={signatureDataUrl} /> },
+                  { id: 'doc-cert-print', component: <CompanyTestingPolicyCertDoc app={app} signatureDataUrl={signatureDataUrl} /> },
                 ].map((doc) => (
                   <div key={doc.id} id={doc.id} style={{ display: 'none' }}>
                     {doc.component}

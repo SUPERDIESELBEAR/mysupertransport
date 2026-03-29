@@ -2,13 +2,15 @@ import { FullApplication } from '@/components/management/ApplicationReviewDrawer
 
 interface Props {
   app: FullApplication;
+  signatureDataUrl?: string | null;
 }
 
-export default function PreEmploymentAuthorizationsDoc({ app }: Props) {
+export default function PreEmploymentAuthorizationsDoc({ app, signatureDataUrl }: Props) {
   const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email;
   const signedDate = app.signed_date
     ? new Date(app.signed_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : '___________________';
+  const sigSrc = signatureDataUrl || app.signature_image_url;
 
   return (
     <div
@@ -107,8 +109,8 @@ export default function PreEmploymentAuthorizationsDoc({ app }: Props) {
         <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
           <span style={{ whiteSpace: 'nowrap' }}>Signature: </span>
           <div style={{ flex: 1, maxWidth: '360px' }}>
-            {app.signature_image_url ? (
-              <img src={app.signature_image_url} alt="Signature" style={{ height: '40px', maxWidth: '100%', display: 'block' }} />
+            {sigSrc ? (
+              <img src={sigSrc} alt="Signature" style={{ height: '40px', maxWidth: '100%', display: 'block' }} />
             ) : (
               <div style={{ borderBottom: '1px solid #000', height: '40px' }} />
             )}
