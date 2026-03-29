@@ -1,64 +1,54 @@
 
 
-## Staff-Assisted Application Feature
+## Fix Disclosure Document PDF Downloads
 
-### Summary
+### Problems Identified
 
-Add a "New Application" button in the Management Portal's Applications section that opens the full 9-step application form in a modal/drawer. Staff fills out the form on behalf of an applicant, and on submit it creates a completed application record in the pipeline — identical to one submitted by the applicant themselves.
+1. **No signatures on any document** — Signature images are in a private storage bucket. Browser print can't load authenticated URLs. All 4 docs affected.
+2. **DOT Drug & Alcohol answers show blank radio buttons** — The `AnswerRow` component expects `boolean` values, but data may arrive as strings (`'yes'`/`'no'`). Neither circle gets filled.
+3. **PSP Authorization cut off after page 1** — Missing the Authorization section, NOTICE block, and signature. The print CSS uses `position: fixed` which prevents multi-page overflow.
+4. **Company Testing Policy cut off** — Same print CSS issue clips the acceptance checkbox and signature block.
 
-### Approach
+### Root Causes
 
-Rather than duplicating the entire 680-line `ApplicationForm.tsx`, create a new modal component that **reuses the existing step components** (Step1Personal through Step9Signature) and the existing `buildPayload` logic, but runs within the management context (authenticated user, no draft token logic).
+- **Print CSS**: `position: fixed` in `printDocument.ts` prevents content from flowing across multiple pages.
+- **Signature loading**: Private bucket URLs need auth headers. Browser print won't fetch them. Must convert to base64 data URLs before printing.
+- **Type mismatch**: `AnswerRow` does strict boolean checks, but values may be stored/returned as strings.
 
-### Changes
+### Plan
 
-**1. Extract `buildPayload` and `validateStep` into shared utilities**
+#### 1. Fix `printDocument.ts` — Enable multi-page print
 
-Move the `buildPayload` function and `validateStep` function from `src/pages/ApplicationForm.tsx` into `src/components/application/utils.ts` so both the public form and the staff-assisted modal can import them. Update `ApplicationForm.tsx` to import from the new location.
+Change `position: fixed` to `position: absolute` (or `static`) so content naturally flows across print pages. This fixes the PSP Authorization and Company Testing Policy being cut off.
 
-**2. New component: `src/components/management/StaffApplicationModal.tsx`**
+#### 2. Fix signature rendering in all 4 document components
 
-A full-screen dialog (Sheet) containing:
-- The same 9 step components (Step1–Step9) with FormProgress
-- Same validation logic per step
-- On submit: builds the payload using `buildPayload`, inserts into `applications` with `is_draft: false` and `submitted_at`, encrypts SSN via the existing `encrypt-ssn` edge function (using the staff member's auth token)
-- Marks the application with a metadata field `submitted_by_staff: true` so it is distinguishable
-- Fires the `new_application` notification
-- Document uploads in Step 7 use the existing anonymous upload pattern (application-documents bucket)
-- Signature in Step 9 uses the existing signature canvas and uploads to the signatures bucket
-- Skips draft token / localStorage logic entirely
-- Skips the duplicate email check (staff may intentionally re-enter)
-- Logs the action to `audit_log`
+Before printing, pre-fetch the signature image URL as a blob, convert to a base64 data URL, and pass it to the document component. This ensures the signature renders in the printed PDF.
 
-**3. `src/pages/management/ManagementPortal.tsx`**
+Changes:
+- Add a `preloadSignatureUrl` helper (e.g., in `src/lib/printDocument.ts`) that fetches the image and returns a data URL
+- Update the "Download PDF" handler in `ApplicationReviewDrawer.tsx` to pre-convert the signature URL before rendering the document
+- Alternatively, store a `signatureDataUrl` state and pass it to each doc component
 
-- Import `StaffApplicationModal`
-- Add state: `staffAppModalOpen`
-- Add a "New Application" button next to the existing "Invite Someone" button in the Applications header
-- Wire the modal open/close and refresh applications list on successful submit
+#### 3. Fix DOT Drug & Alcohol answer display
 
-**4. Database: Add `submitted_by_staff` column to `applications`**
+Update `DOTDrugAlcoholQuestionsDoc.tsx`:
+- Normalize the answer values: convert string `'yes'`/`'no'` to boolean before passing to `AnswerRow`
+- Update the `AnswerRow` component to handle both string and boolean inputs
+- Fix the conditional checks (`=== false`) to also handle `'no'` string
 
-A nullable boolean column defaulting to `false`, so staff-submitted applications can be identified in the review drawer.
+#### 4. Fix `sap_process` handling
 
-### No Other File Changes
-
-The existing step components (Step1–Step9) already accept `data`, `onChange`, and `errors` props — they work without modification. The `ApplicationReviewDrawer` already renders all application fields and will display staff-submitted applications identically.
-
-### Security
-
-- Staff authentication is verified via the existing session token
-- SSN encryption uses the same `encrypt-ssn` edge function
-- Document uploads use the existing `application-documents` bucket (which has anon insert policies already for the public form)
-- Audit log entry records who submitted the application
+Same normalization — the `sap_process` field uses `'yes'`/`'no'` strings in the form but is typed as `boolean | null` in the DB. Ensure the SAP section renders correctly regardless of value type.
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/application/utils.ts` | New — extracted `buildPayload` and `validateStep` |
-| `src/pages/ApplicationForm.tsx` | Import `buildPayload`/`validateStep` from utils instead of inline |
-| `src/components/management/StaffApplicationModal.tsx` | New — full 9-step form in a Sheet dialog |
-| `src/pages/management/ManagementPortal.tsx` | Add "New Application" button + modal state |
-| Database migration | Add `submitted_by_staff` boolean column to `applications` |
+| `src/lib/printDocument.ts` | Change `position: fixed` to `position: absolute`; add `preloadImageAsDataUrl` helper |
+| `src/components/management/ApplicationReviewDrawer.tsx` | Pre-convert signature URL to data URL before rendering doc components for print |
+| `src/components/application/documents/DOTDrugAlcoholQuestionsDoc.tsx` | Normalize string/boolean values; fix `AnswerRow` to handle both types |
+| `src/components/application/documents/FCRAAuthorizationDoc.tsx` | Accept pre-loaded signature data URL |
+| `src/components/application/documents/PreEmploymentAuthorizationsDoc.tsx` | Accept pre-loaded signature data URL |
+| `src/components/application/documents/CompanyTestingPolicyCertDoc.tsx` | Accept pre-loaded signature data URL |
 
