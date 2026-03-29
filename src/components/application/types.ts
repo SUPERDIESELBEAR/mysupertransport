@@ -38,12 +38,7 @@ export interface ApplicationFormData {
   referral_source: string;
 
   // Employment
-  employer_1: EmployerRecord;
-  employer_2: EmployerRecord;
-  employer_3: EmployerRecord;
-  employer_4: EmployerRecord;
-  additional_employers: string;
-  has_additional_employers: string; // 'yes' | 'no'
+  employers: EmployerRecord[];
   employment_gaps: string; // 'yes' | 'no'
   employment_gaps_explanation: string;
 
@@ -98,11 +93,7 @@ export const defaultFormData: ApplicationFormData = {
   prev_address_city: '', prev_address_state: '', prev_address_zip: '',
   cdl_state: '', cdl_number: '', cdl_class: '', cdl_expiration: '',
   endorsements: [], cdl_10_years: '', referral_source: '',
-  employer_1: { ...defaultEmployer },
-  employer_2: { ...defaultEmployer },
-  employer_3: { ...defaultEmployer },
-  employer_4: { ...defaultEmployer },
-  additional_employers: '', has_additional_employers: '',
+  employers: [{ ...defaultEmployer }],
   employment_gaps: '', employment_gaps_explanation: '',
   years_experience: '', equipment_operated: [],
   dot_accidents: '', dot_accidents_description: '',

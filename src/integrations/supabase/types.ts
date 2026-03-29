@@ -105,7 +105,6 @@ export type Database = {
       }
       applications: {
         Row: {
-          additional_employers: string | null
           address_city: string | null
           address_duration: string | null
           address_line2: string | null
@@ -132,10 +131,7 @@ export type Database = {
           dot_return_to_duty_docs: boolean | null
           draft_token: string | null
           email: string
-          employer_1: Json | null
-          employer_2: Json | null
-          employer_3: Json | null
-          employer_4: Json | null
+          employers: Json
           employment_gaps: boolean | null
           employment_gaps_explanation: string | null
           endorsements: string[] | null
@@ -173,7 +169,6 @@ export type Database = {
           years_experience: string | null
         }
         Insert: {
-          additional_employers?: string | null
           address_city?: string | null
           address_duration?: string | null
           address_line2?: string | null
@@ -200,10 +195,7 @@ export type Database = {
           dot_return_to_duty_docs?: boolean | null
           draft_token?: string | null
           email: string
-          employer_1?: Json | null
-          employer_2?: Json | null
-          employer_3?: Json | null
-          employer_4?: Json | null
+          employers?: Json
           employment_gaps?: boolean | null
           employment_gaps_explanation?: string | null
           endorsements?: string[] | null
@@ -241,7 +233,6 @@ export type Database = {
           years_experience?: string | null
         }
         Update: {
-          additional_employers?: string | null
           address_city?: string | null
           address_duration?: string | null
           address_line2?: string | null
@@ -268,10 +259,7 @@ export type Database = {
           dot_return_to_duty_docs?: boolean | null
           draft_token?: string | null
           email?: string
-          employer_1?: Json | null
-          employer_2?: Json | null
-          employer_3?: Json | null
-          employer_4?: Json | null
+          employers?: Json
           employment_gaps?: boolean | null
           employment_gaps_explanation?: string | null
           endorsements?: string[] | null
@@ -2158,7 +2146,6 @@ export type Database = {
       get_application_by_draft_token: {
         Args: { p_token: string }
         Returns: {
-          additional_employers: string | null
           address_city: string | null
           address_duration: string | null
           address_line2: string | null
@@ -2185,10 +2172,7 @@ export type Database = {
           dot_return_to_duty_docs: boolean | null
           draft_token: string | null
           email: string
-          employer_1: Json | null
-          employer_2: Json | null
-          employer_3: Json | null
-          employer_4: Json | null
+          employers: Json
           employment_gaps: boolean | null
           employment_gaps_explanation: string | null
           endorsements: string[] | null

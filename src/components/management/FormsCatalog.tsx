@@ -44,8 +44,8 @@ const SAMPLE_DATA = {
   auth_safety_history: true, auth_drug_alcohol: true, auth_previous_employers: true,
   dot_positive_test_past_2yr: 'no', testing_policy_accepted: true,
   typed_full_name: 'John Smith', signed_date: 'March 25, 2026',
-  employer_1: { name: 'ABC Trucking Co.', city: 'St. Louis', state: 'MO', position: 'OTR Driver', reason_leaving: 'Better opportunity', cmv_position: 'yes', start_date: '2019-01-01', end_date: '2024-06-01' },
-  has_additional_employers: 'no', employment_gaps: 'no',
+  employers: [{ name: 'ABC Trucking Co.', city: 'St. Louis', state: 'MO', position: 'OTR Driver', reason_leaving: 'Better opportunity', cmv_position: 'yes', start_date: '01/2019', end_date: '06/2024' }],
+  employment_gaps: 'no',
 };
 
 // ─── Blank applicant — used for clean standalone doc previews ─────────────────
@@ -58,8 +58,8 @@ const BLANK_APP: FullApplication = {
   prev_address_street: null, prev_address_city: null, prev_address_state: null, prev_address_zip: null,
   cdl_number: null, cdl_state: null, cdl_class: null, cdl_expiration: null, cdl_10_years: null,
   endorsements: null, equipment_operated: null, years_experience: null, referral_source: null,
-  employer_1: null, employer_2: null, employer_3: null, employer_4: null,
-  employment_gaps: null, employment_gaps_explanation: null, additional_employers: null,
+  employers: null,
+  employment_gaps: null, employment_gaps_explanation: null,
   dot_accidents: null, dot_accidents_description: null,
   moving_violations: null, moving_violations_description: null,
   dot_positive_test_past_2yr: null, dot_return_to_duty_docs: null, sap_process: null,
