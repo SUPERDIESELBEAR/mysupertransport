@@ -910,7 +910,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   id: 'doc-preauth-print',
                   title: 'PSP Authorization',
                   description: 'FMCSA PSP disclosure, crash & inspection history release',
-                  component: <PreEmploymentAuthorizationsDoc app={app} />,
+                  component: <PreEmploymentAuthorizationsDoc app={app} signatureDataUrl={signatureDataUrl} />,
                   docTitle: `PSP Authorization — ${fullName}`,
                 },
                 {
