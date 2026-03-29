@@ -953,10 +953,10 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
               {/* Hidden print containers — rendered off-screen so they're ready when needed */}
               <div className="fixed left-[-9999px] top-0 pointer-events-none" aria-hidden="true">
                 {[
-                  { id: 'doc-fcra-print', component: <FCRAAuthorizationDoc app={app} /> },
-                  { id: 'doc-preauth-print', component: <PreEmploymentAuthorizationsDoc app={app} /> },
-                  { id: 'doc-dot-print', component: <DOTDrugAlcoholQuestionsDoc app={app} /> },
-                  { id: 'doc-cert-print', component: <CompanyTestingPolicyCertDoc app={app} /> },
+                  { id: 'doc-fcra-print', component: <FCRAAuthorizationDoc app={app} signatureDataUrl={signatureDataUrl} /> },
+                  { id: 'doc-preauth-print', component: <PreEmploymentAuthorizationsDoc app={app} signatureDataUrl={signatureDataUrl} /> },
+                  { id: 'doc-dot-print', component: <DOTDrugAlcoholQuestionsDoc app={app} signatureDataUrl={signatureDataUrl} /> },
+                  { id: 'doc-cert-print', component: <CompanyTestingPolicyCertDoc app={app} signatureDataUrl={signatureDataUrl} /> },
                 ].map((doc) => (
                   <div key={doc.id} id={doc.id} style={{ display: 'none' }}>
                     {doc.component}
