@@ -903,7 +903,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   id: 'doc-fcra-print',
                   title: 'Fair Credit Reporting Act Authorization',
                   description: 'FCRA disclosure and background check authorization',
-                  component: <FCRAAuthorizationDoc app={app} />,
+                  component: <FCRAAuthorizationDoc app={app} signatureDataUrl={signatureDataUrl} />,
                   docTitle: `FCRA Authorization — ${fullName}`,
                 },
                 {
