@@ -170,11 +170,6 @@ export default function StaffApplicationModal({ open, onClose, onSuccess }: Prop
 
           <FormProgress currentStep={step} totalSteps={9} stepLabels={STEP_LABELS} />
 
-          {Object.keys(errors).length > 0 && (
-            <div className="my-4 p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-xs text-destructive font-medium">
-              Please fix the highlighted fields before continuing.
-            </div>
-          )}
 
           <div className="mt-4 bg-white border border-border rounded-2xl p-6">
             {step === 1 && <Step1Personal data={formData} onChange={handleChange} errors={errors} />}
