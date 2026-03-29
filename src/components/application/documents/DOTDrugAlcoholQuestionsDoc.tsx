@@ -5,22 +5,48 @@ interface Props {
   signatureDataUrl?: string | null;
 }
 
-/** Normalize boolean | string | null → boolean | null */
+/** Normalize boolean-like values from app/db state → boolean | null */
 function toBool(v: unknown): boolean | null {
-  if (v === true || v === 'yes' || v === 'Yes') return true;
-  if (v === false || v === 'no' || v === 'No') return false;
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'number') return v === 1 ? true : v === 0 ? false : null;
+  if (typeof v === 'string') {
+    const normalized = v.trim().toLowerCase();
+    if (['yes', 'true', '1', 'y'].includes(normalized)) return true;
+    if (['no', 'false', '0', 'n'].includes(normalized)) return false;
+  }
   return null;
+}
+
+function RadioDial({ selected }: { selected: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '14px',
+        height: '14px',
+        lineHeight: 1,
+        fontSize: '15px',
+        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontWeight: selected ? 'bold' : 'normal',
+      }}
+    >
+      {selected ? '◉' : '○'}
+    </span>
+  );
 }
 
 function AnswerRow({ answer }: { answer: boolean | null }) {
   if (answer === null || answer === undefined) return (
     <div style={{ display: 'inline-flex', gap: '20px', fontSize: '12px' }}>
       <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-        <span style={{ display: 'inline-block', width: '13px', height: '13px', border: '1.5px solid #000', borderRadius: '50%' }} />
+        <RadioDial selected={false} />
         Yes
       </span>
       <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-        <span style={{ display: 'inline-block', width: '13px', height: '13px', border: '1.5px solid #000', borderRadius: '50%' }} />
+        <RadioDial selected={false} />
         No
       </span>
       <span style={{ color: '#999', fontStyle: 'italic', fontSize: '11px' }}>(Not answered)</span>
@@ -29,17 +55,11 @@ function AnswerRow({ answer }: { answer: boolean | null }) {
   return (
     <div style={{ display: 'inline-flex', gap: '20px', fontSize: '12px' }}>
       <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: answer ? 'bold' : 'normal' }}>
-        <span style={{
-          display: 'inline-block', width: '13px', height: '13px', border: '1.5px solid #000', borderRadius: '50%',
-          backgroundColor: answer ? '#000' : 'transparent',
-        }} />
+        <RadioDial selected={answer} />
         Yes
       </span>
       <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: !answer ? 'bold' : 'normal' }}>
-        <span style={{
-          display: 'inline-block', width: '13px', height: '13px', border: '1.5px solid #000', borderRadius: '50%',
-          backgroundColor: !answer ? '#000' : 'transparent',
-        }} />
+        <RadioDial selected={!answer} />
         No
       </span>
     </div>
