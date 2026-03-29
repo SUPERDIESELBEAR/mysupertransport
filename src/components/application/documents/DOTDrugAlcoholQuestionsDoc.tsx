@@ -2,6 +2,14 @@ import { FullApplication } from '@/components/management/ApplicationReviewDrawer
 
 interface Props {
   app: FullApplication;
+  signatureDataUrl?: string | null;
+}
+
+/** Normalize boolean | string | null → boolean | null */
+function toBool(v: unknown): boolean | null {
+  if (v === true || v === 'yes' || v === 'Yes') return true;
+  if (v === false || v === 'no' || v === 'No') return false;
+  return null;
 }
 
 function AnswerRow({ answer }: { answer: boolean | null }) {
@@ -38,7 +46,7 @@ function AnswerRow({ answer }: { answer: boolean | null }) {
   );
 }
 
-export default function DOTDrugAlcoholQuestionsDoc({ app }: Props) {
+export default function DOTDrugAlcoholQuestionsDoc({ app, signatureDataUrl }: Props) {
   const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email;
   const signedDate = app.signed_date
     ? new Date(app.signed_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -46,6 +54,11 @@ export default function DOTDrugAlcoholQuestionsDoc({ app }: Props) {
   const dob = app.dob
     ? new Date(app.dob).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : null;
+
+  const q1 = toBool(app.dot_positive_test_past_2yr);
+  const q2 = toBool(app.dot_return_to_duty_docs);
+  const sap = toBool(app.sap_process);
+  const sigSrc = signatureDataUrl || app.signature_image_url;
 
   return (
     <div
@@ -114,7 +127,7 @@ export default function DOTDrugAlcoholQuestionsDoc({ app }: Props) {
           </p>
           <div style={{ paddingLeft: '16px', paddingTop: '8px', borderTop: '1px dashed #ccc' }}>
             <span style={{ fontSize: '11px', color: '#555', marginRight: '12px', fontStyle: 'italic' }}>Applicant Answer:</span>
-            <AnswerRow answer={app.dot_positive_test_past_2yr} />
+            <AnswerRow answer={q1} />
           </div>
         </div>
 
@@ -122,7 +135,7 @@ export default function DOTDrugAlcoholQuestionsDoc({ app }: Props) {
         <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid #ccc', borderRadius: '4px' }}>
           <p style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '13px' }}>
             Question 2 of 2
-            {app.dot_positive_test_past_2yr === false && (
+            {q1 === false && (
               <span style={{ fontSize: '11px', color: '#777', fontWeight: 'normal', marginLeft: '8px', fontStyle: 'italic' }}>
                 (Applicable only if Question 1 answered "Yes")
               </span>
@@ -133,16 +146,16 @@ export default function DOTDrugAlcoholQuestionsDoc({ app }: Props) {
           </p>
           <div style={{ paddingLeft: '16px', paddingTop: '8px', borderTop: '1px dashed #ccc' }}>
             <span style={{ fontSize: '11px', color: '#555', marginRight: '12px', fontStyle: 'italic' }}>Applicant Answer:</span>
-            {app.dot_positive_test_past_2yr === false ? (
+            {q1 === false ? (
               <span style={{ fontSize: '12px', color: '#777', fontStyle: 'italic' }}>N/A — Question 1 answered "No"</span>
             ) : (
-              <AnswerRow answer={app.dot_return_to_duty_docs} />
+              <AnswerRow answer={q2} />
             )}
           </div>
         </div>
 
         {/* SAP Process */}
-        {app.sap_process !== null && app.sap_process !== undefined && (
+        {sap !== null && (
           <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid #ccc', borderRadius: '4px', backgroundColor: '#fffdf5' }}>
             <p style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '13px' }}>
               SAP Process Status
@@ -152,7 +165,7 @@ export default function DOTDrugAlcoholQuestionsDoc({ app }: Props) {
             </p>
             <div style={{ paddingLeft: '16px', paddingTop: '8px', borderTop: '1px dashed #ccc' }}>
               <span style={{ fontSize: '11px', color: '#555', marginRight: '12px', fontStyle: 'italic' }}>Applicant Answer:</span>
-              <AnswerRow answer={app.sap_process} />
+              <AnswerRow answer={sap} />
             </div>
           </div>
         )}
@@ -167,10 +180,10 @@ export default function DOTDrugAlcoholQuestionsDoc({ app }: Props) {
       <div style={{ marginTop: '0.5in' }}>
         <div style={{ display: 'flex', gap: '60px', alignItems: 'flex-end' }}>
           <div style={{ flex: 1 }}>
-            {app.signature_image_url ? (
+            {sigSrc ? (
               <div>
                 <img
-                  src={app.signature_image_url}
+                  src={sigSrc}
                   alt="Applicant signature"
                   style={{ maxHeight: '64px', maxWidth: '280px', objectFit: 'contain', display: 'block', marginBottom: '4px' }}
                 />

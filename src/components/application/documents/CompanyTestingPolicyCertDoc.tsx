@@ -2,9 +2,10 @@ import { FullApplication } from '@/components/management/ApplicationReviewDrawer
 
 interface Props {
   app: FullApplication;
+  signatureDataUrl?: string | null;
 }
 
-export default function CompanyTestingPolicyCertDoc({ app }: Props) {
+export default function CompanyTestingPolicyCertDoc({ app, signatureDataUrl }: Props) {
   const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email;
   const signedDate = app.signed_date
     ? new Date(app.signed_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -12,6 +13,7 @@ export default function CompanyTestingPolicyCertDoc({ app }: Props) {
   const dob = app.dob
     ? new Date(app.dob).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : null;
+  const sigSrc = signatureDataUrl || app.signature_image_url;
 
   return (
     <div
@@ -142,10 +144,10 @@ export default function CompanyTestingPolicyCertDoc({ app }: Props) {
       <div style={{ marginTop: '0.5in' }}>
         <div style={{ display: 'flex', gap: '60px', alignItems: 'flex-end' }}>
           <div style={{ flex: 1 }}>
-            {app.signature_image_url ? (
+            {sigSrc ? (
               <div>
                 <img
-                  src={app.signature_image_url}
+                  src={sigSrc}
                   alt="Applicant signature"
                   style={{ maxHeight: '64px', maxWidth: '280px', objectFit: 'contain', display: 'block', marginBottom: '4px' }}
                 />
