@@ -1060,6 +1060,54 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           </div>
         )}
       </div>
+      {/* In-app document preview modal */}
+      {previewDoc && (
+        <FilePreviewModal
+          url={previewDoc.url}
+          name={previewDoc.name}
+          onClose={() => setPreviewDoc(null)}
+          onEdit={() => {
+            const rawUrl = previewDoc.key === 'dl_front_url' ? app.dl_front_url
+              : previewDoc.key === 'dl_rear_url' ? app.dl_rear_url
+              : app.medical_cert_url;
+            const path = extractStoragePath(rawUrl, 'application-documents') ?? rawUrl ?? '';
+            setEditingDoc({
+              url: previewDoc.url,
+              name: previewDoc.name,
+              bucket: 'application-documents',
+              path,
+              key: previewDoc.key,
+            });
+            setPreviewDoc(null);
+          }}
+        />
+      )}
+
+      {/* In-app document editor */}
+      {editingDoc && (
+        <Suspense fallback={null}>
+          <DocumentEditor
+            fileUrl={editingDoc.url}
+            fileName={editingDoc.name}
+            bucketName={editingDoc.bucket}
+            filePath={editingDoc.path}
+            onClose={() => setEditingDoc(null)}
+            onSave={(newUrl) => {
+              // Refresh signed URL for the edited doc
+              const refreshSignedUrl = async () => {
+                const path = extractStoragePath(newUrl, editingDoc.bucket) ?? newUrl;
+                const { data } = await supabase.storage.from(editingDoc.bucket).createSignedUrl(path, 3600);
+                if (data?.signedUrl) {
+                  setSignedUrls(prev => ({ ...prev, [editingDoc.key]: data.signedUrl }));
+                }
+              };
+              refreshSignedUrl();
+              setEditingDoc(null);
+              toast.success('Document updated successfully');
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
