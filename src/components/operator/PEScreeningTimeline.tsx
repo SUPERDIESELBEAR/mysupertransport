@@ -4,6 +4,7 @@ import {
   Loader2, FileText, ExternalLink, FlaskConical, AlertTriangle,
   XCircle, ChevronDown, ChevronUp, Eye,
 } from 'lucide-react';
+import { downloadBlob } from '@/lib/downloadBlob';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { validateFile } from '@/lib/validateFile';
