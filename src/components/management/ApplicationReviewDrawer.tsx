@@ -860,22 +860,28 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                 <Section title="Uploaded Documents" icon={<FileText className="h-4 w-4" />}>
                   <div className="flex flex-wrap gap-2">
                     {app.dl_front_url && (
-                      <a href={signedUrls.dl_front_url || app.dl_front_url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg">
-                        <FileText className="h-3.5 w-3.5" /> DL Front
-                      </a>
+                      <button
+                        onClick={() => setPreviewDoc({ url: signedUrls.dl_front_url || app.dl_front_url!, name: 'DL Front', key: 'dl_front_url' })}
+                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg cursor-pointer"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> DL Front
+                      </button>
                     )}
                     {app.dl_rear_url && (
-                      <a href={signedUrls.dl_rear_url || app.dl_rear_url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg">
-                        <FileText className="h-3.5 w-3.5" /> DL Rear
-                      </a>
+                      <button
+                        onClick={() => setPreviewDoc({ url: signedUrls.dl_rear_url || app.dl_rear_url!, name: 'DL Rear', key: 'dl_rear_url' })}
+                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg cursor-pointer"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> DL Rear
+                      </button>
                     )}
                     {app.medical_cert_url && (
-                      <a href={signedUrls.medical_cert_url || app.medical_cert_url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg">
-                        <FileText className="h-3.5 w-3.5" /> Medical Cert
-                      </a>
+                      <button
+                        onClick={() => setPreviewDoc({ url: signedUrls.medical_cert_url || app.medical_cert_url!, name: 'Medical Certificate', key: 'medical_cert_url' })}
+                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg cursor-pointer"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> Medical Cert
+                      </button>
                     )}
                   </div>
                 </Section>
