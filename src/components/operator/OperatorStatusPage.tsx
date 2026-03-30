@@ -1,4 +1,5 @@
 import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText, Truck, ArrowRight, Upload, Mail, Phone, Hash, User, CalendarClock, ShieldAlert, X, CreditCard, Download, Eye } from 'lucide-react';
+import { downloadBlob } from '@/lib/downloadBlob';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
