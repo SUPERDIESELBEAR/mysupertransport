@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { BookOpen, Download, FileText, HelpCircle, ChevronDown, ChevronUp, ExternalLink, Search, Eye } from 'lucide-react';
+import { downloadBlob } from '@/lib/downloadBlob';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 
 // ─── Resource Library ──────────────────────────────────────────────────────
