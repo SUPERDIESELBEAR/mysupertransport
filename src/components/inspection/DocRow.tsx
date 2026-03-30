@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut, Pencil } from 'lucide-react';
+import { downloadBlob } from '@/lib/downloadBlob';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { QRCodeSVG } from 'qrcode.react';
@@ -266,15 +267,13 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
           >
             <Printer className="h-4 w-4" />
           </button>
-          <a
-            href={url}
-            download={name}
+          <button
+            onClick={(e) => { e.stopPropagation(); downloadBlob(url, name); }}
             className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
-            onClick={e => e.stopPropagation()}
             title="Download document"
           >
             <Download className="h-4 w-4" />
-          </a>
+          </button>
           <a
             href={url}
             target="_blank"
@@ -410,15 +409,13 @@ function PDFModal({ doc, onClose, onEdit }: { doc: InspectionDocument; onClose: 
               >
                 <Printer className="h-4 w-4" />
               </button>
-              <a
-                href={doc.file_url}
-                download={doc.name}
+              <button
+                onClick={(e) => { e.stopPropagation(); downloadBlob(doc.file_url!, doc.name); }}
                 className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
-                onClick={e => e.stopPropagation()}
                 title="Download document"
               >
                 <Download className="h-4 w-4" />
-              </a>
+              </button>
               <a
                 href={doc.file_url}
                 target="_blank"

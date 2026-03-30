@@ -1,4 +1,5 @@
 import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText, Truck, ArrowRight, Upload, Mail, Phone, Hash, User, CalendarClock, ShieldAlert, X, CreditCard, Download, Eye } from 'lucide-react';
+import { downloadBlob } from '@/lib/downloadBlob';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -455,14 +456,13 @@ export default function OperatorStatusPage({
                     <Eye className="h-3.5 w-3.5" />
                     View QPassport
                   </button>
-                  <a
-                    href={qpassportUrl!}
-                    download="QPassport.pdf"
+                  <button
+                    onClick={() => downloadBlob(qpassportUrl!, 'QPassport.pdf')}
                     className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border bg-muted/50 hover:bg-muted transition-colors px-3 py-1.5 rounded-lg"
                   >
                     <Download className="h-3.5 w-3.5" />
                     Download
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
@@ -617,14 +617,13 @@ export default function OperatorStatusPage({
                   <Eye className="h-3.5 w-3.5" />
                   View QPassport
                 </button>
-                <a
-                  href={qpassportUrl!}
-                  download="QPassport.pdf"
+                <button
+                  onClick={() => downloadBlob(qpassportUrl!, 'QPassport.pdf')}
                   className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border bg-muted/50 hover:bg-muted transition-colors px-3 py-1.5 rounded-lg"
                 >
                   <Download className="h-3.5 w-3.5" />
                   Download
-                </a>
+                </button>
               </div>
             </div>
           </div>
