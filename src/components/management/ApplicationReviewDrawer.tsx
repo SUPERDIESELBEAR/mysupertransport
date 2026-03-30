@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
@@ -17,6 +17,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { printDocumentById, preloadSignatureDataUrl } from '@/lib/printDocument';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
+import React, { Suspense } from 'react';
+const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
 import FCRAAuthorizationDoc from '@/components/application/documents/FCRAAuthorizationDoc';
 import PreEmploymentAuthorizationsDoc from '@/components/application/documents/PreEmploymentAuthorizationsDoc';
 import DOTDrugAlcoholQuestionsDoc from '@/components/application/documents/DOTDrugAlcoholQuestionsDoc';
@@ -227,6 +230,10 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   // Signed URLs for private bucket files
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+
+  // In-app document preview & edit state
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string; key: string } | null>(null);
+  const [editingDoc, setEditingDoc] = useState<{ url: string; name: string; bucket: string; path: string; key: string } | null>(null);
 
   const extractStoragePath = useCallback((url: string | null, bucket: string): string | null => {
     if (!url) return null;
@@ -853,22 +860,28 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                 <Section title="Uploaded Documents" icon={<FileText className="h-4 w-4" />}>
                   <div className="flex flex-wrap gap-2">
                     {app.dl_front_url && (
-                      <a href={signedUrls.dl_front_url || app.dl_front_url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg">
-                        <FileText className="h-3.5 w-3.5" /> DL Front
-                      </a>
+                      <button
+                        onClick={() => setPreviewDoc({ url: signedUrls.dl_front_url || app.dl_front_url!, name: 'DL Front', key: 'dl_front_url' })}
+                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg cursor-pointer"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> DL Front
+                      </button>
                     )}
                     {app.dl_rear_url && (
-                      <a href={signedUrls.dl_rear_url || app.dl_rear_url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg">
-                        <FileText className="h-3.5 w-3.5" /> DL Rear
-                      </a>
+                      <button
+                        onClick={() => setPreviewDoc({ url: signedUrls.dl_rear_url || app.dl_rear_url!, name: 'DL Rear', key: 'dl_rear_url' })}
+                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg cursor-pointer"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> DL Rear
+                      </button>
                     )}
                     {app.medical_cert_url && (
-                      <a href={signedUrls.medical_cert_url || app.medical_cert_url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg">
-                        <FileText className="h-3.5 w-3.5" /> Medical Cert
-                      </a>
+                      <button
+                        onClick={() => setPreviewDoc({ url: signedUrls.medical_cert_url || app.medical_cert_url!, name: 'Medical Certificate', key: 'medical_cert_url' })}
+                        className="flex items-center gap-1.5 text-xs text-gold hover:underline bg-gold/10 px-3 py-1.5 rounded-lg cursor-pointer"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> Medical Cert
+                      </button>
                     )}
                   </div>
                 </Section>
@@ -1047,6 +1060,54 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           </div>
         )}
       </div>
+      {/* In-app document preview modal */}
+      {previewDoc && (
+        <FilePreviewModal
+          url={previewDoc.url}
+          name={previewDoc.name}
+          onClose={() => setPreviewDoc(null)}
+          onEdit={() => {
+            const rawUrl = previewDoc.key === 'dl_front_url' ? app.dl_front_url
+              : previewDoc.key === 'dl_rear_url' ? app.dl_rear_url
+              : app.medical_cert_url;
+            const path = extractStoragePath(rawUrl, 'application-documents') ?? rawUrl ?? '';
+            setEditingDoc({
+              url: previewDoc.url,
+              name: previewDoc.name,
+              bucket: 'application-documents',
+              path,
+              key: previewDoc.key,
+            });
+            setPreviewDoc(null);
+          }}
+        />
+      )}
+
+      {/* In-app document editor */}
+      {editingDoc && (
+        <Suspense fallback={null}>
+          <DocumentEditor
+            fileUrl={editingDoc.url}
+            fileName={editingDoc.name}
+            bucketName={editingDoc.bucket}
+            filePath={editingDoc.path}
+            onClose={() => setEditingDoc(null)}
+            onSave={(newUrl) => {
+              // Refresh signed URL for the edited doc
+              const refreshSignedUrl = async () => {
+                const path = extractStoragePath(newUrl, editingDoc.bucket) ?? newUrl;
+                const { data } = await supabase.storage.from(editingDoc.bucket).createSignedUrl(path, 3600);
+                if (data?.signedUrl) {
+                  setSignedUrls(prev => ({ ...prev, [editingDoc.key]: data.signedUrl }));
+                }
+              };
+              refreshSignedUrl();
+              setEditingDoc(null);
+              toast.success('Document updated successfully');
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
