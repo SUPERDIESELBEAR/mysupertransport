@@ -1,55 +1,43 @@
 
 
-## Feature Announcement System — In-App Changelog + Email
+## Fix Download Across All Areas — Not Just DocRow
 
-### Overview
-Build a lightweight release notes system where management can post feature announcements that automatically notify all staff via in-app bell notifications and email.
+### Problem
+The previous plan only fixes **one download link** in `DocRow.tsx`. There are **5 files** across the app with `<a download=...>` links pointing to cross-origin Supabase storage URLs. Browsers ignore the `download` attribute for cross-origin URLs in all of them, causing the file to open in a new tab instead.
 
-### Database
+### Affected Files
 
-**New table: `release_notes`**
-- `id` (uuid, PK)
-- `title` (text, required) — e.g. "In-App Document Preview"
-- `body` (text, required) — short description of the change
-- `created_by` (uuid, references profiles)
-- `created_at` (timestamptz)
-- RLS: management/owner can insert/update; all authenticated staff can read
+| File | Download Links | Has `useBlobUrl`? |
+|------|---------------|-------------------|
+| `src/components/inspection/DocRow.tsx` | 2 (lines 269, 413) | Yes |
+| `src/components/operator/OperatorStatusPage.tsx` | 2 (lines 458, 620) | No |
+| `src/components/operator/PEScreeningTimeline.tsx` | 1 (line 171) | No |
+| `src/components/operator/OperatorResourcesAndFAQ.tsx` | 1 (line 103) | No |
+| `src/components/documents/DocumentViewer.tsx` | 1 (line 114) | No |
 
-### In-App Notifications
+### Solution
 
-When a release note is inserted, a database trigger iterates over all users with staff roles (`onboarding_staff`, `dispatcher`, `management`, `owner`) and inserts a notification per user into the existing `notifications` table with:
-- `type: 'release_note'`
-- `title`: the release note title
-- `body`: the release note body
-- `link`: `/management?view=changelog` (or a dedicated changelog section)
-
-This leverages the existing bell icon and notification infrastructure — no new UI for delivery.
-
-### Email Notifications
-
-The same trigger (or the edge function it calls) sends an email to each staff member using the existing Resend-based email system (not the transactional email scaffold, since this is a one-to-many internal staff notification — not a user-triggered transactional email). The edge function would:
-1. Query all staff users' email addresses
-2. Send a branded email per recipient with the release note content
-
-### Management UI
-
-Add a "What's New" section (likely a tab or card in the Management Portal) where management can:
-- Compose a new release note (title + body)
-- See past announcements
-- Each post triggers the notifications + emails automatically on save
+1. **Extract `useBlobUrl`** from `DocRow.tsx` into a shared hook (`src/hooks/useBlobUrl.ts`) so all files can use it
+2. **Create a reusable `DownloadButton` component** (or a small `useBlobDownload` helper) that fetches the file as a blob and triggers a programmatic download via `URL.createObjectURL` + a temporary `<a>` click
+3. **Replace all 6 download links** across all 5 files with the new pattern so downloads work reliably everywhere
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| Migration | Create `release_notes` table with RLS |
-| Migration | Create trigger to notify staff on insert |
-| New edge function `send-release-note` | Sends branded email to all staff |
-| `src/pages/management/ManagementPortal.tsx` | Add "What's New" tab/section |
-| New component `ReleaseNotesManager.tsx` | Compose + list release notes |
-| `src/components/NotificationBell.tsx` | Handle `release_note` type (icon/styling if needed) |
+| New `src/hooks/useBlobUrl.ts` | Extract shared blob-fetching hook |
+| New `src/lib/downloadBlob.ts` | Utility: fetch URL as blob → trigger download |
+| `src/components/inspection/DocRow.tsx` | Use shared hook + blob download for both links |
+| `src/components/operator/OperatorStatusPage.tsx` | Use blob download for both QPassport links |
+| `src/components/operator/PEScreeningTimeline.tsx` | Use blob download for QPassport link |
+| `src/components/operator/OperatorResourcesAndFAQ.tsx` | Use blob download for resource link |
+| `src/components/documents/DocumentViewer.tsx` | Use blob download for document link |
 
-### Notes
-- Since this targets internal staff only (not end-user operators), it's an admin broadcast — not a marketing email. The emails are triggered by a specific management action and go to a known, finite set of staff members.
-- The existing notification preferences system could be extended with a `release_note` event type so staff can opt out if desired.
+### Technical Approach
+
+The `downloadBlob` utility will:
+```
+fetch(url) → blob → createObjectURL → create temp <a download="name"> → click → revoke
+```
+This is same-origin so `download` attribute is honored. Each call site just needs: `onClick={() => downloadBlob(url, filename)}` instead of `<a href={url} download={name}>`.
 
