@@ -30,7 +30,7 @@ const STEP_LABELS = [
 const SAMPLE_DATA = {
   ...defaultFormData,
   first_name: 'John', last_name: 'Smith', dob: '1985-06-15',
-  phone: '816-555-0100', email: 'john.smith@example.com',
+  phone: '(816) 555-0100', email: 'john.smith@example.com',
   address_street: '1234 Highway 70 W', address_city: 'Kansas City',
   address_state: 'MO', address_zip: '64111', address_duration: '3_or_more',
   cdl_state: 'MO', cdl_number: 'F123456789', cdl_class: 'CDL-A',
