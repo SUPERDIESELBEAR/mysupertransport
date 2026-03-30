@@ -231,6 +231,10 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
 
+  // In-app document preview & edit state
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string; key: string } | null>(null);
+  const [editingDoc, setEditingDoc] = useState<{ url: string; name: string; bucket: string; path: string; key: string } | null>(null);
+
   const extractStoragePath = useCallback((url: string | null, bucket: string): string | null => {
     if (!url) return null;
     // If it's already just a path (no http), return as-is
