@@ -35,6 +35,7 @@ import DocumentHub from '@/components/documents/DocumentHub';
 import EmailCatalog from '@/components/management/EmailCatalog';
 import FormsCatalog from '@/components/management/FormsCatalog';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
+import ReleaseNotesManager from '@/components/management/ReleaseNotesManager';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
 import DriverHubView from '@/components/drivers/DriverHubView';
