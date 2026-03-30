@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ArrowLeft, Clock, CheckCircle2, AlertTriangle, BookOpen, FileText, Download, Video } from 'lucide-react';
+import { downloadBlob } from '@/lib/downloadBlob';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DriverDocument, CATEGORY_COLORS, parseVideoEmbedUrl } from './DocumentHubTypes';
