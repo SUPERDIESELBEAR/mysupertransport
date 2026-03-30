@@ -1814,6 +1814,10 @@ export default function ManagementPortal() {
           <FormsCatalog />
         )}
 
+        {view === 'whats-new' && (
+          <ReleaseNotesManager />
+        )}
+
 
         {view === 'messages' && (
           <div className="flex flex-col gap-0" style={{ height: 'calc(100vh - 160px - 64px)' }}>

@@ -119,6 +119,7 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
     new_application:        { icon: FileText,         bg: 'bg-muted',      color: 'text-muted-foreground' },
     dispatch_status_change: { icon: Truck,            bg: 'bg-muted',      color: 'text-muted-foreground' },
     compliance_update:      { icon: ShieldCheck,      bg: 'bg-sky-100',    color: 'text-sky-600' },
+    release_note:           { icon: Megaphone,        bg: 'bg-purple-100', color: 'text-purple-600' },
   };
   const defaultIconConfig = { icon: Bell, bg: 'bg-muted', color: 'text-muted-foreground' };
 
