@@ -1784,6 +1784,30 @@ export type Database = {
         }
         Relationships: []
       }
+      release_notes: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string
+          id: string
+          title: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by: string
+          id?: string
+          title: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
       resource_documents: {
         Row: {
           category: Database["public"]["Enums"]["resource_category"]
