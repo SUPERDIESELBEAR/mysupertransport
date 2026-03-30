@@ -267,15 +267,13 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
           >
             <Printer className="h-4 w-4" />
           </button>
-          <a
-            href={url}
-            download={name}
+          <button
+            onClick={(e) => { e.stopPropagation(); downloadBlob(url, name); }}
             className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
-            onClick={e => e.stopPropagation()}
             title="Download document"
           >
             <Download className="h-4 w-4" />
-          </a>
+          </button>
           <a
             href={url}
             target="_blank"
