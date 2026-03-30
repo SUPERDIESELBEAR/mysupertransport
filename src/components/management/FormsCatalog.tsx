@@ -30,7 +30,7 @@ const STEP_LABELS = [
 const SAMPLE_DATA = {
   ...defaultFormData,
   first_name: 'John', last_name: 'Smith', dob: '1985-06-15',
-  phone: '816-555-0100', email: 'john.smith@example.com',
+  phone: '(816) 555-0100', email: 'john.smith@example.com',
   address_street: '1234 Highway 70 W', address_city: 'Kansas City',
   address_state: 'MO', address_zip: '64111', address_duration: '3_or_more',
   cdl_state: 'MO', cdl_number: 'F123456789', cdl_class: 'CDL-A',
@@ -94,7 +94,7 @@ const ICA_SAMPLE_DATA = {
   trailer_number: '', owner_name: 'John Smith', owner_business_name: 'Smith Transport LLC',
   owner_ein: '12-3456789', owner_ssn: '', owner_address: '1234 Highway 70 W',
   owner_city: 'Kansas City', owner_state: 'MO', owner_zip: '64111',
-  owner_phone: '816-555-0100', owner_email: 'john.smith@example.com',
+  owner_phone: '(816) 555-0100', owner_email: 'john.smith@example.com',
   linehaul_split_pct: 72, lease_effective_date: '2026-04-01', lease_termination_date: '',
 };
 
