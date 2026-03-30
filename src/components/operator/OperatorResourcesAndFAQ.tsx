@@ -101,13 +101,12 @@ export function OperatorResourceLibrary() {
                         >
                           <Eye className="h-3.5 w-3.5" /> View
                         </button>
-                        <a
-                          href={doc.file_url}
-                          download={doc.file_name ?? undefined}
+                        <button
+                          onClick={() => downloadBlob(doc.file_url!, doc.file_name ?? 'download')}
                           className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-secondary hover:bg-secondary/80 px-3 py-1.5 rounded-lg transition-colors"
                         >
                           <Download className="h-3.5 w-3.5" /> Download
-                        </a>
+                        </button>
                       </div>
                     )}
                   </div>

@@ -110,16 +110,13 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
             </span>
             <span>Last updated {new Date(doc.updated_at).toLocaleDateString()}</span>
             {isPdf && doc.pdf_url && (
-              <a
-                href={doc.pdf_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                download={`${doc.title}.pdf`}
+              <button
+                onClick={() => downloadBlob(doc.pdf_url!, `${doc.title}.pdf`)}
                 className="flex items-center gap-1.5 text-primary hover:text-primary/80 transition-colors font-medium"
               >
                 <Download className="h-4 w-4" />
                 Download PDF
-              </a>
+              </button>
             )}
           </div>
         </div>
