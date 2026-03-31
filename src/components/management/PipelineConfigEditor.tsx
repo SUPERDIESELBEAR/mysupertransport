@@ -126,7 +126,8 @@ function ItemRow({ item, index, total, onChange, onRemove, onMove }: ItemRowProp
           <Input
             value={item.complete_value}
             onChange={e => onChange(index, { ...item, complete_value: e.target.value })}
-            placeholder="e.g. received / yes / present"
+            placeholder="e.g. received / yes / present / requested|received"
+            title="Use pipe (|) to match multiple values, e.g. requested|received"
             className="h-7 text-xs font-mono"
           />
         </div>
