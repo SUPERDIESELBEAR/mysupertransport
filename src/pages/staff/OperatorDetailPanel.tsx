@@ -488,6 +488,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     return () => { supabase.removeChannel(channel); };
   }, [operatorId]);
 
+  // Auto-collapse Stage 8 once pay setup data loads
+  useEffect(() => {
+    if (paySetupLoaded && paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted) {
+      setCollapsedStages(prev => {
+        const next = new Set(prev);
+        next.add('stage8');
+        return next;
+      });
+    }
+  }, [paySetupLoaded, paySetupRecord]);
+
 
 
   // Notify parent of unsaved changes state
@@ -871,10 +882,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         };
         // Auto-collapse stages that are already complete on load
         const autoCollapse = new Set<string>();
-        if (os.mvr_ch_approval === 'approved') autoCollapse.add('stage1');
+        if ((os.mvr_status === 'requested' || os.mvr_status === 'received') &&
+            (os.ch_status === 'requested' || os.ch_status === 'received') &&
+            os.mvr_ch_approval === 'approved' &&
+            os.pe_screening_result === 'clear') autoCollapse.add('stage1');
         if (os.form_2290 === 'received' && os.truck_title === 'received' && os.truck_photos === 'received' && os.truck_inspection === 'received') autoCollapse.add('stage2');
         if (os.ica_status === 'complete') autoCollapse.add('stage3');
-        if (os.mo_reg_received === 'yes' || os.registration_status === 'own_registration') autoCollapse.add('stage4');
+        if ((os.mo_reg_received === 'yes' || os.registration_status === 'own_registration') &&
+            os.mo_docs_submitted === 'submitted') autoCollapse.add('stage4');
         if (os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes' && !!os.eld_serial_number && !!os.dash_cam_number && !!os.bestpass_number && !!os.fuel_card_number) autoCollapse.add('stage5');
         if (os.insurance_added_date) autoCollapse.add('stage6');
         if (os.go_live_date) autoCollapse.add('stage7');
