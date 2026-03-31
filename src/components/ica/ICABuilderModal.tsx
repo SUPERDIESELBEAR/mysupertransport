@@ -249,7 +249,8 @@ export default function ICABuilderModal({
         .eq('operator_id', operatorId)
         .maybeSingle();
       if (os?.id && (os.ica_status === 'not_issued' || os.ica_status === 'in_progress')) {
-        await supabase.from('onboarding_status').update({ ica_status: 'in_progress' as any }).eq('id', os.id);
+        const { error: statusErr } = await supabase.from('onboarding_status').update({ ica_status: 'in_progress' as any }).eq('id', os.id);
+        if (statusErr) throw statusErr;
       }
 
       toast({ title: 'Draft saved', description: 'ICA is saved as "In Progress". You can continue anytime.' });
@@ -304,7 +305,8 @@ export default function ICABuilderModal({
         .eq('operator_id', operatorId)
         .maybeSingle();
       if (os?.id) {
-        await supabase.from('onboarding_status').update({ ica_status: 'sent_for_signature' }).eq('id', os.id);
+        const { error: sendStatusErr } = await supabase.from('onboarding_status').update({ ica_status: 'sent_for_signature' }).eq('id', os.id);
+        if (sendStatusErr) throw sendStatusErr;
       }
 
       // Write audit log entry

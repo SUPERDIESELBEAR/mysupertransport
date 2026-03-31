@@ -3647,7 +3647,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 if (!statusId) return;
                 setMarkingReceived(field as string);
                 try {
-                  await supabase.from('onboarding_status').update({ [field]: 'received' }).eq('id', statusId);
+                  const { error: markErr } = await supabase.from('onboarding_status').update({ [field]: 'received' }).eq('id', statusId);
+                  if (markErr) throw markErr;
                    const updated = { ...status, [field]: 'received' };
                   setStatus(prev => ({ ...prev, [field]: 'received' }));
                   savedMilestones.current = { ...savedMilestones.current, [field as string]: 'received' };
@@ -3805,7 +3806,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 if (!statusId) return;
                 setMarkingReceived('truck_photos');
                 try {
-                  await supabase.from('onboarding_status').update({ truck_photos: 'received' }).eq('id', statusId);
+                  const { error: photoErr } = await supabase.from('onboarding_status').update({ truck_photos: 'received' }).eq('id', statusId);
+                  if (photoErr) throw photoErr;
                   setStatus(prev => ({ ...prev, truck_photos: 'received' }));
                   savedMilestones.current = { ...savedMilestones.current, truck_photos: 'received' };
                   if (operatorUserId) {

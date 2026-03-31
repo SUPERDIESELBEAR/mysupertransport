@@ -135,13 +135,15 @@ export default function MoPlateRegistry() {
     if (!returnDialogPlate) return;
     setReturnLoading(true);
     try {
-      await supabase
+      const { error: assignErr } = await supabase
         .from('mo_plate_assignments')
         .update({ returned_at: new Date().toISOString(), returned_by: session?.user?.id, notes: returnNotes.trim() || null })
         .eq('plate_id', returnDialogPlate.id)
         .is('returned_at', null)
         .eq('event_type', 'assignment');
-      await supabase.from('mo_plates').update({ status: 'available' }).eq('id', returnDialogPlate.id);
+      if (assignErr) throw assignErr;
+      const { error: plateErr } = await supabase.from('mo_plates').update({ status: 'available' }).eq('id', returnDialogPlate.id);
+      if (plateErr) throw plateErr;
       toast({ title: 'Plate returned', description: `${returnDialogPlate.plate_number} is now available.` });
       setReturnDialogPlate(null);
       setReturnNotes('');
