@@ -2119,7 +2119,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
                   <div className="flex items-center gap-2">
                     <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-foreground">{applicationData.phone || <span className="text-muted-foreground italic">No phone</span>}</span>
+                    <span className="text-foreground">{formatPhoneDisplay(applicationData.phone) || <span className="text-muted-foreground italic">No phone</span>}</span>
                   </div>
                   <div className="flex items-center gap-2 min-w-0">
                     <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
