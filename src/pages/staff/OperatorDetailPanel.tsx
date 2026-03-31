@@ -488,6 +488,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     return () => { supabase.removeChannel(channel); };
   }, [operatorId]);
 
+  // Auto-collapse Stage 8 once pay setup data loads
+  useEffect(() => {
+    if (paySetupLoaded && paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted) {
+      setCollapsedStages(prev => {
+        const next = new Set(prev);
+        next.add('stage8');
+        return next;
+      });
+    }
+  }, [paySetupLoaded, paySetupRecord]);
+
 
 
   // Notify parent of unsaved changes state
