@@ -1107,23 +1107,28 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       .update({ notes: sanitizeText(notes) })
       .eq('id', operatorId);
 
+    let statusError: { message: string } | null = null;
     if (statusId) {
       // fully_onboarded is a DB-generated column (insurance_added_date IS NOT NULL) — never write it
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { id: _id, fully_onboarded: _fo, ...updateData } = status as any;
-      await supabase
+      const { error: stErr } = await supabase
         .from('onboarding_status')
         .update(updateData)
         .eq('id', statusId);
+      statusError = stErr;
 
       // Reflect generated value in local state immediately so header badge updates
-      if (isNewlyFullyOnboarded) {
+      if (!stErr && isNewlyFullyOnboarded) {
         setStatus(prev => ({ ...prev, fully_onboarded: true }));
       }
     }
 
-    if (error) {
-      toast({ title: 'Error saving', description: error.message, variant: 'destructive' });
+    if (error || statusError) {
+      const msg = error?.message || statusError?.message || 'Unknown error';
+      toast({ title: 'Error saving', description: msg, variant: 'destructive' });
+      setSaving(false);
+      return;
     } else {
       toast({ title: 'Saved successfully', description: 'Operator record has been updated.' });
 
