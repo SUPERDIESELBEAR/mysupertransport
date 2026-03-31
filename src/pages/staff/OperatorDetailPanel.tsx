@@ -169,7 +169,7 @@ function QPassportUploader({
     setUploading(true);
     try {
       const path = `${operatorId}/qpassport/${Date.now()}.pdf`;
-      const { error: upErr } = await supabase.storage.from('operator-documents').upload(path, file, { upsert: false });
+      const { error: upErr } = await supabase.storage.from('operator-documents').upload(path, file, { upsert: true });
       if (upErr) throw upErr;
       const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365);
       const fileUrl = sd?.signedUrl ?? '';
@@ -182,7 +182,12 @@ function QPassportUploader({
         body: { type: 'qpassport_uploaded', operator_id: operatorId },
       }).catch((e) => console.warn('qpassport_uploaded notification failed:', e));
     } catch (err: unknown) {
-      toast({ title: 'Upload failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+      const msg = err instanceof Error
+        ? err.message
+        : typeof err === 'object' && err !== null && 'message' in err
+          ? String((err as Record<string, unknown>).message)
+          : 'Unknown error';
+      toast({ title: 'Upload failed', description: msg, variant: 'destructive' });
     } finally {
       setUploading(false);
     }
