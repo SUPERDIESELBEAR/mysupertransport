@@ -1473,6 +1473,29 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     toast({ title: 'Device numbers saved' });
   };
 
+  // Handle editing truck info fields from TruckInfoCard
+  const handleTruckInfoEdit = async (payload: TruckFieldsEditPayload) => {
+    if (!statusId) return;
+    const { error } = await supabase
+      .from('onboarding_status')
+      .update({
+        truck_year: payload.truck_year,
+        truck_make: payload.truck_make,
+        truck_model: payload.truck_model,
+        truck_vin: payload.truck_vin,
+        truck_plate: payload.truck_plate,
+        truck_plate_state: payload.truck_plate_state,
+      } as any)
+      .eq('id', statusId);
+    if (error) throw error;
+    // Update local truck info state
+    setIcaTruckInfo(prev => ({
+      ...prev,
+      ...payload,
+    }));
+    toast({ title: 'Truck info saved' });
+  };
+
   // Track which doc fields are currently being "requested" (for button loading state)
   const [requestingDoc, setRequestingDoc] = useState<string | null>(null);
   const [markingReceived, setMarkingReceived] = useState<string | null>(null);
