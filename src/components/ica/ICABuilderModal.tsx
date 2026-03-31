@@ -148,16 +148,42 @@ export default function ICABuilderModal({
   // ── Load existing draft on mount ──────────────────────────────────────────
   useEffect(() => {
     const loadDraft = async () => {
-      const { data: existing } = await supabase
-        .from('ica_contracts' as any)
-        .select('*')
-        .eq('operator_id', operatorId)
-        .in('status', ['draft', 'sent_to_operator'])
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Fetch ICA draft and onboarding truck info in parallel
+      const [{ data: existing }, { data: onboardingRow }] = await Promise.all([
+        supabase
+          .from('ica_contracts' as any)
+          .select('*')
+          .eq('operator_id', operatorId)
+          .in('status', ['draft', 'sent_to_operator'])
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('onboarding_status')
+          .select('truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number')
+          .eq('operator_id', operatorId)
+          .maybeSingle() as any,
+      ]);
 
-      if (!existing) return;
+      const ob = (onboardingRow as any) ?? {};
+
+      if (!existing) {
+        // No ICA draft — pre-fill from onboarding_status truck fields if available
+        if (ob.truck_year || ob.truck_make || ob.truck_model || ob.truck_vin || ob.truck_plate || ob.truck_plate_state || ob.trailer_number) {
+          setData(prev => ({
+            ...prev,
+            truck_year: ob.truck_year || prev.truck_year,
+            truck_make: ob.truck_make || prev.truck_make,
+            truck_model: ob.truck_model || prev.truck_model,
+            truck_vin: ob.truck_vin || prev.truck_vin,
+            truck_plate: ob.truck_plate || prev.truck_plate,
+            truck_plate_state: ob.truck_plate_state || prev.truck_plate_state,
+            trailer_number: ob.trailer_number || prev.trailer_number,
+          }));
+        }
+        return;
+      }
+
       const row = existing as any;
 
       setContractId(row.id);
@@ -168,13 +194,13 @@ export default function ICABuilderModal({
       const storedEinSsn = row.owner_ein_ssn ?? '';
       const isEin = /^\d{2}-/.test(storedEinSsn);
       setData({
-        truck_year: row.truck_year ?? new Date().getFullYear().toString(),
-        truck_make: row.truck_make ?? '',
-        truck_model: row.truck_model ?? '',
-        truck_vin: row.truck_vin ?? '',
-        truck_plate: row.truck_plate ?? '',
-        truck_plate_state: row.truck_plate_state ?? applicationData?.address_state ?? 'MO',
-        trailer_number: row.trailer_number ?? '',
+        truck_year: row.truck_year || ob.truck_year || new Date().getFullYear().toString(),
+        truck_make: row.truck_make || ob.truck_make || '',
+        truck_model: row.truck_model || ob.truck_model || '',
+        truck_vin: row.truck_vin || ob.truck_vin || '',
+        truck_plate: row.truck_plate || ob.truck_plate || '',
+        truck_plate_state: row.truck_plate_state || ob.truck_plate_state || applicationData?.address_state || 'MO',
+        trailer_number: row.trailer_number || ob.trailer_number || '',
         owner_name: row.owner_name ?? (`${applicationData?.first_name ?? ''} ${applicationData?.last_name ?? ''}`.trim() || operatorName),
         owner_business_name: row.owner_business_name ?? '',
         owner_ein: isEin ? storedEinSsn : '',
