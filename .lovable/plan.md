@@ -1,43 +1,25 @@
 
 
-## Fix: Stages Should Only Auto-Collapse When Fully Complete
+## Match Progress Ribbon Save Button to Dark Gold Style
 
-### Problem
-The auto-collapse logic in `OperatorDetailPanel.tsx` (lines 872–881) uses hardcoded conditions that don't match the actual pipeline_config completion criteria. Several stages collapse prematurely before all items are done.
+### Change
+Update the small Save button in the progress ribbon (line 2811) from the current outlined/ghost style to a solid dark gold background matching the main "Save Changes" button.
 
-### Mismatches Found
-
-| Stage | Current Auto-Collapse Trigger | Missing Checks |
-|-------|-------------------------------|----------------|
-| **Stage 1 (BG)** | `mvr_ch_approval === 'approved'` | Missing: `mvr_status` (requested\|received), `ch_status` (requested\|received), `pe_screening_result === 'clear'` |
-| **Stage 4 (MO)** | `mo_reg_received === 'yes' \|\| own_registration` | Missing: `mo_docs_submitted === 'submitted'` |
-| **Stage 8 (Pay)** | No auto-collapse at all | Should collapse when `pay_setup_submitted === 'true'` |
-
-Stages 2, 3, 5, 6, 7 are correct or stricter than required.
-
-### Fix
-
-Update the auto-collapse block (lines 872–881) in `src/pages/staff/OperatorDetailPanel.tsx`:
-
-**Stage 1**: Add all 4 checks:
-```ts
-if ((os.mvr_status === 'requested' || os.mvr_status === 'received') &&
-    (os.ch_status === 'requested' || os.ch_status === 'received') &&
-    os.mvr_ch_approval === 'approved' &&
-    os.pe_screening_result === 'clear') autoCollapse.add('stage1');
+**Current** (line 2811):
+```
+border border-gold/60 bg-gold/10 text-gold hover:bg-gold/20
 ```
 
-**Stage 4**: Add `mo_docs_submitted` check:
-```ts
-if ((os.mo_reg_received === 'yes' || os.registration_status === 'own_registration') &&
-    os.mo_docs_submitted === 'submitted') autoCollapse.add('stage4');
+**New**:
+```
+bg-gold text-surface-dark hover:bg-gold-light
 ```
 
-**Stage 8**: Add auto-collapse for Pay Setup (requires checking `contractor_pay_setup` table — the `pay_setup_submitted` field is derived from that table, so we need to check if that data has already been fetched or add a lookup).
+This matches the main Save Changes button style at line 1760: `bg-gold text-surface-dark font-semibold hover:bg-gold-light`
 
-### Files Changed
+### File Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/OperatorDetailPanel.tsx` | Update auto-collapse conditions for Stage 1 (add MVR, CH, PE checks), Stage 4 (add mo_docs_submitted), and Stage 8 (add pay_setup_submitted) |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Update ribbon save button classes to solid dark gold |
 
