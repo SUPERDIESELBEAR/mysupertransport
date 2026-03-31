@@ -121,9 +121,10 @@ type OnboardingStatus = {
   cost_other: number | null;
   cost_other_description: string | null;
   cost_notes: string | null;
-  // QPassport & PE Receipt
+  // QPassport & PE Receipt & PE Results
   qpassport_url: string | null;
   pe_receipt_url: string | null;
+  pe_results_doc_url: string | null;
 };
 
 type DispatchHistoryEntry = {
