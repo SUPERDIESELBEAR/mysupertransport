@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { cn } from '@/lib/utils';
+import { cn, formatPhoneDisplay } from '@/lib/utils';
 import { sanitizeText } from '@/lib/sanitize';
 import { reminderErrorToast } from '@/lib/reminderError';
 import { Button } from '@/components/ui/button';
@@ -2119,7 +2119,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
                   <div className="flex items-center gap-2">
                     <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-foreground">{applicationData.phone || <span className="text-muted-foreground italic">No phone</span>}</span>
+                    <span className="text-foreground">{formatPhoneDisplay(applicationData.phone) || <span className="text-muted-foreground italic">No phone</span>}</span>
                   </div>
                   <div className="flex items-center gap-2 min-w-0">
                     <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -5041,7 +5041,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       { label: 'Legal First Name', value: ps.legal_first_name },
                       { label: 'Legal Last Name', value: ps.legal_last_name },
                       ...(ps.contractor_type === 'business' && ps.business_name ? [{ label: 'Business Name', value: ps.business_name }] : []),
-                      { label: 'Phone', value: ps.phone },
+                      { label: 'Phone', value: formatPhoneDisplay(ps.phone) },
                       { label: 'Email', value: ps.email },
                       { label: 'Terms Accepted', value: ps.terms_accepted ? `Yes — ${ps.terms_accepted_at ? new Date(ps.terms_accepted_at).toLocaleString() : ''}` : 'No' },
                       { label: 'Submitted', value: ps.submitted_at ? new Date(ps.submitted_at).toLocaleString() : 'Not submitted' },

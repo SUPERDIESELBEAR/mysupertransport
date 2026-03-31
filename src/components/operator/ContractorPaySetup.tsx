@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import PayrollCalendar from '@/components/operator/PayrollCalendar';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { formatPhoneDisplay, formatPhoneInput } from '@/lib/utils';
 
 // ── Company payroll reference documents ──────────────────────────────────────
 const COMPANY_DOCS = [
@@ -253,7 +254,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
               { label: 'Legal Name', value: `${existing?.legal_first_name} ${existing?.legal_last_name}` },
               ...(existing?.contractor_type === 'business' && existing?.business_name
                 ? [{ label: 'Business Name', value: existing.business_name }] : []),
-              { label: 'Phone', value: existing?.phone ?? '' },
+              { label: 'Phone', value: formatPhoneDisplay(existing?.phone) },
               { label: 'Email', value: existing?.email ?? '' },
               { label: 'Terms Accepted', value: existing?.terms_accepted ? '✓ Yes' : 'No' },
             ].map(row => (
@@ -585,7 +586,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
               id="pay-phone"
               type="tel"
               value={phone}
-              onChange={e => setPhone(e.target.value)}
+              onChange={e => setPhone(formatPhoneInput(e.target.value))}
               placeholder="(555) 000-0000"
               maxLength={20}
             />

@@ -11,6 +11,7 @@ import {
   AlertTriangle, CheckCircle2, Phone, Trash2, Camera, Loader2
 } from 'lucide-react';
 import DemoLockIcon from '@/components/DemoLockIcon';
+import { formatPhoneInput } from '@/lib/utils';
 import type { Database } from '@/integrations/supabase/types';
 
 type AppRole = Database['public']['Enums']['app_role'];
@@ -915,7 +916,7 @@ export default function StaffDirectory() {
                       <input
                         type="tel"
                         value={editingPhone}
-                        onChange={e => setEditingPhone(e.target.value)}
+                        onChange={e => setEditingPhone(formatPhoneInput(e.target.value))}
                         placeholder="(555) 000-0000"
                         maxLength={30}
                         autoFocus
@@ -1286,7 +1287,7 @@ export default function StaffDirectory() {
                 </label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <input type="tel" value={invitePhone} onChange={e => setInvitePhone(e.target.value)} placeholder="(555) 000-0000"
+                  <input type="tel" value={invitePhone} onChange={e => setInvitePhone(formatPhoneInput(e.target.value))} placeholder="(555) 000-0000"
                     className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gold/30" />
                 </div>
               </div>

@@ -23,6 +23,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useToast } from '@/hooks/use-toast';
 import { Search, RefreshCw, ArrowRight, Phone, RotateCcw, Archive, CalendarDays, Loader2, MessageSquare, Pencil } from 'lucide-react';
 import DemoLockIcon from '@/components/DemoLockIcon';
+import { formatPhoneDisplay } from '@/lib/utils';
 
 const PRESET_REASONS = ['Resigned', 'Terminated', 'No Loads', 'Medical', 'Abandoned'];
 
@@ -336,7 +337,7 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
                     {/* Phone */}
                     <TableCell className="hidden sm:table-cell">
                       {driver.phone
-                        ? <a href={`tel:${driver.phone}`} className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1" onClick={e => e.stopPropagation()}><Phone className="h-3 w-3" />{driver.phone}</a>
+                        ? <a href={`tel:${driver.phone}`} className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1" onClick={e => e.stopPropagation()}><Phone className="h-3 w-3" />{formatPhoneDisplay(driver.phone)}</a>
                         : <span className="text-muted-foreground/50 text-xs">—</span>}
                     </TableCell>
 
