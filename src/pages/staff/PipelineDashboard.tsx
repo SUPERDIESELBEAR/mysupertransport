@@ -2932,7 +2932,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                          )}
                        </div>
                      </td>
-                    <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{op.phone ?? '—'}</td>
+                    <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{formatPhoneDisplay(op.phone) || '—'}</td>
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{op.home_state ?? '—'}</td>
                      <td className="px-4 py-3">
                        <div className="flex flex-col gap-1.5">

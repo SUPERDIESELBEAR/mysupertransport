@@ -336,7 +336,7 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
                     {/* Phone */}
                     <TableCell className="hidden sm:table-cell">
                       {driver.phone
-                        ? <a href={`tel:${driver.phone}`} className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1" onClick={e => e.stopPropagation()}><Phone className="h-3 w-3" />{driver.phone}</a>
+                        ? <a href={`tel:${driver.phone}`} className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1" onClick={e => e.stopPropagation()}><Phone className="h-3 w-3" />{formatPhoneDisplay(driver.phone)}</a>
                         : <span className="text-muted-foreground/50 text-xs">—</span>}
                     </TableCell>
 

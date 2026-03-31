@@ -253,7 +253,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
               { label: 'Legal Name', value: `${existing?.legal_first_name} ${existing?.legal_last_name}` },
               ...(existing?.contractor_type === 'business' && existing?.business_name
                 ? [{ label: 'Business Name', value: existing.business_name }] : []),
-              { label: 'Phone', value: existing?.phone ?? '' },
+              { label: 'Phone', value: formatPhoneDisplay(existing?.phone) },
               { label: 'Email', value: existing?.email ?? '' },
               { label: 'Terms Accepted', value: existing?.terms_accepted ? '✓ Yes' : 'No' },
             ].map(row => (

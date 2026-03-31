@@ -5041,7 +5041,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       { label: 'Legal First Name', value: ps.legal_first_name },
                       { label: 'Legal Last Name', value: ps.legal_last_name },
                       ...(ps.contractor_type === 'business' && ps.business_name ? [{ label: 'Business Name', value: ps.business_name }] : []),
-                      { label: 'Phone', value: ps.phone },
+                      { label: 'Phone', value: formatPhoneDisplay(ps.phone) },
                       { label: 'Email', value: ps.email },
                       { label: 'Terms Accepted', value: ps.terms_accepted ? `Yes — ${ps.terms_accepted_at ? new Date(ps.terms_accepted_at).toLocaleString() : ''}` : 'No' },
                       { label: 'Submitted', value: ps.submitted_at ? new Date(ps.submitted_at).toLocaleString() : 'Not submitted' },
