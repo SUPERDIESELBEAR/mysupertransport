@@ -44,50 +44,56 @@ export default function EquipmentReturnModal({ open, item, isManagement, onClose
       return;
     }
     setSaving(true);
-
-    // 1. Close the current open assignment
-    if (item.current_assignment_id) {
-      await supabase
-        .from('equipment_assignments')
-        .update({
-          returned_at: new Date().toISOString(),
-          return_condition: condition,
-          notes: notes.trim() || null,
-        })
-        .eq('id', item.current_assignment_id);
-    }
-
-    // 2. Update item status
-    await supabase.from('equipment_items').update({ status: condition }).eq('id', item.id);
-
-    // 3. Clear the Stage 5 field on the operator's onboarding_status
-    const fieldMap: Record<string, string> = {
-      eld:       'eld_serial_number',
-      dash_cam:  'dash_cam_number',
-      bestpass:  'bestpass_number',
-      fuel_card: 'fuel_card_number',
-    };
-    const field = fieldMap[item.device_type];
-    if (field && item.current_assignment_id) {
-      // Get operator_id from the assignment
-      const { data: assignment } = await supabase
-        .from('equipment_assignments')
-        .select('operator_id')
-        .eq('id', item.current_assignment_id)
-        .single();
-      if (assignment) {
-        await supabase
-          .from('onboarding_status')
-          .update({ [field]: null })
-          .eq('operator_id', assignment.operator_id);
+    try {
+      // 1. Close the current open assignment
+      if (item.current_assignment_id) {
+        const { error: assignErr } = await supabase
+          .from('equipment_assignments')
+          .update({
+            returned_at: new Date().toISOString(),
+            return_condition: condition,
+            notes: notes.trim() || null,
+          })
+          .eq('id', item.current_assignment_id);
+        if (assignErr) throw assignErr;
       }
-    }
 
-    const conditionLabel = CONDITIONS.find(c => c.value === condition)?.label ?? condition;
-    toast({ title: '✅ Return recorded', description: `${DEVICE_CONFIG_LABELS[item.device_type]} ${item.serial_number} — ${conditionLabel}` });
-    setSaving(false);
-    onSaved();
-    onClose();
+      // 2. Update item status
+      const { error: itemErr } = await supabase.from('equipment_items').update({ status: condition }).eq('id', item.id);
+      if (itemErr) throw itemErr;
+
+      // 3. Clear the Stage 5 field on the operator's onboarding_status
+      const fieldMap: Record<string, string> = {
+        eld:       'eld_serial_number',
+        dash_cam:  'dash_cam_number',
+        bestpass:  'bestpass_number',
+        fuel_card: 'fuel_card_number',
+      };
+      const field = fieldMap[item.device_type];
+      if (field && item.current_assignment_id) {
+        const { data: assignment } = await supabase
+          .from('equipment_assignments')
+          .select('operator_id')
+          .eq('id', item.current_assignment_id)
+          .single();
+        if (assignment) {
+          const { error: clearErr } = await supabase
+            .from('onboarding_status')
+            .update({ [field]: null })
+            .eq('operator_id', assignment.operator_id);
+          if (clearErr) throw clearErr;
+        }
+      }
+
+      const conditionLabel = CONDITIONS.find(c => c.value === condition)?.label ?? condition;
+      toast({ title: '✅ Return recorded', description: `${DEVICE_CONFIG_LABELS[item.device_type]} ${item.serial_number} — ${conditionLabel}` });
+      onSaved();
+      onClose();
+    } catch (err: unknown) {
+      toast({ title: 'Return failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const availableConditions = CONDITIONS.filter(c => isManagement || !c.mgmtOnly);

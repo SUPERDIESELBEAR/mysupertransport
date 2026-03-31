@@ -305,7 +305,8 @@ export default function ICABuilderModal({
         .eq('operator_id', operatorId)
         .maybeSingle();
       if (os?.id) {
-        await supabase.from('onboarding_status').update({ ica_status: 'sent_for_signature' }).eq('id', os.id);
+        const { error: sendStatusErr } = await supabase.from('onboarding_status').update({ ica_status: 'sent_for_signature' }).eq('id', os.id);
+        if (sendStatusErr) throw sendStatusErr;
       }
 
       // Write audit log entry
