@@ -586,7 +586,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
               id="pay-phone"
               type="tel"
               value={phone}
-              onChange={e => setPhone(e.target.value)}
+              onChange={e => setPhone(formatPhoneInput(e.target.value))}
               placeholder="(555) 000-0000"
               maxLength={20}
             />
