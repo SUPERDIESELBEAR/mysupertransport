@@ -1,30 +1,29 @@
 
 
-## Auto-Fill ICA Builder from Onboarding Truck Info
+## Add PE Screening Results Document Upload in Stage 1
 
 ### Problem
-Staff enter truck details (year, make, model, VIN, plate, plate state) in the Truck & Equipment card on `onboarding_status`, but when they open the ICA builder, those fields are blank. The ICA only loads truck data from existing `ica_contracts` drafts.
+There's no way for staff to upload the PE Screening Results document in the pipeline. The QPassport uploader and PE Receipt (from operator) exist, but the actual results document from the screening provider needs a dedicated upload field.
 
-### Fix
-In `src/components/ica/ICABuilderModal.tsx`, after checking for an existing ICA draft, also fetch `onboarding_status` truck fields as a fallback for the initial state.
+### Change
 
-### Changes
+**`src/pages/staff/OperatorDetailPanel.tsx`**
 
-**`src/components/ica/ICABuilderModal.tsx`**
+Add a new uploader component (modeled on the existing `QPassportUploader` pattern) just below the PE Screening Result dropdown (after line 3597). It will:
 
-1. In the `loadDraft` effect (~line 150), after checking for an existing `ica_contracts` row, also query `onboarding_status` for the operator's truck fields
-2. When no ICA draft exists (the `!existing` early return), use `onboarding_status` truck data to pre-fill the initial state instead of returning with blank fields
-3. When a draft does exist, keep the draft values as primary but fall back to `onboarding_status` for any truck fields that are null/empty in the draft
-4. Include `trailer_number` in the fallback chain
+1. Accept PDF/image files (PDF, JPG, PNG) up to 10MB
+2. Upload to `operator-documents` storage bucket under `{operatorId}/pe-results/`
+3. Save the URL to `onboarding_status.pe_results_doc_url` (new column)
+4. Show a "View Document" link when a file is already uploaded, plus a "Replace" option
+5. Use the same styling as the existing QPassport uploader
 
-The priority order becomes:
-- ICA draft values (highest — staff may have edited them in the builder)
-- `onboarding_status` truck fields (pre-entered by staff in the pipeline)
-- Default empty values (lowest)
+**DB migration** — Add one nullable column to `onboarding_status`:
+- `pe_results_doc_url text`
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/ica/ICABuilderModal.tsx` | Fetch `onboarding_status` truck fields in `loadDraft` and use as fallback for initial ICA data |
+| DB migration | Add `pe_results_doc_url` column to `onboarding_status` |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Add PE Results uploader below PE Screening Result select, fetch/display the URL from status |
 
