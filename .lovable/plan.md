@@ -1,63 +1,58 @@
 
 
-## Ensure Consistent Phone Format `(xxx) xxx-xxxx` App-Wide
+## Fix: Stage Data Not Persisting After Save
 
-### Problem
-Phone numbers are stored and displayed inconsistently. Some input fields have auto-formatting masks, others accept raw text. Display-only areas render the raw database value without formatting.
+### Root Cause
 
-### What's Already Correct
-These inputs already auto-format on keystroke:
-- Application form (Step1Personal)
-- Operator Detail Panel — Contact Card edit mode
-- Edit Profile Modal
-- Add Driver Modal
-- ICA Builder Modal
+The `handleSave` function in `OperatorDetailPanel.tsx` has a critical bug: **the `onboarding_status` update error is silently discarded**.
 
-### What Needs Fixing
+```text
+Lines 1105-1117 (current):
 
-**A. Create a shared `formatPhone` utility** in `src/lib/utils.ts`
-A single reusable function that formats any phone string (digits or partially formatted) into `(XXX) XXX-XXXX`. Two variants:
-- `formatPhoneInput(val)` — for live keystroke masking (progressive formatting)
-- `formatPhoneDisplay(val)` — for display-only (formats a stored value for rendering)
+1. operators.notes update → error captured in `error` variable ✓
+2. onboarding_status update → error IGNORED (result not stored) ✗
 
-**B. Add input formatting to 3 locations:**
+Lines 1125-1128:
+3. Only checks `operators.notes` error → shows "Saved successfully"
 
-| File | Field | Fix |
-|------|-------|-----|
-| `StaffDirectory.tsx` | `editingPhone` onChange | Add `formatPhoneInput` mask |
-| `StaffDirectory.tsx` | `invitePhone` onChange | Add `formatPhoneInput` mask |
-| `ContractorPaySetup.tsx` | `phone` onChange | Add `formatPhoneInput` mask |
+Line 1280:
+4. savedSnapshot updated regardless → dirty-check thinks data is clean
+```
 
-**C. Add display formatting to 5 locations:**
+So when the `onboarding_status` update fails for any reason (RLS, type mismatch, constraint violation), the user sees "Saved successfully", the local snapshot is overwritten with the unsaved values, and no unsaved-changes warning fires. When they navigate away and return, the data is fetched fresh from the database — which still has the old values.
 
-| File | Line | Current | Fix |
-|------|------|---------|-----|
-| `PipelineDashboard.tsx` | ~2935 | `{op.phone ?? '—'}` | `{formatPhoneDisplay(op.phone) \|\| '—'}` |
-| `OperatorDetailPanel.tsx` | ~2122 | `{applicationData.phone}` | `{formatPhoneDisplay(applicationData.phone)}` |
-| `ArchivedDriversView.tsx` | ~339 | `{driver.phone}` | `{formatPhoneDisplay(driver.phone)}` |
-| `ContractorPaySetup.tsx` | ~256 | `value: existing?.phone` | `value: formatPhoneDisplay(existing?.phone)` |
-| `OperatorDetailPanel.tsx` | ~5044 | `value: ps.phone` | `value: formatPhoneDisplay(ps.phone)` |
+### Fix
 
-### Technical Detail
+**File: `src/pages/staff/OperatorDetailPanel.tsx`**
 
-The shared `formatPhoneDisplay` function:
-```ts
-export function formatPhoneDisplay(raw: string | null | undefined): string {
-  if (!raw) return '';
-  const digits = raw.replace(/\D/g, '').slice(0, 10);
-  if (digits.length !== 10) return raw; // return as-is if not 10 digits
-  return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
-}
+1. **Capture the onboarding_status update error** — store the result of the `.update()` call on line 1114
+2. **Check both errors before declaring success** — only show "Saved successfully" and update `savedSnapshot` if both the `operators` and `onboarding_status` updates succeeded
+3. **Show the real error if onboarding_status fails** — display the error message in the toast so the underlying cause is visible
+4. **Do not update `savedSnapshot` on failure** — this ensures the dirty-check still shows unsaved changes and the user gets a navigation warning
+
+```text
+Before:
+  await supabase.from('onboarding_status').update(updateData).eq('id', statusId);
+  // error silently dropped
+  ...
+  if (error) { show error } else { show success }
+  savedSnapshot.current = { status, notes };  // always runs
+
+After:
+  const { error: statusError } = await supabase.from('onboarding_status').update(updateData).eq('id', statusId);
+  ...
+  if (error || statusError) {
+    show combined error message
+    setSaving(false);
+    return;          // ← early exit, snapshot NOT updated
+  }
+  show success
+  savedSnapshot.current = { status, notes };  // only on success
 ```
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/lib/utils.ts` | Add `formatPhoneInput` and `formatPhoneDisplay` |
-| `src/components/management/StaffDirectory.tsx` | Format both phone inputs |
-| `src/components/operator/ContractorPaySetup.tsx` | Format phone input + display |
-| `src/pages/staff/PipelineDashboard.tsx` | Format phone display |
-| `src/pages/staff/OperatorDetailPanel.tsx` | Format phone display (2 spots) |
-| `src/components/drivers/ArchivedDriversView.tsx` | Format phone display |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Capture onboarding_status update error, gate success toast + snapshot on both updates succeeding |
 
