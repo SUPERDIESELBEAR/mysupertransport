@@ -908,7 +908,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
 
     // Build truck info: prefer onboarding_status fields, fall back to ICA
-    const osTruck = os as any;
+    const osTruck = (op as any)?.onboarding_status as any;
     const { data: icaData } = await supabase
       .from('ica_contracts' as any)
       .select('truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number')
