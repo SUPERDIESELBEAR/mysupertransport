@@ -916,7 +916,7 @@ export default function StaffDirectory() {
                       <input
                         type="tel"
                         value={editingPhone}
-                        onChange={e => setEditingPhone(e.target.value)}
+                        onChange={e => setEditingPhone(formatPhoneInput(e.target.value))}
                         placeholder="(555) 000-0000"
                         maxLength={30}
                         autoFocus
