@@ -2528,6 +2528,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           fuel_card_number: status.fuel_card_number,
         }}
         onEdit={handleTruckDeviceEdit}
+        onTruckEdit={handleTruckInfoEdit}
       />
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
       {(() => {
