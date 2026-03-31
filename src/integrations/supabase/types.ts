@@ -1385,6 +1385,7 @@ export type Database = {
           paper_logbook_approved: boolean
           pe_receipt_url: string | null
           pe_results_date: string | null
+          pe_results_doc_url: string | null
           pe_scheduled_date: string | null
           pe_screening: Database["public"]["Enums"]["screening_status"]
           pe_screening_result: Database["public"]["Enums"]["screening_result"]
@@ -1473,6 +1474,7 @@ export type Database = {
           paper_logbook_approved?: boolean
           pe_receipt_url?: string | null
           pe_results_date?: string | null
+          pe_results_doc_url?: string | null
           pe_scheduled_date?: string | null
           pe_screening?: Database["public"]["Enums"]["screening_status"]
           pe_screening_result?: Database["public"]["Enums"]["screening_result"]
@@ -1561,6 +1563,7 @@ export type Database = {
           paper_logbook_approved?: boolean
           pe_receipt_url?: string | null
           pe_results_date?: string | null
+          pe_results_doc_url?: string | null
           pe_scheduled_date?: string | null
           pe_screening?: Database["public"]["Enums"]["screening_status"]
           pe_screening_result?: Database["public"]["Enums"]["screening_result"]
