@@ -121,9 +121,10 @@ type OnboardingStatus = {
   cost_other: number | null;
   cost_other_description: string | null;
   cost_notes: string | null;
-  // QPassport & PE Receipt
+  // QPassport & PE Receipt & PE Results
   qpassport_url: string | null;
   pe_receipt_url: string | null;
+  pe_results_doc_url: string | null;
 };
 
 type DispatchHistoryEntry = {
@@ -3594,6 +3595,62 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         {resultOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                  </div>
+                  {/* PE Results Document Upload */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Results Document</Label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {status.pe_results_doc_url && (
+                        <a href={status.pe_results_doc_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-gold hover:underline">
+                          <ExternalLink className="h-3 w-3" /> View Document
+                        </a>
+                      )}
+                      <input
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                        className="hidden"
+                        id={`pe-results-upload-${operatorId}`}
+                        onChange={async e => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          e.target.value = '';
+                          const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
+                          const mime = f.type || '';
+                          const allowed = ['application/pdf','image/jpeg','image/png'];
+                          const allowedExt = ['pdf','jpg','jpeg','png'];
+                          if (!allowed.includes(mime) && !allowedExt.includes(ext)) {
+                            toast({ title: 'Invalid file type', description: 'Please upload a PDF, JPG, or PNG.', variant: 'destructive' });
+                            return;
+                          }
+                          if (f.size > 10 * 1024 * 1024) {
+                            toast({ title: 'File too large', description: 'Max 10 MB.', variant: 'destructive' });
+                            return;
+                          }
+                          try {
+                            const path = `${operatorId}/pe-results/${Date.now()}.${ext || 'pdf'}`;
+                            const { error: upErr } = await supabase.storage.from('operator-documents').upload(path, f, { upsert: true });
+                            if (upErr) throw upErr;
+                            const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365);
+                            const fileUrl = sd?.signedUrl ?? '';
+                            const { error: updateErr } = await supabase.from('onboarding_status').update({ pe_results_doc_url: fileUrl } as any).eq('operator_id', operatorId);
+                            if (updateErr) throw updateErr;
+                            setStatus(prev => ({ ...prev, pe_results_doc_url: fileUrl }));
+                            toast({ title: 'PE Results uploaded' });
+                          } catch (err: unknown) {
+                            const msg = err instanceof Error ? err.message : typeof err === 'object' && err !== null && 'message' in err ? String((err as Record<string, unknown>).message) : 'Unknown error';
+                            toast({ title: 'Upload failed', description: msg, variant: 'destructive' });
+                          }
+                        }}
+                      />
+                      <Button
+                        size="sm"
+                        variant={status.pe_results_doc_url ? 'outline' : 'default'}
+                        onClick={() => document.getElementById(`pe-results-upload-${operatorId}`)?.click()}
+                        className={`text-xs gap-1 h-7 px-2.5 ${!status.pe_results_doc_url ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
+                      >
+                        <Upload className="h-3 w-3" /> {status.pe_results_doc_url ? 'Replace' : 'Upload Results'}
+                      </Button>
+                    </div>
                   </div>
                   {/* Notes */}
                   <div className="space-y-1.5">

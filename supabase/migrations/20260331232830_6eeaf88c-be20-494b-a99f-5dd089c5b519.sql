@@ -1,0 +1,1 @@
+ALTER TABLE public.onboarding_status ADD COLUMN pe_results_doc_url text;
