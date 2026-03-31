@@ -907,7 +907,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setInsuranceEmailRecipients((insSettings as any).recipient_emails ?? []);
     }
 
-    // Fetch ICA truck info for TruckInfoCard
+    // Build truck info: prefer onboarding_status fields, fall back to ICA
+    const osTruck = onboardingData as any;
     const { data: icaData } = await supabase
       .from('ica_contracts' as any)
       .select('truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number')
@@ -915,17 +916,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (icaData) {
-      const ica = icaData as any;
-      setIcaTruckInfo({
-        truck_year: ica.truck_year ?? null,
-        truck_make: ica.truck_make ?? null,
-        truck_model: ica.truck_model ?? null,
-        truck_vin: ica.truck_vin ?? null,
-        truck_plate: ica.truck_plate ?? null,
-        truck_plate_state: ica.truck_plate_state ?? null,
-        trailer_number: ica.trailer_number ?? null,
-      });
+    const ica = icaData as any;
+    const merged: TruckInfo = {
+      truck_year: osTruck?.truck_year || ica?.truck_year || null,
+      truck_make: osTruck?.truck_make || ica?.truck_make || null,
+      truck_model: osTruck?.truck_model || ica?.truck_model || null,
+      truck_vin: osTruck?.truck_vin || ica?.truck_vin || null,
+      truck_plate: osTruck?.truck_plate || ica?.truck_plate || null,
+      truck_plate_state: osTruck?.truck_plate_state || ica?.truck_plate_state || null,
+      trailer_number: osTruck?.trailer_number || ica?.trailer_number || null,
+    };
+    if (Object.values(merged).some(Boolean)) {
+      setIcaTruckInfo(merged);
     } else {
       setIcaTruckInfo(null);
     }
