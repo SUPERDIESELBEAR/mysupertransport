@@ -2808,7 +2808,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="ml-1 h-6 px-2 rounded flex items-center gap-1 border border-gold/60 bg-gold/10 text-gold hover:bg-gold/20 transition-all disabled:opacity-50 text-[10px] font-semibold"
+                        className="ml-1 h-6 px-2 rounded flex items-center gap-1 bg-gold text-surface-dark hover:bg-gold-light transition-all disabled:opacity-50 text-[10px] font-semibold"
                       >
                         {saving
                           ? <span className="h-3 w-3 animate-spin rounded-full border border-gold border-t-transparent" />
