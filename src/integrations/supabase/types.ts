@@ -1394,8 +1394,14 @@ export type Database = {
             | null
           temp_decal_approved: boolean
           truck_inspection: Database["public"]["Enums"]["document_status"]
+          truck_make: string | null
+          truck_model: string | null
           truck_photos: Database["public"]["Enums"]["document_status"]
+          truck_plate: string | null
+          truck_plate_state: string | null
           truck_title: Database["public"]["Enums"]["document_status"]
+          truck_vin: string | null
+          truck_year: string | null
           unit_number: string | null
           updated_at: string
           updated_by: string | null
@@ -1476,8 +1482,14 @@ export type Database = {
             | null
           temp_decal_approved?: boolean
           truck_inspection?: Database["public"]["Enums"]["document_status"]
+          truck_make?: string | null
+          truck_model?: string | null
           truck_photos?: Database["public"]["Enums"]["document_status"]
+          truck_plate?: string | null
+          truck_plate_state?: string | null
           truck_title?: Database["public"]["Enums"]["document_status"]
+          truck_vin?: string | null
+          truck_year?: string | null
           unit_number?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -1558,8 +1570,14 @@ export type Database = {
             | null
           temp_decal_approved?: boolean
           truck_inspection?: Database["public"]["Enums"]["document_status"]
+          truck_make?: string | null
+          truck_model?: string | null
           truck_photos?: Database["public"]["Enums"]["document_status"]
+          truck_plate?: string | null
+          truck_plate_state?: string | null
           truck_title?: Database["public"]["Enums"]["document_status"]
+          truck_vin?: string | null
+          truck_year?: string | null
           unit_number?: string | null
           updated_at?: string
           updated_by?: string | null

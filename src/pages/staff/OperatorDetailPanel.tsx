@@ -25,7 +25,7 @@ import ICAViewModal from '@/components/ica/ICAViewModal';
 import OperatorBinderPanel from '@/components/inspection/OperatorBinderPanel';
 import TruckPhotoGridModal from '@/components/staff/TruckPhotoGridModal';
 import { formatDistanceToNow, format, differenceInDays, parseISO, startOfDay } from 'date-fns';
-import TruckInfoCard, { TruckInfo, TruckInfoCardEditPayload } from '@/components/operator/TruckInfoCard';
+import TruckInfoCard, { TruckInfo, TruckInfoCardEditPayload, TruckFieldsEditPayload } from '@/components/operator/TruckInfoCard';
 import { US_STATES } from '@/components/application/types';
 
 interface OperatorDetailPanelProps {
@@ -907,7 +907,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setInsuranceEmailRecipients((insSettings as any).recipient_emails ?? []);
     }
 
-    // Fetch ICA truck info for TruckInfoCard
+    // Build truck info: prefer onboarding_status fields, fall back to ICA
+    const osTruck = (op as any)?.onboarding_status as any;
     const { data: icaData } = await supabase
       .from('ica_contracts' as any)
       .select('truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number')
@@ -915,17 +916,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (icaData) {
-      const ica = icaData as any;
-      setIcaTruckInfo({
-        truck_year: ica.truck_year ?? null,
-        truck_make: ica.truck_make ?? null,
-        truck_model: ica.truck_model ?? null,
-        truck_vin: ica.truck_vin ?? null,
-        truck_plate: ica.truck_plate ?? null,
-        truck_plate_state: ica.truck_plate_state ?? null,
-        trailer_number: ica.trailer_number ?? null,
-      });
+    const ica = icaData as any;
+    const merged: TruckInfo = {
+      truck_year: osTruck?.truck_year || ica?.truck_year || null,
+      truck_make: osTruck?.truck_make || ica?.truck_make || null,
+      truck_model: osTruck?.truck_model || ica?.truck_model || null,
+      truck_vin: osTruck?.truck_vin || ica?.truck_vin || null,
+      truck_plate: osTruck?.truck_plate || ica?.truck_plate || null,
+      truck_plate_state: osTruck?.truck_plate_state || ica?.truck_plate_state || null,
+      trailer_number: osTruck?.trailer_number || ica?.trailer_number || null,
+    };
+    if (Object.values(merged).some(Boolean)) {
+      setIcaTruckInfo(merged);
     } else {
       setIcaTruckInfo(null);
     }
@@ -1469,6 +1471,29 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       fuel_card_number: payload.fuel_card_number,
     }));
     toast({ title: 'Device numbers saved' });
+  };
+
+  // Handle editing truck info fields from TruckInfoCard
+  const handleTruckInfoEdit = async (payload: TruckFieldsEditPayload) => {
+    if (!statusId) return;
+    const { error } = await supabase
+      .from('onboarding_status')
+      .update({
+        truck_year: payload.truck_year,
+        truck_make: payload.truck_make,
+        truck_model: payload.truck_model,
+        truck_vin: payload.truck_vin,
+        truck_plate: payload.truck_plate,
+        truck_plate_state: payload.truck_plate_state,
+      } as any)
+      .eq('id', statusId);
+    if (error) throw error;
+    // Update local truck info state
+    setIcaTruckInfo(prev => ({
+      ...prev,
+      ...payload,
+    }));
+    toast({ title: 'Truck info saved' });
   };
 
   // Track which doc fields are currently being "requested" (for button loading state)
@@ -2503,6 +2528,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           fuel_card_number: status.fuel_card_number,
         }}
         onEdit={handleTruckDeviceEdit}
+        onTruckEdit={handleTruckInfoEdit}
       />
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
       {(() => {
