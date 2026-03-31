@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Truck, Cpu, Camera, Gauge, CreditCard, Pencil, Save, X, Hash } from 'lucide-react';
+import { Truck, Cpu, Camera, Gauge, CreditCard, Pencil, Save, X, Hash, ChevronDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { US_STATES } from '@/components/application/types';
 
 export interface TruckInfo {
   truck_year?: string | null;
@@ -31,11 +34,23 @@ export interface TruckInfoCardEditPayload {
   fuel_card_number: string | null;
 }
 
+export interface TruckFieldsEditPayload {
+  truck_year: string | null;
+  truck_make: string | null;
+  truck_model: string | null;
+  truck_vin: string | null;
+  truck_plate: string | null;
+  truck_plate_state: string | null;
+  trailer_number: string | null;
+}
+
 interface TruckInfoCardProps {
   truckInfo?: TruckInfo | null;
   deviceInfo?: DeviceInfo | null;
   /** If provided, an Edit button appears for staff/management to edit device numbers */
   onEdit?: (payload: TruckInfoCardEditPayload) => Promise<void>;
+  /** If provided, truck fields (year/make/model/VIN/plate) become editable */
+  onTruckEdit?: (payload: TruckFieldsEditPayload) => Promise<void>;
 }
 
 interface InfoFieldProps {
@@ -58,9 +73,13 @@ function InfoField({ label, value, mono = false }: InfoFieldProps) {
   );
 }
 
-export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit }: TruckInfoCardProps) {
+export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEdit }: TruckInfoCardProps) {
   const [editOpen, setEditOpen] = useState(false);
+  const [truckEditOpen, setTruckEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [truckSaving, setTruckSaving] = useState(false);
+  const [trailerOpen, setTrailerOpen] = useState(false);
+
   const [draft, setDraft] = useState<TruckInfoCardEditPayload>({
     unit_number: deviceInfo?.unit_number ?? null,
     eld_serial_number: deviceInfo?.eld_serial_number ?? null,
@@ -69,7 +88,17 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit }: TruckIn
     fuel_card_number: deviceInfo?.fuel_card_number ?? null,
   });
 
-  // Re-sync draft when deviceInfo prop updates from parent
+  const [truckDraft, setTruckDraft] = useState<TruckFieldsEditPayload>({
+    truck_year: truckInfo?.truck_year ?? null,
+    truck_make: truckInfo?.truck_make ?? null,
+    truck_model: truckInfo?.truck_model ?? null,
+    truck_vin: truckInfo?.truck_vin ?? null,
+    truck_plate: truckInfo?.truck_plate ?? null,
+    truck_plate_state: truckInfo?.truck_plate_state ?? null,
+    trailer_number: truckInfo?.trailer_number ?? null,
+  });
+
+  // Re-sync drafts when props update
   useEffect(() => {
     setDraft({
       unit_number: deviceInfo?.unit_number ?? null,
@@ -79,6 +108,20 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit }: TruckIn
       fuel_card_number: deviceInfo?.fuel_card_number ?? null,
     });
   }, [deviceInfo]);
+
+  useEffect(() => {
+    setTruckDraft({
+      truck_year: truckInfo?.truck_year ?? null,
+      truck_make: truckInfo?.truck_make ?? null,
+      truck_model: truckInfo?.truck_model ?? null,
+      truck_vin: truckInfo?.truck_vin ?? null,
+      truck_plate: truckInfo?.truck_plate ?? null,
+      truck_plate_state: truckInfo?.truck_plate_state ?? null,
+      trailer_number: truckInfo?.trailer_number ?? null,
+    });
+    // Auto-expand trailer section if trailer_number has a value
+    if (truckInfo?.trailer_number) setTrailerOpen(true);
+  }, [truckInfo]);
 
   // Build display name for the truck
   const truckYearMakeModel = [truckInfo?.truck_year, truckInfo?.truck_make, truckInfo?.truck_model]
@@ -91,8 +134,8 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit }: TruckIn
   const hasDeviceInfo = !!(deviceInfo?.unit_number || deviceInfo?.eld_serial_number ||
     deviceInfo?.dash_cam_number || deviceInfo?.bestpass_number || deviceInfo?.fuel_card_number);
 
-  // Don't render if nothing to show (and no onEdit to allow adding)
-  if (!hasTruckInfo && !hasDeviceInfo && !onEdit) return null;
+  // Don't render if nothing to show (and no onEdit/onTruckEdit to allow adding)
+  if (!hasTruckInfo && !hasDeviceInfo && !onEdit && !onTruckEdit) return null;
 
   const handleOpenEdit = () => {
     setDraft({
@@ -105,6 +148,20 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit }: TruckIn
     setEditOpen(true);
   };
 
+  const handleOpenTruckEdit = () => {
+    setTruckDraft({
+      truck_year: truckInfo?.truck_year ?? null,
+      truck_make: truckInfo?.truck_make ?? null,
+      truck_model: truckInfo?.truck_model ?? null,
+      truck_vin: truckInfo?.truck_vin ?? null,
+      truck_plate: truckInfo?.truck_plate ?? null,
+      truck_plate_state: truckInfo?.truck_plate_state ?? null,
+      trailer_number: truckInfo?.trailer_number ?? null,
+    });
+    if (truckInfo?.trailer_number) setTrailerOpen(true);
+    setTruckEditOpen(true);
+  };
+
   const handleSave = async () => {
     if (!onEdit) return;
     setSaving(true);
@@ -113,6 +170,17 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit }: TruckIn
       setEditOpen(false);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTruckSave = async () => {
+    if (!onTruckEdit) return;
+    setTruckSaving(true);
+    try {
+      await onTruckEdit(truckDraft);
+      setTruckEditOpen(false);
+    } finally {
+      setTruckSaving(false);
     }
   };
 
@@ -131,54 +199,150 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit }: TruckIn
             <p className="text-xs text-muted-foreground mt-0.5">Truck details and assigned device numbers</p>
           </div>
         </div>
-        {onEdit && (
-          <Popover open={editOpen} onOpenChange={setEditOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={handleOpenEdit}>
-                <Pencil className="h-3.5 w-3.5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80" align="end">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-foreground">Edit Device Numbers</p>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditOpen(false)}>
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground -mt-1">Truck details (year/make/VIN) are managed through the ICA builder.</p>
-                {[
-                  { key: 'unit_number' as const, label: 'Unit Number', placeholder: 'e.g. 1042' },
-                  { key: 'eld_serial_number' as const, label: 'ELD Serial #', placeholder: 'Serial number' },
-                  { key: 'dash_cam_number' as const, label: 'Dash Cam #', placeholder: 'Device number' },
-                  { key: 'bestpass_number' as const, label: 'BestPass #', placeholder: 'Account number' },
-                  { key: 'fuel_card_number' as const, label: 'Fuel Card #', placeholder: 'Card number' },
-                ].map(({ key, label, placeholder }) => (
-                  <div key={key} className="space-y-1">
-                    <Label className="text-xs">{label}</Label>
-                    <Input
-                      value={draft[key] ?? ''}
-                      onChange={e => setDraft(prev => ({ ...prev, [key]: e.target.value || null }))}
-                      placeholder={placeholder}
-                      className="h-8 text-sm"
-                    />
+        <div className="flex items-center gap-1">
+          {/* Truck info edit popover */}
+          {onTruckEdit && (
+            <Popover open={truckEditOpen} onOpenChange={setTruckEditOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground" onClick={handleOpenTruckEdit}>
+                  <Truck className="h-3.5 w-3.5" />
+                  Edit Truck
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-foreground">Edit Truck Info</p>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setTruckEditOpen(false)}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                ))}
-                <div className="flex gap-2 pt-1">
-                  <Button onClick={handleSave} disabled={saving} size="sm" className="flex-1 h-8 gap-1.5">
-                    {saving ? (
-                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    ) : (
-                      <Save className="h-3.5 w-3.5" />
-                    )}
-                    Save
-                  </Button>
-                  <Button variant="outline" size="sm" className="h-8" onClick={() => setEditOpen(false)}>Cancel</Button>
+                  {[
+                    { key: 'truck_year' as const, label: 'Year', placeholder: 'e.g. 2022' },
+                    { key: 'truck_make' as const, label: 'Make', placeholder: 'e.g. Freightliner' },
+                    { key: 'truck_model' as const, label: 'Model', placeholder: 'e.g. Cascadia' },
+                    { key: 'truck_vin' as const, label: 'VIN', placeholder: '17-character VIN' },
+                    { key: 'truck_plate' as const, label: 'License Plate', placeholder: 'Plate number' },
+                  ].map(({ key, label, placeholder }) => (
+                    <div key={key} className="space-y-1">
+                      <Label className="text-xs">{label}</Label>
+                      <Input
+                        value={truckDraft[key] ?? ''}
+                        onChange={e => setTruckDraft(prev => ({ ...prev, [key]: e.target.value || null }))}
+                        placeholder={placeholder}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  ))}
+                  <div className="space-y-1">
+                    <Label className="text-xs">Plate State</Label>
+                    <Select
+                      value={truckDraft.truck_plate_state ?? ''}
+                      onValueChange={v => setTruckDraft(prev => ({ ...prev, truck_plate_state: v || null }))}
+                    >
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {US_STATES.map(st => (
+                          <SelectItem key={st} value={st}>{st}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Collapsible Trailer Section */}
+                  <Collapsible open={trailerOpen} onOpenChange={setTrailerOpen}>
+                    <CollapsibleTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
+                      >
+                        {trailerOpen ? (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        ) : (
+                          <Plus className="h-3.5 w-3.5" />
+                        )}
+                        {trailerOpen ? 'Trailer' : 'Add Trailer'}
+                      </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Trailer Number</Label>
+                        <Input
+                          value={truckDraft.trailer_number ?? ''}
+                          onChange={e => setTruckDraft(prev => ({ ...prev, trailer_number: e.target.value || null }))}
+                          placeholder="e.g. TR-4210"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  <div className="flex gap-2 pt-1">
+                    <Button onClick={handleTruckSave} disabled={truckSaving} size="sm" className="flex-1 h-8 gap-1.5">
+                      {truckSaving ? (
+                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      ) : (
+                        <Save className="h-3.5 w-3.5" />
+                      )}
+                      Save
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-8" onClick={() => setTruckEditOpen(false)}>Cancel</Button>
+                  </div>
                 </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-        )}
+              </PopoverContent>
+            </Popover>
+          )}
+          {/* Device number edit popover */}
+          {onEdit && (
+            <Popover open={editOpen} onOpenChange={setEditOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={handleOpenEdit}>
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-foreground">Edit Device Numbers</p>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditOpen(false)}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  {[
+                    { key: 'unit_number' as const, label: 'Unit Number', placeholder: 'e.g. 1042' },
+                    { key: 'eld_serial_number' as const, label: 'ELD Serial #', placeholder: 'Serial number' },
+                    { key: 'dash_cam_number' as const, label: 'Dash Cam #', placeholder: 'Device number' },
+                    { key: 'bestpass_number' as const, label: 'BestPass #', placeholder: 'Account number' },
+                    { key: 'fuel_card_number' as const, label: 'Fuel Card #', placeholder: 'Card number' },
+                  ].map(({ key, label, placeholder }) => (
+                    <div key={key} className="space-y-1">
+                      <Label className="text-xs">{label}</Label>
+                      <Input
+                        value={draft[key] ?? ''}
+                        onChange={e => setDraft(prev => ({ ...prev, [key]: e.target.value || null }))}
+                        placeholder={placeholder}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  ))}
+                  <div className="flex gap-2 pt-1">
+                    <Button onClick={handleSave} disabled={saving} size="sm" className="flex-1 h-8 gap-1.5">
+                      {saving ? (
+                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      ) : (
+                        <Save className="h-3.5 w-3.5" />
+                      )}
+                      Save
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-8" onClick={() => setEditOpen(false)}>Cancel</Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
       </div>
 
       <div className="divide-y divide-border">
@@ -193,6 +357,12 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit }: TruckIn
               <InfoField label="Plate State" value={truckInfo?.truck_plate_state} />
               <InfoField label="Trailer #" value={truckInfo?.trailer_number} mono />
             </div>
+          </div>
+        )}
+        {!hasTruckInfo && onTruckEdit && (
+          <div className="px-5 py-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Truck Info</p>
+            <p className="text-xs text-muted-foreground italic">No truck details yet. Click "Edit Truck" to add year, make, model, VIN, and plate info.</p>
           </div>
         )}
 
