@@ -3647,7 +3647,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 if (!statusId) return;
                 setMarkingReceived(field as string);
                 try {
-                  await supabase.from('onboarding_status').update({ [field]: 'received' }).eq('id', statusId);
+                  const { error: markErr } = await supabase.from('onboarding_status').update({ [field]: 'received' }).eq('id', statusId);
+                  if (markErr) throw markErr;
                    const updated = { ...status, [field]: 'received' };
                   setStatus(prev => ({ ...prev, [field]: 'received' }));
                   savedMilestones.current = { ...savedMilestones.current, [field as string]: 'received' };
