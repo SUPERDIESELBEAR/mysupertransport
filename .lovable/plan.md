@@ -1,43 +1,30 @@
 
 
-## Fix Download Across All Areas — Not Just DocRow
+## Fix: Date of Birth Off by One Day (Timezone Issue)
 
-### Problem
-The previous plan only fixes **one download link** in `DocRow.tsx`. There are **5 files** across the app with `<a download=...>` links pointing to cross-origin Supabase storage URLs. Browsers ignore the `download` attribute for cross-origin URLs in all of them, causing the file to open in a new tab instead.
+### Root Cause
 
-### Affected Files
+When JavaScript parses a date-only string like `"1990-05-15"` via `new Date("1990-05-15")`, it interprets it as **UTC midnight**. In US Central Time (UTC-5 or UTC-6), that becomes **the previous evening** — so `toLocaleDateString()` displays **May 14** instead of **May 15**.
 
-| File | Download Links | Has `useBlobUrl`? |
-|------|---------------|-------------------|
-| `src/components/inspection/DocRow.tsx` | 2 (lines 269, 413) | Yes |
-| `src/components/operator/OperatorStatusPage.tsx` | 2 (lines 458, 620) | No |
-| `src/components/operator/PEScreeningTimeline.tsx` | 1 (line 171) | No |
-| `src/components/operator/OperatorResourcesAndFAQ.tsx` | 1 (line 103) | No |
-| `src/components/documents/DocumentViewer.tsx` | 1 (line 114) | No |
+### Where It's Already Fixed
 
-### Solution
+`OperatorDetailPanel.tsx` already appends `'T12:00:00'` to the date string before parsing, which anchors it to noon and prevents the day from shifting. This is the correct pattern.
 
-1. **Extract `useBlobUrl`** from `DocRow.tsx` into a shared hook (`src/hooks/useBlobUrl.ts`) so all files can use it
-2. **Create a reusable `DownloadButton` component** (or a small `useBlobDownload` helper) that fetches the file as a blob and triggers a programmatic download via `URL.createObjectURL` + a temporary `<a>` click
-3. **Replace all 6 download links** across all 5 files with the new pattern so downloads work reliably everywhere
+### Files That Need the Fix
 
-### Files Changed
+All 4 files parse `app.dob` with bare `new Date(app.dob)`:
 
-| File | Change |
-|------|--------|
-| New `src/hooks/useBlobUrl.ts` | Extract shared blob-fetching hook |
-| New `src/lib/downloadBlob.ts` | Utility: fetch URL as blob → trigger download |
-| `src/components/inspection/DocRow.tsx` | Use shared hook + blob download for both links |
-| `src/components/operator/OperatorStatusPage.tsx` | Use blob download for both QPassport links |
-| `src/components/operator/PEScreeningTimeline.tsx` | Use blob download for QPassport link |
-| `src/components/operator/OperatorResourcesAndFAQ.tsx` | Use blob download for resource link |
-| `src/components/documents/DocumentViewer.tsx` | Use blob download for document link |
+| File | Current Code | Fix |
+|------|-------------|-----|
+| `ApplicationReviewDrawer.tsx` (line 626) | `new Date(app.dob).toLocaleDateString()` | `new Date(app.dob + 'T12:00:00').toLocaleDateString()` |
+| `CompanyTestingPolicyCertDoc.tsx` (line 14) | `new Date(app.dob).toLocaleDateString(...)` | `new Date(app.dob + 'T12:00:00').toLocaleDateString(...)` |
+| `DOTDrugAlcoholQuestionsDoc.tsx` (line 75) | `new Date(app.dob).toLocaleDateString(...)` | `new Date(app.dob + 'T12:00:00').toLocaleDateString(...)` |
+| `FCRAAuthorizationDoc.tsx` (line 14) | `new Date(app.dob).toLocaleDateString(...)` | `new Date(app.dob + 'T12:00:00').toLocaleDateString(...)` |
 
-### Technical Approach
+### Same Issue with `signed_date`
 
-The `downloadBlob` utility will:
-```
-fetch(url) → blob → createObjectURL → create temp <a download="name"> → click → revoke
-```
-This is same-origin so `download` attribute is honored. Each call site just needs: `onClick={() => downloadBlob(url, filename)}` instead of `<a href={url} download={name}>`.
+These same document components also parse `app.signed_date` the same way (`new Date(app.signed_date)`), which could have the identical off-by-one problem. Those will be fixed with the same `+ 'T12:00:00'` pattern.
+
+### No other changes needed
+The input field itself stores the date correctly as a `YYYY-MM-DD` string. The bug is only in how it's displayed.
 
