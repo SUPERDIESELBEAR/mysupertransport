@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import PayrollCalendar from '@/components/operator/PayrollCalendar';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { formatPhoneDisplay, formatPhoneInput } from '@/lib/utils';
 
 // ── Company payroll reference documents ──────────────────────────────────────
 const COMPANY_DOCS = [
