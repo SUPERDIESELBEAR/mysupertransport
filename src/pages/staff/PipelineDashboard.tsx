@@ -56,6 +56,9 @@ interface PipelineStageConfig {
 function evalItem(op: OperatorRow, field: string, completeValue: string): boolean {
   const raw = (op as unknown as Record<string, unknown>)[field];
   if (completeValue === 'present') return raw != null && raw !== '';
+  if (completeValue.includes('|')) {
+    return completeValue.split('|').some(v => raw === v);
+  }
   return raw === completeValue;
 }
 
