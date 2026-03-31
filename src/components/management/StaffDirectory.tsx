@@ -1287,7 +1287,7 @@ export default function StaffDirectory() {
                 </label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                  <input type="tel" value={invitePhone} onChange={e => setInvitePhone(e.target.value)} placeholder="(555) 000-0000"
+                  <input type="tel" value={invitePhone} onChange={e => setInvitePhone(formatPhoneInput(e.target.value))} placeholder="(555) 000-0000"
                     className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gold/30" />
                 </div>
               </div>
