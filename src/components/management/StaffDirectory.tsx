@@ -11,6 +11,7 @@ import {
   AlertTriangle, CheckCircle2, Phone, Trash2, Camera, Loader2
 } from 'lucide-react';
 import DemoLockIcon from '@/components/DemoLockIcon';
+import { formatPhoneInput } from '@/lib/utils';
 import type { Database } from '@/integrations/supabase/types';
 
 type AppRole = Database['public']['Enums']['app_role'];
