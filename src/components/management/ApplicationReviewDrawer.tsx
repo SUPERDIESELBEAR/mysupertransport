@@ -623,7 +623,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                 <Field label="Full Name" value={fullName} />
                 <Field label="Email" value={app.email} />
                 <Field label="Phone" value={app.phone} />
-                <Field label="Date of Birth" value={app.dob ? new Date(app.dob).toLocaleDateString() : null} />
+                <Field label="Date of Birth" value={app.dob ? new Date(app.dob + 'T12:00:00').toLocaleDateString() : null} />
                 <Field label="How they heard" value={app.referral_source} />
               </Section>
 
