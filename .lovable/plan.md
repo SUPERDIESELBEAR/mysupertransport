@@ -1,58 +1,38 @@
 
 
-## Fix: Stage Data Not Persisting After Save
+## Harden All Save/Update Functions — Capture Errors App-Wide
 
-### Root Cause
+### Problem
+Multiple places across the app call `await supabase.from(...).update(...)` without checking the result. If the database update fails, the UI still proceeds as if it succeeded — updating local state, showing success toasts, and hiding the real error.
 
-The `handleSave` function in `OperatorDetailPanel.tsx` has a critical bug: **the `onboarding_status` update error is silently discarded**.
+### What Gets Fixed
 
-```text
-Lines 1105-1117 (current):
+| # | File | Location | Issue |
+|---|------|----------|-------|
+| 1 | `OperatorDetailPanel.tsx` | `markReceivedHandler` (~line 3650) | `onboarding_status` update result ignored |
+| 2 | `OperatorDetailPanel.tsx` | Truck photos `onMarkReceived` (~line 3808) | Same — result ignored |
+| 3 | `ICABuilderModal.tsx` | Save draft (~line 252) | `onboarding_status` update result ignored |
+| 4 | `ICABuilderModal.tsx` | Save & send (~line 307) | `onboarding_status` update result ignored |
+| 5 | `EquipmentReturnModal.tsx` | Equipment return (~line 61) | `equipment_items` update result ignored |
+| 6 | `MoPlateRegistry.tsx` | Plate return (~lines 138-144) | Both `mo_plate_assignments` and `mo_plates` update results ignored |
 
-1. operators.notes update → error captured in `error` variable ✓
-2. onboarding_status update → error IGNORED (result not stored) ✗
+### Fix Pattern
 
-Lines 1125-1128:
-3. Only checks `operators.notes` error → shows "Saved successfully"
+Every unchecked `await supabase.from(...).update(...)` becomes:
 
-Line 1280:
-4. savedSnapshot updated regardless → dirty-check thinks data is clean
+```ts
+const { error: updateErr } = await supabase.from('table').update(data).eq('id', id);
+if (updateErr) throw updateErr;  // caught by existing try/catch
 ```
 
-So when the `onboarding_status` update fails for any reason (RLS, type mismatch, constraint violation), the user sees "Saved successfully", the local snapshot is overwritten with the unsaved values, and no unsaved-changes warning fires. When they navigate away and return, the data is fetched fresh from the database — which still has the old values.
-
-### Fix
-
-**File: `src/pages/staff/OperatorDetailPanel.tsx`**
-
-1. **Capture the onboarding_status update error** — store the result of the `.update()` call on line 1114
-2. **Check both errors before declaring success** — only show "Saved successfully" and update `savedSnapshot` if both the `operators` and `onboarding_status` updates succeeded
-3. **Show the real error if onboarding_status fails** — display the error message in the toast so the underlying cause is visible
-4. **Do not update `savedSnapshot` on failure** — this ensures the dirty-check still shows unsaved changes and the user gets a navigation warning
-
-```text
-Before:
-  await supabase.from('onboarding_status').update(updateData).eq('id', statusId);
-  // error silently dropped
-  ...
-  if (error) { show error } else { show success }
-  savedSnapshot.current = { status, notes };  // always runs
-
-After:
-  const { error: statusError } = await supabase.from('onboarding_status').update(updateData).eq('id', statusId);
-  ...
-  if (error || statusError) {
-    show combined error message
-    setSaving(false);
-    return;          // ← early exit, snapshot NOT updated
-  }
-  show success
-  savedSnapshot.current = { status, notes };  // only on success
-```
+Since all of these are already inside `try/catch` blocks with error toasts, throwing on failure is all that's needed — the existing catch handler will display the error and prevent local state from being updated incorrectly.
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/OperatorDetailPanel.tsx` | Capture onboarding_status update error, gate success toast + snapshot on both updates succeeding |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Capture + throw on error for 2 "Mark Received" updates |
+| `src/components/ica/ICABuilderModal.tsx` | Capture + throw on error for 2 `onboarding_status` updates |
+| `src/components/equipment/EquipmentReturnModal.tsx` | Capture + throw on error for `equipment_items` update |
+| `src/components/mo-plates/MoPlateRegistry.tsx` | Capture + throw on error for both assignment and plate updates |
 
