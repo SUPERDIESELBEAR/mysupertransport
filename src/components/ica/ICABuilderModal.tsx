@@ -249,7 +249,8 @@ export default function ICABuilderModal({
         .eq('operator_id', operatorId)
         .maybeSingle();
       if (os?.id && (os.ica_status === 'not_issued' || os.ica_status === 'in_progress')) {
-        await supabase.from('onboarding_status').update({ ica_status: 'in_progress' as any }).eq('id', os.id);
+        const { error: statusErr } = await supabase.from('onboarding_status').update({ ica_status: 'in_progress' as any }).eq('id', os.id);
+        if (statusErr) throw statusErr;
       }
 
       toast({ title: 'Draft saved', description: 'ICA is saved as "In Progress". You can continue anytime.' });
