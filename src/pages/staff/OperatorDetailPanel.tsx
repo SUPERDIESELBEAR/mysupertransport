@@ -948,7 +948,21 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setOperatorUserId((op as any).user_id ?? null);
       const app = (op as any).applications;
       setOperatorEmail(app?.email ?? '');
-      setApplicationData(app ?? null);
+      if (app) {
+        setApplicationData(app);
+      } else {
+        // Synthesize minimal contact object from profile for non-applicant operators
+        setApplicationData({
+          id: null,
+          phone: profile?.phone ?? '',
+          email: app?.email ?? '',
+          address_street: '',
+          address_city: '',
+          address_state: profile?.home_state ?? '',
+          address_zip: '',
+          dob: null,
+        });
+      }
       setCdlExpiration(app?.cdl_expiration ?? null);
       setMedCertExpiration(app?.medical_cert_expiration ?? null);
       setNotes((op as any).notes ?? '');
