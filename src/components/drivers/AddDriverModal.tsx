@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Loader2, Truck } from 'lucide-react';
 import DemoLockIcon from '@/components/DemoLockIcon';
+import { DateInput } from '@/components/ui/date-input';
 
 const US_STATES = [
   'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA',
