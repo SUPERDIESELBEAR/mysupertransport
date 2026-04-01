@@ -106,14 +106,28 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 4. Re-send the invite.
+    // 4. Resolve the auth user's actual email (may differ from application email
+    //    for operators added via "Add Driver").
+    let targetEmail = normalizedEmail;
+    if (app.user_id) {
+      try {
+        const { data: authUser, error: authErr } = await supabaseAdmin.auth.admin.getUserById(app.user_id);
+        if (!authErr && authUser?.user?.email) {
+          targetEmail = authUser.user.email.toLowerCase();
+        }
+      } catch (e) {
+        console.error('Auth user lookup failed, falling back to app email:', e);
+      }
+    }
+
+    // Re-send the invite.
     // For already-registered users (who haven't set a password yet),
     // generateLink(recovery) produces a "set password" link — functionally
     // identical to the original invite for the operator.
     const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
-      email: normalizedEmail,
+      email: targetEmail,
       options: {
         redirectTo: `${appUrl}/welcome`,
       },
@@ -155,7 +169,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: 'SUPERTRANSPORT <onboarding@mysupertransport.com>',
-        to: normalizedEmail,
+        to: targetEmail,
         subject: 'Your invitation to SuperTransport — Action Required',
         html: `
           <p>Hi ${firstName},</p>
