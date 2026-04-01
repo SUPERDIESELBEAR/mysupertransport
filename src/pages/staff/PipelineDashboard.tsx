@@ -1093,7 +1093,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         ? `${staffProfile.first_name ?? ''} ${staffProfile.last_name ?? ''}`.trim() || null
         : null;
       const appRaw = op.applications;
-      const appEmail = Array.isArray(appRaw) ? (appRaw[0]?.email ?? null) : (appRaw?.email ?? null);
+      const appRecord = Array.isArray(appRaw) ? (appRaw[0] ?? null) : (appRaw ?? null);
+      const appEmail = appRecord?.email ?? null;
+      const appPhone = appRecord?.phone ?? null;
+      const appState = appRecord?.address_state ?? null;
       const icaStatus = os.ica_status ?? 'not_issued';
       // Derive pay_setup_submitted: "true" when submitted_at is set and terms_accepted = true
       const payRaw = op.contractor_pay_setup;
@@ -1105,8 +1108,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         first_name: profile.first_name ?? null,
         last_name: profile.last_name ?? null,
         email: appEmail,
-        phone: profile.phone ?? null,
-        home_state: profile.home_state ?? null,
+        phone: profile.phone || appPhone || null,
+        home_state: profile.home_state || appState || null,
         assigned_staff_id: op.assigned_onboarding_staff ?? null,
         assigned_staff_name: staffName,
         never_logged_in: (profile.account_status ?? 'pending') === 'pending',
