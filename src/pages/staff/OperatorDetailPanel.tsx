@@ -5265,7 +5265,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
 
       {/* Stage 8 — Contractor Pay Setup (read-only, uses component-level state) */}
-      {(() => {
+      <div style={isQuickView ? { order: 8 } : undefined}>{(() => {
         const stageKey = 'stage8';
         const isCollapsed = collapsedStages.has(stageKey);
         const ps = paySetupRecord;
