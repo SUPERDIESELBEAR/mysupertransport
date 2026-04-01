@@ -1,0 +1,1 @@
+ALTER TABLE public.ica_contracts ADD COLUMN owner_name text;
