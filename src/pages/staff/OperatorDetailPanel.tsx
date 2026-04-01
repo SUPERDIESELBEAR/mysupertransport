@@ -2694,7 +2694,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
           </div>
         );
-      })()}
+      })()}</div>}
 
       {/* ── Truck & Equipment Card ── */}
       <TruckInfoCard
