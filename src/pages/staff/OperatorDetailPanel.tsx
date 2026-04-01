@@ -5261,7 +5261,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>}
           </div>
         );
-      })()}
+      })()}</div>)}
 
 
       {/* Stage 8 — Contractor Pay Setup (read-only, uses component-level state) */}
