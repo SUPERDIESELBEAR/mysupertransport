@@ -1057,11 +1057,10 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
               <div className="mt-2 flex items-center gap-2">
                 {expiryEditing === doc?.id ? (
                   <>
-                    <Input
-                      type="date"
+                    <DateInput
                       value={expiryValue}
-                      onChange={e => setExpiryValue(e.target.value)}
-                      className="h-7 text-xs w-36"
+                      onChange={v => setExpiryValue(v)}
+                      className="h-7 text-xs w-44"
                     />
                     <Button size="sm" className="h-7 text-xs" onClick={() => saveExpiry(doc!.id)}>Save</Button>
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setExpiryEditing(null)}>Cancel</Button>

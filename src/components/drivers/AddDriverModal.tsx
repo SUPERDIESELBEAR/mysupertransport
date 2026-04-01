@@ -302,7 +302,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="add-med-exp">Med Cert Expiration</Label>
-              <Input id="add-med-exp" type="date" value={form.medical_cert_expiration} onChange={e => set('medical_cert_expiration', e.target.value)} />
+              <DateInput value={form.medical_cert_expiration} onChange={v => set('medical_cert_expiration', v)} className="h-10" />
             </div>
           </div>
 

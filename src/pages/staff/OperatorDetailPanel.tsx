@@ -5045,10 +5045,9 @@ import { DateInput } from '@/components/ui/date-input';
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Confirmation</p>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Added to Insurance Date</Label>
-                      <Input
-                        type="date"
+                      <DateInput
                         value={status.insurance_added_date ?? ''}
-                        onChange={e => { updateStatus('insurance_added_date', e.target.value || null); if (e.target.value) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage6'); return next; }); } }}
+                        onChange={v => { updateStatus('insurance_added_date', v || null); if (v) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage6'); return next; }); } }}
                         className="h-9 text-sm"
                       />
                     </div>
