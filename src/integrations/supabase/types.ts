@@ -926,6 +926,7 @@ export type Database = {
           owner_city: string | null
           owner_ein_ssn: string | null
           owner_email: string | null
+          owner_name: string | null
           owner_phone: string | null
           owner_state: string | null
           owner_zip: string | null
@@ -960,6 +961,7 @@ export type Database = {
           owner_city?: string | null
           owner_ein_ssn?: string | null
           owner_email?: string | null
+          owner_name?: string | null
           owner_phone?: string | null
           owner_state?: string | null
           owner_zip?: string | null
@@ -994,6 +996,7 @@ export type Database = {
           owner_city?: string | null
           owner_ein_ssn?: string | null
           owner_email?: string | null
+          owner_name?: string | null
           owner_phone?: string | null
           owner_state?: string | null
           owner_zip?: string | null
