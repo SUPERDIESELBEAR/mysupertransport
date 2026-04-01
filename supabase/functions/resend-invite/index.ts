@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: 'SUPERTRANSPORT <onboarding@mysupertransport.com>',
-        to: targetEmail,
+        to: normalizedEmail || targetEmail,
         subject: 'Your invitation to SuperTransport — Action Required',
         html: `
           <p>Hi ${firstName},</p>
