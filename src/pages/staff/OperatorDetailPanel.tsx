@@ -3398,7 +3398,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       </div>)}
 
 
-      {(() => {
+      {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 22 } : undefined}>{(() => {
         const stages = [
           { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear', fullName: 'Background Check', items: [
               { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
