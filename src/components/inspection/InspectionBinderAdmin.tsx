@@ -10,6 +10,7 @@ import {
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2, Bell,
   Inbox, UserCheck, X, Pencil, ArrowRight, CheckSquare, Copy, Check, GripVertical,
 } from 'lucide-react';
+import { DateInput } from '@/components/ui/date-input';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
