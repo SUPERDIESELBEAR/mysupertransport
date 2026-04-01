@@ -1736,6 +1736,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const yesNoOptions = [{ value: 'no', label: 'No' }, { value: 'yes', label: 'Yes' }];
 
   const isAlert = status.mvr_ch_approval === 'denied' || status.pe_screening_result === 'non_clear';
+  const isQuickView = !!status.fully_onboarded;
 
   const hasUnsavedChanges = savedSnapshot.current !== null && (
     JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
