@@ -591,17 +591,7 @@ export default function StaffPortal() {
           expiryOverride={panelExpiryOverride}
           scrollToInspectionBinder={scrollToInspectionBinder}
           scrollToStageKey={scrollToStageKey}
-          onOpenAppReview={async (focusField) => {
-            const { data: op } = await supabase
-              .from('operators')
-              .select('application_id, applications(*)')
-              .eq('id', selectedOperatorId)
-              .single();
-            if (op?.applications) {
-              setReviewApp(op.applications as FullApplication);
-              setReviewFocusField(focusField);
-            }
-          }}
+          onOpenAppReview={(focusField) => resolveAndOpenAppReview(selectedOperatorId, focusField)}
         />
       )}
       {currentView === 'messages' && (
