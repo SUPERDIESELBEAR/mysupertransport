@@ -3515,7 +3515,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       })()}</div>}
 
       {/* Stage Summary Dot Row + Collapse All */}
-      {(() => {
+      {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 23 } : undefined}>{(() => {
         const allStageKeys = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7'];
         const allCollapsed = allStageKeys.every(k => collapsedStages.has(k));
 
