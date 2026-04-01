@@ -5099,7 +5099,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           );
         })()}
 
-      </div>
+      </div></div>}
 
       {/* Dispatch Status History */}
       {(status.fully_onboarded || dispatchHistory.length > 0 || currentDispatchStatus) && (() => {
