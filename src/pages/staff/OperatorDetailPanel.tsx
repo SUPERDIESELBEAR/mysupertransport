@@ -3512,7 +3512,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
           </div>
         );
-      })()}
+      })()}</div>}
 
       {/* Stage Summary Dot Row + Collapse All */}
       {(() => {
