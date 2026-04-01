@@ -1,28 +1,46 @@
 
 
-## Fix Contact Info Not Persisting for Non-Applicant Operators
+## Fix "Update" Link on Missing Compliance Dates Ribbon
 
 ### Problem
-When Marcus Mueller's contact info is saved and you navigate away, the data disappears because:
-1. **Email is never populated**: The synthesized fallback uses `app?.email` where `app` is null, so email is always empty.
-2. **Most fields have no storage**: Only `phone` and `home_state` persist to the `profiles` table. Fields like email, street address, city, zip, and DOB are only held in local React state and lost on re-navigation.
+When clicking "Update" on the yellow compliance ribbon for operators without an application record (e.g., Marcus Mueller added via Add Driver), nothing happens. The `onOpenAppReview` handler in `StaffPortal.tsx` queries `operators.applications`, finds `null`, and silently returns without opening anything.
+
+### Root Cause
+The handler at line ~548 in `StaffPortal.tsx`:
+```ts
+onOpenAppReview={async (focusField) => {
+  const { data: op } = await supabase
+    .from('operators')
+    .select('application_id, applications(*)')
+    .eq('id', selectedOperatorId)
+    .single();
+  if (op?.applications) {        // ← null for non-applicant operators
+    setReviewApp(op.applications);
+    setReviewFocusField(focusField);
+  }
+  // else: nothing happens — no feedback, no fallback
+}}
+```
 
 ### Solution
-When saving contact info for a non-applicant operator, **create an application record** and link it to the operator. This gives all contact fields a real persistence target, and on subsequent loads the data loads normally through the existing `applications` join.
+When no application record exists, **create one on the fly** (same pattern used for contact-info save), then open the `ApplicationReviewDrawer` with the new record so the user can enter the CDL/Med Cert expiration dates.
 
-### Changes — `src/pages/staff/OperatorDetailPanel.tsx`
+### Changes — `src/pages/staff/StaffPortal.tsx`
 
-1. **Fix email in the synthesized fallback** (~line 958): Replace `app?.email ?? ''` with the operator's auth email. Since auth email isn't available client-side, fetch it from the profile or leave the email field editable but empty — the real fix comes from step 2.
+In the `onOpenAppReview` callback (~line 548, and the duplicate at ~line 700):
 
-2. **Update `handleContactSave`** (~line 2133): When `applicationData.id` is null, instead of only updating `profiles`, **insert a new `applications` row** with all the contact fields (phone, email, address, dob) and set `review_status: 'approved'`, `is_draft: false`. Then update `operators.application_id` to point to the new record. Finally, update local state so `applicationData.id` is now set and future saves go through the normal path.
+1. After the query, if `op?.applications` is `null`:
+   - Fetch the operator's profile (`first_name`, `last_name`, `phone`, `home_state`) and email from `profiles`
+   - Insert a new `applications` row with `user_id`, `first_name`, `last_name`, `review_status: 'approved'`, `is_draft: false`, and empty compliance fields
+   - Update `operators.application_id` to link the new record
+   - Set `reviewApp` to the newly created application so the drawer opens
+2. If the insert fails, show a toast with the error
 
-3. **Update `profiles` in parallel**: Continue saving `phone` and `home_state` to `profiles` so PipelineDashboard fallback still works.
+This reuses the same "create application for non-applicant" pattern already established in the contact-info save logic.
 
-4. **Refresh local state**: After creating the application record, update `applicationData` with the new `id` so the component treats subsequent saves normally.
-
-### File Changed
+### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/OperatorDetailPanel.tsx` | Create application record on first contact save for non-applicant operators; link it to operator; fix empty email in synthesized fallback |
+| `src/pages/staff/StaffPortal.tsx` | In all `onOpenAppReview` callbacks, create an application record when none exists, then open the review drawer |
 
