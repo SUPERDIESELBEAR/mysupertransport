@@ -2133,15 +2133,57 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 .eq('id', applicationData.id);
               if (error) throw error;
             } else if (operatorUserId) {
-              // No application — save phone & state to profiles table
-              const { error } = await supabase
+              // No application — create an application record so all contact fields persist
+              const { data: newApp, error: insertErr } = await supabase
+                .from('applications')
+                .insert({
+                  email: contactDraft.email || '',
+                  phone: contactDraft.phone || null,
+                  address_street: contactDraft.address_street || null,
+                  address_city: contactDraft.address_city || null,
+                  address_state: contactDraft.address_state || null,
+                  address_zip: contactDraft.address_zip || null,
+                  dob: contactDraft.dob || null,
+                  user_id: operatorUserId,
+                  review_status: 'approved' as any,
+                  is_draft: false,
+                  first_name: operatorName.split(' ')[0] || null,
+                  last_name: operatorName.split(' ').slice(1).join(' ') || null,
+                })
+                .select('id')
+                .single();
+              if (insertErr) throw insertErr;
+
+              // Link the new application to the operator
+              if (newApp?.id && operatorId) {
+                const { error: linkErr } = await supabase
+                  .from('operators')
+                  .update({ application_id: newApp.id })
+                  .eq('id', operatorId);
+                if (linkErr) throw linkErr;
+              }
+
+              // Also update profiles for pipeline fallback
+              await supabase
                 .from('profiles')
                 .update({
                   phone: contactDraft.phone || null,
                   home_state: contactDraft.address_state || null,
                 })
                 .eq('user_id', operatorUserId);
-              if (error) throw error;
+
+              // Update local applicationData with the new id so future saves use the normal path
+              setApplicationData((prev: any) => ({
+                ...prev,
+                id: newApp?.id,
+                phone: contactDraft.phone || null,
+                email: contactDraft.email,
+                address_street: contactDraft.address_street || null,
+                address_city: contactDraft.address_city || null,
+                address_state: contactDraft.address_state || null,
+                address_zip: contactDraft.address_zip || null,
+                dob: contactDraft.dob || null,
+              }));
             }
             // Save go_live_date to onboarding_status if changed
             if (operatorId && contactDraft.go_live_date !== (status.go_live_date ?? null)) {
