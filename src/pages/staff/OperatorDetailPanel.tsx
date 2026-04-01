@@ -5379,6 +5379,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         <FilePreviewModal url={previewDoc.url} name={previewDoc.title} onClose={() => setPreviewDoc(null)} />
       )}
 
+      {/* Stage 2 Doc Preview Modal */}
+      {stage2Preview && (
+        <FilePreviewModal url={stage2Preview.url} name={stage2Preview.name} onClose={() => setStage2Preview(null)} />
+      )}
+
       {/* ICA Builder Modal */}
       {showICABuilder && (
         <ICABuilderModal
