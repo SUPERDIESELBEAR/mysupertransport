@@ -3993,6 +3993,21 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       <span>{received ? 'Received' : alreadyRequested ? 'Requested' : 'Request'}</span>
                     </Button>
                   </div>
+                  {/* Staff upload for non-photo docs */}
+                  {!isTruckPhotos && (
+                    <Stage2DocUploader
+                      operatorId={operatorId}
+                      docType={field as string}
+                      label={label}
+                      existingFiles={files}
+                      onFilesAdded={(newFiles) => {
+                        setDocFiles(prev => ({
+                          ...prev,
+                          [field as string]: [...newFiles, ...(prev[field as string] ?? [])],
+                        }));
+                      }}
+                    />
+                  )}
                 </div>
               );
             })}
