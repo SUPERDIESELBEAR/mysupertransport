@@ -1,5 +1,6 @@
 import { ApplicationFormData, US_STATES } from './types';
 import { FormField, AppInput, AppSelect, RadioGroup } from './FormField';
+import { DateInput } from '@/components/ui/date-input';
 
 interface Props {
   data: ApplicationFormData;
