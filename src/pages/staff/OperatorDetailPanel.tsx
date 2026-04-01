@@ -4447,7 +4447,7 @@ import { DateInput } from '@/components/ui/date-input';
                       )}
                       <div className="space-y-1.5">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Expected Approval Date</Label>
-                        <Input type="date" value={status.mo_expected_approval_date ?? ''} onChange={e => updateStatus('mo_expected_approval_date', e.target.value || null)} className="h-9 text-sm" />
+                        <DateInput value={status.mo_expected_approval_date ?? ''} onChange={v => updateStatus('mo_expected_approval_date', v || null)} className="h-9 text-sm" />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">MO Registration Received</Label>
