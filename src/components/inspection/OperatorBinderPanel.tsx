@@ -13,6 +13,7 @@ import {
   Upload, Trash2, Calendar, Loader2, FileText, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, FolderOpen, Plus,
 } from 'lucide-react';
+import { DateInput } from '@/components/ui/date-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
