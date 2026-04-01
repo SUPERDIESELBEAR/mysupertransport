@@ -1,0 +1,1 @@
+GRANT UPDATE ON TABLE public.onboarding_status TO authenticated;
