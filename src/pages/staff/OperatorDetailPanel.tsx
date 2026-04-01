@@ -2712,7 +2712,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         />
       </div>
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
-      {(() => {
+      {!isQuickView && (() => {
         const exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
         const allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
         const stages = [
