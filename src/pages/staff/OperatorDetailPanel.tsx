@@ -2392,7 +2392,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       })()}
 
       {/* Compliance expiry row */}
-      {(cdlExpiration || medCertExpiration) && (() => {
+      <div style={isQuickView ? { order: 9 } : undefined}>{(cdlExpiration || medCertExpiration) && (() => {
         const buildPill = (label: string, dateStr: string, focusField: 'cdl' | 'medcert') => {
           const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
           const expired  = days < 0;
