@@ -1,30 +1,29 @@
 
 
-## Add Delete + In-App Viewer to Stage 2 Document Popover
+## Show Phone and State for All Applicants in Pipeline
 
 ### Problem
-1. Uploaded files in the Stage 2 doc popover (Form 2290, Truck Title, Truck Inspection) cannot be deleted if the wrong document was uploaded.
-2. The "View" link opens documents in a new browser tab instead of using the in-app `FilePreviewModal` used everywhere else.
+The Pipeline Dashboard pulls **phone** and **home_state** exclusively from the `profiles` table. Operators who entered through the application form (Dominic Elek, Ronald Lockett, Davien Johnson) have their phone and state stored in the `applications` table (`phone`, `address_state`), but those values were never copied to `profiles`. Gene Allen and Marcus Mueller likely had their profiles populated manually or via the Add Driver flow.
+
+### Fix
+In `src/pages/staff/PipelineDashboard.tsx`, when building each operator row, fall back to the `applications` data when `profiles.phone` or `profiles.home_state` is empty.
 
 ### Changes
 
-**`src/pages/staff/OperatorDetailPanel.tsx`**
+**`src/pages/staff/PipelineDashboard.tsx`**
 
-1. **Add preview state** — new `useState` for `stage2Preview: { url: string; name: string } | null` near other state declarations.
+1. The query already joins `applications` (used for email). Extract `phone` and `address_state` from the application record as well.
+2. In the row-building logic (~line 1108-1109), change to:
+   - `phone: profile.phone || appPhone || null`
+   - `home_state: profile.home_state || appState || null`
 
-2. **Update the popover file list** (lines 3911-3933) for each file row:
-   - Replace the `<a href target="_blank">View</a>` link with a button that sets `stage2Preview` to open `FilePreviewModal` in-app.
-   - Add a delete button (Trash icon) that:
-     - Deletes the row from `operator_documents` table
-     - Removes the file from `operator-documents` storage bucket
-     - Updates local `docFiles` state to remove the deleted entry
-     - Shows a toast confirmation
+   Where `appPhone` and `appState` are pulled from the joined `applications` record alongside the existing `appEmail`.
 
-3. **Render `FilePreviewModal`** — add one instance at the bottom of the Stage 2 section, controlled by `stage2Preview` state. Import `FilePreviewModal` from `@/components/inspection/DocRow` (already used elsewhere in the codebase).
+This is a two-line logic change — no DB migration needed, no new queries. The `applications` data is already fetched.
 
-### File Changed
+### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/OperatorDetailPanel.tsx` | Add delete button + in-app FilePreviewModal to Stage 2 doc popover rows |
+| `src/pages/staff/PipelineDashboard.tsx` | Fall back to `applications.phone` and `applications.address_state` when profile values are empty |
 
