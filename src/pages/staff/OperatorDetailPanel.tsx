@@ -469,7 +469,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }, 150);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrollToStageKey, loading]);
-
+import { DateInput } from '@/components/ui/date-input';
 
 
   const toggleStage = (stageKey: string) => {
