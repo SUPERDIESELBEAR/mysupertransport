@@ -5448,7 +5448,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         />
       </div>
 
-      {/* Company Payroll Doc Preview Modal */}
+      {/* ── Onboarding History Toggle (Quick View only) ── */}
+      {isQuickView && (
+        <div style={{ order: 15 }}>
+          <button
+            onClick={() => setOnboardingHistoryExpanded(prev => !prev)}
+            className="w-full flex items-center justify-between px-5 py-4 bg-white border border-border rounded-xl shadow-sm hover:bg-muted/30 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2">
+              <History className="h-4 w-4 text-muted-foreground" />
+              <h3 className="font-semibold text-foreground text-sm">Onboarding History</h3>
+              <span className="text-[11px] text-muted-foreground">(Stages 1–7, Costs, Progress)</span>
+            </div>
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${onboardingHistoryExpanded ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+      )}
+
+
       {previewDoc && (
         <FilePreviewModal url={previewDoc.url} name={previewDoc.title} onClose={() => setPreviewDoc(null)} />
       )}
