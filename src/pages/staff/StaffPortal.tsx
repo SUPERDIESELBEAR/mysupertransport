@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { toast } from 'sonner';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
@@ -58,6 +59,51 @@ export default function StaffPortal() {
   const alertsPanelRef = useRef<HTMLDivElement>(null);
   const [alertsPanelHighlight, setAlertsPanelHighlight] = useState<'warning' | 'destructive' | 'muted' | false>(false);
   const [alertsPanelNoAction, setAlertsPanelNoAction] = useState(false);
+
+  // Helper: resolve or create application record for an operator, then open review drawer
+  const resolveAndOpenAppReview = useCallback(async (operatorId: string, focusField?: 'cdl' | 'medcert') => {
+    const { data: op } = await supabase
+      .from('operators')
+      .select('application_id, applications(*), user_id')
+      .eq('id', operatorId)
+      .single();
+    if (op?.applications) {
+      setReviewApp(op.applications as FullApplication);
+      setReviewFocusField(focusField);
+      return;
+    }
+    // No application — create one on the fly
+    const userId = op?.user_id;
+    if (!userId) { toast.error('Could not resolve operator user.'); return; }
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('first_name, last_name, phone, home_state')
+      .eq('user_id', userId)
+      .single();
+    const { data: newApp, error } = await supabase
+      .from('applications')
+      .insert({
+        email: '', // will be filled in by staff
+        user_id: userId,
+        first_name: profile?.first_name ?? '',
+        last_name: profile?.last_name ?? '',
+        phone: profile?.phone ?? '',
+        address_state: profile?.home_state ?? '',
+        review_status: 'approved' as any,
+        is_draft: false,
+      })
+      .select('*')
+      .single();
+    if (error || !newApp) { toast.error(error?.message ?? 'Failed to create application record.'); return; }
+    // Link to operator
+    await supabase.from('operators').update({ application_id: newApp.id }).eq('id', operatorId);
+    // Also persist to profiles for pipeline fallback
+    if (profile?.phone || profile?.home_state) {
+      await supabase.from('profiles').update({ phone: profile.phone, home_state: profile.home_state }).eq('user_id', userId);
+    }
+    setReviewApp(newApp as unknown as FullApplication);
+    setReviewFocusField(focusField);
+  }, []);
 
   // Deep-link: ?tab=notifications or ?operator=... or ?view=inspection-binder
   useEffect(() => {
@@ -545,17 +591,7 @@ export default function StaffPortal() {
           expiryOverride={panelExpiryOverride}
           scrollToInspectionBinder={scrollToInspectionBinder}
           scrollToStageKey={scrollToStageKey}
-          onOpenAppReview={async (focusField) => {
-            const { data: op } = await supabase
-              .from('operators')
-              .select('application_id, applications(*)')
-              .eq('id', selectedOperatorId)
-              .single();
-            if (op?.applications) {
-              setReviewApp(op.applications as FullApplication);
-              setReviewFocusField(focusField);
-            }
-          }}
+          onOpenAppReview={(focusField) => resolveAndOpenAppReview(selectedOperatorId, focusField)}
         />
       )}
       {currentView === 'messages' && (
@@ -695,15 +731,7 @@ export default function StaffPortal() {
               onOpenOperator={handleOpenOperator}
               onOpenOperatorWithFocus={async (operatorId, focusField) => {
                 handleOpenOperator(operatorId);
-                const { data: op } = await supabase
-                  .from('operators')
-                  .select('application_id, applications(*)')
-                  .eq('id', operatorId)
-                  .single();
-                if (op?.applications) {
-                  setReviewApp(op.applications as FullApplication);
-                  setReviewFocusField(focusField);
-                }
+                await resolveAndOpenAppReview(operatorId, focusField);
               }}
             />
           </div>
