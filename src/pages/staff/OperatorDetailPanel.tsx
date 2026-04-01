@@ -3631,7 +3631,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </button>
           </div>
         );
-      })()}
+      })()}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Stage 1 — Background */}
