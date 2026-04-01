@@ -1,29 +1,30 @@
 
 
-## Add PE Screening Results Document Upload in Stage 1
+## Fix Stage 1 Save Error — Strip Non-Editable Fields from Update Payload
 
 ### Problem
-There's no way for staff to upload the PE Screening Results document in the pipeline. The QPassport uploader and PE Receipt (from operator) exist, but the actual results document from the screening provider needs a dedicated upload field.
+The save handler at line 1132 spreads the entire `status` state (loaded via `SELECT *` from `onboarding_status`) into the update payload, only stripping `id` and `fully_onboarded`. This sends DB-managed fields like `operator_id`, `updated_at`, and `updated_by` in the update, which can cause constraint or trigger errors.
 
-### Change
+### Root Cause
+Line 1132:
+```ts
+const { id: _id, fully_onboarded: _fo, ...updateData } = status as any;
+```
+This passes `operator_id` (which has a UNIQUE constraint and FK), `updated_at` (managed by trigger), and `updated_by` (FK to `auth.users`) in the update payload. Depending on DB state, this can cause silent failures or explicit errors.
 
-**`src/pages/staff/OperatorDetailPanel.tsx`**
+### Fix
 
-Add a new uploader component (modeled on the existing `QPassportUploader` pattern) just below the PE Screening Result dropdown (after line 3597). It will:
+**`src/pages/staff/OperatorDetailPanel.tsx`** — Update the destructuring at line 1132 to also strip `operator_id`, `updated_at`, and `updated_by`:
 
-1. Accept PDF/image files (PDF, JPG, PNG) up to 10MB
-2. Upload to `operator-documents` storage bucket under `{operatorId}/pe-results/`
-3. Save the URL to `onboarding_status.pe_results_doc_url` (new column)
-4. Show a "View Document" link when a file is already uploaded, plus a "Replace" option
-5. Use the same styling as the existing QPassport uploader
+```ts
+const { id: _id, fully_onboarded: _fo, operator_id: _oid, updated_at: _ua, updated_by: _ub, ...updateData } = status as any;
+```
 
-**DB migration** — Add one nullable column to `onboarding_status`:
-- `pe_results_doc_url text`
+This ensures only user-editable fields are sent in the update, preventing constraint violations from DB-managed columns.
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| DB migration | Add `pe_results_doc_url` column to `onboarding_status` |
-| `src/pages/staff/OperatorDetailPanel.tsx` | Add PE Results uploader below PE Screening Result select, fetch/display the URL from status |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Strip `operator_id`, `updated_at`, `updated_by` from the update payload alongside `id` and `fully_onboarded` |
 
