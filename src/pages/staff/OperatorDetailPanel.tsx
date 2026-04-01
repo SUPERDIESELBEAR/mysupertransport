@@ -348,6 +348,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [truckPhotoGridOpen, setTruckPhotoGridOpen] = useState(false);
+  const [stage2Preview, setStage2Preview] = useState<{ url: string; name: string } | null>(null);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
   // Contact Info editing state
   const [contactEditing, setContactEditing] = useState(false);
@@ -3918,18 +3920,50 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                                       {format(new Date(f.uploaded_at), 'MMM d, yyyy')}
                                     </p>
                                   </div>
-                                  {f.file_url ? (
-                                    <a
-                                      href={f.file_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center gap-1 text-[11px] text-gold hover:text-gold-light font-medium shrink-0"
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {f.file_url ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => setStage2Preview({ url: f.file_url!, name: f.file_name ?? 'Document' })}
+                                        className="flex items-center gap-1 text-[11px] text-gold hover:text-gold-light font-medium"
+                                      >
+                                        View <ZoomIn className="h-3 w-3" />
+                                      </button>
+                                    ) : (
+                                      <span className="text-[11px] text-muted-foreground">No URL</span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      disabled={deletingDocId === f.id}
+                                      onClick={async () => {
+                                        if (deletingDocId) return;
+                                        setDeletingDocId(f.id);
+                                        try {
+                                          // Extract storage path from signed URL
+                                          const urlObj = new URL(f.file_url ?? '');
+                                          const pathMatch = urlObj.pathname.match(/\/object\/sign\/operator-documents\/(.+)/);
+                                          if (pathMatch) {
+                                            await supabase.storage.from('operator-documents').remove([decodeURIComponent(pathMatch[1])]);
+                                          }
+                                          const { error } = await supabase.from('operator_documents').delete().eq('id', f.id);
+                                          if (error) throw error;
+                                          setDocFiles(prev => ({
+                                            ...prev,
+                                            [field as string]: (prev[field as string] ?? []).filter(d => d.id !== f.id),
+                                          }));
+                                          toast({ title: 'File deleted', description: `${f.file_name ?? 'File'} removed.` });
+                                        } catch (err: unknown) {
+                                          const msg = err instanceof Error ? err.message : typeof err === 'object' && err !== null && 'message' in err ? String((err as Record<string, unknown>).message) : 'Unknown error';
+                                          toast({ title: 'Delete failed', description: msg, variant: 'destructive' });
+                                        } finally {
+                                          setDeletingDocId(null);
+                                        }
+                                      }}
+                                      className="text-destructive/60 hover:text-destructive transition-colors"
                                     >
-                                      View <ExternalLink className="h-3 w-3" />
-                                    </a>
-                                  ) : (
-                                    <span className="text-[11px] text-muted-foreground shrink-0">No URL</span>
-                                  )}
+                                      {deletingDocId === f.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                                    </button>
+                                  </div>
                                 </li>
                               ))}
                             </ul>
@@ -5343,6 +5377,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       {/* Company Payroll Doc Preview Modal */}
       {previewDoc && (
         <FilePreviewModal url={previewDoc.url} name={previewDoc.title} onClose={() => setPreviewDoc(null)} />
+      )}
+
+      {/* Stage 2 Doc Preview Modal */}
+      {stage2Preview && (
+        <FilePreviewModal url={stage2Preview.url} name={stage2Preview.name} onClose={() => setStage2Preview(null)} />
       )}
 
       {/* ICA Builder Modal */}
