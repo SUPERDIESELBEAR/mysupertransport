@@ -2523,7 +2523,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             {medCertExpiration && buildPill('Med Cert', medCertExpiration, 'medcert')}
           </div>
         );
-      })()}
+      })()}</div>
 
       {/* ── Upfront Costs Card ── staff-only, always visible ── */}
       <div style={isQuickView ? { order: 9 } : undefined}>{(() => {
