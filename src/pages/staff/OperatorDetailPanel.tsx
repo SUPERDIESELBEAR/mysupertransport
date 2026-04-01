@@ -2526,7 +2526,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       })()}
 
       {/* ── Upfront Costs Card ── staff-only, always visible ── */}
-      {(() => {
+      <div style={isQuickView ? { order: 9 } : undefined}>{(() => {
         const moVal   = status.cost_mo_registration ?? null;
         const f2290   = status.cost_form_2290 ?? null;
         const other   = status.cost_other ?? null;
