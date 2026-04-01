@@ -346,6 +346,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [docFiles, setDocFiles] = useState<Record<string, DocFileRow[]>>({});
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   const [showStickyBar, setShowStickyBar] = useState(false);
+  const [onboardingHistoryExpanded, setOnboardingHistoryExpanded] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [truckPhotoGridOpen, setTruckPhotoGridOpen] = useState(false);
   const [stage2Preview, setStage2Preview] = useState<{ url: string; name: string } | null>(null);
@@ -1735,6 +1736,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const yesNoOptions = [{ value: 'no', label: 'No' }, { value: 'yes', label: 'Yes' }];
 
   const isAlert = status.mvr_ch_approval === 'denied' || status.pe_screening_result === 'non_clear';
+  const isQuickView = !!status.fully_onboarded;
 
   const hasUnsavedChanges = savedSnapshot.current !== null && (
     JSON.stringify(savedSnapshot.current.status) !== JSON.stringify(status) ||
@@ -1750,7 +1752,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-4xl w-full">
+    <div className="flex flex-col gap-6 animate-fade-in max-w-4xl w-full">
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1944,7 +1946,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       </div>
 
       {/* ── Top Completion Summary ── */}
-      {(() => {
+      {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 20 } : undefined}>{(() => {
         const _exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
         const _allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
         const _moNa = status.registration_status === 'own_registration';
@@ -2002,7 +2004,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
           </div>
         );
-      })()}
+      })()}</div>}
 
       {/* ── Compliance Alert Banner ─────────────────────────────────────── */}
       {(() => {
@@ -2390,7 +2392,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       })()}
 
       {/* Compliance expiry row */}
-      {(cdlExpiration || medCertExpiration) && (() => {
+      <div style={isQuickView ? { order: 9 } : undefined}>{(cdlExpiration || medCertExpiration) && (() => {
         const buildPill = (label: string, dateStr: string, focusField: 'cdl' | 'medcert') => {
           const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
           const expired  = days < 0;
@@ -2521,10 +2523,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             {medCertExpiration && buildPill('Med Cert', medCertExpiration, 'medcert')}
           </div>
         );
-      })()}
+      })()}</div>
 
       {/* ── Upfront Costs Card ── staff-only, always visible ── */}
-      {(() => {
+      {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 21 } : undefined}>{(() => {
         const moVal   = status.cost_mo_registration ?? null;
         const f2290   = status.cost_form_2290 ?? null;
         const other   = status.cost_other ?? null;
@@ -2692,23 +2694,25 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
           </div>
         );
-      })()}
+      })()}</div>}
 
       {/* ── Truck & Equipment Card ── */}
-      <TruckInfoCard
-        truckInfo={icaTruckInfo}
-        deviceInfo={{
-          unit_number: status.unit_number,
-          eld_serial_number: status.eld_serial_number,
-          dash_cam_number: status.dash_cam_number,
-          bestpass_number: status.bestpass_number,
-          fuel_card_number: status.fuel_card_number,
-        }}
-        onEdit={handleTruckDeviceEdit}
-        onTruckEdit={handleTruckInfoEdit}
-      />
+      <div style={isQuickView ? { order: 6 } : undefined}>
+        <TruckInfoCard
+          truckInfo={icaTruckInfo}
+          deviceInfo={{
+            unit_number: status.unit_number,
+            eld_serial_number: status.eld_serial_number,
+            dash_cam_number: status.dash_cam_number,
+            bestpass_number: status.bestpass_number,
+            fuel_card_number: status.fuel_card_number,
+          }}
+          onEdit={handleTruckDeviceEdit}
+          onTruckEdit={handleTruckInfoEdit}
+        />
+      </div>
       {/* Sticky mini progress bar — shown when main bar scrolls out of view */}
-      {(() => {
+      {!isQuickView && (() => {
         const exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
         const allEquipFull = status.decal_applied === 'yes' && status.eld_installed === 'yes' && status.fuel_card_issued === 'yes';
         const stages = [
@@ -3157,7 +3161,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
 
       {/* ── Cert Expiry History Timeline ─────────────────────── */}
-      {(cdlExpiration || medCertExpiration) && (
+      {(cdlExpiration || medCertExpiration) && (<div style={isQuickView ? { order: 10 } : undefined}>
         <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
           {/* Header row: title + filter chips */}
           <button
@@ -3391,10 +3395,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
           )}
         </div>
-      )}
+      </div>)}
 
 
-      {(() => {
+      {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 22 } : undefined}>{(() => {
         const stages = [
           { label: 'Background', key: 'stage1', complete: status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear', fullName: 'Background Check', items: [
               { label: 'MVR Check Requested',     done: status.mvr_status === 'requested' || status.mvr_status === 'received' },
@@ -3508,10 +3512,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
           </div>
         );
-      })()}
+      })()}</div>}
 
       {/* Stage Summary Dot Row + Collapse All */}
-      {(() => {
+      {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 23 } : undefined}>{(() => {
         const allStageKeys = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7'];
         const allCollapsed = allStageKeys.every(k => collapsedStages.has(k));
 
@@ -3627,9 +3631,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </button>
           </div>
         );
-      })()}
+      })()}</div>}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 24 } : undefined}><div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Stage 1 — Background */}
         {(() => {
           const s1Complete = status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear';
@@ -5095,10 +5099,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           );
         })()}
 
-      </div>
+      </div></div>}
 
       {/* Dispatch Status History */}
-      {(status.fully_onboarded || dispatchHistory.length > 0 || currentDispatchStatus) && (() => {
+      {(status.fully_onboarded || dispatchHistory.length > 0 || currentDispatchStatus) && (<div style={isQuickView ? { order: 11 } : undefined}>{(() => {
         const filteredHistory = historyFilter === 'all'
           ? dispatchHistory
           : dispatchHistory.filter(e => e.dispatch_status === historyFilter);
@@ -5257,11 +5261,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>}
           </div>
         );
-      })()}
+      })()}</div>)}
 
 
       {/* Stage 8 — Contractor Pay Setup (read-only, uses component-level state) */}
-      {(() => {
+      <div style={isQuickView ? { order: 8 } : undefined}>{(() => {
         const stageKey = 'stage8';
         const isCollapsed = collapsedStages.has(stageKey);
         const ps = paySetupRecord;
@@ -5414,11 +5418,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             )}
           </div>
         );
-      })()}
+      })()}</div>
 
       {/* Inspection Binder — per-driver docs & uploads */}
       {operatorUserId && (
-        <div ref={inspectionBinderRef} className="bg-white border border-border rounded-xl shadow-sm">
+        <div ref={inspectionBinderRef} className="bg-white border border-border rounded-xl shadow-sm" style={isQuickView ? { order: 7 } : undefined}>
           <button onClick={() => toggleStage('inspection_binder')} className="w-full flex items-center justify-between px-5 py-4 text-left">
             <div className="flex items-center gap-2">
               <Shield className="h-4 w-4 text-gold" />
@@ -5433,7 +5437,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       )}
 
       {/* Internal Notes */}
-      <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
+      <div className="bg-white border border-border rounded-xl p-5 shadow-sm" style={isQuickView ? { order: 12 } : undefined}>
         <Label className="text-sm font-semibold text-foreground mb-2 block">Internal Notes</Label>
         <p className="text-xs text-muted-foreground mb-3">These notes are visible to staff only and will not be shown to the operator.</p>
         <Textarea
@@ -5444,7 +5448,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         />
       </div>
 
-      {/* Company Payroll Doc Preview Modal */}
+      {/* ── Onboarding History Toggle (Quick View only) ── */}
+      {isQuickView && (
+        <div style={{ order: 15 }}>
+          <button
+            onClick={() => setOnboardingHistoryExpanded(prev => !prev)}
+            className="w-full flex items-center justify-between px-5 py-4 bg-white border border-border rounded-xl shadow-sm hover:bg-muted/30 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2">
+              <History className="h-4 w-4 text-muted-foreground" />
+              <h3 className="font-semibold text-foreground text-sm">Onboarding History</h3>
+              <span className="text-[11px] text-muted-foreground">(Stages 1–7, Costs, Progress)</span>
+            </div>
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${onboardingHistoryExpanded ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+      )}
+
+
       {previewDoc && (
         <FilePreviewModal url={previewDoc.url} name={previewDoc.title} onClose={() => setPreviewDoc(null)} />
       )}
