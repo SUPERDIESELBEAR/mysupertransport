@@ -5102,7 +5102,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       </div></div>}
 
       {/* Dispatch Status History */}
-      {(status.fully_onboarded || dispatchHistory.length > 0 || currentDispatchStatus) && (() => {
+      {(status.fully_onboarded || dispatchHistory.length > 0 || currentDispatchStatus) && (<div style={isQuickView ? { order: 11 } : undefined}>{(() => {
         const filteredHistory = historyFilter === 'all'
           ? dispatchHistory
           : dispatchHistory.filter(e => e.dispatch_status === historyFilter);
