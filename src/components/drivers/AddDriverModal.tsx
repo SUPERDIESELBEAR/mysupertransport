@@ -269,7 +269,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
           {/* Start Date (Anniversary) */}
           <div className="space-y-1.5">
             <Label htmlFor="add-start-date">Start Date (Anniversary)</Label>
-            <Input id="add-start-date" type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} />
+            <DateInput value={form.start_date} onChange={v => set('start_date', v)} className="h-10" />
           </div>
 
           <hr className="border-border" />
