@@ -227,6 +227,95 @@ function QPassportUploader({
   );
 }
 
+// ── Stage 2 Doc Uploader sub-component (multi-file) ─────────────────────────
+function Stage2DocUploader({
+  operatorId,
+  docType,
+  label,
+  existingFiles,
+  onFilesAdded,
+}: {
+  operatorId: string;
+  docType: string;
+  label: string;
+  existingFiles: { id: string; file_name: string | null; file_url: string | null; uploaded_at: string }[];
+  onFilesAdded: (newFiles: { id: string; file_name: string | null; file_url: string | null; uploaded_at: string }[]) => void;
+}) {
+  const { toast } = useToast();
+  const [uploading, setUploading] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleFiles = async (fileList: FileList) => {
+    const files = Array.from(fileList);
+    if (files.length === 0) return;
+    for (const file of files) {
+      const lower = file.name.toLowerCase();
+      const valid = lower.endsWith('.pdf') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.heic');
+      if (!valid) {
+        toast({ title: 'Invalid file type', description: `"${file.name}" — only PDF, JPG, PNG, or HEIC allowed.`, variant: 'destructive' });
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast({ title: 'File too large', description: `"${file.name}" exceeds 10 MB.`, variant: 'destructive' });
+        return;
+      }
+    }
+    setUploading(true);
+    const added: { id: string; file_name: string | null; file_url: string | null; uploaded_at: string }[] = [];
+    try {
+      for (const file of files) {
+        const ext = file.name.split('.').pop();
+        const path = `${operatorId}/${docType}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
+        const { error: upErr } = await supabase.storage.from('operator-documents').upload(path, file, { upsert: false });
+        if (upErr) throw upErr;
+        const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+        const fileUrl = sd?.signedUrl ?? '';
+        const { data: row, error: insErr } = await supabase.from('operator_documents').insert({
+          operator_id: operatorId,
+          document_type: docType as any,
+          file_name: file.name,
+          file_url: fileUrl,
+        }).select('id, file_name, file_url, uploaded_at').single();
+        if (insErr) throw insErr;
+        if (row) added.push(row as any);
+      }
+      onFilesAdded(added);
+      toast({ title: `${files.length} ${files.length === 1 ? 'file' : 'files'} uploaded`, description: `${label} document${files.length > 1 ? 's' : ''} saved.` });
+    } catch (err: unknown) {
+      const msg = err instanceof Error
+        ? err.message
+        : typeof err === 'object' && err !== null && 'message' in err
+          ? String((err as Record<string, unknown>).message)
+          : 'Unknown error';
+      toast({ title: 'Upload failed', description: msg, variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="mt-1">
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png,.heic"
+        multiple
+        className="hidden"
+        onChange={e => { if (e.target.files) handleFiles(e.target.files); e.target.value = ''; }}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded px-2 py-1 bg-background hover:bg-muted/50 transition-colors disabled:opacity-50"
+      >
+        {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+        <span>{uploading ? 'Uploading…' : existingFiles.length > 0 ? 'Upload more pages' : 'Upload document'}</span>
+      </button>
+    </div>
+  );
+}
+
 export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator, onUnsavedChangesChange, onOpenAppReview, expiryOverride, scrollToInspectionBinder, scrollToStageKey }: OperatorDetailPanelProps) {
   const { toast } = useToast();
   const { session } = useAuth();
