@@ -2113,22 +2113,34 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         };
 
         const handleContactSave = async () => {
-          if (!applicationData?.id) return;
           setContactSaving(true);
           try {
-            const { error } = await supabase
-              .from('applications')
-              .update({
-                phone: contactDraft.phone || null,
-                email: contactDraft.email,
-                address_street: contactDraft.address_street || null,
-                address_city: contactDraft.address_city || null,
-                address_state: contactDraft.address_state || null,
-                address_zip: contactDraft.address_zip || null,
-                dob: contactDraft.dob || null,
-              })
-              .eq('id', applicationData.id);
-            if (error) throw error;
+            if (applicationData?.id) {
+              // Has a real application row — update applications table
+              const { error } = await supabase
+                .from('applications')
+                .update({
+                  phone: contactDraft.phone || null,
+                  email: contactDraft.email,
+                  address_street: contactDraft.address_street || null,
+                  address_city: contactDraft.address_city || null,
+                  address_state: contactDraft.address_state || null,
+                  address_zip: contactDraft.address_zip || null,
+                  dob: contactDraft.dob || null,
+                })
+                .eq('id', applicationData.id);
+              if (error) throw error;
+            } else if (operatorUserId) {
+              // No application — save phone & state to profiles table
+              const { error } = await supabase
+                .from('profiles')
+                .update({
+                  phone: contactDraft.phone || null,
+                  home_state: contactDraft.address_state || null,
+                })
+                .eq('user_id', operatorUserId);
+              if (error) throw error;
+            }
             // Save go_live_date to onboarding_status if changed
             if (operatorId && contactDraft.go_live_date !== (status.go_live_date ?? null)) {
               await supabase
