@@ -938,7 +938,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       // Fetch profile separately to avoid FK hint issues
       const { data: profile } = await supabase
         .from('profiles')
-        .select('first_name, last_name')
+        .select('first_name, last_name, phone, home_state')
         .eq('user_id', (op as any).user_id)
         .maybeSingle();
 
