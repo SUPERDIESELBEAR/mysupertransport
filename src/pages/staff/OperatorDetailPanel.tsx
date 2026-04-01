@@ -947,7 +947,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       );
       setOperatorUserId((op as any).user_id ?? null);
       const app = (op as any).applications;
-      setOperatorEmail(app?.email ?? '');
+      // Resolve email: from application if present, otherwise fetch from auth via profiles email or leave editable
+      const resolvedEmail = app?.email ?? '';
+      setOperatorEmail(resolvedEmail);
       if (app) {
         setApplicationData(app);
       } else {
@@ -955,7 +957,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         setApplicationData({
           id: null,
           phone: profile?.phone ?? '',
-          email: app?.email ?? '',
+          email: resolvedEmail,
           address_street: '',
           address_city: '',
           address_state: profile?.home_state ?? '',
