@@ -731,15 +731,7 @@ export default function StaffPortal() {
               onOpenOperator={handleOpenOperator}
               onOpenOperatorWithFocus={async (operatorId, focusField) => {
                 handleOpenOperator(operatorId);
-                const { data: op } = await supabase
-                  .from('operators')
-                  .select('application_id, applications(*)')
-                  .eq('id', operatorId)
-                  .single();
-                if (op?.applications) {
-                  setReviewApp(op.applications as FullApplication);
-                  setReviewFocusField(focusField);
-                }
+                await resolveAndOpenAppReview(operatorId, focusField);
               }}
             />
           </div>
