@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { DateInput } from '@/components/ui/date-input';
 
 export type MoPlate = {
   id: string;
@@ -111,11 +112,10 @@ export default function MoPlateFormModal({ open, onClose, onSaved, plate }: Prop
           </div>
           <div>
             <Label>Registration Expiration Date</Label>
-            <Input
-              type="date"
-              className="mt-1"
+            <DateInput
               value={form.expires_at}
-              onChange={e => setForm(f => ({ ...f, expires_at: e.target.value }))}
+              onChange={v => setForm(f => ({ ...f, expires_at: v }))}
+              className="mt-1"
             />
             <p className="text-[11px] text-muted-foreground mt-1">Used to surface upcoming renewal reminders.</p>
           </div>

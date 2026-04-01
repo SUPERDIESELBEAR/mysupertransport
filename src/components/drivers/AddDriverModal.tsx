@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Loader2, Truck } from 'lucide-react';
 import DemoLockIcon from '@/components/DemoLockIcon';
+import { DateInput } from '@/components/ui/date-input';
 
 const US_STATES = [
   'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA',
@@ -268,7 +269,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
           {/* Start Date (Anniversary) */}
           <div className="space-y-1.5">
             <Label htmlFor="add-start-date">Start Date (Anniversary)</Label>
-            <Input id="add-start-date" type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} />
+            <DateInput value={form.start_date} onChange={v => set('start_date', v)} className="h-10" />
           </div>
 
           <hr className="border-border" />
@@ -297,11 +298,11 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="add-cdl-exp">CDL Expiration</Label>
-              <Input id="add-cdl-exp" type="date" value={form.cdl_expiration} onChange={e => set('cdl_expiration', e.target.value)} />
+              <DateInput value={form.cdl_expiration} onChange={v => set('cdl_expiration', v)} className="h-10" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="add-med-exp">Med Cert Expiration</Label>
-              <Input id="add-med-exp" type="date" value={form.medical_cert_expiration} onChange={e => set('medical_cert_expiration', e.target.value)} />
+              <DateInput value={form.medical_cert_expiration} onChange={v => set('medical_cert_expiration', v)} className="h-10" />
             </div>
           </div>
 

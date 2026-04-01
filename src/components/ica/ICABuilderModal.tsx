@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X, ChevronRight, ChevronLeft, Save, Send, FileText, Pen, Clock } from 'lucide-react';
+import { DateInput } from '@/components/ui/date-input';
 import DemoLockIcon from '@/components/DemoLockIcon';
 import SignatureCanvas from 'react-signature-canvas';
 import ICADocumentView from './ICADocumentView';
@@ -82,7 +83,11 @@ function FormField({ label, value, onChange, placeholder, type = 'text', span }:
   return (
     <div className={`space-y-1.5 ${span === 2 ? 'col-span-2' : ''}`}>
       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</Label>
-      <Input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="h-9 text-sm" />
+      {type === 'date' ? (
+        <DateInput value={value} onChange={onChange} className="h-9 text-sm" />
+      ) : (
+        <Input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="h-9 text-sm" />
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { ApplicationFormData, US_STATES } from './types';
 import { FormField, AppInput, AppSelect, RadioGroup } from './FormField';
+import { DateInput } from '@/components/ui/date-input';
 
 interface Props {
   data: ApplicationFormData;
@@ -36,11 +37,11 @@ export default function Step1Personal({ data, onChange, errors }: Props) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="Date of Birth" required error={errors.dob}>
-          <AppInput
-            type="date"
+         <DateInput
             value={data.dob}
-            onChange={e => onChange('dob', e.target.value)}
+            onChange={v => onChange('dob', v)}
             error={!!errors.dob}
+            variant="app"
           />
         </FormField>
         <FormField label="Cell Phone Number" required error={errors.phone}>

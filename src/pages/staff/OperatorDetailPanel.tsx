@@ -27,6 +27,7 @@ import TruckPhotoGridModal from '@/components/staff/TruckPhotoGridModal';
 import { formatDistanceToNow, format, differenceInDays, parseISO, startOfDay } from 'date-fns';
 import TruckInfoCard, { TruckInfo, TruckInfoCardEditPayload, TruckFieldsEditPayload } from '@/components/operator/TruckInfoCard';
 import { US_STATES } from '@/components/application/types';
+import { DateInput } from '@/components/ui/date-input';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -2321,19 +2322,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Birthday</Label>
-                  <Input
-                    type="date"
+                  <DateInput
                     value={contactDraft.dob ?? ''}
-                    onChange={e => setContactDraft(prev => ({ ...prev, dob: e.target.value || null }))}
+                    onChange={v => setContactDraft(prev => ({ ...prev, dob: v || null }))}
                     className="h-8 text-sm"
                   />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Start Date (Anniversary)</Label>
-                  <Input
-                    type="date"
+                  <DateInput
                     value={contactDraft.go_live_date ?? ''}
-                    onChange={e => setContactDraft(prev => ({ ...prev, go_live_date: e.target.value || null }))}
+                    onChange={v => setContactDraft(prev => ({ ...prev, go_live_date: v || null }))}
                     className="h-8 text-sm"
                   />
                 </div>
@@ -4449,7 +4448,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       )}
                       <div className="space-y-1.5">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Expected Approval Date</Label>
-                        <Input type="date" value={status.mo_expected_approval_date ?? ''} onChange={e => updateStatus('mo_expected_approval_date', e.target.value || null)} className="h-9 text-sm" />
+                        <DateInput value={status.mo_expected_approval_date ?? ''} onChange={v => updateStatus('mo_expected_approval_date', v || null)} className="h-9 text-sm" />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">MO Registration Received</Label>
@@ -5047,10 +5046,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Confirmation</p>
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Added to Insurance Date</Label>
-                      <Input
-                        type="date"
+                      <DateInput
                         value={status.insurance_added_date ?? ''}
-                        onChange={e => { updateStatus('insurance_added_date', e.target.value || null); if (e.target.value) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage6'); return next; }); } }}
+                        onChange={v => { updateStatus('insurance_added_date', v || null); if (v) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage6'); return next; }); } }}
                         className="h-9 text-sm"
                       />
                     </div>

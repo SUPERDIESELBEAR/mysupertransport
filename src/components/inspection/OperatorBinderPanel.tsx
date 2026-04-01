@@ -13,6 +13,7 @@ import {
   Upload, Trash2, Calendar, Loader2, FileText, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, FolderOpen, Plus,
 } from 'lucide-react';
+import { DateInput } from '@/components/ui/date-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -246,7 +247,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
               <div className="mt-2 flex items-center gap-2">
                 {expiryEditing === doc?.id ? (
                   <>
-                    <Input type="date" value={expiryValue} onChange={e => setExpiryValue(e.target.value)} className="h-7 text-xs w-36" />
+                    <DateInput value={expiryValue} onChange={v => setExpiryValue(v)} className="h-7 text-xs w-44" />
                     <Button size="sm" className="h-7 text-xs" onClick={() => saveExpiry(doc!.id)}>Save</Button>
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setExpiryEditing(null)}>Cancel</Button>
                   </>
