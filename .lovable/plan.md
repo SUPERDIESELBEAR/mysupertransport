@@ -1,29 +1,37 @@
 
 
-## Show Phone and State for All Applicants in Pipeline
+## Show Contact Info for All Operators (Including Non-Applicants)
 
 ### Problem
-The Pipeline Dashboard pulls **phone** and **home_state** exclusively from the `profiles` table. Operators who entered through the application form (Dominic Elek, Ronald Lockett, Davien Johnson) have their phone and state stored in the `applications` table (`phone`, `address_state`), but those values were never copied to `profiles`. Gene Allen and Marcus Mueller likely had their profiles populated manually or via the Add Driver flow.
+The Contact Info card in the Operator Detail Panel only renders when `applicationData` is truthy (line 2078). This data comes from joining the `applications` table via `operators.application_id`. Marcus Mueller was added through the "Add Driver" flow, not through the application form, so he has no linked application record. This means `applicationData` is `null` and the entire Contact Info section is hidden.
 
-### Fix
-In `src/pages/staff/PipelineDashboard.tsx`, when building each operator row, fall back to the `applications` data when `profiles.phone` or `profiles.home_state` is empty.
+### Solution
+Fall back to `profiles` data when no application record exists, so Contact Info always appears.
 
-### Changes
+### Changes — `src/pages/staff/OperatorDetailPanel.tsx`
 
-**`src/pages/staff/PipelineDashboard.tsx`**
+1. **In `fetchOperatorDetail`** (~line 939): the profile query already fetches `first_name, last_name`. Expand it to also fetch `phone` and `home_state`.
 
-1. The query already joins `applications` (used for email). Extract `phone` and `address_state` from the application record as well.
-2. In the row-building logic (~line 1108-1109), change to:
-   - `phone: profile.phone || appPhone || null`
-   - `home_state: profile.home_state || appState || null`
+2. **After setting `applicationData`** (~line 951): if `applicationData` is null, synthesize a minimal contact object from profile data + the operator's auth email so the Contact Info card still renders:
+   ```ts
+   if (!app) {
+     setApplicationData({
+       id: null,  // signals "no real application row"
+       phone: profile?.phone ?? '',
+       email: /* fetched from auth or profile */,
+       address_state: profile?.home_state ?? '',
+       // other address fields empty
+     });
+   }
+   ```
 
-   Where `appPhone` and `appState` are pulled from the joined `applications` record alongside the existing `appEmail`.
+3. **In `handleContactSave`** (~line 2101): when `applicationData.id` is null, save edits to the `profiles` table instead of `applications`. Update `profiles.phone` and `profiles.home_state` for the operator's `user_id`.
 
-This is a two-line logic change — no DB migration needed, no new queries. The `applications` data is already fetched.
+4. **No guard change needed at line 2078** — the synthesized object makes `applicationData` truthy, so the card renders automatically.
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/PipelineDashboard.tsx` | Fall back to `applications.phone` and `applications.address_state` when profile values are empty |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Expand profile fetch; synthesize contact data from profile when no application exists; save contact edits to profiles table for non-applicant operators |
 
