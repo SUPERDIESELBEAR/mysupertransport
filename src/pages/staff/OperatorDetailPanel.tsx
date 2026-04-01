@@ -3633,7 +3633,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         );
       })()}</div>}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 24 } : undefined}><div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Stage 1 — Background */}
         {(() => {
           const s1Complete = status.mvr_ch_approval === 'approved' && status.pe_screening_result === 'clear';
