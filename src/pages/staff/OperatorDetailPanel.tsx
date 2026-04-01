@@ -1129,7 +1129,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     if (statusId) {
       // fully_onboarded is a DB-generated column (insurance_added_date IS NOT NULL) — never write it
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id: _id, fully_onboarded: _fo, ...updateData } = status as any;
+      const { id: _id, fully_onboarded: _fo, operator_id: _oid, updated_at: _ua, updated_by: _ub, ...updateData } = status as any;
       const { error: stErr } = await supabase
         .from('onboarding_status')
         .update(updateData)
