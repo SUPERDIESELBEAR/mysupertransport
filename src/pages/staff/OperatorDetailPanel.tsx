@@ -1752,7 +1752,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-4xl w-full">
+    <div className="flex flex-col gap-6 animate-fade-in max-w-4xl w-full">
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
