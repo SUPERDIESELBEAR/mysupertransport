@@ -1,46 +1,30 @@
 
 
-## Fix "Update" Link on Missing Compliance Dates Ribbon
+## Fix "Resend Invite" Failure for Non-Applicant Operators
 
 ### Problem
-When clicking "Update" on the yellow compliance ribbon for operators without an application record (e.g., Marcus Mueller added via Add Driver), nothing happens. The `onOpenAppReview` handler in `StaffPortal.tsx` queries `operators.applications`, finds `null`, and silently returns without opening anything.
+The edge function logs show: `Resend invite error: User with this email not found`. The `resend-invite` function looks up the application email (`marcsmueller@gmail.com`) and passes it to `generateLink({ type: 'recovery' })`. But Marcus's auth account was created with a different email (via "Add Driver"), so the auth system can't find a user with that email.
 
 ### Root Cause
-The handler at line ~548 in `StaffPortal.tsx`:
-```ts
-onOpenAppReview={async (focusField) => {
-  const { data: op } = await supabase
-    .from('operators')
-    .select('application_id, applications(*)')
-    .eq('id', selectedOperatorId)
-    .single();
-  if (op?.applications) {        // ← null for non-applicant operators
-    setReviewApp(op.applications);
-    setReviewFocusField(focusField);
-  }
-  // else: nothing happens — no feedback, no fallback
-}}
-```
+Marcus was added via "Add Driver" with one email. Later, a synthesized `applications` record was created through the contact-info save, which may have stored a different email. The `resend-invite` function blindly uses the application email for auth operations.
 
 ### Solution
-When no application record exists, **create one on the fly** (same pattern used for contact-info save), then open the `ApplicationReviewDrawer` with the new record so the user can enter the CDL/Med Cert expiration dates.
+In `supabase/functions/resend-invite/index.ts`, when the application has a `user_id`, resolve the auth user's actual email via `supabaseAdmin.auth.admin.getUserById(app.user_id)` and use **that** email for `generateLink` instead of the application email. This ensures the recovery link targets the correct auth account.
 
-### Changes — `src/pages/staff/StaffPortal.tsx`
+### Changes
 
-In the `onOpenAppReview` callback (~line 548, and the duplicate at ~line 700):
+**`supabase/functions/resend-invite/index.ts`** (~line 109-120):
 
-1. After the query, if `op?.applications` is `null`:
-   - Fetch the operator's profile (`first_name`, `last_name`, `phone`, `home_state`) and email from `profiles`
-   - Insert a new `applications` row with `user_id`, `first_name`, `last_name`, `review_status: 'approved'`, `is_draft: false`, and empty compliance fields
-   - Update `operators.application_id` to link the new record
-   - Set `reviewApp` to the newly created application so the drawer opens
-2. If the insert fails, show a toast with the error
+After finding the application (line 70-75), if `app.user_id` exists:
+1. Call `supabaseAdmin.auth.admin.getUserById(app.user_id)` to get the auth user
+2. Use the auth user's email for `generateLink` instead of `normalizedEmail`
+3. Also use the auth email for the Resend email `to` field
 
-This reuses the same "create application for non-applicant" pattern already established in the contact-info save logic.
+This is a ~5-line addition before the existing `generateLink` call. No other files need changes.
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/StaffPortal.tsx` | In all `onOpenAppReview` callbacks, create an application record when none exists, then open the review drawer |
+| `supabase/functions/resend-invite/index.ts` | Resolve auth email from `user_id` before calling `generateLink` |
 
