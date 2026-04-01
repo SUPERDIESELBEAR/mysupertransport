@@ -5437,7 +5437,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       )}
 
       {/* Internal Notes */}
-      <div className="bg-white border border-border rounded-xl p-5 shadow-sm">
+      <div className="bg-white border border-border rounded-xl p-5 shadow-sm" style={isQuickView ? { order: 12 } : undefined}>
         <Label className="text-sm font-semibold text-foreground mb-2 block">Internal Notes</Label>
         <p className="text-xs text-muted-foreground mb-3">These notes are visible to staff only and will not be shown to the operator.</p>
         <Textarea
