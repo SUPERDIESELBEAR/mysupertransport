@@ -2329,10 +2329,9 @@ import { DateInput } from '@/components/ui/date-input';
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Start Date (Anniversary)</Label>
-                  <Input
-                    type="date"
+                  <DateInput
                     value={contactDraft.go_live_date ?? ''}
-                    onChange={e => setContactDraft(prev => ({ ...prev, go_live_date: e.target.value || null }))}
+                    onChange={v => setContactDraft(prev => ({ ...prev, go_live_date: v || null }))}
                     className="h-8 text-sm"
                   />
                 </div>
