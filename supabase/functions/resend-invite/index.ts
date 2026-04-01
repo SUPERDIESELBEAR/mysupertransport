@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { buildEmail } from '../_shared/email-layout.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -170,17 +171,15 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from: 'SUPERTRANSPORT <onboarding@mysupertransport.com>',
         to: normalizedEmail || targetEmail,
-        subject: 'Your invitation to SuperTransport — Action Required',
-        html: `
-          <p>Hi ${firstName},</p>
-          <p>You've been invited to join the SuperTransport operator portal. Click the button below to set your password and get started:</p>
-          <p style="margin:24px 0;">
-            <a href="${inviteLink}" style="background:#1d4ed8;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;">
-              Accept Invitation
-            </a>
-          </p>
-          <p style="color:#6b7280;font-size:13px;">This link expires in 24 hours. If you did not expect this email, you can safely ignore it.</p>
-        `,
+        subject: 'Your Invitation to SUPERTRANSPORT — Action Required',
+        html: buildEmail(
+          'Your Invitation to SUPERTRANSPORT — Action Required',
+          `Welcome aboard, ${firstName}!`,
+          `<p>You've been invited to join the <strong>SUPERTRANSPORT</strong> operator portal.</p>
+           <p>Click the button below to set your password and get started:</p>`,
+          { label: 'Accept Invitation', url: inviteLink },
+          'onboarding@mysupertransport.com'
+        ) + '',
       }),
     });
 
