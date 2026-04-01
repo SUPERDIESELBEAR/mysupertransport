@@ -346,6 +346,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [docFiles, setDocFiles] = useState<Record<string, DocFileRow[]>>({});
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set());
   const [showStickyBar, setShowStickyBar] = useState(false);
+  const [onboardingHistoryExpanded, setOnboardingHistoryExpanded] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [truckPhotoGridOpen, setTruckPhotoGridOpen] = useState(false);
   const [stage2Preview, setStage2Preview] = useState<{ url: string; name: string } | null>(null);
