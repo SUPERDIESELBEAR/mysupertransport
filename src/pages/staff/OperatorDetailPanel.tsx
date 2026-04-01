@@ -2358,33 +2358,77 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </div>
 
                 {/* Birthday & Anniversary row */}
-                <div className="flex flex-wrap items-center gap-3 pt-1.5 border-t border-border/50 mt-2">
-                  {dobStr && (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Cake className={`h-3.5 w-3.5 ${isBirthdayToday ? 'text-pink-500' : 'text-muted-foreground'}`} />
-                      <span>{format(new Date(dobStr + 'T12:00:00'), 'MMM d, yyyy')}</span>
-                      {isBirthdayToday && (
-                        <Badge className="bg-pink-100 text-pink-700 border-pink-200 text-[10px] px-1.5 py-0 h-4">
-                          🎂 Birthday today!
-                        </Badge>
-                      )}
-                    </span>
-                  )}
-                  {goLiveStr && (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <PartyPopper className={`h-3.5 w-3.5 ${isAnniversaryToday ? 'text-gold' : 'text-muted-foreground'}`} />
-                      <span>Active since {format(new Date(goLiveStr + 'T12:00:00'), 'MMM d, yyyy')}</span>
-                      {yearsOfService !== null && yearsOfService > 0 && (
-                        <span className="text-foreground font-medium">({yearsOfService} yr{yearsOfService !== 1 ? 's' : ''})</span>
-                      )}
-                      {isAnniversaryToday && (
-                        <Badge className="bg-gold/10 text-gold border-gold/30 text-[10px] px-1.5 py-0 h-4">
-                          🎉 Anniversary!
-                        </Badge>
-                      )}
-                    </span>
-                  )}
-                </div>
+                {isQuickView ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-border/50 mt-2">
+                    <div className={`flex items-center gap-2.5 rounded-lg px-3 py-2 ${isBirthdayToday ? 'bg-pink-50 border border-pink-200' : 'bg-muted/40 border border-border/50'}`}>
+                      <Cake className={`h-4 w-4 shrink-0 ${isBirthdayToday ? 'text-pink-500' : 'text-muted-foreground'}`} />
+                      <div className="min-w-0">
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Birthday</p>
+                        {dobStr ? (
+                          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                            {format(new Date(dobStr + 'T12:00:00'), 'MMMM d, yyyy')}
+                            {isBirthdayToday && (
+                              <Badge className="bg-pink-100 text-pink-700 border-pink-200 text-[10px] px-1.5 py-0 h-4">
+                                🎂 Today!
+                              </Badge>
+                            )}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">Not set</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className={`flex items-center gap-2.5 rounded-lg px-3 py-2 ${isAnniversaryToday ? 'bg-gold/5 border border-gold/30' : 'bg-muted/40 border border-border/50'}`}>
+                      <PartyPopper className={`h-4 w-4 shrink-0 ${isAnniversaryToday ? 'text-gold' : 'text-muted-foreground'}`} />
+                      <div className="min-w-0">
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Anniversary</p>
+                        {goLiveStr ? (
+                          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                            {format(new Date(goLiveStr + 'T12:00:00'), 'MMMM d, yyyy')}
+                            {yearsOfService !== null && yearsOfService > 0 && (
+                              <span className="text-muted-foreground font-normal">({yearsOfService} yr{yearsOfService !== 1 ? 's' : ''})</span>
+                            )}
+                            {isAnniversaryToday && (
+                              <Badge className="bg-gold/10 text-gold border-gold/30 text-[10px] px-1.5 py-0 h-4">
+                                🎉 Today!
+                              </Badge>
+                            )}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">Not set</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-3 pt-1.5 border-t border-border/50 mt-2">
+                    {dobStr && (
+                      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Cake className={`h-3.5 w-3.5 ${isBirthdayToday ? 'text-pink-500' : 'text-muted-foreground'}`} />
+                        <span>{format(new Date(dobStr + 'T12:00:00'), 'MMM d, yyyy')}</span>
+                        {isBirthdayToday && (
+                          <Badge className="bg-pink-100 text-pink-700 border-pink-200 text-[10px] px-1.5 py-0 h-4">
+                            🎂 Birthday today!
+                          </Badge>
+                        )}
+                      </span>
+                    )}
+                    {goLiveStr && (
+                      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <PartyPopper className={`h-3.5 w-3.5 ${isAnniversaryToday ? 'text-gold' : 'text-muted-foreground'}`} />
+                        <span>Active since {format(new Date(goLiveStr + 'T12:00:00'), 'MMM d, yyyy')}</span>
+                        {yearsOfService !== null && yearsOfService > 0 && (
+                          <span className="text-foreground font-medium">({yearsOfService} yr{yearsOfService !== 1 ? 's' : ''})</span>
+                        )}
+                        {isAnniversaryToday && (
+                          <Badge className="bg-gold/10 text-gold border-gold/30 text-[10px] px-1.5 py-0 h-4">
+                            🎉 Anniversary!
+                          </Badge>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
