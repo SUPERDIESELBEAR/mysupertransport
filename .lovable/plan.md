@@ -1,30 +1,30 @@
 
 
-## Fix Stage 1 Save Error — Strip Non-Editable Fields from Update Payload
+## Add Delete + In-App Viewer to Stage 2 Document Popover
 
 ### Problem
-The save handler at line 1132 spreads the entire `status` state (loaded via `SELECT *` from `onboarding_status`) into the update payload, only stripping `id` and `fully_onboarded`. This sends DB-managed fields like `operator_id`, `updated_at`, and `updated_by` in the update, which can cause constraint or trigger errors.
+1. Uploaded files in the Stage 2 doc popover (Form 2290, Truck Title, Truck Inspection) cannot be deleted if the wrong document was uploaded.
+2. The "View" link opens documents in a new browser tab instead of using the in-app `FilePreviewModal` used everywhere else.
 
-### Root Cause
-Line 1132:
-```ts
-const { id: _id, fully_onboarded: _fo, ...updateData } = status as any;
-```
-This passes `operator_id` (which has a UNIQUE constraint and FK), `updated_at` (managed by trigger), and `updated_by` (FK to `auth.users`) in the update payload. Depending on DB state, this can cause silent failures or explicit errors.
+### Changes
 
-### Fix
+**`src/pages/staff/OperatorDetailPanel.tsx`**
 
-**`src/pages/staff/OperatorDetailPanel.tsx`** — Update the destructuring at line 1132 to also strip `operator_id`, `updated_at`, and `updated_by`:
+1. **Add preview state** — new `useState` for `stage2Preview: { url: string; name: string } | null` near other state declarations.
 
-```ts
-const { id: _id, fully_onboarded: _fo, operator_id: _oid, updated_at: _ua, updated_by: _ub, ...updateData } = status as any;
-```
+2. **Update the popover file list** (lines 3911-3933) for each file row:
+   - Replace the `<a href target="_blank">View</a>` link with a button that sets `stage2Preview` to open `FilePreviewModal` in-app.
+   - Add a delete button (Trash icon) that:
+     - Deletes the row from `operator_documents` table
+     - Removes the file from `operator-documents` storage bucket
+     - Updates local `docFiles` state to remove the deleted entry
+     - Shows a toast confirmation
 
-This ensures only user-editable fields are sent in the update, preventing constraint violations from DB-managed columns.
+3. **Render `FilePreviewModal`** — add one instance at the bottom of the Stage 2 section, controlled by `stage2Preview` state. Import `FilePreviewModal` from `@/components/inspection/DocRow` (already used elsewhere in the codebase).
 
-### Files Changed
+### File Changed
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/OperatorDetailPanel.tsx` | Strip `operator_id`, `updated_at`, `updated_by` from the update payload alongside `id` and `fully_onboarded` |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Add delete button + in-app FilePreviewModal to Stage 2 doc popover rows |
 
