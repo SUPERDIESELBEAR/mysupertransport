@@ -1300,7 +1300,22 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       }
     }
 
-    savedSnapshot.current = { status, notes };
+    // Re-read the saved row so the snapshot matches DB-managed fields (updated_at, fully_onboarded, etc.)
+    if (statusId) {
+      const { data: freshRow } = await supabase
+        .from('onboarding_status')
+        .select('*')
+        .eq('id', statusId)
+        .single();
+      if (freshRow) {
+        setStatus(freshRow as any);
+        savedSnapshot.current = { status: freshRow as any, notes };
+      } else {
+        savedSnapshot.current = { status, notes };
+      }
+    } else {
+      savedSnapshot.current = { status, notes };
+    }
     setSaving(false);
   };
 
