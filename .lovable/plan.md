@@ -1,30 +1,26 @@
 
 
-## Fix "Resend Invite" Failure for Non-Applicant Operators
+## Send Invite to Contact Email, Not Auth Email
 
 ### Problem
-The edge function logs show: `Resend invite error: User with this email not found`. The `resend-invite` function looks up the application email (`marcsmueller@gmail.com`) and passes it to `generateLink({ type: 'recovery' })`. But Marcus's auth account was created with a different email (via "Add Driver"), so the auth system can't find a user with that email.
-
-### Root Cause
-Marcus was added via "Add Driver" with one email. Later, a synthesized `applications` record was created through the contact-info save, which may have stored a different email. The `resend-invite` function blindly uses the application email for auth operations.
+The `resend-invite` function now correctly uses the auth email (`marc@mysupertransport.com`) for `generateLink` — that's required because Supabase must match the auth account. But it also **delivers** the email to that same auth address. The user expects the invite to arrive at the contact email stored in the application (`marcsmueller@gmail.com`).
 
 ### Solution
-In `supabase/functions/resend-invite/index.ts`, when the application has a `user_id`, resolve the auth user's actual email via `supabaseAdmin.auth.admin.getUserById(app.user_id)` and use **that** email for `generateLink` instead of the application email. This ensures the recovery link targets the correct auth account.
+Decouple the two emails in `supabase/functions/resend-invite/index.ts`:
 
-### Changes
+1. **Keep `targetEmail`** (resolved from auth) for `generateLink` — this must match the auth account
+2. **Use `normalizedEmail`** (from the application record) for the Resend `to:` field — this is where the operator actually checks email
+3. Only fall back to `targetEmail` for delivery if the application email is empty
 
-**`supabase/functions/resend-invite/index.ts`** (~line 109-120):
+### Change
 
-After finding the application (line 70-75), if `app.user_id` exists:
-1. Call `supabaseAdmin.auth.admin.getUserById(app.user_id)` to get the auth user
-2. Use the auth user's email for `generateLink` instead of `normalizedEmail`
-3. Also use the auth email for the Resend email `to` field
+**`supabase/functions/resend-invite/index.ts`** — line 172: change `to: targetEmail` → `to: normalizedEmail || targetEmail`
 
-This is a ~5-line addition before the existing `generateLink` call. No other files need changes.
+This is a one-line change. The recovery link inside the email still works regardless of which inbox receives it.
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `supabase/functions/resend-invite/index.ts` | Resolve auth email from `user_id` before calling `generateLink` |
+| `supabase/functions/resend-invite/index.ts` | Send email to application email address, keep auth email for link generation |
 
