@@ -298,7 +298,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="add-cdl-exp">CDL Expiration</Label>
-              <Input id="add-cdl-exp" type="date" value={form.cdl_expiration} onChange={e => set('cdl_expiration', e.target.value)} />
+              <DateInput value={form.cdl_expiration} onChange={v => set('cdl_expiration', v)} className="h-10" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="add-med-exp">Med Cert Expiration</Label>
