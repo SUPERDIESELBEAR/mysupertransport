@@ -27,6 +27,7 @@ import TruckPhotoGridModal from '@/components/staff/TruckPhotoGridModal';
 import { formatDistanceToNow, format, differenceInDays, parseISO, startOfDay } from 'date-fns';
 import TruckInfoCard, { TruckInfo, TruckInfoCardEditPayload, TruckFieldsEditPayload } from '@/components/operator/TruckInfoCard';
 import { US_STATES } from '@/components/application/types';
+import { DateInput } from '@/components/ui/date-input';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
