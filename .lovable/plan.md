@@ -1,26 +1,22 @@
 
 
-## Send Invite to Contact Email, Not Auth Email
+## Fix ICA "owner_name" Column Missing
 
 ### Problem
-The `resend-invite` function now correctly uses the auth email (`marc@mysupertransport.com`) for `generateLink` — that's required because Supabase must match the auth account. But it also **delivers** the email to that same auth address. The user expects the invite to arrive at the contact email stored in the application (`marcsmueller@gmail.com`).
+The ICA Builder saves `owner_name` directly to the `ica_contracts` table, but that column doesn't exist in the database schema. The table only has `owner_business_name` and `owner_ein_ssn`.
 
 ### Solution
-Decouple the two emails in `supabase/functions/resend-invite/index.ts`:
+Add an `owner_name` text column to the `ica_contracts` table via a database migration.
 
-1. **Keep `targetEmail`** (resolved from auth) for `generateLink` — this must match the auth account
-2. **Use `normalizedEmail`** (from the application record) for the Resend `to:` field — this is where the operator actually checks email
-3. Only fall back to `targetEmail` for delivery if the application email is empty
+```sql
+ALTER TABLE public.ica_contracts ADD COLUMN owner_name text;
+```
 
-### Change
-
-**`supabase/functions/resend-invite/index.ts`** — line 172: change `to: targetEmail` → `to: normalizedEmail || targetEmail`
-
-This is a one-line change. The recovery link inside the email still works regardless of which inbox receives it.
+No code changes needed — the front-end already handles `owner_name` correctly; it just needs the column to exist.
 
 ### Files Changed
 
 | File | Change |
 |------|--------|
-| `supabase/functions/resend-invite/index.ts` | Send email to application email address, keep auth email for link generation |
+| Migration | `ALTER TABLE public.ica_contracts ADD COLUMN owner_name text;` |
 
