@@ -3161,7 +3161,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
 
       {/* ── Cert Expiry History Timeline ─────────────────────── */}
-      {(cdlExpiration || medCertExpiration) && (
+      {(cdlExpiration || medCertExpiration) && (<div style={isQuickView ? { order: 10 } : undefined}>
         <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
           {/* Header row: title + filter chips */}
           <button
