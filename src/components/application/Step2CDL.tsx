@@ -57,12 +57,12 @@ export default function Step2CDL({ data, onChange, errors }: Props) {
         />
       </FormField>
 
-      <FormField label="CDL Expiration Date" required error={errors.cdl_expiration}>
-        <AppInput
-          type="date"
+       <FormField label="CDL Expiration Date" required error={errors.cdl_expiration}>
+        <DateInput
           value={data.cdl_expiration}
-          onChange={e => onChange('cdl_expiration', e.target.value)}
+          onChange={v => onChange('cdl_expiration', v)}
           error={!!errors.cdl_expiration}
+          variant="app"
           className="max-w-xs"
         />
       </FormField>
