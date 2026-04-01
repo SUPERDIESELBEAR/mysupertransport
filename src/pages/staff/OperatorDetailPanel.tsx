@@ -348,6 +348,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [showStickyBar, setShowStickyBar] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [truckPhotoGridOpen, setTruckPhotoGridOpen] = useState(false);
+  const [stage2Preview, setStage2Preview] = useState<{ url: string; name: string } | null>(null);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
   // Contact Info editing state
   const [contactEditing, setContactEditing] = useState(false);
