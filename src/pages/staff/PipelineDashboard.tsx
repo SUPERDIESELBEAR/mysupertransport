@@ -434,7 +434,7 @@ function computeStage(os: Record<string, string | boolean | null>): string {
   if (os.insurance_added_date) return 'Stage 6 — Insurance';
   if (os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes') return 'Stage 5 — Equipment';
   if (os.ica_status === 'complete') return 'Stage 4 — MO Registration';
-  if (os.pe_screening_result === 'clear') return 'Stage 3 — ICA';
+  if (os.ica_status === 'in_progress' || os.ica_status === 'sent_for_signature') return 'Stage 3 — ICA';
   if (os.mvr_ch_approval === 'approved') return 'Stage 2 — Documents';
   return 'Stage 1 — Background';
 }
