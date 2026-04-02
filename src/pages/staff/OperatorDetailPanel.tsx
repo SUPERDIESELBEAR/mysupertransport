@@ -30,6 +30,8 @@ import TruckInfoCard, { TruckInfo, TruckInfoCardEditPayload, TruckFieldsEditPayl
 import { US_STATES } from '@/components/application/types';
 import { DateInput } from '@/components/ui/date-input';
 import { Switch } from '@/components/ui/switch';
+import { Suspense } from 'react';
+const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -356,6 +358,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [truckPhotoGridOpen, setTruckPhotoGridOpen] = useState(false);
   const [stage2Preview, setStage2Preview] = useState<{ url: string; name: string } | null>(null);
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
+  const [costPreview, setCostPreview] = useState<{ url: string; name: string; slotKey: string } | null>(null);
+  const [costEditing, setCostEditing] = useState<{ url: string; name: string; bucket: string; path: string; slotKey: string } | null>(null);
 
   // Contact Info editing state
   const [contactEditing, setContactEditing] = useState(false);
@@ -2628,11 +2632,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               <input ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
               {attachUrl ? (
                 <div className="flex items-center gap-2">
-                  <a href={attachUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-blue-600 hover:underline truncate max-w-[160px]">
+                  <button
+                    type="button"
+                    onClick={() => setCostPreview({ url: attachUrl, name: attachName ?? 'View receipt', slotKey })}
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:underline truncate max-w-[160px]"
+                  >
                     <Paperclip className="h-3 w-3 shrink-0" />
                     <span className="truncate">{attachName ?? 'View receipt'}</span>
-                    <ExternalLink className="h-3 w-3 shrink-0" />
-                  </a>
+                    <ZoomIn className="h-3 w-3 shrink-0" />
+                  </button>
                   <button type="button" onClick={() => inputRef.current?.click()} className="text-xs text-gray-500 hover:text-gray-700 underline">Replace</button>
                   <button
                     type="button"
@@ -5575,6 +5583,45 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       {/* Stage 2 Doc Preview Modal */}
       {stage2Preview && (
         <FilePreviewModal url={stage2Preview.url} name={stage2Preview.name} onClose={() => setStage2Preview(null)} />
+      )}
+
+      {/* Cost Attachment Preview Modal */}
+      {costPreview && (
+        <FilePreviewModal
+          url={costPreview.url}
+          name={costPreview.name}
+          onClose={() => setCostPreview(null)}
+          onEdit={() => {
+            // Derive storage path from the URL — we need the path segment after the bucket
+            // Files are stored at: operator-documents/{operatorId}/cost-{slotKey}/{filename}
+            const pathPrefix = `${operatorId}/cost-${costPreview.slotKey}`;
+            setCostEditing({
+              url: costPreview.url,
+              name: costPreview.name,
+              bucket: 'operator-documents',
+              path: pathPrefix,
+              slotKey: costPreview.slotKey,
+            });
+            setCostPreview(null);
+          }}
+        />
+      )}
+
+      {/* Cost Attachment Editor */}
+      {costEditing && (
+        <Suspense fallback={<div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+          <DocumentEditor
+            fileUrl={costEditing.url}
+            fileName={costEditing.name}
+            bucketName={costEditing.bucket}
+            filePath={costEditing.path}
+            onSave={(newUrl) => {
+              setCostEditing(null);
+              toast({ title: 'Receipt updated', description: 'Edited receipt saved.' });
+            }}
+            onClose={() => setCostEditing(null)}
+          />
+        </Suspense>
       )}
 
       {/* ICA Builder Modal */}
