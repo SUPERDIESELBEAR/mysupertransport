@@ -3959,7 +3959,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               { field: 'truck_title', label: 'Truck Title' },
               { field: 'truck_photos', label: 'Truck Photos' },
               { field: 'truck_inspection', label: 'Truck Inspection' },
-            ] as { field: keyof OnboardingStatus; label: string }[]).map(({ field, label }) => {
+            ] as { field: keyof OnboardingStatus; label: string; showOwnerToggle?: boolean }[]).map(({ field, label, showOwnerToggle }) => {
               const current = (status[field] as string) ?? 'not_started';
               const isRequesting = requestingDoc === field;
               const alreadyRequested = current === 'requested';
