@@ -182,6 +182,9 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     <TableCell className="text-xs text-muted-foreground hidden md:table-cell">
                       {[row.truckYear, row.truckMake, row.truckModel].filter(Boolean).join(' ') || '—'}
                     </TableCell>
+                    <TableCell className="text-xs text-muted-foreground hidden lg:table-cell font-mono">
+                      {row.truckVin || '—'}
+                    </TableCell>
                     <TableCell className="text-xs text-right font-mono">
                       {row.totalRepairCost > 0 ? `$${row.totalRepairCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
                     </TableCell>
