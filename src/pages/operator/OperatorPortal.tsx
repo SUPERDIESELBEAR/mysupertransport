@@ -633,6 +633,7 @@ export default function OperatorPortal() {
     { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
     { view: 'inspection-binder' as OperatorView, label: 'Inspection Binder', icon: <Shield className="h-5 w-5" /> },
     { view: 'my-docs' as OperatorView, label: 'My Documents', icon: <FolderOpen className="h-5 w-5" /> },
+    { view: 'my-truck' as OperatorView, label: 'My Truck', icon: <Truck className="h-5 w-5" /> },
     { view: 'resource-center' as OperatorView, label: 'Resource Center', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
     { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete', icaDot: icaActionDot },
