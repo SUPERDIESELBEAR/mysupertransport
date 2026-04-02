@@ -2574,8 +2574,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* ── Upfront Costs Card ── staff-only, always visible ── */}
       {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 21 } : undefined}>{(() => {
+        const ownerProvided2290 = !!status.form_2290_owner_provided;
         const moVal   = status.cost_mo_registration ?? null;
-        const f2290   = status.cost_form_2290 ?? null;
+        const f2290   = ownerProvided2290 ? null : (status.cost_form_2290 ?? null);
         const other   = status.cost_other ?? null;
         const total   = (moVal ?? 0) + (f2290 ?? 0) + (other ?? 0);
         const hasAny  = moVal !== null || f2290 !== null || other !== null;
