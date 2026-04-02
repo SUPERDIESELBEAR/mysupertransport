@@ -4085,7 +4085,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                                     {f.file_url ? (
                                       <button
                                         type="button"
-                                        onClick={() => setStage2Preview({ url: f.file_url!, name: f.file_name ?? 'Document' })}
+                                        onClick={() => setStage2Preview({ url: f.file_url!, name: f.file_name ?? 'Document', docType: field as string })}
                                         className="flex items-center gap-1 text-[11px] text-gold hover:text-gold-light font-medium"
                                       >
                                         View <ZoomIn className="h-3 w-3" />
