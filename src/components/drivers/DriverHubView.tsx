@@ -242,6 +242,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   if (selectedOperatorId) {
     return (
       <OperatorDetailPanel
+        backLabel="Driver Hub"
         operatorId={selectedOperatorId}
         onBack={() => { setSelectedOperatorId(null); setPendingFocusField(null); }}
         onMessageOperator={userId => {
