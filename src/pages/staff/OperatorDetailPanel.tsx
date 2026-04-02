@@ -29,6 +29,7 @@ import { formatDistanceToNow, format, differenceInDays, parseISO, startOfDay } f
 import TruckInfoCard, { TruckInfo, TruckInfoCardEditPayload, TruckFieldsEditPayload } from '@/components/operator/TruckInfoCard';
 import { US_STATES } from '@/components/application/types';
 import { DateInput } from '@/components/ui/date-input';
+import { Switch } from '@/components/ui/switch';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
