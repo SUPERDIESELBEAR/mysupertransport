@@ -162,6 +162,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                   <TableHead className="text-xs font-semibold">Driver</TableHead>
                   <TableHead className="text-xs font-semibold hidden lg:table-cell">Owner</TableHead>
                   <TableHead className="text-xs font-semibold hidden md:table-cell">Vehicle</TableHead>
+                  <TableHead className="text-xs font-semibold hidden lg:table-cell">VIN</TableHead>
                   <TableHead className="text-xs font-semibold text-right">Repair Cost</TableHead>
                   <TableHead className="text-xs font-semibold text-center">DOT Status</TableHead>
                 </TableRow>
