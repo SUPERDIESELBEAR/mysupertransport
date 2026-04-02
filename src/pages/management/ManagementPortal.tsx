@@ -170,7 +170,7 @@ export default function ManagementPortal() {
   useEffect(() => {
     const v = searchParams.get('view') as ManagementView | null;
     const s = searchParams.get('status') as StatusFilter | null;
-    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates','whats-new'].includes(v)) {
+    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub'].includes(v)) {
       setView(v);
     }
     if (s && ['pending','approved','denied','all'].includes(s)) {
