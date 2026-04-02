@@ -128,6 +128,8 @@ type OnboardingStatus = {
   qpassport_url: string | null;
   pe_receipt_url: string | null;
   pe_results_doc_url: string | null;
+  // Form 2290 owner-provided flag
+  form_2290_owner_provided: boolean;
 };
 
 type DispatchHistoryEntry = {
