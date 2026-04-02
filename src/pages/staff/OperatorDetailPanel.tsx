@@ -324,7 +324,7 @@ function Stage2DocUploader({
   );
 }
 
-export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator, onUnsavedChangesChange, onOpenAppReview, expiryOverride, scrollToInspectionBinder, scrollToStageKey }: OperatorDetailPanelProps) {
+export default function OperatorDetailPanel({ operatorId, onBack, onMessageOperator, onUnsavedChangesChange, onOpenAppReview, expiryOverride, scrollToInspectionBinder, scrollToStageKey, backLabel }: OperatorDetailPanelProps) {
   const { toast } = useToast();
   const { session } = useAuth();
   const { guardDemo } = useDemoMode();
