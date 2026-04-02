@@ -2699,22 +2699,28 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <CostAttachment slotKey="registration" label="MO Registration" />
               </div>
               {/* Form 2290 */}
-              <div>
-                <Label className="text-xs text-gray-700 mb-1 block">Form 2290</Label>
-                <div className="flex items-center gap-1">
-                  <span className="text-xs font-semibold text-gray-600">$</span>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={status.cost_form_2290 ?? ''}
-                    onChange={e => setStatus(prev => ({ ...prev, cost_form_2290: e.target.value === '' ? null : parseFloat(e.target.value) }))}
-                    className="h-8 text-sm bg-white border-amber-200 focus:border-amber-400"
-                  />
+              {ownerProvided2290 ? (
+                <div className="flex items-center justify-center">
+                  <p className="text-xs text-muted-foreground italic text-center">Operator provided own IRS 2290 — not a company cost</p>
                 </div>
-                <CostAttachment slotKey="form_2290" label="Form 2290" />
-              </div>
+              ) : (
+                <div>
+                  <Label className="text-xs text-gray-700 mb-1 block">Form 2290</Label>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-semibold text-gray-600">$</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={status.cost_form_2290 ?? ''}
+                      onChange={e => setStatus(prev => ({ ...prev, cost_form_2290: e.target.value === '' ? null : parseFloat(e.target.value) }))}
+                      className="h-8 text-sm bg-white border-amber-200 focus:border-amber-400"
+                    />
+                  </div>
+                  <CostAttachment slotKey="form_2290" label="Form 2290" />
+                </div>
+              )}
               {/* Other */}
               <div>
                 <Label className="text-xs text-gray-700 mb-1 block">Other</Label>
