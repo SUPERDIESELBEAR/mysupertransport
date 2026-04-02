@@ -23,6 +23,7 @@ import { useDemoMode } from '@/hooks/useDemoMode';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
 import ICAViewModal from '@/components/ica/ICAViewModal';
 import OperatorBinderPanel from '@/components/inspection/OperatorBinderPanel';
+import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 import TruckPhotoGridModal from '@/components/staff/TruckPhotoGridModal';
 import { formatDistanceToNow, format, differenceInDays, parseISO, startOfDay } from 'date-fns';
 import TruckInfoCard, { TruckInfo, TruckInfoCardEditPayload, TruckFieldsEditPayload } from '@/components/operator/TruckInfoCard';
@@ -2435,7 +2436,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       })()}
 
       {/* Compliance expiry row */}
-      <div style={isQuickView ? { order: 9 } : undefined}>{(cdlExpiration || medCertExpiration) && (() => {
+      <div style={isQuickView ? { order: 10 } : undefined}>{(cdlExpiration || medCertExpiration) && (() => {
         const buildPill = (label: string, dateStr: string, focusField: 'cdl' | 'medcert') => {
           const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
           const expired  = days < 0;
@@ -3204,7 +3205,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
 
       {/* ── Cert Expiry History Timeline ─────────────────────── */}
-      {(cdlExpiration || medCertExpiration) && (<div style={isQuickView ? { order: 10 } : undefined}>
+      {(cdlExpiration || medCertExpiration) && (<div style={isQuickView ? { order: 11 } : undefined}>
         <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
           {/* Header row: title + filter chips */}
           <button
@@ -5144,7 +5145,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       </div></div>}
 
       {/* Dispatch Status History */}
-      {(status.fully_onboarded || dispatchHistory.length > 0 || currentDispatchStatus) && (<div style={isQuickView ? { order: 11 } : undefined}>{(() => {
+      {(status.fully_onboarded || dispatchHistory.length > 0 || currentDispatchStatus) && (<div style={isQuickView ? { order: 12 } : undefined}>{(() => {
         const filteredHistory = historyFilter === 'all'
           ? dispatchHistory
           : dispatchHistory.filter(e => e.dispatch_status === historyFilter);
@@ -5307,7 +5308,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
 
       {/* Stage 8 — Contractor Pay Setup (read-only, uses component-level state) */}
-      <div style={isQuickView ? { order: 8 } : undefined}>{(() => {
+      <div style={isQuickView ? { order: 9 } : undefined}>{(() => {
         const stageKey = 'stage8';
         const isCollapsed = collapsedStages.has(stageKey);
         const ps = paySetupRecord;
@@ -5478,8 +5479,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </div>
       )}
 
+      {/* Driver Document Vault — personal docs (Form 2290, Truck Photos, etc.) */}
+      {operatorUserId && (
+        <div style={isQuickView ? { order: 8 } : undefined}>
+          <DriverVaultCard operatorId={operatorId} operatorName={operatorName} />
+        </div>
+      )}
+
       {/* Internal Notes */}
-      <div className="bg-white border border-border rounded-xl p-5 shadow-sm" style={isQuickView ? { order: 12 } : undefined}>
+      <div className="bg-white border border-border rounded-xl p-5 shadow-sm" style={isQuickView ? { order: 13 } : undefined}>
         <Label className="text-sm font-semibold text-foreground mb-2 block">Internal Notes</Label>
         <p className="text-xs text-muted-foreground mb-3">These notes are visible to staff only and will not be shown to the operator.</p>
         <Textarea
@@ -5492,7 +5500,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* ── Onboarding History Toggle (Quick View only) ── */}
       {isQuickView && (
-        <div style={{ order: 15 }}>
+        <div style={{ order: 16 }}>
           <button
             onClick={() => setOnboardingHistoryExpanded(prev => !prev)}
             className="w-full flex items-center justify-between px-5 py-4 bg-white border border-border rounded-xl shadow-sm hover:bg-muted/30 transition-colors text-left"
