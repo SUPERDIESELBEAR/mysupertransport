@@ -30,9 +30,10 @@ import OperatorInspectionBinder from '@/components/inspection/OperatorInspection
 import ContractorPaySetup from '@/components/operator/ContractorPaySetup';
 import TruckInfoCard, { TruckInfo } from '@/components/operator/TruckInfoCard';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
+import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'progress' | 'documents' | 'messages' | 'resource-center' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'pay-setup' | 'my-docs';
+type OperatorView = 'progress' | 'documents' | 'messages' | 'resource-center' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'pay-setup' | 'my-docs' | 'my-truck';
 
 interface Stage {
   number: number;
@@ -59,7 +60,7 @@ export default function OperatorPortal() {
   const [view, setView] = useState<OperatorView>(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs'].includes(tab)) return tab;
+    if (tab && ['progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck'].includes(tab)) return tab;
     return 'progress';
   });
   const [paySetupData, setPaySetupData] = useState<{ submitted_at: string | null; terms_accepted: boolean } | null>(null);
@@ -73,7 +74,7 @@ export default function OperatorPortal() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs'].includes(tab)) setView(tab);
+    if (tab && ['progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck'].includes(tab)) setView(tab);
   }, [location.search]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [operatorId, setOperatorId] = useState<string | null>(null);
@@ -632,6 +633,7 @@ export default function OperatorPortal() {
     { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
     { view: 'inspection-binder' as OperatorView, label: 'Inspection Binder', icon: <Shield className="h-5 w-5" /> },
     { view: 'my-docs' as OperatorView, label: 'My Documents', icon: <FolderOpen className="h-5 w-5" /> },
+    { view: 'my-truck' as OperatorView, label: 'My Truck', icon: <Truck className="h-5 w-5" /> },
     { view: 'resource-center' as OperatorView, label: 'Resource Center', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
     { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete', icaDot: icaActionDot },
@@ -1113,6 +1115,11 @@ export default function OperatorPortal() {
             </div>
             <DriverVaultCard operatorId={operatorId} readOnly defaultCollapsed={false} />
           </div>
+        )}
+
+        {/* ── MY TRUCK VIEW (read-only fleet detail) ── */}
+        {view === 'my-truck' && operatorId && (
+          <FleetDetailDrawer operatorId={operatorId} onBack={() => setView('progress')} readOnly />
         )}
 
         {/* ── DOCUMENTS VIEW ── */}

@@ -2208,6 +2208,127 @@ export type Database = {
         }
         Relationships: []
       }
+      truck_dot_inspections: {
+        Row: {
+          certificate_file_name: string | null
+          certificate_file_path: string | null
+          certificate_file_url: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          inspection_date: string
+          inspector_name: string | null
+          location: string | null
+          next_due_date: string | null
+          notes: string | null
+          operator_id: string
+          reminder_interval: number
+          result: string
+        }
+        Insert: {
+          certificate_file_name?: string | null
+          certificate_file_path?: string | null
+          certificate_file_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inspection_date: string
+          inspector_name?: string | null
+          location?: string | null
+          next_due_date?: string | null
+          notes?: string | null
+          operator_id: string
+          reminder_interval?: number
+          result?: string
+        }
+        Update: {
+          certificate_file_name?: string | null
+          certificate_file_path?: string | null
+          certificate_file_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inspection_date?: string
+          inspector_name?: string | null
+          location?: string | null
+          next_due_date?: string | null
+          notes?: string | null
+          operator_id?: string
+          reminder_interval?: number
+          result?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "truck_dot_inspections_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      truck_maintenance_records: {
+        Row: {
+          amount: number | null
+          categories: string[] | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          invoice_file_name: string | null
+          invoice_file_path: string | null
+          invoice_file_url: string | null
+          invoice_number: string | null
+          notes: string | null
+          odometer: number | null
+          operator_id: string
+          service_date: string
+          shop_name: string | null
+        }
+        Insert: {
+          amount?: number | null
+          categories?: string[] | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          invoice_file_name?: string | null
+          invoice_file_path?: string | null
+          invoice_file_url?: string | null
+          invoice_number?: string | null
+          notes?: string | null
+          odometer?: number | null
+          operator_id: string
+          service_date: string
+          shop_name?: string | null
+        }
+        Update: {
+          amount?: number | null
+          categories?: string[] | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          invoice_file_name?: string | null
+          invoice_file_path?: string | null
+          invoice_file_url?: string | null
+          invoice_number?: string | null
+          notes?: string | null
+          odometer?: number | null
+          operator_id?: string
+          service_date?: string
+          shop_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "truck_maintenance_records_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string

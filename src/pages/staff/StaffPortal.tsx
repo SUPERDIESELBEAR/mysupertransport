@@ -15,7 +15,9 @@ import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff, HardDrive, GraduationCap } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff, HardDrive, GraduationCap, CarFront } from 'lucide-react';
+import FleetRoster from '@/components/fleet/FleetRoster';
+import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -31,7 +33,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resource-center' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'compliance' | 'equipment';
+type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resource-center' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'compliance' | 'equipment' | 'vehicle-hub' | 'vehicle-detail';
 
 export default function StaffPortal() {
   const { user } = useAuth();
@@ -115,7 +117,7 @@ export default function StaffPortal() {
     } else if (operatorId) {
       setSelectedOperatorId(operatorId);
       setCurrentView('operator-detail');
-    } else if (view && ['pipeline','messages','faq','resource-center','notifications','docs-hub','inspection-binder','drivers','compliance','equipment'].includes(view)) {
+    } else if (view && ['pipeline','messages','faq','resource-center','notifications','docs-hub','inspection-binder','drivers','compliance','equipment','vehicle-hub'].includes(view)) {
       setCurrentView(view);
     }
   }, [searchParams]);
@@ -195,6 +197,7 @@ export default function StaffPortal() {
   const navItems = [
     { label: 'Applicant Pipeline', icon: <LayoutDashboard className="h-4 w-4" />, path: 'pipeline', dividerBefore: 'Operations' },
     { label: 'Driver Hub', icon: <Users2 className="h-4 w-4" />, path: 'drivers', badge: driverAlertCount || undefined },
+    { label: 'Vehicle Hub', icon: <CarFront className="h-4 w-4" />, path: 'vehicle-hub' },
     { label: 'Compliance', icon: <ShieldCheck className="h-4 w-4" />, path: 'compliance', badge: criticalExpiryCount || undefined },
     { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />, path: 'inspection-binder' },
     { label: 'Document Hub', icon: <Library className="h-4 w-4" />, path: 'docs-hub' },
@@ -757,6 +760,12 @@ export default function StaffPortal() {
       )}
       {currentView === 'equipment' && (
         <EquipmentInventory isManagement={false} />
+      )}
+      {currentView === 'vehicle-hub' && (
+        <FleetRoster onSelectOperator={(id) => { setSelectedOperatorId(id); setCurrentView('vehicle-detail' as StaffView); }} />
+      )}
+      {currentView === 'vehicle-detail' && selectedOperatorId && (
+        <FleetDetailDrawer operatorId={selectedOperatorId} onBack={() => setCurrentView('vehicle-hub' as StaffView)} />
       )}
     </StaffLayout>
 
