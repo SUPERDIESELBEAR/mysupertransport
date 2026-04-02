@@ -715,6 +715,56 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_vault_documents: {
+        Row: {
+          category: string
+          expires_at: string | null
+          file_name: string | null
+          file_path: string | null
+          file_url: string | null
+          id: string
+          label: string
+          notes: string | null
+          operator_id: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          category?: string
+          expires_at?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_url?: string | null
+          id?: string
+          label: string
+          notes?: string | null
+          operator_id: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          category?: string
+          expires_at?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_url?: string | null
+          id?: string
+          label?: string
+          notes?: string | null
+          operator_id?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_vault_documents_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_templates: {
         Row: {
           body_html: string
