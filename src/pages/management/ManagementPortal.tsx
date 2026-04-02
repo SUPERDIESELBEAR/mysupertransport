@@ -687,6 +687,7 @@ export default function ManagementPortal() {
     { label: 'Compliance',        icon: <ShieldCheck className="h-4 w-4" />,     path: 'compliance',        badge: criticalExpiryCount || undefined, dividerBefore: 'Operations' },
     { label: 'Dispatch',          icon: <Truck className="h-4 w-4" />,           path: 'dispatch',          badge: truckDownCount || undefined },
     { label: 'Driver Hub',        icon: <Users2 className="h-4 w-4" />,          path: 'drivers' },
+    { label: 'Vehicle Hub',       icon: <CarFront className="h-4 w-4" />,        path: 'vehicle-hub' },
     { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />,          path: 'inspection-binder' },
     { label: 'Document Hub',      icon: <Library className="h-4 w-4" />,         path: 'docs-hub' },
     { label: 'Resource Center',   icon: <BookOpen className="h-4 w-4" />,         path: 'resource-center',   dividerBefore: 'Admin' },
