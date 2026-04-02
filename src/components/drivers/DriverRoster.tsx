@@ -814,8 +814,28 @@ export default function DriverRoster({
                     />
                   </div>
                 </TableHead>
-                <TableHead className="w-20">Unit #</TableHead>
-                <TableHead>Driver</TableHead>
+                <TableHead className="w-20">
+                  <button
+                    className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                    onClick={() => toggleSort('unit')}
+                  >
+                    Unit #
+                    {sortColumn === 'unit'
+                      ? sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                    onClick={() => toggleSort('driver')}
+                  >
+                    Driver
+                    {sortColumn === 'driver'
+                      ? sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+                  </button>
+                </TableHead>
                 {!dispatchMode && <TableHead className="hidden sm:table-cell">Phone</TableHead>}
                 {!dispatchMode && <TableHead className="hidden lg:table-cell">Email</TableHead>}
                 {!dispatchMode && <TableHead className="hidden md:table-cell">State</TableHead>}
