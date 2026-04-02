@@ -1398,6 +1398,7 @@ export type Database = {
           exception_approved_by: string | null
           exception_notes: string | null
           form_2290: Database["public"]["Enums"]["document_status"]
+          form_2290_owner_provided: boolean
           fuel_card_issued: Database["public"]["Enums"]["yes_no"]
           fuel_card_number: string | null
           fully_onboarded: boolean | null
@@ -1487,6 +1488,7 @@ export type Database = {
           exception_approved_by?: string | null
           exception_notes?: string | null
           form_2290?: Database["public"]["Enums"]["document_status"]
+          form_2290_owner_provided?: boolean
           fuel_card_issued?: Database["public"]["Enums"]["yes_no"]
           fuel_card_number?: string | null
           fully_onboarded?: boolean | null
@@ -1576,6 +1578,7 @@ export type Database = {
           exception_approved_by?: string | null
           exception_notes?: string | null
           form_2290?: Database["public"]["Enums"]["document_status"]
+          form_2290_owner_provided?: boolean
           fuel_card_issued?: Database["public"]["Enums"]["yes_no"]
           fuel_card_number?: string | null
           fully_onboarded?: boolean | null

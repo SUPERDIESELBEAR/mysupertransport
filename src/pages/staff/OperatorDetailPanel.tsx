@@ -29,6 +29,7 @@ import { formatDistanceToNow, format, differenceInDays, parseISO, startOfDay } f
 import TruckInfoCard, { TruckInfo, TruckInfoCardEditPayload, TruckFieldsEditPayload } from '@/components/operator/TruckInfoCard';
 import { US_STATES } from '@/components/application/types';
 import { DateInput } from '@/components/ui/date-input';
+import { Switch } from '@/components/ui/switch';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -127,6 +128,8 @@ type OnboardingStatus = {
   qpassport_url: string | null;
   pe_receipt_url: string | null;
   pe_results_doc_url: string | null;
+  // Form 2290 owner-provided flag
+  form_2290_owner_provided: boolean;
 };
 
 type DispatchHistoryEntry = {
@@ -2571,8 +2574,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* ── Upfront Costs Card ── staff-only, always visible ── */}
       {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 21 } : undefined}>{(() => {
+        const ownerProvided2290 = !!status.form_2290_owner_provided;
         const moVal   = status.cost_mo_registration ?? null;
-        const f2290   = status.cost_form_2290 ?? null;
+        const f2290   = ownerProvided2290 ? null : (status.cost_form_2290 ?? null);
         const other   = status.cost_other ?? null;
         const total   = (moVal ?? 0) + (f2290 ?? 0) + (other ?? 0);
         const hasAny  = moVal !== null || f2290 !== null || other !== null;
@@ -2630,6 +2634,30 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <ExternalLink className="h-3 w-3 shrink-0" />
                   </a>
                   <button type="button" onClick={() => inputRef.current?.click()} className="text-xs text-gray-500 hover:text-gray-700 underline">Replace</button>
+                  <button
+                    type="button"
+                    title="Delete attachment"
+                    onClick={async () => {
+                      try {
+                        // Delete from operator_documents table
+                        await supabase.from('operator_documents').delete().eq('operator_id', operatorId).eq('document_type', slotKey as any);
+                        // Try to remove from storage (best-effort)
+                        const storagePath = `${operatorId}/cost-${slotKey}`;
+                        const { data: files } = await supabase.storage.from('operator-documents').list(storagePath);
+                        if (files?.length) {
+                          await supabase.storage.from('operator-documents').remove(files.map(f => `${storagePath}/${f.name}`));
+                        }
+                        setAttachUrl(null);
+                        setAttachName(null);
+                        toast({ title: 'Attachment deleted', description: `${label} receipt removed.` });
+                      } catch {
+                        toast({ title: 'Delete failed', variant: 'destructive' });
+                      }
+                    }}
+                    className="text-xs text-destructive hover:text-destructive/80"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
                 </div>
               ) : (
                 <button
@@ -2671,22 +2699,28 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 <CostAttachment slotKey="registration" label="MO Registration" />
               </div>
               {/* Form 2290 */}
-              <div>
-                <Label className="text-xs text-gray-700 mb-1 block">Form 2290</Label>
-                <div className="flex items-center gap-1">
-                  <span className="text-xs font-semibold text-gray-600">$</span>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={status.cost_form_2290 ?? ''}
-                    onChange={e => setStatus(prev => ({ ...prev, cost_form_2290: e.target.value === '' ? null : parseFloat(e.target.value) }))}
-                    className="h-8 text-sm bg-white border-amber-200 focus:border-amber-400"
-                  />
+              {ownerProvided2290 ? (
+                <div className="flex items-center justify-center">
+                  <p className="text-xs text-muted-foreground italic text-center">Operator provided own IRS 2290 — not a company cost</p>
                 </div>
-                <CostAttachment slotKey="form_2290" label="Form 2290" />
-              </div>
+              ) : (
+                <div>
+                  <Label className="text-xs text-gray-700 mb-1 block">Form 2290</Label>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-semibold text-gray-600">$</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={status.cost_form_2290 ?? ''}
+                      onChange={e => setStatus(prev => ({ ...prev, cost_form_2290: e.target.value === '' ? null : parseFloat(e.target.value) }))}
+                      className="h-8 text-sm bg-white border-amber-200 focus:border-amber-400"
+                    />
+                  </div>
+                  <CostAttachment slotKey="form_2290" label="Form 2290" />
+                </div>
+              )}
               {/* Other */}
               <div>
                 <Label className="text-xs text-gray-700 mb-1 block">Other</Label>
@@ -3952,11 +3986,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
             {/* Doc fields with inline Request buttons */}
             {([
-              { field: 'form_2290', label: 'Form 2290' },
+              { field: 'form_2290', label: 'Form 2290', showOwnerToggle: true },
               { field: 'truck_title', label: 'Truck Title' },
               { field: 'truck_photos', label: 'Truck Photos' },
               { field: 'truck_inspection', label: 'Truck Inspection' },
-            ] as { field: keyof OnboardingStatus; label: string }[]).map(({ field, label }) => {
+            ] as { field: keyof OnboardingStatus; label: string; showOwnerToggle?: boolean }[]).map(({ field, label, showOwnerToggle }) => {
               const current = (status[field] as string) ?? 'not_started';
               const isRequesting = requestingDoc === field;
               const alreadyRequested = current === 'requested';
@@ -4159,6 +4193,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         }));
                       }}
                     />
+                  )}
+                  {/* Owner-provided 2290 toggle */}
+                  {showOwnerToggle && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Switch
+                        id="form-2290-owner-provided"
+                        checked={!!status.form_2290_owner_provided}
+                        onCheckedChange={async (checked) => {
+                          setStatus(prev => ({ ...prev, form_2290_owner_provided: checked }));
+                          if (statusId) {
+                            await supabase.from('onboarding_status').update({ form_2290_owner_provided: checked }).eq('id', statusId);
+                          }
+                        }}
+                      />
+                      <Label htmlFor="form-2290-owner-provided" className="text-xs text-muted-foreground cursor-pointer">
+                        Operator provided own 2290
+                      </Label>
+                    </div>
                   )}
                 </div>
               );
