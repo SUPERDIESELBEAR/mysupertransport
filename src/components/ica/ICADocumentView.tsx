@@ -54,6 +54,12 @@ export default function ICADocumentView({
   const fullTruck = [data.truck_year, data.truck_make, data.truck_model].filter(Boolean).join(' ');
   const ownerAddr = [data.owner_city, data.owner_state, data.owner_zip].filter(Boolean).join(', ');
 
+  // Combined contractor label: "Owner Name d/b/a Business Name"
+  const contractorLabel =
+    data.owner_name && data.owner_business_name
+      ? `${data.owner_name} d/b/a ${data.owner_business_name}`
+      : data.owner_business_name || data.owner_name || operatorName || fmt(null);
+
   // DPR-aware signature canvas: resize to container width × device pixel ratio
   const sigWrapRef = useRef<HTMLDivElement>(null);
   const rescaleCanvas = useCallback(() => {
