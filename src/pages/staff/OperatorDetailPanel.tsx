@@ -5597,7 +5597,21 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Stage 2 Doc Preview Modal */}
       {stage2Preview && (
-        <FilePreviewModal url={stage2Preview.url} name={stage2Preview.name} onClose={() => setStage2Preview(null)} />
+        <FilePreviewModal
+          url={stage2Preview.url}
+          name={stage2Preview.name}
+          onClose={() => setStage2Preview(null)}
+          onEdit={() => {
+            const pathPrefix = `${operatorId}/${stage2Preview.docType}`;
+            setStage2Editing({
+              url: stage2Preview.url,
+              name: stage2Preview.name,
+              bucket: 'operator-documents',
+              path: pathPrefix,
+            });
+            setStage2Preview(null);
+          }}
+        />
       )}
 
       {/* Cost Attachment Preview Modal */}
