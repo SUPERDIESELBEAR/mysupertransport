@@ -162,6 +162,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                   <TableHead className="text-xs font-semibold">Driver</TableHead>
                   <TableHead className="text-xs font-semibold hidden lg:table-cell">Owner</TableHead>
                   <TableHead className="text-xs font-semibold hidden md:table-cell">Vehicle</TableHead>
+                  <TableHead className="text-xs font-semibold hidden lg:table-cell">VIN</TableHead>
                   <TableHead className="text-xs font-semibold text-right">Repair Cost</TableHead>
                   <TableHead className="text-xs font-semibold text-center">DOT Status</TableHead>
                 </TableRow>
@@ -180,6 +181,9 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">{row.ownerName}</TableCell>
                     <TableCell className="text-xs text-muted-foreground hidden md:table-cell">
                       {[row.truckYear, row.truckMake, row.truckModel].filter(Boolean).join(' ') || '—'}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground hidden lg:table-cell font-mono">
+                      {row.truckVin || '—'}
                     </TableCell>
                     <TableCell className="text-xs text-right font-mono">
                       {row.totalRepairCost > 0 ? `$${row.totalRepairCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
