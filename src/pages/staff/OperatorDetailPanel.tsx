@@ -4258,8 +4258,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               </Select>
             </div>
             {status.pe_screening_result !== 'clear' && (
-              <div className="p-3 rounded-lg bg-status-action/10 border border-status-action/30 text-xs text-status-action">
-                PE Screening must be Clear before sending ICA. You can still prepare a draft.
+              <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-700">
+                ℹ️ PE Screening is still pending. You may proceed with the ICA.
               </div>
             )}
 
