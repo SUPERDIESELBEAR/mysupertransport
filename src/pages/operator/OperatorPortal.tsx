@@ -29,6 +29,7 @@ import EditProfileModal from '@/components/EditProfileModal';
 import OperatorInspectionBinder from '@/components/inspection/OperatorInspectionBinder';
 import ContractorPaySetup from '@/components/operator/ContractorPaySetup';
 import TruckInfoCard, { TruckInfo } from '@/components/operator/TruckInfoCard';
+import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 type OperatorView = 'progress' | 'documents' | 'messages' | 'resource-center' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'pay-setup';
