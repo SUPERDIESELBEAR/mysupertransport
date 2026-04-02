@@ -761,6 +761,12 @@ export default function StaffPortal() {
       {currentView === 'equipment' && (
         <EquipmentInventory isManagement={false} />
       )}
+      {currentView === 'vehicle-hub' && (
+        <FleetRoster onSelectOperator={(id) => { setSelectedOperatorId(id); setCurrentView('vehicle-detail' as StaffView); }} />
+      )}
+      {currentView === 'vehicle-detail' && selectedOperatorId && (
+        <FleetDetailDrawer operatorId={selectedOperatorId} onBack={() => setCurrentView('vehicle-hub' as StaffView)} />
+      )}
     </StaffLayout>
 
     {reviewApp && (
