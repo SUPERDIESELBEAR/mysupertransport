@@ -5500,7 +5500,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* ── Onboarding History Toggle (Quick View only) ── */}
       {isQuickView && (
-        <div style={{ order: 15 }}>
+        <div style={{ order: 16 }}>
           <button
             onClick={() => setOnboardingHistoryExpanded(prev => !prev)}
             className="w-full flex items-center justify-between px-5 py-4 bg-white border border-border rounded-xl shadow-sm hover:bg-muted/30 transition-colors text-left"
