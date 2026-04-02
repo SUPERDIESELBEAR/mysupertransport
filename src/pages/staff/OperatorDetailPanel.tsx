@@ -356,7 +356,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [onboardingHistoryExpanded, setOnboardingHistoryExpanded] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [truckPhotoGridOpen, setTruckPhotoGridOpen] = useState(false);
-  const [stage2Preview, setStage2Preview] = useState<{ url: string; name: string } | null>(null);
+  const [stage2Preview, setStage2Preview] = useState<{ url: string; name: string; docType: string } | null>(null);
+  const [stage2Editing, setStage2Editing] = useState<{ url: string; name: string; bucket: string; path: string } | null>(null);
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const [costPreview, setCostPreview] = useState<{ url: string; name: string; slotKey: string } | null>(null);
   const [costEditing, setCostEditing] = useState<{ url: string; name: string; bucket: string; path: string; slotKey: string } | null>(null);
@@ -4084,7 +4085,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                                     {f.file_url ? (
                                       <button
                                         type="button"
-                                        onClick={() => setStage2Preview({ url: f.file_url!, name: f.file_name ?? 'Document' })}
+                                        onClick={() => setStage2Preview({ url: f.file_url!, name: f.file_name ?? 'Document', docType: field as string })}
                                         className="flex items-center gap-1 text-[11px] text-gold hover:text-gold-light font-medium"
                                       >
                                         View <ZoomIn className="h-3 w-3" />
@@ -5577,12 +5578,40 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
 
       {previewDoc && (
-        <FilePreviewModal url={previewDoc.url} name={previewDoc.title} onClose={() => setPreviewDoc(null)} />
+        <FilePreviewModal
+          url={previewDoc.url}
+          name={previewDoc.title}
+          onClose={() => setPreviewDoc(null)}
+          onEdit={() => {
+            const pathPrefix = `${operatorId}/general`;
+            setStage2Editing({
+              url: previewDoc.url,
+              name: previewDoc.title,
+              bucket: 'operator-documents',
+              path: pathPrefix,
+            });
+            setPreviewDoc(null);
+          }}
+        />
       )}
 
       {/* Stage 2 Doc Preview Modal */}
       {stage2Preview && (
-        <FilePreviewModal url={stage2Preview.url} name={stage2Preview.name} onClose={() => setStage2Preview(null)} />
+        <FilePreviewModal
+          url={stage2Preview.url}
+          name={stage2Preview.name}
+          onClose={() => setStage2Preview(null)}
+          onEdit={() => {
+            const pathPrefix = `${operatorId}/${stage2Preview.docType}`;
+            setStage2Editing({
+              url: stage2Preview.url,
+              name: stage2Preview.name,
+              bucket: 'operator-documents',
+              path: pathPrefix,
+            });
+            setStage2Preview(null);
+          }}
+        />
       )}
 
       {/* Cost Attachment Preview Modal */}
@@ -5624,7 +5653,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </Suspense>
       )}
 
-      {/* ICA Builder Modal */}
+      {/* Stage 2 / General Document Editor */}
+      {stage2Editing && (
+        <Suspense fallback={<div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+          <DocumentEditor
+            fileUrl={stage2Editing.url}
+            fileName={stage2Editing.name}
+            bucketName={stage2Editing.bucket}
+            filePath={stage2Editing.path}
+            onSave={(newUrl) => {
+              setStage2Editing(null);
+              toast({ title: 'Document updated', description: 'Edited document saved.' });
+            }}
+            onClose={() => setStage2Editing(null)}
+          />
+        </Suspense>
+      )}
+
       {showICABuilder && (
         <ICABuilderModal
           operatorId={operatorId}

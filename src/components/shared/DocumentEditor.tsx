@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Component, ReactNode } from 'react';
 import FilerobotImageEditor, { TABS, TOOLS } from 'react-filerobot-image-editor';
-import { X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -55,11 +55,29 @@ function isPdf(fileName: string, url: string): boolean {
   return false;
 }
 
+/* ── Internal ErrorBoundary ── */
+interface EBProps { children: ReactNode; onError: () => void }
+interface EBState { hasError: boolean }
+
+class EditorErrorBoundary extends Component<EBProps, EBState> {
+  state: EBState = { hasError: false };
+  static getDerivedStateFromError(): EBState { return { hasError: true }; }
+  componentDidCatch(error: Error) {
+    console.error('DocumentEditor internal crash:', error);
+    this.props.onError();
+  }
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
+
 export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave, onClose }: DocumentEditorProps) {
   const { toast } = useToast();
   const [imageSource, setImageSource] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [pdfPage, setPdfPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isPdfFile, setIsPdfFile] = useState(false);
@@ -68,6 +86,7 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
   // Load the image (or PDF page as image)
   const loadSource = useCallback(async (page = 1) => {
     setLoading(true);
+    setLoadError(false);
     try {
       if (isPdf(fileName, fileUrl)) {
         setIsPdfFile(true);
@@ -79,26 +98,39 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
         setIsPdfFile(false);
         // Fetch image as blob to avoid CORS issues
         const res = await fetch(fileUrl);
+        if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
         const blob = await res.blob();
-        const dataUrl = await new Promise<string>((resolve) => {
+        if (blob.size === 0) throw new Error('Empty file received');
+        const dataUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
+          reader.onloadend = () => {
+            if (typeof reader.result === 'string' && reader.result.length > 50) {
+              resolve(reader.result);
+            } else {
+              reject(new Error('Invalid data URL'));
+            }
+          };
+          reader.onerror = () => reject(new Error('FileReader error'));
           reader.readAsDataURL(blob);
         });
         setImageSource(dataUrl);
       }
     } catch (err) {
       console.error('Failed to load document for editing:', err);
-      toast({ title: 'Error', description: 'Could not load document for editing.', variant: 'destructive' });
-      onClose();
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, [fileUrl, fileName, toast, onClose]);
+  }, [fileUrl, fileName]);
 
   useEffect(() => {
     loadSource(1);
   }, [loadSource]);
+
+  const handleEditorCrash = useCallback(() => {
+    toast({ title: 'Editor error', description: 'The image editor encountered an error. Please try again.', variant: 'destructive' });
+    onClose();
+  }, [toast, onClose]);
 
   const handleSave = useCallback(async (editedImageObject: any) => {
     setSaving(true);
@@ -145,7 +177,8 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
       onClose();
     } catch (err: any) {
       console.error('Save error:', err);
-      toast({ title: 'Save failed', description: err.message || 'Could not save edited document.', variant: 'destructive' });
+      const msg = err && typeof err === 'object' && 'message' in err ? err.message : 'Could not save edited document.';
+      toast({ title: 'Save failed', description: msg, variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -158,14 +191,14 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
   }, [totalPages, loadSource]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-black/95">
+    <div className="fixed inset-0 z-[9999] flex flex-col bg-black/95">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-surface-dark border-b border-surface-dark-border" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold text-surface-dark-foreground truncate max-w-[30vw]">
             Edit: {fileName}
           </span>
-          {isPdfFile && (
+          {isPdfFile && !loadError && (
             <div className="flex items-center gap-1.5">
               <Button
                 size="sm"
@@ -211,29 +244,45 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
             </span>
           </div>
         )}
-        {imageSource && !loading && (
-          <FilerobotImageEditor
-            source={imageSource}
-            onSave={(editedImageObject: any) => handleSave(editedImageObject)}
-            onClose={onClose}
-            annotationsCommon={{
-              fill: '#ff0000',
-            }}
-            Text={{ text: 'Text' }}
-            Rotate={{ angle: 90, componentType: 'slider' }}
-            Crop={{
-              presetsItems: [
-                { titleKey: 'Letter (8.5x11)', ratio: 8.5 / 11 },
-                { titleKey: 'Legal (8.5x14)', ratio: 8.5 / 14 },
-                { titleKey: 'Square', ratio: 1 },
-              ],
-            }}
-            tabsIds={[TABS.ADJUST, TABS.FINETUNE, TABS.FILTERS, TABS.RESIZE, TABS.ANNOTATE]}
-            defaultTabId={TABS.ADJUST}
-            defaultToolId={TOOLS.CROP}
-            savingPixelRatio={2}
-            previewPixelRatio={window.devicePixelRatio}
-          />
+
+        {/* Error fallback — prevents black screen */}
+        {loadError && !loading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/90 z-20">
+            <AlertTriangle className="h-10 w-10 text-yellow-400" />
+            <p className="text-sm text-white text-center max-w-sm">
+              Could not load this document for editing. The file may be corrupted, too large, or unavailable.
+            </p>
+            <Button variant="outline" size="sm" onClick={onClose}>
+              Close Editor
+            </Button>
+          </div>
+        )}
+
+        {imageSource && !loading && !loadError && (
+          <EditorErrorBoundary onError={handleEditorCrash}>
+            <FilerobotImageEditor
+              source={imageSource}
+              onSave={(editedImageObject: any) => handleSave(editedImageObject)}
+              onClose={onClose}
+              annotationsCommon={{
+                fill: '#ff0000',
+              }}
+              Text={{ text: 'Text' }}
+              Rotate={{ angle: 90, componentType: 'slider' }}
+              Crop={{
+                presetsItems: [
+                  { titleKey: 'Letter (8.5x11)', ratio: 8.5 / 11 },
+                  { titleKey: 'Legal (8.5x14)', ratio: 8.5 / 14 },
+                  { titleKey: 'Square', ratio: 1 },
+                ],
+              }}
+              tabsIds={[TABS.ADJUST, TABS.FINETUNE, TABS.FILTERS, TABS.RESIZE, TABS.ANNOTATE]}
+              defaultTabId={TABS.ADJUST}
+              defaultToolId={TOOLS.CROP}
+              savingPixelRatio={2}
+              previewPixelRatio={window.devicePixelRatio}
+            />
+          </EditorErrorBoundary>
         )}
       </div>
     </div>
