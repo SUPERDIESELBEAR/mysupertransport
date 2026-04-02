@@ -1101,6 +1101,20 @@ export default function OperatorPortal() {
           <OperatorInspectionBinder userId={user.id} operatorId={operatorId} />
         )}
 
+        {/* ── MY DOCUMENTS VIEW (read-only vault) ── */}
+        {view === 'my-docs' && operatorId && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <FolderOpen className="h-6 w-6 text-primary" />
+              <div>
+                <h2 className="text-lg font-bold text-foreground">My Documents</h2>
+                <p className="text-sm text-muted-foreground">Documents on file with your profile</p>
+              </div>
+            </div>
+            <DriverVaultCard operatorId={operatorId} readOnly defaultCollapsed={false} />
+          </div>
+        )}
+
         {/* ── DOCUMENTS VIEW ── */}
         {view === 'documents' && operatorId && (
           <OperatorDocumentUpload
