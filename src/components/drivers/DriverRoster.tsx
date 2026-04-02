@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2, Copy } from 'lucide-react';
+import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2, Copy, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface DriverRow {
@@ -368,6 +368,18 @@ export default function DriverRoster({
     onComplianceFilterChange?.(f);
   };
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [sortColumn, setSortColumn] = useState<'unit' | 'driver' | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const toggleSort = (col: 'unit' | 'driver') => {
+    if (sortColumn === col) {
+      if (sortDir === 'asc') setSortDir('desc');
+      else { setSortColumn(null); setSortDir('asc'); }
+    } else {
+      setSortColumn(col);
+      setSortDir('asc');
+    }
+  };
 
   const fetchDrivers = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -552,15 +564,46 @@ export default function DriverRoster({
     });
 
     // When never_renewed filter is active, float never-renewed drivers to the top
+    let sorted = base;
     if (complianceFilter === 'never_renewed') {
-      return [...base].sort((a, b) => {
+      sorted = [...base].sort((a, b) => {
         const aNever = isNeverRenewed(a.cdl_expiration, a.medical_cert_expiration) ? 0 : 1;
         const bNever = isNeverRenewed(b.cdl_expiration, b.medical_cert_expiration) ? 0 : 1;
         return aNever - bNever;
       });
     }
-    return base;
-  }, [drivers, search, statusFilter, complianceFilter, lastReminderMap]);
+
+    // Apply user-chosen column sort
+    if (sortColumn) {
+      sorted = [...sorted].sort((a, b) => {
+        let cmp = 0;
+        if (sortColumn === 'unit') {
+          const aNum = a.unit_number ? parseInt(a.unit_number, 10) : null;
+          const bNum = b.unit_number ? parseInt(b.unit_number, 10) : null;
+          const aVal = !isNaN(aNum as number) ? aNum : null;
+          const bVal = !isNaN(bNum as number) ? bNum : null;
+          if (aVal === null && bVal === null) cmp = 0;
+          else if (aVal === null) cmp = 1;
+          else if (bVal === null) cmp = -1;
+          else cmp = aVal! - bVal!;
+          // Fallback to string comparison for non-numeric unit numbers
+          if (cmp === 0 && a.unit_number !== b.unit_number) {
+            cmp = (a.unit_number ?? '').localeCompare(b.unit_number ?? '');
+          }
+        } else {
+          const aName = `${a.last_name ?? ''} ${a.first_name ?? ''}`.toLowerCase().trim();
+          const bName = `${b.last_name ?? ''} ${b.first_name ?? ''}`.toLowerCase().trim();
+          if (!aName && !bName) cmp = 0;
+          else if (!aName) cmp = 1;
+          else if (!bName) cmp = -1;
+          else cmp = aName.localeCompare(bName);
+        }
+        return sortDir === 'desc' ? -cmp : cmp;
+      });
+    }
+
+    return sorted;
+  }, [drivers, search, statusFilter, complianceFilter, lastReminderMap, sortColumn, sortDir]);
 
   const allFilteredSelected = filtered.length > 0 && filtered.every(d => selected.has(d.operator_id));
   const someFilteredSelected = filtered.some(d => selected.has(d.operator_id));
@@ -771,8 +814,28 @@ export default function DriverRoster({
                     />
                   </div>
                 </TableHead>
-                <TableHead className="w-20">Unit #</TableHead>
-                <TableHead>Driver</TableHead>
+                <TableHead className="w-20">
+                  <button
+                    className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                    onClick={() => toggleSort('unit')}
+                  >
+                    Unit #
+                    {sortColumn === 'unit'
+                      ? sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                    onClick={() => toggleSort('driver')}
+                  >
+                    Driver
+                    {sortColumn === 'driver'
+                      ? sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+                  </button>
+                </TableHead>
                 {!dispatchMode && <TableHead className="hidden sm:table-cell">Phone</TableHead>}
                 {!dispatchMode && <TableHead className="hidden lg:table-cell">Email</TableHead>}
                 {!dispatchMode && <TableHead className="hidden md:table-cell">State</TableHead>}
