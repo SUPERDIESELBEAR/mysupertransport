@@ -3955,7 +3955,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </div>
             {/* Doc fields with inline Request buttons */}
             {([
-              { field: 'form_2290', label: 'Form 2290' },
+              { field: 'form_2290', label: 'Form 2290', showOwnerToggle: true },
               { field: 'truck_title', label: 'Truck Title' },
               { field: 'truck_photos', label: 'Truck Photos' },
               { field: 'truck_inspection', label: 'Truck Inspection' },
