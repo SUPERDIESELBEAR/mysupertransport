@@ -1806,6 +1806,13 @@ export default function ManagementPortal() {
           <EquipmentInventory isManagement={true} />
         )}
 
+        {view === 'vehicle-hub' && (
+          <FleetRoster onSelectOperator={(id) => { setSelectedOperatorId(id); setView('vehicle-detail' as ManagementView); }} />
+        )}
+        {view === 'vehicle-detail' && selectedOperatorId && (
+          <FleetDetailDrawer operatorId={selectedOperatorId} onBack={() => setView('vehicle-hub' as ManagementView)} />
+        )}
+
         {view === 'mo-plates' && (
           <MoPlateRegistry />
         )}
