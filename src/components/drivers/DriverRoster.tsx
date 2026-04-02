@@ -564,15 +564,46 @@ export default function DriverRoster({
     });
 
     // When never_renewed filter is active, float never-renewed drivers to the top
+    let sorted = base;
     if (complianceFilter === 'never_renewed') {
-      return [...base].sort((a, b) => {
+      sorted = [...base].sort((a, b) => {
         const aNever = isNeverRenewed(a.cdl_expiration, a.medical_cert_expiration) ? 0 : 1;
         const bNever = isNeverRenewed(b.cdl_expiration, b.medical_cert_expiration) ? 0 : 1;
         return aNever - bNever;
       });
     }
-    return base;
-  }, [drivers, search, statusFilter, complianceFilter, lastReminderMap]);
+
+    // Apply user-chosen column sort
+    if (sortColumn) {
+      sorted = [...sorted].sort((a, b) => {
+        let cmp = 0;
+        if (sortColumn === 'unit') {
+          const aNum = a.unit_number ? parseInt(a.unit_number, 10) : null;
+          const bNum = b.unit_number ? parseInt(b.unit_number, 10) : null;
+          const aVal = !isNaN(aNum as number) ? aNum : null;
+          const bVal = !isNaN(bNum as number) ? bNum : null;
+          if (aVal === null && bVal === null) cmp = 0;
+          else if (aVal === null) cmp = 1;
+          else if (bVal === null) cmp = -1;
+          else cmp = aVal! - bVal!;
+          // Fallback to string comparison for non-numeric unit numbers
+          if (cmp === 0 && a.unit_number !== b.unit_number) {
+            cmp = (a.unit_number ?? '').localeCompare(b.unit_number ?? '');
+          }
+        } else {
+          const aName = `${a.last_name ?? ''} ${a.first_name ?? ''}`.toLowerCase().trim();
+          const bName = `${b.last_name ?? ''} ${b.first_name ?? ''}`.toLowerCase().trim();
+          if (!aName && !bName) cmp = 0;
+          else if (!aName) cmp = 1;
+          else if (!bName) cmp = -1;
+          else cmp = aName.localeCompare(bName);
+        }
+        return sortDir === 'desc' ? -cmp : cmp;
+      });
+    }
+
+    return sorted;
+  }, [drivers, search, statusFilter, complianceFilter, lastReminderMap, sortColumn, sortDir]);
 
   const allFilteredSelected = filtered.length > 0 && filtered.every(d => selected.has(d.operator_id));
   const someFilteredSelected = filtered.some(d => selected.has(d.operator_id));
