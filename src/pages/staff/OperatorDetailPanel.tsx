@@ -5653,7 +5653,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </Suspense>
       )}
 
-      {/* ICA Builder Modal */}
+      {/* Stage 2 / General Document Editor */}
+      {stage2Editing && (
+        <Suspense fallback={<div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+          <DocumentEditor
+            fileUrl={stage2Editing.url}
+            fileName={stage2Editing.name}
+            bucketName={stage2Editing.bucket}
+            filePath={stage2Editing.path}
+            onSave={(newUrl) => {
+              setStage2Editing(null);
+              toast({ title: 'Document updated', description: 'Edited document saved.' });
+            }}
+            onClose={() => setStage2Editing(null)}
+          />
+        </Suspense>
+      )}
+
       {showICABuilder && (
         <ICABuilderModal
           operatorId={operatorId}
