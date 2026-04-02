@@ -30,6 +30,8 @@ import TruckInfoCard, { TruckInfo, TruckInfoCardEditPayload, TruckFieldsEditPayl
 import { US_STATES } from '@/components/application/types';
 import { DateInput } from '@/components/ui/date-input';
 import { Switch } from '@/components/ui/switch';
+import { Suspense } from 'react';
+const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
 
 interface OperatorDetailPanelProps {
   operatorId: string;
