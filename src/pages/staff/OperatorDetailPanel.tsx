@@ -5585,6 +5585,45 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         <FilePreviewModal url={stage2Preview.url} name={stage2Preview.name} onClose={() => setStage2Preview(null)} />
       )}
 
+      {/* Cost Attachment Preview Modal */}
+      {costPreview && (
+        <FilePreviewModal
+          url={costPreview.url}
+          name={costPreview.name}
+          onClose={() => setCostPreview(null)}
+          onEdit={() => {
+            // Derive storage path from the URL — we need the path segment after the bucket
+            // Files are stored at: operator-documents/{operatorId}/cost-{slotKey}/{filename}
+            const pathPrefix = `${operatorId}/cost-${costPreview.slotKey}`;
+            setCostEditing({
+              url: costPreview.url,
+              name: costPreview.name,
+              bucket: 'operator-documents',
+              path: pathPrefix,
+              slotKey: costPreview.slotKey,
+            });
+            setCostPreview(null);
+          }}
+        />
+      )}
+
+      {/* Cost Attachment Editor */}
+      {costEditing && (
+        <Suspense fallback={<div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+          <DocumentEditor
+            fileUrl={costEditing.url}
+            fileName={costEditing.name}
+            bucketName={costEditing.bucket}
+            filePath={costEditing.path}
+            onSave={(newUrl) => {
+              setCostEditing(null);
+              toast({ title: 'Receipt updated', description: 'Edited receipt saved.' });
+            }}
+            onClose={() => setCostEditing(null)}
+          />
+        </Suspense>
+      )}
+
       {/* ICA Builder Modal */}
       {showICABuilder && (
         <ICABuilderModal
