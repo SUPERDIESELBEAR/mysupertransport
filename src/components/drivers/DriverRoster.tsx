@@ -368,6 +368,18 @@ export default function DriverRoster({
     onComplianceFilterChange?.(f);
   };
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [sortColumn, setSortColumn] = useState<'unit' | 'driver' | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const toggleSort = (col: 'unit' | 'driver') => {
+    if (sortColumn === col) {
+      if (sortDir === 'asc') setSortDir('desc');
+      else { setSortColumn(null); setSortDir('asc'); }
+    } else {
+      setSortColumn(col);
+      setSortDir('asc');
+    }
+  };
 
   const fetchDrivers = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
