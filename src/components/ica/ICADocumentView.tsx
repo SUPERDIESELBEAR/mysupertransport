@@ -54,6 +54,12 @@ export default function ICADocumentView({
   const fullTruck = [data.truck_year, data.truck_make, data.truck_model].filter(Boolean).join(' ');
   const ownerAddr = [data.owner_city, data.owner_state, data.owner_zip].filter(Boolean).join(', ');
 
+  // Combined contractor label: "Owner Name d/b/a Business Name"
+  const contractorLabel =
+    data.owner_name && data.owner_business_name
+      ? `${data.owner_name} d/b/a ${data.owner_business_name}`
+      : data.owner_business_name || data.owner_name || operatorName || fmt(null);
+
   // DPR-aware signature canvas: resize to container width × device pixel ratio
   const sigWrapRef = useRef<HTMLDivElement>(null);
   const rescaleCanvas = useCallback(() => {
@@ -103,7 +109,7 @@ export default function ICADocumentView({
         <section>
           <p className="text-base">
             This Agreement is entered into by and between <strong>SUPERTRANSPORT, LLC</strong> ("Carrier") and{' '}
-            <strong className="underline underline-offset-2">{operatorName || fmt(null)}</strong> ("Contractor").
+            <strong className="underline underline-offset-2">{contractorLabel}</strong> ("Contractor").
           </p>
           <p className="mt-3 text-muted-foreground text-xs leading-relaxed">
             Carrier is a for-hire motor carrier subject to Federal Motor Carrier Safety Administration (FMCSA) regulations. Contractor is an independent business entity owning or leasing the equipment described in Appendix A and desires to lease said equipment with driver(s) to Carrier for the transportation of freight under Carrier's operating authority.
@@ -211,7 +217,7 @@ export default function ICADocumentView({
             {/* Contractor */}
             <div className="space-y-3">
               <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground border-b border-border pb-1">Contractor</p>
-              <p className="font-semibold">{operatorName}</p>
+              <p className="font-semibold">{contractorLabel}</p>
               {contractorSigRef && !previewMode ? (
                 <div className="space-y-2">
                   <div ref={sigWrapRef} className="border-2 border-dashed border-gold/40 rounded-lg overflow-hidden bg-white">
