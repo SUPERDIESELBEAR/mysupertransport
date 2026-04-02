@@ -109,7 +109,7 @@ export default function ICADocumentView({
         <section>
           <p className="text-base">
             This Agreement is entered into by and between <strong>SUPERTRANSPORT, LLC</strong> ("Carrier") and{' '}
-            <strong className="underline underline-offset-2">{operatorName || fmt(null)}</strong> ("Contractor").
+            <strong className="underline underline-offset-2">{contractorLabel}</strong> ("Contractor").
           </p>
           <p className="mt-3 text-muted-foreground text-xs leading-relaxed">
             Carrier is a for-hire motor carrier subject to Federal Motor Carrier Safety Administration (FMCSA) regulations. Contractor is an independent business entity owning or leasing the equipment described in Appendix A and desires to lease said equipment with driver(s) to Carrier for the transportation of freight under Carrier's operating authority.
