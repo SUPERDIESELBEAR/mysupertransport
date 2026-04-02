@@ -1,0 +1,389 @@
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { downloadBlob } from '@/lib/downloadBlob';
+import MaintenanceRecordModal from './MaintenanceRecordModal';
+import DOTInspectionModal from './DOTInspectionModal';
+import {
+  ArrowLeft, Plus, Truck, Wrench, ShieldCheck, Eye, Download,
+  Loader2, Search, AlertTriangle, CheckCircle2, Clock, FileText,
+} from 'lucide-react';
+import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
+
+interface MaintenanceRecord {
+  id: string;
+  service_date: string;
+  odometer: number | null;
+  shop_name: string | null;
+  amount: number | null;
+  description: string | null;
+  invoice_number: string | null;
+  categories: string[];
+  invoice_file_path: string | null;
+  invoice_file_name: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+interface DOTInspection {
+  id: string;
+  inspection_date: string;
+  reminder_interval: number;
+  next_due_date: string | null;
+  inspector_name: string | null;
+  location: string | null;
+  result: string;
+  certificate_file_path: string | null;
+  certificate_file_name: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+interface FleetDetailDrawerProps {
+  operatorId: string;
+  onBack: () => void;
+  readOnly?: boolean;
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  pm_service: 'PM Service',
+  general_repair: 'General Repair',
+  tires: 'Tires',
+};
+
+function categoryBadge(cat: string) {
+  const label = CATEGORY_LABELS[cat] || cat;
+  const colors: Record<string, string> = {
+    pm_service: 'bg-blue-100 text-blue-800 border-blue-300',
+    general_repair: 'bg-orange-100 text-orange-800 border-orange-300',
+    tires: 'bg-purple-100 text-purple-800 border-purple-300',
+  };
+  return <Badge key={cat} className={`text-[10px] px-1.5 py-0 ${colors[cat] ?? ''}`}>{label}</Badge>;
+}
+
+export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false }: FleetDetailDrawerProps) {
+  const [truckInfo, setTruckInfo] = useState<any>(null);
+  const [driverName, setDriverName] = useState('');
+  const [unitNumber, setUnitNumber] = useState<string | null>(null);
+  const [maintenance, setMaintenance] = useState<MaintenanceRecord[]>([]);
+  const [dotInspections, setDotInspections] = useState<DOTInspection[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
+  const [dotModalOpen, setDotModalOpen] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string } | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [maintenanceSearch, setMaintenanceSearch] = useState('');
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+
+    const [opResult, maintenanceResult, dotResult] = await Promise.all([
+      supabase
+        .from('operators')
+        .select(`
+          id, unit_number,
+          applications(first_name, last_name),
+          onboarding_status(unit_number, truck_year, truck_make, truck_model, truck_vin),
+          ica_contracts(owner_name, truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state)
+        `)
+        .eq('id', operatorId)
+        .single(),
+      supabase
+        .from('truck_maintenance_records')
+        .select('*')
+        .eq('operator_id', operatorId)
+        .order('service_date', { ascending: false }),
+      supabase
+        .from('truck_dot_inspections')
+        .select('*')
+        .eq('operator_id', operatorId)
+        .order('inspection_date', { ascending: false }),
+    ]);
+
+    if (opResult.data) {
+      const op = opResult.data as any;
+      const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
+      const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
+      const ica = Array.isArray(op.ica_contracts) ? op.ica_contracts[0] : op.ica_contracts;
+      setDriverName([app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown');
+      setUnitNumber(os?.unit_number || op.unit_number || null);
+      setTruckInfo({
+        year: os?.truck_year || ica?.truck_year,
+        make: os?.truck_make || ica?.truck_make,
+        model: os?.truck_model || ica?.truck_model,
+        vin: os?.truck_vin || ica?.truck_vin,
+        plate: ica?.truck_plate,
+        plateState: ica?.truck_plate_state,
+      });
+    }
+
+    setMaintenance((maintenanceResult.data as MaintenanceRecord[]) ?? []);
+    setDotInspections((dotResult.data as DOTInspection[]) ?? []);
+    setLoading(false);
+  }, [operatorId]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const totalCost = useMemo(() =>
+    maintenance.reduce((sum, r) => sum + Number(r.amount ?? 0), 0),
+    [maintenance]
+  );
+
+  const filteredMaintenance = useMemo(() => {
+    let items = maintenance;
+    if (categoryFilter !== 'all') {
+      items = items.filter(r => r.categories.includes(categoryFilter));
+    }
+    if (maintenanceSearch.trim()) {
+      const q = maintenanceSearch.toLowerCase();
+      items = items.filter(r =>
+        (r.description ?? '').toLowerCase().includes(q) ||
+        (r.shop_name ?? '').toLowerCase().includes(q) ||
+        (r.invoice_number ?? '').toLowerCase().includes(q)
+      );
+    }
+    return items;
+  }, [maintenance, categoryFilter, maintenanceSearch]);
+
+  const latestDot = dotInspections[0] ?? null;
+  const dotDaysLeft = latestDot?.next_due_date
+    ? differenceInDays(startOfDay(parseISO(latestDot.next_due_date)), startOfDay(new Date()))
+    : null;
+
+  const handlePreviewFile = async (filePath: string, fileName: string) => {
+    const { data } = await supabase.storage.from('fleet-documents').createSignedUrl(filePath, 3600);
+    if (data?.signedUrl) {
+      setPreviewDoc({ url: data.signedUrl, name: fileName });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-20 text-muted-foreground">
+        <Loader2 className="h-6 w-6 mx-auto animate-spin mb-2" />
+        <p className="text-sm">Loading vehicle details…</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="space-y-6 animate-fade-in">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <Truck className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-bold text-foreground">
+                {unitNumber ? `Unit ${unitNumber}` : 'Vehicle Detail'}
+              </h2>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {driverName} · {[truckInfo?.year, truckInfo?.make, truckInfo?.model].filter(Boolean).join(' ') || 'No truck info'}
+              {truckInfo?.vin && <span className="ml-2 text-xs font-mono">VIN: {truckInfo.vin}</span>}
+            </p>
+          </div>
+        </div>
+
+        {/* DOT Inspection Section */}
+        <div className="bg-white border border-border rounded-xl shadow-sm p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold text-sm text-foreground">DOT Periodic Inspections</h3>
+            </div>
+            {!readOnly && (
+              <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => setDotModalOpen(true)}>
+                <Plus className="h-3.5 w-3.5" /> Add Inspection
+              </Button>
+            )}
+          </div>
+
+          {/* Countdown card */}
+          {latestDot && (
+            <div className={`rounded-lg border p-4 ${
+              dotDaysLeft !== null && dotDaysLeft < 0
+                ? 'bg-destructive/5 border-destructive/30'
+                : dotDaysLeft !== null && dotDaysLeft <= 30
+                ? 'bg-amber-50 border-amber-200'
+                : 'bg-emerald-50 border-emerald-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground">Next DOT Due</p>
+                  <p className="text-lg font-bold">
+                    {latestDot.next_due_date ? format(parseISO(latestDot.next_due_date), 'MMM d, yyyy') : '—'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  {dotDaysLeft !== null && (
+                    <p className={`text-2xl font-bold ${
+                      dotDaysLeft < 0 ? 'text-destructive' : dotDaysLeft <= 30 ? 'text-amber-700' : 'text-emerald-700'
+                    }`}>
+                      {dotDaysLeft < 0 ? `${Math.abs(dotDaysLeft)}d overdue` : `${dotDaysLeft}d`}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Interval: {latestDot.reminder_interval} days
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* History */}
+          {dotInspections.length > 0 ? (
+            <div className="divide-y divide-border">
+              {dotInspections.map(dot => (
+                <div key={dot.id} className="py-2.5 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium">{format(parseISO(dot.inspection_date), 'MMM d, yyyy')}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {dot.inspector_name && `${dot.inspector_name} · `}
+                      {dot.location && `${dot.location} · `}
+                      {dot.reminder_interval}d interval
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={dot.result === 'pass' ? 'outline' : 'destructive'} className="text-[10px]">
+                      {dot.result}
+                    </Badge>
+                    {dot.certificate_file_path && (
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handlePreviewFile(dot.certificate_file_path!, dot.certificate_file_name || 'Certificate')}>
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-4">No DOT inspections recorded yet.</p>
+          )}
+        </div>
+
+        {/* Repairs & Maintenance Section */}
+        <div className="bg-white border border-border rounded-xl shadow-sm p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold text-sm text-foreground">Repairs & Maintenance</h3>
+              <span className="text-xs text-muted-foreground">({maintenance.length})</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono font-semibold text-foreground">
+                Total: ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              </span>
+              {!readOnly && (
+                <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => setMaintenanceModalOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" /> Add Record
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Filters */}
+          {maintenance.length > 0 && (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search records…"
+                  className="pl-8 h-8 text-xs"
+                  value={maintenanceSearch}
+                  onChange={e => setMaintenanceSearch(e.target.value)}
+                />
+              </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-40 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">All Categories</SelectItem>
+                  <SelectItem value="pm_service" className="text-xs">PM Service</SelectItem>
+                  <SelectItem value="general_repair" className="text-xs">General Repair</SelectItem>
+                  <SelectItem value="tires" className="text-xs">Tires</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Records table */}
+          {filteredMaintenance.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30">
+                    <TableHead className="text-[10px] font-semibold">Date</TableHead>
+                    <TableHead className="text-[10px] font-semibold">Shop</TableHead>
+                    <TableHead className="text-[10px] font-semibold">Description</TableHead>
+                    <TableHead className="text-[10px] font-semibold">Category</TableHead>
+                    <TableHead className="text-[10px] font-semibold text-right">Amount</TableHead>
+                    <TableHead className="text-[10px] font-semibold w-10"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredMaintenance.map(r => (
+                    <TableRow key={r.id}>
+                      <TableCell className="text-xs whitespace-nowrap">{format(parseISO(r.service_date), 'M/d/yy')}</TableCell>
+                      <TableCell className="text-xs">{r.shop_name || '—'}</TableCell>
+                      <TableCell className="text-xs max-w-[200px] truncate">{r.description || '—'}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1 flex-wrap">
+                          {r.categories.map(c => categoryBadge(c))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs text-right font-mono">
+                        {r.amount ? `$${Number(r.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {r.invoice_file_path && (
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handlePreviewFile(r.invoice_file_path!, r.invoice_file_name || 'Invoice')}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-4">
+              {maintenance.length > 0 ? 'No records match your filters.' : 'No maintenance records yet.'}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {!readOnly && (
+        <>
+          <MaintenanceRecordModal
+            open={maintenanceModalOpen}
+            onClose={() => setMaintenanceModalOpen(false)}
+            operatorId={operatorId}
+            onSaved={fetchData}
+          />
+          <DOTInspectionModal
+            open={dotModalOpen}
+            onClose={() => setDotModalOpen(false)}
+            operatorId={operatorId}
+            onSaved={fetchData}
+          />
+        </>
+      )}
+
+      {previewDoc && <FilePreviewModal url={previewDoc.url} name={previewDoc.name} onClose={() => setPreviewDoc(null)} />}
+    </>
+  );
+}
