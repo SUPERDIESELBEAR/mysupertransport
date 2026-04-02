@@ -4163,6 +4163,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       }}
                     />
                   )}
+                  {/* Owner-provided 2290 toggle */}
+                  {showOwnerToggle && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Switch
+                        id="form-2290-owner-provided"
+                        checked={!!status.form_2290_owner_provided}
+                        onCheckedChange={async (checked) => {
+                          setStatus(prev => ({ ...prev, form_2290_owner_provided: checked }));
+                          if (statusId) {
+                            await supabase.from('onboarding_status').update({ form_2290_owner_provided: checked }).eq('id', statusId);
+                          }
+                        }}
+                      />
+                      <Label htmlFor="form-2290-owner-provided" className="text-xs text-muted-foreground cursor-pointer">
+                        Operator provided own 2290
+                      </Label>
+                    </div>
+                  )}
                 </div>
               );
             })}
