@@ -1117,6 +1117,11 @@ export default function OperatorPortal() {
           </div>
         )}
 
+        {/* ── MY TRUCK VIEW (read-only fleet detail) ── */}
+        {view === 'my-truck' && operatorId && (
+          <FleetDetailDrawer operatorId={operatorId} onBack={() => setView('progress')} readOnly />
+        )}
+
         {/* ── DOCUMENTS VIEW ── */}
         {view === 'documents' && operatorId && (
           <OperatorDocumentUpload
