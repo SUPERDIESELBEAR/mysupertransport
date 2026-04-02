@@ -1769,7 +1769,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="sm" onClick={() => guardedNavigate(onBack)} className="gap-1.5 text-muted-foreground hover:text-foreground shrink-0">
-            <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Pipeline</span>
+            <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">{backLabel ?? 'Pipeline'}</span>
           </Button>
           <div className="min-w-0">
             <h1 className="text-lg sm:text-xl font-bold text-foreground flex items-center gap-2 flex-wrap">
