@@ -2632,11 +2632,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               <input ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
               {attachUrl ? (
                 <div className="flex items-center gap-2">
-                  <a href={attachUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-blue-600 hover:underline truncate max-w-[160px]">
+                  <button
+                    type="button"
+                    onClick={() => setCostPreview({ url: attachUrl, name: attachName ?? 'View receipt', slotKey })}
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:underline truncate max-w-[160px]"
+                  >
                     <Paperclip className="h-3 w-3 shrink-0" />
                     <span className="truncate">{attachName ?? 'View receipt'}</span>
-                    <ExternalLink className="h-3 w-3 shrink-0" />
-                  </a>
+                    <ZoomIn className="h-3 w-3 shrink-0" />
+                  </button>
                   <button type="button" onClick={() => inputRef.current?.click()} className="text-xs text-gray-500 hover:text-gray-700 underline">Replace</button>
                   <button
                     type="button"
