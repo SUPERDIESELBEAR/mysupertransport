@@ -5479,6 +5479,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </div>
       )}
 
+      {/* Driver Document Vault — personal docs (Form 2290, Truck Photos, etc.) */}
+      {operatorUserId && (
+        <div style={isQuickView ? { order: 8 } : undefined}>
+          <DriverVaultCard operatorId={operatorId} operatorName={operatorName} />
+        </div>
+      )}
+
       {/* Internal Notes */}
       <div className="bg-white border border-border rounded-xl p-5 shadow-sm" style={isQuickView ? { order: 12 } : undefined}>
         <Label className="text-sm font-semibold text-foreground mb-2 block">Internal Notes</Label>
