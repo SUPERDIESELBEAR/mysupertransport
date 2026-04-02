@@ -2634,6 +2634,30 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <ExternalLink className="h-3 w-3 shrink-0" />
                   </a>
                   <button type="button" onClick={() => inputRef.current?.click()} className="text-xs text-gray-500 hover:text-gray-700 underline">Replace</button>
+                  <button
+                    type="button"
+                    title="Delete attachment"
+                    onClick={async () => {
+                      try {
+                        // Delete from operator_documents table
+                        await supabase.from('operator_documents').delete().eq('operator_id', operatorId).eq('document_type', slotKey as any);
+                        // Try to remove from storage (best-effort)
+                        const storagePath = `${operatorId}/cost-${slotKey}`;
+                        const { data: files } = await supabase.storage.from('operator-documents').list(storagePath);
+                        if (files?.length) {
+                          await supabase.storage.from('operator-documents').remove(files.map(f => `${storagePath}/${f.name}`));
+                        }
+                        setAttachUrl(null);
+                        setAttachName(null);
+                        toast({ title: 'Attachment deleted', description: `${label} receipt removed.` });
+                      } catch {
+                        toast({ title: 'Delete failed', variant: 'destructive' });
+                      }
+                    }}
+                    className="text-xs text-destructive hover:text-destructive/80"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
                 </div>
               ) : (
                 <button
