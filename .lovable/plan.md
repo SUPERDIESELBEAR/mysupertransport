@@ -1,24 +1,45 @@
 
 
-## Fix: Wire ICA Sign View into OperatorPortal
+## Auto-Normalize ALL CAPS Input + Fix Bobby Thompson's Existing Data
 
 ### Problem
-The `OperatorICASign` component is imported but never rendered. When the operator taps "Sign Your ICA Agreement", `setView('ica')` fires but no JSX block matches `view === 'ica'`, so nothing appears.
+Bobby Thompson submitted his application with ALL CAPS ("BOBBY THOMPSON", "TUPELO"). There is no automatic normalization, so whatever casing the applicant types gets stored as-is.
 
-### Change
+### Solution — Two parts
 
-**`src/pages/operator/OperatorPortal.tsx`** — Add the missing render block after the "My Truck" view (after line 1123):
+**1. Auto-normalize on input (prevent future ALL CAPS)**
 
-```tsx
-{/* ── ICA SIGN VIEW ── */}
-{view === 'ica' && <OperatorICASign />}
+Add a `toTitleCase()` utility that converts text like "BOBBY" → "Bobby" and "MCDONALD" → "McDonald". Apply it automatically in the `buildPayload()` function to all name and address fields before saving to the database. This way the applicant can type however they want, but data is always stored in proper title case.
+
+Fields normalized: `first_name`, `last_name`, `address_street`, `address_line2`, `address_city`, `prev_address_street`, `prev_address_line2`, `prev_address_city`, and employer names/cities.
+
+**2. Fix Bobby Thompson's existing data**
+
+Update his application record from "BOBBY THOMPSON" / "TUPELO" to "Bobby Thompson" / "Tupelo" using a data update.
+
+---
+
+### Technical details
+
+**New utility** in `src/components/application/utils.ts`:
+```ts
+function toTitleCase(str: string): string {
+  if (!str) return str;
+  return str
+    .toLowerCase()
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .replace(/\bMc(\w)/g, (_, c) => 'Mc' + c.toUpperCase());  // McDonald, McGregor
+}
 ```
 
-One line. The component already handles everything internally (fetching the contract, displaying it, signature pad, submission).
+**`buildPayload()`** — wrap name/address string fields with `toTitleCase()` before returning them in the payload object.
+
+**Data fix** — update Bobby Thompson's application record (id: `a9d87013-...`) to proper casing.
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/pages/operator/OperatorPortal.tsx` | Add `{view === 'ica' && <OperatorICASign />}` after line 1123 |
+| `src/components/application/utils.ts` | Add `toTitleCase()`, apply it in `buildPayload()` to name/address fields |
+| Database update | Fix Bobby Thompson's existing record to proper title case |
 
