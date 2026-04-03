@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { CheckCircle2, Camera, ExternalLink, X } from 'lucide-react';
+import { CheckCircle2, Camera, ExternalLink, X, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 // Must match the labels used in TruckPhotoGuideModal PHOTO_SLOTS
 const PHOTO_POSITIONS = [
@@ -27,7 +28,6 @@ interface Props {
   open: boolean;
   onClose: () => void;
   files: DocFileRow[];
-  /** Called when staff marks all photos received */
   onMarkReceived?: () => void;
   isMarkingReceived?: boolean;
   alreadyReceived?: boolean;
@@ -41,6 +41,18 @@ function extractLabel(fileName: string | null): string {
   return idx >= 0 ? fileName.substring(0, idx).trim() : '';
 }
 
+/** Extract storage path from a file_url (handles both legacy public URLs and raw paths) */
+function extractStoragePath(fileUrl: string): string {
+  if (fileUrl.startsWith('http')) {
+    const parts = fileUrl.split('/operator-documents/');
+    if (parts.length > 1) {
+      return decodeURIComponent(parts[1].split('?')[0]);
+    }
+  }
+  // Already a raw path — strip leading slash if present
+  return fileUrl.replace(/^\//, '');
+}
+
 export default function TruckPhotoGridModal({
   open,
   onClose,
@@ -50,6 +62,50 @@ export default function TruckPhotoGridModal({
   alreadyReceived,
 }: Props) {
   const [lightbox, setLightbox] = useState<{ url: string; label: string } | null>(null);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [loadingUrls, setLoadingUrls] = useState(false);
+
+  // Generate signed URLs when modal opens
+  useEffect(() => {
+    if (!open || files.length === 0) {
+      setSignedUrls({});
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingUrls(true);
+
+    (async () => {
+      const map: Record<string, string> = {};
+      const supabaseBase = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '') || '';
+
+      await Promise.all(
+        files
+          .filter(f => f.file_url)
+          .map(async (f) => {
+            const path = extractStoragePath(f.file_url!);
+            const { data } = await supabase.storage
+              .from('operator-documents')
+              .createSignedUrl(path, 3600);
+            if (data?.signedUrl) {
+              // Ensure absolute URL
+              let url = data.signedUrl;
+              if (url.startsWith('/storage/v1/')) {
+                url = `${supabaseBase}${url}`;
+              }
+              map[f.id] = url;
+            }
+          })
+      );
+
+      if (!cancelled) {
+        setSignedUrls(map);
+        setLoadingUrls(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [open, files]);
 
   // Build a map: position label → most recent file (last uploaded wins)
   const byPosition: Record<string, DocFileRow> = {};
@@ -103,65 +159,77 @@ export default function TruckPhotoGridModal({
           </DialogHeader>
 
           <div className="p-5 overflow-y-auto max-h-[70vh]">
-            {/* Exterior group */}
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Exterior</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-              {PHOTO_POSITIONS.filter(p => p.group === 'Exterior').map(pos => {
-                const file = byPosition[pos.key];
-                return (
-                  <PhotoCell
-                    key={pos.key}
-                    pos={pos}
-                    file={file}
-                    isImage={isImage}
-                    onOpenLightbox={url => setLightbox({ url, label: pos.key })}
-                  />
-                );
-              })}
-            </div>
-
-            {/* Tires group */}
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Tires</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {PHOTO_POSITIONS.filter(p => p.group === 'Tires').map(pos => {
-                const file = byPosition[pos.key];
-                return (
-                  <PhotoCell
-                    key={pos.key}
-                    pos={pos}
-                    file={file}
-                    isImage={isImage}
-                    onOpenLightbox={url => setLightbox({ url, label: pos.key })}
-                  />
-                );
-              })}
-            </div>
-
-            {/* Extra files not matched to a position */}
-            {(() => {
-              const unmatched = files.filter(f => {
-                const label = extractLabel(f.file_name);
-                return !label || !PHOTO_POSITIONS.find(p => p.key === label);
-              });
-              if (!unmatched.length) return null;
-              return (
-                <div className="mt-5">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Other Files</p>
-                  <ul className="space-y-1">
-                    {unmatched.map(f => (
-                      <li key={f.id} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-md bg-muted/40">
-                        <span className="truncate text-foreground max-w-[260px]">{f.file_name ?? 'Unnamed'}</span>
-                        {f.file_url && (
-                          <a href={f.file_url} target="_blank" rel="noopener noreferrer" className="text-gold hover:text-gold-light shrink-0 ml-2">
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+            {loadingUrls ? (
+              <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading photos…
+              </div>
+            ) : (
+              <>
+                {/* Exterior group */}
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Exterior</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                  {PHOTO_POSITIONS.filter(p => p.group === 'Exterior').map(pos => {
+                    const file = byPosition[pos.key];
+                    const resolvedUrl = file ? signedUrls[file.id] : undefined;
+                    return (
+                      <PhotoCell
+                        key={pos.key}
+                        pos={pos}
+                        file={file}
+                        resolvedUrl={resolvedUrl}
+                        isImage={isImage}
+                        onOpenLightbox={url => setLightbox({ url, label: pos.key })}
+                      />
+                    );
+                  })}
                 </div>
-              );
-            })()}
+
+                {/* Tires group */}
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Tires</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {PHOTO_POSITIONS.filter(p => p.group === 'Tires').map(pos => {
+                    const file = byPosition[pos.key];
+                    const resolvedUrl = file ? signedUrls[file.id] : undefined;
+                    return (
+                      <PhotoCell
+                        key={pos.key}
+                        pos={pos}
+                        file={file}
+                        resolvedUrl={resolvedUrl}
+                        isImage={isImage}
+                        onOpenLightbox={url => setLightbox({ url, label: pos.key })}
+                      />
+                    );
+                  })}
+                </div>
+
+                {/* Extra files not matched to a position */}
+                {(() => {
+                  const unmatched = files.filter(f => {
+                    const label = extractLabel(f.file_name);
+                    return !label || !PHOTO_POSITIONS.find(p => p.key === label);
+                  });
+                  if (!unmatched.length) return null;
+                  return (
+                    <div className="mt-5">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Other Files</p>
+                      <ul className="space-y-1">
+                        {unmatched.map(f => (
+                          <li key={f.id} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-md bg-muted/40">
+                            <span className="truncate text-foreground max-w-[260px]">{f.file_name ?? 'Unnamed'}</span>
+                            {signedUrls[f.id] && (
+                              <a href={signedUrls[f.id]} target="_blank" rel="noopener noreferrer" className="text-gold hover:text-gold-light shrink-0 ml-2">
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })()}
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -196,13 +264,14 @@ export default function TruckPhotoGridModal({
 interface PhotoCellProps {
   pos: { key: string; icon: string };
   file: DocFileRow | undefined;
+  resolvedUrl: string | undefined;
   isImage: (url: string) => boolean;
   onOpenLightbox: (url: string) => void;
 }
 
-function PhotoCell({ pos, file, isImage, onOpenLightbox }: PhotoCellProps) {
+function PhotoCell({ pos, file, resolvedUrl, isImage, onOpenLightbox }: PhotoCellProps) {
   const hasFile = !!file;
-  const hasImage = hasFile && !!file.file_url && isImage(file.file_url);
+  const hasImage = hasFile && !!file.file_url && isImage(file.file_url) && !!resolvedUrl;
 
   return (
     <div className="flex flex-col gap-1">
@@ -214,24 +283,21 @@ function PhotoCell({ pos, file, isImage, onOpenLightbox }: PhotoCellProps) {
             ? 'border-info/30 bg-info/5'
             : 'border-dashed border-muted-foreground/30 bg-muted/30'
         }`}
-        onClick={() => hasImage && file?.file_url && onOpenLightbox(file.file_url)}
+        onClick={() => hasImage && resolvedUrl && onOpenLightbox(resolvedUrl)}
       >
         {hasImage ? (
           <>
             <img
-              src={file!.file_url!}
+              src={resolvedUrl}
               alt={pos.key}
               className="w-full h-full object-cover"
               onError={e => {
-                // Fallback to icon if image fails to load (e.g. expired signed URL)
                 (e.target as HTMLImageElement).style.display = 'none';
               }}
             />
-            {/* Hover overlay */}
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
               <ExternalLink className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-            {/* Uploaded badge */}
             <div className="absolute top-1.5 right-1.5 bg-status-complete rounded-full p-0.5">
               <CheckCircle2 className="h-3 w-3 text-white" />
             </div>
@@ -239,9 +305,9 @@ function PhotoCell({ pos, file, isImage, onOpenLightbox }: PhotoCellProps) {
         ) : hasFile ? (
           <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 p-2">
             <span className="text-2xl">{pos.icon}</span>
-            {file!.file_url && (
+            {resolvedUrl && (
               <a
-                href={file!.file_url}
+                href={resolvedUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
