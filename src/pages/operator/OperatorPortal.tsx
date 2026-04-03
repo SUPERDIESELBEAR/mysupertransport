@@ -1166,7 +1166,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
 
         {/* ── ICA SIGN VIEW ── */}
-        {view === 'ica' && <OperatorICASign />}
+        {view === 'ica' && <OperatorICASign onComplete={() => { fetchData(); setView('progress'); }} />}
 
         {/* ── DOCUMENTS VIEW ── */}
         {view === 'documents' && operatorId && (
