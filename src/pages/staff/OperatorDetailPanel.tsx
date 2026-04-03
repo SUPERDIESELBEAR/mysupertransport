@@ -1614,18 +1614,29 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   // Handle editing truck info fields from TruckInfoCard
   const handleTruckInfoEdit = async (payload: TruckFieldsEditPayload) => {
     if (!statusId) return;
+    const truckFields = {
+      truck_year: payload.truck_year,
+      truck_make: payload.truck_make,
+      truck_model: payload.truck_model,
+      truck_vin: payload.truck_vin,
+      truck_plate: payload.truck_plate,
+      truck_plate_state: payload.truck_plate_state,
+    };
     const { error } = await supabase
       .from('onboarding_status')
-      .update({
-        truck_year: payload.truck_year,
-        truck_make: payload.truck_make,
-        truck_model: payload.truck_model,
-        truck_vin: payload.truck_vin,
-        truck_plate: payload.truck_plate,
-        truck_plate_state: payload.truck_plate_state,
-      } as any)
+      .update(truckFields as any)
       .eq('id', statusId);
     if (error) throw error;
+
+    // Sync truck info to any active ICA draft/sent contract
+    if (operatorId) {
+      await supabase
+        .from('ica_contracts')
+        .update(truckFields)
+        .eq('operator_id', operatorId)
+        .in('status', ['draft', 'sent_to_operator']);
+    }
+
     // Update local truck info state
     setIcaTruckInfo(prev => ({
       ...prev,

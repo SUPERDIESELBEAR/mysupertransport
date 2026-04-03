@@ -1448,6 +1448,7 @@ export type Database = {
             | Database["public"]["Enums"]["registration_type"]
             | null
           temp_decal_approved: boolean
+          trailer_number: string | null
           truck_inspection: Database["public"]["Enums"]["document_status"]
           truck_make: string | null
           truck_model: string | null
@@ -1538,6 +1539,7 @@ export type Database = {
             | Database["public"]["Enums"]["registration_type"]
             | null
           temp_decal_approved?: boolean
+          trailer_number?: string | null
           truck_inspection?: Database["public"]["Enums"]["document_status"]
           truck_make?: string | null
           truck_model?: string | null
@@ -1628,6 +1630,7 @@ export type Database = {
             | Database["public"]["Enums"]["registration_type"]
             | null
           temp_decal_approved?: boolean
+          trailer_number?: string | null
           truck_inspection?: Database["public"]["Enums"]["document_status"]
           truck_make?: string | null
           truck_model?: string | null
