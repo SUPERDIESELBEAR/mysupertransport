@@ -50,7 +50,8 @@ export default function ICADocumentView({
   data, operatorName, previewMode = false,
   carrierSignatureUrl, carrierTypedName, carrierTitle, carrierSignedAt,
   contractorSignatureUrl, contractorTypedName, contractorSignedAt,
-  contractorSigRef, contractorSignedName, onContractorSignedNameChange
+  contractorSigRef, contractorSignedName, onContractorSignedNameChange,
+  onSignatureEnd, onSignatureClear
 }: ICADocumentViewProps) {
 
   const fullTruck = [data.truck_year, data.truck_make, data.truck_model].filter(Boolean).join(' ');
