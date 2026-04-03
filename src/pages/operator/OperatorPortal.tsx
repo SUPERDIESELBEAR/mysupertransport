@@ -161,11 +161,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   }, []);
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
+    if (!effectiveUserId) return;
     const { data: op } = await supabase
       .from('operators')
       .select('id, application_id, assigned_onboarding_staff, onboarding_status(*), operator_documents(*)')
-      .eq('user_id', user.id)
+      .eq('user_id', effectiveUserId)
       .single();
 
     if (op) {
