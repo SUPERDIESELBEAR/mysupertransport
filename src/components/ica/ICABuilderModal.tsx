@@ -111,7 +111,7 @@ function MaskedField({ label, value, onChange, mask, placeholder, span }: {
 export default function ICABuilderModal({
   operatorId, operatorName, operatorEmail, applicationData, onClose, onSent
 }: ICABuilderModalProps) {
-  const { session } = useAuth();
+  const { session, profile, roles } = useAuth();
   const { toast } = useToast();
   const { guardDemo } = useDemoMode();
   const [step, setStep] = useState(0);
