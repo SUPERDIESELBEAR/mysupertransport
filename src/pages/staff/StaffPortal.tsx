@@ -769,6 +769,9 @@ export default function StaffPortal() {
       {currentView === 'vehicle-detail' && selectedOperatorId && (
         <FleetDetailDrawer operatorId={selectedOperatorId} onBack={() => setCurrentView('vehicle-hub' as StaffView)} />
       )}
+      {currentView === 'operator-preview' && (
+        <OperatorPreviewPicker />
+      )}
     </StaffLayout>
 
     {reviewApp && (

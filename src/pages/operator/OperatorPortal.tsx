@@ -1319,7 +1319,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         </div>
         {/* Safe-area spacer for iOS home indicator */}
         <div className="h-safe-bottom bg-surface-dark" />
-      </nav>
+      </nav>}
     </div>
     </>
   );
