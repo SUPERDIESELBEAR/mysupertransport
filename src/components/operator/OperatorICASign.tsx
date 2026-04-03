@@ -246,23 +246,34 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
         onSignatureClear={() => setHasDrawn(false)}
       />
 
-      {!isFullyExecuted && (
-        <div className="p-5 bg-secondary/30 border border-border rounded-xl space-y-4">
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            By signing above, I agree to all terms and conditions of the Independent Contractor Agreement with SUPERTRANSPORT, LLC, including all Appendices A through D. I confirm this is a legal electronic signature.
-          </p>
-          <Button
-            onClick={handleSign}
-            disabled={signing || !signedName || !hasDrawn}
-            className="w-full bg-gold text-surface-dark font-bold hover:bg-gold-light gap-2 h-12"
-          >
-            {signing ? <><Loader2 className="h-4 w-4 animate-spin" /> Signing…</> : <><CheckCircle2 className="h-4 w-4" /> Execute Agreement</>}
-          </Button>
-          <p className="text-[10px] text-muted-foreground text-center">
-            Please sign in the signature box above and type your full name before executing.
-          </p>
-        </div>
-      )}
+      {/* Spacer so content isn't hidden behind sticky bar */}
+      {!isFullyExecuted && <div className="pb-28" />}
     </div>
+
+    {/* Sticky floating action bar */}
+    {!isFullyExecuted && (
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-surface-dark/95 backdrop-blur-sm border-t border-border p-4 space-y-2">
+        <p className="text-xs text-center font-medium" style={{ color: !signedName || !hasDrawn ? 'hsl(var(--gold))' : 'hsl(var(--green-500, 142 71% 45%))' }}>
+          {!signedName && !hasDrawn
+            ? '✍️ Type your name & draw your signature below'
+            : !signedName
+            ? '✍️ Type your full name to continue'
+            : !hasDrawn
+            ? '✍️ Draw your signature to continue'
+            : '✅ Ready to execute'}
+        </p>
+        <Button
+          onClick={handleSign}
+          disabled={signing || !signedName || !hasDrawn}
+          className="w-full bg-gold text-surface-dark font-bold hover:bg-gold-light gap-2 h-12"
+        >
+          {signing ? <><Loader2 className="h-4 w-4 animate-spin" /> Signing…</> : <><CheckCircle2 className="h-4 w-4" /> Execute Agreement</>}
+        </Button>
+        <p className="text-[10px] text-muted-foreground text-center leading-tight">
+          By signing, I agree to all terms of the Independent Contractor Agreement with SUPERTRANSPORT, LLC.
+        </p>
+      </div>
+    )}
+  </>
   );
 }
