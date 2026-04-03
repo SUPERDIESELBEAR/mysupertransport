@@ -29,6 +29,7 @@ export default function OperatorICASign() {
   const [loading, setLoading] = useState(true);
   const [signing, setSigning] = useState(false);
   const [signedName, setSignedName] = useState('');
+  const [hasDrawn, setHasDrawn] = useState(false);
   const sigRef = useRef<SignatureCanvas>(null);
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [operatorName, setOperatorName] = useState('');

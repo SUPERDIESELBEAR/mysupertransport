@@ -213,10 +213,11 @@ export default function ICADocumentView({
                       ref={contractorSigRef}
                       canvasProps={{ className: 'w-full touch-none' }}
                       penColor="#1a1a1a"
+                      onEnd={() => onSignatureEnd?.()}
                     />
                   </div>
                   <button
-                    onClick={() => contractorSigRef.current?.clear()}
+                    onClick={() => { contractorSigRef.current?.clear(); onSignatureClear?.(); }}
                     className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Clear signature
