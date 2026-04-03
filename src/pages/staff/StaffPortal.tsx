@@ -26,6 +26,7 @@ import DocumentHub from '@/components/documents/DocumentHub';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
 import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
 import ComplianceAlertsPanel from '@/components/inspection/ComplianceAlertsPanel';
+import OperatorPreviewPicker from '@/components/operator/OperatorPreviewPicker';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
