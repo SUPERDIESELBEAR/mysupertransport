@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 
 interface ICAData {
