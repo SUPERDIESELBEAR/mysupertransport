@@ -204,6 +204,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
   const isFullyExecuted = contract.status === 'fully_executed';
 
   return (
+    <>
     <div className="space-y-6 max-w-4xl mx-auto">
       {isFullyExecuted ? (
         <div className="flex items-center gap-3 p-4 bg-status-complete/10 border border-status-complete/30 rounded-xl">
