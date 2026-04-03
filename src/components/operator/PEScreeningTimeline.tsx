@@ -210,16 +210,21 @@ export default function PEScreeningTimeline({
           </button>
         </>
       ) : receiptDoc?.file_url ? (
-        <a
-          href={receiptDoc.file_url}
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          type="button"
+          onClick={async () => {
+            const raw = receiptDoc.file_url!;
+            const storagePath = raw.startsWith('http')
+              ? (() => { const m = raw.indexOf('/operator-documents/'); return m !== -1 ? raw.slice(m + '/operator-documents/'.length).split('?')[0] : raw; })()
+              : raw;
+            const { data } = await supabase.storage.from('operator-documents').createSignedUrl(storagePath, 3600);
+            if (data?.signedUrl) setReceiptPreviewUrl(data.signedUrl);
+          }}
           className="mt-1.5 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          <FileText className="h-3 w-3" />
+          <Eye className="h-3 w-3" />
           {receiptDoc.file_name ?? 'View receipt'}
-          <ExternalLink className="h-3 w-3" />
-        </a>
+        </button>
       ) : undefined,
     },
     // Step 4: Results
