@@ -111,7 +111,7 @@ function MaskedField({ label, value, onChange, mask, placeholder, span }: {
 export default function ICABuilderModal({
   operatorId, operatorName, operatorEmail, applicationData, onClose, onSent
 }: ICABuilderModalProps) {
-  const { session } = useAuth();
+  const { session, profile, roles } = useAuth();
   const { toast } = useToast();
   const { guardDemo } = useDemoMode();
   const [step, setStep] = useState(0);
@@ -226,6 +226,21 @@ export default function ICABuilderModal({
     };
     loadDraft();
   }, [operatorId]);
+
+  // ── Prefill carrier signer from logged-in user profile (only when blank) ──
+  useEffect(() => {
+    if (!profile) return;
+    setCarrierTypedName(prev => {
+      if (prev) return prev; // don't overwrite existing value
+      return [profile.first_name, profile.last_name].filter(Boolean).join(' ');
+    });
+    setCarrierTitle(prev => {
+      if (prev) return prev;
+      if (roles.includes('owner')) return 'Owner';
+      if (roles.includes('management')) return 'Operations Manager';
+      return '';
+    });
+  }, [profile, roles]);
 
   const uploadSignature = async (sigRef: React.RefObject<SignatureCanvas>, folder: string) => {
     if (!sigRef.current || sigRef.current.isEmpty()) return null;
@@ -419,7 +434,7 @@ export default function ICABuilderModal({
     }
   };
 
-  const canProceedStep0 = !!(data.truck_vin && data.owner_business_name);
+  const canProceedStep0 = !!(data.truck_vin && (data.owner_name || data.owner_business_name));
   const canProceedStep2 = !!(carrierTypedName && carrierTitle);
 
   return (
