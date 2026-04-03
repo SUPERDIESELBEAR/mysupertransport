@@ -1122,6 +1122,9 @@ export default function OperatorPortal() {
           <FleetDetailDrawer operatorId={operatorId} onBack={() => setView('progress')} readOnly />
         )}
 
+        {/* ── ICA SIGN VIEW ── */}
+        {view === 'ica' && <OperatorICASign />}
+
         {/* ── DOCUMENTS VIEW ── */}
         {view === 'documents' && operatorId && (
           <OperatorDocumentUpload
