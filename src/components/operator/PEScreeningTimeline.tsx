@@ -261,6 +261,7 @@ export default function PEScreeningTimeline({
   ];
 
   return (
+    <>
     <div className="border-t border-border/50">
       {/* Section header */}
       <button
