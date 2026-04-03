@@ -104,12 +104,13 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       const { data: urlData } = supabase.storage.from('operator-documents').getPublicUrl(path);
       const fileUrl = signedData?.signedUrl ?? urlData?.publicUrl;
 
-      await supabase.from('operator_documents').insert({
+      const { error: insertError } = await supabase.from('operator_documents').insert({
         operator_id: operatorId,
         document_type: slot.key as any,
         file_name: file.name,
         file_url: fileUrl,
       });
+      if (insertError) throw insertError;
 
       // For PE receipt, fire a notification to staff
       if (slot.key === 'pe_receipt') {
