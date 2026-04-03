@@ -1,33 +1,43 @@
 
 
-## Fix: Signature Disappears During ICA Signing
+## Fix: ICA "Execute Agreement" Button Stays Disabled After Drawing
 
 ### Root Cause
 
-The signature canvas uses a `ResizeObserver` that fires every time the container resizes. On mobile (and sometimes desktop), when Dominic tapped the "typed name" input field, the soft keyboard opened, resizing the viewport. This triggered `rescaleCanvas`, which:
+The "Execute Agreement" button on line 248 of `OperatorICASign.tsx` has this disabled check:
 
-1. Calls `canvas.width = ...` — this **clears the canvas entirely** (HTML5 spec)
-2. Attempts to restore the drawing asynchronously via `img.onload`
-3. But if the restore fails or another resize fires before it completes, the canvas is left blank
+```tsx
+disabled={signing || !signedName || sigRef.current?.isEmpty()}
+```
 
-Additionally, `react-signature-canvas`'s internal `isEmpty()` state gets out of sync with the actual canvas content (it tracks `beginStroke` calls, not pixel data). So after the canvas is visually cleared by the resize, `isEmpty()` could return either true or false unpredictably.
+Drawing on the canvas does **not** trigger a React re-render. So if Dominic types his name first (triggering a re-render where `isEmpty()` is still `true`), then draws his signature, the button **stays disabled** because no re-render occurs after drawing. The `isEmpty()` value is stale.
 
-**Evidence from the database**: Dominic's contract (`c572d55a...`) still shows `status: sent_to_operator` with all contractor signature fields null. No signature file was uploaded to storage. This confirms `handleSign` either returned early (empty check) or was never called because the user saw a blank canvas.
+This is order-dependent:
+- Draw first, then type name → works (typing triggers re-render, isEmpty() is now false)
+- Type name first, then draw → **broken** (button stays disabled forever)
 
-### Fix — Two parts
+### Fix
 
-**1. Remove ResizeObserver, set canvas size once on mount only**
+**1. Add `onEnd` callback to SignatureCanvas** (`ICADocumentView.tsx`)
 
-The ResizeObserver is the direct cause. Replace it with a single initial sizing on mount. The ICA signing view has a fixed layout (`max-w-4xl`), so continuous resize tracking is unnecessary. If the container width is already set on mount, one pass is sufficient.
+Pass an `onEnd` prop to `SignatureCanvas` that notifies the parent when a stroke finishes. This requires a new callback prop on `ICADocumentView`.
 
-**2. Add user feedback when signature is missing**
+**2. Track drawing state in `OperatorICASign.tsx`**
 
-Currently `handleSign` returns silently if `signedName` is empty or the signature pad is empty. Add a toast notification telling the user what's missing so they aren't left wondering why nothing happened.
+Add a `hasDrawn` boolean state. Set it `true` via the `onEnd` callback. Reset it when "Clear signature" is pressed. Replace `sigRef.current?.isEmpty()` in the disabled check with `!hasDrawn`.
+
+**3. Reset `hasDrawn` on clear**
+
+Wire up the "Clear signature" button to also reset `hasDrawn` to `false`.
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/components/ica/ICADocumentView.tsx` | Remove `ResizeObserver`; run canvas sizing once on mount via `useEffect`; keep the DPR-aware initial sizing but don't re-run it on resize |
-| `src/components/operator/OperatorICASign.tsx` | Add validation toasts in `handleSign` when signature or name is missing instead of silent return |
+| `src/components/ica/ICADocumentView.tsx` | Add `onSignatureEnd` optional prop; pass it as `onEnd` to `SignatureCanvas`; wire "Clear" button to also call an `onSignatureClear` callback |
+| `src/components/operator/OperatorICASign.tsx` | Add `hasDrawn` state; pass callbacks to `ICADocumentView`; replace `sigRef.current?.isEmpty()` with `!hasDrawn` in the disabled prop |
+
+### Why the previous fix didn't help
+
+The previous fix (removing ResizeObserver) was correct — it prevented the canvas from being cleared by keyboard-triggered resizes. But this second bug is independent: the button's disabled state simply never updates after the user draws because canvas strokes don't cause React re-renders.
 
