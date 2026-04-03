@@ -684,12 +684,45 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
   return (
     <>
-    <OperatorNotificationPreferencesModal open={notifPrefOpen} onClose={() => setNotifPrefOpen(false)} />
-    <ChangePasswordModal open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} variant="dark" />
-    <EditProfileModal open={editProfileOpen} onClose={() => setEditProfileOpen(false)} onSaved={refreshProfile} variant="dark" />
-    <div className="min-h-screen bg-secondary">
+    {!isPreview && (
+      <>
+        <OperatorNotificationPreferencesModal open={notifPrefOpen} onClose={() => setNotifPrefOpen(false)} />
+        <ChangePasswordModal open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} variant="dark" />
+        <EditProfileModal open={editProfileOpen} onClose={() => setEditProfileOpen(false)} onSaved={refreshProfile} variant="dark" />
+      </>
+    )}
+    <div className={isPreview ? '' : 'min-h-screen bg-secondary'}>
+      {/* Preview banner */}
+      {isPreview && (
+        <div className="flex items-center gap-3 bg-primary/10 border border-primary/30 rounded-xl px-4 py-3 mb-4">
+          <Eye className="h-5 w-5 text-primary shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-foreground">Previewing {displayName}'s Operator Portal</p>
+            <p className="text-xs text-muted-foreground">Read-only view — actions are disabled</p>
+          </div>
+        </div>
+      )}
+      {/* Preview tab bar */}
+      {isPreview && (
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {navItems.map(item => (
+            <button
+              key={item.view}
+              onClick={() => setView(item.view)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                view === item.view
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              {item.icon}
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
       {/* Top nav */}
-      <header className="bg-surface-dark border-b border-surface-dark-border sticky top-0 z-40">
+      <header className={isPreview ? 'hidden' : "bg-surface-dark border-b border-surface-dark-border sticky top-0 z-40"}>
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <img src={logo} alt="SUPERTRANSPORT" className="h-10 w-auto max-w-[180px] object-contain shrink-0" />
 
