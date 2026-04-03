@@ -1,31 +1,48 @@
 
+Fix the ICA builder so the owner can actually continue through the carrier-signing flow.
 
-## Fix: Truck Info Not Pre-filling in ICA Builder
+What’s likely happening
+- The first ICA step is currently blocked by this rule in `src/components/ica/ICABuilderModal.tsx`:
+  `const canProceedStep0 = !!(data.truck_vin && data.owner_business_name);`
+- That makes Business Name effectively required, even though the UI does not mark it required and many operators will not have one.
+- There is also a second gate on the Carrier Signature step:
+  `const canProceedStep2 = !!(carrierTypedName && carrierTitle);`
+- For an owner account, those fields are not prefilled, so the flow can feel like it is not letting you continue “as the owner.”
 
-### Root Cause
+Plan
+1. Align the step validation with the actual form
+- Update step 0 so it no longer requires `owner_business_name`.
+- Require what the UI already implies instead: VIN plus contractor identity (`owner_name`, or `owner_business_name` if present).
+- This removes the hidden blocker for sole proprietors and test operators.
 
-The ICA builder queries `onboarding_status` for truck fields including `trailer_number` (line 168 of `ICABuilderModal.tsx`). However, the `trailer_number` column **does not exist** on the `onboarding_status` table — it was never added via migration.
+2. Prefill carrier signer details for the logged-in owner/staff user
+- In `ICABuilderModal.tsx`, use the authenticated user profile from `useAuth()`.
+- If the draft does not already contain carrier signer info, prefill:
+  - typed name = logged-in user’s full name
+  - title = `Owner` for owner users, otherwise leave editable with a sensible fallback if needed
+- Keep both fields editable so staff can override them.
 
-This causes the entire query to fail silently, returning `null` instead of the truck data. Since `onboardingRow` is null, no truck fields get pre-filled even though the data (2004 International ProStar) is correctly saved in the database.
+3. Make the UI clearer
+- Add required markers/help text so the button state matches what the screen communicates.
+- If Continue is disabled, the user should be able to tell why immediately.
 
-### Solution
+4. Preserve existing draft behavior
+- If an ICA draft already has saved carrier name/title, do not overwrite it.
+- Only apply the autofill when those fields are blank.
 
-Two changes:
+Files to update
+- `src/components/ica/ICABuilderModal.tsx`
+- Possibly `src/hooks/useAuth.tsx` usage only (read existing role/profile data, no auth-system redesign)
 
-1. **Add `trailer_number` column** to `onboarding_status` via database migration — this is the missing column that breaks the query.
+Technical details
+- Replace:
+  `const canProceedStep0 = !!(data.truck_vin && data.owner_business_name);`
+- With validation closer to:
+  `const canProceedStep0 = !!(data.truck_vin && (data.owner_name || data.owner_business_name));`
+- Keep:
+  `const canProceedStep2 = !!(carrierTypedName && carrierTitle);`
+  but prefill those values from the logged-in owner profile so the owner can proceed without unnecessary manual re-entry.
+- No database change should be required for this fix.
 
-2. **Update `ICABuilderModal.tsx`** — add defensive handling so that if `trailer_number` is not yet available, the query still succeeds. Remove `trailer_number` from the select if it causes issues, or simply add the column (preferred).
-
-3. **Update `OperatorDetailPanel.tsx`** — when staff saves truck info via the TruckInfoCard, also sync the values to any active ICA draft/sent contract (the previously approved plan for dual-write sync).
-
-### Files changed
-
-| File | Change |
-|------|--------|
-| Database migration | `ALTER TABLE onboarding_status ADD COLUMN trailer_number text;` |
-| `src/components/ica/ICABuilderModal.tsx` | No code change needed — once the column exists, the existing query will work correctly |
-| `src/pages/staff/OperatorDetailPanel.tsx` | In `handleTruckInfoEdit`, after updating `onboarding_status`, also update any `ica_contracts` with status `draft` or `sent_to_operator` for the same operator |
-
-### Why this fixes it
-The truck data (2004 International ProStar) is already saved correctly in `onboarding_status`. The only problem is the query fails because it references a non-existent column. Adding the column makes the query succeed, and the existing pre-fill logic on lines 175-189 will work as designed.
-
+Expected result
+- You will be able to open Prepare ICA, move past the first step without entering a business name when it is not applicable, and continue through the carrier-signature step as the owner with your name/title already filled in.
