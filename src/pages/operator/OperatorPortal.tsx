@@ -1142,8 +1142,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
 
         {/* ── INSPECTION BINDER VIEW ── */}
-        {view === 'inspection-binder' && user && (
-          <OperatorInspectionBinder userId={user.id} operatorId={operatorId} />
+        {view === 'inspection-binder' && effectiveUserId && (
+          <OperatorInspectionBinder userId={effectiveUserId} operatorId={operatorId} />
         )}
 
         {/* ── MY DOCUMENTS VIEW (read-only vault) ── */}
