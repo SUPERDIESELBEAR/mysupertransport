@@ -323,7 +323,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
   // Realtime: increment badge + desktop push when a new message arrives (subscribe once per user)
   useEffect(() => {
-    if (!user) return;
+    if (isPreview || !user) return;
     const channel = supabase
       .channel('operator-unread-badge')
       .on('postgres_changes', {
