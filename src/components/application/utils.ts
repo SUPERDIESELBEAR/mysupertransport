@@ -1,5 +1,14 @@
 import { ApplicationFormData } from './types';
 
+// ─── Title-case normalizer ─────────────────────────────────────────────────
+export function toTitleCase(str: string): string {
+  if (!str) return str;
+  return str
+    .toLowerCase()
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .replace(/\bMc(\w)/g, (_, c) => 'Mc' + c.toUpperCase());
+}
+
 // ─── Validation ────────────────────────────────────────────────────────────
 export function validateStep(step: number, data: ApplicationFormData): Partial<Record<keyof ApplicationFormData, string>> {
   const errs: Partial<Record<keyof ApplicationFormData, string>> = {};
@@ -94,19 +103,19 @@ export function buildPayload(data: ApplicationFormData, token: string, isDraft: 
     draft_token: token,
     is_draft: isDraft,
     email: data.email,
-    first_name: data.first_name || null,
-    last_name: data.last_name || null,
+    first_name: toTitleCase(data.first_name) || null,
+    last_name: toTitleCase(data.last_name) || null,
     dob: data.dob || null,
     phone: data.phone || null,
-    address_street: data.address_street || null,
-    address_line2: data.address_line2 || null,
-    address_city: data.address_city || null,
+    address_street: toTitleCase(data.address_street) || null,
+    address_line2: toTitleCase(data.address_line2) || null,
+    address_city: toTitleCase(data.address_city) || null,
     address_state: data.address_state || null,
     address_zip: data.address_zip || null,
     address_duration: data.address_duration || null,
-    prev_address_street: data.prev_address_street || null,
-    prev_address_line2: data.prev_address_line2 || null,
-    prev_address_city: data.prev_address_city || null,
+    prev_address_street: toTitleCase(data.prev_address_street) || null,
+    prev_address_line2: toTitleCase(data.prev_address_line2) || null,
+    prev_address_city: toTitleCase(data.prev_address_city) || null,
     prev_address_state: data.prev_address_state || null,
     prev_address_zip: data.prev_address_zip || null,
     cdl_state: data.cdl_state || null,
@@ -116,7 +125,11 @@ export function buildPayload(data: ApplicationFormData, token: string, isDraft: 
     endorsements: data.endorsements.length ? data.endorsements : null,
     cdl_10_years: data.cdl_10_years === 'yes' ? true : data.cdl_10_years === 'no' ? false : null,
     referral_source: data.referral_source || null,
-    employers: data.employers.filter(e => e.name.trim()) as unknown as Record<string, unknown>[],
+    employers: data.employers.filter(e => e.name.trim()).map(e => ({
+      ...e,
+      name: toTitleCase(e.name),
+      city: toTitleCase(e.city),
+    })) as unknown as Record<string, unknown>[],
     employment_gaps: data.employment_gaps === 'yes' ? true : data.employment_gaps === 'no' ? false : null,
     employment_gaps_explanation: data.employment_gaps_explanation || null,
     years_experience: data.years_experience || null,
