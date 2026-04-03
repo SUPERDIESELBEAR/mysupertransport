@@ -1227,7 +1227,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       </div>
 
       {/* ── Floating Next-Step CTA (mobile only, above bottom nav) ────── */}
-      {nextStep && (
+      {!isPreview && nextStep && (
         <div className="md:hidden fixed bottom-16 inset-x-0 z-30 px-3 pb-2 pointer-events-none">
           <button
             onClick={nextStep.action}
