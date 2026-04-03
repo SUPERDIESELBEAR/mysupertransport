@@ -118,7 +118,7 @@ export default function StaffPortal() {
     } else if (operatorId) {
       setSelectedOperatorId(operatorId);
       setCurrentView('operator-detail');
-    } else if (view && ['pipeline','messages','faq','resource-center','notifications','docs-hub','inspection-binder','drivers','compliance','equipment','vehicle-hub'].includes(view)) {
+    } else if (view && ['pipeline','messages','faq','resource-center','notifications','docs-hub','inspection-binder','drivers','compliance','equipment','vehicle-hub','operator-preview'].includes(view)) {
       setCurrentView(view);
     }
   }, [searchParams]);
