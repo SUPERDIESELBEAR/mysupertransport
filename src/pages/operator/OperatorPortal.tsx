@@ -651,6 +651,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> },
     { view: 'notifications' as OperatorView, label: 'Notifications', icon: <Bell className="h-5 w-5" />, badge: unreadNotifCount },
   ].filter(item => {
+    if (isPreview && ['messages', 'notifications', 'ica'].includes(item.view)) return false;
     if ('onlyOnboarded' in item && !isFullyOnboarded) return false;
     if ('showIf' in item && !item.showIf) return false;
     return true;
