@@ -227,6 +227,21 @@ export default function ICABuilderModal({
     loadDraft();
   }, [operatorId]);
 
+  // ── Prefill carrier signer from logged-in user profile (only when blank) ──
+  useEffect(() => {
+    if (!profile) return;
+    setCarrierTypedName(prev => {
+      if (prev) return prev; // don't overwrite existing value
+      return [profile.first_name, profile.last_name].filter(Boolean).join(' ');
+    });
+    setCarrierTitle(prev => {
+      if (prev) return prev;
+      if (roles.includes('owner')) return 'Owner';
+      if (roles.includes('management')) return 'Operations Manager';
+      return '';
+    });
+  }, [profile, roles]);
+
   const uploadSignature = async (sigRef: React.RefObject<SignatureCanvas>, folder: string) => {
     if (!sigRef.current || sigRef.current.isEmpty()) return null;
     const dataUrl = sigRef.current.toDataURL('image/png');
