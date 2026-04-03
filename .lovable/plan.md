@@ -1,51 +1,49 @@
 
-## Investigation result
 
-I found the real cause: Bobby’s **application record is correct**, but the UI is still pulling his display name from the **profile record**, which is still stored as `BOBBY THOMPSON`.
+## Operator Preview Mode for Staff
 
-### What I verified
-- `applications` table: Bobby is already saved as `Bobby Thompson`
-- `profiles` table: Bobby is still saved as `BOBBY THOMPSON`
+### What it does
+Adds an "Operator Preview" sidebar item under **Tools** in the Staff Portal. When clicked, staff can pick any operator from the roster and see a **read-only** rendering of the full Operator Portal exactly as that driver sees it — same progress tracker, tabs, dispatch status, documents, and onboarding stages.
 
-### Why the app still shows all caps
-Several staff/driver views prefer `profiles.first_name` / `profiles.last_name` over the application name:
-- `src/pages/staff/PipelineDashboard.tsx`
-- `src/components/drivers/DriverRoster.tsx`
-- `src/pages/staff/OperatorDetailPanel.tsx`
+### How it works
 
-So even though the application was fixed, those screens still render the old profile casing.
+**1. Add `previewUserId` prop to `OperatorPortal`**
 
-## Recommended fix
+The portal currently uses `user.id` from `useAuth()` in ~45 places to fetch operator data, messages, notifications, etc. We add an optional `previewUserId?: string` prop. Internally, a single variable `const effectiveUserId = previewUserId ?? user?.id` replaces all `user.id` references for data fetching. When `previewUserId` is set, the component operates in read-only mode — all write operations (ack buttons, signature, uploads, profile edits) are hidden or disabled.
 
-### 1. Fix Bobby’s existing profile data
-Update Bobby’s `profiles` row to `Bobby Thompson` so the current UI immediately displays correctly everywhere.
+A `readOnly` flag derived from `!!previewUserId` will:
+- Hide action buttons (sign ICA, upload docs, ack truck down, send messages)
+- Show a persistent banner: "You are previewing [Operator Name]'s portal — read-only"
+- Disable realtime subscriptions (not needed for preview)
+- Hide modals for password change, profile edit, notification prefs
 
-### 2. Make the UI prefer application names when available
-Adjust name resolution so screens use:
-1. application name first
-2. profile name as fallback only if application name is missing
+**2. Add Operator Picker + Preview view in `StaffPortal`**
 
-That keeps applicant/operator names consistent with the normalized application data.
+- New nav item: `{ label: 'Operator Preview', icon: <Eye />, path: 'operator-preview' }` under Tools
+- New view state `'operator-preview'` added to `StaffView` type
+- When the view loads, show a searchable dropdown/list of all operators (reuse existing operator query pattern from DriverHubView)
+- Once an operator is selected, render `<OperatorPortal previewUserId={selectedUserId} />` below the picker
+- A "Back" or "Change Operator" button at the top lets staff switch to a different operator
 
-### 3. Keep future data synchronized
-When an operator is created/invited from an application, also update the related profile name from the application record so profile and application don’t drift apart.
+**3. Key data flow**
 
-## Files to update
-- `src/pages/staff/PipelineDashboard.tsx`
-  - Use `appRecord.first_name/last_name` before `profile.first_name/last_name`
-- `src/components/drivers/DriverRoster.tsx`
-  - Same fallback order: application first, profile second
-- `src/pages/staff/OperatorDetailPanel.tsx`
-  - Set `operatorName` from application name when present
-- `supabase/functions/invite-operator/index.ts`
-  - After resolving/creating the operator user, upsert/update the profile name from the application so future operators stay in sync
-
-## Technical note
-This is not a cache issue. It is a **data-source mismatch**:
 ```text
-Application name = corrected
-Profile name     = still old ALL CAPS
-UI               = currently reading profile in key places
+StaffPortal
+  └─ view === 'operator-preview'
+       ├─ Operator picker (search by name)
+       └─ <OperatorPortal previewUserId="abc-123" />
+            └─ effectiveUserId = previewUserId
+            └─ readOnly = true (hides writes, shows banner)
 ```
 
-Once implemented, Bobby should display correctly and future normalized applications should stay visually consistent across Pipeline, Driver Hub, and operator detail views.
+### Files changed
+
+| File | Change |
+|------|--------|
+| `src/pages/operator/OperatorPortal.tsx` | Add `previewUserId` prop; derive `effectiveUserId` and `readOnly`; replace ~45 `user.id` refs with `effectiveUserId`; conditionally hide write actions; add read-only banner; skip realtime subscriptions in preview |
+| `src/pages/staff/StaffPortal.tsx` | Add `'operator-preview'` to `StaffView`; add nav item with Eye icon under Tools; add operator picker + OperatorPortal render block |
+| `src/pages/management/ManagementPortal.tsx` | Same nav item addition (if Management also needs it) |
+
+### Scope note
+This is a significant refactor of `OperatorPortal.tsx` (1283 lines, 45 `user.id` references). The changes are mechanical (find-replace with `effectiveUserId`) but numerous, so careful testing is important. No database changes or new tables are needed — it reads existing data through the staff user's RLS permissions.
+
