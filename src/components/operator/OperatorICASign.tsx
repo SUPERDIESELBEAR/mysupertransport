@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FileText, Pen, CheckCircle2, Loader2 } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
@@ -24,7 +24,7 @@ interface ICAData {
 
 export default function OperatorICASign() {
   const { session } = useAuth();
-  const { toast } = useToast();
+  // removed useToast — using sonner toast directly
   const [contract, setContract] = useState<ICAData | null>(null);
   const [loading, setLoading] = useState(true);
   const [signing, setSigning] = useState(false);
@@ -84,7 +84,15 @@ export default function OperatorICASign() {
   };
 
   const handleSign = async () => {
-    if (!contract || !sigRef.current || sigRef.current.isEmpty() || !signedName) return;
+    if (!contract) return;
+    if (!signedName.trim()) {
+      toast.error('Please type your full name before signing.');
+      return;
+    }
+    if (!sigRef.current || sigRef.current.isEmpty()) {
+      toast.error('Please draw your signature in the signature box.');
+      return;
+    }
     setSigning(true);
     try {
       const dataUrl = sigRef.current.toDataURL('image/png');
@@ -164,10 +172,10 @@ export default function OperatorICASign() {
         console.warn('ICA complete notification failed (non-blocking):', notifErr);
       }
 
-      toast({ title: 'ICA Signed!', description: 'Your Independent Contractor Agreement has been fully executed.' });
+      toast.success('ICA Signed! Your Independent Contractor Agreement has been fully executed.');
       fetchContract();
     } catch (err: any) {
-      toast({ title: 'Error signing', description: err.message, variant: 'destructive' });
+      toast.error(err.message || 'Error signing agreement');
     } finally {
       setSigning(false);
     }
