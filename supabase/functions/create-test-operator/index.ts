@@ -30,11 +30,43 @@ Deno.serve(async (req) => {
     const TEST_USER_ID = '7e356f94-ce4a-47aa-8883-0e6b01d09aab';
     const TEST_EMAIL = 'marcsmueller@gmail.com';
 
-    // 1. Insert approved application
+    // 1. Check if operator already exists for this user
+    const { data: existingOp } = await supabaseAdmin
+      .from('operators')
+      .select('id')
+      .eq('user_id', TEST_USER_ID)
+      .maybeSingle();
+
+    if (existingOp) {
+      // Check if onboarding_status exists
+      const { data: existingOb } = await supabaseAdmin
+        .from('onboarding_status')
+        .select('id')
+        .eq('operator_id', existingOp.id)
+        .maybeSingle();
+
+      if (!existingOb) {
+        await supabaseAdmin.from('onboarding_status').insert({
+          operator_id: existingOp.id,
+          ica_status: 'not_issued',
+        });
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        operator_id: existingOp.id,
+        message: 'Operator already exists, ensured onboarding_status is present.',
+      }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 2. Insert approved application (use test-specific email to avoid unique constraint)
+    const testEmail = 'marcsmueller+test@gmail.com';
     const { data: app, error: appErr } = await supabaseAdmin
       .from('applications')
       .insert({
-        email: TEST_EMAIL,
+        email: testEmail,
         first_name: 'Marcus',
         last_name: 'Mueller (Test)',
         user_id: TEST_USER_ID,
