@@ -1,37 +1,34 @@
 
 
-## Improve ICA Signing UX on Mobile
+## Fix: PE Receipt "View Receipt" Link Returns 404
 
-### Problem
-After drawing their signature and typing their name in the ICA document (which is embedded inline), the operator must scroll past the full contract to find the "Execute Agreement" button at the very bottom. On a phone, this is easy to miss — the signer doesn't know there's a button below the document.
+### Root Cause
+The `operator-documents` storage bucket is **private**, but the PE receipt's `file_url` stored in the database is a public URL (`/object/public/operator-documents/...`). When staff clicks "View Receipt," it opens this URL in a new tab, which fails because private buckets don't serve files via public URLs.
 
-### Solution
-Add a **sticky floating action bar** at the bottom of the screen that appears once the contract is not fully executed. This bar contains:
-- The "Execute Agreement" button (always visible, no scrolling needed)
-- A brief status line: shows what's still missing ("Type your name & sign" / "Draw your signature" / "Ready to execute")
-- The legal disclaimer text
+This affects two locations:
+1. **Staff side** (`OperatorDetailPanel.tsx` line 3853) — opens raw URL in new tab
+2. **Operator side** (`PEScreeningTimeline.tsx` line 220) — same pattern
 
-The existing bottom section (lines 249-264) is replaced by this sticky bar so there is no duplication.
+### Fix
 
-### Flow after fix
-1. Operator opens ICA tab — sees the gold banner and the contract
-2. A sticky bar is always visible at the bottom of the screen with the Execute button (disabled until both name + signature are provided)
-3. The status line updates in real time: "Type your name & draw your signature" → "Draw your signature" → "Ready — tap to execute"
-4. Operator taps Execute without needing to scroll — the button is always on screen
-5. After execution, the sticky bar disappears and the success banner + navigation kick in
+**1. Fix the upload to store the raw storage path instead of a public URL** (`PEScreeningTimeline.tsx`)
+- Store just the path (e.g., `{operatorId}/pe_receipt/{timestamp}.{ext}`) so signed URLs can be generated on demand
+- This aligns with the project's established pattern noted in the security memory
+
+**2. Fix the staff "View Receipt" to use the in-app FilePreviewModal** (`OperatorDetailPanel.tsx`)
+- Replace the `<a href target="_blank">` with a button that opens the existing `FilePreviewModal` / blob-based viewer
+- Generate a signed URL on click, matching the pattern used for other private documents (Form 2290, Truck Title, etc.)
+
+**3. Fix the operator "View Receipt" link** (`PEScreeningTimeline.tsx`)
+- Same approach: use signed URL + in-app viewer instead of raw public URL
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/components/operator/OperatorICASign.tsx` | Replace the bottom `<div>` block with a `fixed bottom-0` sticky action bar containing the status hint, legal text, and Execute button. Add dynamic status message based on `signedName` and `hasDrawn` state. |
+| `src/components/operator/PEScreeningTimeline.tsx` | Store raw path in `operator_documents.file_url`; use signed URL for the receipt viewer link |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Replace the `<a>` tag for PE Receipt with a button that generates a signed URL and opens the in-app file preview modal |
 
-### Technical detail
-- Use `fixed bottom-0 left-0 right-0 z-50` with `bg-surface-dark/95 backdrop-blur border-t` for the sticky bar
-- Add `pb-28` padding to the main container so content isn't hidden behind the bar
-- Status logic:
-  - `!signedName && !hasDrawn` → "Type your name & draw your signature below"
-  - `!signedName` → "Type your full name to continue"
-  - `!hasDrawn` → "Draw your signature to continue"
-  - both present → "Ready to execute ✓"
+### Note
+The existing receipt for Jocquan Scott has an invalid public URL already stored. The fix will handle both old public URLs (by extracting the path portion) and new raw paths when generating signed URLs.
 
