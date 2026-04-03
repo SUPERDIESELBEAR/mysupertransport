@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn, DollarSign, PauseCircle, Pencil, Cake, PartyPopper, Phone, MapPin } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn, DollarSign, PauseCircle, Pencil, Cake, PartyPopper, Phone, MapPin, Eye } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { Calendar } from '@/components/ui/calendar';
@@ -3846,18 +3846,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         onUploaded={url => setStatus(prev => ({ ...prev, qpassport_url: url }))}
                       />
                     )}
-                    {/* PE Receipt — read-only view link from operator upload */}
+                    {/* PE Receipt — view via signed URL in FilePreviewModal */}
                     {docFiles['pe_receipt']?.[0] && (
                       <div className="space-y-1">
                         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PE Receipt (from operator)</Label>
-                        <a
-                          href={docFiles['pe_receipt'][0].file_url ?? '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const raw = docFiles['pe_receipt'][0].file_url ?? '';
+                            const storagePath = raw.startsWith('http')
+                              ? (() => { const m = raw.indexOf('/operator-documents/'); return m !== -1 ? raw.slice(m + '/operator-documents/'.length).split('?')[0] : raw; })()
+                              : raw;
+                            const { data } = await supabase.storage.from('operator-documents').createSignedUrl(storagePath, 3600);
+                            if (data?.signedUrl) setStage2Preview({ url: data.signedUrl, name: docFiles['pe_receipt'][0].file_name ?? 'PE Receipt', docType: 'pe_receipt' });
+                          }}
                           className="inline-flex items-center gap-1 text-xs text-gold hover:underline"
                         >
-                          <ExternalLink className="h-3 w-3" /> View Receipt
-                        </a>
+                          <Eye className="h-3 w-3" /> View Receipt
+                        </button>
                       </div>
                     )}
                   </div>

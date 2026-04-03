@@ -66,6 +66,7 @@ export default function PEScreeningTimeline({
   const [uploading, setUploading] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const [viewingQPassport, setViewingQPassport] = useState(false);
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const peScreening = onboardingStatus.pe_screening as string | null;
@@ -106,18 +107,12 @@ export default function PEScreeningTimeline({
         .upload(path, file, { upsert: false });
       if (uploadError) throw uploadError;
 
-      const { data: signedData } = await supabase.storage
-        .from('operator-documents')
-        .createSignedUrl(path, 60 * 60 * 24 * 365);
-
-      const { data: urlData } = supabase.storage.from('operator-documents').getPublicUrl(path);
-      const fileUrl = signedData?.signedUrl ?? urlData?.publicUrl;
-
+      // Store raw storage path (not a public URL) for private bucket
       const { error: insertError } = await supabase.from('operator_documents').insert({
         operator_id: operatorId,
         document_type: 'pe_receipt' as any,
         file_name: file.name,
-        file_url: fileUrl,
+        file_url: path,
       });
       if (insertError) throw insertError;
 
@@ -216,16 +211,21 @@ export default function PEScreeningTimeline({
           </button>
         </>
       ) : receiptDoc?.file_url ? (
-        <a
-          href={receiptDoc.file_url}
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          type="button"
+          onClick={async () => {
+            const raw = receiptDoc.file_url!;
+            const storagePath = raw.startsWith('http')
+              ? (() => { const m = raw.indexOf('/operator-documents/'); return m !== -1 ? raw.slice(m + '/operator-documents/'.length).split('?')[0] : raw; })()
+              : raw;
+            const { data } = await supabase.storage.from('operator-documents').createSignedUrl(storagePath, 3600);
+            if (data?.signedUrl) setReceiptPreviewUrl(data.signedUrl);
+          }}
           className="mt-1.5 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          <FileText className="h-3 w-3" />
+          <Eye className="h-3 w-3" />
           {receiptDoc.file_name ?? 'View receipt'}
-          <ExternalLink className="h-3 w-3" />
-        </a>
+        </button>
       ) : undefined,
     },
     // Step 4: Results
@@ -261,6 +261,7 @@ export default function PEScreeningTimeline({
   ];
 
   return (
+    <>
     <div className="border-t border-border/50">
       {/* Section header */}
       <button
@@ -361,5 +362,14 @@ export default function PEScreeningTimeline({
         </div>
       )}
     </div>
+
+      {receiptPreviewUrl && (
+        <FilePreviewModal
+          url={receiptPreviewUrl}
+          name={receiptDoc?.file_name ?? 'PE Receipt'}
+          onClose={() => setReceiptPreviewUrl(null)}
+        />
+      )}
+    </>
   );
 }
