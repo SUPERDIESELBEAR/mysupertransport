@@ -434,7 +434,7 @@ export default function ICABuilderModal({
     }
   };
 
-  const canProceedStep0 = !!(data.truck_vin && data.owner_business_name);
+  const canProceedStep0 = !!(data.truck_vin && (data.owner_name || data.owner_business_name));
   const canProceedStep2 = !!(carrierTypedName && carrierTitle);
 
   return (
