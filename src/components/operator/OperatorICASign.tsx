@@ -84,7 +84,15 @@ export default function OperatorICASign() {
   };
 
   const handleSign = async () => {
-    if (!contract || !sigRef.current || sigRef.current.isEmpty() || !signedName) return;
+    if (!contract) return;
+    if (!signedName.trim()) {
+      toast.error('Please type your full name before signing.');
+      return;
+    }
+    if (!sigRef.current || sigRef.current.isEmpty()) {
+      toast.error('Please draw your signature in the signature box.');
+      return;
+    }
     setSigning(true);
     try {
       const dataUrl = sigRef.current.toDataURL('image/png');
