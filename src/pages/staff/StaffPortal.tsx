@@ -15,7 +15,7 @@ import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff, HardDrive, GraduationCap, CarFront } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff, HardDrive, GraduationCap, CarFront, Eye } from 'lucide-react';
 import FleetRoster from '@/components/fleet/FleetRoster';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
@@ -26,6 +26,7 @@ import DocumentHub from '@/components/documents/DocumentHub';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
 import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
 import ComplianceAlertsPanel from '@/components/inspection/ComplianceAlertsPanel';
+import OperatorPreviewPicker from '@/components/operator/OperatorPreviewPicker';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -33,7 +34,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resource-center' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'compliance' | 'equipment' | 'vehicle-hub' | 'vehicle-detail';
+type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resource-center' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'compliance' | 'equipment' | 'vehicle-hub' | 'vehicle-detail' | 'operator-preview';
 
 export default function StaffPortal() {
   const { user } = useAuth();
@@ -117,7 +118,7 @@ export default function StaffPortal() {
     } else if (operatorId) {
       setSelectedOperatorId(operatorId);
       setCurrentView('operator-detail');
-    } else if (view && ['pipeline','messages','faq','resource-center','notifications','docs-hub','inspection-binder','drivers','compliance','equipment','vehicle-hub'].includes(view)) {
+    } else if (view && ['pipeline','messages','faq','resource-center','notifications','docs-hub','inspection-binder','drivers','compliance','equipment','vehicle-hub','operator-preview'].includes(view)) {
       setCurrentView(view);
     }
   }, [searchParams]);
@@ -205,6 +206,7 @@ export default function StaffPortal() {
     { label: 'Resource Center', icon: <BookOpen className="h-4 w-4" />, path: 'resource-center' },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
     { label: 'Equipment', icon: <HardDrive className="h-4 w-4" />, path: 'equipment' },
+    { label: 'Operator Preview', icon: <Eye className="h-4 w-4" />, path: 'operator-preview' },
     { label: 'Notifications', icon: <Bell className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount, dividerBefore: 'Admin' },
     { label: 'Demo Mode', icon: <GraduationCap className="h-4 w-4" />, path: '__demo__' },
   ];
@@ -766,6 +768,9 @@ export default function StaffPortal() {
       )}
       {currentView === 'vehicle-detail' && selectedOperatorId && (
         <FleetDetailDrawer operatorId={selectedOperatorId} onBack={() => setCurrentView('vehicle-hub' as StaffView)} />
+      )}
+      {currentView === 'operator-preview' && (
+        <OperatorPreviewPicker />
       )}
     </StaffLayout>
 

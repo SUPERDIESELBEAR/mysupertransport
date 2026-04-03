@@ -7,7 +7,7 @@ import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound,
-  ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen,
+  ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye,
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
 import DriverServiceLibrary from '@/components/service-library/DriverServiceLibrary';
@@ -53,8 +53,17 @@ interface UploadedDoc {
   uploaded_at: string;
 }
 
-export default function OperatorPortal() {
-  const { profile, user, signOut, refreshProfile } = useAuth();
+export default function OperatorPortal({ previewUserId }: { previewUserId?: string } = {}) {
+  const { profile: authProfile, user, signOut, refreshProfile } = useAuth();
+  const isPreview = !!previewUserId;
+  const effectiveUserId = previewUserId ?? user?.id;
+  const [previewProfile, setPreviewProfile] = useState<{ first_name: string | null; last_name: string | null; avatar_url: string | null; phone: string | null } | null>(null);
+  useEffect(() => {
+    if (!previewUserId) return;
+    supabase.from('profiles').select('first_name, last_name, avatar_url, phone').eq('user_id', previewUserId).maybeSingle()
+      .then(({ data }) => setPreviewProfile(data));
+  }, [previewUserId]);
+  const profile = isPreview ? previewProfile : authProfile;
   const location = useLocation();
   const navigate = useNavigate();
   const [view, setView] = useState<OperatorView>(() => {
@@ -100,7 +109,7 @@ export default function OperatorPortal() {
   useEffect(() => { viewRef.current = view; }, [view]);
 
   const handleTruckDownAck = useCallback(async () => {
-    if (!operatorId || !dispatchUpdatedAt || !user) return;
+    if (isPreview || !operatorId || !dispatchUpdatedAt || !user) return;
     setAckLoading(true);
     try {
       await supabase.from('dispatch_status_history').insert({
@@ -152,11 +161,11 @@ export default function OperatorPortal() {
   }, []);
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
+    if (!effectiveUserId) return;
     const { data: op } = await supabase
       .from('operators')
       .select('id, application_id, assigned_onboarding_staff, onboarding_status(*), operator_documents(*)')
-      .eq('user_id', user.id)
+      .eq('user_id', effectiveUserId)
       .single();
 
     if (op) {
@@ -235,7 +244,7 @@ export default function OperatorPortal() {
         setIcaTruckInfo(null);
       }
     }
-  }, [user, fetchDispatcherInfo, fetchCoordinatorInfo]);
+  }, [effectiveUserId, fetchDispatcherInfo, fetchCoordinatorInfo]);
 
   const fetchUnreadCount = useCallback(async () => {
     if (!user) return;
@@ -281,7 +290,7 @@ export default function OperatorPortal() {
 
   // Realtime: update dispatch status live so the banner appears/disappears without refresh
   useEffect(() => {
-    if (!operatorId) return;
+    if (isPreview || !operatorId) return;
     const channel = supabase
       .channel(`operator-dispatch-status-${operatorId}`)
       .on('postgres_changes', {
@@ -314,7 +323,7 @@ export default function OperatorPortal() {
 
   // Realtime: increment badge + desktop push when a new message arrives (subscribe once per user)
   useEffect(() => {
-    if (!user) return;
+    if (isPreview || !user) return;
     const channel = supabase
       .channel('operator-unread-badge')
       .on('postgres_changes', {
@@ -341,7 +350,7 @@ export default function OperatorPortal() {
 
   // Realtime: update notification badge + desktop push when a new notification arrives
   useEffect(() => {
-    if (!user) return;
+    if (isPreview || !user) return;
     const channel = supabase
       .channel('operator-unread-notif-badge')
       .on('postgres_changes', {
@@ -642,6 +651,7 @@ export default function OperatorPortal() {
     { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> },
     { view: 'notifications' as OperatorView, label: 'Notifications', icon: <Bell className="h-5 w-5" />, badge: unreadNotifCount },
   ].filter(item => {
+    if (isPreview && ['messages', 'notifications', 'ica'].includes(item.view)) return false;
     if ('onlyOnboarded' in item && !isFullyOnboarded) return false;
     if ('showIf' in item && !item.showIf) return false;
     return true;
@@ -674,12 +684,45 @@ export default function OperatorPortal() {
 
   return (
     <>
-    <OperatorNotificationPreferencesModal open={notifPrefOpen} onClose={() => setNotifPrefOpen(false)} />
-    <ChangePasswordModal open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} variant="dark" />
-    <EditProfileModal open={editProfileOpen} onClose={() => setEditProfileOpen(false)} onSaved={refreshProfile} variant="dark" />
-    <div className="min-h-screen bg-secondary">
+    {!isPreview && (
+      <>
+        <OperatorNotificationPreferencesModal open={notifPrefOpen} onClose={() => setNotifPrefOpen(false)} />
+        <ChangePasswordModal open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} variant="dark" />
+        <EditProfileModal open={editProfileOpen} onClose={() => setEditProfileOpen(false)} onSaved={refreshProfile} variant="dark" />
+      </>
+    )}
+    <div className={isPreview ? '' : 'min-h-screen bg-secondary'}>
+      {/* Preview banner */}
+      {isPreview && (
+        <div className="flex items-center gap-3 bg-primary/10 border border-primary/30 rounded-xl px-4 py-3 mb-4">
+          <Eye className="h-5 w-5 text-primary shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-foreground">Previewing {displayName}'s Operator Portal</p>
+            <p className="text-xs text-muted-foreground">Read-only view — actions are disabled</p>
+          </div>
+        </div>
+      )}
+      {/* Preview tab bar */}
+      {isPreview && (
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {navItems.map(item => (
+            <button
+              key={item.view}
+              onClick={() => setView(item.view)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                view === item.view
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              {item.icon}
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
       {/* Top nav */}
-      <header className="bg-surface-dark border-b border-surface-dark-border sticky top-0 z-40">
+      <header className={isPreview ? 'hidden' : "bg-surface-dark border-b border-surface-dark-border sticky top-0 z-40"}>
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <img src={logo} alt="SUPERTRANSPORT" className="h-10 w-auto max-w-[180px] object-contain shrink-0" />
 
@@ -1099,8 +1142,8 @@ export default function OperatorPortal() {
         )}
 
         {/* ── INSPECTION BINDER VIEW ── */}
-        {view === 'inspection-binder' && user && (
-          <OperatorInspectionBinder userId={user.id} operatorId={operatorId} />
+        {view === 'inspection-binder' && effectiveUserId && (
+          <OperatorInspectionBinder userId={effectiveUserId} operatorId={operatorId} />
         )}
 
         {/* ── MY DOCUMENTS VIEW (read-only vault) ── */}
@@ -1184,7 +1227,7 @@ export default function OperatorPortal() {
       </div>
 
       {/* ── Floating Next-Step CTA (mobile only, above bottom nav) ────── */}
-      {nextStep && (
+      {!isPreview && nextStep && (
         <div className="md:hidden fixed bottom-16 inset-x-0 z-30 px-3 pb-2 pointer-events-none">
           <button
             onClick={nextStep.action}
@@ -1236,7 +1279,7 @@ export default function OperatorPortal() {
       )}
 
       {/* ── Sticky bottom nav (mobile only) ────────────────────────────── */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-dark border-t border-surface-dark-border">
+      {!isPreview && <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-dark border-t border-surface-dark-border">
         <div className="flex items-stretch h-16">
           {mobileNavItems.map((item) => {
             const isActive = view === item.view;
@@ -1276,7 +1319,7 @@ export default function OperatorPortal() {
         </div>
         {/* Safe-area spacer for iOS home indicator */}
         <div className="h-safe-bottom bg-surface-dark" />
-      </nav>
+      </nav>}
     </div>
     </>
   );
