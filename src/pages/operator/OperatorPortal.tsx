@@ -1279,7 +1279,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       )}
 
       {/* ── Sticky bottom nav (mobile only) ────────────────────────────── */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-dark border-t border-surface-dark-border">
+      {!isPreview && <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-dark border-t border-surface-dark-border">
         <div className="flex items-stretch h-16">
           {mobileNavItems.map((item) => {
             const isActive = view === item.view;
