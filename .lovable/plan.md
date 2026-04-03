@@ -1,33 +1,31 @@
 
 
-## Provision Full Operator Stack for marcsmueller@gmail.com
+## Fix: Truck Info Not Pre-filling in ICA Builder
 
-### Problem
-Your test account (`marcsmueller@gmail.com`, user ID `7e356f94-...`) has a profile and an `operator` role, but is missing:
-- An **application** record (required to create an operator)
-- An **operator** record (required for ICA, onboarding, and all portal features)
-- An **onboarding_status** record (required for the onboarding checklist and ICA tab)
+### Root Cause
 
-Without these, the Operator Portal loads but has nothing to show -- no ICA tab, no onboarding checklist, no document uploads.
+The ICA builder queries `onboarding_status` for truck fields including `trailer_number` (line 168 of `ICABuilderModal.tsx`). However, the `trailer_number` column **does not exist** on the `onboarding_status` table — it was never added via migration.
+
+This causes the entire query to fail silently, returning `null` instead of the truck data. Since `onboardingRow` is null, no truck fields get pre-filled even though the data (2004 International ProStar) is correctly saved in the database.
 
 ### Solution
-Update the `create-test-operator` edge function to insert the three missing records using the service role key (bypasses RLS), then call it once:
 
-1. **Insert an `applications` row** -- minimal approved application (review_status = `approved`, first_name = "Marcus", last_name = "Mueller (Test)", email = `marcsmueller@gmail.com`)
-2. **Insert an `operators` row** -- linking user_id and application_id, `is_active = true`
-3. **Insert an `onboarding_status` row** -- linked to the new operator, `ica_status = 'not_issued'` so you can send an ICA from Management
+Two changes:
 
-### After the fix
-1. The edge function runs once and provisions all three records
-2. From your Management Portal (`marc@mysupertransport.com`), send an ICA to "Marcus Mueller (Test)"
-3. On your phone (`marcsmueller@gmail.com`), the ICA will appear in the Operator Portal ready to sign
+1. **Add `trailer_number` column** to `onboarding_status` via database migration — this is the missing column that breaks the query.
+
+2. **Update `ICABuilderModal.tsx`** — add defensive handling so that if `trailer_number` is not yet available, the query still succeeds. Remove `trailer_number` from the select if it causes issues, or simply add the column (preferred).
+
+3. **Update `OperatorDetailPanel.tsx`** — when staff saves truck info via the TruckInfoCard, also sync the values to any active ICA draft/sent contract (the previously approved plan for dual-write sync).
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `supabase/functions/create-test-operator/index.ts` | Replace the password-reset-only logic with full provisioning: insert application, operator, and onboarding_status records for user `7e356f94-ce4a-47aa-8883-0e6b01d09aab` |
+| Database migration | `ALTER TABLE onboarding_status ADD COLUMN trailer_number text;` |
+| `src/components/ica/ICABuilderModal.tsx` | No code change needed — once the column exists, the existing query will work correctly |
+| `src/pages/staff/OperatorDetailPanel.tsx` | In `handleTruckInfoEdit`, after updating `onboarding_status`, also update any `ica_contracts` with status `draft` or `sent_to_operator` for the same operator |
 
-### Important
-The ICA you previously sent was linked to your owner account's operator record, not this test account. You will need to send a **new** ICA to this test operator once the records are created.
+### Why this fixes it
+The truck data (2004 International ProStar) is already saved correctly in `onboarding_status`. The only problem is the query fails because it references a non-existent column. Adding the column makes the query succeed, and the existing pre-fill logic on lines 175-189 will work as designed.
 
