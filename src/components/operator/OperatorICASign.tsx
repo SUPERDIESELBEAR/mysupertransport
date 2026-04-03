@@ -172,10 +172,10 @@ export default function OperatorICASign() {
         console.warn('ICA complete notification failed (non-blocking):', notifErr);
       }
 
-      toast({ title: 'ICA Signed!', description: 'Your Independent Contractor Agreement has been fully executed.' });
+      toast.success('ICA Signed! Your Independent Contractor Agreement has been fully executed.');
       fetchContract();
     } catch (err: any) {
-      toast({ title: 'Error signing', description: err.message, variant: 'destructive' });
+      toast.error(err.message || 'Error signing agreement');
     } finally {
       setSigning(false);
     }
