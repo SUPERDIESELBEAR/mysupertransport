@@ -350,7 +350,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
   // Realtime: update notification badge + desktop push when a new notification arrives
   useEffect(() => {
-    if (!user) return;
+    if (isPreview || !user) return;
     const channel = supabase
       .channel('operator-unread-notif-badge')
       .on('postgres_changes', {
