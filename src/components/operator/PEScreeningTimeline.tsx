@@ -113,12 +113,13 @@ export default function PEScreeningTimeline({
       const { data: urlData } = supabase.storage.from('operator-documents').getPublicUrl(path);
       const fileUrl = signedData?.signedUrl ?? urlData?.publicUrl;
 
-      await supabase.from('operator_documents').insert({
+      const { error: insertError } = await supabase.from('operator_documents').insert({
         operator_id: operatorId,
         document_type: 'pe_receipt' as any,
         file_name: file.name,
         file_url: fileUrl,
       });
+      if (insertError) throw insertError;
 
       try {
         await supabase.functions.invoke('send-notification', {
