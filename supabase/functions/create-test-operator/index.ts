@@ -27,29 +27,13 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // Generate a recovery link for the existing user
-    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'recovery',
-      email: 'marcsmueller@gmail.com',
-      options: {
-        redirectTo: `${Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app'}/reset-password`,
-      },
-    });
-
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Send recovery email via Supabase's built-in method
-    const { error: resetErr } = await supabaseAdmin.auth.resetPasswordForEmail(
+    const { error } = await supabaseAdmin.auth.resetPasswordForEmail(
       'marcsmueller@gmail.com',
       { redirectTo: `${Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app'}/reset-password` }
     );
 
-    if (resetErr) {
-      return new Response(JSON.stringify({ error: resetErr.message }), {
+    if (error) {
+      return new Response(JSON.stringify({ error: error.message }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
