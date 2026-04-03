@@ -24,7 +24,7 @@ interface ICAData {
 
 export default function OperatorICASign() {
   const { session } = useAuth();
-  const { toast } = useToast();
+  // removed useToast — using sonner toast directly
   const [contract, setContract] = useState<ICAData | null>(null);
   const [loading, setLoading] = useState(true);
   const [signing, setSigning] = useState(false);
