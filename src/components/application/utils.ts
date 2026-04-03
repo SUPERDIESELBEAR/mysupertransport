@@ -125,7 +125,11 @@ export function buildPayload(data: ApplicationFormData, token: string, isDraft: 
     endorsements: data.endorsements.length ? data.endorsements : null,
     cdl_10_years: data.cdl_10_years === 'yes' ? true : data.cdl_10_years === 'no' ? false : null,
     referral_source: data.referral_source || null,
-    employers: data.employers.filter(e => e.name.trim()) as unknown as Record<string, unknown>[],
+    employers: data.employers.filter(e => e.name.trim()).map(e => ({
+      ...e,
+      name: toTitleCase(e.name),
+      city: toTitleCase(e.city),
+    })) as unknown as Record<string, unknown>[],
     employment_gaps: data.employment_gaps === 'yes' ? true : data.employment_gaps === 'no' ? false : null,
     employment_gaps_explanation: data.employment_gaps_explanation || null,
     years_experience: data.years_experience || null,
