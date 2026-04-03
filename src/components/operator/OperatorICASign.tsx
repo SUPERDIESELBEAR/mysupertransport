@@ -237,6 +237,8 @@ export default function OperatorICASign() {
         contractorSigRef={!isFullyExecuted ? sigRef : undefined}
         contractorSignedName={signedName}
         onContractorSignedNameChange={setSignedName}
+        onSignatureEnd={() => setHasDrawn(true)}
+        onSignatureClear={() => setHasDrawn(false)}
       />
 
       {!isFullyExecuted && (
@@ -246,7 +248,7 @@ export default function OperatorICASign() {
           </p>
           <Button
             onClick={handleSign}
-            disabled={signing || !signedName || sigRef.current?.isEmpty()}
+            disabled={signing || !signedName || !hasDrawn}
             className="w-full bg-gold text-surface-dark font-bold hover:bg-gold-light gap-2 h-12"
           >
             {signing ? <><Loader2 className="h-4 w-4 animate-spin" /> Signing…</> : <><CheckCircle2 className="h-4 w-4" /> Execute Agreement</>}
