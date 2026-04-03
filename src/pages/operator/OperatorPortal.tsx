@@ -53,8 +53,17 @@ interface UploadedDoc {
   uploaded_at: string;
 }
 
-export default function OperatorPortal() {
-  const { profile, user, signOut, refreshProfile } = useAuth();
+export default function OperatorPortal({ previewUserId }: { previewUserId?: string } = {}) {
+  const { profile: authProfile, user, signOut, refreshProfile } = useAuth();
+  const isPreview = !!previewUserId;
+  const effectiveUserId = previewUserId ?? user?.id;
+  const [previewProfile, setPreviewProfile] = useState<{ first_name: string | null; last_name: string | null; avatar_url: string | null; phone: string | null } | null>(null);
+  useEffect(() => {
+    if (!previewUserId) return;
+    supabase.from('profiles').select('first_name, last_name, avatar_url, phone').eq('user_id', previewUserId).maybeSingle()
+      .then(({ data }) => setPreviewProfile(data));
+  }, [previewUserId]);
+  const profile = isPreview ? previewProfile : authProfile;
   const location = useLocation();
   const navigate = useNavigate();
   const [view, setView] = useState<OperatorView>(() => {
