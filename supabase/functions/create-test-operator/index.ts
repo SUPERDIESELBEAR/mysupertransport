@@ -27,20 +27,99 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const { error } = await supabaseAdmin.auth.resetPasswordForEmail(
-      'marcsmueller@gmail.com',
-      { redirectTo: `${Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app'}/reset-password` }
-    );
+    const TEST_USER_ID = '7e356f94-ce4a-47aa-8883-0e6b01d09aab';
+    const TEST_EMAIL = 'marcsmueller@gmail.com';
 
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
+    // 1. Check if operator already exists for this user
+    const { data: existingOp } = await supabaseAdmin
+      .from('operators')
+      .select('id')
+      .eq('user_id', TEST_USER_ID)
+      .maybeSingle();
+
+    if (existingOp) {
+      // Check if onboarding_status exists
+      const { data: existingOb } = await supabaseAdmin
+        .from('onboarding_status')
+        .select('id')
+        .eq('operator_id', existingOp.id)
+        .maybeSingle();
+
+      if (!existingOb) {
+        await supabaseAdmin.from('onboarding_status').insert({
+          operator_id: existingOp.id,
+          ica_status: 'not_issued',
+        });
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        operator_id: existingOp.id,
+        message: 'Operator already exists, ensured onboarding_status is present.',
+      }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 2. Insert approved application (use test-specific email to avoid unique constraint)
+    const testEmail = 'marcsmueller+test@gmail.com';
+    const { data: app, error: appErr } = await supabaseAdmin
+      .from('applications')
+      .insert({
+        email: testEmail,
+        first_name: 'Marcus',
+        last_name: 'Mueller (Test)',
+        user_id: TEST_USER_ID,
+        review_status: 'approved',
+        is_draft: false,
+        submitted_at: new Date().toISOString(),
+        reviewed_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+
+    if (appErr) {
+      return new Response(JSON.stringify({ error: 'Application insert failed: ' + appErr.message }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 2. Insert operator
+    const { data: op, error: opErr } = await supabaseAdmin
+      .from('operators')
+      .insert({
+        user_id: TEST_USER_ID,
+        application_id: app.id,
+        is_active: true,
+      })
+      .select('id')
+      .single();
+
+    if (opErr) {
+      return new Response(JSON.stringify({ error: 'Operator insert failed: ' + opErr.message }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 3. Insert onboarding_status
+    const { error: obErr } = await supabaseAdmin
+      .from('onboarding_status')
+      .insert({
+        operator_id: op.id,
+        ica_status: 'not_issued',
+      });
+
+    if (obErr) {
+      return new Response(JSON.stringify({ error: 'Onboarding insert failed: ' + obErr.message }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     return new Response(JSON.stringify({
       success: true,
-      message: 'Password reset email sent to marcsmueller@gmail.com',
+      application_id: app.id,
+      operator_id: op.id,
+      message: 'Test operator fully provisioned for ' + TEST_EMAIL,
     }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
