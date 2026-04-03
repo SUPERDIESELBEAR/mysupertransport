@@ -106,18 +106,12 @@ export default function PEScreeningTimeline({
         .upload(path, file, { upsert: false });
       if (uploadError) throw uploadError;
 
-      const { data: signedData } = await supabase.storage
-        .from('operator-documents')
-        .createSignedUrl(path, 60 * 60 * 24 * 365);
-
-      const { data: urlData } = supabase.storage.from('operator-documents').getPublicUrl(path);
-      const fileUrl = signedData?.signedUrl ?? urlData?.publicUrl;
-
+      // Store raw storage path (not a public URL) for private bucket
       const { error: insertError } = await supabase.from('operator_documents').insert({
         operator_id: operatorId,
         document_type: 'pe_receipt' as any,
         file_name: file.name,
-        file_url: fileUrl,
+        file_url: path,
       });
       if (insertError) throw insertError;
 
