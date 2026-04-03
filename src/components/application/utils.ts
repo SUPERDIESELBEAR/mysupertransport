@@ -1,5 +1,14 @@
 import { ApplicationFormData } from './types';
 
+// ─── Title-case normalizer ─────────────────────────────────────────────────
+export function toTitleCase(str: string): string {
+  if (!str) return str;
+  return str
+    .toLowerCase()
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .replace(/\bMc(\w)/g, (_, c) => 'Mc' + c.toUpperCase());
+}
+
 // ─── Validation ────────────────────────────────────────────────────────────
 export function validateStep(step: number, data: ApplicationFormData): Partial<Record<keyof ApplicationFormData, string>> {
   const errs: Partial<Record<keyof ApplicationFormData, string>> = {};
