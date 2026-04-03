@@ -290,7 +290,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
   // Realtime: update dispatch status live so the banner appears/disappears without refresh
   useEffect(() => {
-    if (!operatorId) return;
+    if (isPreview || !operatorId) return;
     const channel = supabase
       .channel(`operator-dispatch-status-${operatorId}`)
       .on('postgres_changes', {
