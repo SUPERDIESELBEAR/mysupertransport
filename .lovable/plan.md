@@ -1,33 +1,33 @@
 
 
-## Create Test Operator Account for marcsmueller@gmail.com
+## Provision Full Operator Stack for marcsmueller@gmail.com
 
-### What it does
-Sets up a fully functional test operator account that you can log into on your phone to experience the app exactly as an owner-operator would. The account will be named "Marcus Mueller (Test)" to distinguish it from your owner account.
+### Problem
+Your test account (`marcsmueller@gmail.com`, user ID `7e356f94-...`) has a profile and an `operator` role, but is missing:
+- An **application** record (required to create an operator)
+- An **operator** record (required for ICA, onboarding, and all portal features)
+- An **onboarding_status** record (required for the onboarding checklist and ICA tab)
 
-### Approach
-Create a one-time setup edge function (`create-test-operator`) that provisions the full operator stack in one call:
+Without these, the Operator Portal loads but has nothing to show -- no ICA tab, no onboarding checklist, no document uploads.
 
-1. **Auth user** -- creates marcsmueller@gmail.com in the auth system with a confirmed email
-2. **Profile** -- first name "Marcus", last name "Mueller"
-3. **Role** -- assigns the `operator` role
-4. **Application record** -- a minimal approved application so the pipeline and operator detail views work
-5. **Operator record** -- links to the application
-6. **Onboarding status** -- starts at Stage 1 (background checks not started) so you can walk through the full onboarding experience
-7. **Password** -- you'll set it via the reset-password flow (the function sends an invite email to marcsmueller@gmail.com with a link)
+### Solution
+Update the `create-test-operator` edge function to insert the three missing records using the service role key (bypasses RLS), then call it once:
 
-### After setup
-- Open the invite email on your phone
-- Set your password
-- Log in at mysupertransport.lovable.app/login
-- You'll land in the Operator Portal and see the full onboarding experience from Stage 1
+1. **Insert an `applications` row** -- minimal approved application (review_status = `approved`, first_name = "Marcus", last_name = "Mueller (Test)", email = `marcsmueller@gmail.com`)
+2. **Insert an `operators` row** -- linking user_id and application_id, `is_active = true`
+3. **Insert an `onboarding_status` row** -- linked to the new operator, `ica_status = 'not_issued'` so you can send an ICA from Management
+
+### After the fix
+1. The edge function runs once and provisions all three records
+2. From your Management Portal (`marc@mysupertransport.com`), send an ICA to "Marcus Mueller (Test)"
+3. On your phone (`marcsmueller@gmail.com`), the ICA will appear in the Operator Portal ready to sign
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `supabase/functions/create-test-operator/index.ts` | New one-time edge function that creates the auth user, profile, role, application, operator, and onboarding_status records |
+| `supabase/functions/create-test-operator/index.ts` | Replace the password-reset-only logic with full provisioning: insert application, operator, and onboarding_status records for user `7e356f94-ce4a-47aa-8883-0e6b01d09aab` |
 
-### Security note
-The function requires the same `BOOTSTRAP_SECRET` used by bootstrap-admin, so only you can call it. It can be deleted after use.
+### Important
+The ICA you previously sent was linked to your owner account's operator record, not this test account. You will need to send a **new** ICA to this test operator once the records are created.
 
