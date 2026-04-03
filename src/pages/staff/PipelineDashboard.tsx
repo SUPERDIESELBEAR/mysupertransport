@@ -1105,8 +1105,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       return {
         id: op.id,
         user_id: op.user_id,
-        first_name: profile.first_name ?? null,
-        last_name: profile.last_name ?? null,
+        first_name: appRecord?.first_name || profile.first_name || null,
+        last_name: appRecord?.last_name || profile.last_name || null,
         email: appEmail,
         phone: profile.phone || appPhone || null,
         home_state: profile.home_state || appState || null,

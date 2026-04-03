@@ -467,8 +467,8 @@ export default function DriverRoster({
         return {
           operator_id: op.id,
           operator_user_id: op.user_id,
-          first_name: profile.first_name ?? app?.first_name ?? null,
-          last_name: profile.last_name ?? app?.last_name ?? null,
+          first_name: app?.first_name || profile.first_name || null,
+          last_name: app?.last_name || profile.last_name || null,
           phone: profile.phone ?? app?.phone ?? null,
           email: app?.email ?? null,
           home_state: profile.home_state ?? app?.address_state ?? null,

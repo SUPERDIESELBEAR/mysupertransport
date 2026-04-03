@@ -954,8 +954,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         .eq('user_id', (op as any).user_id)
         .maybeSingle();
 
+      const appForName = (op as any).applications;
+      const appFirst = appForName?.first_name;
+      const appLast = appForName?.last_name;
       setOperatorName(
-        profile ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || 'Unknown Operator' : 'Unknown Operator'
+        `${appFirst || profile?.first_name || ''} ${appLast || profile?.last_name || ''}`.trim() || 'Unknown Operator'
       );
       setOperatorUserId((op as any).user_id ?? null);
       const app = (op as any).applications;
