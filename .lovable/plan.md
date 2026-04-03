@@ -1,34 +1,30 @@
 
 
-## Fix: PE Receipt "View Receipt" Link Returns 404
+## Fix: Truck Photo Grid Modal — Use Signed URLs
 
-### Root Cause
-The `operator-documents` storage bucket is **private**, but the PE receipt's `file_url` stored in the database is a public URL (`/object/public/operator-documents/...`). When staff clicks "View Receipt," it opens this URL in a new tab, which fails because private buckets don't serve files via public URLs.
-
-This affects two locations:
-1. **Staff side** (`OperatorDetailPanel.tsx` line 3853) — opens raw URL in new tab
-2. **Operator side** (`PEScreeningTimeline.tsx` line 220) — same pattern
+### Problem
+The `TruckPhotoGridModal` renders `<img src={file.file_url}>` directly using raw storage paths from the private `operator-documents` bucket. Images fail to load because private buckets require signed URLs.
 
 ### Fix
 
-**1. Fix the upload to store the raw storage path instead of a public URL** (`PEScreeningTimeline.tsx`)
-- Store just the path (e.g., `{operatorId}/pe_receipt/{timestamp}.{ext}`) so signed URLs can be generated on demand
-- This aligns with the project's established pattern noted in the security memory
+**File: `src/components/staff/TruckPhotoGridModal.tsx`**
 
-**2. Fix the staff "View Receipt" to use the in-app FilePreviewModal** (`OperatorDetailPanel.tsx`)
-- Replace the `<a href target="_blank">` with a button that opens the existing `FilePreviewModal` / blob-based viewer
-- Generate a signed URL on click, matching the pattern used for other private documents (Form 2290, Truck Title, etc.)
+1. **Generate signed URLs on modal open** — Add a `useEffect` that loops through all `files`, extracts the storage path from each `file_url` (handling both legacy public URLs and raw paths, same as the PE receipt fix), calls `supabase.storage.from('operator-documents').createSignedUrl(path, 3600)`, and stores results in a `Record<string, string>` map keyed by file `id`.
 
-**3. Fix the operator "View Receipt" link** (`PEScreeningTimeline.tsx`)
-- Same approach: use signed URL + in-app viewer instead of raw public URL
+2. **Use signed URLs for rendering** — Replace all direct `file.file_url` references with lookups into the signed URL map:
+   - Grid cell `<img src>` (line 222)
+   - Lightbox `<img src>` (line 183) — pass the signed URL into lightbox state instead of raw `file_url`
+   - Grid cell click handler (line 217)
+   - "Other Files" `<a href>` links (line 155)
+   - Non-image "View file" link (line 243-252)
+
+3. **Path extraction helper** — Reuse the same pattern from the PE receipt fix: if `file_url` starts with `http`, split on `/operator-documents/` to get the path; otherwise use as-is.
+
+4. **Loading state** — Show a subtle spinner/skeleton while signed URLs are being generated so cells don't flash broken images.
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/components/operator/PEScreeningTimeline.tsx` | Store raw path in `operator_documents.file_url`; use signed URL for the receipt viewer link |
-| `src/pages/staff/OperatorDetailPanel.tsx` | Replace the `<a>` tag for PE Receipt with a button that generates a signed URL and opens the in-app file preview modal |
-
-### Note
-The existing receipt for Jocquan Scott has an invalid public URL already stored. The fix will handle both old public URLs (by extracting the path portion) and new raw paths when generating signed URLs.
+| `src/components/staff/TruckPhotoGridModal.tsx` | Add signed URL generation via `useEffect`; replace all raw `file_url` usage with signed URL lookups |
 
