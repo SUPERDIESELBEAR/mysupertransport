@@ -1,25 +1,24 @@
 
 
-## Fix: Back Button Label — Dynamic Based on Source
+## Fix: Wire ICA Sign View into OperatorPortal
 
 ### Problem
-The back button in `OperatorDetailPanel` is hardcoded to say "Pipeline". When opened from Driver Hub, it should say "Driver Hub" instead.
+The `OperatorICASign` component is imported but never rendered. When the operator taps "Sign Your ICA Agreement", `setView('ica')` fires but no JSX block matches `view === 'ica'`, so nothing appears.
 
-### Changes
+### Change
 
-**1. `src/pages/staff/OperatorDetailPanel.tsx`**
-- Add optional prop `backLabel?: string` to `OperatorDetailPanelProps` (default: `"Pipeline"`)
-- Replace the hardcoded `"Pipeline"` text on line 1771 with `{backLabel ?? 'Pipeline'}`
+**`src/pages/operator/OperatorPortal.tsx`** — Add the missing render block after the "My Truck" view (after line 1123):
 
-**2. `src/components/drivers/DriverHubView.tsx`**
-- Pass `backLabel="Driver Hub"` to `<OperatorDetailPanel>` on line 244
+```tsx
+{/* ── ICA SIGN VIEW ── */}
+{view === 'ica' && <OperatorICASign />}
+```
 
-All other callers (StaffPortal, ManagementPortal) continue to default to "Pipeline" with no changes needed.
+One line. The component already handles everything internally (fetching the contract, displaying it, signature pad, submission).
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/OperatorDetailPanel.tsx` | Add `backLabel` prop; use it in back button |
-| `src/components/drivers/DriverHubView.tsx` | Pass `backLabel="Driver Hub"` |
+| `src/pages/operator/OperatorPortal.tsx` | Add `{view === 'ica' && <OperatorICASign />}` after line 1123 |
 
