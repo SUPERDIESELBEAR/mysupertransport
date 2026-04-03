@@ -1,48 +1,31 @@
 
-Fix the ICA builder so the owner can actually continue through the carrier-signing flow.
 
-What’s likely happening
-- The first ICA step is currently blocked by this rule in `src/components/ica/ICABuilderModal.tsx`:
-  `const canProceedStep0 = !!(data.truck_vin && data.owner_business_name);`
-- That makes Business Name effectively required, even though the UI does not mark it required and many operators will not have one.
-- There is also a second gate on the Carrier Signature step:
-  `const canProceedStep2 = !!(carrierTypedName && carrierTitle);`
-- For an owner account, those fields are not prefilled, so the flow can feel like it is not letting you continue “as the owner.”
+## Fix: Navigate Away After ICA Execution
 
-Plan
-1. Align the step validation with the actual form
-- Update step 0 so it no longer requires `owner_business_name`.
-- Require what the UI already implies instead: VIN plus contractor identity (`owner_name`, or `owner_business_name` if present).
-- This removes the hidden blocker for sole proprietors and test operators.
+### Problem
+After the operator signs the ICA and clicks "Execute Agreement," the contract updates successfully but the app stays on the same screen with the signing UI still visible. The user expects a clear transition — confirmation feedback and navigation to the next logical screen.
 
-2. Prefill carrier signer details for the logged-in owner/staff user
-- In `ICABuilderModal.tsx`, use the authenticated user profile from `useAuth()`.
-- If the draft does not already contain carrier signer info, prefill:
-  - typed name = logged-in user’s full name
-  - title = `Owner` for owner users, otherwise leave editable with a sensible fallback if needed
-- Keep both fields editable so staff can override them.
+### What changes
 
-3. Make the UI clearer
-- Add required markers/help text so the button state matches what the screen communicates.
-- If Continue is disabled, the user should be able to tell why immediately.
+**`src/components/operator/OperatorICASign.tsx`**
+- After successful signing (line 176-177), instead of just showing a toast and re-fetching the contract, also call a new `onComplete` callback prop.
 
-4. Preserve existing draft behavior
-- If an ICA draft already has saved carrier name/title, do not overwrite it.
-- Only apply the autofill when those fields are blank.
+**`src/pages/operator/OperatorPortal.tsx`**
+- Pass an `onComplete` callback to `OperatorICASign` that:
+  1. Refreshes the onboarding status (so the checklist reflects ICA complete)
+  2. Navigates the operator to the **Status** (home/checklist) view so they see their updated progress
 
-Files to update
-- `src/components/ica/ICABuilderModal.tsx`
-- Possibly `src/hooks/useAuth.tsx` usage only (read existing role/profile data, no auth-system redesign)
+### Flow after fix
+1. Operator taps "Execute Agreement"
+2. Signing completes, toast confirms success
+3. App automatically navigates to the Status/Home view
+4. The onboarding checklist shows ICA as complete (green check)
+5. The ICA tab remains accessible (read-only, showing the executed document) but is no longer the active view
 
-Technical details
-- Replace:
-  `const canProceedStep0 = !!(data.truck_vin && data.owner_business_name);`
-- With validation closer to:
-  `const canProceedStep0 = !!(data.truck_vin && (data.owner_name || data.owner_business_name));`
-- Keep:
-  `const canProceedStep2 = !!(carrierTypedName && carrierTitle);`
-  but prefill those values from the logged-in owner profile so the owner can proceed without unnecessary manual re-entry.
-- No database change should be required for this fix.
+### Files changed
 
-Expected result
-- You will be able to open Prepare ICA, move past the first step without entering a business name when it is not applicable, and continue through the carrier-signature step as the owner with your name/title already filled in.
+| File | Change |
+|------|--------|
+| `src/components/operator/OperatorICASign.tsx` | Add optional `onComplete` prop; call it after successful signing |
+| `src/pages/operator/OperatorPortal.tsx` | Pass `onComplete` to `OperatorICASign` that refreshes onboarding status and sets view to `'status'` |
+
