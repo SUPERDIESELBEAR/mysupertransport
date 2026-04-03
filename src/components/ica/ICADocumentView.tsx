@@ -39,6 +39,8 @@ interface ICADocumentViewProps {
   contractorSigRef?: React.RefObject<SignatureCanvas>;
   contractorSignedName?: string;
   onContractorSignedNameChange?: (v: string) => void;
+  onSignatureEnd?: () => void;
+  onSignatureClear?: () => void;
 }
 
 const fmt = (v: string | null | undefined) => v || '___________________________';
