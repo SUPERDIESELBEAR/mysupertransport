@@ -244,7 +244,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         setIcaTruckInfo(null);
       }
     }
-  }, [user, fetchDispatcherInfo, fetchCoordinatorInfo]);
+  }, [effectiveUserId, fetchDispatcherInfo, fetchCoordinatorInfo]);
 
   const fetchUnreadCount = useCallback(async () => {
     if (!user) return;
