@@ -1,45 +1,51 @@
 
+## Investigation result
 
-## Auto-Normalize ALL CAPS Input + Fix Bobby Thompson's Existing Data
+I found the real cause: Bobby’s **application record is correct**, but the UI is still pulling his display name from the **profile record**, which is still stored as `BOBBY THOMPSON`.
 
-### Problem
-Bobby Thompson submitted his application with ALL CAPS ("BOBBY THOMPSON", "TUPELO"). There is no automatic normalization, so whatever casing the applicant types gets stored as-is.
+### What I verified
+- `applications` table: Bobby is already saved as `Bobby Thompson`
+- `profiles` table: Bobby is still saved as `BOBBY THOMPSON`
 
-### Solution — Two parts
+### Why the app still shows all caps
+Several staff/driver views prefer `profiles.first_name` / `profiles.last_name` over the application name:
+- `src/pages/staff/PipelineDashboard.tsx`
+- `src/components/drivers/DriverRoster.tsx`
+- `src/pages/staff/OperatorDetailPanel.tsx`
 
-**1. Auto-normalize on input (prevent future ALL CAPS)**
+So even though the application was fixed, those screens still render the old profile casing.
 
-Add a `toTitleCase()` utility that converts text like "BOBBY" → "Bobby" and "MCDONALD" → "McDonald". Apply it automatically in the `buildPayload()` function to all name and address fields before saving to the database. This way the applicant can type however they want, but data is always stored in proper title case.
+## Recommended fix
 
-Fields normalized: `first_name`, `last_name`, `address_street`, `address_line2`, `address_city`, `prev_address_street`, `prev_address_line2`, `prev_address_city`, and employer names/cities.
+### 1. Fix Bobby’s existing profile data
+Update Bobby’s `profiles` row to `Bobby Thompson` so the current UI immediately displays correctly everywhere.
 
-**2. Fix Bobby Thompson's existing data**
+### 2. Make the UI prefer application names when available
+Adjust name resolution so screens use:
+1. application name first
+2. profile name as fallback only if application name is missing
 
-Update his application record from "BOBBY THOMPSON" / "TUPELO" to "Bobby Thompson" / "Tupelo" using a data update.
+That keeps applicant/operator names consistent with the normalized application data.
 
----
+### 3. Keep future data synchronized
+When an operator is created/invited from an application, also update the related profile name from the application record so profile and application don’t drift apart.
 
-### Technical details
+## Files to update
+- `src/pages/staff/PipelineDashboard.tsx`
+  - Use `appRecord.first_name/last_name` before `profile.first_name/last_name`
+- `src/components/drivers/DriverRoster.tsx`
+  - Same fallback order: application first, profile second
+- `src/pages/staff/OperatorDetailPanel.tsx`
+  - Set `operatorName` from application name when present
+- `supabase/functions/invite-operator/index.ts`
+  - After resolving/creating the operator user, upsert/update the profile name from the application so future operators stay in sync
 
-**New utility** in `src/components/application/utils.ts`:
-```ts
-function toTitleCase(str: string): string {
-  if (!str) return str;
-  return str
-    .toLowerCase()
-    .replace(/\b\w/g, c => c.toUpperCase())
-    .replace(/\bMc(\w)/g, (_, c) => 'Mc' + c.toUpperCase());  // McDonald, McGregor
-}
+## Technical note
+This is not a cache issue. It is a **data-source mismatch**:
+```text
+Application name = corrected
+Profile name     = still old ALL CAPS
+UI               = currently reading profile in key places
 ```
 
-**`buildPayload()`** — wrap name/address string fields with `toTitleCase()` before returning them in the payload object.
-
-**Data fix** — update Bobby Thompson's application record (id: `a9d87013-...`) to proper casing.
-
-### Files changed
-
-| File | Change |
-|------|--------|
-| `src/components/application/utils.ts` | Add `toTitleCase()`, apply it in `buildPayload()` to name/address fields |
-| Database update | Fix Bobby Thompson's existing record to proper title case |
-
+Once implemented, Bobby should display correctly and future normalized applications should stay visually consistent across Pipeline, Driver Hub, and operator detail views.
