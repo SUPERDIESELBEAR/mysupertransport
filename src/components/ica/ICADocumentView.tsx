@@ -39,6 +39,8 @@ interface ICADocumentViewProps {
   contractorSigRef?: React.RefObject<SignatureCanvas>;
   contractorSignedName?: string;
   onContractorSignedNameChange?: (v: string) => void;
+  onSignatureEnd?: () => void;
+  onSignatureClear?: () => void;
 }
 
 const fmt = (v: string | null | undefined) => v || '___________________________';
@@ -48,7 +50,8 @@ export default function ICADocumentView({
   data, operatorName, previewMode = false,
   carrierSignatureUrl, carrierTypedName, carrierTitle, carrierSignedAt,
   contractorSignatureUrl, contractorTypedName, contractorSignedAt,
-  contractorSigRef, contractorSignedName, onContractorSignedNameChange
+  contractorSigRef, contractorSignedName, onContractorSignedNameChange,
+  onSignatureEnd, onSignatureClear
 }: ICADocumentViewProps) {
 
   const fullTruck = [data.truck_year, data.truck_make, data.truck_model].filter(Boolean).join(' ');
@@ -210,10 +213,11 @@ export default function ICADocumentView({
                       ref={contractorSigRef}
                       canvasProps={{ className: 'w-full touch-none' }}
                       penColor="#1a1a1a"
+                      onEnd={() => onSignatureEnd?.()}
                     />
                   </div>
                   <button
-                    onClick={() => contractorSigRef.current?.clear()}
+                    onClick={() => { contractorSigRef.current?.clear(); onSignatureClear?.(); }}
                     className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Clear signature
