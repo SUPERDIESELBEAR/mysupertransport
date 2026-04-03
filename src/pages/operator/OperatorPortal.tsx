@@ -109,7 +109,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   useEffect(() => { viewRef.current = view; }, [view]);
 
   const handleTruckDownAck = useCallback(async () => {
-    if (!operatorId || !dispatchUpdatedAt || !user) return;
+    if (isPreview || !operatorId || !dispatchUpdatedAt || !user) return;
     setAckLoading(true);
     try {
       await supabase.from('dispatch_status_history').insert({
