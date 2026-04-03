@@ -361,5 +361,14 @@ export default function PEScreeningTimeline({
         </div>
       )}
     </div>
+
+      {receiptPreviewUrl && (
+        <FilePreviewModal
+          url={receiptPreviewUrl}
+          name={receiptDoc?.file_name ?? 'PE Receipt'}
+          onClose={() => setReceiptPreviewUrl(null)}
+        />
+      )}
+    </>
   );
 }
