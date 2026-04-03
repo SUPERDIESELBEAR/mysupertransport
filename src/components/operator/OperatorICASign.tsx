@@ -22,7 +22,11 @@ interface ICAData {
   contractor_typed_name: string | null; contractor_signature_url: string | null; contractor_signed_at: string | null;
 }
 
-export default function OperatorICASign() {
+interface OperatorICASignProps {
+  onComplete?: () => void;
+}
+
+export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
   const { session } = useAuth();
   // removed useToast — using sonner toast directly
   const [contract, setContract] = useState<ICAData | null>(null);
