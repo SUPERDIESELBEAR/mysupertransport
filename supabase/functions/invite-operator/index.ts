@@ -147,6 +147,14 @@ Deno.serve(async (req) => {
     await supabaseAdmin.from('applications').update({ user_id: invitedUserId }).eq('id', application_id);
     await supabaseAdmin.from('user_roles').upsert({ user_id: invitedUserId, role: 'operator' }, { onConflict: 'user_id,role' });
 
+    // Sync profile name from the (normalized) application so they stay consistent
+    if (app.first_name || app.last_name) {
+      await supabaseAdmin.from('profiles').update({
+        first_name: app.first_name ?? null,
+        last_name: app.last_name ?? null,
+      }).eq('user_id', invitedUserId);
+    }
+
     const { data: existingOp } = await supabaseAdmin.from('operators').select('id').eq('user_id', invitedUserId).maybeSingle();
 
     let operatorId: string | null = existingOp?.id ?? null;
