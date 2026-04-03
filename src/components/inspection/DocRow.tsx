@@ -141,14 +141,31 @@ function ShareModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => 
   );
 }
 
-/** Appends ?download=false so Supabase storage serves the file inline (not as attachment) */
+function resolveDocumentUrl(url: string): string {
+  if (!url) return url;
+  if (/^(https?:|blob:|data:)/i.test(url)) return url;
+
+  if (url.startsWith('/storage/v1/')) {
+    const supabaseBase = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '');
+    return supabaseBase ? `${supabaseBase}${url}` : url;
+  }
+
+  if (url.startsWith('/')) {
+    return `${window.location.origin}${url}`;
+  }
+
+  return url;
+}
+
+/** Appends ?download=false so storage serves the file inline (not as attachment) */
 function toInlineUrl(url: string): string {
   try {
-    const u = new URL(url);
+    const resolvedUrl = resolveDocumentUrl(url);
+    const u = new URL(resolvedUrl);
     u.searchParams.set('download', 'false');
     return u.toString();
   } catch {
-    return url;
+    return resolveDocumentUrl(url);
   }
 }
 
@@ -192,6 +209,7 @@ function useBlobUrl(remoteUrl: string) {
 /** Generic in-app file preview modal — no new tab required */
 export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; name: string; onClose: () => void; onEdit?: () => void }) {
   const [loaded, setLoaded] = useState(false);
+  const resolvedUrl = resolveDocumentUrl(url);
   const [zoomIdx, setZoomIdx] = useState(DEFAULT_ZOOM_IDX);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const handleLoad = useCallback(() => setLoaded(true), []);
@@ -268,14 +286,14 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
             <Printer className="h-4 w-4" />
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); downloadBlob(url, name); }}
+            onClick={(e) => { e.stopPropagation(); downloadBlob(resolvedUrl, name); }}
             className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
             title="Download document"
           >
             <Download className="h-4 w-4" />
           </button>
           <a
-            href={url}
+            href={resolvedUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
@@ -305,7 +323,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
         {error && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
             <span className="text-sm text-muted-foreground">Could not load document inline.</span>
-            <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-gold underline">Open in new tab</a>
+            <a href={resolvedUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-gold underline">Open in new tab</a>
           </div>
         )}
         {blobUrl && (
