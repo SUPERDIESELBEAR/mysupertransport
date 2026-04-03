@@ -1,43 +1,33 @@
 
 
-## Fix: ICA "Execute Agreement" Button Stays Disabled After Drawing
+## Create Test Operator Account for marcsmueller@gmail.com
 
-### Root Cause
+### What it does
+Sets up a fully functional test operator account that you can log into on your phone to experience the app exactly as an owner-operator would. The account will be named "Marcus Mueller (Test)" to distinguish it from your owner account.
 
-The "Execute Agreement" button on line 248 of `OperatorICASign.tsx` has this disabled check:
+### Approach
+Create a one-time setup edge function (`create-test-operator`) that provisions the full operator stack in one call:
 
-```tsx
-disabled={signing || !signedName || sigRef.current?.isEmpty()}
-```
+1. **Auth user** -- creates marcsmueller@gmail.com in the auth system with a confirmed email
+2. **Profile** -- first name "Marcus", last name "Mueller"
+3. **Role** -- assigns the `operator` role
+4. **Application record** -- a minimal approved application so the pipeline and operator detail views work
+5. **Operator record** -- links to the application
+6. **Onboarding status** -- starts at Stage 1 (background checks not started) so you can walk through the full onboarding experience
+7. **Password** -- you'll set it via the reset-password flow (the function sends an invite email to marcsmueller@gmail.com with a link)
 
-Drawing on the canvas does **not** trigger a React re-render. So if Dominic types his name first (triggering a re-render where `isEmpty()` is still `true`), then draws his signature, the button **stays disabled** because no re-render occurs after drawing. The `isEmpty()` value is stale.
-
-This is order-dependent:
-- Draw first, then type name → works (typing triggers re-render, isEmpty() is now false)
-- Type name first, then draw → **broken** (button stays disabled forever)
-
-### Fix
-
-**1. Add `onEnd` callback to SignatureCanvas** (`ICADocumentView.tsx`)
-
-Pass an `onEnd` prop to `SignatureCanvas` that notifies the parent when a stroke finishes. This requires a new callback prop on `ICADocumentView`.
-
-**2. Track drawing state in `OperatorICASign.tsx`**
-
-Add a `hasDrawn` boolean state. Set it `true` via the `onEnd` callback. Reset it when "Clear signature" is pressed. Replace `sigRef.current?.isEmpty()` in the disabled check with `!hasDrawn`.
-
-**3. Reset `hasDrawn` on clear**
-
-Wire up the "Clear signature" button to also reset `hasDrawn` to `false`.
+### After setup
+- Open the invite email on your phone
+- Set your password
+- Log in at mysupertransport.lovable.app/login
+- You'll land in the Operator Portal and see the full onboarding experience from Stage 1
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/components/ica/ICADocumentView.tsx` | Add `onSignatureEnd` optional prop; pass it as `onEnd` to `SignatureCanvas`; wire "Clear" button to also call an `onSignatureClear` callback |
-| `src/components/operator/OperatorICASign.tsx` | Add `hasDrawn` state; pass callbacks to `ICADocumentView`; replace `sigRef.current?.isEmpty()` with `!hasDrawn` in the disabled prop |
+| `supabase/functions/create-test-operator/index.ts` | New one-time edge function that creates the auth user, profile, role, application, operator, and onboarding_status records |
 
-### Why the previous fix didn't help
-
-The previous fix (removing ResizeObserver) was correct — it prevented the canvas from being cleared by keyboard-triggered resizes. But this second bug is independent: the button's disabled state simply never updates after the user draws because canvas strokes don't cause React re-renders.
+### Security note
+The function requires the same `BOOTSTRAP_SECRET` used by bootstrap-admin, so only you can call it. It can be deleted after use.
 
