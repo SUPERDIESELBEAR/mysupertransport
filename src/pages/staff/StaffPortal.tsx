@@ -206,6 +206,7 @@ export default function StaffPortal() {
     { label: 'Resource Center', icon: <BookOpen className="h-4 w-4" />, path: 'resource-center' },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
     { label: 'Equipment', icon: <HardDrive className="h-4 w-4" />, path: 'equipment' },
+    { label: 'Operator Preview', icon: <Eye className="h-4 w-4" />, path: 'operator-preview' },
     { label: 'Notifications', icon: <Bell className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount, dividerBefore: 'Admin' },
     { label: 'Demo Mode', icon: <GraduationCap className="h-4 w-4" />, path: '__demo__' },
   ];
