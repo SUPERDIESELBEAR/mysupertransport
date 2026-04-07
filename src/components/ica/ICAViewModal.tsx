@@ -56,8 +56,41 @@ export default function ICAViewModal({ operatorId, operatorName, onClose }: ICAV
     fetch();
   }, [operatorId]);
 
-  const handlePrint = () => {
-    window.print();
+  const [printing, setPrinting] = useState(false);
+
+  const handlePrint = async () => {
+    if (!contract) return;
+    setPrinting(true);
+    try {
+      // Pre-load signatures as base64 so they render in print
+      const [carrierB64, contractorB64] = await Promise.all([
+        preloadSignatureDataUrl(contract.carrier_signature_url, 'ica-signatures'),
+        preloadSignatureDataUrl(contract.contractor_signature_url, 'ica-signatures'),
+      ]);
+
+      // Temporarily swap img srcs to base64 in the print area
+      const el = document.getElementById('ica-print-area');
+      const imgs = el?.querySelectorAll<HTMLImageElement>('img') ?? [];
+      const originals: { img: HTMLImageElement; src: string }[] = [];
+
+      imgs.forEach((img) => {
+        if (carrierB64 && img.alt === 'Carrier signature') {
+          originals.push({ img, src: img.src });
+          img.src = carrierB64;
+        }
+        if (contractorB64 && img.alt === 'Contractor signature') {
+          originals.push({ img, src: img.src });
+          img.src = contractorB64;
+        }
+      });
+
+      printDocumentById('ica-print-area', `ICA - ${operatorName}`);
+
+      // Restore original srcs
+      originals.forEach(({ img, src }) => { img.src = src; });
+    } finally {
+      setPrinting(false);
+    }
   };
 
   return (
