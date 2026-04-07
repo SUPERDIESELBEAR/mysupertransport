@@ -2464,7 +2464,43 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         );
       })()}
 
-      {/* Compliance expiry row */}
+      {/* ── Uploaded Application Documents ── */}
+      {(dlFrontUrl || dlRearUrl || medCertDocUrl) && (
+        <div className="rounded-xl border border-border bg-card p-4 space-y-2" style={isQuickView ? { order: 5 } : undefined}>
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            Uploaded Documents
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: 'DL Front', url: dlFrontUrl },
+              { label: 'DL Rear', url: dlRearUrl },
+              { label: 'Medical Certificate', url: medCertDocUrl },
+            ].filter(d => d.url).map(doc => (
+              <button
+                key={doc.label}
+                className="inline-flex items-center gap-1 text-xs text-gold hover:underline"
+                onClick={async () => {
+                  const raw = doc.url!;
+                  const path = raw.includes('/application-documents/')
+                    ? decodeURIComponent(raw.split('/application-documents/')[1].split('?')[0])
+                    : raw;
+                  const { data } = await supabase.storage.from('application-documents').createSignedUrl(path, 3600);
+                  if (data?.signedUrl) {
+                    setStage2Preview({ url: data.signedUrl, name: doc.label, docType: 'application_doc' });
+                  } else {
+                    toast({ title: 'Could not load document preview', variant: 'destructive' });
+                  }
+                }}
+              >
+                <Eye className="h-3.5 w-3.5" />
+                {doc.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={isQuickView ? { order: 10 } : undefined}>{(cdlExpiration || medCertExpiration) && (() => {
         const buildPill = (label: string, dateStr: string, focusField: 'cdl' | 'medcert') => {
           const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
