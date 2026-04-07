@@ -1,30 +1,29 @@
 
 
-## Fix: Truck Photo Grid Modal — Use Signed URLs
+## Fix: ICA Download Only Renders One Page
 
 ### Problem
-The `TruckPhotoGridModal` renders `<img src={file.file_url}>` directly using raw storage paths from the private `operator-documents` bucket. Images fail to load because private buckets require signed URLs.
+The "Print / Download" button in `ICAViewModal` calls `window.print()` directly. The ICA document lives inside a scrollable drawer (`overflow-y-auto`), so the browser's print engine only captures the first visible page worth of content — the rest is clipped by the overflow container.
 
-### Fix
+### Solution
+Replace the bare `window.print()` call with the existing `printDocumentById` utility from `src/lib/printDocument.ts`. This utility clones the target element into a top-level wrapper outside the overflow container and applies scoped print styles, which is exactly the pattern already used for application PDF downloads.
 
-**File: `src/components/staff/TruckPhotoGridModal.tsx`**
+Additionally, pre-load the signature images as base64 data URLs before printing (using the existing `preloadSignatureDataUrl` helper) so they render reliably in the printed output instead of potentially failing due to expired signed URLs.
 
-1. **Generate signed URLs on modal open** — Add a `useEffect` that loops through all `files`, extracts the storage path from each `file_url` (handling both legacy public URLs and raw paths, same as the PE receipt fix), calls `supabase.storage.from('operator-documents').createSignedUrl(path, 3600)`, and stores results in a `Record<string, string>` map keyed by file `id`.
+### Changes
 
-2. **Use signed URLs for rendering** — Replace all direct `file.file_url` references with lookups into the signed URL map:
-   - Grid cell `<img src>` (line 222)
-   - Lightbox `<img src>` (line 183) — pass the signed URL into lightbox state instead of raw `file_url`
-   - Grid cell click handler (line 217)
-   - "Other Files" `<a href>` links (line 155)
-   - Non-image "View file" link (line 243-252)
+**File: `src/components/ica/ICAViewModal.tsx`**
 
-3. **Path extraction helper** — Reuse the same pattern from the PE receipt fix: if `file_url` starts with `http`, split on `/operator-documents/` to get the path; otherwise use as-is.
-
-4. **Loading state** — Show a subtle spinner/skeleton while signed URLs are being generated so cells don't flash broken images.
+1. Import `printDocumentById` from `@/lib/printDocument` and `preloadSignatureDataUrl` from `@/lib/printDocument`
+2. Replace the `handlePrint` function:
+   - Before printing, call `preloadSignatureDataUrl` on both `carrier_signature_url` and `contractor_signature_url`
+   - Temporarily swap the `<img>` sources in the print target to the base64 data URLs
+   - Call `printDocumentById('ica-print-area', 'ICA - ' + operatorName)` instead of `window.print()`
+3. Remove the now-unnecessary inline `print:hidden` classes (the `printDocumentById` utility handles hiding everything else)
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/components/staff/TruckPhotoGridModal.tsx` | Add signed URL generation via `useEffect`; replace all raw `file_url` usage with signed URL lookups |
+| `src/components/ica/ICAViewModal.tsx` | Use `printDocumentById` with signature pre-loading for reliable multi-page print/download |
 
