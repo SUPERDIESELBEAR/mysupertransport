@@ -4106,7 +4106,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                                     {f.file_url ? (
                                       <button
                                         type="button"
-                                        onClick={() => setStage2Preview({ url: f.file_url!, name: f.file_name ?? 'Document', docType: field as string })}
+                                        onClick={async () => {
+                                          const raw = f.file_url!;
+                                          const path = raw.includes('/operator-documents/')
+                                            ? decodeURIComponent(raw.split('/operator-documents/')[1].split('?')[0])
+                                            : raw;
+                                          const { data } = await supabase.storage.from('operator-documents').createSignedUrl(path, 3600);
+                                          if (data?.signedUrl) {
+                                            setStage2Preview({ url: data.signedUrl, name: f.file_name ?? 'Document', docType: field as string });
+                                          } else {
+                                            toast({ title: 'Could not load document preview', variant: 'destructive' });
+                                          }
+                                        }}
                                         className="flex items-center gap-1 text-[11px] text-gold hover:text-gold-light font-medium"
                                       >
                                         View <ZoomIn className="h-3 w-3" />
