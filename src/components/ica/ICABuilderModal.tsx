@@ -123,6 +123,10 @@ export default function ICABuilderModal({
   const carrierSigRef = useRef<SignatureCanvas>(null);
   const [carrierTypedName, setCarrierTypedName] = useState('');
   const [carrierTitle, setCarrierTitle] = useState('');
+  const [defaultSig, setDefaultSig] = useState<{ typed_name: string; title: string; signature_url: string | null } | null>(null);
+  const [defaultSigPreviewUrl, setDefaultSigPreviewUrl] = useState<string | null>(null);
+  const [useDefaultSig, setUseDefaultSig] = useState(false);
+  const [saveAsDefault, setSaveAsDefault] = useState(false);
 
   const [data, setData] = useState<ICAData>({
     truck_year: new Date().getFullYear().toString(),
