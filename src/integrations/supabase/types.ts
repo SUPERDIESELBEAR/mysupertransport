@@ -334,6 +334,33 @@ export type Database = {
         }
         Relationships: []
       }
+      carrier_signature_settings: {
+        Row: {
+          id: string
+          signature_url: string | null
+          title: string
+          typed_name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          signature_url?: string | null
+          title: string
+          typed_name: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          signature_url?: string | null
+          title?: string
+          typed_name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       cert_reminders: {
         Row: {
           doc_type: string

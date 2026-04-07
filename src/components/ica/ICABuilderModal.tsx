@@ -6,7 +6,7 @@ import { useDemoMode } from '@/hooks/useDemoMode';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { X, ChevronRight, ChevronLeft, Save, Send, FileText, Pen, Clock } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Save, Send, FileText, Pen, Clock, CheckCircle } from 'lucide-react';
 import { DateInput } from '@/components/ui/date-input';
 import DemoLockIcon from '@/components/DemoLockIcon';
 import SignatureCanvas from 'react-signature-canvas';
@@ -123,6 +123,10 @@ export default function ICABuilderModal({
   const carrierSigRef = useRef<SignatureCanvas>(null);
   const [carrierTypedName, setCarrierTypedName] = useState('');
   const [carrierTitle, setCarrierTitle] = useState('');
+  const [defaultSig, setDefaultSig] = useState<{ typed_name: string; title: string; signature_url: string | null } | null>(null);
+  const [defaultSigPreviewUrl, setDefaultSigPreviewUrl] = useState<string | null>(null);
+  const [useDefaultSig, setUseDefaultSig] = useState(false);
+  const [saveAsDefault, setSaveAsDefault] = useState(false);
 
   const [data, setData] = useState<ICAData>({
     truck_year: new Date().getFullYear().toString(),
@@ -227,19 +231,40 @@ export default function ICABuilderModal({
     loadDraft();
   }, [operatorId]);
 
-  // ── Prefill carrier signer from logged-in user profile (only when blank) ──
+  // ── Load default carrier signature settings ──
   useEffect(() => {
-    if (!profile) return;
-    setCarrierTypedName(prev => {
-      if (prev) return prev; // don't overwrite existing value
-      return [profile.first_name, profile.last_name].filter(Boolean).join(' ');
-    });
-    setCarrierTitle(prev => {
-      if (prev) return prev;
-      if (roles.includes('owner')) return 'Owner';
-      if (roles.includes('management')) return 'Operations Manager';
-      return '';
-    });
+    const loadDefaultSig = async () => {
+      const { data: row } = await supabase.from('carrier_signature_settings' as any).select('*').maybeSingle();
+      if (row) {
+        const sig = row as any;
+        setDefaultSig({ typed_name: sig.typed_name, title: sig.title, signature_url: sig.signature_url });
+        setCarrierTypedName(prev => prev || sig.typed_name);
+        setCarrierTitle(prev => prev || sig.title);
+        if (sig.signature_url) {
+          setUseDefaultSig(true);
+          // Generate signed URL for preview
+          const path = sig.signature_url.includes('/ica-signatures/')
+            ? sig.signature_url.split('/ica-signatures/').pop()!
+            : sig.signature_url;
+          const { data: signed } = await supabase.storage.from('ica-signatures').createSignedUrl(path, 3600);
+          if (signed?.signedUrl) setDefaultSigPreviewUrl(signed.signedUrl);
+        }
+        return;
+      }
+      // Fallback: prefill from logged-in user profile
+      if (!profile) return;
+      setCarrierTypedName(prev => {
+        if (prev) return prev;
+        return [profile.first_name, profile.last_name].filter(Boolean).join(' ');
+      });
+      setCarrierTitle(prev => {
+        if (prev) return prev;
+        if (roles.includes('owner')) return 'Owner';
+        if (roles.includes('management')) return 'Operations Manager';
+        return '';
+      });
+    };
+    loadDefaultSig();
   }, [profile, roles]);
 
   const uploadSignature = async (sigRef: React.RefObject<SignatureCanvas>, folder: string) => {
@@ -257,10 +282,12 @@ export default function ICABuilderModal({
     if (guardDemo()) return;
     setSaving(true);
     try {
-      // Upload carrier sig if already signed
+      // Upload carrier sig if already signed, else fall back to saved default
       let carrierSigUrl: string | null = null;
       if (carrierSigRef.current && !carrierSigRef.current.isEmpty()) {
         carrierSigUrl = await uploadSignature(carrierSigRef, 'carrier');
+      } else if (useDefaultSig && defaultSig?.signature_url) {
+        carrierSigUrl = defaultSig.signature_url;
       }
 
 
@@ -315,6 +342,24 @@ export default function ICABuilderModal({
       let carrierSigUrl: string | null = null;
       if (carrierSigRef.current && !carrierSigRef.current.isEmpty()) {
         carrierSigUrl = await uploadSignature(carrierSigRef, 'carrier');
+      } else if (useDefaultSig && defaultSig?.signature_url) {
+        carrierSigUrl = defaultSig.signature_url;
+      }
+
+      // Save as default if requested
+      if (saveAsDefault) {
+        const sigPayload: any = {
+          typed_name: carrierTypedName,
+          title: carrierTitle,
+          signature_url: carrierSigUrl,
+          updated_by: session?.user?.id ?? null,
+        };
+        if (defaultSig) {
+          await supabase.from('carrier_signature_settings' as any).update(sigPayload).neq('id', '00000000-0000-0000-0000-000000000000');
+        } else {
+          await supabase.from('carrier_signature_settings' as any).insert(sigPayload);
+        }
+        setSaveAsDefault(false);
       }
 
 
@@ -570,6 +615,39 @@ export default function ICABuilderModal({
                 <p className="text-sm font-medium text-foreground mb-1">Carrier — SUPERTRANSPORT, LLC</p>
                 <p className="text-xs text-muted-foreground">PO Box 4, Pleasant Hill, MO 64080</p>
               </div>
+
+              {/* Saved default signature banner */}
+              {defaultSig && (
+                <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      Saved owner signature on file
+                    </p>
+                    <button
+                      onClick={() => {
+                        setUseDefaultSig(false);
+                        setDefaultSig(null);
+                        setDefaultSigPreviewUrl(null);
+                      }}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Sign manually instead
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div><span className="text-muted-foreground">Name:</span> {defaultSig.typed_name}</div>
+                    <div><span className="text-muted-foreground">Title:</span> {defaultSig.title}</div>
+                  </div>
+                  {defaultSigPreviewUrl && (
+                    <div className="border border-border rounded-lg bg-white p-2 max-w-xs">
+                      <img src={defaultSigPreviewUrl} alt="Saved signature" className="h-16 object-contain" />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Manual entry — always visible so staff can override */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Typed Full Name *</Label>
@@ -580,27 +658,45 @@ export default function ICABuilderModal({
                   <Input value={carrierTitle} onChange={e => setCarrierTitle(e.target.value)} placeholder="e.g. Operations Manager" />
                 </div>
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                    <Pen className="h-3.5 w-3.5" /> Carrier Signature <span className="normal-case font-normal text-muted-foreground/60">(optional)</span>
-                  </Label>
-                  <button
-                    onClick={() => carrierSigRef.current?.clear()}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Clear
-                  </button>
+
+              {/* Signature canvas — hidden when using saved default */}
+              {!useDefaultSig && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                      <Pen className="h-3.5 w-3.5" /> Carrier Signature <span className="normal-case font-normal text-muted-foreground/60">(optional)</span>
+                    </Label>
+                    <button
+                      onClick={() => carrierSigRef.current?.clear()}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="border-2 border-dashed border-border rounded-xl overflow-hidden bg-white">
+                    <SignatureCanvas
+                      ref={carrierSigRef}
+                      canvasProps={{ width: 600, height: 180, className: 'w-full' }}
+                      penColor="#1a1a1a"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Sign above with your mouse or touch input — or leave blank to send without a drawn signature.</p>
                 </div>
-                <div className="border-2 border-dashed border-border rounded-xl overflow-hidden bg-white">
-                  <SignatureCanvas
-                    ref={carrierSigRef}
-                    canvasProps={{ width: 600, height: 180, className: 'w-full' }}
-                    penColor="#1a1a1a"
+              )}
+
+              {/* Save as default checkbox — shown for management/owner when not already saved */}
+              {!defaultSig && (roles.includes('owner') || roles.includes('management')) && (
+                <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={saveAsDefault}
+                    onChange={e => setSaveAsDefault(e.target.checked)}
+                    className="rounded border-border"
                   />
-                </div>
-                <p className="text-xs text-muted-foreground">Sign above with your mouse or touch input — or leave blank to send without a drawn signature.</p>
-              </div>
+                  Save this signature as the permanent default for all future ICAs
+                </label>
+              )}
+
               <p className="text-xs text-muted-foreground bg-secondary/50 border border-border rounded-lg p-3">
                 By signing, you confirm this agreement is authorized on behalf of SUPERTRANSPORT, LLC and will be sent to the operator for their review and signature. Date: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </p>
