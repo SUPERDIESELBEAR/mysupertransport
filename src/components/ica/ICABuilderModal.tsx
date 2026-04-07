@@ -231,19 +231,40 @@ export default function ICABuilderModal({
     loadDraft();
   }, [operatorId]);
 
-  // ── Prefill carrier signer from logged-in user profile (only when blank) ──
+  // ── Load default carrier signature settings ──
   useEffect(() => {
-    if (!profile) return;
-    setCarrierTypedName(prev => {
-      if (prev) return prev; // don't overwrite existing value
-      return [profile.first_name, profile.last_name].filter(Boolean).join(' ');
-    });
-    setCarrierTitle(prev => {
-      if (prev) return prev;
-      if (roles.includes('owner')) return 'Owner';
-      if (roles.includes('management')) return 'Operations Manager';
-      return '';
-    });
+    const loadDefaultSig = async () => {
+      const { data: row } = await supabase.from('carrier_signature_settings' as any).select('*').maybeSingle();
+      if (row) {
+        const sig = row as any;
+        setDefaultSig({ typed_name: sig.typed_name, title: sig.title, signature_url: sig.signature_url });
+        setCarrierTypedName(prev => prev || sig.typed_name);
+        setCarrierTitle(prev => prev || sig.title);
+        if (sig.signature_url) {
+          setUseDefaultSig(true);
+          // Generate signed URL for preview
+          const path = sig.signature_url.includes('/ica-signatures/')
+            ? sig.signature_url.split('/ica-signatures/').pop()!
+            : sig.signature_url;
+          const { data: signed } = await supabase.storage.from('ica-signatures').createSignedUrl(path, 3600);
+          if (signed?.signedUrl) setDefaultSigPreviewUrl(signed.signedUrl);
+        }
+        return;
+      }
+      // Fallback: prefill from logged-in user profile
+      if (!profile) return;
+      setCarrierTypedName(prev => {
+        if (prev) return prev;
+        return [profile.first_name, profile.last_name].filter(Boolean).join(' ');
+      });
+      setCarrierTitle(prev => {
+        if (prev) return prev;
+        if (roles.includes('owner')) return 'Owner';
+        if (roles.includes('management')) return 'Operations Manager';
+        return '';
+      });
+    };
+    loadDefaultSig();
   }, [profile, roles]);
 
   const uploadSignature = async (sigRef: React.RefObject<SignatureCanvas>, folder: string) => {
