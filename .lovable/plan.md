@@ -1,22 +1,25 @@
 
 
-## Fix: Form 2290 (and other Stage 2 doc) previews fail to load
+## Problem
 
-### Problem
-When clicking "View" on a Form 2290 file (or Truck Title, Truck Inspection) in the uploaded files popover, the raw storage path is passed directly to `FilePreviewModal`. Since the `operator-documents` bucket is private, it needs a signed URL — but no signed URL is generated. The PE Receipt view already does this correctly (line ~3860), but the generic doc popover view (line 4109) skips that step.
+The uploaded CDL (front/back) and Medical Certificate images are only viewable through the **Application Review Drawer** (accessible from the Applications tab). When you view an operator in the **Pipeline Dashboard** via the Operator Detail Panel, you can see CDL and Medical Cert **expiration dates** but not the actual uploaded document images.
 
-### Fix
+## Solution
+
+Add an "Uploaded Documents" section to the **Operator Detail Panel** (the panel shown when clicking an operator in the Pipeline) that displays clickable view buttons for DL Front, DL Rear, and Medical Certificate — the same documents shown in the Application Review Drawer.
+
+### Changes
 
 **File: `src/pages/staff/OperatorDetailPanel.tsx`**
 
-1. Change the "View" button `onClick` handler (around line 4107-4109) to generate a signed URL before setting `stage2Preview`, using the same pattern as the PE receipt viewer:
-   - Extract the storage path from `f.file_url` (strip any full URL prefix to get just the relative path)
-   - Call `supabase.storage.from('operator-documents').createSignedUrl(path, 3600)`
-   - Only then call `setStage2Preview` with the signed URL
+1. **Expand the application query** (line ~927) to also fetch `dl_front_url`, `dl_rear_url`, and `medical_cert_url` from the joined `applications` table
+2. **Store the document URLs** in component state alongside the existing `cdlExpiration` / `medCertExpiration` values
+3. **Add an "Uploaded Documents" card** in the Contact Info / Stage 1 area that shows clickable buttons for each available document (DL Front, DL Rear, Medical Certificate)
+4. **Generate signed URLs** on-demand (same pattern as the Stage 2 doc fix) when the user clicks "View" — extract the storage path, call `createSignedUrl` on the `application-documents` bucket, then open the `FilePreviewModal`
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/OperatorDetailPanel.tsx` | Generate signed URL before opening FilePreviewModal for Stage 2 doc files |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Add `dl_front_url`, `dl_rear_url`, `medical_cert_url` to the applications select; add Uploaded Documents card with signed-URL-based preview |
 
