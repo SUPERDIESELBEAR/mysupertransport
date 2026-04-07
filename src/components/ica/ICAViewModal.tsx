@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { X, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ICADocumentView from './ICADocumentView';
-
+import { printDocumentById, preloadSignatureDataUrl } from '@/lib/printDocument';
 const SIGNED_URL_TTL = 3600; // 1 hour
 
 async function toSignedUrl(path: string | null | undefined): Promise<string | null> {
