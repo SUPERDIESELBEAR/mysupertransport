@@ -341,6 +341,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [icaDraftUpdatedAt, setIcaDraftUpdatedAt] = useState<string | null>(null);
   const [cdlExpiration, setCdlExpiration] = useState<string | null>(null);
   const [medCertExpiration, setMedCertExpiration] = useState<string | null>(null);
+  const [dlFrontUrl, setDlFrontUrl] = useState<string | null>(null);
+  const [dlRearUrl, setDlRearUrl] = useState<string | null>(null);
+  const [medCertDocUrl, setMedCertDocUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<Partial<OnboardingStatus>>({});
   const [statusId, setStatusId] = useState<string | null>(null);
@@ -924,7 +927,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const [{ data: op }, { data: opDocs }] = await Promise.all([
       supabase
         .from('operators')
-        .select(`id, user_id, notes, is_active, on_hold, on_hold_reason, on_hold_date, onboarding_status (*), applications (id, email, first_name, last_name, phone, address_street, address_city, address_state, address_zip, cdl_expiration, medical_cert_expiration, dob)`)
+        .select(`id, user_id, notes, is_active, on_hold, on_hold_reason, on_hold_date, onboarding_status (*), applications (id, email, first_name, last_name, phone, address_street, address_city, address_state, address_zip, cdl_expiration, medical_cert_expiration, dob, dl_front_url, dl_rear_url, medical_cert_url)`)
         .eq('id', operatorId)
         .single(),
       supabase
@@ -982,6 +985,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       }
       setCdlExpiration(app?.cdl_expiration ?? null);
       setMedCertExpiration(app?.medical_cert_expiration ?? null);
+      setDlFrontUrl(app?.dl_front_url ?? null);
+      setDlRearUrl(app?.dl_rear_url ?? null);
+      setMedCertDocUrl(app?.medical_cert_url ?? null);
       setNotes((op as any).notes ?? '');
       const os = (op as any).onboarding_status ?? null;
       if (os) {
@@ -2458,7 +2464,43 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         );
       })()}
 
-      {/* Compliance expiry row */}
+      {/* ── Uploaded Application Documents ── */}
+      {(dlFrontUrl || dlRearUrl || medCertDocUrl) && (
+        <div className="rounded-xl border border-border bg-card p-4 space-y-2" style={isQuickView ? { order: 5 } : undefined}>
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            Uploaded Documents
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: 'DL Front', url: dlFrontUrl },
+              { label: 'DL Rear', url: dlRearUrl },
+              { label: 'Medical Certificate', url: medCertDocUrl },
+            ].filter(d => d.url).map(doc => (
+              <button
+                key={doc.label}
+                className="inline-flex items-center gap-1 text-xs text-gold hover:underline"
+                onClick={async () => {
+                  const raw = doc.url!;
+                  const path = raw.includes('/application-documents/')
+                    ? decodeURIComponent(raw.split('/application-documents/')[1].split('?')[0])
+                    : raw;
+                  const { data } = await supabase.storage.from('application-documents').createSignedUrl(path, 3600);
+                  if (data?.signedUrl) {
+                    setStage2Preview({ url: data.signedUrl, name: doc.label, docType: 'application_doc' });
+                  } else {
+                    toast({ title: 'Could not load document preview', variant: 'destructive' });
+                  }
+                }}
+              >
+                <Eye className="h-3.5 w-3.5" />
+                {doc.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={isQuickView ? { order: 10 } : undefined}>{(cdlExpiration || medCertExpiration) && (() => {
         const buildPill = (label: string, dateStr: string, focusField: 'cdl' | 'medcert') => {
           const days = differenceInDays(startOfDay(parseISO(dateStr)), startOfDay(new Date()));
