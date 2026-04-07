@@ -342,6 +342,24 @@ export default function ICABuilderModal({
       let carrierSigUrl: string | null = null;
       if (carrierSigRef.current && !carrierSigRef.current.isEmpty()) {
         carrierSigUrl = await uploadSignature(carrierSigRef, 'carrier');
+      } else if (useDefaultSig && defaultSig?.signature_url) {
+        carrierSigUrl = defaultSig.signature_url;
+      }
+
+      // Save as default if requested
+      if (saveAsDefault) {
+        const sigPayload: any = {
+          typed_name: carrierTypedName,
+          title: carrierTitle,
+          signature_url: carrierSigUrl,
+          updated_by: session?.user?.id ?? null,
+        };
+        if (defaultSig) {
+          await supabase.from('carrier_signature_settings' as any).update(sigPayload).neq('id', '00000000-0000-0000-0000-000000000000');
+        } else {
+          await supabase.from('carrier_signature_settings' as any).insert(sigPayload);
+        }
+        setSaveAsDefault(false);
       }
 
 
