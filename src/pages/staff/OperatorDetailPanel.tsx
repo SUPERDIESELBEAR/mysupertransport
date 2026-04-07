@@ -985,6 +985,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       }
       setCdlExpiration(app?.cdl_expiration ?? null);
       setMedCertExpiration(app?.medical_cert_expiration ?? null);
+      setDlFrontUrl(app?.dl_front_url ?? null);
+      setDlRearUrl(app?.dl_rear_url ?? null);
+      setMedCertDocUrl(app?.medical_cert_url ?? null);
       setNotes((op as any).notes ?? '');
       const os = (op as any).onboarding_status ?? null;
       if (os) {
