@@ -341,6 +341,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [icaDraftUpdatedAt, setIcaDraftUpdatedAt] = useState<string | null>(null);
   const [cdlExpiration, setCdlExpiration] = useState<string | null>(null);
   const [medCertExpiration, setMedCertExpiration] = useState<string | null>(null);
+  const [dlFrontUrl, setDlFrontUrl] = useState<string | null>(null);
+  const [dlRearUrl, setDlRearUrl] = useState<string | null>(null);
+  const [medCertDocUrl, setMedCertDocUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<Partial<OnboardingStatus>>({});
   const [statusId, setStatusId] = useState<string | null>(null);
