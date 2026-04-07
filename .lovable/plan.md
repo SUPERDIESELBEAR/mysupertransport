@@ -1,29 +1,22 @@
 
 
-## Fix: ICA Download Only Renders One Page
+## Fix: Form 2290 (and other Stage 2 doc) previews fail to load
 
 ### Problem
-The "Print / Download" button in `ICAViewModal` calls `window.print()` directly. The ICA document lives inside a scrollable drawer (`overflow-y-auto`), so the browser's print engine only captures the first visible page worth of content — the rest is clipped by the overflow container.
+When clicking "View" on a Form 2290 file (or Truck Title, Truck Inspection) in the uploaded files popover, the raw storage path is passed directly to `FilePreviewModal`. Since the `operator-documents` bucket is private, it needs a signed URL — but no signed URL is generated. The PE Receipt view already does this correctly (line ~3860), but the generic doc popover view (line 4109) skips that step.
 
-### Solution
-Replace the bare `window.print()` call with the existing `printDocumentById` utility from `src/lib/printDocument.ts`. This utility clones the target element into a top-level wrapper outside the overflow container and applies scoped print styles, which is exactly the pattern already used for application PDF downloads.
+### Fix
 
-Additionally, pre-load the signature images as base64 data URLs before printing (using the existing `preloadSignatureDataUrl` helper) so they render reliably in the printed output instead of potentially failing due to expired signed URLs.
+**File: `src/pages/staff/OperatorDetailPanel.tsx`**
 
-### Changes
-
-**File: `src/components/ica/ICAViewModal.tsx`**
-
-1. Import `printDocumentById` from `@/lib/printDocument` and `preloadSignatureDataUrl` from `@/lib/printDocument`
-2. Replace the `handlePrint` function:
-   - Before printing, call `preloadSignatureDataUrl` on both `carrier_signature_url` and `contractor_signature_url`
-   - Temporarily swap the `<img>` sources in the print target to the base64 data URLs
-   - Call `printDocumentById('ica-print-area', 'ICA - ' + operatorName)` instead of `window.print()`
-3. Remove the now-unnecessary inline `print:hidden` classes (the `printDocumentById` utility handles hiding everything else)
+1. Change the "View" button `onClick` handler (around line 4107-4109) to generate a signed URL before setting `stage2Preview`, using the same pattern as the PE receipt viewer:
+   - Extract the storage path from `f.file_url` (strip any full URL prefix to get just the relative path)
+   - Call `supabase.storage.from('operator-documents').createSignedUrl(path, 3600)`
+   - Only then call `setStage2Preview` with the signed URL
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/components/ica/ICAViewModal.tsx` | Use `printDocumentById` with signature pre-loading for reliable multi-page print/download |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Generate signed URL before opening FilePreviewModal for Stage 2 doc files |
 
