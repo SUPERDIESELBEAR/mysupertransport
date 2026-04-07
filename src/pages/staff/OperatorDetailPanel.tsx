@@ -4115,7 +4115,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                                           if (data?.signedUrl) {
                                             setStage2Preview({ url: data.signedUrl, name: f.file_name ?? 'Document', docType: field as string });
                                           } else {
-                                            toast.error('Could not load document preview');
+                                            toast({ title: 'Could not load document preview', variant: 'destructive' });
                                           }
                                         }}
                                         className="flex items-center gap-1 text-[11px] text-gold hover:text-gold-light font-medium"
