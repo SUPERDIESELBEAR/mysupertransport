@@ -282,10 +282,12 @@ export default function ICABuilderModal({
     if (guardDemo()) return;
     setSaving(true);
     try {
-      // Upload carrier sig if already signed
+      // Upload carrier sig if already signed, else fall back to saved default
       let carrierSigUrl: string | null = null;
       if (carrierSigRef.current && !carrierSigRef.current.isEmpty()) {
         carrierSigUrl = await uploadSignature(carrierSigRef, 'carrier');
+      } else if (useDefaultSig && defaultSig?.signature_url) {
+        carrierSigUrl = defaultSig.signature_url;
       }
 
 
