@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { DemoModeProvider } from "@/hooks/useDemoMode";
 import IdleWarningModal from "@/components/IdleWarningModal";
+import PWAInstallBanner from "@/components/PWAInstallBanner";
 
 // Pages
 import LoginPage from "./pages/LoginPage";
@@ -32,7 +33,7 @@ function AppRoutes() {
       <div className="flex min-h-screen items-center justify-center bg-surface-dark">
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-gold border-t-transparent" />
-          <p className="text-sm text-surface-dark-muted font-medium tracking-wide">SUPERTRANSPORT</p>
+          <p className="text-sm text-surface-dark-muted font-medium tracking-wide">SUPERDRIVE</p>
         </div>
       </div>
     );
@@ -56,7 +57,7 @@ function AppRoutes() {
           <div className="flex min-h-screen items-center justify-center bg-surface-dark">
             <div className="flex flex-col items-center gap-4">
               <div className="h-12 w-12 animate-spin rounded-full border-4 border-gold border-t-transparent" />
-              <p className="text-sm text-surface-dark-muted font-medium tracking-wide">SUPERTRANSPORT</p>
+              <p className="text-sm text-surface-dark-muted font-medium tracking-wide">SUPERDRIVE</p>
             </div>
           </div>
         ) :
@@ -112,6 +113,7 @@ const App = () => (
             <AppRoutes />
             <IdleWarningModal />
           </BrowserRouter>
+          <PWAInstallBanner />
         </TooltipProvider>
       </DemoModeProvider>
     </AuthProvider>
