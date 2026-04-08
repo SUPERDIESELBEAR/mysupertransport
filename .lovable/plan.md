@@ -1,29 +1,23 @@
 
 
-## SUPERDRIVE PWA — Install Banner From First Visit
+## Use SUPERTRANSPORT Logo as PWA Icon
 
-Yes — the install banner will appear from the very first moment someone opens the app, including when they land on the application form. Here's how:
+Replace the generated "SD" icons with the existing SUPERTRANSPORT logo (`src/assets/supertransport-logo.png`) for the PWA home screen icon.
 
-### How it works
+### Approach
 
-The `PWAInstallBanner` component will be placed in `App.tsx` at the top level, outside of any authentication or role checks. This means it renders on **every page**, including:
+1. Copy `src/assets/supertransport-logo.png` to `public/icon-512.png` (overwrite)
+2. Generate a resized 192px version and save as `public/icon-192.png` (overwrite)
+3. Both will be created using a script that reads the logo and produces properly sized PNGs with the dark background (#111111) and the logo centered/contained within
 
-- The splash/landing page
-- The application form (before they're even an operator)
-- Login page
-- All operator and staff pages after login
-
-The banner will show once per device and remember when it's been dismissed via localStorage, so it won't nag returning users.
+Since the logo is likely wide/rectangular, the icons will place it centered on a square dark background so it looks good as an app icon on phone home screens.
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `public/manifest.json` | New — manifest with "SUPERDRIVE" name, standalone display, icons |
-| `public/icon-192.png` | New — 192px app icon with brand colors and "SD" |
-| `public/icon-512.png` | New — 512px app icon |
-| `index.html` | Title → "SUPERDRIVE", add manifest link, Apple meta tags, theme-color |
-| `src/main.tsx` | Add service worker cleanup guard for preview/iframe environments |
-| `src/components/PWAInstallBanner.tsx` | New — install banner (Android prompt + iOS instructions), renders on all pages including application form |
-| `src/App.tsx` | Add `<PWAInstallBanner />` at top level, outside auth/routing |
+| `public/icon-192.png` | Overwrite — 192px square with logo centered on dark background |
+| `public/icon-512.png` | Overwrite — 512px square with logo centered on dark background |
+
+No other files need changes — `manifest.json` already references these paths.
 
