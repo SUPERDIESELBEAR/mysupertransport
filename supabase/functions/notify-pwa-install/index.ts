@@ -1,5 +1,9 @@
-import { corsHeaders } from '@supabase/supabase-js/cors'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 import { buildEmail, sendEmail, BRAND_COLOR, BRAND_DARK } from '../_shared/email-layout.ts'
 
 const APP_URL = Deno.env.get('APP_URL') || 'https://mysupertransport.lovable.app'
