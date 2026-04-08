@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { DemoModeProvider } from "@/hooks/useDemoMode";
 import IdleWarningModal from "@/components/IdleWarningModal";
+import PWAInstallBanner from "@/components/PWAInstallBanner";
 
 // Pages
 import LoginPage from "./pages/LoginPage";
@@ -112,6 +113,7 @@ const App = () => (
             <AppRoutes />
             <IdleWarningModal />
           </BrowserRouter>
+          <PWAInstallBanner />
         </TooltipProvider>
       </DemoModeProvider>
     </AuthProvider>
