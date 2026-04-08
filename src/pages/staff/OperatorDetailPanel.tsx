@@ -2500,7 +2500,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   }
                   const { data } = await supabase.storage.from('application-documents').createSignedUrl(path, 3600);
                   if (data?.signedUrl) {
-                    setStage2Preview({ url: data.signedUrl, name: doc.label, docType: 'application_doc' });
+                    let url = data.signedUrl;
+                    if (url.startsWith('/')) {
+                      const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '') ?? '';
+                      url = `${base}${url}`;
+                    }
+                    setStage2Preview({ url, name: doc.label, docType: 'application_doc' });
                   } else {
                     toast({ title: 'Could not load document preview', variant: 'destructive' });
                   }
