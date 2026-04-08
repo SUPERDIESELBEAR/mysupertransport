@@ -1,33 +1,41 @@
 
-I confirmed the files do exist in the backend.
 
-Findings:
-- There are 26 submitted applications that already have CDL and medical certificate uploads saved.
-- All 26 have all three document fields populated:
-  - `dl_front_url`
-  - `dl_rear_url`
-  - `medical_cert_url`
-- The newest submission with docs was today, so this is not a missing-data problem.
+## Fix CDL / Medical Certificate Preview — Signed URL Resolution
 
-Most likely cause:
-- The uploads are being stored correctly as raw storage paths like `applications/...jpg`.
-- The working `ApplicationReviewDrawer` already handles these raw paths correctly by resolving them before generating signed preview URLs.
-- The `OperatorDetailPanel` “Uploaded Documents” section is using different path-handling logic, so it is likely failing to generate the signed URLs for these applicant files consistently.
+### Root Cause
 
-Plan:
-1. Update `src/pages/staff/OperatorDetailPanel.tsx` to use the same storage-path resolution approach that already works in `src/components/management/ApplicationReviewDrawer.tsx`.
-2. Replace the current ad hoc CDL/medical preview path parsing with a shared helper that supports:
-   - raw storage paths
-   - legacy full storage URLs
-3. Use the resolved path to generate fresh signed URLs for:
-   - CDL front
-   - CDL rear
-   - medical certificate
-4. Keep the existing in-app preview modal, but make the failure case clearer if a signed URL cannot be generated.
-5. Verify the fix by checking that applicant documents open from both:
-   - the staff/operator detail panel
-   - the application review drawer
+The `createSignedUrl` call succeeds (the preview modal opens), but the returned signed URL is likely a relative path (`/storage/v1/object/sign/application-documents/...`) rather than an absolute URL. The `FilePreviewModal`'s blob fetch fails because it tries to fetch from the app's own origin, and the "Open in new tab" link is intercepted by the SPA router, showing the app's 404 page (not a server 404).
 
-Technical detail:
-- This looks like a view-layer path parsing mismatch, not an RLS/data issue.
-- The database values are present; the bug is in how the staff panel turns those values into previewable signed URLs.
+The `resolveDocumentUrl` function inside `DocRow.tsx` does handle `/storage/v1/` paths, but the issue is that the signed URL structure uses `/storage/v1/object/sign/...` — which does match the check. However, there may be an edge case where the URL format doesn't match expectations.
+
+### Fix
+
+In `OperatorDetailPanel.tsx`, explicitly resolve the signed URL before passing it to the preview modal — prepend the Supabase base URL if the signed URL is relative.
+
+**File: `src/pages/staff/OperatorDetailPanel.tsx`** (line ~2501-2503)
+
+After `createSignedUrl` returns, check if the `signedUrl` is relative and prepend `VITE_SUPABASE_URL`:
+
+```typescript
+const { data } = await supabase.storage
+  .from('application-documents')
+  .createSignedUrl(path, 3600);
+if (data?.signedUrl) {
+  let url = data.signedUrl;
+  // Resolve relative signed URLs
+  if (url.startsWith('/')) {
+    const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '') ?? '';
+    url = `${base}${url}`;
+  }
+  setStage2Preview({ url, name: doc.label, docType: 'application_doc' });
+}
+```
+
+This is a one-line defensive fix that matches the same pattern already used in `resolveDocumentUrl` but applied at the source, before the URL ever reaches the preview modal.
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `src/pages/staff/OperatorDetailPanel.tsx` | Resolve relative signed URLs from `createSignedUrl` before passing to preview modal |
+
