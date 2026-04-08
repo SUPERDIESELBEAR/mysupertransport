@@ -2482,9 +2482,22 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 className="inline-flex items-center gap-1 text-xs text-gold hover:underline"
                 onClick={async () => {
                   const raw = doc.url!;
-                  const path = raw.includes('/application-documents/')
-                    ? decodeURIComponent(raw.split('/application-documents/')[1].split('?')[0])
-                    : raw;
+                  // Extract storage path: if it's a plain path (no http), use as-is;
+                  // otherwise extract after /object/public/application-documents/
+                  let path = raw;
+                  if (raw.startsWith('http')) {
+                    const marker = '/object/public/application-documents/';
+                    const idx = raw.indexOf(marker);
+                    if (idx !== -1) {
+                      path = decodeURIComponent(raw.slice(idx + marker.length).split('?')[0]);
+                    } else {
+                      const marker2 = '/application-documents/';
+                      const idx2 = raw.indexOf(marker2);
+                      if (idx2 !== -1) {
+                        path = decodeURIComponent(raw.slice(idx2 + marker2.length).split('?')[0]);
+                      }
+                    }
+                  }
                   const { data } = await supabase.storage.from('application-documents').createSignedUrl(path, 3600);
                   if (data?.signedUrl) {
                     setStage2Preview({ url: data.signedUrl, name: doc.label, docType: 'application_doc' });
