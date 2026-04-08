@@ -1,16 +1,29 @@
 
 
-## Remove Emojis from Truck Photo Guide Steps
+## SUPERDRIVE PWA — Install Banner From First Visit
 
-Remove the emoji icons displayed next to each of the 10 photo steps in the Truck Photo Guide modal.
+Yes — the install banner will appear from the very first moment someone opens the app, including when they land on the application form. Here's how:
 
-### Changes
+### How it works
 
-**File: `src/components/operator/TruckPhotoGuideModal.tsx`**
+The `PWAInstallBanner` component will be placed in `App.tsx` at the top level, outside of any authentication or role checks. This means it renders on **every page**, including:
 
-1. Remove the `icon` property from the `PhotoSlot` interface and all 10 slot definitions
-2. Remove the three `<span>` elements that render `slot.icon` / `currentSlot.icon`:
-   - Line 245 (intro list)
-   - Line 279 (active step header)
-   - Line 408 (review list)
+- The splash/landing page
+- The application form (before they're even an operator)
+- Login page
+- All operator and staff pages after login
+
+The banner will show once per device and remember when it's been dismissed via localStorage, so it won't nag returning users.
+
+### Files changed
+
+| File | Change |
+|------|--------|
+| `public/manifest.json` | New — manifest with "SUPERDRIVE" name, standalone display, icons |
+| `public/icon-192.png` | New — 192px app icon with brand colors and "SD" |
+| `public/icon-512.png` | New — 512px app icon |
+| `index.html` | Title → "SUPERDRIVE", add manifest link, Apple meta tags, theme-color |
+| `src/main.tsx` | Add service worker cleanup guard for preview/iframe environments |
+| `src/components/PWAInstallBanner.tsx` | New — install banner (Android prompt + iOS instructions), renders on all pages including application form |
+| `src/App.tsx` | Add `<PWAInstallBanner />` at top level, outside auth/routing |
 
