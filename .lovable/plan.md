@@ -1,25 +1,46 @@
 
 
-## Problem
+## Document Viewing Audit — Findings & Fix Plan
 
-The uploaded CDL (front/back) and Medical Certificate images are only viewable through the **Application Review Drawer** (accessible from the Applications tab). When you view an operator in the **Pipeline Dashboard** via the Operator Detail Panel, you can see CDL and Medical Cert **expiration dates** but not the actual uploaded document images.
+### Audit Summary
 
-## Solution
+I reviewed every document viewing surface across the app. Here's what I found:
 
-Add an "Uploaded Documents" section to the **Operator Detail Panel** (the panel shown when clicking an operator in the Pipeline) that displays clickable view buttons for DL Front, DL Rear, and Medical Certificate — the same documents shown in the Application Review Drawer.
+**Working correctly (no changes needed):**
+- Application Review Drawer (CDL, Med Cert, Signature) — generates fresh signed URLs
+- Pipeline Operator Detail Panel — Stage 2 docs, PE Receipt, CDL/Med Cert (recently fixed)
+- Inspection Binder (Admin + Operator views) — uses signed URLs + blob-based viewer
+- Driver Document Vault — re-signs URLs on every fetch
+- Truck Photo Grid Modal — generates signed URLs on fetch
+- Document Hub, Service Library, Resource Library — all use in-app viewers
 
-### Changes
+**Inconsistent (functional but not using in-app viewer):**
+
+Three areas use raw `<a href target="_blank">` links that open files in a new browser tab instead of the unified in-app `FilePreviewModal`. This means they bypass the blob-fetch workaround that prevents `X-Frame-Options` issues and they lose the consistent close/zoom UI.
+
+| Location | File | What it affects |
+|----------|------|----------------|
+| Operator Document Upload — Stage 2 doc "View" links | `OperatorDocumentUpload.tsx` (3 places: ~line 302, 406, 492) | Form 2290, Truck Title, Truck Inspection, Registration, PE Receipt, Insurance Cert — viewed by operators |
+| Staff Pipeline — Insurance Cert "View" link | `OperatorDetailPanel.tsx` (~line 4929) | Insurance certificate viewed by staff |
+
+### Fix
+
+**File: `src/components/operator/OperatorDocumentUpload.tsx`**
+- Import `FilePreviewModal` from the inspection DocRow module
+- Replace all three `<a href={doc.file_url} target="_blank">View</a>` patterns with a button that opens the in-app `FilePreviewModal`
+- Since stored URLs are already full signed URLs, pass them directly to the modal (no re-signing needed)
 
 **File: `src/pages/staff/OperatorDetailPanel.tsx`**
-
-1. **Expand the application query** (line ~927) to also fetch `dl_front_url`, `dl_rear_url`, and `medical_cert_url` from the joined `applications` table
-2. **Store the document URLs** in component state alongside the existing `cdlExpiration` / `medCertExpiration` values
-3. **Add an "Uploaded Documents" card** in the Contact Info / Stage 1 area that shows clickable buttons for each available document (DL Front, DL Rear, Medical Certificate)
-4. **Generate signed URLs** on-demand (same pattern as the Stage 2 doc fix) when the user clicks "View" — extract the storage path, call `createSignedUrl` on the `application-documents` bucket, then open the `FilePreviewModal`
+- Replace the insurance cert `<a href target="_blank">` with an async `onClick` that generates a fresh signed URL and opens the existing `stage2Preview` modal
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/OperatorDetailPanel.tsx` | Add `dl_front_url`, `dl_rear_url`, `medical_cert_url` to the applications select; add Uploaded Documents card with signed-URL-based preview |
+| `src/components/operator/OperatorDocumentUpload.tsx` | Replace 3 `target="_blank"` links with in-app FilePreviewModal |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Replace insurance cert `target="_blank"` link with signed-URL + in-app preview |
+
+---
+
+After this fix, every document viewing surface in the app will use the unified in-app viewer. Then we can move on to reviewing the truck photos section as you mentioned.
 
