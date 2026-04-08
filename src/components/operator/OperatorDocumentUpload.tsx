@@ -58,6 +58,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
   const { toast } = useToast();
   const [uploading, setUploading] = useState<string | null>(null);
   const [showPhotoGuide, setShowPhotoGuide] = useState(false);
+  const [docPreview, setDocPreview] = useState<{ url: string; name: string } | null>(null);
   const [decalPhotoDs, setDecalPhotoDs] = useState<string | null>(onboardingStatus.decal_photo_ds_url ?? null);
   const [decalPhotoPs, setDecalPhotoPs] = useState<string | null>(onboardingStatus.decal_photo_ps_url ?? null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -616,6 +617,14 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
         operatorId={operatorId}
         onComplete={onUploadComplete}
       />
+
+      {docPreview && (
+        <FilePreviewModal
+          url={docPreview.url}
+          name={docPreview.name}
+          onClose={() => setDocPreview(null)}
+        />
+      )}
     </div>
   );
 }
