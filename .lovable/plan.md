@@ -1,36 +1,33 @@
 
+I confirmed the files do exist in the backend.
 
-## Option D: In-App Notification + Email Blast for PWA Install
+Findings:
+- There are 26 submitted applications that already have CDL and medical certificate uploads saved.
+- All 26 have all three document fields populated:
+  - `dl_front_url`
+  - `dl_rear_url`
+  - `medical_cert_url`
+- The newest submission with docs was today, so this is not a missing-data problem.
 
-### What This Does
+Most likely cause:
+- The uploads are being stored correctly as raw storage paths like `applications/...jpg`.
+- The working `ApplicationReviewDrawer` already handles these raw paths correctly by resolving them before generating signed preview URLs.
+- The `OperatorDetailPanel` “Uploaded Documents” section is using different path-handling logic, so it is likely failing to generate the signed URLs for these applicant files consistently.
 
-Sends every active operator two notifications announcing the SUPERDRIVE app:
-1. An **in-app notification** (appears in their notification bell)
-2. A **branded email** with install instructions for both Android and iOS
+Plan:
+1. Update `src/pages/staff/OperatorDetailPanel.tsx` to use the same storage-path resolution approach that already works in `src/components/management/ApplicationReviewDrawer.tsx`.
+2. Replace the current ad hoc CDL/medical preview path parsing with a shared helper that supports:
+   - raw storage paths
+   - legacy full storage URLs
+3. Use the resolved path to generate fresh signed URLs for:
+   - CDL front
+   - CDL rear
+   - medical certificate
+4. Keep the existing in-app preview modal, but make the failure case clearer if a signed URL cannot be generated.
+5. Verify the fix by checking that applicant documents open from both:
+   - the staff/operator detail panel
+   - the application review drawer
 
-### Implementation
-
-**1. Edge Function: `notify-pwa-install`** (new)
-- Queries all active operators with a linked `user_id`
-- For each operator:
-  - Inserts an in-app notification into the `notifications` table with title "Install SUPERDRIVE on your phone", body explaining the app is now available, and link to `/operator`
-  - Sends a branded email (using existing `buildEmail`/`sendEmail` from `_shared/email-layout.ts`) with:
-    - Android instructions: "Open the app in Chrome → tap Install or Menu → Add to Home Screen"
-    - iOS instructions: "Open in Safari → tap Share → Add to Home Screen"
-    - A CTA button linking to the published app URL
-- Respects notification preferences (skips in-app if operator disabled notifications)
-- Idempotent: checks if a `pwa_install` notification already exists for each user to prevent duplicates on re-run
-
-**2. Trigger: One-time manual invocation**
-- Staff/management can trigger it from the Management Portal, or it can be invoked once via the edge function test tool after deployment
-- No recurring schedule needed — this is a one-time announcement
-
-### Files changed
-
-| File | Change |
-|------|--------|
-| `supabase/functions/notify-pwa-install/index.ts` | New — edge function that broadcasts in-app + email notifications to all active operators |
-
-### After deployment
-The function will be invoked once to send the announcement to all 41 active operators. Each operator gets a bell notification and an email with step-by-step install instructions.
-
+Technical detail:
+- This looks like a view-layer path parsing mismatch, not an RLS/data issue.
+- The database values are present; the bug is in how the staff panel turns those values into previewable signed URLs.
