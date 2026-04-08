@@ -236,7 +236,6 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
             <div className="space-y-2">
               {PHOTO_SLOTS.map((slot, i) => (
                 <div key={slot.key} className="flex items-center gap-3 p-2.5 rounded-lg bg-secondary/40">
-                  <span className="text-base shrink-0">{slot.icon}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">{slot.label}</p>
                     <p className="text-[11px] text-muted-foreground">{slot.example}</p>
@@ -399,7 +398,7 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
             <div className="space-y-2">
               {PHOTO_SLOTS.map(slot => (
                 <div key={slot.key} className={`flex items-center gap-3 p-2.5 rounded-lg ${uploaded[slot.key] ? 'bg-status-complete/8 border border-status-complete/20' : 'bg-secondary/40'}`}>
-                  <span className="text-base shrink-0">{slot.icon}</span>
+                  
                   <p className="text-sm font-medium text-foreground flex-1">{slot.label}</p>
                   {uploaded[slot.key] ? (
                     <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />
