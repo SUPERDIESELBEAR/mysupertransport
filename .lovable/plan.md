@@ -1,46 +1,60 @@
 
 
-## Document Viewing Audit — Findings & Fix Plan
+## Fix: Truck Photo Guide Mobile Issues + App-Wide Back Button
 
-### Audit Summary
+### Problems
 
-I reviewed every document viewing surface across the app. Here's what I found:
+1. **Photo Guide modal cut off on mobile**: The `DialogContent` uses `fixed` centering (`top-[50%] translate-y-[-50%]`) with no `max-height` or scroll. On mobile, the intro screen lists all 10 photo slots, overflowing off-screen with no way to scroll — top and bottom are clipped.
 
-**Working correctly (no changes needed):**
-- Application Review Drawer (CDL, Med Cert, Signature) — generates fresh signed URLs
-- Pipeline Operator Detail Panel — Stage 2 docs, PE Receipt, CDL/Med Cert (recently fixed)
-- Inspection Binder (Admin + Operator views) — uses signed URLs + blob-based viewer
-- Driver Document Vault — re-signs URLs on every fetch
-- Truck Photo Grid Modal — generates signed URLs on fetch
-- Document Hub, Service Library, Resource Library — all use in-app viewers
+2. **Photo Guide steps not functional**: The intro screen shows all 10 slots as a static list (read-only overview). The actual interactive upload starts only after tapping "Start Guide". If the modal is cut off, the "Start Guide" button is hidden below the fold, making it appear non-functional.
 
-**Inconsistent (functional but not using in-app viewer):**
+3. **Phone back button closes entire browser**: This is a standard SPA problem. The app uses `BrowserRouter` with no `history.pushState` calls when opening modals or navigating between tabs. When the user presses the phone's hardware back button, the browser has no history entry to go back to within the app, so it exits entirely. This affects the entire app.
 
-Three areas use raw `<a href target="_blank">` links that open files in a new browser tab instead of the unified in-app `FilePreviewModal`. This means they bypass the blob-fetch workaround that prevents `X-Frame-Options` issues and they lose the consistent close/zoom UI.
+### Solution
 
-| Location | File | What it affects |
-|----------|------|----------------|
-| Operator Document Upload — Stage 2 doc "View" links | `OperatorDocumentUpload.tsx` (3 places: ~line 302, 406, 492) | Form 2290, Truck Title, Truck Inspection, Registration, PE Receipt, Insurance Cert — viewed by operators |
-| Staff Pipeline — Insurance Cert "View" link | `OperatorDetailPanel.tsx` (~line 4929) | Insurance certificate viewed by staff |
+#### 1. Fix Photo Guide mobile layout
 
-### Fix
+**File: `src/components/operator/TruckPhotoGuideModal.tsx`**
+- Add `max-h-[90dvh] overflow-y-auto` to the `DialogContent` so the modal scrolls on small screens instead of clipping
+- Use `dvh` (dynamic viewport height) to account for mobile browser chrome (address bar, etc.)
+- Add safe-area padding for notched phones
 
-**File: `src/components/operator/OperatorDocumentUpload.tsx`**
-- Import `FilePreviewModal` from the inspection DocRow module
-- Replace all three `<a href={doc.file_url} target="_blank">View</a>` patterns with a button that opens the in-app `FilePreviewModal`
-- Since stored URLs are already full signed URLs, pass them directly to the modal (no re-signing needed)
+#### 2. App-wide back button support via History API
 
-**File: `src/pages/staff/OperatorDetailPanel.tsx`**
-- Replace the insurance cert `<a href target="_blank">` with an async `onClick` that generates a fresh signed URL and opens the existing `stage2Preview` modal
+**File: `src/hooks/useBackButton.ts`** (new)
+- Create a custom hook that pushes a "virtual" history entry when a modal/drawer/panel opens
+- Listen for the `popstate` event and call the provided close callback instead of letting the browser navigate away
+- Clean up on unmount
+
+**File: `src/components/ui/dialog.tsx`**
+- Integrate `useBackButton` into `DialogContent` so that every dialog in the app automatically supports the phone back button (back = close dialog instead of exit app)
+
+**File: `src/components/ui/sheet.tsx`**
+- Same integration for Sheet/Drawer components (used by detail panels, review drawers, etc.)
+
+This approach gives every modal and drawer in the entire app automatic back-button support without modifying each one individually.
+
+### How the back button hook works
+
+```text
+User opens modal
+  → pushState("#modal-open")
+  → popstate listener registered
+
+User presses phone Back
+  → popstate fires
+  → hook calls onClose() instead of browser navigating away
+
+User closes modal via X or overlay
+  → hook calls history.back() to clean up the virtual entry
+```
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/components/operator/OperatorDocumentUpload.tsx` | Replace 3 `target="_blank"` links with in-app FilePreviewModal |
-| `src/pages/staff/OperatorDetailPanel.tsx` | Replace insurance cert `target="_blank"` link with signed-URL + in-app preview |
-
----
-
-After this fix, every document viewing surface in the app will use the unified in-app viewer. Then we can move on to reviewing the truck photos section as you mentioned.
+| `src/hooks/useBackButton.ts` | New hook: pushes virtual history state on mount, listens for popstate, calls close callback |
+| `src/components/ui/dialog.tsx` | Add `max-h-[90dvh] overflow-y-auto` to DialogContent; integrate `useBackButton` |
+| `src/components/ui/sheet.tsx` | Integrate `useBackButton` for drawer/sheet components |
+| `src/components/operator/TruckPhotoGuideModal.tsx` | Add mobile-safe scrolling classes to DialogContent |
 
