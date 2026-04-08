@@ -1,11 +1,11 @@
 import { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileText, CheckCircle2, Loader2, ExternalLink, AlertCircle, Clock, Camera, Image, Shield, Download } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, Loader2, Eye, AlertCircle, Clock, Camera, Image, Shield, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { validateFile } from '@/lib/validateFile';
 import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
-
+import { FilePreviewModal } from '@/components/inspection/DocRow';
 interface DocumentSlot {
   key: string;
   label: string;
@@ -58,6 +58,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
   const { toast } = useToast();
   const [uploading, setUploading] = useState<string | null>(null);
   const [showPhotoGuide, setShowPhotoGuide] = useState(false);
+  const [docPreview, setDocPreview] = useState<{ url: string; name: string } | null>(null);
   const [decalPhotoDs, setDecalPhotoDs] = useState<string | null>(onboardingStatus.decal_photo_ds_url ?? null);
   const [decalPhotoPs, setDecalPhotoPs] = useState<string | null>(onboardingStatus.decal_photo_ps_url ?? null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -300,10 +301,11 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                             <span className="text-muted-foreground truncate min-w-0 flex-1">{doc.file_name ?? 'document'}</span>
                             <span className="text-muted-foreground shrink-0">{new Date(doc.uploaded_at).toLocaleDateString()}</span>
                             {doc.file_url && (
-                              <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
-                                className="text-gold hover:underline flex items-center gap-0.5 shrink-0">
-                                View <ExternalLink className="h-3 w-3" />
-                              </a>
+                              <button
+                                onClick={() => setDocPreview({ url: doc.file_url!, name: doc.file_name ?? 'document' })}
+                                className="text-gold hover:underline flex items-center gap-0.5 shrink-0 text-xs">
+                                View <Eye className="h-3 w-3" />
+                              </button>
                             )}
                           </div>
                         ))}
@@ -404,10 +406,11 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                             <span className="text-muted-foreground truncate min-w-0 flex-1">{doc.file_name ?? 'document'}</span>
                             <span className="text-muted-foreground shrink-0">{new Date(doc.uploaded_at).toLocaleDateString()}</span>
                             {doc.file_url && (
-                              <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
-                                className="text-gold hover:underline flex items-center gap-0.5 shrink-0">
-                                View <ExternalLink className="h-3 w-3" />
-                              </a>
+                              <button
+                                onClick={() => setDocPreview({ url: doc.file_url!, name: doc.file_name ?? 'document' })}
+                                className="text-gold hover:underline flex items-center gap-0.5 shrink-0 text-xs">
+                                View <Eye className="h-3 w-3" />
+                              </button>
                             )}
                           </div>
                         ))}
@@ -490,10 +493,11 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                             <span className="text-muted-foreground truncate min-w-0 flex-1">{doc.file_name ?? 'receipt'}</span>
                             <span className="text-muted-foreground shrink-0">{new Date(doc.uploaded_at).toLocaleDateString()}</span>
                             {doc.file_url && (
-                              <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
-                                className="text-gold hover:underline flex items-center gap-0.5 shrink-0">
-                                View <ExternalLink className="h-3 w-3" />
-                              </a>
+                              <button
+                                onClick={() => setDocPreview({ url: doc.file_url!, name: doc.file_name ?? 'receipt' })}
+                                className="text-gold hover:underline flex items-center gap-0.5 shrink-0 text-xs">
+                                View <Eye className="h-3 w-3" />
+                              </button>
                             )}
                           </div>
                         ))}
@@ -613,6 +617,14 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
         operatorId={operatorId}
         onComplete={onUploadComplete}
       />
+
+      {docPreview && (
+        <FilePreviewModal
+          url={docPreview.url}
+          name={docPreview.name}
+          onClose={() => setDocPreview(null)}
+        />
+      )}
     </div>
   );
 }

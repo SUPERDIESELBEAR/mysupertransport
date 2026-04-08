@@ -4926,9 +4926,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                                 <span className="truncate flex-1">{f.file_name ?? 'certificate'}</span>
                                 <span className="text-muted-foreground/70">{new Date(f.uploaded_at).toLocaleDateString()}</span>
                                 {f.file_url && (
-                                  <a href={f.file_url} target="_blank" rel="noopener noreferrer" className="text-gold hover:underline flex items-center gap-0.5 shrink-0">
-                                    View <ExternalLink className="h-3 w-3" />
-                                  </a>
+                                  <button
+                                    className="text-gold hover:underline flex items-center gap-0.5 shrink-0"
+                                    onClick={async () => {
+                                      const raw = f.file_url!;
+                                      const path = raw.includes('/operator-documents/')
+                                        ? decodeURIComponent(raw.split('/operator-documents/')[1].split('?')[0])
+                                        : raw;
+                                      const { data } = await supabase.storage
+                                        .from('operator-documents')
+                                        .createSignedUrl(path, 3600);
+                                      if (data?.signedUrl) {
+                                        setStage2Preview({ url: data.signedUrl, name: f.file_name ?? 'Insurance Certificate', docType: 'insurance_cert' });
+                                      }
+                                    }}
+                                  >
+                                    View <Eye className="h-3 w-3" />
+                                  </button>
                                 )}
                               </div>
                             ))}
