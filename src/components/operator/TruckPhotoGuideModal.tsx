@@ -26,7 +26,7 @@ interface PhotoSlot {
   key: string;
   label: string;
   hint: string;
-  icon: string;
+  
   example: string;
 }
 
@@ -35,70 +35,64 @@ const PHOTO_SLOTS: PhotoSlot[] = [
     key: 'truck_photos_front',
     label: 'Front',
     hint: 'Face the truck straight-on. Full front bumper, grille, and both headlights must be clearly visible.',
-    icon: '🚛',
+    
     example: 'Stand ~20 ft in front, centered',
   },
   {
     key: 'truck_photos_driver_side',
     label: 'Driver Side',
     hint: 'Full profile from the driver (left) side. Capture the entire truck length — cab to rear axle.',
-    icon: '⬅️',
+    
     example: 'Stand perpendicular, ~30 ft away',
   },
   {
     key: 'truck_photos_rear',
     label: 'Rear',
     hint: 'Capture the full rear — doors, rear lights, mud flaps, and any visible frame/hitch.',
-    icon: '🔙',
+    
     example: 'Stand ~20 ft behind, centered',
   },
   {
     key: 'truck_photos_passenger_side',
     label: 'Passenger Side',
     hint: 'Full profile from the passenger (right) side. Capture the entire truck length — cab to rear axle.',
-    icon: '➡️',
+    
     example: 'Stand perpendicular, ~30 ft away',
   },
   {
     key: 'truck_photos_ps_steer_tire',
     label: 'PS Steer Tire',
     hint: 'Passenger-side front steer tire. Capture the full tire and wheel — tread depth and sidewall must be visible.',
-    icon: '🛞',
     example: 'Crouch to tire level, ~3 ft away',
   },
   {
     key: 'truck_photos_ds_steer_tire',
     label: 'DS Steer Tire',
     hint: 'Driver-side front steer tire. Capture the full tire and wheel — tread depth and sidewall must be visible.',
-    icon: '🛞',
     example: 'Crouch to tire level, ~3 ft away',
   },
   {
     key: 'truck_photos_ds_front_drive',
     label: 'DS Front Drive Tires',
     hint: 'Driver-side front drive axle tires (inner & outer). Both tires and the full wheel assembly should be visible.',
-    icon: '🛞',
     example: 'Stand back slightly to capture both tires',
   },
   {
     key: 'truck_photos_ds_rear_drive',
     label: 'DS Rear Drive Tires',
     hint: 'Driver-side rear drive axle tires (inner & outer). Both tires and the full wheel assembly should be visible.',
-    icon: '🛞',
     example: 'Stand back slightly to capture both tires',
   },
   {
     key: 'truck_photos_ps_front_drive',
     label: 'PS Front Drive Tires',
     hint: 'Passenger-side front drive axle tires (inner & outer). Both tires and the full wheel assembly should be visible.',
-    icon: '🛞',
     example: 'Stand back slightly to capture both tires',
   },
   {
     key: 'truck_photos_ps_rear_drive',
     label: 'PS Rear Drive Tires',
     hint: 'Passenger-side rear drive axle tires (inner & outer). Both tires and the full wheel assembly should be visible.',
-    icon: '🛞',
     example: 'Stand back slightly to capture both tires',
   },
 ];
@@ -276,7 +270,7 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
             <DialogHeader>
               <div className="flex items-start justify-between gap-2">
                 <DialogTitle className="text-base flex items-center gap-2">
-                  <span className="text-xl">{currentSlot.icon}</span>
+                  
                   {currentSlot.label}
                 </DialogTitle>
                 <button
