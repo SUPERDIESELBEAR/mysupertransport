@@ -370,6 +370,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [contactEditing, setContactEditing] = useState(false);
   const [contactSaving, setContactSaving] = useState(false);
   const [contactDraft, setContactDraft] = useState({
+    first_name: '',
+    last_name: '',
     phone: '',
     email: '',
     address_street: '',
@@ -2135,6 +2137,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
         const handleContactEdit = () => {
           setContactDraft({
+            first_name: applicationData.first_name ?? '',
+            last_name: applicationData.last_name ?? '',
             phone: applicationData.phone ?? '',
             email: applicationData.email ?? '',
             address_street: applicationData.address_street ?? '',
@@ -2155,6 +2159,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               const { error } = await supabase
                 .from('applications')
                 .update({
+                  first_name: contactDraft.first_name || null,
+                  last_name: contactDraft.last_name || null,
                   phone: contactDraft.phone || null,
                   email: contactDraft.email,
                   address_street: contactDraft.address_street || null,
@@ -2165,6 +2171,32 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 })
                 .eq('id', applicationData.id);
               if (error) throw error;
+
+              // Sync name to profiles table
+              if (operatorUserId) {
+                await supabase
+                  .from('profiles')
+                  .update({
+                    first_name: contactDraft.first_name || null,
+                    last_name: contactDraft.last_name || null,
+                  })
+                  .eq('user_id', operatorUserId);
+              }
+
+              // Audit log if name changed
+              const oldFirst = applicationData.first_name ?? '';
+              const oldLast = applicationData.last_name ?? '';
+              if (oldFirst !== contactDraft.first_name || oldLast !== contactDraft.last_name) {
+                await supabase.from('audit_log').insert({
+                  action: 'name_updated',
+                  entity_type: 'operator',
+                  entity_id: operatorId || undefined,
+                  entity_label: `${contactDraft.first_name} ${contactDraft.last_name}`.trim() || null,
+                  actor_id: (await supabase.auth.getUser()).data.user?.id || undefined,
+                  actor_name: null,
+                  metadata: { old_first: oldFirst, old_last: oldLast, new_first: contactDraft.first_name, new_last: contactDraft.last_name },
+                });
+              }
             } else if (operatorUserId) {
               // No application — create an application record so all contact fields persist
               const { data: newApp, error: insertErr } = await supabase
@@ -2180,8 +2212,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   user_id: operatorUserId,
                   review_status: 'approved' as any,
                   is_draft: false,
-                  first_name: operatorName.split(' ')[0] || null,
-                  last_name: operatorName.split(' ').slice(1).join(' ') || null,
+                  first_name: contactDraft.first_name || null,
+                  last_name: contactDraft.last_name || null,
                 })
                 .select('id')
                 .single();
@@ -2200,6 +2232,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               await supabase
                 .from('profiles')
                 .update({
+                  first_name: contactDraft.first_name || null,
+                  last_name: contactDraft.last_name || null,
                   phone: contactDraft.phone || null,
                   home_state: contactDraft.address_state || null,
                 })
@@ -2229,6 +2263,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             // Update local state
             setApplicationData((prev: any) => ({
               ...prev,
+              first_name: contactDraft.first_name || null,
+              last_name: contactDraft.last_name || null,
               phone: contactDraft.phone || null,
               email: contactDraft.email,
               address_street: contactDraft.address_street || null,
@@ -2237,6 +2273,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               address_zip: contactDraft.address_zip || null,
               dob: contactDraft.dob || null,
             }));
+            // Update header name immediately
+            const newName = `${contactDraft.first_name} ${contactDraft.last_name}`.trim();
+            if (newName) setOperatorName(newName);
             if (contactDraft.email) setOperatorEmail(contactDraft.email);
             setContactEditing(false);
             toast({ title: 'Contact info updated' });
@@ -2293,6 +2332,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
             {contactEditing ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">First Name</Label>
+                  <Input
+                    value={contactDraft.first_name}
+                    onChange={e => setContactDraft(prev => ({ ...prev, first_name: e.target.value }))}
+                    placeholder="First name"
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Last Name</Label>
+                  <Input
+                    value={contactDraft.last_name}
+                    onChange={e => setContactDraft(prev => ({ ...prev, last_name: e.target.value }))}
+                    placeholder="Last name"
+                    className="h-8 text-sm"
+                  />
+                </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Phone</Label>
                   <Input
