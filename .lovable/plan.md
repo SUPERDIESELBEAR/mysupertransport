@@ -1,41 +1,30 @@
 
 
-## Fix CDL / Medical Certificate Preview — Signed URL Resolution
+## Add Driver Name Editing to Contact Info Card
 
-### Root Cause
+### What changes
 
-The `createSignedUrl` call succeeds (the preview modal opens), but the returned signed URL is likely a relative path (`/storage/v1/object/sign/application-documents/...`) rather than an absolute URL. The `FilePreviewModal`'s blob fetch fails because it tries to fetch from the app's own origin, and the "Open in new tab" link is intercepted by the SPA router, showing the app's 404 page (not a server 404).
+When staff click **Edit** on the Contact Info card in the Operator Detail Panel, two new fields — **First Name** and **Last Name** — will appear at the top of the edit form, above the existing Phone and Email fields. Saving updates the name in both the `applications` and `profiles` tables and logs the change to `audit_log`.
 
-The `resolveDocumentUrl` function inside `DocRow.tsx` does handle `/storage/v1/` paths, but the issue is that the signed URL structure uses `/storage/v1/object/sign/...` — which does match the check. However, there may be an edge case where the URL format doesn't match expectations.
+### Implementation
 
-### Fix
+**File: `src/pages/staff/OperatorDetailPanel.tsx`**
 
-In `OperatorDetailPanel.tsx`, explicitly resolve the signed URL before passing it to the preview modal — prepend the Supabase base URL if the signed URL is relative.
+1. **Expand `contactDraft` state** to include `first_name` and `last_name` fields. Pre-populate from `applicationData` in `handleContactEdit`.
 
-**File: `src/pages/staff/OperatorDetailPanel.tsx`** (line ~2501-2503)
+2. **Add name fields to the edit form** — two inputs in a 2-column row at the top of the editing grid (above Phone/Email).
 
-After `createSignedUrl` returns, check if the `signedUrl` is relative and prepend `VITE_SUPABASE_URL`:
+3. **Update `handleContactSave`**:
+   - Include `first_name` and `last_name` in the `applications` table update.
+   - Also update `profiles` table with the new name (mirrors what the insert path already does for new applications).
+   - If the name changed, insert an `audit_log` entry with old and new values.
+   - Update local `operatorName` state so the panel header reflects the change immediately.
 
-```typescript
-const { data } = await supabase.storage
-  .from('application-documents')
-  .createSignedUrl(path, 3600);
-if (data?.signedUrl) {
-  let url = data.signedUrl;
-  // Resolve relative signed URLs
-  if (url.startsWith('/')) {
-    const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '') ?? '';
-    url = `${base}${url}`;
-  }
-  setStage2Preview({ url, name: doc.label, docType: 'application_doc' });
-}
-```
-
-This is a one-line defensive fix that matches the same pattern already used in `resolveDocumentUrl` but applied at the source, before the URL ever reaches the preview modal.
+4. **Update the read-only view** — the name is already shown in the panel header, so no additional display needed in the card's read-only state.
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/OperatorDetailPanel.tsx` | Resolve relative signed URLs from `createSignedUrl` before passing to preview modal |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Add first/last name fields to Contact Info edit form; update save handler to persist name changes to both tables and log to audit_log |
 
