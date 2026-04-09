@@ -2212,8 +2212,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   user_id: operatorUserId,
                   review_status: 'approved' as any,
                   is_draft: false,
-                  first_name: operatorName.split(' ')[0] || null,
-                  last_name: operatorName.split(' ').slice(1).join(' ') || null,
+                  first_name: contactDraft.first_name || null,
+                  last_name: contactDraft.last_name || null,
                 })
                 .select('id')
                 .single();
