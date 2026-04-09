@@ -2333,6 +2333,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             {contactEditing ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">First Name</Label>
+                  <Input
+                    value={contactDraft.first_name}
+                    onChange={e => setContactDraft(prev => ({ ...prev, first_name: e.target.value }))}
+                    placeholder="First name"
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Last Name</Label>
+                  <Input
+                    value={contactDraft.last_name}
+                    onChange={e => setContactDraft(prev => ({ ...prev, last_name: e.target.value }))}
+                    placeholder="Last name"
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Phone</Label>
                   <Input
                     value={contactDraft.phone}
