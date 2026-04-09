@@ -2232,6 +2232,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               await supabase
                 .from('profiles')
                 .update({
+                  first_name: contactDraft.first_name || null,
+                  last_name: contactDraft.last_name || null,
                   phone: contactDraft.phone || null,
                   home_state: contactDraft.address_state || null,
                 })
@@ -2261,6 +2263,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             // Update local state
             setApplicationData((prev: any) => ({
               ...prev,
+              first_name: contactDraft.first_name || null,
+              last_name: contactDraft.last_name || null,
               phone: contactDraft.phone || null,
               email: contactDraft.email,
               address_street: contactDraft.address_street || null,
@@ -2269,6 +2273,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               address_zip: contactDraft.address_zip || null,
               dob: contactDraft.dob || null,
             }));
+            // Update header name immediately
+            const newName = `${contactDraft.first_name} ${contactDraft.last_name}`.trim();
+            if (newName) setOperatorName(newName);
             if (contactDraft.email) setOperatorEmail(contactDraft.email);
             setContactEditing(false);
             toast({ title: 'Contact info updated' });
