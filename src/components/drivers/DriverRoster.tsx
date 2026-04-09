@@ -368,7 +368,7 @@ export default function DriverRoster({
     onComplianceFilterChange?.(f);
   };
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [sortColumn, setSortColumn] = useState<'unit' | 'driver' | null>(null);
+  const [sortColumn, setSortColumn] = useState<'unit' | 'driver' | null>('driver');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const toggleSort = (col: 'unit' | 'driver') => {
