@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn, DollarSign, PauseCircle, Pencil, Cake, PartyPopper, Phone, MapPin, Eye } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn, DollarSign, PauseCircle, Pencil, Cake, PartyPopper, Phone, MapPin, Eye, Smartphone } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { Calendar } from '@/components/ui/calendar';
@@ -1984,12 +1984,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             {/* Send Install Instructions + App Installed Badge */}
             {operatorUserId && (
               <>
-                {pwaInstalledAt && (
-                  <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400 text-[11px] py-0.5">
-                    <CheckCircle2 className="h-3 w-3" />
-                    App Installed {format(parseISO(pwaInstalledAt), 'M/d/yy')}
-                  </Badge>
-                )}
+                <Badge variant="outline" className={cn("gap-1 text-[11px] py-0.5", pwaInstalledAt ? "text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400" : "text-muted-foreground border-muted bg-muted/30")}>
+                  {pwaInstalledAt ? (
+                    <>
+                      <CheckCircle2 className="h-3 w-3" />
+                      App Installed {format(parseISO(pwaInstalledAt), 'M/d/yy')}
+                    </>
+                  ) : (
+                    <>
+                      <Smartphone className="h-3 w-3" />
+                      App Not Installed
+                    </>
+                  )}
+                </Badge>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
