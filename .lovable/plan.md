@@ -1,44 +1,40 @@
 
 
-## Default Sort: Hot → Cold with Progress Tiebreaker
+## Fix: Truck Info Save Not Updating Snapshot
 
-### What changes
-The Pipeline Dashboard will load with temperature sorting active by default (Hot → Cold). Within each temperature tier, applicants will be further sorted by their onboarding progress percentage (highest first), so the furthest-along Cold applicant appears before one who just started.
+### Problem
+When you save truck info or device numbers via the TruckInfoCard, the handlers (`handleTruckDeviceEdit` and `handleTruckInfoEdit`) correctly persist to the database and update local `status` state, but they **do not** update `savedSnapshot.current`. The unsaved-changes guard compares `status` against `savedSnapshot`, sees they differ, and falsely warns about unsaved changes on exit.
 
-### How it works
-
-Currently the sort state initializes as:
-```typescript
-const [sortKey, setSortKey] = useState<SortKey | null>(null);
-const [sortDir, setSortDir] = useState<SortDir>('asc');
-```
-
-This will change to:
-```typescript
-const [sortKey, setSortKey] = useState<SortKey | null>('temperature');
-const [sortDir, setSortDir] = useState<SortDir>('desc');
-```
-
-And the temperature sort comparator (line ~1699) will add a progress-based tiebreaker when two operators share the same temperature level:
-```typescript
-if (sortKey === 'temperature') {
-  const cmp = TEMP_ORDER[aTemp] - TEMP_ORDER[bTemp];
-  if (cmp !== 0) return sortDir === 'asc' ? cmp : -cmp;
-  // Tiebreak: higher progress first
-  const pCmp = computeProgressFromConfig(b, stageConfigs) - computeProgressFromConfig(a, stageConfigs);
-  return sortDir === 'asc' ? -pCmp : pCmp;
-}
-```
-
-### Result
-- Page loads sorted Hot → Cold automatically
-- Within each tier (e.g., all "Cold" operators), whoever is furthest along in onboarding appears first
-- The Temp button shows the active 🔥 Hot → Cold state on load
-- Users can still click to toggle to Cold → Hot or clear the sort
+### Fix
+After each successful save in both handlers, synchronize `savedSnapshot.current.status` with the newly updated fields so the comparison stays clean.
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/PipelineDashboard.tsx` | Set default `sortKey` to `'temperature'` and `sortDir` to `'desc'`; add progress tiebreaker to temperature sort comparator |
+| `src/pages/staff/OperatorDetailPanel.tsx` | In `handleTruckDeviceEdit` (~line 1618): after `setStatus(...)`, update `savedSnapshot.current.status` with the same device fields. In `handleTruckInfoEdit` (~line 1652): after `setIcaTruckInfo(...)`, update `savedSnapshot.current.status` with the same truck fields. |
+
+### Detail
+
+In `handleTruckDeviceEdit`, after the `setStatus` call, add:
+```typescript
+if (savedSnapshot.current) {
+  savedSnapshot.current = {
+    ...savedSnapshot.current,
+    status: { ...savedSnapshot.current.status, ...payload },
+  };
+}
+```
+
+Same pattern in `handleTruckInfoEdit`, after `setIcaTruckInfo`:
+```typescript
+if (savedSnapshot.current) {
+  savedSnapshot.current = {
+    ...savedSnapshot.current,
+    status: { ...savedSnapshot.current.status, ...truckFields },
+  };
+}
+```
+
+This is a two-line addition to each handler -- no UI or layout changes.
 
