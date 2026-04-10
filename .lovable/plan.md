@@ -1,37 +1,29 @@
 
 
-## Archive Applicants from On Hold Section
+## Add Owner Test Accounts Section to Pipeline Dashboard
 
-### Problem
-When an applicant is placed On Hold and later needs to be fully removed from the Pipeline, there is no single action to do so. Deactivating them still leaves the `on_hold` flag set, so they remain visible in the On Hold section.
+### What this does
+Your two Marcus Mueller accounts will be separated from the regular applicant pipeline into their own collapsible section at the bottom of the dashboard, labeled **"Owner Test Accounts"**. They will remain fully functional — clickable, with full stage tracks and all the same controls — but will no longer appear in the main pipeline list, filters, or counts.
 
-### Solution
-Add an **"Archive"** button to each row in the On Hold section of the Pipeline Dashboard. This performs a multi-step cleanup that removes the applicant from the pipeline entirely, without deleting any records.
-
-### Implementation
+### How it works
 
 **File: `src/pages/staff/PipelineDashboard.tsx`**
-- Add an "Archive" icon button (e.g. `ArchiveX`) to each operator row in the On Hold section
-- Clicking it opens a confirmation dialog asking for a brief reason
-- On confirm, the handler:
-  1. Updates `operators` table: sets `on_hold = false`, `is_active = false`
-  2. Updates `applications` table: sets `review_status = 'denied'` for the linked application
-  3. Inserts an `audit_log` entry with action `applicant_archived` and metadata containing the reason plus original hold reason/date
-  4. Shows a success toast confirming removal from the pipeline
-- The operator will then appear only in the Archived Drivers view (already filtered by `is_active = false` in the Driver Hub)
 
-**File: `src/pages/staff/OperatorDetailPanel.tsx`**
-- No changes needed — the existing Deactivate button already handles reactivation if staff ever need to bring someone back
+1. Define the two known owner user IDs as a constant set:
+   - `5cca4f77-c4a9-4c4d-bcf7-f950965c1ffe` (primary account)
+   - `7e356f94-ce4a-47aa-8883-0e6b01d09aab` (test account)
 
-### What staff will see
-- Each On Hold row gets a small archive button on the right side
-- Clicking it shows: "Archive this applicant? They will be removed from the pipeline and moved to the Archived Drivers list. This does not delete any records."
-- A reason field (optional) for context
-- After archiving, the row disappears from On Hold immediately
+2. Exclude these from the main filtered list by adding `!OWNER_USER_IDS.has(op.user_id)` to the existing filter chain (same line that already excludes `on_hold` operators).
+
+3. Add a new collapsible section **below the On Hold section**, styled similarly but with a distinct icon (e.g. `ShieldCheck`), that:
+   - Filters operators to only those matching the owner user IDs
+   - Shows the same row layout as the main pipeline (name, stage track, dispatch badge, etc.)
+   - Rows are clickable and open the Operator Detail Panel as usual
+   - Collapsed by default, with a header showing "Owner Test Accounts (2)"
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/PipelineDashboard.tsx` | Add Archive button + confirmation dialog to On Hold rows; handler clears hold, deactivates operator, denies application, logs to audit |
+| `src/pages/staff/PipelineDashboard.tsx` | Add owner user ID constant, exclude from main list, add collapsible "Owner Test Accounts" section |
 
