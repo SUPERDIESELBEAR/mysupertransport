@@ -100,6 +100,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
 
   // Re-sync drafts when props update
   useEffect(() => {
+    if (editOpen) return;
     setDraft({
       unit_number: deviceInfo?.unit_number ?? null,
       eld_serial_number: deviceInfo?.eld_serial_number ?? null,
@@ -110,6 +111,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
   }, [deviceInfo]);
 
   useEffect(() => {
+    if (truckEditOpen) return;
     setTruckDraft({
       truck_year: truckInfo?.truck_year ?? null,
       truck_make: truckInfo?.truck_make ?? null,
