@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw, FileClock, Check, PauseCircle } from 'lucide-react';
+import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw, FileClock, Check, PauseCircle, ArchiveX } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { differenceInDays, parseISO, format, formatDistanceToNowStrict } from 'date-fns';
@@ -652,8 +653,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [exceptionFilter, setExceptionFilter] = useState(false);
   // Stage node filter: filter to operators who have specific stage(s) NOT complete (multi-select)
   const [stageNodeFilters, setStageNodeFilters] = useState<Set<string>>(new Set());
-  // On Hold section collapsed state
+   // On Hold section collapsed state
   const [onHoldExpanded, setOnHoldExpanded] = useState(true);
+  // Archive from On Hold
+  const [archiveTarget, setArchiveTarget] = useState<OperatorRow | null>(null);
+  const [archiveReason, setArchiveReason] = useState('');
+  const [archiving, setArchiving] = useState(false);
 
   const toggleStageNodeFilter = (key: string) => {
     setStageNodeFilters(prev => {
@@ -1155,6 +1160,61 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     if (op.fully_onboarded) return 'onboarded';
     if (op.mvr_ch_approval === 'denied' || op.pe_screening_result === 'non_clear') return 'alert';
     return 'in_progress';
+  };
+
+  const handleArchiveFromHold = async () => {
+    if (!archiveTarget || !user) return;
+    setArchiving(true);
+    try {
+      const opName = `${archiveTarget.first_name ?? ''} ${archiveTarget.last_name ?? ''}`.trim() || 'Unknown Operator';
+
+      // 1. Clear hold & deactivate operator
+      const { error: opErr } = await supabase
+        .from('operators')
+        .update({ on_hold: false, on_hold_reason: null, on_hold_date: null, is_active: false })
+        .eq('id', archiveTarget.id);
+      if (opErr) throw opErr;
+
+      // 2. Deny linked application
+      const { data: opRow } = await supabase
+        .from('operators')
+        .select('application_id')
+        .eq('id', archiveTarget.id)
+        .single();
+      if (opRow?.application_id) {
+        const { error: appErr } = await supabase
+          .from('applications')
+          .update({ review_status: 'denied' as any })
+          .eq('id', opRow.application_id);
+        if (appErr) throw appErr;
+      }
+
+      // 3. Audit log
+      const staffName = `${profile?.first_name ?? ''} ${profile?.last_name ?? ''}`.trim() || 'Staff';
+      await supabase.from('audit_log').insert({
+        action: 'applicant_archived',
+        entity_type: 'operator',
+        entity_id: archiveTarget.id,
+        entity_label: opName,
+        actor_id: user.id,
+        actor_name: staffName,
+        metadata: {
+          reason: archiveReason || null,
+          original_hold_reason: archiveTarget.on_hold_reason,
+          original_hold_date: archiveTarget.on_hold_date,
+        },
+      });
+
+      // 4. Remove from local state
+      setOperators(prev => prev.filter(op => op.id !== archiveTarget.id));
+      toast({ title: `${opName} archived`, description: 'Moved to the Archived Drivers list.' });
+      setArchiveTarget(null);
+      setArchiveReason('');
+    } catch (err: any) {
+      toast({ title: 'Archive failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setArchiving(false);
+    }
   };
 
   const handleResendInvite = async (op: OperatorRow) => {
@@ -3253,6 +3313,23 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         <StageTrack op={op} stageConfigs={stageConfigs} onNodeClick={onOpenOperatorAtStage} />
                       </div>
 
+                      {/* Archive button */}
+                      <TooltipProvider delayDuration={100}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                              onClick={e => { e.stopPropagation(); setArchiveTarget(op); setArchiveReason(''); }}
+                            >
+                              <ArchiveX className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">Archive &amp; remove from pipeline</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
                       {/* Open button */}
                       <Button
                         variant="ghost"
@@ -3270,6 +3347,42 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           </div>
         );
       })()}
+
+      {/* ─── Archive Confirmation Dialog ─────────────────────────────────── */}
+      <AlertDialog open={!!archiveTarget} onOpenChange={open => { if (!open) { setArchiveTarget(null); setArchiveReason(''); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this applicant?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                <strong>{archiveTarget ? `${archiveTarget.first_name ?? ''} ${archiveTarget.last_name ?? ''}`.trim() || 'This operator' : ''}</strong> will be removed from the pipeline and moved to the Archived Drivers list.
+              </span>
+              <span className="block text-muted-foreground">This does not delete any records.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <label className="text-sm font-medium text-foreground">Reason (optional)</label>
+            <Textarea
+              placeholder="e.g. Did not respond after 30 days"
+              value={archiveReason}
+              onChange={e => setArchiveReason(e.target.value)}
+              className="mt-1.5"
+              rows={2}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={archiving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={e => { e.preventDefault(); handleArchiveFromHold(); }}
+              disabled={archiving}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {archiving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <ArchiveX className="h-4 w-4 mr-1" />}
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
