@@ -494,6 +494,7 @@ export default function DriverRoster({
           cdl_expiration: binderDates[op.user_id]?.cdl ?? app?.cdl_expiration ?? null,
           medical_cert_expiration: binderDates[op.user_id]?.med ?? app?.medical_cert_expiration ?? null,
           is_active: activeSet.has(op.id),
+          pwa_installed_at: activeMap[op.id]?.pwa_installed_at ?? null,
         };
       }).sort((a, b) => {
         const order: Record<DriverRow['dispatch_status'], number> = { truck_down: 0, not_dispatched: 1, home: 2, dispatched: 3 };
