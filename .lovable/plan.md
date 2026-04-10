@@ -1,35 +1,57 @@
 
+## Fix: Truck Save Still Triggers Unsaved Changes
 
-## Fix: Device & Truck Edit Fields Clearing While Typing
+### What I found
+The previous snapshot fix covered device fields correctly, but the truck-info save path is still incomplete in `src/pages/staff/OperatorDetailPanel.tsx`.
 
-### Problem
-The `TruckInfoCard` component has two `useEffect` hooks that re-sync `draft` and `truckDraft` state from props whenever `deviceInfo` or `truckInfo` changes. If the parent component re-renders (e.g., from a status poll, realtime subscription, or unrelated state change), new prop references are created, triggering these effects and overwriting whatever the user has typed — before they can click Save.
+Right now:
+- `handleTruckDeviceEdit` updates the database, updates `status`, and updates `savedSnapshot.current`
+- `handleTruckInfoEdit` updates the database and updates `savedSnapshot.current`, but it only updates `icaTruckInfo` locally
+- The unsaved-changes guard compares `savedSnapshot.current.status` against `status`
+- That means truck saves can still leave `status` and `savedSnapshot.current.status` out of sync, which re-triggers the modal when leaving the profile
 
-### Fix
-Guard both `useEffect` hooks so they only re-sync when the corresponding edit popover is **closed**. When the popover is open, the user's in-progress draft should not be overwritten.
+I also found one more gap:
+- `trailer_number` exists in the `TruckInfoCard` payload and is displayed in the UI
+- but `handleTruckInfoEdit` currently does not include `trailer_number` in the `truckFields` object that gets persisted to onboarding status or synced to ICA
 
-### Files changed
+### Plan
+1. Update `handleTruckInfoEdit` so truck saves also update the main `status` state with the same truck fields that were just saved.
+2. Include `trailer_number` in the truck save payload so it persists consistently with the rest of the truck info.
+3. Keep `icaTruckInfo` updates in place so the card display still refreshes immediately.
+4. Verify the snapshot sync uses the exact same saved truck fields so the navigation guard sees no differences after a successful save.
 
-| File | Change |
-|------|--------|
-| `src/components/operator/TruckInfoCard.tsx` | Add `if (editOpen) return;` guard to the `deviceInfo` useEffect (line 102) and `if (truckEditOpen) return;` guard to the `truckInfo` useEffect (line 112) |
+### Files to update
+- `src/pages/staff/OperatorDetailPanel.tsx`
 
-### Detail
+### Expected result
+After saving truck info for drivers like Giovanni Colon:
+- the values should remain visible
+- truck edits should persist consistently, including trailer number
+- leaving the profile should no longer show the false “Unsaved Changes” modal after a successful save
 
-```typescript
-// Line 102 – device draft sync
-useEffect(() => {
-  if (editOpen) return;          // ← add this guard
-  setDraft({ ... });
-}, [deviceInfo]);
+### Technical detail
+The implementation should make `handleTruckInfoEdit` behave more like the device save handler:
+- build one `truckFields` object including:
+  - `truck_year`
+  - `truck_make`
+  - `truck_model`
+  - `truck_vin`
+  - `truck_plate`
+  - `truck_plate_state`
+  - `trailer_number`
+- persist that object
+- apply that same object to:
+  - `setStatus(...)`
+  - `setIcaTruckInfo(...)`
+  - `savedSnapshot.current.status`
 
-// Line 112 – truck draft sync
-useEffect(() => {
-  if (truckEditOpen) return;     // ← add this guard
-  setTruckDraft({ ... });
-  if (truckInfo?.trailer_number) setTrailerOpen(true);
-}, [truckInfo]);
+That keeps all three sources aligned:
+```text
+database
+  ↓
+status state
+  ↓
+savedSnapshot.current.status
+  ↓
+unsaved-changes comparison stays clean
 ```
-
-This is a one-line addition to each effect — no UI or layout changes.
-
