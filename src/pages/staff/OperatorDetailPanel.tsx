@@ -1126,6 +1126,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
   };
 
+  const handleSave = async () => {
     if (guardDemo()) return;
     setSaving(true);
 
