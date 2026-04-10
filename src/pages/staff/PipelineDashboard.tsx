@@ -1217,7 +1217,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     }
   };
 
-
+  const handleResendInvite = async (op: OperatorRow) => {
     if (!op.email) {
       toast({ title: 'No email found for this operator', variant: 'destructive' });
       return;
