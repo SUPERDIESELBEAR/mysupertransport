@@ -1981,24 +1981,32 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </TooltipContent>
               </Tooltip>
             )}
-            {/* Send Install Instructions */}
+            {/* Send Install Instructions + App Installed Badge */}
             {operatorUserId && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSendInstallInstructions}
-                    disabled={sendingInstallInstructions}
-                    className="gap-1 text-muted-foreground hover:text-foreground"
-                  >
-                    {sendingInstallInstructions ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Phone className="h-3.5 w-3.5" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  Send SUPERDRIVE install instructions
-                </TooltipContent>
-              </Tooltip>
+              <>
+                {pwaInstalledAt && (
+                  <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400 text-[11px] py-0.5">
+                    <CheckCircle2 className="h-3 w-3" />
+                    App Installed {format(parseISO(pwaInstalledAt), 'M/d/yy')}
+                  </Badge>
+                )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSendInstallInstructions}
+                      disabled={sendingInstallInstructions}
+                      className="gap-1 text-muted-foreground hover:text-foreground"
+                    >
+                      {sendingInstallInstructions ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Phone className="h-3.5 w-3.5" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {pwaInstalledAt ? 'Resend SUPERDRIVE install instructions' : 'Send SUPERDRIVE install instructions'}
+                  </TooltipContent>
+                </Tooltip>
+              </>
             )}
             <Tooltip>
               <TooltipTrigger asChild>

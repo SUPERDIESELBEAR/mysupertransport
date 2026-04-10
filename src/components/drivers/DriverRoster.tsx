@@ -38,7 +38,7 @@ interface ReminderEntry {
 }
 
 export type DispatchFilter = 'all' | 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
-export type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed' | 'not_yet_reminded';
+export type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed' | 'not_yet_reminded' | 'app_not_installed';
 
 export interface ComplianceCounts {
   expired: number;
