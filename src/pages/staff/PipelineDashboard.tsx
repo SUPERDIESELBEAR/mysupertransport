@@ -1162,7 +1162,62 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     return 'in_progress';
   };
 
-  const handleResendInvite = async (op: OperatorRow) => {
+  const handleArchiveFromHold = async () => {
+    if (!archiveTarget || !user) return;
+    setArchiving(true);
+    try {
+      const opName = `${archiveTarget.first_name ?? ''} ${archiveTarget.last_name ?? ''}`.trim() || 'Unknown Operator';
+
+      // 1. Clear hold & deactivate operator
+      const { error: opErr } = await supabase
+        .from('operators')
+        .update({ on_hold: false, on_hold_reason: null, on_hold_date: null, is_active: false })
+        .eq('id', archiveTarget.id);
+      if (opErr) throw opErr;
+
+      // 2. Deny linked application
+      const { data: opRow } = await supabase
+        .from('operators')
+        .select('application_id')
+        .eq('id', archiveTarget.id)
+        .single();
+      if (opRow?.application_id) {
+        const { error: appErr } = await supabase
+          .from('applications')
+          .update({ review_status: 'denied' as any })
+          .eq('id', opRow.application_id);
+        if (appErr) throw appErr;
+      }
+
+      // 3. Audit log
+      const staffName = `${profile?.first_name ?? ''} ${profile?.last_name ?? ''}`.trim() || 'Staff';
+      await supabase.from('audit_log').insert({
+        action: 'applicant_archived',
+        entity_type: 'operator',
+        entity_id: archiveTarget.id,
+        entity_label: opName,
+        actor_id: user.id,
+        actor_name: staffName,
+        metadata: {
+          reason: archiveReason || null,
+          original_hold_reason: archiveTarget.on_hold_reason,
+          original_hold_date: archiveTarget.on_hold_date,
+        },
+      });
+
+      // 4. Remove from local state
+      setOperators(prev => prev.filter(op => op.id !== archiveTarget.id));
+      toast({ title: `${opName} archived`, description: 'Moved to the Archived Drivers list.' });
+      setArchiveTarget(null);
+      setArchiveReason('');
+    } catch (err: any) {
+      toast({ title: 'Archive failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+
     if (!op.email) {
       toast({ title: 'No email found for this operator', variant: 'destructive' });
       return;
