@@ -1984,12 +1984,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             {/* Send Install Instructions + App Installed Badge */}
             {operatorUserId && (
               <>
-                {pwaInstalledAt && (
-                  <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400 text-[11px] py-0.5">
-                    <CheckCircle2 className="h-3 w-3" />
-                    App Installed {format(parseISO(pwaInstalledAt), 'M/d/yy')}
-                  </Badge>
-                )}
+                <Badge variant="outline" className={cn("gap-1 text-[11px] py-0.5", pwaInstalledAt ? "text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400" : "text-muted-foreground border-muted bg-muted/30")}>
+                  {pwaInstalledAt ? (
+                    <>
+                      <CheckCircle2 className="h-3 w-3" />
+                      App Installed {format(parseISO(pwaInstalledAt), 'M/d/yy')}
+                    </>
+                  ) : (
+                    <>
+                      <Smartphone className="h-3 w-3" />
+                      App Not Installed
+                    </>
+                  )}
+                </Badge>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
