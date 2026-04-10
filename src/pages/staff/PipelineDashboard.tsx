@@ -3313,6 +3313,23 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         <StageTrack op={op} stageConfigs={stageConfigs} onNodeClick={onOpenOperatorAtStage} />
                       </div>
 
+                      {/* Archive button */}
+                      <TooltipProvider delayDuration={100}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                              onClick={e => { e.stopPropagation(); setArchiveTarget(op); setArchiveReason(''); }}
+                            >
+                              <ArchiveX className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">Archive &amp; remove from pipeline</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
                       {/* Open button */}
                       <Button
                         variant="ghost"
