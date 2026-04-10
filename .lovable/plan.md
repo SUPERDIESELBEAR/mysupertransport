@@ -1,44 +1,42 @@
 
 
-## Fix: Top-Right Save Overwrites Truck & Device Data
+## Add: Send PWA Install Instructions to Individual Operator
 
-### Problem
-The top-right "Save Changes" button (`handleSave`) destructures the entire `status` state and writes ALL fields to `onboarding_status`. If the React state hasn't fully updated after a truck/device save (stale closure), `handleSave` overwrites the DB with null truck/device values — erasing data that was just saved by `handleTruckInfoEdit` or `handleTruckDeviceEdit`.
+### Current State
+The `notify-pwa-install` Edge Function sends install notifications to **all** active operators in bulk. There is no way to target a single operator, and no UI button to trigger it.
 
-### Root Cause
-Line 1262 in `OperatorDetailPanel.tsx`:
-```typescript
-const { id, fully_onboarded, operator_id, updated_at, updated_by, ...updateData } = status as any;
-```
-This sends ALL remaining fields (including truck_year, truck_make, eld_serial_number, etc.) to the DB. These fields have their own dedicated save handlers and should not be included in the global save.
+### Plan
 
-### Fix
-Strip truck and device fields from `updateData` before writing to the DB in `handleSave`. Since these fields are saved independently by `handleTruckInfoEdit` and `handleTruckDeviceEdit`, the global save should never touch them.
+**1. Update the Edge Function** (`supabase/functions/notify-pwa-install/index.ts`)
+- Accept an optional `operator_id` in the request body
+- When provided, send only to that one operator (skip idempotency check so it can be re-sent)
+- When omitted, keep existing bulk behavior unchanged
+
+**2. Add a "Send Install Instructions" button** to the OperatorDetailPanel
+- Place it in the operator's profile actions area (near existing action buttons)
+- On click, call the Edge Function with the specific `operator_id`
+- Show a success/error toast
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/OperatorDetailPanel.tsx` | In `handleSave`, exclude truck fields (`truck_year`, `truck_make`, `truck_model`, `truck_vin`, `truck_plate`, `truck_plate_state`, `trailer_number`) and device fields (`eld_serial_number`, `dash_cam_number`, `bestpass_number`, `fuel_card_number`) from the `updateData` destructure on line 1262, so the global save never overwrites them |
+| `supabase/functions/notify-pwa-install/index.ts` | Accept optional `operator_id` body param; when set, query only that operator and skip the idempotency duplicate check |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Add a "Send Install Instructions" button that invokes the function for the current operator |
 
 ### Detail
-Update the destructure to also strip these fields:
+
+**Edge Function change:**
 ```typescript
-const {
-  id: _id, fully_onboarded: _fo, operator_id: _oid, updated_at: _ua, updated_by: _ub,
-  // Truck fields — saved separately via handleTruckInfoEdit
-  truck_year: _ty, truck_make: _tm, truck_model: _tmod, truck_vin: _tv,
-  truck_plate: _tp, truck_plate_state: _tps, trailer_number: _tn,
-  // Device fields — saved separately via handleTruckDeviceEdit
-  eld_serial_number: _eld, dash_cam_number: _dc, bestpass_number: _bp, fuel_card_number: _fc,
-  ...updateData
-} = status as any;
+const body = await req.json().catch(() => ({}))
+const targetOperatorId = body?.operator_id || null
+
+// If targeting one operator, fetch just that one (no idempotency skip)
+const query = supabase.from('operators').select('id, user_id, application_id').eq('is_active', true)
+if (targetOperatorId) {
+  query.eq('id', targetOperatorId)
+}
 ```
 
-This ensures the global Save button only writes the fields it manages (onboarding stages, insurance, costs, etc.) and never touches truck/device data.
-
-### Expected result
-- Save truck info via Edit Truck popover → data persists
-- Click top-right Save → truck/device data is untouched
-- Exit and return → all data intact
+**UI button:** A small icon button or menu item labeled "Send Install Instructions" that calls the function and confirms with a toast like "Install instructions sent to [operator name]."
 
