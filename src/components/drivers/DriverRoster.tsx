@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
+import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -158,7 +159,7 @@ function expiryPill(dateStr: string | null, label: string) {
       <Tooltip>
         <TooltipTrigger>
           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-            {label} · {days}d
+            {label} · {formatDaysHuman(days)}
           </span>
         </TooltipTrigger>
         <TooltipContent>{formatted}</TooltipContent>
