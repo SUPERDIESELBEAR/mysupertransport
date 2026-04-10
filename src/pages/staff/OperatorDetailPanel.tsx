@@ -1979,6 +1979,25 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </TooltipContent>
               </Tooltip>
             )}
+            {/* Send Install Instructions */}
+            {operatorUserId && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSendInstallInstructions}
+                    disabled={sendingInstallInstructions}
+                    className="gap-1 text-muted-foreground hover:text-foreground"
+                  >
+                    {sendingInstallInstructions ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Phone className="h-3.5 w-3.5" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  Send SUPERDRIVE install instructions
+                </TooltipContent>
+              </Tooltip>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button onClick={handleSave} disabled={saving} className="bg-gold text-surface-dark font-semibold hover:bg-gold-light gap-2 shrink-0">
