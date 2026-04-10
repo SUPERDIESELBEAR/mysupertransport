@@ -1109,7 +1109,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
   };
 
-  const handleSave = async () => {
+  const handleSendInstallInstructions = async () => {
+    if (guardDemo()) return;
+    setSendingInstallInstructions(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('notify-pwa-install', {
+        body: { operator_id: operatorId },
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+      });
+      if (error) throw new Error(error.message ?? 'Unknown error');
+      toast({ title: 'Install instructions sent', description: `SUPERDRIVE install instructions sent to ${operatorName || 'operator'}.` });
+    } catch (err: any) {
+      toast({ title: 'Failed to send install instructions', description: err.message, variant: 'destructive' });
+    } finally {
+      setSendingInstallInstructions(false);
+    }
+  };
+
     if (guardDemo()) return;
     setSaving(true);
 
