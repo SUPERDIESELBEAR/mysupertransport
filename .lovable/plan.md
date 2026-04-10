@@ -1,40 +1,35 @@
 
 
-## Fix: Truck Info Save Not Updating Snapshot
+## Fix: Device & Truck Edit Fields Clearing While Typing
 
 ### Problem
-When you save truck info or device numbers via the TruckInfoCard, the handlers (`handleTruckDeviceEdit` and `handleTruckInfoEdit`) correctly persist to the database and update local `status` state, but they **do not** update `savedSnapshot.current`. The unsaved-changes guard compares `status` against `savedSnapshot`, sees they differ, and falsely warns about unsaved changes on exit.
+The `TruckInfoCard` component has two `useEffect` hooks that re-sync `draft` and `truckDraft` state from props whenever `deviceInfo` or `truckInfo` changes. If the parent component re-renders (e.g., from a status poll, realtime subscription, or unrelated state change), new prop references are created, triggering these effects and overwriting whatever the user has typed — before they can click Save.
 
 ### Fix
-After each successful save in both handlers, synchronize `savedSnapshot.current.status` with the newly updated fields so the comparison stays clean.
+Guard both `useEffect` hooks so they only re-sync when the corresponding edit popover is **closed**. When the popover is open, the user's in-progress draft should not be overwritten.
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/OperatorDetailPanel.tsx` | In `handleTruckDeviceEdit` (~line 1618): after `setStatus(...)`, update `savedSnapshot.current.status` with the same device fields. In `handleTruckInfoEdit` (~line 1652): after `setIcaTruckInfo(...)`, update `savedSnapshot.current.status` with the same truck fields. |
+| `src/components/operator/TruckInfoCard.tsx` | Add `if (editOpen) return;` guard to the `deviceInfo` useEffect (line 102) and `if (truckEditOpen) return;` guard to the `truckInfo` useEffect (line 112) |
 
 ### Detail
 
-In `handleTruckDeviceEdit`, after the `setStatus` call, add:
 ```typescript
-if (savedSnapshot.current) {
-  savedSnapshot.current = {
-    ...savedSnapshot.current,
-    status: { ...savedSnapshot.current.status, ...payload },
-  };
-}
+// Line 102 – device draft sync
+useEffect(() => {
+  if (editOpen) return;          // ← add this guard
+  setDraft({ ... });
+}, [deviceInfo]);
+
+// Line 112 – truck draft sync
+useEffect(() => {
+  if (truckEditOpen) return;     // ← add this guard
+  setTruckDraft({ ... });
+  if (truckInfo?.trailer_number) setTrailerOpen(true);
+}, [truckInfo]);
 ```
 
-Same pattern in `handleTruckInfoEdit`, after `setIcaTruckInfo`:
-```typescript
-if (savedSnapshot.current) {
-  savedSnapshot.current = {
-    ...savedSnapshot.current,
-    status: { ...savedSnapshot.current.status, ...truckFields },
-  };
-}
-```
-
-This is a two-line addition to each handler -- no UI or layout changes.
+This is a one-line addition to each effect — no UI or layout changes.
 
