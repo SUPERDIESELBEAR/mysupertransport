@@ -66,14 +66,19 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 1. Find the application — staff can resend to any approved operator,
+    // 1. Find the application — staff can resend to any operator with an application,
     //    public flow only works for approved applicants who haven't signed in yet.
-    const { data: app, error: appError } = await supabaseAdmin
+    let appQuery = supabaseAdmin
       .from('applications')
       .select('id, email, first_name, last_name, review_status, user_id')
-      .ilike('email', normalizedEmail)
-      .eq('review_status', 'approved')
-      .maybeSingle();
+      .ilike('email', normalizedEmail);
+
+    // Staff can resend to operators regardless of review status
+    if (!callerIsStaff) {
+      appQuery = appQuery.eq('review_status', 'approved');
+    }
+
+    const { data: app, error: appError } = await appQuery.maybeSingle();
 
     if (appError || !app) {
       if (callerIsStaff) {
