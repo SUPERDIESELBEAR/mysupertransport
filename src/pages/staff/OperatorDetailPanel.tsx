@@ -418,6 +418,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
   const [resendingInvite, setResendingInvite] = useState(false);
   const [inviteResent, setInviteResent] = useState(false);
+  const [sendingInstallInstructions, setSendingInstallInstructions] = useState(false);
   // Last renewal per doc type: key = 'CDL' | 'Medical Cert' → ISO timestamp
   const [lastRenewed, setLastRenewed] = useState<Record<string, string>>({});
   // Last renewed by name per doc type
@@ -1105,6 +1106,23 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       toast({ title: 'Failed to send insurance email', description: err.message, variant: 'destructive' });
     } finally {
       setSendingInsuranceEmail(false);
+    }
+  };
+
+  const handleSendInstallInstructions = async () => {
+    if (guardDemo()) return;
+    setSendingInstallInstructions(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('notify-pwa-install', {
+        body: { operator_id: operatorId },
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+      });
+      if (error) throw new Error(error.message ?? 'Unknown error');
+      toast({ title: 'Install instructions sent', description: `SUPERDRIVE install instructions sent to ${operatorName || 'operator'}.` });
+    } catch (err: any) {
+      toast({ title: 'Failed to send install instructions', description: err.message, variant: 'destructive' });
+    } finally {
+      setSendingInstallInstructions(false);
     }
   };
 
@@ -1958,6 +1976,25 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs">
                   Message driver
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {/* Send Install Instructions */}
+            {operatorUserId && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSendInstallInstructions}
+                    disabled={sendingInstallInstructions}
+                    className="gap-1 text-muted-foreground hover:text-foreground"
+                  >
+                    {sendingInstallInstructions ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Phone className="h-3.5 w-3.5" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  Send SUPERDRIVE install instructions
                 </TooltipContent>
               </Tooltip>
             )}

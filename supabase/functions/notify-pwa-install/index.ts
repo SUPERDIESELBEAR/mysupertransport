@@ -19,11 +19,21 @@ Deno.serve(async (req) => {
     const resendKey = Deno.env.get('RESEND_API_KEY')!
     const supabase = createClient(supabaseUrl, serviceKey)
 
-    // Get all active operators with their user_id and email
-    const { data: operators, error: opErr } = await supabase
+    // Accept optional operator_id to target a single operator
+    const body = await req.json().catch(() => ({}))
+    const targetOperatorId: string | null = body?.operator_id || null
+
+    // Get operators
+    let query = supabase
       .from('operators')
       .select('id, user_id, application_id')
       .eq('is_active', true)
+
+    if (targetOperatorId) {
+      query = query.eq('id', targetOperatorId)
+    }
+
+    const { data: operators, error: opErr } = await query
 
     if (opErr) throw opErr
 
@@ -33,15 +43,17 @@ Deno.serve(async (req) => {
     for (const op of operators || []) {
       if (!op.user_id) { skipped++; continue }
 
-      // Idempotency: skip if already notified
-      const { data: existing } = await supabase
-        .from('notifications')
-        .select('id')
-        .eq('user_id', op.user_id)
-        .eq('type', 'pwa_install')
-        .limit(1)
+      // Idempotency: skip if already notified (only for bulk sends)
+      if (!targetOperatorId) {
+        const { data: existing } = await supabase
+          .from('notifications')
+          .select('id')
+          .eq('user_id', op.user_id)
+          .eq('type', 'pwa_install')
+          .limit(1)
 
-      if (existing && existing.length > 0) { skipped++; continue }
+        if (existing && existing.length > 0) { skipped++; continue }
+      }
 
       // Check notification preferences
       const { data: pref } = await supabase
