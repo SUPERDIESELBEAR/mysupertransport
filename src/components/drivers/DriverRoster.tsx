@@ -385,7 +385,7 @@ export default function DriverRoster({
     if (!silent) setLoading(true);
     else setRefreshing(true);
 
-    const [{ data: rawData }, { data: reminders }] = await Promise.all([
+    const [{ data: rawData }, { data: reminders }, { data: binderDocs }] = await Promise.all([
       supabase
         .from('operators')
         .select(`
@@ -401,7 +401,21 @@ export default function DriverRoster({
         .from('cert_reminders')
         .select('operator_id, sent_at, doc_type, sent_by_name, email_sent, email_error')
         .order('sent_at', { ascending: false }),
+      supabase
+        .from('inspection_documents')
+        .select('driver_id, name, expires_at')
+        .eq('scope', 'per_driver')
+        .in('name', ['CDL (Front)', 'Medical Certificate']),
     ]);
+
+    // Build binder expiry lookup: driver_id (user_id) → { cdl, med }
+    const binderDates: Record<string, { cdl?: string; med?: string }> = {};
+    (binderDocs ?? []).forEach((doc: any) => {
+      if (!doc.driver_id || !doc.expires_at) return;
+      if (!binderDates[doc.driver_id]) binderDates[doc.driver_id] = {};
+      if (doc.name === 'CDL (Front)') binderDates[doc.driver_id].cdl = doc.expires_at;
+      if (doc.name === 'Medical Certificate') binderDates[doc.driver_id].med = doc.expires_at;
+    });
 
     // Fetch is_active separately to avoid deep TS inference issues
     const operatorIds = (rawData as any[] ?? []).map((op: any) => op.id);
@@ -474,8 +488,8 @@ export default function DriverRoster({
           home_state: profile.home_state ?? app?.address_state ?? null,
           unit_number: os?.unit_number ?? op.unit_number ?? null,
           dispatch_status: (ad?.dispatch_status ?? 'not_dispatched') as DriverRow['dispatch_status'],
-          cdl_expiration: app?.cdl_expiration ?? null,
-          medical_cert_expiration: app?.medical_cert_expiration ?? null,
+          cdl_expiration: binderDates[op.user_id]?.cdl ?? app?.cdl_expiration ?? null,
+          medical_cert_expiration: binderDates[op.user_id]?.med ?? app?.medical_cert_expiration ?? null,
           is_active: activeSet.has(op.id),
         };
       }).sort((a, b) => {

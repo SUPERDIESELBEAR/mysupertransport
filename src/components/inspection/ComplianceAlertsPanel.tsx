@@ -68,10 +68,10 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   // ── Data fetching ──────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     const today = new Date();
-    const [{ data: ops }, { data: reminders }, { data: renewals }] = await Promise.all([
+    const [{ data: ops }, { data: reminders }, { data: renewals }, { data: binderDocs }] = await Promise.all([
       supabase
         .from('operators')
-        .select('id, application_id, applications(first_name, last_name, cdl_expiration, medical_cert_expiration)')
+        .select('id, user_id, application_id, applications(first_name, last_name, cdl_expiration, medical_cert_expiration)')
         .not('application_id', 'is', null)
         .eq('is_active', true),
       supabase
@@ -84,8 +84,22 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
         .eq('action', 'cert_renewed')
         .order('created_at', { ascending: false })
         .limit(500),
+      supabase
+        .from('inspection_documents')
+        .select('driver_id, name, expires_at')
+        .eq('scope', 'per_driver')
+        .in('name', ['CDL (Front)', 'Medical Certificate']),
     ]);
     if (!ops) return;
+
+    // Build binder expiry lookup: driver_id (user_id) → { cdl, med }
+    const binderDates: Record<string, { cdl?: string; med?: string }> = {};
+    (binderDocs ?? []).forEach((doc: any) => {
+      if (!doc.driver_id || !doc.expires_at) return;
+      if (!binderDates[doc.driver_id]) binderDates[doc.driver_id] = {};
+      if (doc.name === 'CDL (Front)') binderDates[doc.driver_id].cdl = doc.expires_at;
+      if (doc.name === 'Medical Certificate') binderDates[doc.driver_id].med = doc.expires_at;
+    });
 
     const remindedMap: Record<string, string> = {};
     const remindedByMap: Record<string, string> = {};
@@ -122,7 +136,8 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       if (!app) return;
       const name = `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || 'Unknown Operator';
       (['cdl_expiration', 'medical_cert_expiration'] as const).forEach(field => {
-        const dateStr: string | null = app[field];
+        const binderDate = field === 'cdl_expiration' ? binderDates[op.user_id]?.cdl : binderDates[op.user_id]?.med;
+        const dateStr: string | null = binderDate ?? app[field];
         if (!dateStr) return;
         const days = differenceInDays(parseLocalDate(dateStr), today);
         if (days <= 90) {
