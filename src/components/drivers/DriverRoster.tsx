@@ -419,18 +419,19 @@ export default function DriverRoster({
       if (doc.name === 'Medical Certificate') binderDates[doc.driver_id].med = doc.expires_at;
     });
 
-    // Fetch is_active separately to avoid deep TS inference issues
+    // Fetch is_active and pwa_installed_at separately to avoid deep TS inference issues
     const operatorIds = (rawData as any[] ?? []).map((op: any) => op.id);
-    let activeSet: Set<string> = new Set();
+    let activeMap: Record<string, { is_active: boolean; pwa_installed_at: string | null }> = {};
     if (operatorIds.length > 0) {
       const { data: activeData } = await supabase
         .from('operators')
-        .select('id, is_active')
+        .select('id, is_active, pwa_installed_at')
         .in('id', operatorIds) as any;
       for (const row of (activeData ?? []) as any[]) {
-        if ((row.is_active ?? true) === !showInactive) activeSet.add(row.id);
+        activeMap[row.id] = { is_active: row.is_active ?? true, pwa_installed_at: row.pwa_installed_at ?? null };
       }
     }
+    const activeSet = new Set(Object.entries(activeMap).filter(([, v]) => v.is_active === !showInactive).map(([k]) => k));
 
     // Filter to only operators matching is_active state
     const data = (rawData as any[] ?? []).filter((op: any) => activeSet.has(op.id));
