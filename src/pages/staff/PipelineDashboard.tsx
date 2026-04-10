@@ -3348,6 +3348,42 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         );
       })()}
 
+      {/* ─── Archive Confirmation Dialog ─────────────────────────────────── */}
+      <AlertDialog open={!!archiveTarget} onOpenChange={open => { if (!open) { setArchiveTarget(null); setArchiveReason(''); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this applicant?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                <strong>{archiveTarget ? `${archiveTarget.first_name ?? ''} ${archiveTarget.last_name ?? ''}`.trim() || 'This operator' : ''}</strong> will be removed from the pipeline and moved to the Archived Drivers list.
+              </span>
+              <span className="block text-muted-foreground">This does not delete any records.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <label className="text-sm font-medium text-foreground">Reason (optional)</label>
+            <Textarea
+              placeholder="e.g. Did not respond after 30 days"
+              value={archiveReason}
+              onChange={e => setArchiveReason(e.target.value)}
+              className="mt-1.5"
+              rows={2}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={archiving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={e => { e.preventDefault(); handleArchiveFromHold(); }}
+              disabled={archiving}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {archiving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <ArchiveX className="h-4 w-4 mr-1" />}
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
