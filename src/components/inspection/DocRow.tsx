@@ -4,7 +4,7 @@ import { downloadBlob } from '@/lib/downloadBlob';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { QRCodeSVG } from 'qrcode.react';
-import { InspectionDocument, getExpiryStatus, daysUntilExpiry, parseLocalDate } from './InspectionBinderTypes';
+import { InspectionDocument, getExpiryStatus, daysUntilExpiry, parseLocalDate, formatDaysHuman } from './InspectionBinderTypes';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React, { Suspense } from 'react';
