@@ -99,7 +99,8 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     const { data: ops } = await supabase
       .from('operators')
       .select(`id, user_id, application_id, applications(first_name, last_name, cdl_expiration, medical_cert_expiration)`)
-      .not('application_id', 'is', null);
+      .not('application_id', 'is', null)
+      .eq('is_active', true);
 
     // 2. Fetch company-wide inspection docs (Insurance, IFTA — IRP is now per-driver)
     const { data: inspDocs } = await supabase

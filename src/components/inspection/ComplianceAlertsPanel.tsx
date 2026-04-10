@@ -72,7 +72,8 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       supabase
         .from('operators')
         .select('id, application_id, applications(first_name, last_name, cdl_expiration, medical_cert_expiration)')
-        .not('application_id', 'is', null),
+        .not('application_id', 'is', null)
+        .eq('is_active', true),
       supabase
         .from('cert_reminders')
         .select('operator_id, doc_type, sent_at, sent_by_name, email_sent, email_error')
