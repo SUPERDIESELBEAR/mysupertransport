@@ -968,6 +968,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         `${appFirst || profile?.first_name || ''} ${appLast || profile?.last_name || ''}`.trim() || 'Unknown Operator'
       );
       setOperatorUserId((op as any).user_id ?? null);
+      setPwaInstalledAt((op as any).pwa_installed_at ?? null);
       const app = (op as any).applications;
       // Resolve email: from application if present, otherwise fetch from auth via profiles email or leave editable
       const resolvedEmail = app?.email ?? '';
