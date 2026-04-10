@@ -46,6 +46,7 @@ export interface ComplianceCounts {
   warning: number;
   neverRenewed: number;
   notYetReminded: number;
+  appNotInstalled: number;
 }
 
 export function isNeverRenewed(cdl: string | null, med: string | null): boolean {
