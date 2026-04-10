@@ -1,35 +1,29 @@
 
 
-## Fix CDL & Med Cert Dates: Use Inspection Binder as Source of Truth
+## Show Years, Months, and Days in Compliance Timeline
 
-### Problem
-The Driver Hub roster, Compliance Alerts Panel, and Inspection Compliance Summary all pull CDL and Medical Certificate expiration dates from the `applications` table (data entered at application time). However, staff maintain and update these dates in the **Inspection Binder** (`inspection_documents` table). Many drivers have current dates in the binder but `NULL` in their application, causing "No Date" to display incorrectly.
+### What changes
+Currently, all compliance countdowns display raw day counts (e.g., "365d left" or "Expired 42d ago"). This update introduces a shared formatting helper that converts total days into a human-friendly `Xy Xm Xd` format (e.g., "1y 2m 5d left" or "Expired 1m 12d ago"), and applies it across every compliance display.
 
-### Solution
-In all three components, add a query to `inspection_documents` for per-driver CDL and Medical Certificate entries, then prefer the binder date over the application date. This makes the Inspection Binder the authoritative source while keeping the application date as a fallback.
+### Helper function
+
+Add a `formatDaysHuman(days: number): string` utility to `InspectionBinderTypes.ts`:
+- If `days >= 365`: show years + remaining months + remaining days (e.g., "1y 2m 15d")
+- If `days >= 30`: show months + remaining days (e.g., "3m 12d")
+- If `days < 30`: show just days (e.g., "12d")
+- Uses simple 365-day year and 30-day month approximation
 
 ### Files changed
 
 | File | Change |
 |------|--------|
-| `src/components/drivers/DriverRoster.tsx` | In `fetchDrivers`, add a query to `inspection_documents` for `CDL (Front)` and `Medical Certificate` entries scoped `per_driver`. Build a lookup map by `driver_id` (which is the operator's `user_id`). When mapping driver rows, use the binder date if available, falling back to the application date. |
-| `src/components/inspection/ComplianceAlertsPanel.tsx` | In `fetchData`, add a parallel query to `inspection_documents` for per-driver CDL/Med Cert entries. When building alerts, prefer the binder expiration date over the application date. |
-| `src/components/inspection/InspectionComplianceSummary.tsx` | In `fetchData`, add a parallel query to `inspection_documents` for per-driver CDL/Med Cert entries. When building per-operator rows, prefer the binder date. |
+| `src/components/inspection/InspectionBinderTypes.ts` | Add `formatDaysHuman()` export |
+| `src/components/inspection/ComplianceAlertsPanel.tsx` | Replace `${Math.abs(alert.days_until)}d ago` / `${alert.days_until}d left` with `formatDaysHuman` output (~line 613) |
+| `src/components/inspection/DocRow.tsx` | Replace `Expiring {days}d` with formatted string (~line 46) |
+| `src/components/inspection/InspectionBinderAdmin.tsx` | Replace `Expired ${Math.abs(daysLeft)}d ago` and `Expires in ${daysLeft}d` (~lines 1958, 1994) |
+| `src/components/drivers/DriverVaultCard.tsx` | Replace `{days}d left` (~line 52) |
+| `src/components/drivers/DriverHubView.tsx` | Replace `${Math.abs(t.days_until)}d ago` / `${t.days_until}d left` (~line 619) |
+| `src/components/fleet/FleetRoster.tsx` | Replace `{days}d` in DOT status badges (~lines 30-32) |
 
-### How the lookup works
-
-```text
-inspection_documents query:
-  SELECT driver_id, name, expires_at
-  FROM inspection_documents
-  WHERE scope = 'per_driver'
-    AND name IN ('CDL (Front)', 'Medical Certificate')
-
-Build map:  binderDates[driver_id] = { cdl: expires_at, med: expires_at }
-
-Usage:      cdl_expiration = binderDates[op.user_id]?.cdl ?? app.cdl_expiration
-            medical_cert_expiration = binderDates[op.user_id]?.med ?? app.medical_cert_expiration
-```
-
-This is a data-sourcing fix only — no UI or layout changes.
+All existing color-coding and urgency logic remains unchanged — only the text label changes from raw days to the Y/M/D breakdown.
 
