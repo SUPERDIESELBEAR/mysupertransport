@@ -714,8 +714,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   // Sort state
   type SortKey = 'name' | 'stage' | 'coordinator' | 'progress' | 'last_activity' | 'docs' | 'compliance' | 'msgs' | 'temperature';
   type SortDir = 'asc' | 'desc';
-  const [sortKey, setSortKey] = useState<SortKey | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [sortKey, setSortKey] = useState<SortKey | null>('temperature');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
   // Track whether the current sort was auto-applied by the idle filter
   const idleAutoSorted = useRef(false);
 
@@ -1701,7 +1701,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         const aTemp = computeTemperature(a, stageConfigs);
         const bTemp = computeTemperature(b, stageConfigs);
         const cmp = TEMP_ORDER[aTemp] - TEMP_ORDER[bTemp];
-        return sortDir === 'asc' ? cmp : -cmp;
+        if (cmp !== 0) return sortDir === 'asc' ? cmp : -cmp;
+        // Tiebreak: higher progress first
+        const pCmp = computeProgressFromConfig(b, stageConfigs) - computeProgressFromConfig(a, stageConfigs);
+        return sortDir === 'asc' ? -pCmp : pCmp;
       }
       if (sortKey === 'progress') {
         const cmp = computeProgressFromConfig(a, stageConfigs) - computeProgressFromConfig(b, stageConfigs);
