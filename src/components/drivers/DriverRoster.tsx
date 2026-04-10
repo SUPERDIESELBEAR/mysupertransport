@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2, Copy, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2, Copy, ArrowUpDown, ArrowUp, ArrowDown, Smartphone } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface DriverRow {
@@ -941,6 +941,18 @@ export default function DriverRoster({
                           <span className="text-xs font-bold text-gold">{initials}</span>
                         </div>
                         <span className="font-medium text-sm text-foreground">{name}</span>
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Smartphone className={`h-3.5 w-3.5 shrink-0 ${driver.pwa_installed_at ? 'text-emerald-500' : 'text-muted-foreground/30'}`} />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {driver.pwa_installed_at
+                                ? `App installed ${format(parseISO(driver.pwa_installed_at), 'MM/dd/yyyy')}`
+                                : 'App not installed'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
                     </TableCell>
 

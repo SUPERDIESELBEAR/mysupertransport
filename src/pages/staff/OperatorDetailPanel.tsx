@@ -335,6 +335,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [operatorName, setOperatorName] = useState('');
   const [operatorEmail, setOperatorEmail] = useState('');
   const [operatorUserId, setOperatorUserId] = useState<string | null>(null);
+  const [pwaInstalledAt, setPwaInstalledAt] = useState<string | null>(null);
   const [showICABuilder, setShowICABuilder] = useState(false);
   const [showICAView, setShowICAView] = useState(false);
   const [applicationData, setApplicationData] = useState<any>(null);
