@@ -784,6 +784,21 @@ export default function DriverRoster({
               <span className="font-semibold">{complianceCounts.notYetReminded}</span>
             </button>
           )}
+
+          {complianceCounts.appNotInstalled > 0 && (
+            <button
+              onClick={() => setComplianceFilter(complianceFilter === 'app_not_installed' ? 'all' : 'app_not_installed')}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                complianceFilter === 'app_not_installed'
+                  ? 'bg-muted border-border text-foreground'
+                  : 'border-border/50 text-muted-foreground hover:border-border hover:text-foreground'
+              }`}
+            >
+              <Smartphone className="h-3 w-3" />
+              App Not Installed
+              <span className="font-semibold">{complianceCounts.appNotInstalled}</span>
+            </button>
+          )}
         </div>
       )}
 
