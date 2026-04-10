@@ -1,0 +1,1 @@
+ALTER TABLE public.operators ADD COLUMN pwa_installed_at timestamptz;
