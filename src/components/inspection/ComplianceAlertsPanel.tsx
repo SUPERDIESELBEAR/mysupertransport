@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ShieldAlert, Send, CheckCheck, RotateCcw, Loader2, ShieldCheck, ArrowUpDown, ArrowDown, ArrowUp, CheckCircle2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { differenceInDays, format } from 'date-fns';
-import { parseLocalDate } from './InspectionBinderTypes'; 
+import { parseLocalDate, formatDaysHuman } from './InspectionBinderTypes'; 
 import { useToast } from '@/hooks/use-toast';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -610,7 +610,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                 <span className="text-xs text-muted-foreground hidden sm:block shrink-0">{format(parseLocalDate(alert.expiration_date), 'MMM d, yyyy')}</span>
                 {/* Urgency badge */}
                 <span className={`inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-semibold border shrink-0 ${expired || critical ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-yellow-50 text-yellow-700 border-yellow-300'}`}>
-                  {expired ? `Expired ${Math.abs(alert.days_until)}d ago` : alert.days_until === 0 ? 'Expires today' : `${alert.days_until}d left`}
+                  {expired ? `Expired ${formatDaysHuman(alert.days_until)} ago` : alert.days_until === 0 ? 'Expires today' : `${formatDaysHuman(alert.days_until)} left`}
                 </span>
                 {/* Last Action column */}
                 {(() => {

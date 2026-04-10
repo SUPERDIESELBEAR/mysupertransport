@@ -4,7 +4,7 @@ import { downloadBlob } from '@/lib/downloadBlob';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { QRCodeSVG } from 'qrcode.react';
-import { InspectionDocument, getExpiryStatus, daysUntilExpiry, parseLocalDate } from './InspectionBinderTypes';
+import { InspectionDocument, getExpiryStatus, daysUntilExpiry, parseLocalDate, formatDaysHuman } from './InspectionBinderTypes';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React, { Suspense } from 'react';
@@ -43,7 +43,7 @@ export function ExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
   );
   if (status === 'expiring_soon') return (
     <span className="inline-flex items-center gap-1 text-[10px] bg-warning/10 text-warning border border-warning/30 rounded-full px-2 py-0.5 font-semibold shrink-0">
-      <Clock className="h-3 w-3" /> Expiring {days}d
+      <Clock className="h-3 w-3" /> Expiring {formatDaysHuman(days!)}
     </span>
   );
   return (

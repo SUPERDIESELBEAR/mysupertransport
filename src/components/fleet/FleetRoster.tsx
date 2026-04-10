@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
+import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 
 interface FleetRow {
   operatorId: string;
@@ -27,9 +28,9 @@ function dotStatusBadge(nextDue: string | null) {
   if (!nextDue) return <Badge variant="outline" className="text-[10px]">No Record</Badge>;
   const days = differenceInDays(startOfDay(parseISO(nextDue)), startOfDay(new Date()));
   if (days < 0) return <Badge variant="destructive" className="text-[10px]">Overdue</Badge>;
-  if (days <= 30) return <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">{days}d</Badge>;
-  if (days <= 90) return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">{days}d</Badge>;
-  return <Badge variant="outline" className="text-[10px] text-emerald-700">{days}d</Badge>;
+  if (days <= 30) return <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">{formatDaysHuman(days)}</Badge>;
+  if (days <= 90) return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">{formatDaysHuman(days)}</Badge>;
+  return <Badge variant="outline" className="text-[10px] text-emerald-700">{formatDaysHuman(days)}</Badge>;
 }
 
 export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {

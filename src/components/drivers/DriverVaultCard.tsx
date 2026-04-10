@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 import { DateInput } from '@/components/ui/date-input';
 import { useToast } from '@/hooks/use-toast';
 import { validateFile, MAX_FILE_SIZE_BYTES } from '@/lib/validateFile';
@@ -49,7 +50,7 @@ function expiryBadge(expiresAt: string | null) {
   if (!expiresAt) return null;
   const days = differenceInDays(startOfDay(parseISO(expiresAt)), startOfDay(new Date()));
   if (days < 0) return <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Expired</Badge>;
-  if (days <= 30) return <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] px-1.5 py-0">{days}d left</Badge>;
+  if (days <= 30) return <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] px-1.5 py-0">{formatDaysHuman(days)} left</Badge>;
   return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] px-1.5 py-0">Valid</Badge>;
 }
 
