@@ -103,13 +103,29 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       .eq('is_active', true);
 
     // 2. Fetch company-wide inspection docs (Insurance, IFTA — IRP is now per-driver)
-    const { data: inspDocs } = await supabase
-      .from('inspection_documents')
-      .select('id, name, expires_at')
-      .eq('scope', 'company_wide')
-      .in('name', ['Insurance', 'IFTA License']);
+    const [{ data: inspDocs }, { data: binderDocs }] = await Promise.all([
+      supabase
+        .from('inspection_documents')
+        .select('id, name, expires_at')
+        .eq('scope', 'company_wide')
+        .in('name', ['Insurance', 'IFTA License']),
+      supabase
+        .from('inspection_documents')
+        .select('driver_id, name, expires_at')
+        .eq('scope', 'per_driver')
+        .in('name', ['CDL (Front)', 'Medical Certificate']),
+    ]);
 
     if (!ops) { setLoading(false); return; }
+
+    // Build binder expiry lookup: driver_id (user_id) → { cdl, med }
+    const binderDates: Record<string, { cdl?: string; med?: string }> = {};
+    (binderDocs ?? []).forEach((doc: any) => {
+      if (!doc.driver_id || !doc.expires_at) return;
+      if (!binderDates[doc.driver_id]) binderDates[doc.driver_id] = {};
+      if (doc.name === 'CDL (Front)') binderDates[doc.driver_id].cdl = doc.expires_at;
+      if (doc.name === 'Medical Certificate') binderDates[doc.driver_id].med = doc.expires_at;
+    });
 
     const result: DocEntry[] = [];
 
@@ -153,18 +169,16 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       if (!app) return;
       const name = opNames[op.id];
 
-      const cdlDays = app.cdl_expiration
-        ? differenceInDays(parseLocalDate(app.cdl_expiration), today)
-        : null;
-      const medDays = app.medical_cert_expiration
-        ? differenceInDays(parseLocalDate(app.medical_cert_expiration), today)
-        : null;
+      const cdlDate = binderDates[op.user_id]?.cdl ?? app.cdl_expiration ?? null;
+      const medDate = binderDates[op.user_id]?.med ?? app.medical_cert_expiration ?? null;
+      const cdlDays = cdlDate ? differenceInDays(parseLocalDate(cdlDate), today) : null;
+      const medDays = medDate ? differenceInDays(parseLocalDate(medDate), today) : null;
 
       result.push({
         docKey: 'CDL',
         operatorId: op.id,
         operatorName: name,
-        expiresAt: app.cdl_expiration ?? null,
+        expiresAt: cdlDate,
         daysUntil: cdlDays,
         status: getStatus(cdlDays),
       });
@@ -172,7 +186,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         docKey: 'Medical Certificate',
         operatorId: op.id,
         operatorName: name,
-        expiresAt: app.medical_cert_expiration ?? null,
+        expiresAt: medDate,
         daysUntil: medDays,
         status: getStatus(medDays),
       });
