@@ -1616,6 +1616,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       bestpass_number: payload.bestpass_number,
       fuel_card_number: payload.fuel_card_number,
     }));
+    if (savedSnapshot.current) {
+      savedSnapshot.current = {
+        ...savedSnapshot.current,
+        status: { ...savedSnapshot.current.status, ...payload },
+      };
+    }
     toast({ title: 'Device numbers saved' });
   };
 
@@ -1650,6 +1656,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       ...prev,
       ...payload,
     }));
+    if (savedSnapshot.current) {
+      savedSnapshot.current = {
+        ...savedSnapshot.current,
+        status: { ...savedSnapshot.current.status, ...truckFields },
+      };
+    }
     toast({ title: 'Truck info saved' });
   };
 
