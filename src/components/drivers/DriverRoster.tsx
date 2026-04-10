@@ -544,7 +544,7 @@ export default function DriverRoster({
 
   // Compliance tier counts (over all drivers, before any filter)
   const complianceCounts = useMemo(() => {
-    let expired = 0, critical = 0, warning = 0, neverRenewed = 0, notYetReminded = 0;
+    let expired = 0, critical = 0, warning = 0, neverRenewed = 0, notYetReminded = 0, appNotInstalled = 0;
     for (const d of drivers) {
       if (isNeverRenewed(d.cdl_expiration, d.medical_cert_expiration)) neverRenewed++;
       const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
@@ -552,8 +552,9 @@ export default function DriverRoster({
       else if (tier === 'critical') critical++;
       else if (tier === 'warning') warning++;
       if (!lastReminderMap[d.operator_id]) notYetReminded++;
+      if (!d.pwa_installed_at) appNotInstalled++;
     }
-    return { expired, critical, warning, neverRenewed, notYetReminded };
+    return { expired, critical, warning, neverRenewed, notYetReminded, appNotInstalled };
   }, [drivers, lastReminderMap]);
 
   // Notify parent when counts change (e.g. after data fetch)
@@ -577,7 +578,8 @@ export default function DriverRoster({
         (complianceFilter === 'critical' && (tier === 'expired' || tier === 'critical')) ||
         (complianceFilter === 'warning' && (tier === 'expired' || tier === 'critical' || tier === 'warning')) ||
         (complianceFilter === 'never_renewed' && never) ||
-        (complianceFilter === 'not_yet_reminded' && notYetReminded);
+        (complianceFilter === 'not_yet_reminded' && notYetReminded) ||
+        (complianceFilter === 'app_not_installed' && !d.pwa_installed_at);
       return matchesStatus && matchesSearch && matchesCompliance;
     });
 
