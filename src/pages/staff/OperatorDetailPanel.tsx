@@ -1652,7 +1652,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         .in('status', ['draft', 'sent_to_operator']);
     }
 
-    // Update local truck info state
+    // Update local truck info state + main status state
+    setStatus(prev => ({ ...prev, ...truckFields }));
     setIcaTruckInfo(prev => ({
       ...prev,
       ...payload,
