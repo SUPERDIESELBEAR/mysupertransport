@@ -1258,8 +1258,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     let statusError: { message: string } | null = null;
     if (statusId) {
       // fully_onboarded is a DB-generated column (insurance_added_date IS NOT NULL) — never write it
+      // Truck & device fields are saved independently via handleTruckInfoEdit / handleTruckDeviceEdit — exclude them here
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id: _id, fully_onboarded: _fo, operator_id: _oid, updated_at: _ua, updated_by: _ub, ...updateData } = status as any;
+      const {
+        id: _id, fully_onboarded: _fo, operator_id: _oid, updated_at: _ua, updated_by: _ub,
+        // Truck fields — saved separately via handleTruckInfoEdit
+        truck_year: _ty, truck_make: _tm, truck_model: _tmod, truck_vin: _tv,
+        truck_plate: _tp, truck_plate_state: _tps, trailer_number: _tn,
+        // Device fields — saved separately via handleTruckDeviceEdit
+        eld_serial_number: _eld, dash_cam_number: _dc, bestpass_number: _bp, fuel_card_number: _fc,
+        ...updateData
+      } = status as any;
       const { error: stErr } = await supabase
         .from('onboarding_status')
         .update(updateData)
