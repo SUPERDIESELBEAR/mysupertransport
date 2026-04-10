@@ -616,7 +616,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
                       <div key={t.operator_id} className="flex items-center justify-between px-3 py-2 gap-2">
                         <span className="font-medium text-foreground truncate">{t.name}</span>
                         <span className={`shrink-0 font-medium ${t.days_until < 0 ? 'text-destructive' : 'text-[hsl(var(--status-action))]'}`}>
-                          {t.doc_type} · {t.days_until < 0 ? `${Math.abs(t.days_until)}d ago` : `${t.days_until}d left`}
+                          {t.doc_type} · {t.days_until < 0 ? `${formatDaysHuman(t.days_until)} ago` : `${formatDaysHuman(t.days_until)} left`}
                         </span>
                       </div>
                     ))}

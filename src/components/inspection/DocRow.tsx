@@ -43,7 +43,7 @@ export function ExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
   );
   if (status === 'expiring_soon') return (
     <span className="inline-flex items-center gap-1 text-[10px] bg-warning/10 text-warning border border-warning/30 rounded-full px-2 py-0.5 font-semibold shrink-0">
-      <Clock className="h-3 w-3" /> Expiring {days}d
+      <Clock className="h-3 w-3" /> Expiring {formatDaysHuman(days!)}
     </span>
   );
   return (

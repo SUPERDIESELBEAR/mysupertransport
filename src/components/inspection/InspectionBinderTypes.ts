@@ -71,3 +71,16 @@ export function daysUntilExpiry(expiresAt: string | null): number | null {
   if (!expiresAt) return null;
   return Math.ceil((parseLocalDate(expiresAt).getTime() - Date.now()) / 86400000);
 }
+
+/** Format a day count into a human-readable Xy Xm Xd string */
+export function formatDaysHuman(totalDays: number): string {
+  const abs = Math.abs(totalDays);
+  const years = Math.floor(abs / 365);
+  const months = Math.floor((abs % 365) / 30);
+  const days = abs % 30;
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years}y`);
+  if (months > 0) parts.push(`${months}m`);
+  if (days > 0 || parts.length === 0) parts.push(`${days}d`);
+  return parts.join(' ');
+}

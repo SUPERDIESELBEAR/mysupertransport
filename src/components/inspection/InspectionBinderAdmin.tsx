@@ -1955,7 +1955,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                           {isMissing
                             ? 'No file uploaded'
                             : daysLeft !== null && daysLeft < 0
-                              ? `Expired ${Math.abs(daysLeft)}d ago`
+                            ? `Expired ${formatDaysHuman(daysLeft!)} ago`
                               : 'Expired'}
                         </p>
                       </div>
@@ -1991,7 +1991,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                             <p className="text-sm font-medium text-foreground">{d.key}</p>
                             {!isMissing && daysLeft !== null && (
                               <p className="text-xs text-destructive font-medium">
-                                {daysLeft < 0 ? `Expired ${Math.abs(daysLeft)}d ago` : `Expires in ${daysLeft}d`}
+                                {daysLeft < 0 ? `Expired ${formatDaysHuman(daysLeft)} ago` : `Expires in ${formatDaysHuman(daysLeft)}`}
                               </p>
                             )}
                           </div>
