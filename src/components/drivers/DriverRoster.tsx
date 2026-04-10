@@ -26,6 +26,7 @@ interface DriverRow {
   cdl_expiration: string | null;
   medical_cert_expiration: string | null;
   is_active: boolean;
+  pwa_installed_at: string | null;
 }
 
 interface ReminderEntry {
