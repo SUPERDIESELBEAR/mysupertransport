@@ -1635,6 +1635,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       truck_vin: payload.truck_vin,
       truck_plate: payload.truck_plate,
       truck_plate_state: payload.truck_plate_state,
+      trailer_number: payload.trailer_number,
     };
     const { error } = await supabase
       .from('onboarding_status')
