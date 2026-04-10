@@ -335,6 +335,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [operatorName, setOperatorName] = useState('');
   const [operatorEmail, setOperatorEmail] = useState('');
   const [operatorUserId, setOperatorUserId] = useState<string | null>(null);
+  const [pwaInstalledAt, setPwaInstalledAt] = useState<string | null>(null);
   const [showICABuilder, setShowICABuilder] = useState(false);
   const [showICAView, setShowICAView] = useState(false);
   const [applicationData, setApplicationData] = useState<any>(null);
@@ -930,7 +931,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const [{ data: op }, { data: opDocs }] = await Promise.all([
       supabase
         .from('operators')
-        .select(`id, user_id, notes, is_active, on_hold, on_hold_reason, on_hold_date, onboarding_status (*), applications (id, email, first_name, last_name, phone, address_street, address_city, address_state, address_zip, cdl_expiration, medical_cert_expiration, dob, dl_front_url, dl_rear_url, medical_cert_url)`)
+        .select(`id, user_id, notes, is_active, on_hold, on_hold_reason, on_hold_date, pwa_installed_at, onboarding_status (*), applications (id, email, first_name, last_name, phone, address_street, address_city, address_state, address_zip, cdl_expiration, medical_cert_expiration, dob, dl_front_url, dl_rear_url, medical_cert_url)`)
         .eq('id', operatorId)
         .single(),
       supabase
@@ -967,6 +968,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         `${appFirst || profile?.first_name || ''} ${appLast || profile?.last_name || ''}`.trim() || 'Unknown Operator'
       );
       setOperatorUserId((op as any).user_id ?? null);
+      setPwaInstalledAt((op as any).pwa_installed_at ?? null);
       const app = (op as any).applications;
       // Resolve email: from application if present, otherwise fetch from auth via profiles email or leave editable
       const resolvedEmail = app?.email ?? '';
@@ -1979,24 +1981,32 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </TooltipContent>
               </Tooltip>
             )}
-            {/* Send Install Instructions */}
+            {/* Send Install Instructions + App Installed Badge */}
             {operatorUserId && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSendInstallInstructions}
-                    disabled={sendingInstallInstructions}
-                    className="gap-1 text-muted-foreground hover:text-foreground"
-                  >
-                    {sendingInstallInstructions ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Phone className="h-3.5 w-3.5" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  Send SUPERDRIVE install instructions
-                </TooltipContent>
-              </Tooltip>
+              <>
+                {pwaInstalledAt && (
+                  <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400 text-[11px] py-0.5">
+                    <CheckCircle2 className="h-3 w-3" />
+                    App Installed {format(parseISO(pwaInstalledAt), 'M/d/yy')}
+                  </Badge>
+                )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSendInstallInstructions}
+                      disabled={sendingInstallInstructions}
+                      className="gap-1 text-muted-foreground hover:text-foreground"
+                    >
+                      {sendingInstallInstructions ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Phone className="h-3.5 w-3.5" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {pwaInstalledAt ? 'Resend SUPERDRIVE install instructions' : 'Send SUPERDRIVE install instructions'}
+                  </TooltipContent>
+                </Tooltip>
+              </>
             )}
             <Tooltip>
               <TooltipTrigger asChild>

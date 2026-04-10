@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2, Copy, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2, Copy, ArrowUpDown, ArrowUp, ArrowDown, Smartphone } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface DriverRow {
@@ -26,6 +26,7 @@ interface DriverRow {
   cdl_expiration: string | null;
   medical_cert_expiration: string | null;
   is_active: boolean;
+  pwa_installed_at: string | null;
 }
 
 interface ReminderEntry {
@@ -37,7 +38,7 @@ interface ReminderEntry {
 }
 
 export type DispatchFilter = 'all' | 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
-export type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed' | 'not_yet_reminded';
+export type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed' | 'not_yet_reminded' | 'app_not_installed';
 
 export interface ComplianceCounts {
   expired: number;
@@ -45,6 +46,7 @@ export interface ComplianceCounts {
   warning: number;
   neverRenewed: number;
   notYetReminded: number;
+  appNotInstalled: number;
 }
 
 export function isNeverRenewed(cdl: string | null, med: string | null): boolean {
@@ -418,18 +420,19 @@ export default function DriverRoster({
       if (doc.name === 'Medical Certificate') binderDates[doc.driver_id].med = doc.expires_at;
     });
 
-    // Fetch is_active separately to avoid deep TS inference issues
+    // Fetch is_active and pwa_installed_at separately to avoid deep TS inference issues
     const operatorIds = (rawData as any[] ?? []).map((op: any) => op.id);
-    let activeSet: Set<string> = new Set();
+    let activeMap: Record<string, { is_active: boolean; pwa_installed_at: string | null }> = {};
     if (operatorIds.length > 0) {
       const { data: activeData } = await supabase
         .from('operators')
-        .select('id, is_active')
+        .select('id, is_active, pwa_installed_at')
         .in('id', operatorIds) as any;
       for (const row of (activeData ?? []) as any[]) {
-        if ((row.is_active ?? true) === !showInactive) activeSet.add(row.id);
+        activeMap[row.id] = { is_active: row.is_active ?? true, pwa_installed_at: row.pwa_installed_at ?? null };
       }
     }
+    const activeSet = new Set(Object.entries(activeMap).filter(([, v]) => v.is_active === !showInactive).map(([k]) => k));
 
     // Filter to only operators matching is_active state
     const data = (rawData as any[] ?? []).filter((op: any) => activeSet.has(op.id));
@@ -492,6 +495,7 @@ export default function DriverRoster({
           cdl_expiration: binderDates[op.user_id]?.cdl ?? app?.cdl_expiration ?? null,
           medical_cert_expiration: binderDates[op.user_id]?.med ?? app?.medical_cert_expiration ?? null,
           is_active: activeSet.has(op.id),
+          pwa_installed_at: activeMap[op.id]?.pwa_installed_at ?? null,
         };
       }).sort((a, b) => {
         const order: Record<DriverRow['dispatch_status'], number> = { truck_down: 0, not_dispatched: 1, home: 2, dispatched: 3 };
@@ -541,7 +545,7 @@ export default function DriverRoster({
 
   // Compliance tier counts (over all drivers, before any filter)
   const complianceCounts = useMemo(() => {
-    let expired = 0, critical = 0, warning = 0, neverRenewed = 0, notYetReminded = 0;
+    let expired = 0, critical = 0, warning = 0, neverRenewed = 0, notYetReminded = 0, appNotInstalled = 0;
     for (const d of drivers) {
       if (isNeverRenewed(d.cdl_expiration, d.medical_cert_expiration)) neverRenewed++;
       const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
@@ -549,8 +553,9 @@ export default function DriverRoster({
       else if (tier === 'critical') critical++;
       else if (tier === 'warning') warning++;
       if (!lastReminderMap[d.operator_id]) notYetReminded++;
+      if (!d.pwa_installed_at) appNotInstalled++;
     }
-    return { expired, critical, warning, neverRenewed, notYetReminded };
+    return { expired, critical, warning, neverRenewed, notYetReminded, appNotInstalled };
   }, [drivers, lastReminderMap]);
 
   // Notify parent when counts change (e.g. after data fetch)
@@ -574,7 +579,8 @@ export default function DriverRoster({
         (complianceFilter === 'critical' && (tier === 'expired' || tier === 'critical')) ||
         (complianceFilter === 'warning' && (tier === 'expired' || tier === 'critical' || tier === 'warning')) ||
         (complianceFilter === 'never_renewed' && never) ||
-        (complianceFilter === 'not_yet_reminded' && notYetReminded);
+        (complianceFilter === 'not_yet_reminded' && notYetReminded) ||
+        (complianceFilter === 'app_not_installed' && !d.pwa_installed_at);
       return matchesStatus && matchesSearch && matchesCompliance;
     });
 
@@ -690,7 +696,7 @@ export default function DriverRoster({
       </div>
 
       {/* Compliance filter chips */}
-      {!dispatchMode && (complianceCounts.expired + complianceCounts.critical + complianceCounts.warning + complianceCounts.neverRenewed + complianceCounts.notYetReminded) > 0 && (
+      {!dispatchMode && (complianceCounts.expired + complianceCounts.critical + complianceCounts.warning + complianceCounts.neverRenewed + complianceCounts.notYetReminded + complianceCounts.appNotInstalled) > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setComplianceFilter('all')}
@@ -776,6 +782,21 @@ export default function DriverRoster({
               <Bell className="h-3 w-3" />
               Not Yet Reminded
               <span className="font-semibold">{complianceCounts.notYetReminded}</span>
+            </button>
+          )}
+
+          {complianceCounts.appNotInstalled > 0 && (
+            <button
+              onClick={() => setComplianceFilter(complianceFilter === 'app_not_installed' ? 'all' : 'app_not_installed')}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                complianceFilter === 'app_not_installed'
+                  ? 'bg-muted border-border text-foreground'
+                  : 'border-border/50 text-muted-foreground hover:border-border hover:text-foreground'
+              }`}
+            >
+              <Smartphone className="h-3 w-3" />
+              App Not Installed
+              <span className="font-semibold">{complianceCounts.appNotInstalled}</span>
             </button>
           )}
         </div>
@@ -938,6 +959,18 @@ export default function DriverRoster({
                           <span className="text-xs font-bold text-gold">{initials}</span>
                         </div>
                         <span className="font-medium text-sm text-foreground">{name}</span>
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Smartphone className={`h-3.5 w-3.5 shrink-0 ${driver.pwa_installed_at ? 'text-emerald-500' : 'text-muted-foreground/30'}`} />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {driver.pwa_installed_at
+                                ? `App installed ${format(parseISO(driver.pwa_installed_at), 'MM/dd/yyyy')}`
+                                : 'App not installed'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
                     </TableCell>
 
