@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
+import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 
 interface FleetRow {
   operatorId: string;
