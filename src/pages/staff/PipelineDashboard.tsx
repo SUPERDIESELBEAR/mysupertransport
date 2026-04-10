@@ -460,6 +460,12 @@ const STAGE_ABBR: Record<string, string> = {
   'Stage 8 — Pay Setup':      'Pay',
 };
 
+// Owner test accounts — excluded from main pipeline, shown in their own section
+const OWNER_USER_IDS = new Set([
+  '5cca4f77-c4a9-4c4d-bcf7-f950965c1ffe',
+  '7e356f94-ce4a-47aa-8883-0e6b01d09aab',
+]);
+
 // ─── MultiBlockedCallout ─────────────────────────────────────────────────────
 
 function MultiBlockedCallout({
@@ -655,6 +661,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   const [stageNodeFilters, setStageNodeFilters] = useState<Set<string>>(new Set());
    // On Hold section collapsed state
   const [onHoldExpanded, setOnHoldExpanded] = useState(true);
+  const [ownerTestExpanded, setOwnerTestExpanded] = useState(false);
   // Archive from On Hold
   const [archiveTarget, setArchiveTarget] = useState<OperatorRow | null>(null);
   const [archiveReason, setArchiveReason] = useState('');
@@ -1668,7 +1675,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           return !cfg.items.every(item => evalItem(op, item.field, item.complete_value));
         });
       })();
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchException && matchStageNode && !op.on_hold;
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchException && matchStageNode && !op.on_hold && !OWNER_USER_IDS.has(op.user_id);
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
@@ -3331,6 +3338,77 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                       </TooltipProvider>
 
                       {/* Open button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onOpenOperator(op.id)}
+                        className="text-gold hover:text-gold-light hover:bg-gold/10 text-xs shrink-0"
+                      >
+                        Open →
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ─── Owner Test Accounts Section ──────────────────────────────────── */}
+      {(() => {
+        const ownerOps = operators.filter(op => OWNER_USER_IDS.has(op.user_id));
+        if (ownerOps.length === 0) return null;
+        return (
+          <div className="rounded-xl border border-border shadow-sm overflow-hidden">
+            <button
+              onClick={() => setOwnerTestExpanded(v => !v)}
+              className="w-full flex items-center gap-3 px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
+            >
+              <ShieldCheck className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-sm font-semibold text-foreground">Owner Test Accounts</span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-muted text-muted-foreground border border-border ml-0.5">
+                {ownerOps.length}
+              </span>
+              <span className="ml-2 text-xs text-muted-foreground font-normal">
+                Your accounts for testing — not included in pipeline counts or filters
+              </span>
+              <div className="ml-auto shrink-0">
+                {ownerTestExpanded
+                  ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </div>
+            </button>
+
+            {ownerTestExpanded && (
+              <div className="divide-y divide-border bg-background">
+                {ownerOps.map(op => {
+                  const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Unknown Operator';
+                  const dispatchInfo = op.dispatch_status ? DISPATCH_BADGE[op.dispatch_status] : null;
+                  return (
+                    <div key={op.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/20 transition-colors">
+                      <ShieldCheck className="h-4 w-4 text-muted-foreground shrink-0" />
+
+                      <button
+                        onClick={() => onOpenOperator(op.id)}
+                        className="font-medium text-sm text-foreground hover:text-gold hover:underline underline-offset-2 transition-colors text-left shrink-0"
+                      >
+                        {name}
+                      </button>
+
+                      {/* Dispatch badge */}
+                      {dispatchInfo && (
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0 ${dispatchInfo.className}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dispatchInfo.dot}`} />
+                          {dispatchInfo.label}
+                        </span>
+                      )}
+
+                      {/* Progress track */}
+                      <div className="ml-auto shrink-0 hidden lg:block">
+                        <StageTrack op={op} stageConfigs={stageConfigs} onNodeClick={onOpenOperatorAtStage} />
+                      </div>
+
                       <Button
                         variant="ghost"
                         size="sm"
