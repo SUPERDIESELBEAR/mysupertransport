@@ -43,11 +43,11 @@ function extractLabel(fileName: string | null): string {
 
 /** Extract storage path from a file_url (handles both legacy public URLs and raw paths) */
 function extractStoragePath(fileUrl: string): string {
-  if (fileUrl.startsWith('http')) {
-    const parts = fileUrl.split('/operator-documents/');
-    if (parts.length > 1) {
-      return decodeURIComponent(parts[1].split('?')[0]);
-    }
+  // Handle both absolute and relative signed URLs containing the bucket name
+  const bucketMarker = '/operator-documents/';
+  const idx = fileUrl.indexOf(bucketMarker);
+  if (idx >= 0) {
+    return decodeURIComponent(fileUrl.substring(idx + bucketMarker.length).split('?')[0]);
   }
   // Already a raw path — strip leading slash if present
   return fileUrl.replace(/^\//, '');
