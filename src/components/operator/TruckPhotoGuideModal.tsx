@@ -198,6 +198,7 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
           ref={fileInputRef}
           type="file"
           accept=".jpg,.jpeg,.png,.heic"
+          capture="environment"
           className="hidden"
           onChange={e => {
             const file = e.target.files?.[0];
@@ -233,6 +234,18 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
               </DialogDescription>
             </DialogHeader>
 
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" className="flex-1 text-sm" onClick={handleClose}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 text-sm bg-[hsl(var(--gold-main))] text-surface-dark hover:bg-[hsl(var(--gold-light))] gap-1.5"
+                onClick={() => setStep(1)}
+              >
+                Start Guide <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
             <div className="space-y-2">
               {PHOTO_SLOTS.map((slot, i) => (
                 <div key={slot.key} className="flex items-center gap-3 p-2.5 rounded-lg bg-secondary/40">
@@ -247,18 +260,6 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
                   )}
                 </div>
               ))}
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <Button variant="outline" className="flex-1 text-sm" onClick={handleClose}>
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 text-sm bg-[hsl(var(--gold-main))] text-surface-dark hover:bg-[hsl(var(--gold-light))] gap-1.5"
-                onClick={() => setStep(1)}
-              >
-                Start Guide <ChevronRight className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         )}
@@ -329,7 +330,7 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
                 )}
                 <div className="text-center">
                   <p className="text-sm font-medium text-foreground">
-                    {uploading ? 'Uploading…' : 'Tap to choose photo'}
+                    {uploading ? 'Uploading…' : 'Tap to Take Photo'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">JPG, PNG, HEIC · Max 10 MB</p>
                 </div>

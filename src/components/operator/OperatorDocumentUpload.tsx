@@ -254,43 +254,46 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                           <span className="text-[10px] bg-status-complete/15 text-status-complete px-1.5 py-0.5 rounded font-medium">Submitted</span>
                         )}
                       </div>
-                      <div className="shrink-0">
-                        <input
-                          ref={el => { fileInputRefs.current[slot.key] = el; }}
-                          type="file"
-                          accept={slot.accept}
-                          className="hidden"
-                          onChange={e => {
-                            const file = e.target.files?.[0];
-                            if (file) handleUpload(slot, file);
-                            e.target.value = '';
-                          }}
-                        />
-                        <Button
-                          size="sm"
-                          variant={uploaded.length > 0 ? 'outline' : 'default'}
-                          disabled={isUploading}
-                          onClick={() => fileInputRefs.current[slot.key]?.click()}
-                          className={`text-xs gap-1.5 h-9 px-3 min-w-[80px] ${uploaded.length === 0 ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
-                        >
-                          {isUploading
-                            ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /><span>Uploading…</span></>
-                            : <><Upload className="h-3.5 w-3.5" /><span>{uploaded.length > 0 ? 'Add More' : 'Upload'}</span></>
-                          }
-                        </Button>
-                      </div>
+                      {slot.key !== 'truck_photos' && (
+                        <div className="shrink-0">
+                          <input
+                            ref={el => { fileInputRefs.current[slot.key] = el; }}
+                            type="file"
+                            accept={slot.accept}
+                            className="hidden"
+                            onChange={e => {
+                              const file = e.target.files?.[0];
+                              if (file) handleUpload(slot, file);
+                              e.target.value = '';
+                            }}
+                          />
+                          <Button
+                            size="sm"
+                            variant={uploaded.length > 0 ? 'outline' : 'default'}
+                            disabled={isUploading}
+                            onClick={() => fileInputRefs.current[slot.key]?.click()}
+                            className={`text-xs gap-1.5 h-9 px-3 min-w-[80px] ${uploaded.length === 0 ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
+                          >
+                            {isUploading
+                              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /><span>Uploading…</span></>
+                              : <><Upload className="h-3.5 w-3.5" /><span>{uploaded.length > 0 ? 'Add More' : 'Upload'}</span></>
+                            }
+                          </Button>
+                        </div>
+                      )}
                     </div>
 
                     <p className="text-xs text-muted-foreground mt-0.5">{slot.description}</p>
 
                     {slot.key === 'truck_photos' && (
-                      <button
-                        className="mt-2 flex items-center gap-1.5 text-xs font-medium text-gold hover:text-gold-light transition-colors"
+                      <Button
+                        size="sm"
+                        className="mt-2 text-xs gap-1.5 h-9 px-4 bg-gold text-surface-dark hover:bg-gold-light"
                         onClick={() => setShowPhotoGuide(true)}
                       >
                         <Camera className="h-3.5 w-3.5" />
-                        Use step-by-step photo guide (10 required shots)
-                      </button>
+                        Take Truck Photos (10 Required)
+                      </Button>
                     )}
 
                     {uploaded.length > 0 && (
