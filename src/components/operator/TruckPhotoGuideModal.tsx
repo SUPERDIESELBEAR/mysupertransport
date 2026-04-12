@@ -142,11 +142,7 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
 
       if (uploadError) throw uploadError;
 
-      const { data: signedData } = await supabase.storage
-        .from('operator-documents')
-        .createSignedUrl(path, 60 * 60 * 24 * 365);
-
-      const fileUrl = signedData?.signedUrl ?? '';
+      const fileUrl = path;
 
       // Insert into operator_documents
       await supabase.from('operator_documents').insert({
