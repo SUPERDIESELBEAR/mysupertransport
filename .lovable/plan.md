@@ -1,28 +1,21 @@
 
 
-## Always-Visible PWA Install Status Badge
+## Implement Truck Photo Guide UX Improvements
 
-### Change
-Replace the conditional badge (only shown when installed) with an always-visible badge that reflects the current state:
+### Changes
 
-- **Installed**: Green badge — "App Installed M/d/yy" with a check icon
-- **Not Installed**: Gray badge — "App Not Installed" with an X/circle icon
+**1. `src/components/operator/OperatorDocumentUpload.tsx`**
+- For the `truck_photos` slot only: hide the Upload button and hidden file input (lines 257-281)
+- Replace the small text link (lines 286-294) with a prominent gold Button as the primary CTA for that row
 
-### File: `src/pages/staff/OperatorDetailPanel.tsx`
-**Lines ~1987-1992** — Remove the `{pwaInstalledAt && ...}` conditional wrapper so the badge always renders. Use a ternary to switch between green (installed) and gray (not installed) styling and text.
+**2. `src/components/operator/TruckPhotoGuideModal.tsx`**
+- **Intro screen (step 0):** Move the Cancel/Start Guide buttons (lines 252-262) above the photo checklist (lines 236-250) so the CTA is visible without scrolling
+- **Photo step file input (line 197-206):** Add `capture="environment"` to open the rear camera directly on mobile
+- **Upload area text (line 332):** Change "Tap to choose photo" to "Tap to Take Photo"
 
-```text
-Before:  {pwaInstalledAt && <Badge ...green...>App Installed date</Badge>}
-
-After:   <Badge ...conditional styling...>
-           {pwaInstalledAt
-             ? <>✓ App Installed date</>
-             : <>✗ App Not Installed</>}
-         </Badge>
-```
-
-- Green variant: current emerald styling with `CheckCircle2` icon
-- Gray variant: `text-muted-foreground border-muted bg-muted/30` with `XCircle` or `Smartphone` icon
-
-One file, ~10 lines changed. No database or other file changes needed.
+### Files Modified
+| File | Summary |
+|------|---------|
+| `src/components/operator/OperatorDocumentUpload.tsx` | Hide Upload button for truck_photos; promote guide link to gold Button |
+| `src/components/operator/TruckPhotoGuideModal.tsx` | Add `capture="environment"`; reorder intro layout; update copy |
 
