@@ -46,7 +46,12 @@ import {
   Clock,
   User,
   ScanEye,
+  Mail,
+  Send,
+  Loader2,
 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
@@ -140,6 +145,16 @@ export default function ResourceLibraryManager() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // Email dialog
+  const [emailResource, setEmailResource] = useState<ResourceRow | null>(null);
+  const [emailMode, setEmailMode] = useState<'operator' | 'custom'>('operator');
+  const [emailOperatorId, setEmailOperatorId] = useState('');
+  const [emailCustomAddress, setEmailCustomAddress] = useState('');
+  const [emailNote, setEmailNote] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
+  const [operators, setOperators] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [operatorsLoaded, setOperatorsLoaded] = useState(false);
+
   // ── Load ──────────────────────────────────────────────────────────────────
   const load = async () => {
     setLoading(true);
@@ -152,6 +167,75 @@ export default function ResourceLibraryManager() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // ── Load operators for email dialog ───────────────────────────────────────
+  const loadOperators = async () => {
+    if (operatorsLoaded) return;
+    const { data } = await supabase
+      .from('operators')
+      .select('id, user_id, application_id, applications!operators_application_id_fkey(first_name, last_name, email)')
+      .eq('is_active', true);
+    if (data) {
+      const ops = data
+        .map((o: any) => {
+          const app = o.applications;
+          if (!app?.email) return null;
+          const name = `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || app.email;
+          return { id: o.id, name, email: app.email as string };
+        })
+        .filter(Boolean) as { id: string; name: string; email: string }[];
+      ops.sort((a, b) => a.name.localeCompare(b.name));
+      setOperators(ops);
+    }
+    setOperatorsLoaded(true);
+  };
+
+  const openEmailDialog = (r: ResourceRow) => {
+    setEmailResource(r);
+    setEmailMode('operator');
+    setEmailOperatorId('');
+    setEmailCustomAddress('');
+    setEmailNote('');
+    loadOperators();
+  };
+
+  const handleSendEmail = async () => {
+    if (guardDemo()) return;
+    const recipientEmail = emailMode === 'operator'
+      ? operators.find(o => o.id === emailOperatorId)?.email
+      : emailCustomAddress.trim();
+    const recipientName = emailMode === 'operator'
+      ? operators.find(o => o.id === emailOperatorId)?.name
+      : undefined;
+
+    if (!recipientEmail || !recipientEmail.includes('@')) {
+      toast.error('Please enter a valid email address.');
+      return;
+    }
+    if (!emailResource?.file_url) {
+      toast.error('This resource has no file attached.');
+      return;
+    }
+
+    setEmailSending(true);
+    const { error } = await supabase.functions.invoke('send-resource-email', {
+      body: {
+        resourceTitle: emailResource.title,
+        resourceUrl: emailResource.file_url,
+        recipientEmail,
+        recipientName,
+        senderNote: emailNote.trim() || undefined,
+      },
+    });
+    setEmailSending(false);
+
+    if (error) {
+      toast.error('Failed to send email: ' + error.message);
+      return;
+    }
+    toast.success(`Email sent to ${recipientEmail}`);
+    setEmailResource(null);
+  };
 
   // ── Filtered list ─────────────────────────────────────────────────────────
   const filtered = resources.filter(r => {
@@ -464,13 +548,22 @@ export default function ResourceLibraryManager() {
               {/* Actions */}
               <div className="flex items-center gap-1 shrink-0">
                 {r.file_url && (
-                  <button
-                    onClick={() => { setPreviewUrl(r.file_url); setPreviewTitle(r.title); }}
-                    title="Preview file"
-                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                  >
-                    <ScanEye className="h-4 w-4" />
-                  </button>
+                  <>
+                    <button
+                      onClick={() => { setPreviewUrl(r.file_url); setPreviewTitle(r.title); }}
+                      title="Preview file"
+                      className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                    >
+                      <ScanEye className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => openEmailDialog(r)}
+                      title="Send by email"
+                      className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      <Mail className="h-4 w-4" />
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => loadHistory(r)}
@@ -743,6 +836,90 @@ export default function ResourceLibraryManager() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Email Resource Dialog */}
+      <Dialog open={!!emailResource} onOpenChange={open => { if (!emailSending && !open) setEmailResource(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-primary" />
+              Send by Email
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="bg-muted/40 rounded-lg p-3 border border-border/60">
+              <p className="text-xs text-muted-foreground mb-0.5">Document</p>
+              <p className="text-sm font-semibold text-foreground">{emailResource?.title}</p>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Send to</Label>
+              <RadioGroup value={emailMode} onValueChange={v => setEmailMode(v as 'operator' | 'custom')} className="flex gap-4 mb-3">
+                <div className="flex items-center gap-1.5">
+                  <RadioGroupItem value="operator" id="email-operator" />
+                  <Label htmlFor="email-operator" className="cursor-pointer text-sm">Operator</Label>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <RadioGroupItem value="custom" id="email-custom" />
+                  <Label htmlFor="email-custom" className="cursor-pointer text-sm">Someone else</Label>
+                </div>
+              </RadioGroup>
+
+              {emailMode === 'operator' ? (
+                <Select value={emailOperatorId} onValueChange={setEmailOperatorId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an operator…" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-56">
+                    {operators.map(op => (
+                      <SelectItem key={op.id} value={op.id}>
+                        {op.name} — {op.email}
+                      </SelectItem>
+                    ))}
+                    {operators.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">No active operators found</div>
+                    )}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  type="email"
+                  placeholder="email@example.com"
+                  value={emailCustomAddress}
+                  onChange={e => setEmailCustomAddress(e.target.value)}
+                />
+              )}
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium mb-1.5 block">
+                Note <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <Textarea
+                value={emailNote}
+                onChange={e => setEmailNote(e.target.value)}
+                placeholder="Add a message for the recipient…"
+                className="min-h-[60px] resize-none"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEmailResource(null)} disabled={emailSending}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendEmail}
+              disabled={emailSending || (emailMode === 'operator' ? !emailOperatorId : !emailCustomAddress.trim())}
+              className="bg-gold hover:bg-gold-light text-surface-dark font-semibold gap-1.5"
+            >
+              {emailSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {emailSending ? 'Sending…' : 'Send Email'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
