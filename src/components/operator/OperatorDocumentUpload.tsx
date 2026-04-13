@@ -626,6 +626,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
           url={docPreview.url}
           name={docPreview.name}
           onClose={() => setDocPreview(null)}
+          onSaved={() => onUploadComplete()}
         />
       )}
     </div>
