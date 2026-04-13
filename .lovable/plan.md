@@ -1,62 +1,26 @@
 
 
-## Fix Edit Button Across All Document Viewers
+## Fix White Screen When Opening Document Editor
 
 ### Problem
-The edit pencil button is missing or non-functional in most document preview surfaces. The root cause varies by surface:
+Clicking the edit pencil causes the entire screen to go white and the app locks up. The `DocumentEditor` component tries to `fetch(fileUrl)` to convert the image to a data URL for the editor canvas. However, Supabase storage signed URLs are cross-origin, so `fetch()` fails due to CORS restrictions. The `FilerobotImageEditor` may then receive invalid data and crash, or the fetch error may not be handled cleanly — either way resulting in a white screen at `z-[9999]` that covers the entire app with no way to navigate back.
 
-- **InspectionBinderAdmin**: Only passes `bucketName` when `file_path` is set, but CDL/Medical Cert docs have `file_path = null` (stored as bare `applications/...` paths in `file_url`)
-- **OperatorInspectionBinder**: No edit props passed at all
-- **PEScreeningTimeline**: `filePath` is hardcoded to `undefined` (dead code: `filePath={receiptDoc?.file_url ? undefined : undefined}`)
-- **DriverVaultCard**: `filePath` falls back to `undefined` when `file_path` column is null
-- **OperatorDetailPanel & ApplicationReviewDrawer**: Already working via `onEdit` callback
-- **Other surfaces** (Resources, ContractorPay, OperatorDocUpload, OperatorStatus): No edit props at all
+### Root Cause
+Line 100 of `DocumentEditor.tsx`: `const res = await fetch(fileUrl);` — this CORS-blocked fetch either throws (setting `loadError`) or returns HTML from the SPA fallback, which then gets passed to the image editor as a "data URL" and crashes it.
 
 ### Solution
+When `bucketName` and `filePath` are provided (which they always are from `FilePreviewModal`), use the Supabase SDK to download the file directly instead of using `fetch()`. The SDK download bypasses CORS because it uses the authenticated API client.
 
-**1. Enhance `FilePreviewModal` to derive bucket/path from `file_url` automatically**
+**File: `src/components/shared/DocumentEditor.tsx`**
 
-When `bucketName`/`filePath` are not explicitly provided, detect bare storage paths in the URL (e.g., `applications/...`) and infer the bucket and path. This makes the edit button appear without requiring every caller to extract storage metadata.
+1. In the `loadSource` function (non-PDF branch, ~line 98), check if `bucketName` and `filePath` are available
+2. If yes, use `supabase.storage.from(bucketName).download(filePath)` to get the blob
+3. Fall back to `fetch(fileUrl)` only when bucket info is not available
+4. Add a try/catch around the `FilerobotImageEditor` rendering that prevents white screen — ensure the error boundary and `loadError` state always show a recoverable UI with a working Close button
+5. Wire `onClose` to also handle the back button so the app never gets stuck
 
-Add a helper function inside `DocRow.tsx` that:
-- Detects `applications/...` → bucket = `application-documents`, path = the bare path
-- Detects `inspection-documents/...` → bucket = `inspection-documents`, path after prefix
-- Detects signed URLs containing `/inspection-documents/` or `/application-documents/` → extract accordingly
-- Detects `operator-documents` patterns similarly
-
-When inferred, show the edit pencil automatically.
-
-**2. Fix specific surfaces**
-
-| File | Fix |
-|------|-----|
-| `DocRow.tsx` | Add `inferStorageInfo(url)` helper; use inferred values as fallback when `bucketName`/`filePath` not passed |
-| `InspectionBinderAdmin.tsx` | Pass `file_url` as fallback so inference works for CDL docs with null `file_path` |
-| `OperatorInspectionBinder.tsx` | Pass `bucketName`/`filePath` or rely on auto-inference |
-| `PEScreeningTimeline.tsx` | Fix dead `filePath` — extract actual path from `receiptDoc.file_url` |
-| `DriverVaultCard.tsx` | Use `file_url` as fallback path when `file_path` is null |
-| `OperatorStatusPage.tsx` | Add edit props for QPassport viewer |
-| `ContractorPaySetup.tsx` | Add edit props for payroll doc viewer |
-| `OperatorDocumentUpload.tsx` | Add edit props for operator doc previews |
-
-**3. Files to modify**
-
+### Files Changed
 | File | Change |
 |------|--------|
-| `src/components/inspection/DocRow.tsx` | Add `inferStorageInfo()` helper; update `FilePreviewModal` to auto-infer bucket/path from URL when not explicitly provided |
-| `src/components/inspection/InspectionBinderAdmin.tsx` | Always pass `file_url` as filePath fallback when `file_path` is null |
-| `src/components/inspection/OperatorInspectionBinder.tsx` | Pass bucket/path info to `FilePreviewModal` |
-| `src/components/operator/PEScreeningTimeline.tsx` | Fix filePath to extract actual storage path from receipt URL |
-| `src/components/drivers/DriverVaultCard.tsx` | Use `file_url` as filePath fallback |
-| `src/components/operator/OperatorStatusPage.tsx` | Add edit props |
-| `src/components/operator/ContractorPaySetup.tsx` | Add edit props |
-| `src/components/operator/OperatorDocumentUpload.tsx` | Add edit props |
-
-### Technical Detail
-The `inferStorageInfo` function will parse URLs/paths to determine bucket and object path:
-```text
-"applications/123_file.jpg"  →  bucket: "application-documents", path: "applications/123_file.jpg"
-"https://.../object/sign/inspection-documents/abc/file.png?..."  →  bucket: "inspection-documents", path: "abc/file.png"
-```
-This inference runs inside `FilePreviewModal` as a fallback — explicit `bucketName`/`filePath` props always take priority.
+| `src/components/shared/DocumentEditor.tsx` | Use Supabase SDK download when bucket/path available; harden error handling to prevent white screen lockup |
 
