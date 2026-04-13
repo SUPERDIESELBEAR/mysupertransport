@@ -913,7 +913,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     size="sm"
                     variant="ghost"
                     className="h-8 w-8 p-0"
-                    onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(docName); }}
+                    onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(docName); setPreviewFilePath(doc.file_path ?? null); }}
                     title="Preview"
                   >
                     <Eye className="h-3.5 w-3.5" />
@@ -1761,7 +1761,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                                   size="sm"
                                   variant="ghost"
                                   className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                                  onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(doc.name); }}
+                                  onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(doc.name); setPreviewFilePath(doc.file_path ?? null); }}
                                 >
                                   <Eye className="h-3.5 w-3.5" />
                                 </Button>
