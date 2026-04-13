@@ -267,7 +267,9 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
   const [zoomIdx, setZoomIdx] = useState(DEFAULT_ZOOM_IDX);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const handleLoad = useCallback(() => setLoaded(true), []);
-  const { blobUrl, error } = useBlobUrl(toInlineUrl(signedUrl || syncResolvedUrl));
+  // Only fetch blob for non-image files (PDFs need blob for iframe); images use <img> directly
+  const blobInput = isImage ? '' : toInlineUrl(signedUrl || syncResolvedUrl);
+  const { blobUrl, error } = useBlobUrl(blobInput);
   const isMobile = useIsMobile();
 
   // Hardware back button closes modal instead of navigating away
