@@ -119,7 +119,6 @@ export default function TruckPhotoGridModal({
   }
 
   const uploadedCount = Object.keys(byPosition).length;
-  const isImage = (url: string) => /\.(jpe?g|png|webp|gif|heic)(\?|$)/i.test(url);
 
   return (
     <>
@@ -177,7 +176,6 @@ export default function TruckPhotoGridModal({
                         pos={pos}
                         file={file}
                         resolvedUrl={resolvedUrl}
-                        isImage={isImage}
                         onOpenLightbox={url => setLightbox({ url, label: pos.key })}
                       />
                     );
@@ -196,7 +194,6 @@ export default function TruckPhotoGridModal({
                         pos={pos}
                         file={file}
                         resolvedUrl={resolvedUrl}
-                        isImage={isImage}
                         onOpenLightbox={url => setLightbox({ url, label: pos.key })}
                       />
                     );
@@ -265,13 +262,14 @@ interface PhotoCellProps {
   pos: { key: string; icon: string };
   file: DocFileRow | undefined;
   resolvedUrl: string | undefined;
-  isImage: (url: string) => boolean;
   onOpenLightbox: (url: string) => void;
 }
 
-function PhotoCell({ pos, file, resolvedUrl, isImage, onOpenLightbox }: PhotoCellProps) {
+function PhotoCell({ pos, file, resolvedUrl, onOpenLightbox }: PhotoCellProps) {
+  const [imgError, setImgError] = useState(false);
   const hasFile = !!file;
-  const hasImage = hasFile && !!file.file_url && isImage(file.file_url) && !!resolvedUrl;
+  // Treat any resolved signed URL as a previewable image (this modal is truck-photos-only)
+  const hasImage = hasFile && !!resolvedUrl && !imgError;
 
   return (
     <div className="flex flex-col gap-1">
@@ -291,9 +289,7 @@ function PhotoCell({ pos, file, resolvedUrl, isImage, onOpenLightbox }: PhotoCel
               src={resolvedUrl}
               alt={pos.key}
               className="w-full h-full object-cover"
-              onError={e => {
-                (e.target as HTMLImageElement).style.display = 'none';
-              }}
+              onError={() => setImgError(true)}
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
               <ExternalLink className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
