@@ -394,23 +394,35 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
             </div>
           </div>
         ) : blobUrl ? (
-          <div
-            style={{
-              width: `${scale * 100}%`,
-              height: `${scale * 100}%`,
-              minWidth: scale <= 1 ? '100%' : undefined,
-              minHeight: scale <= 1 ? '100%' : undefined,
-            }}
-          >
-            <iframe
-              ref={iframeRef}
-              src={`${blobUrl}#toolbar=0`}
-              style={{ width: `${100 / scale}%`, height: `${100 / scale}%`, transform: `scale(${scale})`, transformOrigin: 'top left', transition: 'transform 0.2s ease-out' }}
-              className={`transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-              title={name}
-              onLoad={handleLoad}
-            />
-          </div>
+          isImage ? (
+            <div className="w-full h-full flex items-center justify-center overflow-auto">
+              <img
+                src={blobUrl}
+                alt={name}
+                className="max-w-full max-h-full object-contain"
+                style={{ transform: `scale(${scale})`, transformOrigin: 'center center', transition: 'transform 0.15s ease' }}
+                onLoad={handleLoad}
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                width: `${scale * 100}%`,
+                height: `${scale * 100}%`,
+                minWidth: scale <= 1 ? '100%' : undefined,
+                minHeight: scale <= 1 ? '100%' : undefined,
+              }}
+            >
+              <iframe
+                ref={iframeRef}
+                src={`${blobUrl}#toolbar=0`}
+                style={{ width: `${100 / scale}%`, height: `${100 / scale}%`, transform: `scale(${scale})`, transformOrigin: 'top left', transition: 'transform 0.2s ease-out' }}
+                className={`transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+                title={name}
+                onLoad={handleLoad}
+              />
+            </div>
+          )
         ) : null}
       </div>
     </div>
