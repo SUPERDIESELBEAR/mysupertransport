@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut, Pencil } from 'lucide-react';
 import { downloadBlob } from '@/lib/downloadBlob';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { QRCodeSVG } from 'qrcode.react';
@@ -183,6 +184,7 @@ function useBlobUrl(remoteUrl: string) {
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    if (!remoteUrl) return;
     let objectUrl: string | null = null;
     let cancelled = false;
     setBlobUrl(null);
@@ -211,21 +213,68 @@ function useBlobUrl(remoteUrl: string) {
   return { blobUrl, error };
 }
 
+/**
+ * Detects bare storage paths (e.g. "applications/123_file.jpg") that belong to a
+ * private bucket and asynchronously generates a signed URL for them.
+ */
+function useSignedUrl(rawUrl: string) {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [signing, setSigning] = useState(false);
+
+  useEffect(() => {
+    // Bare path inside the application-documents bucket
+    if (/^applications\//i.test(rawUrl)) {
+      setSigning(true);
+      setSignedUrl(null);
+      supabase.storage.from('application-documents').createSignedUrl(rawUrl, 3600)
+        .then(({ data }) => {
+          if (data?.signedUrl) {
+            // signedUrl may be relative — resolve it
+            setSignedUrl(resolveDocumentUrl(data.signedUrl));
+          }
+        })
+        .finally(() => setSigning(false));
+      return;
+    }
+    // Bare path inside the inspection-documents bucket
+    if (/^inspection-documents\//i.test(rawUrl)) {
+      const objectPath = rawUrl.replace(/^inspection-documents\//i, '');
+      setSigning(true);
+      setSignedUrl(null);
+      supabase.storage.from('inspection-documents').createSignedUrl(objectPath, 3600)
+        .then(({ data }) => {
+          if (data?.signedUrl) {
+            setSignedUrl(resolveDocumentUrl(data.signedUrl));
+          }
+        })
+        .finally(() => setSigning(false));
+      return;
+    }
+    // Not a bare path — no signing needed
+    setSignedUrl(null);
+    setSigning(false);
+  }, [rawUrl]);
+
+  return { signedUrl, signing };
+}
+
 /** Generic in-app file preview modal — no new tab required */
 export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; name: string; onClose: () => void; onEdit?: () => void }) {
   const [loaded, setLoaded] = useState(false);
-  const resolvedUrl = resolveDocumentUrl(url);
+  const syncResolvedUrl = resolveDocumentUrl(url);
+  const { signedUrl, signing } = useSignedUrl(url);
+  const resolvedUrl = signedUrl || syncResolvedUrl;
+
+  const isPdf = /\.pdf($|\?)/i.test(url);
+  const isImage = /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)($|\?)/i.test(url);
+
   const [zoomIdx, setZoomIdx] = useState(DEFAULT_ZOOM_IDX);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const handleLoad = useCallback(() => setLoaded(true), []);
-  const { blobUrl, error } = useBlobUrl(toInlineUrl(url));
+  // Only fetch blob for non-image files (PDFs need blob for iframe); images use <img> directly
+  const blobInput = isImage ? '' : toInlineUrl(signedUrl || syncResolvedUrl);
+  const { blobUrl, error } = useBlobUrl(blobInput);
   const isMobile = useIsMobile();
-
-  // Hardware back button closes modal instead of navigating away
-  useBackButton(true, onClose);
-
-  const isPdf = /\.pdf($|\?)/i.test(url);
-  const isImage = /\.(jpe?g|png|gif|webp|bmp|svg)($|\?)/i.test(url);
 
   const zoom = ZOOM_STEPS[zoomIdx];
   const canZoomIn = zoomIdx < ZOOM_STEPS.length - 1;
@@ -252,7 +301,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
   }, [name, resolvedUrl]);
 
   const scale = zoom / 100;
-  const isLoading = !blobUrl && !error && !isImage;
+  const isLoading = signing || (!blobUrl && !error && !isImage);
 
   // On mobile + PDF: show a friendly card instead of broken iframe
   const showMobilePdfFallback = isMobile && isPdf && blobUrl;
