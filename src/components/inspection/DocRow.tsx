@@ -222,6 +222,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
   useBackButton(true, onClose);
 
   const isPdf = /\.pdf($|\?)/i.test(url);
+  const isImage = /\.(jpe?g|png|gif|webp|bmp|svg)($|\?)/i.test(url);
 
   const zoom = ZOOM_STEPS[zoomIdx];
   const canZoomIn = zoomIdx < ZOOM_STEPS.length - 1;
