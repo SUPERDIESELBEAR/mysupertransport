@@ -424,8 +424,8 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
                 onLoad={handleLoad}
               />
             </div>
-          )
         ) : null}
+
       </div>
     </div>
   );
