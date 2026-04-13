@@ -407,17 +407,6 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
             </div>
           </div>
         ) : blobUrl ? (
-          isImage ? (
-            <div className="w-full h-full flex items-center justify-center overflow-auto">
-              <img
-                src={blobUrl}
-                alt={name}
-                className="max-w-full max-h-full object-contain"
-                style={{ transform: `scale(${scale})`, transformOrigin: 'center center', transition: 'transform 0.15s ease' }}
-                onLoad={handleLoad}
-              />
-            </div>
-          ) : (
             <div
               style={{
                 width: `${scale * 100}%`,
