@@ -216,6 +216,12 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const handleLoad = useCallback(() => setLoaded(true), []);
   const { blobUrl, error } = useBlobUrl(toInlineUrl(url));
+  const isMobile = useIsMobile();
+
+  // Hardware back button closes modal instead of navigating away
+  useBackButton(true, onClose);
+
+  const isPdf = /\.pdf($|\?)/i.test(url);
 
   const zoom = ZOOM_STEPS[zoomIdx];
   const canZoomIn = zoomIdx < ZOOM_STEPS.length - 1;
@@ -232,8 +238,20 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
     iframeRef.current?.contentWindow?.print();
   }, []);
 
+  const handleShareFile = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (navigator.share) {
+      navigator.share({ title: name, text: `${name} — SUPERTRANSPORT`, url: resolvedUrl }).catch(() => {});
+    } else {
+      window.location.href = `mailto:?subject=${encodeURIComponent(`${name} — SUPERTRANSPORT`)}&body=${encodeURIComponent(`Here is the document "${name}":\n\n${resolvedUrl}`)}`;
+    }
+  }, [name, resolvedUrl]);
+
   const scale = zoom / 100;
   const isLoading = !blobUrl && !error;
+
+  // On mobile + PDF: show a friendly card instead of broken iframe
+  const showMobilePdfFallback = isMobile && isPdf && blobUrl;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/90" onClick={onClose}>
@@ -244,32 +262,35 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
           <span className="text-sm font-semibold text-surface-dark-foreground truncate max-w-[40vw]">{name}</span>
         </div>
         <div className="flex items-center gap-1">
-          {/* Zoom controls */}
-          <button
-            onClick={e => { e.stopPropagation(); setZoomIdx(i => Math.max(0, i - 1)); }}
-            disabled={!canZoomOut}
-            className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            title="Zoom out"
-          >
-            <ZoomOut className="h-4 w-4" />
-          </button>
-          <button
-            onClick={e => { e.stopPropagation(); setZoomIdx(DEFAULT_ZOOM_IDX); }}
-            className="h-8 px-2 rounded text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors min-w-[44px] text-center"
-            title="Reset zoom"
-          >
-            {zoom}%
-          </button>
-          <button
-            onClick={e => { e.stopPropagation(); setZoomIdx(i => Math.min(ZOOM_STEPS.length - 1, i + 1)); }}
-            disabled={!canZoomIn}
-            className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            title="Zoom in"
-          >
-            <ZoomIn className="h-4 w-4" />
-          </button>
-          {/* Divider */}
-          <span className="w-px h-5 bg-white/15 mx-1" />
+          {/* Zoom controls — hide on mobile PDF fallback */}
+          {!showMobilePdfFallback && (
+            <>
+              <button
+                onClick={e => { e.stopPropagation(); setZoomIdx(i => Math.max(0, i - 1)); }}
+                disabled={!canZoomOut}
+                className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Zoom out"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </button>
+              <button
+                onClick={e => { e.stopPropagation(); setZoomIdx(DEFAULT_ZOOM_IDX); }}
+                className="h-8 px-2 rounded text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors min-w-[44px] text-center"
+                title="Reset zoom"
+              >
+                {zoom}%
+              </button>
+              <button
+                onClick={e => { e.stopPropagation(); setZoomIdx(i => Math.min(ZOOM_STEPS.length - 1, i + 1)); }}
+                disabled={!canZoomIn}
+                className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                title="Zoom in"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </button>
+              <span className="w-px h-5 bg-white/15 mx-1" />
+            </>
+          )}
           {onEdit && (
             <button
               onClick={e => { e.stopPropagation(); onEdit(); }}
@@ -279,6 +300,13 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
               <Pencil className="h-4 w-4" />
             </button>
           )}
+          <button
+            onClick={handleShareFile}
+            className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+            title="Share / Email"
+          >
+            {isMobile ? <Share2 className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+          </button>
           <button
             onClick={handlePrint}
             disabled={!loaded}
@@ -328,7 +356,43 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
             <a href={resolvedUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-gold underline">Open in new tab</a>
           </div>
         )}
-        {blobUrl && (
+
+        {/* Mobile PDF fallback — show action card instead of broken iframe */}
+        {showMobilePdfFallback ? (
+          <div className="absolute inset-0 flex items-center justify-center p-6">
+            <div className="bg-card border border-border rounded-2xl p-6 max-w-xs w-full text-center space-y-4 shadow-xl">
+              <div className="h-14 w-14 rounded-xl bg-gold/10 flex items-center justify-center mx-auto">
+                <FileText className="h-7 w-7 text-gold" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{name}</p>
+                <p className="text-xs text-muted-foreground mt-1">Tap below to open or share this PDF</p>
+              </div>
+              <div className="space-y-2">
+                <button
+                  onClick={() => window.open(blobUrl, '_blank')}
+                  className="w-full flex items-center justify-center gap-2 bg-gold text-white font-semibold text-sm py-3 rounded-xl hover:bg-gold-light transition-colors"
+                >
+                  <ExternalLink className="h-4 w-4" /> Open PDF
+                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleShareFile}
+                    className="flex-1 flex items-center justify-center gap-2 bg-secondary text-foreground font-medium text-sm py-2.5 rounded-xl hover:bg-secondary/80 transition-colors"
+                  >
+                    <Share2 className="h-4 w-4" /> Share
+                  </button>
+                  <button
+                    onClick={() => downloadBlob(resolvedUrl, name)}
+                    className="flex-1 flex items-center justify-center gap-2 bg-secondary text-foreground font-medium text-sm py-2.5 rounded-xl hover:bg-secondary/80 transition-colors"
+                  >
+                    <Download className="h-4 w-4" /> Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : blobUrl ? (
           <div
             style={{
               width: `${scale * 100}%`,
@@ -346,7 +410,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
               onLoad={handleLoad}
             />
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
