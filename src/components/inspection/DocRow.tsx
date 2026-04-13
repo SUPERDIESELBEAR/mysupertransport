@@ -249,7 +249,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
   }, [name, resolvedUrl]);
 
   const scale = zoom / 100;
-  const isLoading = !blobUrl && !error;
+  const isLoading = !blobUrl && !error && !isImage;
 
   // On mobile + PDF: show a friendly card instead of broken iframe
   const showMobilePdfFallback = isMobile && isPdf && blobUrl;
@@ -351,15 +351,28 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
             <span className="text-sm text-muted-foreground">Loading document…</span>
           </div>
         )}
-        {error && (
+        {error && !isImage && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
             <span className="text-sm text-muted-foreground">Could not load document inline.</span>
             <a href={resolvedUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-gold underline">Open in new tab</a>
           </div>
         )}
 
-        {/* Mobile PDF fallback — show action card instead of broken iframe */}
-        {showMobilePdfFallback ? (
+        {/* Images: render directly from resolved URL (no blob needed, avoids CORS) */}
+        {isImage ? (
+          <div className="w-full h-full flex items-center justify-center overflow-auto">
+            <img
+              src={resolvedUrl}
+              alt={name}
+              className="max-w-full max-h-full object-contain"
+              style={{ transform: `scale(${scale})`, transformOrigin: 'center center', transition: 'transform 0.15s ease' }}
+              onLoad={handleLoad}
+            />
+          </div>
+        ) :
+
+        /* Mobile PDF fallback — show action card instead of broken iframe */
+        showMobilePdfFallback ? (
           <div className="absolute inset-0 flex items-center justify-center p-6">
             <div className="bg-card border border-border rounded-2xl p-6 max-w-xs w-full text-center space-y-4 shadow-xl">
               <div className="h-14 w-14 rounded-xl bg-gold/10 flex items-center justify-center mx-auto">
@@ -394,17 +407,6 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
             </div>
           </div>
         ) : blobUrl ? (
-          isImage ? (
-            <div className="w-full h-full flex items-center justify-center overflow-auto">
-              <img
-                src={blobUrl}
-                alt={name}
-                className="max-w-full max-h-full object-contain"
-                style={{ transform: `scale(${scale})`, transformOrigin: 'center center', transition: 'transform 0.15s ease' }}
-                onLoad={handleLoad}
-              />
-            </div>
-          ) : (
             <div
               style={{
                 width: `${scale * 100}%`,
@@ -422,8 +424,8 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
                 onLoad={handleLoad}
               />
             </div>
-          )
         ) : null}
+
       </div>
     </div>
   );
