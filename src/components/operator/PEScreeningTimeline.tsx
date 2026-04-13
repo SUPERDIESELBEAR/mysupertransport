@@ -369,7 +369,8 @@ export default function PEScreeningTimeline({
           name={receiptDoc?.file_name ?? 'PE Receipt'}
           onClose={() => setReceiptPreviewUrl(null)}
           bucketName="operator-documents"
-          filePath={receiptDoc?.file_url ? undefined : undefined}
+          filePath={receiptDoc?.file_url && !receiptDoc.file_url.startsWith('http') ? receiptDoc.file_url : undefined}
+          onSaved={() => onUploadComplete?.()}
         />
       )}
     </>
