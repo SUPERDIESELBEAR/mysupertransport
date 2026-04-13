@@ -258,6 +258,41 @@ function useSignedUrl(rawUrl: string) {
   return { signedUrl, signing };
 }
 
+/**
+ * Infers the storage bucket and object path from a raw URL or bare path.
+ * Returns null if the URL doesn't match any known storage pattern.
+ */
+function inferStorageInfo(rawUrl: string): { bucket: string; path: string } | null {
+  if (!rawUrl) return null;
+
+  // Bare path: "applications/..." → application-documents bucket
+  if (/^applications\//i.test(rawUrl)) {
+    return { bucket: 'application-documents', path: rawUrl };
+  }
+
+  // Bare path: "inspection-documents/..." → inspection-documents bucket
+  if (/^inspection-documents\//i.test(rawUrl)) {
+    return { bucket: 'inspection-documents', path: rawUrl.replace(/^inspection-documents\//i, '') };
+  }
+
+  // Signed/public URL containing bucket name in path
+  const bucketPatterns = [
+    { regex: /\/(?:object\/(?:sign|public)|storage\/v1\/object\/(?:sign|public))\/inspection-documents\/(.+?)(?:\?|$)/i, bucket: 'inspection-documents' },
+    { regex: /\/(?:object\/(?:sign|public)|storage\/v1\/object\/(?:sign|public))\/application-documents\/(.+?)(?:\?|$)/i, bucket: 'application-documents' },
+    { regex: /\/(?:object\/(?:sign|public)|storage\/v1\/object\/(?:sign|public))\/operator-documents\/(.+?)(?:\?|$)/i, bucket: 'operator-documents' },
+    { regex: /\/(?:object\/(?:sign|public)|storage\/v1\/object\/(?:sign|public))\/driver-uploads\/(.+?)(?:\?|$)/i, bucket: 'driver-uploads' },
+  ];
+
+  for (const { regex, bucket } of bucketPatterns) {
+    const match = rawUrl.match(regex);
+    if (match) {
+      return { bucket, path: decodeURIComponent(match[1]) };
+    }
+  }
+
+  return null;
+}
+
 /** Generic in-app file preview modal — no new tab required */
 export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, filePath, onSaved }: {
   url: string;
@@ -276,6 +311,11 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   const syncResolvedUrl = resolveDocumentUrl(url);
   const { signedUrl, signing } = useSignedUrl(url);
   const resolvedUrl = signedUrl || syncResolvedUrl;
+
+  // Auto-infer bucket/path from URL when not explicitly provided
+  const inferred = (!bucketName || !filePath) ? inferStorageInfo(url) : null;
+  const effectiveBucket = bucketName || inferred?.bucket;
+  const effectivePath = filePath || inferred?.path;
 
   const isPdf = /\.pdf($|\?)/i.test(url);
   const isImage = /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)($|\?)/i.test(url);
@@ -356,7 +396,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
               <span className="w-px h-5 bg-white/15 mx-1" />
             </>
           )}
-          {(onEdit || (bucketName && filePath)) && (
+          {(onEdit || (effectiveBucket && effectivePath)) && isImage && (
             <button
               onClick={e => { e.stopPropagation(); onEdit ? onEdit() : setShowEditor(true); }}
               className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
@@ -493,13 +533,13 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
       </div>
 
       {/* Built-in Document Editor */}
-      {showEditor && bucketName && filePath && (
+      {showEditor && effectiveBucket && effectivePath && (
         <Suspense fallback={null}>
           <DocumentEditor
             fileUrl={resolvedUrl}
             fileName={name}
-            bucketName={bucketName}
-            filePath={filePath}
+            bucketName={effectiveBucket}
+            filePath={effectivePath}
             onClose={() => setShowEditor(false)}
             onSave={(newUrl) => {
               setShowEditor(false);
