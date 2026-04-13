@@ -83,6 +83,38 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
   const [isPdfFile, setIsPdfFile] = useState(false);
   const editorRef = useRef<any>(null);
 
+  /** Convert a Blob to a data-URL string */
+  const blobToDataUrl = useCallback((blob: Blob): Promise<string> => {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string' && reader.result.length > 50) {
+          resolve(reader.result);
+        } else {
+          reject(new Error('Invalid data URL'));
+        }
+      };
+      reader.onerror = () => reject(new Error('FileReader error'));
+      reader.readAsDataURL(blob);
+    });
+  }, []);
+
+  /** Download a blob — prefer Supabase SDK (avoids CORS), fall back to fetch */
+  const downloadBlob = useCallback(async (): Promise<Blob> => {
+    if (bucketName && filePath) {
+      const { data, error } = await supabase.storage.from(bucketName).download(filePath);
+      if (error) throw error;
+      if (!data || data.size === 0) throw new Error('Empty file received from storage');
+      return data;
+    }
+    // Fallback: direct fetch (works for public URLs / same-origin)
+    const res = await fetch(fileUrl);
+    if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+    const blob = await res.blob();
+    if (blob.size === 0) throw new Error('Empty file received');
+    return blob;
+  }, [bucketName, filePath, fileUrl]);
+
   // Load the image (or PDF page as image)
   const loadSource = useCallback(async (page = 1) => {
     setLoading(true);
@@ -90,29 +122,21 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
     try {
       if (isPdf(fileName, fileUrl)) {
         setIsPdfFile(true);
-        const { dataUrl, totalPages: tp } = await renderPdfPage(fileUrl, page);
-        setTotalPages(tp);
-        setPdfPage(page);
-        setImageSource(dataUrl);
+        // For PDFs we still need a URL; create an object URL from downloaded blob
+        const blob = await downloadBlob();
+        const objectUrl = URL.createObjectURL(blob);
+        try {
+          const { dataUrl, totalPages: tp } = await renderPdfPage(objectUrl, page);
+          setTotalPages(tp);
+          setPdfPage(page);
+          setImageSource(dataUrl);
+        } finally {
+          URL.revokeObjectURL(objectUrl);
+        }
       } else {
         setIsPdfFile(false);
-        // Fetch image as blob to avoid CORS issues
-        const res = await fetch(fileUrl);
-        if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-        const blob = await res.blob();
-        if (blob.size === 0) throw new Error('Empty file received');
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            if (typeof reader.result === 'string' && reader.result.length > 50) {
-              resolve(reader.result);
-            } else {
-              reject(new Error('Invalid data URL'));
-            }
-          };
-          reader.onerror = () => reject(new Error('FileReader error'));
-          reader.readAsDataURL(blob);
-        });
+        const blob = await downloadBlob();
+        const dataUrl = await blobToDataUrl(blob);
         setImageSource(dataUrl);
       }
     } catch (err) {
@@ -121,7 +145,7 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
     } finally {
       setLoading(false);
     }
-  }, [fileUrl, fileName]);
+  }, [fileUrl, fileName, downloadBlob, blobToDataUrl]);
 
   useEffect(() => {
     loadSource(1);
