@@ -22,6 +22,7 @@ import NotFound from "./pages/NotFound";
 import SplashPage from "./pages/SplashPage";
 import InspectionSharePage from "./pages/InspectionSharePage";
 import SubmitSSN from "./pages/SubmitSSN";
+import InstallApp from "./pages/InstallApp";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ function AppRoutes() {
       <Route path="/welcome" element={<WelcomeOperator />} />
       <Route path="/inspect/:token" element={<InspectionSharePage />} />
       <Route path="/splash" element={<SplashPage />} />
+      <Route path="/install" element={<InstallApp />} />
 
       {/* Protected routes */}
       <Route path="/dashboard" element={
