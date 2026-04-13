@@ -145,6 +145,16 @@ export default function ResourceLibraryManager() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // Email dialog
+  const [emailResource, setEmailResource] = useState<ResourceRow | null>(null);
+  const [emailMode, setEmailMode] = useState<'operator' | 'custom'>('operator');
+  const [emailOperatorId, setEmailOperatorId] = useState('');
+  const [emailCustomAddress, setEmailCustomAddress] = useState('');
+  const [emailNote, setEmailNote] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
+  const [operators, setOperators] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [operatorsLoaded, setOperatorsLoaded] = useState(false);
+
   // ── Load ──────────────────────────────────────────────────────────────────
   const load = async () => {
     setLoading(true);
