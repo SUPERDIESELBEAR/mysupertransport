@@ -259,7 +259,19 @@ function useSignedUrl(rawUrl: string) {
 }
 
 /** Generic in-app file preview modal — no new tab required */
-export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; name: string; onClose: () => void; onEdit?: () => void }) {
+export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, filePath, onSaved }: {
+  url: string;
+  name: string;
+  onClose: () => void;
+  onEdit?: () => void;
+  /** Storage bucket name — when provided with filePath, enables built-in editing */
+  bucketName?: string;
+  /** Storage file path — when provided with bucketName, enables built-in editing */
+  filePath?: string;
+  /** Called after a successful edit save */
+  onSaved?: (newUrl: string) => void;
+}) {
+  const [showEditor, setShowEditor] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const syncResolvedUrl = resolveDocumentUrl(url);
   const { signedUrl, signing } = useSignedUrl(url);
