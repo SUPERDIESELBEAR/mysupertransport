@@ -1,29 +1,27 @@
 
 
-## Fix: Patch Broken Truck Photo Records
+## Improve Decal-Applied Notification
 
-### What happened
-The two photos Marcus Mueller uploaded were taken **before the latest code fix deployed to his device**. The old code attempted to store a signed URL (which resolved to empty string) instead of the raw storage path. The files themselves uploaded successfully to storage — only the database records have empty `file_url` values.
+### Problem
+When staff marks `decal_applied = 'yes'`, the operator receives a generic notification: *"Decal applied to your truck ✓"* / *"Your company decal has been applied to your truck."* It does not mention the required photo uploads and does not link to the correct tab.
 
-The current code is correct and will work for future uploads. We just need to fix the two existing broken records.
+### Changes
 
-### Plan
+**1. Update the database trigger `notify_operator_on_status_change`**
 
-**1. Patch the two broken database records via migration**
+Modify the `decal_applied` section to:
+- Change the title to: **"Decal applied — upload photos"**
+- Change the body to: **"Your company decal has been applied. Please upload driver-side and passenger-side photos of the installed decal from your Documents tab."**
+- Add a deep-link: `/operator?tab=documents` (so the operator lands directly on the upload section)
+- Add an email notification via the existing `notify-onboarding-update` edge function with milestone key `decal_photos_requested`
 
-Update the `file_url` column for the two records that have empty values, using the actual storage paths confirmed in the storage bucket:
+**2. Update the `notify-onboarding-update` edge function**
 
-| Record ID | Storage Path |
-|-----------|-------------|
-| `bf740744-8668-47d2-9fb6-a3213e7a20b2` | `ee993ec0-e0a2-4d0f-aa05-6d22eb931405/truck_photos/truck_photos_front_1776038829082.jpg` |
-| `8e34244c-9359-433c-ab4f-3ca8beba3e08` | `ee993ec0-e0a2-4d0f-aa05-6d22eb931405/truck_photos/truck_photos_front_1776036696044.jpg` |
-
-**2. No code changes needed**
-
-The upload code (`TruckPhotoGuideModal.tsx` line 153) already correctly stores the raw path. The staff grid (`TruckPhotoGridModal.tsx`) already handles raw paths and generates signed URLs on-demand. Future uploads will work correctly.
+Add a `decal_photos_requested` milestone handler that sends a branded email telling the operator to upload their decal installation photos, with a CTA linking to their portal documents tab.
 
 ### Files Modified
 | File | Change |
 |------|--------|
-| Database migration | Patch 2 records with correct `file_url` values |
+| Database migration | Update trigger function for decal_applied notification text, link, and email dispatch |
+| `supabase/functions/notify-onboarding-update/index.ts` | Add `decal_photos_requested` milestone email template |
 
