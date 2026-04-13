@@ -96,6 +96,19 @@ const MILESTONE_COPY: Record<string, {
       <p>Log in to your portal to see your updated document status and any remaining items.</p>`,
     cta: (appUrl) => ({ label: 'View My Documents', url: `${appUrl}/dashboard?tab=documents` }),
   },
+  decal_photos_requested: {
+    subject: 'Action Required: Upload Decal Installation Photos — SUPERTRANSPORT',
+    heading: '📸 Upload Your Decal Photos',
+    body: (name) => `<p>Hi ${name},</p>
+      <p>Your company decal has been applied to your truck — great progress!</p>
+      <p>To complete this step, please upload <strong>two photos</strong> of the installed decal:</p>
+      <ul style="padding-left:20px;line-height:2.2;">
+        <li><strong>Driver-side</strong> photo showing the decal clearly visible</li>
+        <li><strong>Passenger-side</strong> photo showing the decal clearly visible</li>
+      </ul>
+      <p>Log in to your portal and go to the <strong>Documents</strong> tab to upload your photos.</p>`,
+    cta: (appUrl) => ({ label: 'Upload Decal Photos', url: `${appUrl}/dashboard?tab=documents` }),
+  },
   go_live_set: {
     subject: '🚛 Your Go-Live Date is Confirmed — SUPERTRANSPORT',
     heading: '🚛 You\'re Cleared to Start Dispatching!',
