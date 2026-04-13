@@ -262,8 +262,11 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
   const [loaded, setLoaded] = useState(false);
   const syncResolvedUrl = resolveDocumentUrl(url);
   const { signedUrl, signing } = useSignedUrl(url);
-  // Use the signed URL when available, otherwise fall back to synchronous resolution
   const resolvedUrl = signedUrl || syncResolvedUrl;
+
+  const isPdf = /\.pdf($|\?)/i.test(url);
+  const isImage = /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)($|\?)/i.test(url);
+
   const [zoomIdx, setZoomIdx] = useState(DEFAULT_ZOOM_IDX);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const handleLoad = useCallback(() => setLoaded(true), []);
@@ -271,12 +274,6 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
   const blobInput = isImage ? '' : toInlineUrl(signedUrl || syncResolvedUrl);
   const { blobUrl, error } = useBlobUrl(blobInput);
   const isMobile = useIsMobile();
-
-  // Hardware back button closes modal instead of navigating away
-  useBackButton(true, onClose);
-
-  const isPdf = /\.pdf($|\?)/i.test(url);
-  const isImage = /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)($|\?)/i.test(url);
 
   const zoom = ZOOM_STEPS[zoomIdx];
   const canZoomIn = zoomIdx < ZOOM_STEPS.length - 1;
