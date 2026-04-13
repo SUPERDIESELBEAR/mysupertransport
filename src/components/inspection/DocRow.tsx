@@ -491,6 +491,23 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
         ) : null}
 
       </div>
+
+      {/* Built-in Document Editor */}
+      {showEditor && bucketName && filePath && (
+        <Suspense fallback={null}>
+          <DocumentEditor
+            fileUrl={resolvedUrl}
+            fileName={name}
+            bucketName={bucketName}
+            filePath={filePath}
+            onClose={() => setShowEditor(false)}
+            onSave={(newUrl) => {
+              setShowEditor(false);
+              onSaved?.(newUrl);
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
