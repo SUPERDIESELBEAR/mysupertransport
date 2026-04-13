@@ -301,7 +301,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
   }, [name, resolvedUrl]);
 
   const scale = zoom / 100;
-  const isLoading = !blobUrl && !error && !isImage;
+  const isLoading = signing || (!blobUrl && !error && !isImage);
 
   // On mobile + PDF: show a friendly card instead of broken iframe
   const showMobilePdfFallback = isMobile && isPdf && blobUrl;
