@@ -356,9 +356,9 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
               <span className="w-px h-5 bg-white/15 mx-1" />
             </>
           )}
-          {onEdit && (
+          {(onEdit || (bucketName && filePath)) && (
             <button
-              onClick={e => { e.stopPropagation(); onEdit(); }}
+              onClick={e => { e.stopPropagation(); onEdit ? onEdit() : setShowEditor(true); }}
               className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
               title="Edit document"
             >
