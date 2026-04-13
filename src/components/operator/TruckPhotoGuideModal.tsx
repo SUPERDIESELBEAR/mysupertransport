@@ -133,7 +133,15 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
 
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop();
+      // Derive extension from MIME type for reliability (camera files may lack extensions)
+      const MIME_EXT: Record<string, string> = {
+        'image/jpeg': 'jpg',
+        'image/jpg': 'jpg',
+        'image/png': 'png',
+        'image/heic': 'heic',
+        'image/heif': 'heif',
+      };
+      const ext = MIME_EXT[file.type] || file.name.split('.').pop() || 'jpg';
       const path = `${operatorId}/truck_photos/${currentSlot.key}_${Date.now()}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
@@ -145,12 +153,14 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
       const fileUrl = path;
 
       // Insert into operator_documents
-      await supabase.from('operator_documents').insert({
+      const { error: insertError } = await supabase.from('operator_documents').insert({
         operator_id: operatorId,
         document_type: 'truck_photos' as any,
         file_name: `${currentSlot.label} — ${file.name}`,
         file_url: fileUrl,
       });
+
+      if (insertError) throw insertError;
 
       setUploaded(prev => ({
         ...prev,
