@@ -168,6 +168,75 @@ export default function ResourceLibraryManager() {
 
   useEffect(() => { load(); }, []);
 
+  // ── Load operators for email dialog ───────────────────────────────────────
+  const loadOperators = async () => {
+    if (operatorsLoaded) return;
+    const { data } = await supabase
+      .from('operators')
+      .select('id, user_id, application_id, applications!operators_application_id_fkey(first_name, last_name, email)')
+      .eq('is_active', true);
+    if (data) {
+      const ops = data
+        .map((o: any) => {
+          const app = o.applications;
+          if (!app?.email) return null;
+          const name = `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || app.email;
+          return { id: o.id, name, email: app.email as string };
+        })
+        .filter(Boolean) as { id: string; name: string; email: string }[];
+      ops.sort((a, b) => a.name.localeCompare(b.name));
+      setOperators(ops);
+    }
+    setOperatorsLoaded(true);
+  };
+
+  const openEmailDialog = (r: ResourceRow) => {
+    setEmailResource(r);
+    setEmailMode('operator');
+    setEmailOperatorId('');
+    setEmailCustomAddress('');
+    setEmailNote('');
+    loadOperators();
+  };
+
+  const handleSendEmail = async () => {
+    if (guardDemo()) return;
+    const recipientEmail = emailMode === 'operator'
+      ? operators.find(o => o.id === emailOperatorId)?.email
+      : emailCustomAddress.trim();
+    const recipientName = emailMode === 'operator'
+      ? operators.find(o => o.id === emailOperatorId)?.name
+      : undefined;
+
+    if (!recipientEmail || !recipientEmail.includes('@')) {
+      toast.error('Please enter a valid email address.');
+      return;
+    }
+    if (!emailResource?.file_url) {
+      toast.error('This resource has no file attached.');
+      return;
+    }
+
+    setEmailSending(true);
+    const { error } = await supabase.functions.invoke('send-resource-email', {
+      body: {
+        resourceTitle: emailResource.title,
+        resourceUrl: emailResource.file_url,
+        recipientEmail,
+        recipientName,
+        senderNote: emailNote.trim() || undefined,
+      },
+    });
+    setEmailSending(false);
+
+    if (error) {
+      toast.error('Failed to send email: ' + error.message);
+      return;
+    }
+    toast.success(`Email sent to ${recipientEmail}`);
+    setEmailResource(null);
+  };
+
   // ── Filtered list ─────────────────────────────────────────────────────────
   const filtered = resources.filter(r => {
     const matchSearch = !search ||
