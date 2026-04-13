@@ -131,6 +131,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   // In-app file preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>('');
+  const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
 
   // Share to specific driver state (per company doc)
   const [shareToDriverOpen, setShareToDriverOpen] = useState<string | null>(null); // doc id
@@ -2163,7 +2164,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       </AlertDialog>
 
       {previewUrl && (
-        <FilePreviewModal url={previewUrl} name={previewName} onClose={() => setPreviewUrl(null)} />
+        <FilePreviewModal
+          url={previewUrl}
+          name={previewName}
+          onClose={() => { setPreviewUrl(null); setPreviewFilePath(null); }}
+          bucketName={previewFilePath ? 'inspection-documents' : undefined}
+          filePath={previewFilePath ?? undefined}
+          onSaved={() => fetchDocs()}
+        />
       )}
     </div>
   );

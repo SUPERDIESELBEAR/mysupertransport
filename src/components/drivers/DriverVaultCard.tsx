@@ -312,7 +312,14 @@ export default function DriverVaultCard({ operatorId, operatorName, readOnly = f
       </div>
 
       {/* Preview modal */}
-      {previewDoc && <FilePreviewModal url={previewDoc.url} name={previewDoc.name} onClose={() => setPreviewDoc(null)} />}
+      {previewDoc && <FilePreviewModal
+        url={previewDoc.url}
+        name={previewDoc.name}
+        onClose={() => setPreviewDoc(null)}
+        bucketName="operator-documents"
+        filePath={docs.find(d => d.file_url === previewDoc.url)?.file_path ?? undefined}
+        onSaved={() => fetchDocs()}
+      />}
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null); }}>
