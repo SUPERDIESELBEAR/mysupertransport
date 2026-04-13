@@ -1,38 +1,27 @@
 
 
-## Add "Send by Email" to Staff Resource Library
+## Fix Image Previews in Inspection Binder
 
-### What it does
-Adds a staff-side email action so coordinators can email any resource file directly to an operator or any custom email address — using the existing Resend email infrastructure.
+### Problem
+When clicking the "eye" icon to view documents in the Inspection Binder, images (JPG, PNG, etc.) don't load properly. The `FilePreviewModal` renders **all** files inside an `<iframe>`, which works for PDFs but fails for images — browsers either show a tiny thumbnail or a blank frame.
+
+### Solution
+Detect whether the file is an image (based on URL extension or blob MIME type) and render it with an `<img>` tag instead of an iframe. This is a single-file change in the `FilePreviewModal` component.
 
 ### Changes
 
-**1. New Edge Function: `send-resource-email`**
+**File: `src/components/inspection/DocRow.tsx`**
 
-A lightweight edge function that:
-- Accepts `{ resourceTitle, resourceUrl, recipientEmail, recipientName?, senderNote? }`
-- Validates inputs
-- Builds a branded email using the existing `buildEmail` / `sendEmail` helpers with a download CTA linking to the public `resource-library` URL
-- Sends via Resend (key already configured)
+1. Add an `isImage` check based on file extension (`.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.bmp`, `.svg`)
+2. When the file is an image: render a zoomable `<img>` element instead of the iframe
+3. Keep the iframe path for PDFs and other document types
+4. Update the `useBlobUrl` hook to also expose the blob's MIME type so we can double-check image detection
 
-**2. Update `supabase/config.toml`**
+The image will be rendered centered in the viewer area with `object-contain` styling, supporting the existing zoom controls. The `onLoad` handler will still trigger so the loading spinner dismisses correctly.
 
-Add `[functions.send-resource-email]` with `verify_jwt = false`.
-
-**3. Update `ResourceLibraryManager.tsx`**
-
-- Add a `Mail` icon button to each resource row (next to Preview, History, Edit, Delete)
-- Clicking it opens a small dialog with:
-  - A dropdown to select an operator (fetched from `operators` joined with `applications` for name/email) **or** a free-text email input for "someone else"
-  - An optional note field
-  - Send button
-- On send, calls the edge function via `supabase.functions.invoke('send-resource-email', { body: ... })`
-- Shows success/error toast
-
-### Files Modified
-| File | Change |
-|------|--------|
-| `supabase/functions/send-resource-email/index.ts` | New edge function — branded email with file download link |
-| `supabase/config.toml` | Add function config block |
-| `src/components/management/ResourceLibraryManager.tsx` | Add Mail button + send dialog with operator picker / custom email input |
+### Technical Detail
+- The `isImage` regex: `/\.(jpe?g|png|gif|webp|bmp|svg)($|\?)/i`
+- The `<img>` tag uses the same `blobUrl` already fetched by `useBlobUrl`
+- Zoom scaling applies via CSS `transform: scale()` just like the iframe
+- Mobile PDF fallback logic remains unchanged
 
