@@ -1,32 +1,33 @@
 
 
-## Fix CDL / Document Preview — "Could not load document inline" Error
+## Fix CDL / Medical Certificate Image Loading in Inspection Binder
 
 ### Problem
-When staff click the "eye" icon to view CDL or Medical Certificate documents in the Operator Detail Panel, the viewer shows "Could not load document inline" instead of rendering the image. This affects all applicants.
+CDL and Medical Certificate documents show a broken image icon because many `file_url` values in the `inspection_documents` table are raw storage paths like `applications/1774917461311_cdxdaw4antg.JPG`. These are paths within the **`application-documents`** private bucket, but the `resolveDocumentUrl` function doesn't recognize this pattern. It falls through to treating them as relative app URLs, causing the browser to load the SPA's HTML instead of the image.
+
+Some docs have proper full signed URLs (e.g., `https://...supabase.co/storage/v1/object/sign/inspection-documents/...`), while the broken ones have bare paths like `applications/...`.
 
 ### Root Cause
-The `FilePreviewModal` fetches **all** files through `useBlobUrl`, which uses `fetch()` to download the file as a blob. For signed URLs from the `application-documents` private bucket, this `fetch()` call can fail due to CORS restrictions — the browser blocks cross-origin `fetch()` requests even though the same URL would work perfectly fine in an `<img src="...">` tag.
-
-Images don't need the blob workaround at all — the blob approach exists to bypass `X-Frame-Options` headers that block iframes, but `<img>` tags have no such restriction.
+When CDL/Medical Certificate files are copied from the `applications` table into `inspection_documents`, the raw `application-documents` bucket path is stored as-is (e.g., `applications/1774917461311_cdxdaw4antg.JPG`) without a `file_path` value. The viewer has no way to know which bucket this belongs to or how to generate a signed URL.
 
 ### Solution
-Two changes in `src/components/inspection/DocRow.tsx`:
+Update `FilePreviewModal` and its supporting logic in `DocRow.tsx` to detect bare `applications/...` paths and generate a signed URL from the `application-documents` storage bucket on-the-fly.
 
-**1. For images: skip blob, use resolved URL directly in `<img>`**
-When the URL is detected as an image, render the `<img>` tag with the resolved signed URL directly instead of waiting for the blob. This bypasses the CORS issue entirely and is simpler.
+**File: `src/components/inspection/DocRow.tsx`**
 
-**2. Add fallback: if blob fails but file is an image, render `<img>` with original URL**
-As a safety net, when `error` is true and `isImage` is true, render the image using the resolved URL instead of showing the error message. This handles edge cases where the blob fetch fails for any reason.
-
-### File Changed
-| File | Change |
-|------|--------|
-| `src/components/inspection/DocRow.tsx` | Update `FilePreviewModal` to render images directly from resolved URL instead of requiring blob; add image fallback when blob fetch fails |
+1. Update `resolveDocumentUrl` (or add a new async resolver) to detect `applications/...` paths
+2. When detected, use `supabase.storage.from('application-documents').createSignedUrl(path, 3600)` to get a proper signed URL
+3. Since `createSignedUrl` is async, add a `useEffect` in `FilePreviewModal` that resolves the URL before rendering the `<img>` tag
+4. Handle the signed URL response — the API returns relative paths like `/object/sign/...`, so prepend `VITE_SUPABASE_URL` as we already do
 
 ### Technical Detail
-- `<img>` tags don't need CORS to render cross-origin images — only `fetch()` and `<iframe>` are affected
-- The existing `useBlobUrl` hook will still be used for PDFs (which need blob for iframe rendering)
-- The `resolvedUrl` (already computed at line 214) will be used as the `<img src>` for image files
-- Zoom controls will continue to work via CSS `transform: scale()`
+- The bare path format is `applications/<timestamp>_<random>.<ext>` — this is the object key inside the `application-documents` bucket
+- `file_path` is `null` for these records, so we can't rely on it
+- The signed URL generation needs the Supabase client import
+- The existing `resolveDocumentUrl` is synchronous; we'll add an async URL resolution step specifically for `FilePreviewModal`
+
+### Files Changed
+| File | Change |
+|------|--------|
+| `src/components/inspection/DocRow.tsx` | Add async signed URL generation for `applications/...` paths in `FilePreviewModal`; add loading state while URL resolves |
 
