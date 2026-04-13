@@ -1,37 +1,37 @@
 
+I inspected the current operator upload flow and the staff photo grid. The most likely reason the emoji still appears is that the staff modal is deciding “is this an image?” from the stored `file_url` text instead of from the signed image URL it actually loads.
 
-## Fix: Truck Photos Not Displaying on Staff Dashboard
+What I found:
+- `TruckPhotoGuideModal.tsx` now stores the raw storage path in `file_url`, which is correct for a private bucket.
+- `TruckPhotoGridModal.tsx` only shows an `<img>` when `isImage(file.file_url)` passes.
+- That `isImage` check is extension-based: it looks for `.jpg`, `.png`, `.heic`, etc. in the stored path string.
+- The upload guide still builds the storage path extension from `file.name.split('.').pop()`, which is brittle for camera-captured files because mobile browsers can provide odd or missing filenames/extensions.
+- The guide also does not currently check the `operator_documents` insert error, so a failed insert could be masked as success.
 
-### Root Cause
-The upload logic in `TruckPhotoGuideModal.tsx` attempts to generate a signed URL and store it as `file_url`. However, `createSignedUrl` can return a relative path or fail silently, resulting in an empty string being saved to the database. The staff-side `TruckPhotoGridModal.tsx` then tries to re-sign an empty path, which fails, and falls back to the emoji placeholder.
+Implementation plan:
+1. Fix the staff grid preview logic
+- Update `src/components/staff/TruckPhotoGridModal.tsx` so truck photo cells do not depend on `isImage(file.file_url)` to render thumbnails.
+- Treat any successfully signed URL in this modal as previewable, since this modal is specifically for truck photos.
+- Add a real image-load fallback: if the `<img>` fails to load, then show the emoji/link fallback for that one cell.
 
-This also contradicts the project's established pattern: **all other uploads store the raw storage path** (e.g. `operatorId/truck_photos/Front_12345.jpg`), not a signed URL. The staff-side modal already generates its own signed URLs from the raw path.
+2. Harden the truck photo upload path generation
+- Update `src/components/operator/TruckPhotoGuideModal.tsx` to derive the file extension from MIME type when `file.name` is missing or unreliable.
+- Keep storing the raw storage path in `file_url`, but ensure it ends in a predictable image extension when possible.
+- Explicitly handle the insert result from `operator_documents` and throw on error so false-success uploads do not slip through.
 
-### Fix
+3. Verify compatibility with existing uploads
+- Keep `extractStoragePath` support for both legacy signed URLs and raw storage paths.
+- Make sure older records and newly captured photos both resolve into signed URLs correctly in the staff modal.
 
-**File: `src/components/operator/TruckPhotoGuideModal.tsx` (~lines 145-156)**
+4. Validation after implementation
+- Capture a fresh truck photo from the operator guide on mobile.
+- Confirm the new record is written with a valid raw storage path.
+- Open the staff-facing truck photo grid and verify it shows the actual thumbnail, not the emoji.
+- Check lightbox/open behavior and confirm older truck-photo records still load.
 
-Remove the `createSignedUrl` call entirely. Store the raw storage path as `file_url` instead:
+Files to update:
+- `src/components/staff/TruckPhotoGridModal.tsx`
+- `src/components/operator/TruckPhotoGuideModal.tsx`
 
-```typescript
-// BEFORE (broken):
-const { data: signedData } = await supabase.storage
-  .from('operator-documents')
-  .createSignedUrl(path, 60 * 60 * 24 * 365);
-const fileUrl = signedData?.signedUrl ?? '';
-
-// AFTER (correct):
-const fileUrl = path;  // Store raw path, not a signed URL
-```
-
-This is a one-line change. The staff-side `TruckPhotoGridModal` already calls `extractStoragePath` and `createSignedUrl` on-demand, so raw paths are exactly what it expects.
-
-### Also fix: existing empty record in database
-
-The previously uploaded photo for Marcus Mueller has an empty `file_url`. We should note that the photo file itself was uploaded successfully to storage — only the database record is missing the path. The user may need to re-upload via the guide to get a working record, or we can provide a manual DB fix if needed.
-
-### Files Modified
-| File | Change |
-|------|--------|
-| `src/components/operator/TruckPhotoGuideModal.tsx` | Store raw storage path instead of signed URL as `file_url` |
-
+Technical note:
+This should be a frontend-only fix. No database schema changes should be required.
