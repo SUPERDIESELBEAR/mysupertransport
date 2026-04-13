@@ -1557,7 +1557,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                               size="sm"
                               variant="ghost"
                               className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                              onClick={() => { setPreviewUrl(upload.file_url!); setPreviewName(upload.file_name ?? 'Document'); }}
+                              onClick={() => { setPreviewUrl(upload.file_url!); setPreviewName(upload.file_name ?? 'Document'); setPreviewFilePath(upload.file_path ?? null); }}
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
