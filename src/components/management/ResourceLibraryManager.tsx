@@ -836,6 +836,90 @@ export default function ResourceLibraryManager() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Email Resource Dialog */}
+      <Dialog open={!!emailResource} onOpenChange={open => { if (!emailSending && !open) setEmailResource(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-primary" />
+              Send by Email
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="bg-muted/40 rounded-lg p-3 border border-border/60">
+              <p className="text-xs text-muted-foreground mb-0.5">Document</p>
+              <p className="text-sm font-semibold text-foreground">{emailResource?.title}</p>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Send to</Label>
+              <RadioGroup value={emailMode} onValueChange={v => setEmailMode(v as 'operator' | 'custom')} className="flex gap-4 mb-3">
+                <div className="flex items-center gap-1.5">
+                  <RadioGroupItem value="operator" id="email-operator" />
+                  <Label htmlFor="email-operator" className="cursor-pointer text-sm">Operator</Label>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <RadioGroupItem value="custom" id="email-custom" />
+                  <Label htmlFor="email-custom" className="cursor-pointer text-sm">Someone else</Label>
+                </div>
+              </RadioGroup>
+
+              {emailMode === 'operator' ? (
+                <Select value={emailOperatorId} onValueChange={setEmailOperatorId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an operator…" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-56">
+                    {operators.map(op => (
+                      <SelectItem key={op.id} value={op.id}>
+                        {op.name} — {op.email}
+                      </SelectItem>
+                    ))}
+                    {operators.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">No active operators found</div>
+                    )}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  type="email"
+                  placeholder="email@example.com"
+                  value={emailCustomAddress}
+                  onChange={e => setEmailCustomAddress(e.target.value)}
+                />
+              )}
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium mb-1.5 block">
+                Note <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <Textarea
+                value={emailNote}
+                onChange={e => setEmailNote(e.target.value)}
+                placeholder="Add a message for the recipient…"
+                className="min-h-[60px] resize-none"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEmailResource(null)} disabled={emailSending}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSendEmail}
+              disabled={emailSending || (emailMode === 'operator' ? !emailOperatorId : !emailCustomAddress.trim())}
+              className="bg-gold hover:bg-gold-light text-surface-dark font-semibold gap-1.5"
+            >
+              {emailSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {emailSending ? 'Sending…' : 'Send Email'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
