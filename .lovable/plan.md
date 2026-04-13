@@ -1,33 +1,61 @@
 
 
-## Fix CDL / Medical Certificate Image Loading in Inspection Binder
+## Add Edit Button to All Document Viewers
 
-### Problem
-CDL and Medical Certificate documents show a broken image icon because many `file_url` values in the `inspection_documents` table are raw storage paths like `applications/1774917461311_cdxdaw4antg.JPG`. These are paths within the **`application-documents`** private bucket, but the `resolveDocumentUrl` function doesn't recognize this pattern. It falls through to treating them as relative app URLs, causing the browser to load the SPA's HTML instead of the image.
+### Current State
+The app **already has** a full image editor (`DocumentEditor` using `react-filerobot-image-editor`) with rotate, crop, resize, brightness/contrast, filters, and text annotations. However, the edit (pencil) button only appears in the Inspection Binder's `DocRow` component. Most other surfaces that use `FilePreviewModal` — Driver Vault, Application Review, Operator Status, PE Screening, Contractor Pay, Resource Library, etc. — do **not** pass the `onEdit` prop, so staff never see the edit option.
 
-Some docs have proper full signed URLs (e.g., `https://...supabase.co/storage/v1/object/sign/inspection-documents/...`), while the broken ones have bare paths like `applications/...`.
+### Plan
 
-### Root Cause
-When CDL/Medical Certificate files are copied from the `applications` table into `inspection_documents`, the raw `application-documents` bucket path is stored as-is (e.g., `applications/1774917461311_cdxdaw4antg.JPG`) without a `file_path` value. The viewer has no way to know which bucket this belongs to or how to generate a signed URL.
+**1. Upgrade `FilePreviewModal` to support self-contained editing**
 
-### Solution
-Update `FilePreviewModal` and its supporting logic in `DocRow.tsx` to detect bare `applications/...` paths and generate a signed URL from the `application-documents` storage bucket on-the-fly.
+Instead of requiring every caller to wire up `onEdit` externally, add optional `bucketName` and `filePath` props to `FilePreviewModal` itself. When provided, it will show the edit button and launch `DocumentEditor` internally — no changes needed at each call site beyond passing bucket/path info.
 
-**File: `src/components/inspection/DocRow.tsx`**
+| New Prop | Purpose |
+|----------|---------|
+| `bucketName` | Storage bucket for saving edits (e.g., `application-documents`) |
+| `filePath` | Object path within the bucket |
+| `onSaved` | Optional callback after a successful edit |
 
-1. Update `resolveDocumentUrl` (or add a new async resolver) to detect `applications/...` paths
-2. When detected, use `supabase.storage.from('application-documents').createSignedUrl(path, 3600)` to get a proper signed URL
-3. Since `createSignedUrl` is async, add a `useEffect` in `FilePreviewModal` that resolves the URL before rendering the `<img>` tag
-4. Handle the signed URL response — the API returns relative paths like `/object/sign/...`, so prepend `VITE_SUPABASE_URL` as we already do
+**2. Wire up editing in key surfaces**
 
-### Technical Detail
-- The bare path format is `applications/<timestamp>_<random>.<ext>` — this is the object key inside the `application-documents` bucket
-- `file_path` is `null` for these records, so we can't rely on it
-- The signed URL generation needs the Supabase client import
-- The existing `resolveDocumentUrl` is synchronous; we'll add an async URL resolution step specifically for `FilePreviewModal`
+Pass `bucketName` and `filePath` to `FilePreviewModal` in these locations so the edit button appears:
 
-### Files Changed
+| File | Surface |
+|------|---------|
+| `src/components/inspection/InspectionBinderAdmin.tsx` | Admin binder preview |
+| `src/components/inspection/OperatorInspectionBinder.tsx` | Operator binder preview |
+| `src/components/drivers/DriverVaultCard.tsx` | Driver document preview |
+| `src/components/management/ApplicationReviewDrawer.tsx` | Application review docs |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Onboarding doc previews |
+| `src/components/operator/PEScreeningTimeline.tsx` | PE screening receipts |
+| `src/components/operator/OperatorStatusPage.tsx` | Operator QPassport view |
+
+**3. Additional editor enhancements to suggest**
+
+The existing editor already supports these tools (line 279 of `DocumentEditor.tsx`):
+- **Adjust** — crop, rotate, flip
+- **Finetune** — brightness, contrast, saturation, warmth
+- **Filters** — preset photo filters
+- **Resize** — change dimensions
+- **Annotate** — text, shapes, drawing
+
+Additional features that could be added:
+- **Auto-rotate detection** — automatically suggest rotation for sideways photos on upload
+- **Quick-action buttons** — "Rotate 90°" and "Auto-enhance" one-tap buttons in the preview header (before opening the full editor) for common corrections
+- **Batch editing** — apply the same crop/rotate to multiple documents at once
+
+### Files to Modify
 | File | Change |
-|------|--------|
-| `src/components/inspection/DocRow.tsx` | Add async signed URL generation for `applications/...` paths in `FilePreviewModal`; add loading state while URL resolves |
+|------|---------|
+| `src/components/inspection/DocRow.tsx` | Add `bucketName`, `filePath`, `onSaved` props to `FilePreviewModal`; render `DocumentEditor` internally when edit is triggered |
+| `src/components/inspection/InspectionBinderAdmin.tsx` | Pass bucket/path to `FilePreviewModal` |
+| `src/components/inspection/OperatorInspectionBinder.tsx` | Pass bucket/path to `FilePreviewModal` |
+| `src/components/drivers/DriverVaultCard.tsx` | Pass bucket/path to `FilePreviewModal` |
+| `src/components/management/ApplicationReviewDrawer.tsx` | Pass bucket/path to `FilePreviewModal` |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Pass bucket/path to `FilePreviewModal` |
+| `src/components/operator/PEScreeningTimeline.tsx` | Pass bucket/path to `FilePreviewModal` |
+| `src/components/operator/OperatorStatusPage.tsx` | Pass bucket/path to `FilePreviewModal` |
+
+This gives staff one-click access to rotate, crop, resize, and enhance any uploaded document across the entire app — directly from the preview viewer.
 
