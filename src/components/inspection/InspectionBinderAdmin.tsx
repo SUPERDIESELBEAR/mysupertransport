@@ -131,6 +131,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   // In-app file preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>('');
+  const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
 
   // Share to specific driver state (per company doc)
   const [shareToDriverOpen, setShareToDriverOpen] = useState<string | null>(null); // doc id
@@ -912,7 +913,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     size="sm"
                     variant="ghost"
                     className="h-8 w-8 p-0"
-                    onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(docName); }}
+                    onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(docName); setPreviewFilePath(doc.file_path ?? null); }}
                     title="Preview"
                   >
                     <Eye className="h-3.5 w-3.5" />
@@ -1556,7 +1557,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                               size="sm"
                               variant="ghost"
                               className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                              onClick={() => { setPreviewUrl(upload.file_url!); setPreviewName(upload.file_name ?? 'Document'); }}
+                              onClick={() => { setPreviewUrl(upload.file_url!); setPreviewName(upload.file_name ?? 'Document'); setPreviewFilePath(upload.file_path ?? null); }}
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
@@ -1760,7 +1761,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                                   size="sm"
                                   variant="ghost"
                                   className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                                  onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(doc.name); }}
+                                  onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(doc.name); setPreviewFilePath(doc.file_path ?? null); }}
                                 >
                                   <Eye className="h-3.5 w-3.5" />
                                 </Button>
@@ -2163,7 +2164,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       </AlertDialog>
 
       {previewUrl && (
-        <FilePreviewModal url={previewUrl} name={previewName} onClose={() => setPreviewUrl(null)} />
+        <FilePreviewModal
+          url={previewUrl}
+          name={previewName}
+          onClose={() => { setPreviewUrl(null); setPreviewFilePath(null); }}
+          bucketName={previewFilePath ? 'inspection-documents' : undefined}
+          filePath={previewFilePath ?? undefined}
+          onSaved={() => fetchDocs()}
+        />
       )}
     </div>
   );

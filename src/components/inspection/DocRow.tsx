@@ -259,7 +259,19 @@ function useSignedUrl(rawUrl: string) {
 }
 
 /** Generic in-app file preview modal — no new tab required */
-export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; name: string; onClose: () => void; onEdit?: () => void }) {
+export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, filePath, onSaved }: {
+  url: string;
+  name: string;
+  onClose: () => void;
+  onEdit?: () => void;
+  /** Storage bucket name — when provided with filePath, enables built-in editing */
+  bucketName?: string;
+  /** Storage file path — when provided with bucketName, enables built-in editing */
+  filePath?: string;
+  /** Called after a successful edit save */
+  onSaved?: (newUrl: string) => void;
+}) {
+  const [showEditor, setShowEditor] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const syncResolvedUrl = resolveDocumentUrl(url);
   const { signedUrl, signing } = useSignedUrl(url);
@@ -344,9 +356,9 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
               <span className="w-px h-5 bg-white/15 mx-1" />
             </>
           )}
-          {onEdit && (
+          {(onEdit || (bucketName && filePath)) && (
             <button
-              onClick={e => { e.stopPropagation(); onEdit(); }}
+              onClick={e => { e.stopPropagation(); onEdit ? onEdit() : setShowEditor(true); }}
               className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
               title="Edit document"
             >
@@ -479,6 +491,23 @@ export function FilePreviewModal({ url, name, onClose, onEdit }: { url: string; 
         ) : null}
 
       </div>
+
+      {/* Built-in Document Editor */}
+      {showEditor && bucketName && filePath && (
+        <Suspense fallback={null}>
+          <DocumentEditor
+            fileUrl={resolvedUrl}
+            fileName={name}
+            bucketName={bucketName}
+            filePath={filePath}
+            onClose={() => setShowEditor(false)}
+            onSave={(newUrl) => {
+              setShowEditor(false);
+              onSaved?.(newUrl);
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
