@@ -1,8 +1,29 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { BookOpen, Download, FileText, HelpCircle, ChevronDown, ChevronUp, ExternalLink, Search, Eye } from 'lucide-react';
+import { BookOpen, Download, FileText, HelpCircle, ChevronDown, ChevronUp, ExternalLink, Search, Eye, Share2, Mail } from 'lucide-react';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useToast } from '@/hooks/use-toast';
+
+const VIEWABLE_EXTENSIONS = /\.(pdf|png|jpe?g|gif|webp|svg|bmp)$/i;
+
+function isViewableFile(fileName: string | null, fileUrl: string | null): boolean {
+  const name = fileName || fileUrl || '';
+  return VIEWABLE_EXTENSIONS.test(name);
+}
+
+async function handleShare(title: string, fileUrl: string) {
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text: `${title} — SUPERTRANSPORT`, url: fileUrl });
+    } catch {
+      // user cancelled
+    }
+  } else {
+    window.location.href = `mailto:?subject=${encodeURIComponent(`${title} — SUPERTRANSPORT`)}&body=${encodeURIComponent(`Here is the document "${title}":\n\n${fileUrl}`)}`;
+  }
+}
 
 // ─── Resource Library ──────────────────────────────────────────────────────
 
@@ -27,6 +48,8 @@ export function OperatorResourceLibrary() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [previewDoc, setPreviewDoc] = useState<ResourceDoc | null>(null);
+  const isMobile = useIsMobile();
+  const { toast } = useToast();
 
   useEffect(() => {
     supabase
@@ -95,17 +118,28 @@ export function OperatorResourceLibrary() {
                     </div>
                     {doc.file_url && (
                       <div className="flex items-center gap-1.5 shrink-0">
+                        {isViewableFile(doc.file_name, doc.file_url) ? (
+                          <button
+                            onClick={() => setPreviewDoc(doc)}
+                            className="flex items-center gap-1.5 text-xs font-medium text-gold hover:text-gold-light bg-gold/10 hover:bg-gold/15 px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            <Eye className="h-3.5 w-3.5" /> View
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => downloadBlob(doc.file_url!, doc.file_name ?? 'download')}
+                            className="flex items-center gap-1.5 text-xs font-medium text-gold hover:text-gold-light bg-gold/10 hover:bg-gold/15 px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            <Download className="h-3.5 w-3.5" /> Download
+                          </button>
+                        )}
                         <button
-                          onClick={() => setPreviewDoc(doc)}
-                          className="flex items-center gap-1.5 text-xs font-medium text-gold hover:text-gold-light bg-gold/10 hover:bg-gold/15 px-3 py-1.5 rounded-lg transition-colors"
-                        >
-                          <Eye className="h-3.5 w-3.5" /> View
-                        </button>
-                        <button
-                          onClick={() => downloadBlob(doc.file_url!, doc.file_name ?? 'download')}
+                          onClick={() => handleShare(doc.title, doc.file_url!)}
                           className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-secondary hover:bg-secondary/80 px-3 py-1.5 rounded-lg transition-colors"
+                          title="Share or email this file"
                         >
-                          <Download className="h-3.5 w-3.5" /> Download
+                          {isMobile ? <Share2 className="h-3.5 w-3.5" /> : <Mail className="h-3.5 w-3.5" />}
+                          {isMobile ? 'Share' : 'Email'}
                         </button>
                       </div>
                     )}

@@ -8,6 +8,8 @@ import { InspectionDocument, getExpiryStatus, daysUntilExpiry, parseLocalDate, f
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import React, { Suspense } from 'react';
+import { useBackButton } from '@/hooks/useBackButton';
+import { useIsMobile } from '@/hooks/use-mobile';
 const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
 
 interface DocRowProps {
