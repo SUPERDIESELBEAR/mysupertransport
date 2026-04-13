@@ -144,19 +144,22 @@ function ShareModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => 
 }
 
 function resolveDocumentUrl(url: string): string {
-  if (!url) return url;
-  if (/^(https?:|blob:|data:)/i.test(url)) return url;
+  const normalizedUrl = url?.trim();
+  if (!normalizedUrl) return normalizedUrl;
+  if (/^(https?:|blob:|data:)/i.test(normalizedUrl)) return normalizedUrl;
 
-  if (url.startsWith('/storage/v1/')) {
-    const supabaseBase = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '');
-    return supabaseBase ? `${supabaseBase}${url}` : url;
+  const supabaseBase = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '');
+
+  if (/^\/?storage\/v1\//i.test(normalizedUrl) || /^\/?object\/(?:sign|public)\//i.test(normalizedUrl)) {
+    if (!supabaseBase) return normalizedUrl.startsWith('/') ? normalizedUrl : `/${normalizedUrl}`;
+    return `${supabaseBase}/${normalizedUrl.replace(/^\/+/, '')}`;
   }
 
-  if (url.startsWith('/')) {
-    return `${window.location.origin}${url}`;
+  if (normalizedUrl.startsWith('/')) {
+    return `${window.location.origin}${normalizedUrl}`;
   }
 
-  return url;
+  return normalizedUrl;
 }
 
 /** Appends ?download=false so storage serves the file inline (not as attachment) */
