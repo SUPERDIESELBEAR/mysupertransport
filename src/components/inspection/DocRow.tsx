@@ -184,6 +184,7 @@ function useBlobUrl(remoteUrl: string) {
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    if (!remoteUrl) return;
     let objectUrl: string | null = null;
     let cancelled = false;
     setBlobUrl(null);
