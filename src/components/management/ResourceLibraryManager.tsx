@@ -46,7 +46,12 @@ import {
   Clock,
   User,
   ScanEye,
+  Mail,
+  Send,
+  Loader2,
 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { Database } from '@/integrations/supabase/types';
