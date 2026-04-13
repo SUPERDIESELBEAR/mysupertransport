@@ -548,13 +548,22 @@ export default function ResourceLibraryManager() {
               {/* Actions */}
               <div className="flex items-center gap-1 shrink-0">
                 {r.file_url && (
-                  <button
-                    onClick={() => { setPreviewUrl(r.file_url); setPreviewTitle(r.title); }}
-                    title="Preview file"
-                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                  >
-                    <ScanEye className="h-4 w-4" />
-                  </button>
+                  <>
+                    <button
+                      onClick={() => { setPreviewUrl(r.file_url); setPreviewTitle(r.title); }}
+                      title="Preview file"
+                      className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                    >
+                      <ScanEye className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => openEmailDialog(r)}
+                      title="Send by email"
+                      className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      <Mail className="h-4 w-4" />
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => loadHistory(r)}
