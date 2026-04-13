@@ -1,61 +1,62 @@
 
 
-## Add Edit Button to All Document Viewers
+## Fix Edit Button Across All Document Viewers
 
-### Current State
-The app **already has** a full image editor (`DocumentEditor` using `react-filerobot-image-editor`) with rotate, crop, resize, brightness/contrast, filters, and text annotations. However, the edit (pencil) button only appears in the Inspection Binder's `DocRow` component. Most other surfaces that use `FilePreviewModal` — Driver Vault, Application Review, Operator Status, PE Screening, Contractor Pay, Resource Library, etc. — do **not** pass the `onEdit` prop, so staff never see the edit option.
+### Problem
+The edit pencil button is missing or non-functional in most document preview surfaces. The root cause varies by surface:
 
-### Plan
+- **InspectionBinderAdmin**: Only passes `bucketName` when `file_path` is set, but CDL/Medical Cert docs have `file_path = null` (stored as bare `applications/...` paths in `file_url`)
+- **OperatorInspectionBinder**: No edit props passed at all
+- **PEScreeningTimeline**: `filePath` is hardcoded to `undefined` (dead code: `filePath={receiptDoc?.file_url ? undefined : undefined}`)
+- **DriverVaultCard**: `filePath` falls back to `undefined` when `file_path` column is null
+- **OperatorDetailPanel & ApplicationReviewDrawer**: Already working via `onEdit` callback
+- **Other surfaces** (Resources, ContractorPay, OperatorDocUpload, OperatorStatus): No edit props at all
 
-**1. Upgrade `FilePreviewModal` to support self-contained editing**
+### Solution
 
-Instead of requiring every caller to wire up `onEdit` externally, add optional `bucketName` and `filePath` props to `FilePreviewModal` itself. When provided, it will show the edit button and launch `DocumentEditor` internally — no changes needed at each call site beyond passing bucket/path info.
+**1. Enhance `FilePreviewModal` to derive bucket/path from `file_url` automatically**
 
-| New Prop | Purpose |
-|----------|---------|
-| `bucketName` | Storage bucket for saving edits (e.g., `application-documents`) |
-| `filePath` | Object path within the bucket |
-| `onSaved` | Optional callback after a successful edit |
+When `bucketName`/`filePath` are not explicitly provided, detect bare storage paths in the URL (e.g., `applications/...`) and infer the bucket and path. This makes the edit button appear without requiring every caller to extract storage metadata.
 
-**2. Wire up editing in key surfaces**
+Add a helper function inside `DocRow.tsx` that:
+- Detects `applications/...` → bucket = `application-documents`, path = the bare path
+- Detects `inspection-documents/...` → bucket = `inspection-documents`, path after prefix
+- Detects signed URLs containing `/inspection-documents/` or `/application-documents/` → extract accordingly
+- Detects `operator-documents` patterns similarly
 
-Pass `bucketName` and `filePath` to `FilePreviewModal` in these locations so the edit button appears:
+When inferred, show the edit pencil automatically.
 
-| File | Surface |
-|------|---------|
-| `src/components/inspection/InspectionBinderAdmin.tsx` | Admin binder preview |
-| `src/components/inspection/OperatorInspectionBinder.tsx` | Operator binder preview |
-| `src/components/drivers/DriverVaultCard.tsx` | Driver document preview |
-| `src/components/management/ApplicationReviewDrawer.tsx` | Application review docs |
-| `src/pages/staff/OperatorDetailPanel.tsx` | Onboarding doc previews |
-| `src/components/operator/PEScreeningTimeline.tsx` | PE screening receipts |
-| `src/components/operator/OperatorStatusPage.tsx` | Operator QPassport view |
+**2. Fix specific surfaces**
 
-**3. Additional editor enhancements to suggest**
+| File | Fix |
+|------|-----|
+| `DocRow.tsx` | Add `inferStorageInfo(url)` helper; use inferred values as fallback when `bucketName`/`filePath` not passed |
+| `InspectionBinderAdmin.tsx` | Pass `file_url` as fallback so inference works for CDL docs with null `file_path` |
+| `OperatorInspectionBinder.tsx` | Pass `bucketName`/`filePath` or rely on auto-inference |
+| `PEScreeningTimeline.tsx` | Fix dead `filePath` — extract actual path from `receiptDoc.file_url` |
+| `DriverVaultCard.tsx` | Use `file_url` as fallback path when `file_path` is null |
+| `OperatorStatusPage.tsx` | Add edit props for QPassport viewer |
+| `ContractorPaySetup.tsx` | Add edit props for payroll doc viewer |
+| `OperatorDocumentUpload.tsx` | Add edit props for operator doc previews |
 
-The existing editor already supports these tools (line 279 of `DocumentEditor.tsx`):
-- **Adjust** — crop, rotate, flip
-- **Finetune** — brightness, contrast, saturation, warmth
-- **Filters** — preset photo filters
-- **Resize** — change dimensions
-- **Annotate** — text, shapes, drawing
+**3. Files to modify**
 
-Additional features that could be added:
-- **Auto-rotate detection** — automatically suggest rotation for sideways photos on upload
-- **Quick-action buttons** — "Rotate 90°" and "Auto-enhance" one-tap buttons in the preview header (before opening the full editor) for common corrections
-- **Batch editing** — apply the same crop/rotate to multiple documents at once
-
-### Files to Modify
 | File | Change |
-|------|---------|
-| `src/components/inspection/DocRow.tsx` | Add `bucketName`, `filePath`, `onSaved` props to `FilePreviewModal`; render `DocumentEditor` internally when edit is triggered |
-| `src/components/inspection/InspectionBinderAdmin.tsx` | Pass bucket/path to `FilePreviewModal` |
-| `src/components/inspection/OperatorInspectionBinder.tsx` | Pass bucket/path to `FilePreviewModal` |
-| `src/components/drivers/DriverVaultCard.tsx` | Pass bucket/path to `FilePreviewModal` |
-| `src/components/management/ApplicationReviewDrawer.tsx` | Pass bucket/path to `FilePreviewModal` |
-| `src/pages/staff/OperatorDetailPanel.tsx` | Pass bucket/path to `FilePreviewModal` |
-| `src/components/operator/PEScreeningTimeline.tsx` | Pass bucket/path to `FilePreviewModal` |
-| `src/components/operator/OperatorStatusPage.tsx` | Pass bucket/path to `FilePreviewModal` |
+|------|--------|
+| `src/components/inspection/DocRow.tsx` | Add `inferStorageInfo()` helper; update `FilePreviewModal` to auto-infer bucket/path from URL when not explicitly provided |
+| `src/components/inspection/InspectionBinderAdmin.tsx` | Always pass `file_url` as filePath fallback when `file_path` is null |
+| `src/components/inspection/OperatorInspectionBinder.tsx` | Pass bucket/path info to `FilePreviewModal` |
+| `src/components/operator/PEScreeningTimeline.tsx` | Fix filePath to extract actual storage path from receipt URL |
+| `src/components/drivers/DriverVaultCard.tsx` | Use `file_url` as filePath fallback |
+| `src/components/operator/OperatorStatusPage.tsx` | Add edit props |
+| `src/components/operator/ContractorPaySetup.tsx` | Add edit props |
+| `src/components/operator/OperatorDocumentUpload.tsx` | Add edit props |
 
-This gives staff one-click access to rotate, crop, resize, and enhance any uploaded document across the entire app — directly from the preview viewer.
+### Technical Detail
+The `inferStorageInfo` function will parse URLs/paths to determine bucket and object path:
+```text
+"applications/123_file.jpg"  →  bucket: "application-documents", path: "applications/123_file.jpg"
+"https://.../object/sign/inspection-documents/abc/file.png?..."  →  bucket: "inspection-documents", path: "abc/file.png"
+```
+This inference runs inside `FilePreviewModal` as a fallback — explicit `bucketName`/`filePath` props always take priority.
 
