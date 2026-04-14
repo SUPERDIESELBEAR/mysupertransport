@@ -12,6 +12,7 @@ import React, { Suspense } from 'react';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useIsMobile } from '@/hooks/use-mobile';
 const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
+import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
 
 interface DocRowProps {
   doc: InspectionDocument | null;
@@ -534,23 +535,25 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
 
       {/* Built-in Document Editor */}
       {showEditor && effectiveBucket && effectivePath && (
-        <Suspense fallback={
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90">
-            <Loader2 className="h-8 w-8 text-gold animate-spin" />
-          </div>
-        }>
-          <DocumentEditor
-            fileUrl={resolvedUrl}
-            fileName={name}
-            bucketName={effectiveBucket}
-            filePath={effectivePath}
-            onClose={() => setShowEditor(false)}
-            onSave={(newUrl) => {
-              setShowEditor(false);
-              onSaved?.(newUrl);
-            }}
-          />
-        </Suspense>
+        <EditorErrorBoundary onClose={() => setShowEditor(false)}>
+          <Suspense fallback={
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90">
+              <Loader2 className="h-8 w-8 text-gold animate-spin" />
+            </div>
+          }>
+            <DocumentEditor
+              fileUrl={resolvedUrl}
+              fileName={name}
+              bucketName={effectiveBucket}
+              filePath={effectivePath}
+              onClose={() => setShowEditor(false)}
+              onSave={(newUrl) => {
+                setShowEditor(false);
+                onSaved?.(newUrl);
+              }}
+            />
+          </Suspense>
+        </EditorErrorBoundary>
       )}
     </div>
   );
@@ -883,16 +886,18 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
         />
       )}
       {editorOpen && doc?.file_url && (
-        <Suspense fallback={<div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
-          <DocumentEditor
-            fileUrl={doc.file_url}
-            fileName={doc.name}
-            bucketName={editBucketName}
-            filePath={editFilePath || doc.file_path || undefined}
-            onSave={(newUrl) => { setEditorOpen(false); onEditSave?.(newUrl); }}
-            onClose={() => setEditorOpen(false)}
-          />
-        </Suspense>
+        <EditorErrorBoundary onClose={() => setEditorOpen(false)}>
+          <Suspense fallback={<div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+            <DocumentEditor
+              fileUrl={doc.file_url}
+              fileName={doc.name}
+              bucketName={editBucketName}
+              filePath={editFilePath || doc.file_path || undefined}
+              onSave={(newUrl) => { setEditorOpen(false); onEditSave?.(newUrl); }}
+              onClose={() => setEditorOpen(false)}
+            />
+          </Suspense>
+        </EditorErrorBoundary>
       )}
     </>
   );

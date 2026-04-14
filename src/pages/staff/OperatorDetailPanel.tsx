@@ -32,6 +32,7 @@ import { DateInput } from '@/components/ui/date-input';
 import { Switch } from '@/components/ui/switch';
 import { Suspense } from 'react';
 const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
+import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -5878,36 +5879,40 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* Cost Attachment Editor */}
       {costEditing && (
-        <Suspense fallback={<div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
-          <DocumentEditor
-            fileUrl={costEditing.url}
-            fileName={costEditing.name}
-            bucketName={costEditing.bucket}
-            filePath={costEditing.path}
-            onSave={(newUrl) => {
-              setCostEditing(null);
-              toast({ title: 'Receipt updated', description: 'Edited receipt saved.' });
-            }}
-            onClose={() => setCostEditing(null)}
-          />
-        </Suspense>
+        <EditorErrorBoundary onClose={() => setCostEditing(null)}>
+          <Suspense fallback={<div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+            <DocumentEditor
+              fileUrl={costEditing.url}
+              fileName={costEditing.name}
+              bucketName={costEditing.bucket}
+              filePath={costEditing.path}
+              onSave={(newUrl) => {
+                setCostEditing(null);
+                toast({ title: 'Receipt updated', description: 'Edited receipt saved.' });
+              }}
+              onClose={() => setCostEditing(null)}
+            />
+          </Suspense>
+        </EditorErrorBoundary>
       )}
 
       {/* Stage 2 / General Document Editor */}
       {stage2Editing && (
-        <Suspense fallback={<div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
-          <DocumentEditor
-            fileUrl={stage2Editing.url}
-            fileName={stage2Editing.name}
-            bucketName={stage2Editing.bucket}
-            filePath={stage2Editing.path}
-            onSave={(newUrl) => {
-              setStage2Editing(null);
-              toast({ title: 'Document updated', description: 'Edited document saved.' });
-            }}
-            onClose={() => setStage2Editing(null)}
-          />
-        </Suspense>
+        <EditorErrorBoundary onClose={() => setStage2Editing(null)}>
+          <Suspense fallback={<div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
+            <DocumentEditor
+              fileUrl={stage2Editing.url}
+              fileName={stage2Editing.name}
+              bucketName={stage2Editing.bucket}
+              filePath={stage2Editing.path}
+              onSave={(newUrl) => {
+                setStage2Editing(null);
+                toast({ title: 'Document updated', description: 'Edited document saved.' });
+              }}
+              onClose={() => setStage2Editing(null)}
+            />
+          </Suspense>
+        </EditorErrorBoundary>
       )}
 
       {showICABuilder && (
