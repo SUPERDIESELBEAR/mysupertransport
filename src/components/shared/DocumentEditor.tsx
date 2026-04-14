@@ -273,7 +273,7 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
 
   /* ─── render ─── */
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col bg-black/95">
+    <div className="fixed inset-0 z-[9999] flex flex-col bg-black/95" onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-surface-dark border-b border-surface-dark-border shrink-0"
         onClick={(e) => e.stopPropagation()}>
