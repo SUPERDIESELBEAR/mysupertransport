@@ -12,6 +12,7 @@ import React, { Suspense } from 'react';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useIsMobile } from '@/hooks/use-mobile';
 const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
+import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
 
 interface DocRowProps {
   doc: InspectionDocument | null;

@@ -20,6 +20,7 @@ import { printDocumentById, preloadSignatureDataUrl } from '@/lib/printDocument'
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import React, { Suspense } from 'react';
 const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
+import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
 import FCRAAuthorizationDoc from '@/components/application/documents/FCRAAuthorizationDoc';
 import PreEmploymentAuthorizationsDoc from '@/components/application/documents/PreEmploymentAuthorizationsDoc';
 import DOTDrugAlcoholQuestionsDoc from '@/components/application/documents/DOTDrugAlcoholQuestionsDoc';
