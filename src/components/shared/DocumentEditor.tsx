@@ -225,16 +225,15 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
       );
 
       if (bucketName && filePath) {
-        const ext = (filePath.match(/\.\w+$/) || ['.png'])[0];
-        const basePath = filePath.replace(/\.\w+$/, '');
-        const editedPath = `${basePath}_edited${ext}`;
+        // Overwrite the original file in-place
         const { error: uploadError } = await supabase.storage
           .from(bucketName)
-          .upload(editedPath, blob, { upsert: true, contentType: 'image/png' });
+          .upload(filePath, blob, { upsert: true, contentType: 'image/png' });
         if (uploadError) throw uploadError;
+        // Generate a fresh signed URL with a cache-busting token
         const { data: signedData } = await supabase.storage
           .from(bucketName)
-          .createSignedUrl(editedPath, 60 * 60 * 24 * 365);
+          .createSignedUrl(filePath, 60 * 60);
         const newUrl = signedData?.signedUrl || '';
         toast({ title: 'Document saved', description: 'Edited version saved successfully.' });
         await onSave?.(newUrl);
