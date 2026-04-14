@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import Cropper from 'react-easy-crop';
-import type { Area, Point } from 'react-easy-crop';
-import { X, RotateCw, RotateCcw, Crop, Loader2, AlertTriangle, Undo2 } from 'lucide-react';
+import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
+import { X, RotateCw, RotateCcw, Crop as CropIcon, Loader2, AlertTriangle, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -16,27 +15,18 @@ interface DocumentEditorProps {
   onClose: () => void;
 }
 
-/** Create a cropped/rotated image from the source via canvas */
+/** Apply rotation then crop via canvas */
 async function getCroppedImage(
-  imageSrc: string,
-  pixelCrop: Area,
+  image: HTMLImageElement,
+  pixelCrop: PixelCrop,
   rotation: number,
 ): Promise<Blob> {
-  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('Failed to load image'));
-    img.setAttribute('crossOrigin', 'anonymous');
-    img.src = imageSrc;
-  });
-
   const radians = (rotation * Math.PI) / 180;
   const sin = Math.abs(Math.sin(radians));
   const cos = Math.abs(Math.cos(radians));
 
-  // Bounding box of the rotated image
-  const bW = image.width * cos + image.height * sin;
-  const bH = image.width * sin + image.height * cos;
+  const bW = image.naturalWidth * cos + image.naturalHeight * sin;
+  const bH = image.naturalWidth * sin + image.naturalHeight * cos;
 
   // Draw rotated full image
   const rotCanvas = document.createElement('canvas');
@@ -45,19 +35,31 @@ async function getCroppedImage(
   const rotCtx = rotCanvas.getContext('2d')!;
   rotCtx.translate(bW / 2, bH / 2);
   rotCtx.rotate(radians);
-  rotCtx.drawImage(image, -image.width / 2, -image.height / 2);
+  rotCtx.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2);
 
-  // Crop from rotated canvas
+  // Scale factor: displayed size vs natural size (after rotation)
+  const scaleX = image.naturalWidth / image.width;
+  const scaleY = image.naturalHeight / image.height;
+
+  // For rotation, the displayed bounding box also changes, but react-image-crop
+  // gives us pixel coords relative to the displayed <img>. We need to map those
+  // to the rotated canvas coordinates.
+  // Since we rotate the underlying image and the crop is on the *displayed* image,
+  // when rotation is 0 this is a straight 1:1 mapping scaled by scaleX/scaleY.
+  // For rotated images we apply rotation on the canvas first, then crop.
+
   const cropCanvas = document.createElement('canvas');
-  cropCanvas.width = pixelCrop.width;
-  cropCanvas.height = pixelCrop.height;
+  cropCanvas.width = pixelCrop.width * scaleX;
+  cropCanvas.height = pixelCrop.height * scaleY;
   const cropCtx = cropCanvas.getContext('2d')!;
+
+  // When rotation is 0, rotCanvas equals original image
   cropCtx.drawImage(
     rotCanvas,
-    pixelCrop.x, pixelCrop.y,
-    pixelCrop.width, pixelCrop.height,
+    pixelCrop.x * scaleX, pixelCrop.y * scaleY,
+    pixelCrop.width * scaleX, pixelCrop.height * scaleY,
     0, 0,
-    pixelCrop.width, pixelCrop.height,
+    cropCanvas.width, cropCanvas.height,
   );
 
   return new Promise<Blob>((resolve, reject) => {
@@ -75,12 +77,12 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const imgRef = useRef<HTMLImageElement | null>(null);
 
-  // Crop state
-  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
+  // Crop state – percentage-based so it starts covering the full image
+  const [crop, setCrop] = useState<Crop>({ unit: '%', x: 0, y: 0, width: 100, height: 100 });
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
   const [rotation, setRotation] = useState(0);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
   /** Download blob from Supabase SDK (bypasses CORS) or fetch */
   const downloadBlob = useCallback(async (): Promise<Blob> => {
@@ -122,23 +124,19 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
     };
   }, [downloadBlob]);
 
-  const onCropComplete = useCallback((_: Area, croppedPixels: Area) => {
-    setCroppedAreaPixels(croppedPixels);
-  }, []);
-
   const handleRotateRight = () => setRotation((r) => (r + 90) % 360);
   const handleRotateLeft = () => setRotation((r) => (r - 90 + 360) % 360);
   const handleReset = () => {
-    setCrop({ x: 0, y: 0 });
-    setZoom(1);
+    setCrop({ unit: '%', x: 0, y: 0, width: 100, height: 100 });
+    setCompletedCrop(null);
     setRotation(0);
   };
 
   const handleSave = useCallback(async () => {
-    if (!imageSource || !croppedAreaPixels) return;
+    if (!imgRef.current || !completedCrop) return;
     setSaving(true);
     try {
-      const blob = await getCroppedImage(imageSource, croppedAreaPixels, rotation);
+      const blob = await getCroppedImage(imgRef.current, completedCrop, rotation);
 
       if (bucketName && filePath) {
         const ext = (filePath.match(/\.\w+$/) || ['.png'])[0];
@@ -158,7 +156,6 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
         toast({ title: 'Document saved', description: 'Edited version saved successfully.' });
         onSave?.(newUrl);
       } else {
-        // Download locally
         const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = blobUrl;
@@ -178,7 +175,7 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
     } finally {
       setSaving(false);
     }
-  }, [imageSource, croppedAreaPixels, rotation, bucketName, filePath, fileName, toast, onSave, onClose]);
+  }, [completedCrop, rotation, bucketName, filePath, fileName, toast, onSave, onClose]);
 
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col bg-black/95">
@@ -190,15 +187,13 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
         <span className="text-sm font-semibold text-surface-dark-foreground truncate max-w-[40vw]">
           Edit: {fileName}
         </span>
-        <div className="flex items-center gap-1">
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
+        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={onClose}>
+          <X className="h-5 w-5" />
+        </Button>
       </div>
 
       {/* Editor area */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative overflow-auto flex items-center justify-center p-4">
         {(loading || saving) && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 z-20">
             <Loader2 className="h-8 w-8 text-gold animate-spin" />
@@ -221,45 +216,37 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
         )}
 
         {imageSource && !loading && !loadError && (
-          <Cropper
-            image={imageSource}
+          <ReactCrop
             crop={crop}
-            zoom={zoom}
-            rotation={rotation}
-            aspect={undefined}
-            onCropChange={setCrop}
-            onZoomChange={setZoom}
-            onRotationChange={setRotation}
-            onCropComplete={onCropComplete}
-            showGrid
-            style={{
-              containerStyle: { width: '100%', height: '100%' },
-            }}
-          />
+            onChange={(c) => setCrop(c)}
+            onComplete={(c) => setCompletedCrop(c)}
+            className="max-h-full"
+          >
+            <img
+              ref={imgRef}
+              src={imageSource}
+              alt={fileName}
+              style={{
+                maxWidth: '100%',
+                maxHeight: 'calc(100vh - 160px)',
+                objectFit: 'contain',
+                transform: `rotate(${rotation}deg)`,
+              }}
+              onLoad={() => {
+                // Reset crop to full image on load
+                setCrop({ unit: '%', x: 0, y: 0, width: 100, height: 100 });
+              }}
+            />
+          </ReactCrop>
         )}
       </div>
 
       {/* Bottom toolbar */}
       {imageSource && !loading && !loadError && (
         <div
-          className="shrink-0 bg-surface-dark border-t border-surface-dark-border px-4 py-3 space-y-3"
+          className="shrink-0 bg-surface-dark border-t border-surface-dark-border px-4 py-3"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Zoom slider */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground w-10">Zoom</span>
-            <Slider
-              min={1}
-              max={3}
-              step={0.1}
-              value={[zoom]}
-              onValueChange={([v]) => setZoom(v)}
-              className="flex-1"
-            />
-            <span className="text-xs text-muted-foreground w-10 text-right">{Math.round(zoom * 100)}%</span>
-          </div>
-
-          {/* Action buttons */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Button size="sm" variant="outline" onClick={handleRotateLeft} title="Rotate left">
@@ -276,8 +263,8 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
               <Button size="sm" variant="ghost" onClick={onClose}>
                 Cancel
               </Button>
-              <Button size="sm" onClick={handleSave} disabled={saving || !croppedAreaPixels}>
-                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Crop className="h-4 w-4 mr-1" />}
+              <Button size="sm" onClick={handleSave} disabled={saving || !completedCrop}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CropIcon className="h-4 w-4 mr-1" />}
                 Save
               </Button>
             </div>
