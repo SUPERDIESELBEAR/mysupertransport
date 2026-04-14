@@ -495,7 +495,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
       </AlertDialog>
 
       {previewUrl && (
-        <FilePreviewModal url={previewUrl} name={previewName} onClose={() => setPreviewUrl(null)} />
+        <FilePreviewModal url={previewUrl} name={previewName} onClose={() => setPreviewUrl(null)} onSaved={async () => { await fetchDocs(); }} />
       )}
     </div>
   );
