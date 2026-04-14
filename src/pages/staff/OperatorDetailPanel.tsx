@@ -5853,19 +5853,26 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             setStage2Preview(null);
           } : undefined}
           onSaved={stage2Preview.appField ? async (newUrl: string) => {
-            // Update the applications table with the new edited URL
+            // Extract raw storage path from the signed URL to persist in DB
             const field = stage2Preview.appField!;
             const appId = applicationData?.id;
             if (!appId) return;
-            const { error } = await supabase.from('applications').update({ [field]: newUrl }).eq('id', appId);
+            // Extract the object path from the signed URL
+            let storagePath = newUrl;
+            const marker = '/object/sign/application-documents/';
+            const idx = newUrl.indexOf(marker);
+            if (idx !== -1) {
+              storagePath = decodeURIComponent(newUrl.slice(idx + marker.length).split('?')[0]);
+            }
+            const { error } = await supabase.from('applications').update({ [field]: storagePath }).eq('id', appId);
             if (error) {
               toast({ title: 'Failed to save edited document', variant: 'destructive' });
               return;
             }
-            // Update local state
-            if (field === 'dl_front_url') setDlFrontUrl(newUrl);
-            else if (field === 'dl_rear_url') setDlRearUrl(newUrl);
-            else if (field === 'medical_cert_url') setMedCertDocUrl(newUrl);
+            // Update local state with the raw path
+            if (field === 'dl_front_url') setDlFrontUrl(storagePath);
+            else if (field === 'dl_rear_url') setDlRearUrl(storagePath);
+            else if (field === 'medical_cert_url') setMedCertDocUrl(storagePath);
             toast({ title: 'Document updated', description: 'Edited document saved.' });
             setStage2Preview(null);
           } : undefined}
