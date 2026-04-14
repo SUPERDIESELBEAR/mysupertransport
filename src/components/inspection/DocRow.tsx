@@ -551,6 +551,15 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
               filePath={effectivePath}
               onClose={() => setShowEditor(false)}
               onSave={async (newUrl) => {
+                // Persist the new signed URL in the inspection_documents table
+                // so reopening the doc shows the edited version
+                if (newUrl && effectivePath) {
+                  const { error: dbErr } = await supabase
+                    .from('inspection_documents')
+                    .update({ file_url: newUrl, updated_at: new Date().toISOString() })
+                    .eq('file_path', effectivePath);
+                  if (dbErr) console.error('Failed to update inspection_documents.file_url:', dbErr);
+                }
                 if (onSaved) {
                   try {
                     await onSaved(newUrl);
