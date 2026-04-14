@@ -362,7 +362,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [onboardingHistoryExpanded, setOnboardingHistoryExpanded] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [truckPhotoGridOpen, setTruckPhotoGridOpen] = useState(false);
-  const [stage2Preview, setStage2Preview] = useState<{ url: string; name: string; docType: string } | null>(null);
+  const [stage2Preview, setStage2Preview] = useState<{ url: string; name: string; docType: string; appField?: string } | null>(null);
   const [stage2Editing, setStage2Editing] = useState<{ url: string; name: string; bucket: string; path: string } | null>(null);
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const [costPreview, setCostPreview] = useState<{ url: string; name: string; slotKey: string } | null>(null);
