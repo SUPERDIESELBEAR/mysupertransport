@@ -1,37 +1,24 @@
 
 
-## Replace Crop UX with Edge-Draggable Trim Handles
+## Fix: Crop Disappears After Dragging Edge on Rotated Image
 
-### Problem
-The current editor uses `react-easy-crop`, which works by letting you pan/zoom an image behind a fixed crop window. This is the wrong UX for document trimming — users need to see the full document and drag lines inward from each edge to trim off margins, shadows, and extra space. The image also overflows the editor area because it's not sized to fit.
+### Root Cause
+Line 233: `transform: rotate(${rotation}deg)` rotates the image visually via CSS, but `ReactCrop` still measures crop coordinates against the original un-rotated bounding box. After rotation, the crop handle positions no longer map correctly to the image — dragging an edge produces invalid/zero-size crop values, causing the component to collapse and close.
 
 ### Solution
-Replace `react-easy-crop` with `react-image-crop` — a library that renders the full image and overlays a resizable crop rectangle with draggable edges and corners. This matches exactly what you described: drag a line along each of the four sides to trim.
+Instead of CSS rotation, bake the rotation into the image source itself. When the user clicks rotate, render the rotated image onto an off-screen canvas, convert to a data URL, and update `imageSource`. This way `ReactCrop` always operates on a correctly oriented image with matching dimensions.
 
-### What changes
+### Changes — single file: `src/components/shared/DocumentEditor.tsx`
 
-**File: `package.json`**
-- Remove `react-easy-crop`
-- Add `react-image-crop`
+1. **Store original blob URL separately** — keep `originalSource` (from download) and `imageSource` (possibly rotated) as separate states
+2. **Add `applyRotation` helper** — loads the original image, draws it rotated onto a canvas, returns a new data URL
+3. **On rotate click** — call `applyRotation`, update `imageSource` to the rotated data URL, reset crop to 100%
+4. **Remove CSS `transform: rotate()`** from the `<img>` — the image is already correctly oriented
+5. **Simplify `getCroppedImage`** — remove rotation logic since it's pre-baked; just do a straight pixel crop
+6. **Reset button** — restores `imageSource` back to `originalSource` and resets crop/rotation state
 
-**File: `src/components/shared/DocumentEditor.tsx`**
-- Replace `Cropper` from `react-easy-crop` with `ReactCrop` from `react-image-crop`
-- Import `react-image-crop/dist/ReactCrop.css` for styling
-- Show the full image inside the editor (object-fit contain) with a resizable crop overlay
-- The crop rectangle starts at the full image bounds; user drags any edge inward to trim
-- Rotation still handled via canvas transforms before the crop step
-- Update `getCroppedImage` to use the pixel crop from `react-image-crop`'s output format
-- Keep all existing save/upload logic intact
-
-### UX after the fix
-1. Open editor → full document visible, crop handles on all four edges and corners
-2. Drag any edge inward to trim off unwanted margins/shadows
-3. Rotate left/right, zoom as needed
-4. Save → trimmed image uploaded back to storage
-
-### Files modified
-| File | Change |
-|------|--------|
-| `package.json` | Swap `react-easy-crop` → `react-image-crop` |
-| `src/components/shared/DocumentEditor.tsx` | Replace cropper component and adapt crop logic |
+### Why this fixes the issue
+- `ReactCrop` always sees a non-transformed image whose dimensions match the crop coordinate space
+- Dragging any edge works correctly because the bounding box is accurate
+- No more collapsed/zero-size crops causing the editor to vanish
 
