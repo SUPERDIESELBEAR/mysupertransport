@@ -2608,9 +2608,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           </h3>
           <div className="flex flex-wrap gap-2">
             {[
-              { label: 'DL Front', url: dlFrontUrl },
-              { label: 'DL Rear', url: dlRearUrl },
-              { label: 'Medical Certificate', url: medCertDocUrl },
+              { label: 'DL Front', url: dlFrontUrl, appField: 'dl_front_url' },
+              { label: 'DL Rear', url: dlRearUrl, appField: 'dl_rear_url' },
+              { label: 'Medical Certificate', url: medCertDocUrl, appField: 'medical_cert_url' },
             ].filter(d => d.url).map(doc => (
               <button
                 key={doc.label}
@@ -2640,7 +2640,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '') ?? '';
                       url = `${base}${url}`;
                     }
-                    setStage2Preview({ url, name: doc.label, docType: 'application_doc' });
+                    setStage2Preview({ url, name: doc.label, docType: 'application_doc', appField: doc.appField });
                   } else {
                     toast({ title: 'Could not load document preview', variant: 'destructive' });
                   }
@@ -5842,7 +5842,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           url={stage2Preview.url}
           name={stage2Preview.name}
           onClose={() => setStage2Preview(null)}
-          onEdit={() => {
+          onEdit={stage2Preview.docType !== 'application_doc' ? () => {
             const pathPrefix = `${operatorId}/${stage2Preview.docType}`;
             setStage2Editing({
               url: stage2Preview.url,
@@ -5851,7 +5851,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               path: pathPrefix,
             });
             setStage2Preview(null);
-          }}
+          } : undefined}
+          onSaved={stage2Preview.appField ? async (newUrl: string) => {
+            // Update the applications table with the new edited URL
+            const field = stage2Preview.appField!;
+            const appId = app?.id;
+            if (!appId) return;
+            const { error } = await supabase.from('applications').update({ [field]: newUrl }).eq('id', appId);
+            if (error) {
+              toast({ title: 'Failed to save edited document', variant: 'destructive' });
+              return;
+            }
+            // Update local state
+            if (field === 'dl_front_url') setDlFrontUrl(newUrl);
+            else if (field === 'dl_rear_url') setDlRearUrl(newUrl);
+            else if (field === 'medical_cert_url') setMedCertDocUrl(newUrl);
+            toast({ title: 'Document updated', description: 'Edited document saved.' });
+            setStage2Preview(null);
+          } : undefined}
         />
       )}
 
