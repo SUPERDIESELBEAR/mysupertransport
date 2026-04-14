@@ -362,7 +362,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [onboardingHistoryExpanded, setOnboardingHistoryExpanded] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [truckPhotoGridOpen, setTruckPhotoGridOpen] = useState(false);
-  const [stage2Preview, setStage2Preview] = useState<{ url: string; name: string; docType: string } | null>(null);
+  const [stage2Preview, setStage2Preview] = useState<{ url: string; name: string; docType: string; appField?: string } | null>(null);
   const [stage2Editing, setStage2Editing] = useState<{ url: string; name: string; bucket: string; path: string } | null>(null);
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const [costPreview, setCostPreview] = useState<{ url: string; name: string; slotKey: string } | null>(null);
@@ -2608,9 +2608,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           </h3>
           <div className="flex flex-wrap gap-2">
             {[
-              { label: 'DL Front', url: dlFrontUrl },
-              { label: 'DL Rear', url: dlRearUrl },
-              { label: 'Medical Certificate', url: medCertDocUrl },
+              { label: 'DL Front', url: dlFrontUrl, appField: 'dl_front_url' },
+              { label: 'DL Rear', url: dlRearUrl, appField: 'dl_rear_url' },
+              { label: 'Medical Certificate', url: medCertDocUrl, appField: 'medical_cert_url' },
             ].filter(d => d.url).map(doc => (
               <button
                 key={doc.label}
@@ -2640,7 +2640,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '') ?? '';
                       url = `${base}${url}`;
                     }
-                    setStage2Preview({ url, name: doc.label, docType: 'application_doc' });
+                    setStage2Preview({ url, name: doc.label, docType: 'application_doc', appField: doc.appField });
                   } else {
                     toast({ title: 'Could not load document preview', variant: 'destructive' });
                   }
@@ -5842,7 +5842,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           url={stage2Preview.url}
           name={stage2Preview.name}
           onClose={() => setStage2Preview(null)}
-          onEdit={() => {
+          onEdit={stage2Preview.docType !== 'application_doc' ? () => {
             const pathPrefix = `${operatorId}/${stage2Preview.docType}`;
             setStage2Editing({
               url: stage2Preview.url,
@@ -5851,7 +5851,31 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               path: pathPrefix,
             });
             setStage2Preview(null);
-          }}
+          } : undefined}
+          onSaved={stage2Preview.appField ? async (newUrl: string) => {
+            // Extract raw storage path from the signed URL to persist in DB
+            const field = stage2Preview.appField!;
+            const appId = applicationData?.id;
+            if (!appId) return;
+            // Extract the object path from the signed URL
+            let storagePath = newUrl;
+            const marker = '/object/sign/application-documents/';
+            const idx = newUrl.indexOf(marker);
+            if (idx !== -1) {
+              storagePath = decodeURIComponent(newUrl.slice(idx + marker.length).split('?')[0]);
+            }
+            const { error } = await supabase.from('applications').update({ [field]: storagePath }).eq('id', appId);
+            if (error) {
+              toast({ title: 'Failed to save edited document', variant: 'destructive' });
+              return;
+            }
+            // Update local state with the raw path
+            if (field === 'dl_front_url') setDlFrontUrl(storagePath);
+            else if (field === 'dl_rear_url') setDlRearUrl(storagePath);
+            else if (field === 'medical_cert_url') setMedCertDocUrl(storagePath);
+            toast({ title: 'Document updated', description: 'Edited document saved.' });
+            setStage2Preview(null);
+          } : undefined}
         />
       )}
 
