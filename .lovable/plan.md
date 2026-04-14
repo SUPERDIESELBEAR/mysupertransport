@@ -1,43 +1,38 @@
 
-Diagnosis:
-- Bobby Thompson’s CDL is most likely going through the built-in `FilePreviewModal` editing path in `OperatorDetailPanel`, not the `ApplicationReviewDrawer` path.
-- That path still has two structural problems:
-  1. `DocumentEditor` saves to a new `_edited` object instead of replacing the original file.
-  2. `FilePreviewModal` keeps rendering the old signed URL after save, so the UI appears to “revert” even when a save callback runs.
 
-Plan:
-1. Update `src/components/shared/DocumentEditor.tsx`
-   - Save back to the original `filePath` instead of creating `${basePath}_edited...`.
-   - Keep `upsert: true`.
-   - Generate and return a fresh signed URL for the overwritten file so callers can immediately refresh the preview.
+## Fix: IRP Registration Edit Reverts on Reopen
 
-2. Update `src/components/inspection/DocRow.tsx` (`FilePreviewModal`)
-   - Add local state for the currently displayed preview URL instead of always rendering the initial `url` prop.
-   - After a successful editor save, replace that local preview URL with the new signed URL before closing the nested editor.
-   - Keep awaiting `onSaved` so persistence finishes before the editor fully closes.
+### Problem
+When editing the IRP Registration (or any inspection document), the `DocumentEditor` overwrites the file in storage and generates a fresh signed URL. However, the `inspection_documents.file_url` in the database is never updated with this new URL. When the user closes and reopens the preview, the old signed URL from the database is used, and the browser serves the cached old image from that URL.
 
-3. Update `src/pages/staff/OperatorDetailPanel.tsx`
-   - In the CDL / medical-cert save callback, normalize the returned storage path and update:
-     - the database record,
-     - the local raw-path state (`dlFrontUrl`, `dlRearUrl`, `medCertDocUrl`),
-     - and `applicationData` so no later re-render restores stale values.
-   - If needed, also refresh the current preview URL so the edited image remains visible immediately.
+This affects three surfaces:
+1. `OperatorBinderPanel` (inside OperatorDetailPanel) — no `onSaved` at all
+2. `InspectionBinderAdmin` — `onSaved` only calls `fetchDocs()`
+3. `OperatorInspectionBinder` — `onSaved` only calls `fetchDocs()`
 
-4. Regression-check `src/components/management/ApplicationReviewDrawer.tsx`
-   - Make sure the overwrite behavior still works there and that its signed-url refresh logic remains compatible with saving to the same storage path.
+### Fix
 
-5. Verify end-to-end
-   - Re-test Bobby Thompson’s CDL in preview.
-   - Confirm all 3 behaviors:
-     - the edited image stays visible immediately after Save,
-     - reopening the CDL still shows the edited version,
-     - refreshing the page still shows the edited version.
+**1. `FilePreviewModal` in `DocRow.tsx`** — After the editor saves, use `inferStorageInfo` to find the document's `file_path`, then update `inspection_documents.file_url` with the new signed URL directly in the `onSave` handler. This centralizes the fix so all three parent surfaces benefit without needing individual changes.
 
-Technical details:
-- Files to update:
-  - `src/components/shared/DocumentEditor.tsx`
-  - `src/components/inspection/DocRow.tsx`
-  - `src/pages/staff/OperatorDetailPanel.tsx`
-  - possibly `src/components/management/ApplicationReviewDrawer.tsx` for consistency
-- No database migration should be needed for this fix.
-- The key change is to treat editing as an overwrite flow, not a “create sibling edited file” flow.
+Specifically, inside the `onSave` callback (lines 553-564):
+- After calling `await onSaved(newUrl)`, also run a database update:
+  - Use the `effectivePath` (already computed) to match the `inspection_documents` record by `file_path`
+  - Update `file_url` to `newUrl`
+- This ensures reopening the doc uses the fresh signed URL
+
+**2. `OperatorBinderPanel.tsx`** — Pass `onSaved={() => fetchDocs()}` to `FilePreviewModal` so it re-fetches after the DB update (currently passes nothing).
+
+**3. Update `previewUrl` state** — In `InspectionBinderAdmin` and `OperatorBinderPanel`, pass the new URL back to update `previewUrl` state. Alternatively, since `FilePreviewModal` already updates its internal `overrideUrl`, the immediate display works — the DB update just ensures persistence across close/reopen.
+
+### Files to change
+| File | Change |
+|------|--------|
+| `src/components/inspection/DocRow.tsx` | In `FilePreviewModal`'s `onSave`, update `inspection_documents.file_url` WHERE `file_path = effectivePath` |
+| `src/components/inspection/OperatorBinderPanel.tsx` | Add `onSaved={() => fetchDocs()}` to `FilePreviewModal` |
+
+### Why this works
+- The `DocumentEditor` already overwrites the original file and returns a fresh signed URL
+- The fresh signed URL has a different token, busting the browser cache
+- Updating `file_url` in the DB ensures all future renders use the new URL
+- `fetchDocs()` refreshes the parent's doc list with the updated URL
+
