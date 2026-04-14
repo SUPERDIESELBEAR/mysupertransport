@@ -1,24 +1,50 @@
 
 
-## Fix: Crop Disappears After Dragging Edge on Rotated Image
+## Fix: Document Editor White Screen Crash
 
-### Root Cause
-Line 233: `transform: rotate(${rotation}deg)` rotates the image visually via CSS, but `ReactCrop` still measures crop coordinates against the original un-rotated bounding box. After rotation, the crop handle positions no longer map correctly to the image — dragging an edge produces invalid/zero-size crop values, causing the component to collapse and close.
+### Root Cause (reproduced)
+Clicking the edit pencil on Bobby Thompson's CDL produces a completely white screen. The `DocumentEditor` component crashes on mount, and since there is no React Error Boundary anywhere in the component tree, the crash destroys the entire app. The user must refresh the browser to recover.
 
-### Solution
-Instead of CSS rotation, bake the rotation into the image source itself. When the user clicks rotate, render the rotated image onto an off-screen canvas, convert to a data URL, and update `imageSource`. This way `ReactCrop` always operates on a correctly oriented image with matching dimensions.
+The crash is caused by the third-party crop library failing at runtime. This project has gone through three crop libraries (`react-filerobot-image-editor`, `react-easy-crop`, `react-image-crop`) and all have failed. The dependency-based approach is unreliable.
 
-### Changes — single file: `src/components/shared/DocumentEditor.tsx`
+### Solution: Build a zero-dependency crop editor + add error boundary
 
-1. **Store original blob URL separately** — keep `originalSource` (from download) and `imageSource` (possibly rotated) as separate states
-2. **Add `applyRotation` helper** — loads the original image, draws it rotated onto a canvas, returns a new data URL
-3. **On rotate click** — call `applyRotation`, update `imageSource` to the rotated data URL, reset crop to 100%
-4. **Remove CSS `transform: rotate()`** from the `<img>` — the image is already correctly oriented
-5. **Simplify `getCroppedImage`** — remove rotation logic since it's pre-baked; just do a straight pixel crop
-6. **Reset button** — restores `imageSource` back to `originalSource` and resets crop/rotation state
+**1. Rewrite `DocumentEditor.tsx` with native canvas + mouse events (no crop library)**
+- Remove all imports of `react-image-crop`
+- Build the crop overlay entirely with HTML/CSS/mouse events:
+  - Render the image in a container with `object-fit: contain`
+  - Draw a crop rectangle overlay using a `div` with border handles on all four sides and corners
+  - Track mouse/touch drag on each handle to resize the crop area
+  - Semi-transparent overlay outside the crop area (like the standard crop UX)
+- Keep the existing rotation (canvas bake), save, and Supabase upload logic unchanged
+- This approach has zero external dependencies and cannot break due to package incompatibility
 
-### Why this fixes the issue
-- `ReactCrop` always sees a non-transformed image whose dimensions match the crop coordinate space
-- Dragging any edge works correctly because the bounding box is accurate
-- No more collapsed/zero-size crops causing the editor to vanish
+**2. Add an Error Boundary wrapper around every `DocumentEditor` mount point**
+- Create a small `EditorErrorBoundary` class component that catches render errors
+- Shows a "Something went wrong — Close" fallback instead of a white screen
+- Wrap the `Suspense` + `DocumentEditor` in this boundary in:
+  - `DocRow.tsx` (FilePreviewModal editor, PDFModal editor, AdminDocRow editor)
+  - `ApplicationReviewDrawer.tsx`
+  - `OperatorDetailPanel.tsx`
+- This ensures even if the editor somehow crashes in the future, the app never locks up
+
+**3. Remove unused crop dependencies from `package.json`**
+- Remove `react-easy-crop`
+- Remove `react-image-crop`
+- Remove `react-konva` (leftover from filerobot)
+
+### Files changed
+| File | Change |
+|------|--------|
+| `src/components/shared/DocumentEditor.tsx` | Replace `react-image-crop` with native canvas/mouse crop UI |
+| `src/components/shared/EditorErrorBoundary.tsx` | New error boundary component |
+| `src/components/inspection/DocRow.tsx` | Wrap editor mounts in error boundary |
+| `src/components/management/ApplicationReviewDrawer.tsx` | Wrap editor mount in error boundary |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Wrap editor mounts in error boundary |
+| `package.json` | Remove `react-easy-crop`, `react-image-crop`, `react-konva` |
+
+### Expected result
+- Clicking the pencil opens a working editor with draggable trim handles on all sides
+- If anything goes wrong, a fallback UI with a Close button appears instead of a white screen
+- No third-party crop library dependencies that can break
 
