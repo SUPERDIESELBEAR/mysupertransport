@@ -558,6 +558,8 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
                     console.error('onSaved callback error:', err);
                   }
                 }
+                // Update preview URL so the modal shows the freshly edited image
+                if (newUrl) setOverrideUrl(newUrl);
                 setShowEditor(false);
               }}
             />
