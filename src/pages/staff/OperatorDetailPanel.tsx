@@ -5855,7 +5855,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           onSaved={stage2Preview.appField ? async (newUrl: string) => {
             // Update the applications table with the new edited URL
             const field = stage2Preview.appField!;
-            const appId = app?.id;
+            const appId = applicationData?.id;
             if (!appId) return;
             const { error } = await supabase.from('applications').update({ [field]: newUrl }).eq('id', appId);
             if (error) {
