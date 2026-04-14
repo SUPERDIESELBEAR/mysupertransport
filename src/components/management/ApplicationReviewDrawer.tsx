@@ -26,6 +26,8 @@ import PreEmploymentAuthorizationsDoc from '@/components/application/documents/P
 import DOTDrugAlcoholQuestionsDoc from '@/components/application/documents/DOTDrugAlcoholQuestionsDoc';
 import CompanyTestingPolicyCertDoc from '@/components/application/documents/CompanyTestingPolicyCertDoc';
 
+type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
+
 interface ApplicationReviewDrawerProps {
   app: FullApplication | null;
   onClose: () => void;
@@ -233,23 +235,43 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
 
   // In-app document preview & edit state
-  const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string; key: string } | null>(null);
-  const [editingDoc, setEditingDoc] = useState<{ url: string; name: string; bucket: string; path: string; key: string } | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string; key: EditableDocumentKey } | null>(null);
+  const [editingDoc, setEditingDoc] = useState<{ url: string; name: string; bucket: string; path: string; key: EditableDocumentKey } | null>(null);
+  const [editedDocPaths, setEditedDocPaths] = useState<Partial<Record<EditableDocumentKey, string>>>({});
 
   const extractStoragePath = useCallback((url: string | null, bucket: string): string | null => {
     if (!url) return null;
     // If it's already just a path (no http), return as-is
     if (!url.startsWith('http')) return url;
-    // Extract path after /object/public/<bucket>/
-    const publicMarker = `/object/public/${bucket}/`;
-    const idx = url.indexOf(publicMarker);
-    if (idx !== -1) return url.slice(idx + publicMarker.length);
-    // Try /storage/v1/object/public/<bucket>/
-    const storageMarker = `/storage/v1/object/public/${bucket}/`;
-    const idx2 = url.indexOf(storageMarker);
-    if (idx2 !== -1) return url.slice(idx2 + storageMarker.length);
+
+    const markers = [
+      `/object/sign/${bucket}/`,
+      `/storage/v1/object/sign/${bucket}/`,
+      `/object/public/${bucket}/`,
+      `/storage/v1/object/public/${bucket}/`,
+    ];
+
+    for (const marker of markers) {
+      const idx = url.indexOf(marker);
+      if (idx !== -1) {
+        return decodeURIComponent(url.slice(idx + marker.length).split('?')[0]);
+      }
+    }
+
     return null;
   }, []);
+
+  const getCurrentDocumentPath = useCallback((key: EditableDocumentKey): string | null => {
+    if (editedDocPaths[key]) return editedDocPaths[key] ?? null;
+
+    if (key === 'dl_front_url') return app?.dl_front_url ?? null;
+    if (key === 'dl_rear_url') return app?.dl_rear_url ?? null;
+    return app?.medical_cert_url ?? null;
+  }, [app?.dl_front_url, app?.dl_rear_url, app?.medical_cert_url, editedDocPaths]);
+
+  useEffect(() => {
+    setEditedDocPaths({});
+  }, [app?.id]);
 
   useEffect(() => {
     if (!app) return;
@@ -1068,9 +1090,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           name={previewDoc.name}
           onClose={() => setPreviewDoc(null)}
           onEdit={() => {
-            const rawUrl = previewDoc.key === 'dl_front_url' ? app.dl_front_url
-              : previewDoc.key === 'dl_rear_url' ? app.dl_rear_url
-              : app.medical_cert_url;
+            const rawUrl = getCurrentDocumentPath(previewDoc.key);
             const path = extractStoragePath(rawUrl, 'application-documents') ?? rawUrl ?? '';
             setEditingDoc({
               url: previewDoc.url,
@@ -1094,15 +1114,24 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
               bucketName={editingDoc.bucket}
               filePath={editingDoc.path}
               onClose={() => setEditingDoc(null)}
-              onSave={(newUrl) => {
-                const refreshSignedUrl = async () => {
-                  const path = extractStoragePath(newUrl, editingDoc.bucket) ?? newUrl;
-                  const { data } = await supabase.storage.from(editingDoc.bucket).createSignedUrl(path, 3600);
-                  if (data?.signedUrl) {
-                    setSignedUrls(prev => ({ ...prev, [editingDoc.key]: data.signedUrl }));
-                  }
-                };
-                refreshSignedUrl();
+              onSave={async (newUrl) => {
+                const path = extractStoragePath(newUrl, editingDoc.bucket) ?? newUrl;
+                const { error } = await supabase
+                  .from('applications')
+                  .update({ [editingDoc.key]: path })
+                  .eq('id', app.id);
+
+                if (error) {
+                  throw new Error(error.message);
+                }
+
+                setEditedDocPaths(prev => ({ ...prev, [editingDoc.key]: path }));
+
+                const { data } = await supabase.storage.from(editingDoc.bucket).createSignedUrl(path, 3600);
+                if (data?.signedUrl) {
+                  setSignedUrls(prev => ({ ...prev, [editingDoc.key]: data.signedUrl }));
+                }
+
                 setEditingDoc(null);
                 toast.success('Document updated successfully');
               }}
