@@ -547,9 +547,15 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
               bucketName={effectiveBucket}
               filePath={effectivePath}
               onClose={() => setShowEditor(false)}
-              onSave={(newUrl) => {
+              onSave={async (newUrl) => {
+                if (onSaved) {
+                  try {
+                    await onSaved(newUrl);
+                  } catch (err) {
+                    console.error('onSaved callback error:', err);
+                  }
+                }
                 setShowEditor(false);
-                onSaved?.(newUrl);
               }}
             />
           </Suspense>
