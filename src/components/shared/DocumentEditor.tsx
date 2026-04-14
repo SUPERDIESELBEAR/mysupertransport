@@ -15,55 +15,58 @@ interface DocumentEditorProps {
   onClose: () => void;
 }
 
-/** Apply rotation then crop via canvas */
+/** Load an image element from a source URL/data-URL */
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+/** Bake a 90° rotation into the image, returning a new data URL */
+async function bakeRotation(src: string, degrees: number): Promise<string> {
+  const img = await loadImage(src);
+  const rad = (degrees * Math.PI) / 180;
+  const sin = Math.abs(Math.sin(rad));
+  const cos = Math.abs(Math.cos(rad));
+  const w = img.naturalWidth * cos + img.naturalHeight * sin;
+  const h = img.naturalWidth * sin + img.naturalHeight * cos;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  ctx.translate(w / 2, h / 2);
+  ctx.rotate(rad);
+  ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+  return canvas.toDataURL('image/png');
+}
+
+/** Straight pixel crop — no rotation needed since it's pre-baked */
 async function getCroppedImage(
   image: HTMLImageElement,
   pixelCrop: PixelCrop,
-  rotation: number,
 ): Promise<Blob> {
-  const radians = (rotation * Math.PI) / 180;
-  const sin = Math.abs(Math.sin(radians));
-  const cos = Math.abs(Math.cos(radians));
-
-  const bW = image.naturalWidth * cos + image.naturalHeight * sin;
-  const bH = image.naturalWidth * sin + image.naturalHeight * cos;
-
-  // Draw rotated full image
-  const rotCanvas = document.createElement('canvas');
-  rotCanvas.width = bW;
-  rotCanvas.height = bH;
-  const rotCtx = rotCanvas.getContext('2d')!;
-  rotCtx.translate(bW / 2, bH / 2);
-  rotCtx.rotate(radians);
-  rotCtx.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2);
-
-  // Scale factor: displayed size vs natural size (after rotation)
   const scaleX = image.naturalWidth / image.width;
   const scaleY = image.naturalHeight / image.height;
 
-  // For rotation, the displayed bounding box also changes, but react-image-crop
-  // gives us pixel coords relative to the displayed <img>. We need to map those
-  // to the rotated canvas coordinates.
-  // Since we rotate the underlying image and the crop is on the *displayed* image,
-  // when rotation is 0 this is a straight 1:1 mapping scaled by scaleX/scaleY.
-  // For rotated images we apply rotation on the canvas first, then crop.
+  const canvas = document.createElement('canvas');
+  canvas.width = pixelCrop.width * scaleX;
+  canvas.height = pixelCrop.height * scaleY;
+  const ctx = canvas.getContext('2d')!;
 
-  const cropCanvas = document.createElement('canvas');
-  cropCanvas.width = pixelCrop.width * scaleX;
-  cropCanvas.height = pixelCrop.height * scaleY;
-  const cropCtx = cropCanvas.getContext('2d')!;
-
-  // When rotation is 0, rotCanvas equals original image
-  cropCtx.drawImage(
-    rotCanvas,
+  ctx.drawImage(
+    image,
     pixelCrop.x * scaleX, pixelCrop.y * scaleY,
     pixelCrop.width * scaleX, pixelCrop.height * scaleY,
     0, 0,
-    cropCanvas.width, cropCanvas.height,
+    canvas.width, canvas.height,
   );
 
   return new Promise<Blob>((resolve, reject) => {
-    cropCanvas.toBlob(
+    canvas.toBlob(
       (blob) => blob ? resolve(blob) : reject(new Error('Canvas toBlob failed')),
       'image/png',
       1,
@@ -73,16 +76,16 @@ async function getCroppedImage(
 
 export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave, onClose }: DocumentEditorProps) {
   const { toast } = useToast();
+  const [originalSource, setOriginalSource] = useState<string | null>(null);
   const [imageSource, setImageSource] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const [rotationTotal, setRotationTotal] = useState(0);
 
-  // Crop state – percentage-based so it starts covering the full image
   const [crop, setCrop] = useState<Crop>({ unit: '%', x: 0, y: 0, width: 100, height: 100 });
   const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
-  const [rotation, setRotation] = useState(0);
 
   /** Download blob from Supabase SDK (bypasses CORS) or fetch */
   const downloadBlob = useCallback(async (): Promise<Blob> => {
@@ -108,6 +111,7 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
       .then((blob) => {
         if (cancelled) return;
         objectUrl = URL.createObjectURL(blob);
+        setOriginalSource(objectUrl);
         setImageSource(objectUrl);
       })
       .catch((err) => {
@@ -124,19 +128,35 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
     };
   }, [downloadBlob]);
 
-  const handleRotateRight = () => setRotation((r) => (r + 90) % 360);
-  const handleRotateLeft = () => setRotation((r) => (r - 90 + 360) % 360);
-  const handleReset = () => {
+  const resetCrop = () => {
     setCrop({ unit: '%', x: 0, y: 0, width: 100, height: 100 });
     setCompletedCrop(null);
-    setRotation(0);
+  };
+
+  const handleRotate = useCallback(async (dir: 90 | -90) => {
+    if (!originalSource) return;
+    const newTotal = (rotationTotal + dir + 360) % 360;
+    setRotationTotal(newTotal);
+    if (newTotal === 0) {
+      setImageSource(originalSource);
+    } else {
+      const rotated = await bakeRotation(originalSource, newTotal);
+      setImageSource(rotated);
+    }
+    resetCrop();
+  }, [originalSource, rotationTotal]);
+
+  const handleReset = () => {
+    setRotationTotal(0);
+    setImageSource(originalSource);
+    resetCrop();
   };
 
   const handleSave = useCallback(async () => {
     if (!imgRef.current || !completedCrop) return;
     setSaving(true);
     try {
-      const blob = await getCroppedImage(imgRef.current, completedCrop, rotation);
+      const blob = await getCroppedImage(imgRef.current, completedCrop);
 
       if (bucketName && filePath) {
         const ext = (filePath.match(/\.\w+$/) || ['.png'])[0];
@@ -175,7 +195,7 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
     } finally {
       setSaving(false);
     }
-  }, [completedCrop, rotation, bucketName, filePath, fileName, toast, onSave, onClose]);
+  }, [completedCrop, bucketName, filePath, fileName, toast, onSave, onClose]);
 
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col bg-black/95">
@@ -230,12 +250,8 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
                 maxWidth: '100%',
                 maxHeight: 'calc(100vh - 160px)',
                 objectFit: 'contain',
-                transform: `rotate(${rotation}deg)`,
               }}
-              onLoad={() => {
-                // Reset crop to full image on load
-                setCrop({ unit: '%', x: 0, y: 0, width: 100, height: 100 });
-              }}
+              onLoad={() => resetCrop()}
             />
           </ReactCrop>
         )}
@@ -249,10 +265,10 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={handleRotateLeft} title="Rotate left">
+              <Button size="sm" variant="outline" onClick={() => handleRotate(-90)} title="Rotate left">
                 <RotateCcw className="h-4 w-4" />
               </Button>
-              <Button size="sm" variant="outline" onClick={handleRotateRight} title="Rotate right">
+              <Button size="sm" variant="outline" onClick={() => handleRotate(90)} title="Rotate right">
                 <RotateCw className="h-4 w-4" />
               </Button>
               <Button size="sm" variant="outline" onClick={handleReset} title="Reset">
