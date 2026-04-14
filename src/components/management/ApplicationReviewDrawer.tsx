@@ -1086,28 +1086,29 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
       {/* In-app document editor */}
       {editingDoc && (
-        <Suspense fallback={null}>
-          <DocumentEditor
-            fileUrl={editingDoc.url}
-            fileName={editingDoc.name}
-            bucketName={editingDoc.bucket}
-            filePath={editingDoc.path}
-            onClose={() => setEditingDoc(null)}
-            onSave={(newUrl) => {
-              // Refresh signed URL for the edited doc
-              const refreshSignedUrl = async () => {
-                const path = extractStoragePath(newUrl, editingDoc.bucket) ?? newUrl;
-                const { data } = await supabase.storage.from(editingDoc.bucket).createSignedUrl(path, 3600);
-                if (data?.signedUrl) {
-                  setSignedUrls(prev => ({ ...prev, [editingDoc.key]: data.signedUrl }));
-                }
-              };
-              refreshSignedUrl();
-              setEditingDoc(null);
-              toast.success('Document updated successfully');
-            }}
-          />
-        </Suspense>
+        <EditorErrorBoundary onClose={() => setEditingDoc(null)}>
+          <Suspense fallback={null}>
+            <DocumentEditor
+              fileUrl={editingDoc.url}
+              fileName={editingDoc.name}
+              bucketName={editingDoc.bucket}
+              filePath={editingDoc.path}
+              onClose={() => setEditingDoc(null)}
+              onSave={(newUrl) => {
+                const refreshSignedUrl = async () => {
+                  const path = extractStoragePath(newUrl, editingDoc.bucket) ?? newUrl;
+                  const { data } = await supabase.storage.from(editingDoc.bucket).createSignedUrl(path, 3600);
+                  if (data?.signedUrl) {
+                    setSignedUrls(prev => ({ ...prev, [editingDoc.key]: data.signedUrl }));
+                  }
+                };
+                refreshSignedUrl();
+                setEditingDoc(null);
+                toast.success('Document updated successfully');
+              }}
+            />
+          </Suspense>
+        </EditorErrorBoundary>
       )}
     </div>
   );
