@@ -534,7 +534,11 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
 
       {/* Built-in Document Editor */}
       {showEditor && effectiveBucket && effectivePath && (
-        <Suspense fallback={null}>
+        <Suspense fallback={
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90">
+            <Loader2 className="h-8 w-8 text-gold animate-spin" />
+          </div>
+        }>
           <DocumentEditor
             fileUrl={resolvedUrl}
             fileName={name}
