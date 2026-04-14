@@ -1,21 +1,42 @@
 
 
-## Fix: Editor Closes When Dragging Crop Handles
+## Fix: Document Editor Save Fails and Reverts to Original
 
 ### Root Cause
-The `DocumentEditor` is rendered **inside** the `FilePreviewModal` backdrop div, which has `onClick={onClose}` (line 363 of DocRow.tsx). The editor's root `<div>` (line 276 of DocumentEditor.tsx) does **not** call `e.stopPropagation()`. When the user finishes dragging a crop handle, the `mouseup` completes and the browser synthesizes a `click` event that bubbles up to the backdrop's `onClick={onClose}`, closing the entire preview modal and destroying the editor.
+When editing Bobby Thompson's CDL (DL Front/Rear) from the Operator Detail Panel, the `stage2Preview` edit handler (line 5845-5853 of `OperatorDetailPanel.tsx`) constructs the wrong storage info:
 
-### Fix — two lines
-Add `onClick={e => e.stopPropagation()}` to the editor's root `<div>` in `DocumentEditor.tsx` (line 276). This prevents any click/mouseup within the editor from reaching the parent modal's backdrop close handler.
+```
+bucket: 'operator-documents'    // ← WRONG: CDL files are in 'application-documents'
+path:   '${operatorId}/application_doc'  // ← WRONG: this is a made-up prefix, not the actual file path
+```
 
-**File: `src/components/shared/DocumentEditor.tsx`**
-- Line 276: change `<div className="fixed inset-0 z-[9999] flex flex-col bg-black/95">` to `<div className="fixed inset-0 z-[9999] flex flex-col bg-black/95" onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>`.
+This causes two failures:
+1. **Save fails** — the upload targets the wrong bucket with an invalid path, triggering the "Save failed" toast
+2. **Reverts to original** — even if save succeeded, the database URL (`dl_front_url` / `dl_rear_url` / `medical_cert_url` in the `applications` table) is never updated, so re-opening shows the old file
 
-This single change stops all mouse events from bubbling out of the editor, preventing the parent modal from closing during crop interactions.
+### Fix
 
-### Why this is the complete fix
-- The crop drag logic (mousedown → mousemove → mouseup on `window`) is correct
-- The crop coordinate math is correct
-- The only problem is event propagation closing the parent modal
-- No other files need changes
+**Remove the broken `onEdit` prop from the application-doc `FilePreviewModal`** and instead rely on the `FilePreviewModal`'s built-in edit which uses `inferStorageInfo` — this already correctly extracts bucket and path from signed URLs for `application-documents`.
+
+Then add an `onSaved` callback that updates the correct column in the `applications` table.
+
+**File: `src/pages/staff/OperatorDetailPanel.tsx`**
+
+1. Store which application doc field is being previewed (e.g. `dl_front_url`, `dl_rear_url`, `medical_cert_url`) alongside the `stage2Preview` state
+2. For the application-doc `FilePreviewModal` (DL Front, DL Rear, Med Cert), remove `onEdit` so the built-in `inferStorageInfo` path handles storage correctly
+3. Add `onSaved` callback that:
+   - Updates the `applications` table with the new URL for the correct column
+   - Updates local state (`setDlFrontUrl`, `setDlRearUrl`, or `setMedCertDocUrl`)
+
+4. Remove the now-unnecessary `stage2Editing` `DocumentEditor` for application docs (the `FilePreviewModal`'s built-in editor handles it)
+
+### Why this works
+- `inferStorageInfo` already handles signed URLs from `application-documents` bucket (line 282 of DocRow.tsx)
+- The built-in editor in `FilePreviewModal` correctly passes the inferred bucket+path to `DocumentEditor`
+- The `onSaved` callback persists the new URL in the database so subsequent views show the edited image
+
+### Files changed
+| File | Change |
+|------|--------|
+| `src/pages/staff/OperatorDetailPanel.tsx` | Fix application-doc edit: remove `onEdit`, add `onSaved` with DB update |
 
