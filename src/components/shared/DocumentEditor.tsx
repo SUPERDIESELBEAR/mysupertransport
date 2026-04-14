@@ -237,7 +237,7 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
           .createSignedUrl(editedPath, 60 * 60 * 24 * 365);
         const newUrl = signedData?.signedUrl || '';
         toast({ title: 'Document saved', description: 'Edited version saved successfully.' });
-        onSave?.(newUrl);
+        await onSave?.(newUrl);
       } else {
         const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
