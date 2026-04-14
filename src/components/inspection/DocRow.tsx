@@ -309,8 +309,11 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
 }) {
   const [showEditor, setShowEditor] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const syncResolvedUrl = resolveDocumentUrl(url);
-  const { signedUrl, signing } = useSignedUrl(url);
+  // Local override URL so the preview refreshes after an edit save
+  const [overrideUrl, setOverrideUrl] = useState<string | null>(null);
+  const activeUrl = overrideUrl || url;
+  const syncResolvedUrl = resolveDocumentUrl(activeUrl);
+  const { signedUrl, signing } = useSignedUrl(activeUrl);
   const resolvedUrl = signedUrl || syncResolvedUrl;
 
   // Auto-infer bucket/path from URL when not explicitly provided
@@ -555,6 +558,8 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
                     console.error('onSaved callback error:', err);
                   }
                 }
+                // Update preview URL so the modal shows the freshly edited image
+                if (newUrl) setOverrideUrl(newUrl);
                 setShowEditor(false);
               }}
             />
