@@ -1,52 +1,39 @@
 
 
-## Fix: Await `onSaved` Before Closing Editor
+## Fix: DocumentEditor Calls `onClose()` Before `onSave` Completes
 
-### Problem
-In `DocRow.tsx` (line 550-552), the editor's `onSave` handler calls `setShowEditor(false)` **before** invoking `onSaved?.(newUrl)`. This closes the editor immediately, triggering a React re-render that can interrupt the async database update in `OperatorDetailPanel.tsx`. The result: the upload succeeds but the database record is never updated, so the original image reappears.
+### Root Cause
+In `DocumentEditor.tsx` (line 240), `onSave?.(newUrl)` is called **without `await`**, and then `onClose()` is called on line 250. This means:
 
-### Changes
+1. `onSave` starts (async) — triggers the `DocRow` handler which awaits `onSaved` (the DB update)
+2. `onClose()` fires immediately — unmounts the editor
+3. The DB update from step 1 gets interrupted or silently fails
 
-**1. `src/components/inspection/DocRow.tsx` (lines 550-553)**
+The previous fix in `DocRow.tsx` (awaiting `onSaved`) was correct but ineffective because the problem is one layer deeper: `DocumentEditor` itself never awaits `onSave`.
 
-Change the `onSave` callback to await `onSaved` before closing:
+### Fix — One line change
 
+**`src/components/shared/DocumentEditor.tsx` (line 240)**
+
+Change:
 ```typescript
-onSave={async (newUrl) => {
-  if (onSaved) {
-    try {
-      await onSaved(newUrl);
-    } catch (err) {
-      console.error('onSaved callback error:', err);
-    }
-  }
-  setShowEditor(false);
-}}
+onSave?.(newUrl);
+```
+To:
+```typescript
+await onSave?.(newUrl);
 ```
 
-**2. `src/pages/staff/OperatorDetailPanel.tsx` (lines 5855-5878)**
+And remove the separate `onClose()` call on line 250, since the `DocRow` handler already calls `setShowEditor(false)` after the DB update completes. Alternatively, keep `onClose()` but only after the await.
 
-Wrap the `onSaved` body in try/catch for error visibility:
+### Files changed
+| File | Change |
+|------|--------|
+| `src/components/shared/DocumentEditor.tsx` | `await onSave?.(newUrl)` on line 240; remove or move `onClose()` after await |
 
-```typescript
-onSaved={stage2Preview.appField ? async (newUrl: string) => {
-  try {
-    const field = stage2Preview.appField!;
-    const appId = applicationData?.id;
-    if (!appId) {
-      toast({ title: 'No application record found', variant: 'destructive' });
-      return;
-    }
-    // ... existing extraction and DB update logic (unchanged) ...
-  } catch (err: any) {
-    console.error('onSaved error:', err);
-    toast({ title: 'Save failed', description: err?.message, variant: 'destructive' });
-  }
-} : undefined}
-```
-
-### Why this is the final fix
-- The storage upload and RLS policies are now correct (confirmed by "Document saved" toast)
-- The only remaining issue is timing: the editor unmounts before the DB update runs
-- Awaiting `onSaved` ensures the database write completes while the component is still mounted
+### Why this is the actual fix
+- The storage upload succeeds (confirmed by "Document saved" toast)
+- The `onSaved` DB update in `OperatorDetailPanel.tsx` is correct
+- The `DocRow.tsx` await logic is correct
+- The only remaining gap is `DocumentEditor` not awaiting the async `onSave` callback before calling `onClose()`
 
