@@ -1,25 +1,39 @@
 
 
-## Add Duplicate-Prevention Guards to Equipment System
+## Normalize Serial Numbers: Strip Dashes & Spaces
+
+### Problem
+A serial number entered as `ABC-123` and `ABC123` (or `ABC 123`) are treated as different devices by both the UI duplicate check and the database unique index. This allows accidental duplicates.
+
+### Solution
+Normalize serial numbers by stripping all dashes, spaces, and dots before comparison and storage. This affects three locations:
 
 ### Changes
 
-**1. `src/components/equipment/EquipmentItemModal.tsx` — Block duplicate serial + type on add/edit**
-- In `handleSave`, before inserting/updating, query `equipment_items` for an existing row with the same `serial_number` (uppercased) and `device_type`
-- If editing, exclude the current item's `id` from the check
-- If a duplicate is found, show a destructive toast: "A {device type} with serial {serial} already exists" and abort
+**1. `src/components/equipment/EquipmentItemModal.tsx`**
+- Update the `normalizedSerial` line to strip non-alphanumeric characters: `serialNumber.trim().replace(/[-.\s]/g, '').toUpperCase()`
+- Store the normalized value in the database (not the raw input)
 
-**2. `src/components/equipment/EquipmentAssignModal.tsx` — Block assigning an already-assigned device**
-- In `handleAssign`, before inserting the assignment, query `equipment_assignments` for any row where `equipment_id = item.id` and `returned_at IS NULL`
-- If an active assignment exists, show a destructive toast: "This device is already assigned to another operator" and abort
+**2. `src/lib/equipmentSync.ts`**
+- Apply the same normalization to the `serial` variable before querying or inserting: `.trim().replace(/[-.\s]/g, '').toUpperCase()`
 
-**3. Database unique constraint (migration)**
-- Add a unique index on `equipment_items(serial_number, device_type)` as a backend safety net, so even if the UI check is bypassed, the database rejects duplicates
+**3. Database migration**
+- Drop and recreate the unique index to use the stripped form:
+```sql
+DROP INDEX IF EXISTS idx_equipment_items_serial_type;
+CREATE UNIQUE INDEX idx_equipment_items_serial_type
+  ON public.equipment_items (
+    upper(replace(replace(replace(serial_number, '-', ''), '.', ''), ' ', '')),
+    device_type
+  );
+```
+- Update any existing rows to normalize stored serial numbers:
+```sql
+UPDATE public.equipment_items
+SET serial_number = upper(replace(replace(replace(serial_number, '-', ''), '.', ''), ' ', ''))
+WHERE serial_number <> upper(replace(replace(replace(serial_number, '-', ''), '.', ''), ' ', ''));
+```
 
-### Files to change
-| File | Change |
-|------|--------|
-| `src/components/equipment/EquipmentItemModal.tsx` | Add duplicate serial+type check before save |
-| `src/components/equipment/EquipmentAssignModal.tsx` | Add active-assignment check before assign |
-| Database migration | `CREATE UNIQUE INDEX` on `equipment_items(serial_number, device_type)` |
+### Result
+Whether a user types `ABC-123`, `ABC 123`, or `ABC123`, the system will store `ABC123` and correctly detect duplicates across the board.
 
