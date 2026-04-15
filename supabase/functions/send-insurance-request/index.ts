@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encode as base64Encode } from "https://deno.land/std@0.208.0/encoding/base64.ts";
 import { emailHeader, emailFooter } from '../_shared/email-layout.ts';
 
 const corsHeaders = {
