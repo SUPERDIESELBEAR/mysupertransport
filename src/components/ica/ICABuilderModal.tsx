@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X, ChevronRight, ChevronLeft, Save, Send, FileText, Pen, Clock, CheckCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateInput } from '@/components/ui/date-input';
 import DemoLockIcon from '@/components/DemoLockIcon';
 import SignatureCanvas from 'react-signature-canvas';
