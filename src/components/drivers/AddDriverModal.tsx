@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Loader2, Truck } from 'lucide-react';
 import DemoLockIcon from '@/components/DemoLockIcon';
 import { DateInput } from '@/components/ui/date-input';
+import { syncDeviceToInventory } from '@/lib/equipmentSync';
 
 const US_STATES = [
   'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA',
@@ -154,6 +155,23 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
             .update(onboardingUpdate)
             .eq('operator_id', operator.id);
         }
+
+        // Two-way sync: create/assign devices in Equipment Inventory
+        const deviceFields = [
+          { field: 'eld_serial_number', type: 'eld' as const },
+          { field: 'dash_cam_number', type: 'dash_cam' as const },
+          { field: 'bestpass_number', type: 'bestpass' as const },
+          { field: 'fuel_card_number', type: 'fuel_card' as const },
+        ];
+        const syncPromises = deviceFields
+          .filter(d => (form[d.field as keyof typeof form] as string).trim())
+          .map(d => syncDeviceToInventory(
+            operator.id,
+            d.type,
+            (form[d.field as keyof typeof form] as string).trim(),
+            session?.user?.id ?? null,
+          ));
+        if (syncPromises.length > 0) await Promise.all(syncPromises);
 
         // If truck info was provided, create an ICA contract record to hold it
         const hasTruckInfo = form.truck_year || form.truck_make || form.truck_model || form.truck_vin || form.truck_plate;
