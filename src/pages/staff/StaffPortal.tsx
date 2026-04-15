@@ -176,21 +176,25 @@ export default function StaffPortal() {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  // Realtime: increment notification badge
+  // Realtime: sync notification badge on any change (insert, update/read)
   useEffect(() => {
     if (!user) return;
+    const refetchCount = () => {
+      supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .is('read_at', null)
+        .then(({ count }) => setUnreadNotifCount(count ?? 0));
+    };
     const channel = supabase
       .channel('staff-unread-notif-badge')
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'notifications',
         filter: `user_id=eq.${user.id}`,
-      }, () => {
-        if (viewRef.current !== 'notifications') {
-          setUnreadNotifCount(prev => prev + 1);
-        }
-      })
+      }, refetchCount)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user]);
