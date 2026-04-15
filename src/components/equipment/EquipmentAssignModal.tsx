@@ -67,6 +67,19 @@ export default function EquipmentAssignModal({ open, item, onClose, onSaved }: P
     }
     setSaving(true);
 
+    // Check for active assignment (prevent double-assign)
+    const { data: activeAssign } = await supabase
+      .from('equipment_assignments')
+      .select('id')
+      .eq('equipment_id', item.id)
+      .is('returned_at', null)
+      .limit(1);
+    if (activeAssign && activeAssign.length > 0) {
+      toast({ title: 'This device is already assigned to another operator', variant: 'destructive' });
+      setSaving(false);
+      return;
+    }
+
     // 1. Create assignment record
     const { error: assignError } = await supabase.from('equipment_assignments').insert({
       equipment_id: item.id,

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX idx_equipment_items_serial_type ON public.equipment_items (upper(serial_number), device_type);
