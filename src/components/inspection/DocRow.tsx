@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { pdfToImage } from '@/lib/pdfToImage';
 import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut, Pencil } from 'lucide-react';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { supabase } from '@/integrations/supabase/client';
@@ -308,6 +309,8 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   onSaved?: (newUrl: string) => void;
 }) {
   const [showEditor, setShowEditor] = useState(false);
+  const [pdfImageSource, setPdfImageSource] = useState<string | null>(null);
+  const [convertingPdf, setConvertingPdf] = useState(false);
   const [loaded, setLoaded] = useState(false);
   // Local override URL so the preview refreshes after an edit save
   const [overrideUrl, setOverrideUrl] = useState<string | null>(null);
