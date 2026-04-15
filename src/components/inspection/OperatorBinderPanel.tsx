@@ -218,7 +218,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
                     size="sm"
                     variant="ghost"
                     className="h-8 w-8 p-0"
-                    onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(docName); }}
+                    onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(docName); setPreviewFilePath(doc.file_path ?? null); setPreviewBucket('inspection-documents'); }}
                   >
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
@@ -430,7 +430,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
                                   size="sm"
                                   variant="ghost"
                                   className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                                  onClick={() => { setPreviewUrl(upload.file_url!); setPreviewName(upload.file_name ?? 'Document'); }}
+                                  onClick={() => { setPreviewUrl(upload.file_url!); setPreviewName(upload.file_name ?? 'Document'); setPreviewFilePath((upload as any).file_path ?? null); setPreviewBucket('driver-uploads'); }}
                                 >
                                   <Eye className="h-3.5 w-3.5" />
                                 </Button>
@@ -497,7 +497,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
       </AlertDialog>
 
       {previewUrl && (
-        <FilePreviewModal url={previewUrl} name={previewName} onClose={() => setPreviewUrl(null)} onSaved={async () => { await fetchDocs(); }} />
+        <FilePreviewModal url={previewUrl} name={previewName} onClose={() => { setPreviewUrl(null); setPreviewFilePath(null); setPreviewBucket(null); }} bucketName={previewBucket ?? undefined} filePath={previewFilePath ?? undefined} onSaved={async () => { await fetchDocs(); }} />
       )}
     </div>
   );
