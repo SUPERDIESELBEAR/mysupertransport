@@ -1,38 +1,29 @@
 
 
-## Snapshot Insurance Data in Audit Log
+## Fix Driver's License Link in Insurance Email
 
 ### Problem
-When the Stage 6 insurance email is sent, the stated value and truck details are pulled live from the database. There is no record of exactly what values were communicated. If the data changes later, the original values are lost.
+The DL link in the insurance email uses a raw storage path (e.g. `application-documents/abc/dl.jpg`) instead of a full URL. When the recipient clicks it, the browser interprets it as a domain name — resulting in `DNS_PROBE_FINISHED_NXDOMAIN`.
 
 ### Solution
-Expand the `metadata` object in the existing audit log entry (written by `send-insurance-request`) to include all key insurance data sent in the email. This requires no new tables or migrations — the audit log's `metadata` JSONB column already stores arbitrary data.
+**Attach the driver's license image directly to the email** instead of linking to it. This is the most reliable approach because:
+- Signed URLs expire (typically 1 hour) — useless if the insurance agent opens the email later
+- An attachment is a permanent copy the recipient can save and reference anytime
 
-### Change
+### Changes
 
-**`supabase/functions/send-insurance-request/index.ts`** — line 260
+**`supabase/functions/send-insurance-request/index.ts`**
 
-Update the audit log insert to snapshot the insurance values that were included in the email:
+1. **Download the DL image from storage** — After fetching `app?.dl_front_url`, use the service-role Supabase client to download the file as a `Uint8Array`, then Base64-encode it.
 
-```typescript
-metadata: {
-  recipients,
-  policy_type: policyType,
-  stated_value: os?.insurance_stated_value ?? null,
-  truck_vin: os?.truck_vin || ica?.truck_vin || null,
-  truck_year: os?.truck_year || ica?.truck_year || null,
-  truck_make: os?.truck_make || ica?.truck_make || null,
-  notes: os?.insurance_notes ?? null,
-  ai_company: ai.company,
-  ch_company: ch.company,
-  email_error: emailError,
-}
-```
+2. **Pass the attachment to Resend** — The Resend API accepts a `attachments` array with `{ filename, content }` (Base64-encoded). Add the DL image as an attachment when available.
 
-This means every time the insurance email is sent, the exact stated value, truck info, and recipient list are permanently recorded in the audit log — visible in the Activity Log under Management.
+3. **Update the email template** — Replace the broken `<a href="...">View Driver's License</a>` link with a note: "Driver's license attached" (or keep the "No driver's license on file" fallback).
+
+4. **Also check `operator_documents`** — If `dl_front_url` is null in `applications`, look for a document with `doc_type = 'drivers_license'` in `operator_documents` as a fallback (covers licenses uploaded during onboarding).
 
 ### Files
 | File | Change |
 |------|--------|
-| `supabase/functions/send-insurance-request/index.ts` | Expand audit log metadata to include stated value, truck info, and insurance details |
+| `supabase/functions/send-insurance-request/index.ts` | Download DL from storage, attach to email via Resend API, update email template text |
 
