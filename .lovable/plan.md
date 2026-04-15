@@ -1,49 +1,38 @@
 
 
-## Fix: Clear "Invite Pending" When Operators Become Active
+## Ensure Image Editor (Pencil) Is Available Across All FilePreviewModal Usages
 
 ### Problem
-The `profiles.account_status` field defaults to `'pending'` and is never updated to `'active'` for operators. No trigger, login hook, or edge function transitions it. Every operator permanently shows "Invite Pending" in the Pipeline Dashboard regardless of their actual activity.
+The edit pencil button in the file preview modal only appears when two conditions are met:
+1. The file is an **image** (not a PDF)
+2. The modal has access to `bucketName` and `filePath` (either explicitly passed or successfully inferred from the URL via `inferStorageInfo`)
 
-### Solution
-Set `account_status = 'active'` when an operator logs in for the first time (or any time they log in while still `'pending'`).
+Currently, only `InspectionBinderAdmin` explicitly passes `bucketName` and `filePath`. All other surfaces — including `OperatorInspectionBinder`, `OperatorBinderPanel`, `OperatorDocumentUpload`, `FleetDetailDrawer`, and `OperatorDetailPanel` — rely on URL inference, which may fail depending on the URL format (e.g., if it's a pre-signed URL with query params that confuse the regex).
 
-### Implementation
+**Note:** If a Periodic DOT Inspection document was uploaded as a PDF, the edit pencil will correctly not appear — the canvas-based editor only supports image files. This is expected behavior.
 
-**1. Update `src/hooks/useAuth.tsx`**
-After fetching the profile, if the user's `account_status` is `'pending'`, update it to `'active'` in the database. This is a simple one-time self-update that runs on login.
+### Fix
 
-```typescript
-// After fetching profile successfully:
-if (data.account_status === 'pending') {
-  supabase.from('profiles')
-    .update({ account_status: 'active' })
-    .eq('user_id', userId)
-    .then(() => {});
-}
-```
+**1. `OperatorInspectionBinder.tsx`** — Pass `bucketName` and `filePath` to FilePreviewModal, mirroring the pattern used in InspectionBinderAdmin:
+- Track `previewFilePath` state alongside `previewUrl`/`previewName`
+- When setting preview, capture `doc.file_path`
+- Pass `bucketName="inspection-documents"` and `filePath={previewFilePath}` to the modal
 
-**2. Backfill existing active operators (one-time migration)**
-Run a migration to set `account_status = 'active'` for all operators who have already logged in (i.e., have a `last_sign_in_at` in auth, or have uploaded documents, or have an `onboarding_status` record with progress). The simplest approach: update all profiles that have a matching `operators` record and whose `account_status` is still `'pending'`.
+**2. `OperatorBinderPanel.tsx`** — Same fix: track and pass `bucketName`/`filePath` to FilePreviewModal.
 
-```sql
-UPDATE public.profiles p
-SET account_status = 'active', updated_at = now()
-WHERE p.account_status = 'pending'
-  AND EXISTS (
-    SELECT 1 FROM public.operators o WHERE o.user_id = p.user_id
-  );
-```
+**3. `OperatorDetailPanel.tsx`** — For the CDL/medical cert previews and Stage 2 doc previews, pass `bucketName` and `filePath` when the storage path is known.
 
-This ensures Bobby Thompson and any other active operators immediately clear the badge without waiting for their next login.
+**4. Other surfaces (FleetDetailDrawer, OperatorDocumentUpload, ContractorPaySetup)** — Pass bucket/path where the storage location is known. Where it isn't (e.g., external URLs), the pencil correctly won't appear.
 
 ### Files to change
 | File | Change |
 |------|--------|
-| `src/hooks/useAuth.tsx` | Auto-upgrade `pending` → `active` on profile fetch |
-| New migration | Backfill existing active operators |
+| `src/components/inspection/OperatorInspectionBinder.tsx` | Add `previewFilePath` state; pass `bucketName`/`filePath` to FilePreviewModal |
+| `src/components/inspection/OperatorBinderPanel.tsx` | Add `previewFilePath` state; pass `bucketName`/`filePath` to FilePreviewModal |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Pass `bucketName`/`filePath` to the 3 FilePreviewModal instances where storage paths are available |
+| `src/components/operator/OperatorDocumentUpload.tsx` | Pass `bucketName`/`filePath` to FilePreviewModal |
 
-### No other changes needed
-- The Pipeline Dashboard's `never_logged_in` check already reads `account_status` — once it's `'active'`, the badge disappears automatically.
-- RLS on `profiles` allows users to update their own row (verified via the existing `update` policy pattern used by profile editing).
+### What won't change
+- PDF files will still not show the edit pencil — this is correct since the editor is image-only
+- The `DocumentEditor` component itself needs no changes
 
