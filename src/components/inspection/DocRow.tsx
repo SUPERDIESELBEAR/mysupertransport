@@ -308,6 +308,7 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   /** Called after a successful edit save */
   onSaved?: (newUrl: string) => void;
 }) {
+  const { toast } = useToast();
   const [showEditor, setShowEditor] = useState(false);
   const [pdfImageSource, setPdfImageSource] = useState<string | null>(null);
   const [convertingPdf, setConvertingPdf] = useState(false);
