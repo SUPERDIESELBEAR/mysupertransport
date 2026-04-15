@@ -1,43 +1,40 @@
 
 
-## Convert PDFs to Editable Images in FilePreviewModal
+## Two-Way Sync: Stage 5 Device Fields → Equipment Inventory
 
-### What this does
-When viewing a PDF document anywhere in the app, users will see the same pencil (edit) icon that currently only appears for image files. Clicking it will:
-1. Render the PDF's first page to a canvas using `pdfjs-dist` (Mozilla's PDF.js library)
-2. Export that canvas as a PNG
-3. Open the existing `DocumentEditor` with that PNG
-4. On save, overwrite the original file in storage with the edited PNG (changing the extension from `.pdf` to `.png`)
+### Problem
+When a serial number is entered in Stage 5 of the Pipeline (via `handleTruckDeviceEdit` or the main save flow), the Equipment Inventory is not updated. The sync only works one way: Equipment Inventory → Stage 5 (via `EquipmentAssignModal`).
 
-### How it works
+### Solution
+Add a helper function that, after a device serial number is saved to `onboarding_status`, checks the `equipment_items` table:
+- **If a matching device exists** → create an `equipment_assignments` record (if not already assigned to this operator) and set the device status to `assigned`
+- **If no matching device exists** → create the device in `equipment_items` with status `assigned`, then create the `equipment_assignments` record
+- **If the serial number is cleared** → return the previously assigned device (set status back to `available`, close the assignment)
 
-**1. Install `pdfjs-dist`** — the standard client-side PDF rendering library (~400KB).
+### Implementation
 
-**2. Create a helper `pdfToImage.ts`** in `src/lib/`:
-- Takes a PDF URL, renders page 1 at 2x resolution to a canvas
-- Returns a PNG data URL
-- Handles CORS by fetching the PDF as a blob first (same pattern we use for iframe rendering)
+**1. New helper: `src/lib/equipmentSync.ts`**
+A reusable async function `syncDeviceToInventory(operatorId, deviceType, serialNumber, assignedBy)` that:
+- Queries `equipment_items` for a matching `serial_number` + `device_type`
+- If found and already assigned to this operator → no-op
+- If found but available → creates assignment, sets status to `assigned`
+- If not found → inserts new `equipment_items` row + assignment
+- If `serialNumber` is empty/null → finds any active assignment for this operator+device_type and returns it (sets device back to `available`, sets `returned_at` on assignment)
 
-**3. Update `FilePreviewModal` in `DocRow.tsx`:**
-- Remove the `&& isImage` guard on line 403 so the pencil appears for PDFs too
-- When the user clicks the pencil on a PDF, call the `pdfToImage` helper first
-- Pass the resulting PNG data URL to `DocumentEditor` instead of the PDF URL
-- On save, the file is stored as `.png` (replacing `.pdf` in the storage path), and the database `file_url` is updated accordingly
+**2. Update `src/pages/staff/OperatorDetailPanel.tsx`**
+- In `handleTruckDeviceEdit`: after saving to `onboarding_status`, call `syncDeviceToInventory` for each of the 4 device types where the value changed from the previous state
+- In the main `handleSave` flow: same sync for any device fields that were modified
 
-**4. Update `DocumentEditor.tsx`:**
-- When saving an edited PDF-turned-PNG, adjust the storage path to use `.png` extension
-- Update the corresponding database record (`inspection_documents.file_url` or `operator_documents.file_url`) so future loads reference the new PNG
-
-### Important considerations
-- **Multi-page PDFs**: Only the first page will be editable. This is appropriate for most trucking documents (CDLs, registrations, inspection reports) which are typically single-page scans.
-- **One-way conversion**: Once a PDF is edited and saved as PNG, it stays as a PNG. The original PDF is replaced.
-- **No database migration needed** — file URLs are already flexible strings.
+**3. Update `src/components/drivers/AddDriverModal.tsx`**
+- After successfully creating the operator and setting device serial numbers on `onboarding_status`, call `syncDeviceToInventory` for each non-empty device field
 
 ### Files to change
 | File | Change |
 |------|--------|
-| `package.json` | Add `pdfjs-dist` dependency |
-| `src/lib/pdfToImage.ts` | New helper: render PDF page 1 → PNG data URL |
-| `src/components/inspection/DocRow.tsx` | Remove `isImage` guard on pencil; add PDF→image conversion before opening editor; update DB `file_url` on save with new extension |
-| `src/components/shared/DocumentEditor.tsx` | Handle `.pdf` → `.png` extension swap in save path |
+| `src/lib/equipmentSync.ts` | New helper function |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Call sync after device number saves |
+| `src/components/drivers/AddDriverModal.tsx` | Call sync after driver creation with device numbers |
+
+### No migration needed
+The existing `equipment_items` and `equipment_assignments` tables already have the required columns and RLS policies.
 
