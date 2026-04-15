@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useToast } from '@/hooks/use-toast';
 import { differenceInDays, parseISO, format, formatDistanceToNowStrict } from 'date-fns';
 import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
+import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 
 // ─── StageTrack ──────────────────────────────────────────────────────────────
 // Parallel 6-node progress track — driven by pipeline_config DB records.
@@ -3465,6 +3466,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         </AlertDialogContent>
       </AlertDialog>
 
+      <ScrollJumpButton />
     </div>
   );
 }
