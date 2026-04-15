@@ -168,7 +168,7 @@ export default function ICABuilderModal({
           .maybeSingle(),
         supabase
           .from('onboarding_status')
-          .select('truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number')
+          .select('truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number')
           .eq('operator_id', operatorId)
           .maybeSingle() as any,
       ]);

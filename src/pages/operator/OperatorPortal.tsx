@@ -208,7 +208,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           .maybeSingle(),
         supabase
           .from('ica_contracts' as any)
-          .select('truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number')
+          .select('truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number')
           .eq('operator_id', opId)
           .order('updated_at', { ascending: false })
           .limit(1)
