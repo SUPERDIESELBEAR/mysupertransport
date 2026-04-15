@@ -1,27 +1,28 @@
 
 
-## Update send-insurance-request to Prefer onboarding_status Truck Data
+## Update send-insurance-request Auth to getClaims Pattern
 
 ### Problem
-The edge function currently pulls `truck_vin`, `truck_year`, and `truck_make` only from `ica_contracts`. Edits made in the Vehicle Hub (which saves to `onboarding_status`) are not reflected in the insurance email.
+The `send-insurance-request` edge function uses `getUser()` for authentication, which makes an extra network call to the auth server. Every other edge function in this project uses `getClaims(token)` — the project standard that reads identity directly from the JWT, making it faster and more reliable.
 
 ### Change
 
-**`supabase/functions/send-insurance-request/index.ts`**
+**`supabase/functions/send-insurance-request/index.ts`** — lines 124–134
 
-1. Add `truck_vin, truck_year, truck_make` to the existing `onboarding_status` select query (line 175–178) — no extra DB call needed.
+Replace the `getUser()` auth block with the `getClaims(token)` pattern used across the project:
 
-2. Update the `buildInsuranceEmail` call (lines 216–218) to prefer `onboarding_status` values, falling back to `ica_contracts`:
-   ```
-   vin:       os?.truck_vin   || ica?.truck_vin   || null,
-   truckYear: os?.truck_year  || ica?.truck_year  || null,
-   truckMake: os?.truck_make  || ica?.truck_make  || null,
-   ```
+- Extract the Bearer token from the Authorization header
+- Create a user-scoped Supabase client
+- Call `getClaims(token)` to validate and extract `sub` (user ID)
+- Use the extracted user ID for the role check (line 143)
 
-3. Deploy the updated function.
+This is a drop-in replacement — the rest of the function (role check, data fetching, email sending) stays exactly the same, just referencing the new `caller.id` variable.
 
 ### Files
 | File | Change |
 |------|--------|
-| `supabase/functions/send-insurance-request/index.ts` | Add truck fields to OS query; prefer OS over ICA |
+| `supabase/functions/send-insurance-request/index.ts` | Replace `getUser()` with `getClaims(token)` auth pattern |
+
+### No other changes needed
+The role check, data queries, and email logic remain identical.
 
