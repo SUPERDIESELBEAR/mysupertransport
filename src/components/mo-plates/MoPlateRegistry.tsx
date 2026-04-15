@@ -135,6 +135,17 @@ export default function MoPlateRegistry() {
     if (!returnDialogPlate) return;
     setReturnLoading(true);
     try {
+      // Look up the operator_id from the active assignment before closing it
+      const { data: activeAssign } = await supabase
+        .from('mo_plate_assignments')
+        .select('operator_id')
+        .eq('plate_id', returnDialogPlate.id)
+        .is('returned_at', null)
+        .eq('event_type', 'assignment')
+        .maybeSingle();
+
+      const operatorId = activeAssign?.operator_id;
+
       const { error: assignErr } = await supabase
         .from('mo_plate_assignments')
         .update({ returned_at: new Date().toISOString(), returned_by: session?.user?.id, notes: returnNotes.trim() || null })
@@ -144,6 +155,23 @@ export default function MoPlateRegistry() {
       if (assignErr) throw assignErr;
       const { error: plateErr } = await supabase.from('mo_plates').update({ status: 'available' }).eq('id', returnDialogPlate.id);
       if (plateErr) throw plateErr;
+
+      // Sync onboarding status: revert mo_reg_received if operator has no other active plates
+      if (operatorId) {
+        const { count } = await supabase
+          .from('mo_plate_assignments')
+          .select('id', { count: 'exact', head: true })
+          .eq('operator_id', operatorId)
+          .is('returned_at', null)
+          .eq('event_type', 'assignment');
+        if ((count ?? 0) === 0) {
+          await supabase
+            .from('onboarding_status')
+            .update({ mo_reg_received: 'not_yet' as any })
+            .eq('operator_id', operatorId);
+        }
+      }
+
       toast({ title: 'Plate returned', description: `${returnDialogPlate.plate_number} is now available.` });
       setReturnDialogPlate(null);
       setReturnNotes('');

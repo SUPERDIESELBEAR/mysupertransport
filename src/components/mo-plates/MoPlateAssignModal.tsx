@@ -112,6 +112,15 @@ export default function MoPlateAssignModal({ open, onClose, onSaved, plate, tran
       // 3. Update plate status to assigned
       await supabase.from('mo_plates').update({ status: 'assigned' }).eq('id', plate.id);
 
+      // 4. Sync onboarding status: set mo_reg_received = 'yes'
+      if (!useManualName && selectedOperatorId) {
+        const { error: obErr } = await supabase
+          .from('onboarding_status')
+          .update({ mo_reg_received: 'yes' as any })
+          .eq('operator_id', selectedOperatorId);
+        if (obErr) console.warn('Failed to sync onboarding mo_reg_received:', obErr.message);
+      }
+
       toast({
         title: isTransfer ? 'Plate transferred' : 'Plate assigned',
         description: `${plate.plate_number} → ${resolvedDriverName}`,
