@@ -3,17 +3,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { downloadBlob } from '@/lib/downloadBlob';
+import { TRUCK_MAKES } from '@/components/operator/TruckInfoCard';
+import { toast } from '@/hooks/use-toast';
 import MaintenanceRecordModal from './MaintenanceRecordModal';
 import DOTInspectionModal from './DOTInspectionModal';
 import {
   ArrowLeft, Plus, Truck, Wrench, ShieldCheck, Eye, Download,
-  Loader2, Search, AlertTriangle, CheckCircle2, Clock, FileText,
+  Loader2, Search, AlertTriangle, CheckCircle2, Clock, FileText, Pencil, X, Save,
 } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 
