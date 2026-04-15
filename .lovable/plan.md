@@ -1,35 +1,59 @@
 
 
-## Two-Way Sync: MO Plate Registry ↔ Pipeline Stage 4
+## Replace Truck Make Free-Text with Dropdown & Remove Model Field
 
-### Problem
-When a plate is assigned to an operator in the MO Plate Registry, the operator's onboarding status (`mo_reg_received`) is not updated. Staff must manually go to the Pipeline and mark "MO Registration Received = Yes." There is also no reverse sync — when `mo_reg_received` is set to "yes" in the Pipeline, the plate registry is unaware.
+This is the same plan previously approved, confirmed with model removal.
 
-### Solution
-Add automatic sync in the MO Plate Assign flow: when a plate is assigned to an operator (with a linked `operator_id`), set their `onboarding_status.mo_reg_received` to `'yes'`. When a plate is returned/unassigned, revert it to `'not_yet'`.
+### Shared Constant
+Define `TRUCK_MAKES` in `src/components/operator/TruckInfoCard.tsx` (exported):
+```typescript
+export const TRUCK_MAKES = [
+  'Freightliner', 'Kenworth', 'Peterbilt', 'Volvo',
+  'Mack', 'International', 'Western Star',
+] as const;
+```
 
 ### Changes
 
-**1. `src/components/mo-plates/MoPlateAssignModal.tsx` — Update onboarding status on assign**
-- After successfully inserting the assignment and updating plate status, if `selectedOperatorId` is set (not manual name), update `onboarding_status` for that operator:
-  - Set `mo_reg_received = 'yes'`
-  - This completes Stage 4 automatically
+**1. `src/components/operator/TruckInfoCard.tsx`**
+- Remove `truck_model` from interfaces and edit/display logic
+- Replace Make `<Input>` with `<Select>` dropdown + "Other" free-text fallback
+- Update display string to `[truck_year, truck_make]`
 
-**2. `src/components/mo-plates/MoPlateRegistry.tsx` — Update onboarding status on return**
-- In the "Return Plate" handler, after closing the assignment, look up the `operator_id` from the active assignment
-- If an `operator_id` exists and the operator has no other active plate assignments, set `onboarding_status.mo_reg_received = 'not_yet'`
+**2. `src/components/drivers/AddDriverModal.tsx`**
+- Remove `truck_model` from form state and ICA insert
+- Replace Make input with Select dropdown + "Other"
+- Change truck row from 3-col to 2-col grid
 
-**3. `src/pages/staff/OperatorDetailPanel.tsx` — Reverse sync (Pipeline → Registry) is NOT needed**
-- The Pipeline Stage 4 `mo_reg_received` field is a dropdown that staff already control manually
-- Adding reverse sync (auto-creating plates from the Pipeline) would be overengineering — plates are physical assets that must be explicitly registered
-- The value of syncing is one-directional: Registry → Pipeline
+**3. `src/components/ica/ICABuilderModal.tsx`**
+- Remove `truck_model` from ICAData interface, state, and pre-fill
+- Replace Make field with Select + "Other"
+- Remove Model FormField
 
-### Files to change
-| File | Change |
-|------|--------|
-| `src/components/mo-plates/MoPlateAssignModal.tsx` | Set `mo_reg_received = 'yes'` after assign |
-| `src/components/mo-plates/MoPlateRegistry.tsx` | Set `mo_reg_received = 'not_yet'` on plate return (if no other active plates) |
+**4. `src/components/ica/ICADocumentView.tsx`**
+- Remove `truck_model` from ICAData, update `fullTruck` concatenation
 
-### No migration needed
-The `onboarding_status` table already has the `mo_reg_received` column with the correct enum type.
+**5. `src/components/fleet/FleetRoster.tsx`**
+- Remove `truck_model` from queries and display
+
+**6. `src/pages/staff/OperatorDetailPanel.tsx`**
+- Remove `truck_model` from queries, merged state, stripped columns, save payloads
+
+**7. `src/pages/operator/OperatorPortal.tsx`**
+- Remove `truck_model` from ICA truck info query/state
+
+**8. `src/components/operator/OperatorICASign.tsx`**
+- Remove `truck_model` from ICAData and audit metadata
+
+**9. `src/components/management/FormsCatalog.tsx`**
+- Remove `truck_model` from sample ICA data
+
+**10. `supabase/functions/send-insurance-request/index.ts`**
+- Remove `truck_model` from query and email body
+
+### "Other" Handling
+Each Make dropdown includes an "Other" option. When selected, a text input appears. The stored value is the typed text, not "Other".
+
+### No Database Migration
+The `truck_model` column stays in the database — we simply stop reading/writing it.
 
