@@ -67,9 +67,26 @@ export default function EquipmentItemModal({ open, item, isManagement, onClose, 
       return;
     }
     setSaving(true);
+
+    // Duplicate serial+type guard
+    const normalizedSerial = serialNumber.trim().toUpperCase();
+    let dupQuery = supabase
+      .from('equipment_items')
+      .select('id')
+      .eq('device_type', deviceType)
+      .ilike('serial_number', normalizedSerial);
+    if (item) dupQuery = dupQuery.neq('id', item.id);
+    const { data: dupRows } = await dupQuery.limit(1);
+    if (dupRows && dupRows.length > 0) {
+      const label = DEVICE_TYPES.find(t => t.value === deviceType)?.label ?? deviceType;
+      toast({ title: `A ${label} with serial ${normalizedSerial} already exists`, variant: 'destructive' });
+      setSaving(false);
+      return;
+    }
+
     const payload = {
       device_type: deviceType,
-      serial_number: serialNumber.trim().toUpperCase(),
+      serial_number: normalizedSerial,
       status,
       notes: notes.trim() || null,
     };
