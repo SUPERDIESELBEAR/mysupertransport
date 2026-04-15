@@ -3,6 +3,7 @@ import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn, formatPhoneDisplay } from '@/lib/utils';
 import { sanitizeText } from '@/lib/sanitize';
+import { syncAllDeviceFields } from '@/lib/equipmentSync';
 import { reminderErrorToast } from '@/lib/reminderError';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -1638,6 +1639,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       })
       .eq('id', statusId);
     if (error) throw error;
+
+    // Two-way sync: update Equipment Inventory
+    if (operatorId) {
+      const oldValues = {
+        eld_serial_number: status.eld_serial_number,
+        dash_cam_number: status.dash_cam_number,
+        bestpass_number: status.bestpass_number,
+        fuel_card_number: status.fuel_card_number,
+      };
+      const newValues = {
+        eld_serial_number: payload.eld_serial_number,
+        dash_cam_number: payload.dash_cam_number,
+        bestpass_number: payload.bestpass_number,
+        fuel_card_number: payload.fuel_card_number,
+      };
+      await syncAllDeviceFields(operatorId, oldValues, newValues, session?.user?.id ?? null);
+    }
+
     setStatus(prev => ({
       ...prev,
       unit_number: payload.unit_number,
