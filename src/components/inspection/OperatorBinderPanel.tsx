@@ -91,6 +91,8 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
   // In-app file preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>('');
+  const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
+  const [previewBucket, setPreviewBucket] = useState<string | null>(null);
 
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
