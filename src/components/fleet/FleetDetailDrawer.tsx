@@ -129,6 +129,8 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
       setSaving(false);
     }
   };
+
+  const fetchData = useCallback(async () => {
     setLoading(true);
 
     const [opResult, maintenanceResult, dotResult] = await Promise.all([
