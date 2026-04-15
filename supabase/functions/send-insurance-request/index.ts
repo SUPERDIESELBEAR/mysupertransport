@@ -56,9 +56,8 @@ function buildInsuranceEmail(data: {
     ? `<tr><td style="padding:8px 12px;background:#f9f9f9;border-bottom:1px solid #eee;font-weight:600;vertical-align:top;">Certificate Holder</td><td style="padding:8px 12px;border-bottom:1px solid #eee;line-height:1.6;">${formatAddressBlock(data.ch)}</td></tr>`
     : '';
 
-  const dlSection = data.dlUrl
-    ? `<p style="margin:16px 0 4px;"><strong>Driver's License:</strong></p>
-       <p style="margin:0;"><a href="${data.dlUrl}" style="color:#C9A84C;">View Driver's License Copy</a></p>`
+  const dlSection = data.dlAttached
+    ? `<p style="margin:16px 0 0;"><strong>Driver's License:</strong> <span style="color:#27ae60;">✓ Attached</span></p>`
     : '<p style="margin:16px 0 0;color:#999;font-size:13px;"><em>No driver\'s license on file.</em></p>';
 
   const notesSection = data.notes
