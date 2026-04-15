@@ -403,13 +403,32 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
               <span className="w-px h-5 bg-white/15 mx-1" />
             </>
           )}
-          {(onEdit || (effectiveBucket && effectivePath)) && isImage && (
+          {(onEdit || (effectiveBucket && effectivePath)) && (isImage || isPdf) && (
             <button
-              onClick={e => { e.stopPropagation(); onEdit ? onEdit() : setShowEditor(true); }}
-              className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
-              title="Edit document"
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (onEdit) { onEdit(); return; }
+                if (isPdf) {
+                  setConvertingPdf(true);
+                  try {
+                    const dataUrl = await pdfToImage(resolvedUrl);
+                    setPdfImageSource(dataUrl);
+                    setShowEditor(true);
+                  } catch (err) {
+                    console.error('PDF to image conversion failed:', err);
+                    toast({ title: 'Could not open editor', description: 'Failed to convert PDF to image.', variant: 'destructive' });
+                  } finally {
+                    setConvertingPdf(false);
+                  }
+                } else {
+                  setShowEditor(true);
+                }
+              }}
+              disabled={convertingPdf}
+              className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors disabled:opacity-50"
+              title={isPdf ? "Convert & edit document" : "Edit document"}
             >
-              <Pencil className="h-4 w-4" />
+              {convertingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
             </button>
           )}
           <button
