@@ -220,6 +220,7 @@ Deno.serve(async (req) => {
 
     // --- Download DL image for attachment ---
     let dlBase64: string | null = null;
+    let dlSignedUrl: string | null = null;
     let dlFileName = 'drivers_license.jpg';
     let dlStoragePath: string | null = app?.dl_front_url ?? null;
 
@@ -259,14 +260,22 @@ Deno.serve(async (req) => {
           .download(filePath);
         if (!dlErr && fileData) {
           const arrayBuf = await fileData.arrayBuffer();
-          const bytes = new Uint8Array(arrayBuf);
-          // Base64 encode
-          dlBase64 = base64Encode(bytes);
-          // Derive filename from path if we used application DL
-          const pathParts = filePath.split('/');
-          const lastPart = pathParts[pathParts.length - 1];
-          if (lastPart && app?.dl_front_url === dlStoragePath) {
-            dlFileName = lastPart;
+          if (arrayBuf.byteLength > 4 * 1024 * 1024) {
+            // File too large to attach — generate a 7-day signed URL instead
+            console.log(`DL file too large (${(arrayBuf.byteLength / 1024 / 1024).toFixed(1)}MB), using signed URL`);
+            const { data: signedData } = await supabase.storage
+              .from(bucket)
+              .createSignedUrl(filePath, 604800); // 7 days
+            dlSignedUrl = signedData?.signedUrl ?? null;
+          } else {
+            const bytes = new Uint8Array(arrayBuf);
+            dlBase64 = base64Encode(bytes);
+            // Derive filename from path if we used application DL
+            const pathParts = filePath.split('/');
+            const lastPart = pathParts[pathParts.length - 1];
+            if (lastPart && app?.dl_front_url === dlStoragePath) {
+              dlFileName = lastPart;
+            }
           }
         } else {
           console.warn('Could not download DL from storage:', dlErr?.message);
@@ -279,6 +288,7 @@ Deno.serve(async (req) => {
     const html = buildInsuranceEmail({
       driverName,
       dlAttached: !!dlBase64,
+      dlSignedUrl,
       yearsExperience: app?.years_experience ?? null,
       vin: os?.truck_vin || ica?.truck_vin || null,
       truckYear: os?.truck_year || ica?.truck_year || null,
