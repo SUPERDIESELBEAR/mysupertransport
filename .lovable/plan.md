@@ -1,40 +1,25 @@
 
 
-## Two-Way Sync: Stage 5 Device Fields → Equipment Inventory
+## Add Duplicate-Prevention Guards to Equipment System
 
-### Problem
-When a serial number is entered in Stage 5 of the Pipeline (via `handleTruckDeviceEdit` or the main save flow), the Equipment Inventory is not updated. The sync only works one way: Equipment Inventory → Stage 5 (via `EquipmentAssignModal`).
+### Changes
 
-### Solution
-Add a helper function that, after a device serial number is saved to `onboarding_status`, checks the `equipment_items` table:
-- **If a matching device exists** → create an `equipment_assignments` record (if not already assigned to this operator) and set the device status to `assigned`
-- **If no matching device exists** → create the device in `equipment_items` with status `assigned`, then create the `equipment_assignments` record
-- **If the serial number is cleared** → return the previously assigned device (set status back to `available`, close the assignment)
+**1. `src/components/equipment/EquipmentItemModal.tsx` — Block duplicate serial + type on add/edit**
+- In `handleSave`, before inserting/updating, query `equipment_items` for an existing row with the same `serial_number` (uppercased) and `device_type`
+- If editing, exclude the current item's `id` from the check
+- If a duplicate is found, show a destructive toast: "A {device type} with serial {serial} already exists" and abort
 
-### Implementation
+**2. `src/components/equipment/EquipmentAssignModal.tsx` — Block assigning an already-assigned device**
+- In `handleAssign`, before inserting the assignment, query `equipment_assignments` for any row where `equipment_id = item.id` and `returned_at IS NULL`
+- If an active assignment exists, show a destructive toast: "This device is already assigned to another operator" and abort
 
-**1. New helper: `src/lib/equipmentSync.ts`**
-A reusable async function `syncDeviceToInventory(operatorId, deviceType, serialNumber, assignedBy)` that:
-- Queries `equipment_items` for a matching `serial_number` + `device_type`
-- If found and already assigned to this operator → no-op
-- If found but available → creates assignment, sets status to `assigned`
-- If not found → inserts new `equipment_items` row + assignment
-- If `serialNumber` is empty/null → finds any active assignment for this operator+device_type and returns it (sets device back to `available`, sets `returned_at` on assignment)
-
-**2. Update `src/pages/staff/OperatorDetailPanel.tsx`**
-- In `handleTruckDeviceEdit`: after saving to `onboarding_status`, call `syncDeviceToInventory` for each of the 4 device types where the value changed from the previous state
-- In the main `handleSave` flow: same sync for any device fields that were modified
-
-**3. Update `src/components/drivers/AddDriverModal.tsx`**
-- After successfully creating the operator and setting device serial numbers on `onboarding_status`, call `syncDeviceToInventory` for each non-empty device field
+**3. Database unique constraint (migration)**
+- Add a unique index on `equipment_items(serial_number, device_type)` as a backend safety net, so even if the UI check is bypassed, the database rejects duplicates
 
 ### Files to change
 | File | Change |
 |------|--------|
-| `src/lib/equipmentSync.ts` | New helper function |
-| `src/pages/staff/OperatorDetailPanel.tsx` | Call sync after device number saves |
-| `src/components/drivers/AddDriverModal.tsx` | Call sync after driver creation with device numbers |
-
-### No migration needed
-The existing `equipment_items` and `equipment_assignments` tables already have the required columns and RLS policies.
+| `src/components/equipment/EquipmentItemModal.tsx` | Add duplicate serial+type check before save |
+| `src/components/equipment/EquipmentAssignModal.tsx` | Add active-assignment check before assign |
+| Database migration | `CREATE UNIQUE INDEX` on `equipment_items(serial_number, device_type)` |
 
