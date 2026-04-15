@@ -737,7 +737,7 @@ export default function ICABuilderModal({
                 </div>
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Truck</span>
-                  <span className="font-medium">{[data.truck_year, data.truck_make, data.truck_model].filter(Boolean).join(' ') || '—'}</span>
+                  <span className="font-medium">{[data.truck_year, data.truck_make].filter(Boolean).join(' ') || '—'}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Linehaul Split</span>

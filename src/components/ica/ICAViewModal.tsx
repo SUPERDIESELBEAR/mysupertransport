@@ -205,7 +205,6 @@ export default function ICAViewModal({ operatorId, operatorName, onClose }: ICAV
                 data={{
                   truck_year: contract.truck_year ?? '',
                   truck_make: contract.truck_make ?? '',
-                  truck_model: contract.truck_model ?? '',
                   truck_vin: contract.truck_vin ?? '',
                   truck_plate: contract.truck_plate ?? '',
                   truck_plate_state: contract.truck_plate_state ?? '',
