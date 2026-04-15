@@ -8,10 +8,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { US_STATES } from '@/components/application/types';
 
+export const TRUCK_MAKES = [
+  'Freightliner', 'Kenworth', 'Peterbilt', 'Volvo',
+  'Mack', 'International', 'Western Star',
+] as const;
+
 export interface TruckInfo {
   truck_year?: string | null;
   truck_make?: string | null;
-  truck_model?: string | null;
   truck_vin?: string | null;
   truck_plate?: string | null;
   truck_plate_state?: string | null;
@@ -37,7 +41,6 @@ export interface TruckInfoCardEditPayload {
 export interface TruckFieldsEditPayload {
   truck_year: string | null;
   truck_make: string | null;
-  truck_model: string | null;
   truck_vin: string | null;
   truck_plate: string | null;
   truck_plate_state: string | null;
