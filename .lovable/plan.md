@@ -1,48 +1,31 @@
 
 
-## Fix "Mark All Read" Not Clearing Sidebar Badges
+## Add "Jump to Bottom / Back to Top" Floating Button
 
-### Problem
-Three separate issues contribute to the red dots persisting:
+### Overview
+Add a floating action button that toggles between "Jump to Bottom" and "Back to Top" based on scroll position. This will appear on long scrollable pages like Applicant Pipeline, Compliance, Notifications, etc.
 
-1. **Notifications badge** — The "Mark all read" button in `NotificationHistory` only marks the currently loaded page of notifications (up to 25). If there are more unread notifications beyond the first page, the sidebar badge persists because the re-fetched count is still > 0. The fix is to mark **all** unread notifications in the database, not just the loaded ones.
+### Approach
+Create a single reusable `ScrollJumpButton` component that:
+- Shows a **down arrow** ("Jump to Bottom") when near the top of the page
+- Switches to an **up arrow** ("Back to Top") once the user scrolls past ~300px
+- Uses `window.scrollTo({ behavior: 'smooth' })` for smooth navigation
+- Positioned as a fixed floating button in the bottom-right corner, styled with the brand gold accent
 
-2. **Applicant Pipeline & Compliance badges** — These red dots show `criticalExpiryCount` (expiring CDLs and Medical Certificates within 30 days). They are **not** notification-based — they represent real compliance alerts. "Mark all read" does not and should not affect them. These badges will only disappear when the underlying expiry dates are updated or the documents are renewed. No code change needed here, but this may warrant a brief clarification.
-
-### Changes
-
-**`src/components/management/NotificationHistory.tsx`**
-
-Update `markAllRead` to mark **all** unread notifications for the user in one query, not just the loaded page:
-
-```typescript
-const markAllRead = async () => {
-  if (!session?.user?.id) return;
-  setMarkingAll(true);
-  // Mark ALL unread notifications, not just the loaded page
-  await supabase
-    .from('notifications')
-    .update({ read_at: new Date().toISOString() })
-    .eq('user_id', session.user.id)
-    .is('read_at', null);
-  // Update local state
-  setNotifications(prev =>
-    prev.map(n => ({ ...n, read_at: n.read_at ?? new Date().toISOString() }))
-  );
-  setMarkingAll(false);
-};
-```
-
-This ensures the sidebar badge drops to 0 because the realtime subscription in `ManagementPortal` re-fetches the true unread count (which will now be 0).
-
-**Same fix in `src/pages/staff/StaffPortal.tsx`** — The Staff Portal's notification realtime subscription only listens for `INSERT` events, so it never decrements the badge when notifications are marked as read. Update it to listen for all events (`event: '*'`) and re-fetch the actual count (matching the Management Portal pattern).
+Then add it to the long-scroll pages: **PipelineDashboard**, **ManagementPortal** (which embeds Pipeline, Notifications, Compliance views), and **StaffPortal**.
 
 ### Files
 | File | Change |
 |------|--------|
-| `src/components/management/NotificationHistory.tsx` | Mark all unread notifications for the user, not just loaded page |
-| `src/pages/staff/StaffPortal.tsx` | Change notification realtime subscription from INSERT-only to `*` with re-fetch |
+| `src/components/ui/ScrollJumpButton.tsx` | **New** — Reusable floating scroll button component |
+| `src/pages/staff/PipelineDashboard.tsx` | Add `<ScrollJumpButton />` |
+| `src/pages/management/ManagementPortal.tsx` | Add `<ScrollJumpButton />` |
+| `src/pages/staff/StaffPortal.tsx` | Add `<ScrollJumpButton />` |
 
-### Note on Pipeline & Compliance badges
-The red dots on Applicant Pipeline and Compliance represent **real expiring documents** (CDL or Medical Certificate expiring within 30 days). These are intentional safety indicators and are separate from the notification system. They clear automatically when the operator's certifications are renewed.
+### Component Details
+- Listens to `window.onscroll` with a throttled handler
+- Below 300px scroll: shows `ArrowDown` icon → scrolls to `document.body.scrollHeight`
+- Above 300px scroll: shows `ArrowUp` icon → scrolls to top
+- Fixed position `bottom-6 right-6`, semi-transparent background, appears/disappears with a fade transition
+- Z-index set below modals but above page content
 
