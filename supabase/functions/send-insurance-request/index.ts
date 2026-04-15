@@ -174,7 +174,8 @@ Deno.serve(async (req) => {
     const { data: os } = await supabase.from('onboarding_status').select(
       'insurance_policy_type, insurance_stated_value, insurance_notes, ' +
       'insurance_ai_company, insurance_ai_address, insurance_ai_city, insurance_ai_state, insurance_ai_zip, insurance_ai_email, ' +
-      'insurance_ch_company, insurance_ch_address, insurance_ch_city, insurance_ch_state, insurance_ch_zip, insurance_ch_email'
+      'insurance_ch_company, insurance_ch_address, insurance_ch_city, insurance_ch_state, insurance_ch_zip, insurance_ch_email, ' +
+      'truck_vin, truck_year, truck_make'
     ).eq('operator_id', operator_id).single();
 
     // Get operator email
@@ -213,9 +214,9 @@ Deno.serve(async (req) => {
       driverName,
       dlUrl: app?.dl_front_url ?? null,
       yearsExperience: app?.years_experience ?? null,
-      vin: ica?.truck_vin ?? null,
-      truckYear: ica?.truck_year ?? null,
-      truckMake: ica?.truck_make ?? null,
+      vin: os?.truck_vin || ica?.truck_vin || null,
+      truckYear: os?.truck_year || ica?.truck_year || null,
+      truckMake: os?.truck_make || ica?.truck_make || null,
       policyType,
       statedValue: os?.insurance_stated_value ?? null,
       ai,
