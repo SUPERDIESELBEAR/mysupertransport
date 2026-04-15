@@ -69,7 +69,7 @@ export default function EquipmentItemModal({ open, item, isManagement, onClose, 
     setSaving(true);
 
     // Duplicate serial+type guard
-    const normalizedSerial = serialNumber.trim().toUpperCase();
+    const normalizedSerial = serialNumber.trim().replace(/[-.\s]/g, '').toUpperCase();
     let dupQuery = supabase
       .from('equipment_items')
       .select('id')

@@ -15,7 +15,7 @@ export async function syncDeviceToInventory(
   serialNumber: string | null | undefined,
   assignedBy: string | null,
 ): Promise<void> {
-  const serial = serialNumber?.trim() || null;
+  const serial = serialNumber?.trim().replace(/[-.\s]/g, '').toUpperCase() || null;
 
   if (!serial) {
     // Return any active assignment for this operator + device type
