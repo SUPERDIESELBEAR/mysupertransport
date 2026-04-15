@@ -77,7 +77,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq('user_id', userId)
       .single();
     
-    if (data) setProfile(data as ProfileData);
+    if (data) {
+      setProfile(data as ProfileData);
+      // Auto-upgrade pending → active on login
+      if (data.account_status === 'pending') {
+        supabase
+          .from('profiles')
+          .update({ account_status: 'active' as any })
+          .eq('user_id', userId)
+          .then(() => {
+            setProfile(prev => prev ? { ...prev, account_status: 'active' } : prev);
+          });
+      }
+    }
   };
 
   useEffect(() => {
