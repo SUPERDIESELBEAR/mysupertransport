@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X, ChevronRight, ChevronLeft, Save, Send, FileText, Pen, Clock, CheckCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateInput } from '@/components/ui/date-input';
 import DemoLockIcon from '@/components/DemoLockIcon';
 import SignatureCanvas from 'react-signature-canvas';
@@ -34,7 +35,6 @@ type ICAData = {
   // Appendix A
   truck_year: string;
   truck_make: string;
-  truck_model: string;
   truck_vin: string;
   truck_plate: string;
   truck_plate_state: string;
@@ -131,7 +131,6 @@ export default function ICABuilderModal({
   const [data, setData] = useState<ICAData>({
     truck_year: new Date().getFullYear().toString(),
     truck_make: '',
-    truck_model: '',
     truck_vin: '',
     truck_plate: '',
     truck_plate_state: applicationData?.address_state ?? 'MO',
@@ -169,7 +168,7 @@ export default function ICABuilderModal({
           .maybeSingle(),
         supabase
           .from('onboarding_status')
-          .select('truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number')
+          .select('truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number')
           .eq('operator_id', operatorId)
           .maybeSingle() as any,
       ]);
@@ -178,12 +177,11 @@ export default function ICABuilderModal({
 
       if (!existing) {
         // No ICA draft — pre-fill from onboarding_status truck fields if available
-        if (ob.truck_year || ob.truck_make || ob.truck_model || ob.truck_vin || ob.truck_plate || ob.truck_plate_state || ob.trailer_number) {
+        if (ob.truck_year || ob.truck_make || ob.truck_vin || ob.truck_plate || ob.truck_plate_state || ob.trailer_number) {
           setData(prev => ({
             ...prev,
             truck_year: ob.truck_year || prev.truck_year,
             truck_make: ob.truck_make || prev.truck_make,
-            truck_model: ob.truck_model || prev.truck_model,
             truck_vin: ob.truck_vin || prev.truck_vin,
             truck_plate: ob.truck_plate || prev.truck_plate,
             truck_plate_state: ob.truck_plate_state || prev.truck_plate_state,
@@ -205,7 +203,6 @@ export default function ICABuilderModal({
       setData({
         truck_year: row.truck_year || ob.truck_year || new Date().getFullYear().toString(),
         truck_make: row.truck_make || ob.truck_make || '',
-        truck_model: row.truck_model || ob.truck_model || '',
         truck_vin: row.truck_vin || ob.truck_vin || '',
         truck_plate: row.truck_plate || ob.truck_plate || '',
         truck_plate_state: row.truck_plate_state || ob.truck_plate_state || applicationData?.address_state || 'MO',
@@ -420,7 +417,7 @@ export default function ICABuilderModal({
           entity_label: operatorName,
           metadata: {
             operator_email: operatorEmail,
-            truck: [data.truck_year, data.truck_make, data.truck_model].filter(Boolean).join(' ') || null,
+            truck: [data.truck_year, data.truck_make].filter(Boolean).join(' ') || null,
             truck_vin: data.truck_vin || null,
             linehaul_split_pct: data.linehaul_split_pct,
             lease_effective_date: data.lease_effective_date || null,
@@ -545,8 +542,29 @@ export default function ICABuilderModal({
                 </h3>
                 <div className="grid grid-cols-3 gap-3">
                   <FormField label="Year" value={data.truck_year} onChange={v => set('truck_year', v)} placeholder="2020" />
-                  <FormField label="Make" value={data.truck_make} onChange={v => set('truck_make', v)} placeholder="Freightliner" />
-                  <FormField label="Model" value={data.truck_model} onChange={v => set('truck_model', v)} placeholder="Cascadia" />
+                  <div className="space-y-1.5 col-span-2">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Make</Label>
+                    <Select
+                      value={['Freightliner','Kenworth','Peterbilt','Volvo','Mack','International','Western Star'].includes(data.truck_make) ? data.truck_make : data.truck_make ? '__other__' : ''}
+                      onValueChange={v => { if (v === '__other__') set('truck_make', ''); else set('truck_make', v); }}
+                    >
+                      <SelectTrigger className="h-9 text-sm">
+                        <SelectValue placeholder="Select make" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {['Freightliner','Kenworth','Peterbilt','Volvo','Mack','International','Western Star'].map(m => (
+                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                        ))}
+                        <SelectItem value="__other__">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {data.truck_make !== '' && !['Freightliner','Kenworth','Peterbilt','Volvo','Mack','International','Western Star'].includes(data.truck_make) && (
+                      <Input value={data.truck_make} onChange={e => set('truck_make', e.target.value)} placeholder="Enter make" className="h-9 text-sm mt-1" />
+                    )}
+                    {data.truck_make === '' && (
+                      <Input value="" onChange={e => set('truck_make', e.target.value)} placeholder="Enter make" className="h-9 text-sm mt-1" autoFocus />
+                    )}
+                  </div>
                   <FormField label="VIN *" value={data.truck_vin} onChange={v => set('truck_vin', v)} placeholder="1FUJGLDR..." span={2} />
                   <FormField label="License Plate" value={data.truck_plate} onChange={v => set('truck_plate', v)} placeholder="ABC1234" />
                   <FormField label="Plate State" value={data.truck_plate_state} onChange={v => set('truck_plate_state', v)} placeholder="MO" />
@@ -719,7 +737,7 @@ export default function ICABuilderModal({
                 </div>
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Truck</span>
-                  <span className="font-medium">{[data.truck_year, data.truck_make, data.truck_model].filter(Boolean).join(' ') || '—'}</span>
+                  <span className="font-medium">{[data.truck_year, data.truck_make].filter(Boolean).join(' ') || '—'}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Linehaul Split</span>

@@ -208,7 +208,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           .maybeSingle(),
         supabase
           .from('ica_contracts' as any)
-          .select('truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number')
+          .select('truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number')
           .eq('operator_id', opId)
           .order('updated_at', { ascending: false })
           .limit(1)
@@ -234,7 +234,6 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         setIcaTruckInfo({
           truck_year: ica.truck_year ?? null,
           truck_make: ica.truck_make ?? null,
-          truck_model: ica.truck_model ?? null,
           truck_vin: ica.truck_vin ?? null,
           truck_plate: ica.truck_plate ?? null,
           truck_plate_state: ica.truck_plate_state ?? null,

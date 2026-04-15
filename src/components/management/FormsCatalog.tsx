@@ -89,7 +89,7 @@ interface FormEntry {
 
 // ─── Sample ICA data ──────────────────────────────────────────────────────────
 const ICA_SAMPLE_DATA = {
-  truck_year: '2021', truck_make: 'Freightliner', truck_model: 'Cascadia',
+  truck_year: '2021', truck_make: 'Freightliner',
   truck_vin: '3AKJHHDR7MSXYZ123', truck_plate: 'AB1234', truck_plate_state: 'MO',
   trailer_number: '', owner_name: 'John Smith', owner_business_name: 'Smith Transport LLC',
   owner_ein: '12-3456789', owner_ssn: '', owner_address: '1234 Highway 70 W',

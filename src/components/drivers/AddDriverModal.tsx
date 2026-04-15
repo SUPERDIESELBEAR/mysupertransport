@@ -47,7 +47,6 @@ const INITIAL_FORM = {
   medical_cert_expiration: '',
   truck_year: '',
   truck_make: '',
-  truck_model: '',
   truck_vin: '',
   truck_plate: '',
   truck_plate_state: '',
@@ -174,7 +173,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
         if (syncPromises.length > 0) await Promise.all(syncPromises);
 
         // If truck info was provided, create an ICA contract record to hold it
-        const hasTruckInfo = form.truck_year || form.truck_make || form.truck_model || form.truck_vin || form.truck_plate;
+        const hasTruckInfo = form.truck_year || form.truck_make || form.truck_vin || form.truck_plate;
         if (hasTruckInfo) {
           await supabase
             .from('ica_contracts')
@@ -182,7 +181,6 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
               operator_id: operator.id,
               truck_year: form.truck_year.trim() || null,
               truck_make: form.truck_make.trim() || null,
-              truck_model: form.truck_model.trim() || null,
               truck_vin: form.truck_vin.trim() || null,
               truck_plate: form.truck_plate.trim() || null,
               truck_plate_state: form.truck_plate_state || null,
@@ -330,19 +328,29 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
             Truck Information
           </p>
 
-          {/* Truck Year / Make / Model */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* Truck Year / Make */}
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="add-truck-year">Year</Label>
               <Input id="add-truck-year" value={form.truck_year} onChange={e => set('truck_year', e.target.value)} placeholder="2022" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="add-truck-make">Make</Label>
-              <Input id="add-truck-make" value={form.truck_make} onChange={e => set('truck_make', e.target.value)} placeholder="Freightliner" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="add-truck-model">Model</Label>
-              <Input id="add-truck-model" value={form.truck_model} onChange={e => set('truck_model', e.target.value)} placeholder="Cascadia" />
+              <Select value={form.truck_make && ['Freightliner','Kenworth','Peterbilt','Volvo','Mack','International','Western Star'].includes(form.truck_make) ? form.truck_make : form.truck_make ? '__other__' : ''} onValueChange={v => { if (v === '__other__') set('truck_make', ''); else set('truck_make', v); }}>
+                <SelectTrigger id="add-truck-make">
+                  <SelectValue placeholder="Select make" />
+                </SelectTrigger>
+                <SelectContent>
+                  {['Freightliner','Kenworth','Peterbilt','Volvo','Mack','International','Western Star'].map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  <SelectItem value="__other__">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              {form.truck_make !== undefined && !['Freightliner','Kenworth','Peterbilt','Volvo','Mack','International','Western Star'].includes(form.truck_make) && form.truck_make !== '' && (
+                <Input value={form.truck_make} onChange={e => set('truck_make', e.target.value)} placeholder="Enter make" className="mt-1" />
+              )}
+              {form.truck_make === '' && (
+                <Input value="" onChange={e => set('truck_make', e.target.value)} placeholder="Enter make" className="mt-1" autoFocus />
+              )}
             </div>
           </div>
 

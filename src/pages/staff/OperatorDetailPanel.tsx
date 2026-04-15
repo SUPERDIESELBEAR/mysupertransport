@@ -1047,7 +1047,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const osTruck = (op as any)?.onboarding_status as any;
     const { data: icaData } = await supabase
       .from('ica_contracts' as any)
-      .select('truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number')
+      .select('truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number')
       .eq('operator_id', operatorId)
       .order('updated_at', { ascending: false })
       .limit(1)
@@ -1056,7 +1056,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const merged: TruckInfo = {
       truck_year: osTruck?.truck_year || ica?.truck_year || null,
       truck_make: osTruck?.truck_make || ica?.truck_make || null,
-      truck_model: osTruck?.truck_model || ica?.truck_model || null,
       truck_vin: osTruck?.truck_vin || ica?.truck_vin || null,
       truck_plate: osTruck?.truck_plate || ica?.truck_plate || null,
       truck_plate_state: osTruck?.truck_plate_state || ica?.truck_plate_state || null,
@@ -1285,7 +1284,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       const {
         id: _id, fully_onboarded: _fo, operator_id: _oid, updated_at: _ua, updated_by: _ub,
         // Truck fields — saved separately via handleTruckInfoEdit
-        truck_year: _ty, truck_make: _tm, truck_model: _tmod, truck_vin: _tv,
+        truck_year: _ty, truck_make: _tm, truck_vin: _tv,
         truck_plate: _tp, truck_plate_state: _tps, trailer_number: _tn,
         // Device fields — saved separately via handleTruckDeviceEdit
         eld_serial_number: _eld, dash_cam_number: _dc, bestpass_number: _bp, fuel_card_number: _fc,
@@ -1680,7 +1679,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const truckFields = {
       truck_year: payload.truck_year,
       truck_make: payload.truck_make,
-      truck_model: payload.truck_model,
       truck_vin: payload.truck_vin,
       truck_plate: payload.truck_plate,
       truck_plate_state: payload.truck_plate_state,

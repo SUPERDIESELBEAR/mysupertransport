@@ -8,10 +8,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { US_STATES } from '@/components/application/types';
 
+export const TRUCK_MAKES = [
+  'Freightliner', 'Kenworth', 'Peterbilt', 'Volvo',
+  'Mack', 'International', 'Western Star',
+] as const;
+
 export interface TruckInfo {
   truck_year?: string | null;
   truck_make?: string | null;
-  truck_model?: string | null;
   truck_vin?: string | null;
   truck_plate?: string | null;
   truck_plate_state?: string | null;
@@ -37,7 +41,6 @@ export interface TruckInfoCardEditPayload {
 export interface TruckFieldsEditPayload {
   truck_year: string | null;
   truck_make: string | null;
-  truck_model: string | null;
   truck_vin: string | null;
   truck_plate: string | null;
   truck_plate_state: string | null;
@@ -91,7 +94,6 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
   const [truckDraft, setTruckDraft] = useState<TruckFieldsEditPayload>({
     truck_year: truckInfo?.truck_year ?? null,
     truck_make: truckInfo?.truck_make ?? null,
-    truck_model: truckInfo?.truck_model ?? null,
     truck_vin: truckInfo?.truck_vin ?? null,
     truck_plate: truckInfo?.truck_plate ?? null,
     truck_plate_state: truckInfo?.truck_plate_state ?? null,
@@ -115,7 +117,6 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
     setTruckDraft({
       truck_year: truckInfo?.truck_year ?? null,
       truck_make: truckInfo?.truck_make ?? null,
-      truck_model: truckInfo?.truck_model ?? null,
       truck_vin: truckInfo?.truck_vin ?? null,
       truck_plate: truckInfo?.truck_plate ?? null,
       truck_plate_state: truckInfo?.truck_plate_state ?? null,
@@ -126,11 +127,11 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
   }, [truckInfo]);
 
   // Build display name for the truck
-  const truckYearMakeModel = [truckInfo?.truck_year, truckInfo?.truck_make, truckInfo?.truck_model]
+  const truckYearMake = [truckInfo?.truck_year, truckInfo?.truck_make]
     .filter(Boolean)
     .join(' ');
 
-  const hasTruckInfo = !!(truckInfo?.truck_year || truckInfo?.truck_make || truckInfo?.truck_model ||
+  const hasTruckInfo = !!(truckInfo?.truck_year || truckInfo?.truck_make ||
     truckInfo?.truck_vin || truckInfo?.truck_plate || truckInfo?.truck_plate_state || truckInfo?.trailer_number);
 
   const hasDeviceInfo = !!(deviceInfo?.unit_number || deviceInfo?.eld_serial_number ||
@@ -154,7 +155,6 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
     setTruckDraft({
       truck_year: truckInfo?.truck_year ?? null,
       truck_make: truckInfo?.truck_make ?? null,
-      truck_model: truckInfo?.truck_model ?? null,
       truck_vin: truckInfo?.truck_vin ?? null,
       truck_plate: truckInfo?.truck_plate ?? null,
       truck_plate_state: truckInfo?.truck_plate_state ?? null,
@@ -196,7 +196,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
           </span>
           <div>
             <h3 className="text-sm font-semibold text-foreground leading-none">
-              {truckYearMakeModel || 'Truck & Equipment'}
+              {truckYearMake || 'Truck & Equipment'}
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">Truck details and assigned device numbers</p>
           </div>
@@ -221,8 +221,6 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
                   </div>
                   {[
                     { key: 'truck_year' as const, label: 'Year', placeholder: 'e.g. 2022' },
-                    { key: 'truck_make' as const, label: 'Make', placeholder: 'e.g. Freightliner' },
-                    { key: 'truck_model' as const, label: 'Model', placeholder: 'e.g. Cascadia' },
                     { key: 'truck_vin' as const, label: 'VIN', placeholder: '17-character VIN' },
                     { key: 'truck_plate' as const, label: 'License Plate', placeholder: 'Plate number' },
                   ].map(({ key, label, placeholder }) => (
@@ -353,7 +351,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
           <div className="px-5 py-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Truck Info</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
-              {truckYearMakeModel && <InfoField label="Year / Make / Model" value={truckYearMakeModel} />}
+              {truckYearMake && <InfoField label="Year / Make" value={truckYearMake} />}
               <InfoField label="VIN" value={truckInfo?.truck_vin} mono />
               <InfoField label="License Plate" value={truckInfo?.truck_plate} mono />
               <InfoField label="Plate State" value={truckInfo?.truck_plate_state} />
@@ -364,7 +362,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
         {!hasTruckInfo && onTruckEdit && (
           <div className="px-5 py-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Truck Info</p>
-            <p className="text-xs text-muted-foreground italic">No truck details yet. Click "Edit Truck" to add year, make, model, VIN, and plate info.</p>
+            <p className="text-xs text-muted-foreground italic">No truck details yet. Click "Edit Truck" to add year, make, VIN, and plate info.</p>
           </div>
         )}
 
