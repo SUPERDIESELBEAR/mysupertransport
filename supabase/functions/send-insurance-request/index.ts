@@ -27,7 +27,7 @@ function formatAddressBlock(block: AddressBlock): string {
 
 function buildInsuranceEmail(data: {
   driverName: string;
-  dlUrl: string | null;
+  dlAttached: boolean;
   yearsExperience: string | null;
   vin: string | null;
   truckYear: string | null;
@@ -56,9 +56,8 @@ function buildInsuranceEmail(data: {
     ? `<tr><td style="padding:8px 12px;background:#f9f9f9;border-bottom:1px solid #eee;font-weight:600;vertical-align:top;">Certificate Holder</td><td style="padding:8px 12px;border-bottom:1px solid #eee;line-height:1.6;">${formatAddressBlock(data.ch)}</td></tr>`
     : '';
 
-  const dlSection = data.dlUrl
-    ? `<p style="margin:16px 0 4px;"><strong>Driver's License:</strong></p>
-       <p style="margin:0;"><a href="${data.dlUrl}" style="color:#C9A84C;">View Driver's License Copy</a></p>`
+  const dlSection = data.dlAttached
+    ? `<p style="margin:16px 0 0;"><strong>Driver's License:</strong> <span style="color:#27ae60;">✓ Attached</span></p>`
     : '<p style="margin:16px 0 0;color:#999;font-size:13px;"><em>No driver\'s license on file.</em></p>';
 
   const notesSection = data.notes
@@ -215,9 +214,71 @@ Deno.serve(async (req) => {
       email:   os?.insurance_ch_email   ?? null,
     };
 
+    // --- Download DL image for attachment ---
+    let dlBase64: string | null = null;
+    let dlFileName = 'drivers_license.jpg';
+    let dlStoragePath: string | null = app?.dl_front_url ?? null;
+
+    // Fallback: check operator_documents if application DL is missing
+    if (!dlStoragePath) {
+      const { data: opDoc } = await supabase
+        .from('operator_documents')
+        .select('file_url, file_name')
+        .eq('operator_id', operator_id)
+        .eq('document_type', 'drivers_license')
+        .order('uploaded_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (opDoc?.file_url) {
+        dlStoragePath = opDoc.file_url;
+        if (opDoc.file_name) dlFileName = opDoc.file_name;
+      }
+    }
+
+    if (dlStoragePath) {
+      try {
+        // Determine bucket and path from the stored URL/path
+        let bucket = 'application-documents';
+        let filePath = dlStoragePath;
+
+        // If the path looks like it belongs to operator-documents bucket
+        if (dlStoragePath.startsWith('operator-documents/') || dlStoragePath.includes('/operator-documents/')) {
+          bucket = 'operator-documents';
+          filePath = dlStoragePath.replace(/^.*?operator-documents\//, '');
+        } else {
+          // Strip bucket prefix if present
+          filePath = dlStoragePath.replace(/^.*?application-documents\//, '');
+        }
+
+        const { data: fileData, error: dlErr } = await supabase.storage
+          .from(bucket)
+          .download(filePath);
+        if (!dlErr && fileData) {
+          const arrayBuf = await fileData.arrayBuffer();
+          const bytes = new Uint8Array(arrayBuf);
+          // Base64 encode
+          let binary = '';
+          for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          dlBase64 = btoa(binary);
+          // Derive filename from path if we used application DL
+          const pathParts = filePath.split('/');
+          const lastPart = pathParts[pathParts.length - 1];
+          if (lastPart && app?.dl_front_url === dlStoragePath) {
+            dlFileName = lastPart;
+          }
+        } else {
+          console.warn('Could not download DL from storage:', dlErr?.message);
+        }
+      } catch (dlDownloadErr) {
+        console.warn('DL download failed:', dlDownloadErr);
+      }
+    }
+
     const html = buildInsuranceEmail({
       driverName,
-      dlUrl: app?.dl_front_url ?? null,
+      dlAttached: !!dlBase64,
       yearsExperience: app?.years_experience ?? null,
       vin: os?.truck_vin || ica?.truck_vin || null,
       truckYear: os?.truck_year || ica?.truck_year || null,
@@ -232,15 +293,21 @@ Deno.serve(async (req) => {
 
     const subject = `Physical Damage Insurance Request — ${driverName}`;
 
+    // Build Resend payload with optional attachment
+    const emailPayload: Record<string, unknown> = {
+      from: 'SUPERTRANSPORT Onboarding <onboarding@mysupertransport.com>',
+      to: recipients,
+      subject,
+      html,
+    };
+    if (dlBase64) {
+      emailPayload.attachments = [{ filename: dlFileName, content: dlBase64 }];
+    }
+
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: 'SUPERTRANSPORT Onboarding <onboarding@mysupertransport.com>',
-        to: recipients,
-        subject,
-        html,
-      }),
+      body: JSON.stringify(emailPayload),
     });
 
     let emailError: string | null = null;
