@@ -77,6 +77,8 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
   // In-app file preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>('');
+  const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
+  const [previewBucket, setPreviewBucket] = useState<string | null>(null);
 
   const fetchDocs = useCallback(async () => {
     const [companyRes, perDriverRes, uploadsRes] = await Promise.all([
