@@ -97,12 +97,14 @@ export default function NotificationHistory() {
   };
 
   const markAllRead = async () => {
+    if (!session?.user?.id) return;
     setMarkingAll(true);
-    const unreadIds = notifications.filter(n => !n.read_at).map(n => n.id);
-    if (unreadIds.length) {
-      await supabase.from('notifications').update({ read_at: new Date().toISOString() }).in('id', unreadIds);
-      setNotifications(prev => prev.map(n => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));
-    }
+    await supabase
+      .from('notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('user_id', session.user.id)
+      .is('read_at', null);
+    setNotifications(prev => prev.map(n => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));
     setMarkingAll(false);
   };
 
