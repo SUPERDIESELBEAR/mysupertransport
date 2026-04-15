@@ -351,7 +351,7 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
                           No documents uploaded yet
                         </div>
                       ) : (
-                        myUploads.map(u => <DriverUploadRow key={u.id} upload={u} onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }} />)
+                        myUploads.map(u => <DriverUploadRow key={u.id} upload={u} onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); setPreviewFilePath((u as any).file_path ?? null); setPreviewBucket('driver-uploads'); }} />)
                       )}
                     </div>
                   </div>
@@ -390,7 +390,9 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
         <FilePreviewModal
           url={previewUrl}
           name={previewName}
-          onClose={() => setPreviewUrl(null)}
+          onClose={() => { setPreviewUrl(null); setPreviewFilePath(null); setPreviewBucket(null); }}
+          bucketName={previewBucket ?? undefined}
+          filePath={previewFilePath ?? undefined}
           onSaved={() => fetchDocs()}
         />
       )}
