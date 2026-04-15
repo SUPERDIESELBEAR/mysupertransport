@@ -60,7 +60,9 @@ function buildInsuranceEmail(data: {
 
   const dlSection = data.dlAttached
     ? `<p style="margin:16px 0 0;"><strong>Driver's License:</strong> <span style="color:#27ae60;">✓ Attached</span></p>`
-    : '<p style="margin:16px 0 0;color:#999;font-size:13px;"><em>No driver\'s license on file.</em></p>';
+    : data.dlSignedUrl
+      ? `<p style="margin:16px 0 0;"><strong>Driver's License:</strong> <a href="${data.dlSignedUrl}" style="color:#C9A84C;font-weight:600;">View Driver's License</a> <em style="color:#999;font-size:12px;">(link expires in 7 days)</em></p>`
+      : '<p style="margin:16px 0 0;color:#999;font-size:13px;"><em>No driver\'s license on file.</em></p>';
 
   const notesSection = data.notes
     ? `<div style="margin-top:24px;padding:12px 16px;background:#f9f8f4;border-left:4px solid #C9A84C;border-radius:4px;">
