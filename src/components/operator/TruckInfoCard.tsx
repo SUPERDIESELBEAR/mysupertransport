@@ -196,7 +196,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
           </span>
           <div>
             <h3 className="text-sm font-semibold text-foreground leading-none">
-              {truckYearMakeModel || 'Truck & Equipment'}
+              {truckYearMake || 'Truck & Equipment'}
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">Truck details and assigned device numbers</p>
           </div>
@@ -353,7 +353,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
           <div className="px-5 py-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Truck Info</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
-              {truckYearMakeModel && <InfoField label="Year / Make / Model" value={truckYearMakeModel} />}
+              {truckYearMake && <InfoField label="Year / Make" value={truckYearMake} />}
               <InfoField label="VIN" value={truckInfo?.truck_vin} mono />
               <InfoField label="License Plate" value={truckInfo?.truck_plate} mono />
               <InfoField label="Plate State" value={truckInfo?.truck_plate_state} />
@@ -364,7 +364,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
         {!hasTruckInfo && onTruckEdit && (
           <div className="px-5 py-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Truck Info</p>
-            <p className="text-xs text-muted-foreground italic">No truck details yet. Click "Edit Truck" to add year, make, model, VIN, and plate info.</p>
+            <p className="text-xs text-muted-foreground italic">No truck details yet. Click "Edit Truck" to add year, make, VIN, and plate info.</p>
           </div>
         )}
 

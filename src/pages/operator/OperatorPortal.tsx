@@ -234,7 +234,6 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         setIcaTruckInfo({
           truck_year: ica.truck_year ?? null,
           truck_make: ica.truck_make ?? null,
-          truck_model: ica.truck_model ?? null,
           truck_vin: ica.truck_vin ?? null,
           truck_plate: ica.truck_plate ?? null,
           truck_plate_state: ica.truck_plate_state ?? null,
