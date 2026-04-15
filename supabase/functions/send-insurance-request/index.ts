@@ -29,6 +29,7 @@ function formatAddressBlock(block: AddressBlock): string {
 function buildInsuranceEmail(data: {
   driverName: string;
   dlAttached: boolean;
+  dlSignedUrl?: string | null;
   yearsExperience: string | null;
   vin: string | null;
   truckYear: string | null;
@@ -59,7 +60,9 @@ function buildInsuranceEmail(data: {
 
   const dlSection = data.dlAttached
     ? `<p style="margin:16px 0 0;"><strong>Driver's License:</strong> <span style="color:#27ae60;">✓ Attached</span></p>`
-    : '<p style="margin:16px 0 0;color:#999;font-size:13px;"><em>No driver\'s license on file.</em></p>';
+    : data.dlSignedUrl
+      ? `<p style="margin:16px 0 0;"><strong>Driver's License:</strong> <a href="${data.dlSignedUrl}" style="color:#C9A84C;font-weight:600;">View Driver's License</a> <em style="color:#999;font-size:12px;">(link expires in 7 days)</em></p>`
+      : '<p style="margin:16px 0 0;color:#999;font-size:13px;"><em>No driver\'s license on file.</em></p>';
 
   const notesSection = data.notes
     ? `<div style="margin-top:24px;padding:12px 16px;background:#f9f8f4;border-left:4px solid #C9A84C;border-radius:4px;">
@@ -217,6 +220,7 @@ Deno.serve(async (req) => {
 
     // --- Download DL image for attachment ---
     let dlBase64: string | null = null;
+    let dlSignedUrl: string | null = null;
     let dlFileName = 'drivers_license.jpg';
     let dlStoragePath: string | null = app?.dl_front_url ?? null;
 
@@ -256,14 +260,22 @@ Deno.serve(async (req) => {
           .download(filePath);
         if (!dlErr && fileData) {
           const arrayBuf = await fileData.arrayBuffer();
-          const bytes = new Uint8Array(arrayBuf);
-          // Base64 encode
-          dlBase64 = base64Encode(bytes);
-          // Derive filename from path if we used application DL
-          const pathParts = filePath.split('/');
-          const lastPart = pathParts[pathParts.length - 1];
-          if (lastPart && app?.dl_front_url === dlStoragePath) {
-            dlFileName = lastPart;
+          if (arrayBuf.byteLength > 4 * 1024 * 1024) {
+            // File too large to attach — generate a 7-day signed URL instead
+            console.log(`DL file too large (${(arrayBuf.byteLength / 1024 / 1024).toFixed(1)}MB), using signed URL`);
+            const { data: signedData } = await supabase.storage
+              .from(bucket)
+              .createSignedUrl(filePath, 604800); // 7 days
+            dlSignedUrl = signedData?.signedUrl ?? null;
+          } else {
+            const bytes = new Uint8Array(arrayBuf);
+            dlBase64 = base64Encode(bytes);
+            // Derive filename from path if we used application DL
+            const pathParts = filePath.split('/');
+            const lastPart = pathParts[pathParts.length - 1];
+            if (lastPart && app?.dl_front_url === dlStoragePath) {
+              dlFileName = lastPart;
+            }
           }
         } else {
           console.warn('Could not download DL from storage:', dlErr?.message);
@@ -276,6 +288,7 @@ Deno.serve(async (req) => {
     const html = buildInsuranceEmail({
       driverName,
       dlAttached: !!dlBase64,
+      dlSignedUrl,
       yearsExperience: app?.years_experience ?? null,
       vin: os?.truck_vin || ica?.truck_vin || null,
       truckYear: os?.truck_year || ica?.truck_year || null,
