@@ -25,6 +25,7 @@ import DriverHubView from '@/components/drivers/DriverHubView';
 import DocumentHub from '@/components/documents/DocumentHub';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
 import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
+import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 import ComplianceAlertsPanel from '@/components/inspection/ComplianceAlertsPanel';
 import OperatorPreviewPicker from '@/components/operator/OperatorPreviewPicker';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
@@ -823,6 +824,7 @@ export default function StaffPortal() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+      <ScrollJumpButton />
     </>
   );
 }

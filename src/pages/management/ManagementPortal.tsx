@@ -22,6 +22,7 @@ import MessagesView from '@/components/staff/MessagesView';
 import BulkMessageModal from '@/components/staff/BulkMessageModal';
 import ComplianceAlertsPanel from '@/components/inspection/ComplianceAlertsPanel';
 import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
+import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 import {
   LayoutDashboard, Users, ClipboardList, Truck, UserPlus, HelpCircle, BookOpen,
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
@@ -2030,6 +2031,7 @@ export default function ManagementPortal() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <ScrollJumpButton />
     </>
   );
 }
