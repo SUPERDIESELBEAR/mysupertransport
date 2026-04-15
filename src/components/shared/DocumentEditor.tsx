@@ -80,6 +80,11 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
 
   /* ─── download ─── */
   const downloadBlob = useCallback(async (): Promise<Blob> => {
+    // If fileUrl is a data URL (e.g. from PDF-to-image conversion), decode it directly
+    if (fileUrl.startsWith('data:')) {
+      const res = await fetch(fileUrl);
+      return await res.blob();
+    }
     if (bucketName && filePath) {
       const { data, error } = await supabase.storage.from(bucketName).download(filePath);
       if (error) throw error;
