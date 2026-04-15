@@ -188,7 +188,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
               </h2>
             </div>
             <p className="text-sm text-muted-foreground">
-              {driverName} · {[truckInfo?.year, truckInfo?.make, truckInfo?.model].filter(Boolean).join(' ') || 'No truck info'}
+              {driverName} · {[truckInfo?.year, truckInfo?.make].filter(Boolean).join(' ') || 'No truck info'}
               {truckInfo?.vin && <span className="ml-2 text-xs font-mono">VIN: {truckInfo.vin}</span>}
             </p>
           </div>
