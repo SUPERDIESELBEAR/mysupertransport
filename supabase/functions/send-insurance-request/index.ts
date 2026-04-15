@@ -27,7 +27,7 @@ function formatAddressBlock(block: AddressBlock): string {
 
 function buildInsuranceEmail(data: {
   driverName: string;
-  dlUrl: string | null;
+  dlAttached: boolean;
   yearsExperience: string | null;
   vin: string | null;
   truckYear: string | null;
