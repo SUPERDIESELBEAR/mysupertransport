@@ -94,7 +94,6 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
   const [truckDraft, setTruckDraft] = useState<TruckFieldsEditPayload>({
     truck_year: truckInfo?.truck_year ?? null,
     truck_make: truckInfo?.truck_make ?? null,
-    truck_model: truckInfo?.truck_model ?? null,
     truck_vin: truckInfo?.truck_vin ?? null,
     truck_plate: truckInfo?.truck_plate ?? null,
     truck_plate_state: truckInfo?.truck_plate_state ?? null,
@@ -118,7 +117,6 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
     setTruckDraft({
       truck_year: truckInfo?.truck_year ?? null,
       truck_make: truckInfo?.truck_make ?? null,
-      truck_model: truckInfo?.truck_model ?? null,
       truck_vin: truckInfo?.truck_vin ?? null,
       truck_plate: truckInfo?.truck_plate ?? null,
       truck_plate_state: truckInfo?.truck_plate_state ?? null,
@@ -129,11 +127,11 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
   }, [truckInfo]);
 
   // Build display name for the truck
-  const truckYearMakeModel = [truckInfo?.truck_year, truckInfo?.truck_make, truckInfo?.truck_model]
+  const truckYearMake = [truckInfo?.truck_year, truckInfo?.truck_make]
     .filter(Boolean)
     .join(' ');
 
-  const hasTruckInfo = !!(truckInfo?.truck_year || truckInfo?.truck_make || truckInfo?.truck_model ||
+  const hasTruckInfo = !!(truckInfo?.truck_year || truckInfo?.truck_make ||
     truckInfo?.truck_vin || truckInfo?.truck_plate || truckInfo?.truck_plate_state || truckInfo?.trailer_number);
 
   const hasDeviceInfo = !!(deviceInfo?.unit_number || deviceInfo?.eld_serial_number ||
@@ -157,7 +155,6 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
     setTruckDraft({
       truck_year: truckInfo?.truck_year ?? null,
       truck_make: truckInfo?.truck_make ?? null,
-      truck_model: truckInfo?.truck_model ?? null,
       truck_vin: truckInfo?.truck_vin ?? null,
       truck_plate: truckInfo?.truck_plate ?? null,
       truck_plate_state: truckInfo?.truck_plate_state ?? null,
