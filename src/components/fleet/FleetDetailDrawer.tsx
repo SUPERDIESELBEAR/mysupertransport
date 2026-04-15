@@ -84,7 +84,51 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [maintenanceSearch, setMaintenanceSearch] = useState('');
 
-  const fetchData = useCallback(async () => {
+  // Truck specs editing
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftYear, setDraftYear] = useState('');
+  const [draftMake, setDraftMake] = useState('');
+  const [draftVin, setDraftVin] = useState('');
+  const [draftUnit, setDraftUnit] = useState('');
+  const [otherMake, setOtherMake] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const startEditing = () => {
+    setDraftYear(truckInfo?.year || '');
+    const currentMake = truckInfo?.make || '';
+    const isKnown = TRUCK_MAKES.includes(currentMake as any);
+    setDraftMake(isKnown ? currentMake : currentMake ? 'Other' : '');
+    setOtherMake(isKnown ? '' : currentMake);
+    setDraftVin(truckInfo?.vin || '');
+    setDraftUnit(unitNumber || '');
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => setIsEditing(false);
+
+  const handleSaveSpecs = async () => {
+    setSaving(true);
+    try {
+      const resolvedMake = draftMake === 'Other' ? otherMake.trim() : draftMake;
+      const { error } = await supabase
+        .from('onboarding_status')
+        .update({
+          truck_year: draftYear.trim() || null,
+          truck_make: resolvedMake || null,
+          truck_vin: draftVin.trim() || null,
+          unit_number: draftUnit.trim() || null,
+        })
+        .eq('operator_id', operatorId);
+      if (error) throw error;
+      toast({ title: 'Truck specs updated' });
+      setIsEditing(false);
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: 'Failed to save', description: err.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
     setLoading(true);
 
     const [opResult, maintenanceResult, dotResult] = await Promise.all([
