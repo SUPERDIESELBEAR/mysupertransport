@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { pdfToImage } from '@/lib/pdfToImage';
 import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut, Pencil } from 'lucide-react';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { supabase } from '@/integrations/supabase/client';
@@ -307,7 +308,10 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   /** Called after a successful edit save */
   onSaved?: (newUrl: string) => void;
 }) {
+  const { toast } = useToast();
   const [showEditor, setShowEditor] = useState(false);
+  const [pdfImageSource, setPdfImageSource] = useState<string | null>(null);
+  const [convertingPdf, setConvertingPdf] = useState(false);
   const [loaded, setLoaded] = useState(false);
   // Local override URL so the preview refreshes after an edit save
   const [overrideUrl, setOverrideUrl] = useState<string | null>(null);
@@ -400,13 +404,32 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
               <span className="w-px h-5 bg-white/15 mx-1" />
             </>
           )}
-          {(onEdit || (effectiveBucket && effectivePath)) && isImage && (
+          {(onEdit || (effectiveBucket && effectivePath)) && (isImage || isPdf) && (
             <button
-              onClick={e => { e.stopPropagation(); onEdit ? onEdit() : setShowEditor(true); }}
-              className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
-              title="Edit document"
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (onEdit) { onEdit(); return; }
+                if (isPdf) {
+                  setConvertingPdf(true);
+                  try {
+                    const dataUrl = await pdfToImage(resolvedUrl);
+                    setPdfImageSource(dataUrl);
+                    setShowEditor(true);
+                  } catch (err) {
+                    console.error('PDF to image conversion failed:', err);
+                    toast({ title: 'Could not open editor', description: 'Failed to convert PDF to image.', variant: 'destructive' });
+                  } finally {
+                    setConvertingPdf(false);
+                  }
+                } else {
+                  setShowEditor(true);
+                }
+              }}
+              disabled={convertingPdf}
+              className="h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors disabled:opacity-50"
+              title={isPdf ? "Convert & edit document" : "Edit document"}
             >
-              <Pencil className="h-4 w-4" />
+              {convertingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
             </button>
           )}
           <button
@@ -538,27 +561,39 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
 
       {/* Built-in Document Editor */}
       {showEditor && effectiveBucket && effectivePath && (
-        <EditorErrorBoundary onClose={() => setShowEditor(false)}>
+        <EditorErrorBoundary onClose={() => { setShowEditor(false); setPdfImageSource(null); }}>
           <Suspense fallback={
             <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90">
               <Loader2 className="h-8 w-8 text-gold animate-spin" />
             </div>
           }>
             <DocumentEditor
-              fileUrl={resolvedUrl}
+              fileUrl={pdfImageSource || resolvedUrl}
               fileName={name}
               bucketName={effectiveBucket}
-              filePath={effectivePath}
-              onClose={() => setShowEditor(false)}
+              filePath={pdfImageSource ? effectivePath.replace(/\.pdf$/i, '.png') : effectivePath}
+              onClose={() => { setShowEditor(false); setPdfImageSource(null); }}
               onSave={async (newUrl) => {
-                // Persist the new signed URL in the inspection_documents table
-                // so reopening the doc shows the edited version
-                if (newUrl && effectivePath) {
+                const savedPath = pdfImageSource ? effectivePath.replace(/\.pdf$/i, '.png') : effectivePath;
+                if (newUrl) {
+                  // Update file_url and file_path in inspection_documents
+                  const updates: Record<string, string> = {
+                    file_url: newUrl,
+                    updated_at: new Date().toISOString(),
+                  };
+                  if (pdfImageSource) {
+                    updates.file_path = savedPath;
+                  }
                   const { error: dbErr } = await supabase
                     .from('inspection_documents')
-                    .update({ file_url: newUrl, updated_at: new Date().toISOString() })
+                    .update(updates)
                     .eq('file_path', effectivePath);
                   if (dbErr) console.error('Failed to update inspection_documents.file_url:', dbErr);
+
+                  // Delete original PDF if we converted to PNG
+                  if (pdfImageSource) {
+                    await supabase.storage.from(effectiveBucket).remove([effectivePath]);
+                  }
                 }
                 if (onSaved) {
                   try {
@@ -567,9 +602,9 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
                     console.error('onSaved callback error:', err);
                   }
                 }
-                // Update preview URL so the modal shows the freshly edited image
                 if (newUrl) setOverrideUrl(newUrl);
                 setShowEditor(false);
+                setPdfImageSource(null);
               }}
             />
           </Suspense>
