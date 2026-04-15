@@ -258,11 +258,7 @@ Deno.serve(async (req) => {
           const arrayBuf = await fileData.arrayBuffer();
           const bytes = new Uint8Array(arrayBuf);
           // Base64 encode
-          let binary = '';
-          for (let i = 0; i < bytes.length; i++) {
-            binary += String.fromCharCode(bytes[i]);
-          }
-          dlBase64 = btoa(binary);
+          dlBase64 = base64Encode(bytes);
           // Derive filename from path if we used application DL
           const pathParts = filePath.split('/');
           const lastPart = pathParts[pathParts.length - 1];
