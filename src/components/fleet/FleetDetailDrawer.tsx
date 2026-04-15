@@ -243,6 +243,83 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
           </div>
         </div>
 
+        {/* Truck Specs Card */}
+        <div className="bg-white border border-border rounded-xl shadow-sm p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Truck className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold text-sm text-foreground">Truck Specs</h3>
+            </div>
+            {!readOnly && !isEditing && (
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={startEditing}>
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+
+          {isEditing ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Year</Label>
+                  <Input className="h-8 text-xs" value={draftYear} onChange={e => setDraftYear(e.target.value)} placeholder="e.g. 2022" />
+                </div>
+                <div>
+                  <Label className="text-xs">Make</Label>
+                  <Select value={draftMake} onValueChange={v => { setDraftMake(v); if (v !== 'Other') setOtherMake(''); }}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select make" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TRUCK_MAKES.map(m => <SelectItem key={m} value={m} className="text-xs">{m}</SelectItem>)}
+                      <SelectItem value="Other" className="text-xs">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {draftMake === 'Other' && (
+                    <Input className="h-8 text-xs mt-1.5" value={otherMake} onChange={e => setOtherMake(e.target.value)} placeholder="Enter make" />
+                  )}
+                </div>
+                <div>
+                  <Label className="text-xs">VIN</Label>
+                  <Input className="h-8 text-xs font-mono" value={draftVin} onChange={e => setDraftVin(e.target.value)} placeholder="VIN" />
+                </div>
+                <div>
+                  <Label className="text-xs">Unit Number</Label>
+                  <Input className="h-8 text-xs" value={draftUnit} onChange={e => setDraftUnit(e.target.value)} placeholder="Unit #" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button size="sm" variant="ghost" className="text-xs h-7" onClick={cancelEditing} disabled={saving}>
+                  <X className="h-3.5 w-3.5 mr-1" /> Cancel
+                </Button>
+                <Button size="sm" className="text-xs h-7" onClick={handleSaveSpecs} disabled={saving}>
+                  {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                  Save
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+              <div>
+                <p className="text-[10px] text-muted-foreground">Year</p>
+                <p className="text-xs font-medium">{truckInfo?.year || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">Make</p>
+                <p className="text-xs font-medium">{truckInfo?.make || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">VIN</p>
+                <p className="text-xs font-medium font-mono">{truckInfo?.vin || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">Unit Number</p>
+                <p className="text-xs font-medium">{unitNumber || '—'}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* DOT Inspection Section */}
         <div className="bg-white border border-border rounded-xl shadow-sm p-5 space-y-4">
           <div className="flex items-center justify-between">
