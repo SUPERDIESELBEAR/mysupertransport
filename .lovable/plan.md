@@ -1,59 +1,37 @@
 
 
-## Replace Truck Make Free-Text with Dropdown & Remove Model Field
+## Add Editable Truck Specs to Vehicle Hub Detail Drawer
 
-This is the same plan previously approved, confirmed with model removal.
-
-### Shared Constant
-Define `TRUCK_MAKES` in `src/components/operator/TruckInfoCard.tsx` (exported):
-```typescript
-export const TRUCK_MAKES = [
-  'Freightliner', 'Kenworth', 'Peterbilt', 'Volvo',
-  'Mack', 'International', 'Western Star',
-] as const;
-```
+### Overview
+Add an inline edit mode to the Fleet Detail Drawer header section, allowing staff to edit truck year, make, VIN, and unit number directly. Changes save back to `onboarding_status`.
 
 ### Changes
 
-**1. `src/components/operator/TruckInfoCard.tsx`**
-- Remove `truck_model` from interfaces and edit/display logic
-- Replace Make `<Input>` with `<Select>` dropdown + "Other" free-text fallback
-- Update display string to `[truck_year, truck_make]`
+**`src/components/fleet/FleetDetailDrawer.tsx`**
 
-**2. `src/components/drivers/AddDriverModal.tsx`**
-- Remove `truck_model` from form state and ICA insert
-- Replace Make input with Select dropdown + "Other"
-- Change truck row from 3-col to 2-col grid
+1. **Add edit state**: `isEditing`, plus draft fields for `truck_year`, `truck_make`, `truck_vin`, `unit_number`, and an `otherMake` field for the "Other" fallback.
 
-**3. `src/components/ica/ICABuilderModal.tsx`**
-- Remove `truck_model` from ICAData interface, state, and pre-fill
-- Replace Make field with Select + "Other"
-- Remove Model FormField
+2. **Add "Truck Specs" card** below the header (above DOT section) with a read-only display that shows Year, Make, VIN, Unit Number in a 2×2 grid, with an Edit (pencil) button.
 
-**4. `src/components/ica/ICADocumentView.tsx`**
-- Remove `truck_model` from ICAData, update `fullTruck` concatenation
+3. **Edit mode**: When editing, replace the display with:
+   - Year: text input
+   - Make: Select dropdown using `TRUCK_MAKES` from `TruckInfoCard.tsx` (with "Other" + free-text fallback)
+   - VIN: text input
+   - Unit Number: text input
+   - Save / Cancel buttons
 
-**5. `src/components/fleet/FleetRoster.tsx`**
-- Remove `truck_model` from queries and display
+4. **Save logic**: Update `onboarding_status` table where `operator_id = operatorId`:
+   - Set `truck_year`, `truck_make`, `truck_vin`, `unit_number`
+   - Use the loud-failure pattern (throw on error, show toast)
+   - Refresh data after save via `fetchData()`
 
-**6. `src/pages/staff/OperatorDetailPanel.tsx`**
-- Remove `truck_model` from queries, merged state, stripped columns, save payloads
+5. **Respect `readOnly` prop**: Hide the edit button when `readOnly` is true.
 
-**7. `src/pages/operator/OperatorPortal.tsx`**
-- Remove `truck_model` from ICA truck info query/state
+### Files
+| File | Change |
+|------|--------|
+| `src/components/fleet/FleetDetailDrawer.tsx` | Add truck specs edit card with save to `onboarding_status` |
 
-**8. `src/components/operator/OperatorICASign.tsx`**
-- Remove `truck_model` from ICAData and audit metadata
-
-**9. `src/components/management/FormsCatalog.tsx`**
-- Remove `truck_model` from sample ICA data
-
-**10. `supabase/functions/send-insurance-request/index.ts`**
-- Remove `truck_model` from query and email body
-
-### "Other" Handling
-Each Make dropdown includes an "Other" option. When selected, a text input appears. The stored value is the typed text, not "Other".
-
-### No Database Migration
-The `truck_model` column stays in the database — we simply stop reading/writing it.
+### No migration needed
+All target columns already exist on `onboarding_status`.
 
