@@ -561,27 +561,39 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
 
       {/* Built-in Document Editor */}
       {showEditor && effectiveBucket && effectivePath && (
-        <EditorErrorBoundary onClose={() => setShowEditor(false)}>
+        <EditorErrorBoundary onClose={() => { setShowEditor(false); setPdfImageSource(null); }}>
           <Suspense fallback={
             <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90">
               <Loader2 className="h-8 w-8 text-gold animate-spin" />
             </div>
           }>
             <DocumentEditor
-              fileUrl={resolvedUrl}
+              fileUrl={pdfImageSource || resolvedUrl}
               fileName={name}
               bucketName={effectiveBucket}
-              filePath={effectivePath}
-              onClose={() => setShowEditor(false)}
+              filePath={pdfImageSource ? effectivePath.replace(/\.pdf$/i, '.png') : effectivePath}
+              onClose={() => { setShowEditor(false); setPdfImageSource(null); }}
               onSave={async (newUrl) => {
-                // Persist the new signed URL in the inspection_documents table
-                // so reopening the doc shows the edited version
-                if (newUrl && effectivePath) {
+                const savedPath = pdfImageSource ? effectivePath.replace(/\.pdf$/i, '.png') : effectivePath;
+                if (newUrl) {
+                  // Update file_url and file_path in inspection_documents
+                  const updates: Record<string, string> = {
+                    file_url: newUrl,
+                    updated_at: new Date().toISOString(),
+                  };
+                  if (pdfImageSource) {
+                    updates.file_path = savedPath;
+                  }
                   const { error: dbErr } = await supabase
                     .from('inspection_documents')
-                    .update({ file_url: newUrl, updated_at: new Date().toISOString() })
+                    .update(updates)
                     .eq('file_path', effectivePath);
                   if (dbErr) console.error('Failed to update inspection_documents.file_url:', dbErr);
+
+                  // Delete original PDF if we converted to PNG
+                  if (pdfImageSource) {
+                    await supabase.storage.from(effectiveBucket).remove([effectivePath]);
+                  }
                 }
                 if (onSaved) {
                   try {
@@ -590,9 +602,9 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
                     console.error('onSaved callback error:', err);
                   }
                 }
-                // Update preview URL so the modal shows the freshly edited image
                 if (newUrl) setOverrideUrl(newUrl);
                 setShowEditor(false);
+                setPdfImageSource(null);
               }}
             />
           </Suspense>
