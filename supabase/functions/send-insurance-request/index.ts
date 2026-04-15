@@ -257,7 +257,18 @@ Deno.serve(async (req) => {
       entity_id: operator_id,
       entity_label: driverName,
       action: 'insurance_request_sent',
-      metadata: { recipients, policy_type: policyType, email_error: emailError },
+      metadata: {
+        recipients,
+        policy_type: policyType,
+        stated_value: os?.insurance_stated_value ?? null,
+        truck_vin: os?.truck_vin || ica?.truck_vin || null,
+        truck_year: os?.truck_year || ica?.truck_year || null,
+        truck_make: os?.truck_make || ica?.truck_make || null,
+        notes: os?.insurance_notes ?? null,
+        ai_company: ai.company,
+        ch_company: ch.company,
+        email_error: emailError,
+      },
     });
 
     if (emailError) {
