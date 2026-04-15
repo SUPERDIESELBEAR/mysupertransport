@@ -3,17 +3,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { downloadBlob } from '@/lib/downloadBlob';
+import { TRUCK_MAKES } from '@/components/operator/TruckInfoCard';
+import { toast } from '@/hooks/use-toast';
 import MaintenanceRecordModal from './MaintenanceRecordModal';
 import DOTInspectionModal from './DOTInspectionModal';
 import {
   ArrowLeft, Plus, Truck, Wrench, ShieldCheck, Eye, Download,
-  Loader2, Search, AlertTriangle, CheckCircle2, Clock, FileText,
+  Loader2, Search, AlertTriangle, CheckCircle2, Clock, FileText, Pencil, X, Save,
 } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 
@@ -80,6 +83,52 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
   const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string } | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [maintenanceSearch, setMaintenanceSearch] = useState('');
+
+  // Truck specs editing
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftYear, setDraftYear] = useState('');
+  const [draftMake, setDraftMake] = useState('');
+  const [draftVin, setDraftVin] = useState('');
+  const [draftUnit, setDraftUnit] = useState('');
+  const [otherMake, setOtherMake] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const startEditing = () => {
+    setDraftYear(truckInfo?.year || '');
+    const currentMake = truckInfo?.make || '';
+    const isKnown = TRUCK_MAKES.includes(currentMake as any);
+    setDraftMake(isKnown ? currentMake : currentMake ? 'Other' : '');
+    setOtherMake(isKnown ? '' : currentMake);
+    setDraftVin(truckInfo?.vin || '');
+    setDraftUnit(unitNumber || '');
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => setIsEditing(false);
+
+  const handleSaveSpecs = async () => {
+    setSaving(true);
+    try {
+      const resolvedMake = draftMake === 'Other' ? otherMake.trim() : draftMake;
+      const { error } = await supabase
+        .from('onboarding_status')
+        .update({
+          truck_year: draftYear.trim() || null,
+          truck_make: resolvedMake || null,
+          truck_vin: draftVin.trim() || null,
+          unit_number: draftUnit.trim() || null,
+        })
+        .eq('operator_id', operatorId);
+      if (error) throw error;
+      toast({ title: 'Truck specs updated' });
+      setIsEditing(false);
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: 'Failed to save', description: err.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -192,6 +241,83 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
               {truckInfo?.vin && <span className="ml-2 text-xs font-mono">VIN: {truckInfo.vin}</span>}
             </p>
           </div>
+        </div>
+
+        {/* Truck Specs Card */}
+        <div className="bg-white border border-border rounded-xl shadow-sm p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Truck className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold text-sm text-foreground">Truck Specs</h3>
+            </div>
+            {!readOnly && !isEditing && (
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={startEditing}>
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+
+          {isEditing ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Year</Label>
+                  <Input className="h-8 text-xs" value={draftYear} onChange={e => setDraftYear(e.target.value)} placeholder="e.g. 2022" />
+                </div>
+                <div>
+                  <Label className="text-xs">Make</Label>
+                  <Select value={draftMake} onValueChange={v => { setDraftMake(v); if (v !== 'Other') setOtherMake(''); }}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select make" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TRUCK_MAKES.map(m => <SelectItem key={m} value={m} className="text-xs">{m}</SelectItem>)}
+                      <SelectItem value="Other" className="text-xs">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {draftMake === 'Other' && (
+                    <Input className="h-8 text-xs mt-1.5" value={otherMake} onChange={e => setOtherMake(e.target.value)} placeholder="Enter make" />
+                  )}
+                </div>
+                <div>
+                  <Label className="text-xs">VIN</Label>
+                  <Input className="h-8 text-xs font-mono" value={draftVin} onChange={e => setDraftVin(e.target.value)} placeholder="VIN" />
+                </div>
+                <div>
+                  <Label className="text-xs">Unit Number</Label>
+                  <Input className="h-8 text-xs" value={draftUnit} onChange={e => setDraftUnit(e.target.value)} placeholder="Unit #" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button size="sm" variant="ghost" className="text-xs h-7" onClick={cancelEditing} disabled={saving}>
+                  <X className="h-3.5 w-3.5 mr-1" /> Cancel
+                </Button>
+                <Button size="sm" className="text-xs h-7" onClick={handleSaveSpecs} disabled={saving}>
+                  {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                  Save
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+              <div>
+                <p className="text-[10px] text-muted-foreground">Year</p>
+                <p className="text-xs font-medium">{truckInfo?.year || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">Make</p>
+                <p className="text-xs font-medium">{truckInfo?.make || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">VIN</p>
+                <p className="text-xs font-medium font-mono">{truckInfo?.vin || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">Unit Number</p>
+                <p className="text-xs font-medium">{unitNumber || '—'}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* DOT Inspection Section */}
