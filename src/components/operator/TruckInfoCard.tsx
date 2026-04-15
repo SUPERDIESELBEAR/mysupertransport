@@ -221,8 +221,6 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
                   </div>
                   {[
                     { key: 'truck_year' as const, label: 'Year', placeholder: 'e.g. 2022' },
-                    { key: 'truck_make' as const, label: 'Make', placeholder: 'e.g. Freightliner' },
-                    { key: 'truck_model' as const, label: 'Model', placeholder: 'e.g. Cascadia' },
                     { key: 'truck_vin' as const, label: 'VIN', placeholder: '17-character VIN' },
                     { key: 'truck_plate' as const, label: 'License Plate', placeholder: 'Plate number' },
                   ].map(({ key, label, placeholder }) => (

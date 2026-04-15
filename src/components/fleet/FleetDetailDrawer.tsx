@@ -90,8 +90,8 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
         .select(`
           id, unit_number,
           applications(first_name, last_name),
-          onboarding_status(unit_number, truck_year, truck_make, truck_model, truck_vin),
-          ica_contracts(owner_name, truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state)
+          onboarding_status(unit_number, truck_year, truck_make, truck_vin),
+          ica_contracts(owner_name, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state)
         `)
         .eq('id', operatorId)
         .single(),
@@ -117,7 +117,6 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
       setTruckInfo({
         year: os?.truck_year || ica?.truck_year,
         make: os?.truck_make || ica?.truck_make,
-        model: os?.truck_model || ica?.truck_model,
         vin: os?.truck_vin || ica?.truck_vin,
         plate: ica?.truck_plate,
         plateState: ica?.truck_plate_state,
