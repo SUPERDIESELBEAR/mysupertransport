@@ -1,37 +1,27 @@
 
 
-## Add Editable Truck Specs to Vehicle Hub Detail Drawer
+## Update send-insurance-request to Prefer onboarding_status Truck Data
 
-### Overview
-Add an inline edit mode to the Fleet Detail Drawer header section, allowing staff to edit truck year, make, VIN, and unit number directly. Changes save back to `onboarding_status`.
+### Problem
+The edge function currently pulls `truck_vin`, `truck_year`, and `truck_make` only from `ica_contracts`. Edits made in the Vehicle Hub (which saves to `onboarding_status`) are not reflected in the insurance email.
 
-### Changes
+### Change
 
-**`src/components/fleet/FleetDetailDrawer.tsx`**
+**`supabase/functions/send-insurance-request/index.ts`**
 
-1. **Add edit state**: `isEditing`, plus draft fields for `truck_year`, `truck_make`, `truck_vin`, `unit_number`, and an `otherMake` field for the "Other" fallback.
+1. Add `truck_vin, truck_year, truck_make` to the existing `onboarding_status` select query (line 175–178) — no extra DB call needed.
 
-2. **Add "Truck Specs" card** below the header (above DOT section) with a read-only display that shows Year, Make, VIN, Unit Number in a 2×2 grid, with an Edit (pencil) button.
+2. Update the `buildInsuranceEmail` call (lines 216–218) to prefer `onboarding_status` values, falling back to `ica_contracts`:
+   ```
+   vin:       os?.truck_vin   || ica?.truck_vin   || null,
+   truckYear: os?.truck_year  || ica?.truck_year  || null,
+   truckMake: os?.truck_make  || ica?.truck_make  || null,
+   ```
 
-3. **Edit mode**: When editing, replace the display with:
-   - Year: text input
-   - Make: Select dropdown using `TRUCK_MAKES` from `TruckInfoCard.tsx` (with "Other" + free-text fallback)
-   - VIN: text input
-   - Unit Number: text input
-   - Save / Cancel buttons
-
-4. **Save logic**: Update `onboarding_status` table where `operator_id = operatorId`:
-   - Set `truck_year`, `truck_make`, `truck_vin`, `unit_number`
-   - Use the loud-failure pattern (throw on error, show toast)
-   - Refresh data after save via `fetchData()`
-
-5. **Respect `readOnly` prop**: Hide the edit button when `readOnly` is true.
+3. Deploy the updated function.
 
 ### Files
 | File | Change |
 |------|--------|
-| `src/components/fleet/FleetDetailDrawer.tsx` | Add truck specs edit card with save to `onboarding_status` |
-
-### No migration needed
-All target columns already exist on `onboarding_status`.
+| `supabase/functions/send-insurance-request/index.ts` | Add truck fields to OS query; prefer OS over ICA |
 
