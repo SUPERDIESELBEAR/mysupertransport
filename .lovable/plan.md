@@ -1,29 +1,31 @@
 
 
-## Fix Driver's License Link in Insurance Email
+## Fix Memory Limit Crash in Insurance Email
 
 ### Problem
-The DL link in the insurance email uses a raw storage path (e.g. `application-documents/abc/dl.jpg`) instead of a full URL. When the recipient clicks it, the browser interprets it as a domain name — resulting in `DNS_PROBE_FINISHED_NXDOMAIN`.
+The `send-insurance-request` edge function crashes with "Memory limit exceeded" when trying to Base64-encode the driver's license image. The current approach builds a huge intermediate string character-by-character (`String.fromCharCode` in a loop), which uses roughly 3× the file size in memory — exceeding the edge function's ~150MB limit for large photos.
 
 ### Solution
-**Attach the driver's license image directly to the email** instead of linking to it. This is the most reliable approach because:
-- Signed URLs expire (typically 1 hour) — useless if the insurance agent opens the email later
-- An attachment is a permanent copy the recipient can save and reference anytime
+Replace the manual Base64 loop with Deno's built-in standard library encoder, which operates directly on the `Uint8Array` without creating an intermediate string.
 
-### Changes
+### Change
 
 **`supabase/functions/send-insurance-request/index.ts`**
 
-1. **Download the DL image from storage** — After fetching `app?.dl_front_url`, use the service-role Supabase client to download the file as a `Uint8Array`, then Base64-encode it.
+1. **Add import** at top of file:
+   ```typescript
+   import { encode as base64Encode } from "https://deno.land/std@0.208.0/encoding/base64.ts";
+   ```
 
-2. **Pass the attachment to Resend** — The Resend API accepts a `attachments` array with `{ filename, content }` (Base64-encoded). Add the DL image as an attachment when available.
+2. **Replace lines 260–264** (the manual loop + btoa) with:
+   ```typescript
+   dlBase64 = base64Encode(bytes);
+   ```
 
-3. **Update the email template** — Replace the broken `<a href="...">View Driver's License</a>` link with a note: "Driver's license attached" (or keep the "No driver's license on file" fallback).
-
-4. **Also check `operator_documents`** — If `dl_front_url` is null in `applications`, look for a document with `doc_type = 'drivers_license'` in `operator_documents` as a fallback (covers licenses uploaded during onboarding).
+This eliminates the intermediate string entirely — the `base64Encode` function converts `Uint8Array` directly to a Base64 string using native Deno APIs, using a fraction of the memory.
 
 ### Files
 | File | Change |
 |------|--------|
-| `supabase/functions/send-insurance-request/index.ts` | Download DL from storage, attach to email via Resend API, update email template text |
+| `supabase/functions/send-insurance-request/index.ts` | Add std lib import, replace manual Base64 loop with `base64Encode(bytes)` |
 
