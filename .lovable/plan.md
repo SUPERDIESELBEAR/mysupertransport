@@ -1,31 +1,44 @@
 
 
-## Fix Memory Limit Crash in Insurance Email
+## Fix Memory Limit for Large Driver's License Images
 
 ### Problem
-The `send-insurance-request` edge function crashes with "Memory limit exceeded" when trying to Base64-encode the driver's license image. The current approach builds a huge intermediate string character-by-character (`String.fromCharCode` in a loop), which uses roughly 3× the file size in memory — exceeding the edge function's ~150MB limit for large photos.
+Ronald Lockett's driver's license image is too large for the edge function's memory limit (~150MB). Even with the optimized `base64Encode`, downloading and encoding a multi-megabyte photo phone image exceeds the limit. Bobby Thompson's works because his file is smaller.
 
 ### Solution
-Replace the manual Base64 loop with Deno's built-in standard library encoder, which operates directly on the `Uint8Array` without creating an intermediate string.
+Add a file size check before downloading. If the file exceeds a safe threshold (e.g. 4MB), generate a **time-limited signed URL** (7-day expiry) instead of attaching the file. The email template will adapt — showing "Driver's license attached" when small enough to attach, or a clickable link when too large.
 
-### Change
+### Changes
 
 **`supabase/functions/send-insurance-request/index.ts`**
 
-1. **Add import** at top of file:
-   ```typescript
-   import { encode as base64Encode } from "https://deno.land/std@0.208.0/encoding/base64.ts";
-   ```
+1. **Before downloading**, call `supabase.storage.from(bucket).list()` on the parent folder to get the file's `metadata.size`, or attempt download and check `arrayBuffer.byteLength`.
 
-2. **Replace lines 260–264** (the manual loop + btoa) with:
-   ```typescript
-   dlBase64 = base64Encode(bytes);
-   ```
+2. **If the file is ≤ 4MB** — proceed with the current attach flow (download → base64Encode → Resend attachment).
 
-This eliminates the intermediate string entirely — the `base64Encode` function converts `Uint8Array` directly to a Base64 string using native Deno APIs, using a fraction of the memory.
+3. **If the file is > 4MB** — skip the download entirely. Instead, generate a signed URL with `createSignedUrl(filePath, 604800)` (7 days). Pass the URL to the email template as a clickable link.
+
+4. **Update `buildInsuranceEmail`** to accept a new optional `dlSignedUrl` parameter. When present (and `dlAttached` is false), render a "View Driver's License" link. When neither is available, show "No driver's license on file."
+
+### Technical Detail
+The simplest approach: attempt the download, then check `arrayBuf.byteLength` before encoding. If it exceeds 4MB, discard the buffer immediately and fall back to the signed URL. This avoids an extra API call to list metadata.
+
+```typescript
+const arrayBuf = await fileData.arrayBuffer();
+if (arrayBuf.byteLength > 4 * 1024 * 1024) {
+  // Too large to attach — fall back to signed URL
+  const { data: signedData } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(filePath, 604800); // 7 days
+  dlSignedUrl = signedData?.signedUrl ?? null;
+} else {
+  const bytes = new Uint8Array(arrayBuf);
+  dlBase64 = base64Encode(bytes);
+}
+```
 
 ### Files
 | File | Change |
 |------|--------|
-| `supabase/functions/send-insurance-request/index.ts` | Add std lib import, replace manual Base64 loop with `base64Encode(bytes)` |
+| `supabase/functions/send-insurance-request/index.ts` | Add size check, signed URL fallback, update email template |
 
