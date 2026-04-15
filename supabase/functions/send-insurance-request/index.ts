@@ -32,7 +32,6 @@ function buildInsuranceEmail(data: {
   vin: string | null;
   truckYear: string | null;
   truckMake: string | null;
-  truckModel: string | null;
   policyType: string;
   statedValue: number | null;
   ai: AddressBlock;
@@ -100,7 +99,6 @@ function buildInsuranceEmail(data: {
               <tr><td style="padding:8px 12px;background:#f9f9f9;border-bottom:1px solid #eee;font-weight:600;width:40%;">VIN</td><td style="padding:8px 12px;border-bottom:1px solid #eee;font-family:monospace;">${data.vin ?? 'N/A'}</td></tr>
               <tr><td style="padding:8px 12px;background:#f9f9f9;border-bottom:1px solid #eee;font-weight:600;">Year</td><td style="padding:8px 12px;border-bottom:1px solid #eee;">${data.truckYear ?? 'N/A'}</td></tr>
               <tr><td style="padding:8px 12px;background:#f9f9f9;border-bottom:1px solid #eee;font-weight:600;">Make</td><td style="padding:8px 12px;border-bottom:1px solid #eee;">${data.truckMake ?? 'N/A'}</td></tr>
-              <tr><td style="padding:8px 12px;background:#f9f9f9;border-bottom:1px solid #eee;font-weight:600;">Model</td><td style="padding:8px 12px;border-bottom:1px solid #eee;">${data.truckModel ?? 'N/A'}</td></tr>
               ${statedValueRow}
               ${addlInsuredRow}
               ${certHolderRow}
@@ -159,7 +157,7 @@ Deno.serve(async (req) => {
       supabase.from('operators').select(`
         id, user_id,
         applications (first_name, last_name, years_experience, dl_front_url),
-        ica_contracts (truck_vin, truck_year, truck_make, truck_model)
+        ica_contracts (truck_vin, truck_year, truck_make)
       `).eq('id', operator_id).single(),
       supabase.from('insurance_email_settings').select('recipient_emails').eq('id', '00000000-0000-0000-0000-000000000001').single(),
       supabase.from('profiles').select('first_name, last_name').eq('user_id', caller.id).maybeSingle(),
@@ -218,7 +216,6 @@ Deno.serve(async (req) => {
       vin: ica?.truck_vin ?? null,
       truckYear: ica?.truck_year ?? null,
       truckMake: ica?.truck_make ?? null,
-      truckModel: ica?.truck_model ?? null,
       policyType,
       statedValue: os?.insurance_stated_value ?? null,
       ai,

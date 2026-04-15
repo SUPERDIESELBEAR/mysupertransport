@@ -14,7 +14,6 @@ interface FleetRow {
   ownerName: string;
   truckYear: string | null;
   truckMake: string | null;
-  truckModel: string | null;
   truckVin: string | null;
   totalRepairCost: number;
   dotNextDue: string | null;
@@ -48,8 +47,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         id,
         unit_number,
         applications(first_name, last_name),
-        onboarding_status(unit_number, truck_year, truck_make, truck_model, truck_vin),
-        ica_contracts(owner_name, owner_business_name, truck_year, truck_make, truck_model, truck_vin)
+        onboarding_status(unit_number, truck_year, truck_make, truck_vin),
+        ica_contracts(owner_name, owner_business_name, truck_year, truck_make, truck_vin)
       `)
       .eq('is_active', true);
 
@@ -91,7 +90,6 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         ownerName,
         truckYear: os?.truck_year || ica?.truck_year || null,
         truckMake: os?.truck_make || ica?.truck_make || null,
-        truckModel: os?.truck_model || ica?.truck_model || null,
         truckVin: os?.truck_vin || ica?.truck_vin || null,
         totalRepairCost: costMap.get(op.id) ?? 0,
         dotNextDue: dotMap.get(op.id) ?? null,
@@ -181,7 +179,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     <TableCell className="text-xs font-medium">{row.driverName}</TableCell>
                     <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">{row.ownerName}</TableCell>
                     <TableCell className="text-xs text-muted-foreground hidden md:table-cell">
-                      {[row.truckYear, row.truckMake, row.truckModel].filter(Boolean).join(' ') || '—'}
+                      {[row.truckYear, row.truckMake].filter(Boolean).join(' ') || '—'}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground hidden lg:table-cell font-mono">
                       {row.truckVin || '—'}

@@ -4,7 +4,6 @@ import SignatureCanvas from 'react-signature-canvas';
 interface ICAData {
   truck_year: string;
   truck_make: string;
-  truck_model: string;
   truck_vin: string;
   truck_plate: string;
   truck_plate_state: string;
@@ -54,7 +53,7 @@ export default function ICADocumentView({
   onSignatureEnd, onSignatureClear
 }: ICADocumentViewProps) {
 
-  const fullTruck = [data.truck_year, data.truck_make, data.truck_model].filter(Boolean).join(' ');
+  const fullTruck = [data.truck_year, data.truck_make].filter(Boolean).join(' ');
   const ownerAddr = [data.owner_city, data.owner_state, data.owner_zip].filter(Boolean).join(', ');
 
   // Combined contractor label: "Owner Name d/b/a Business Name"

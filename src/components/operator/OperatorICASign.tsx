@@ -9,7 +9,7 @@ import ICADocumentView from '@/components/ica/ICADocumentView';
 
 interface ICAData {
   id: string;
-  truck_year: string; truck_make: string; truck_model: string;
+  truck_year: string; truck_make: string;
   truck_vin: string; truck_plate: string; truck_plate_state: string;
   trailer_number: string; owner_business_name: string; owner_ein_ssn: string;
   owner_address: string; owner_city: string; owner_state: string; owner_zip: string;
@@ -143,7 +143,6 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
             signed_at: new Date().toISOString(),
             truck_year: contract.truck_year,
             truck_make: contract.truck_make,
-            truck_model: contract.truck_model,
             truck_vin: contract.truck_vin,
             linehaul_split_pct: contract.linehaul_split_pct,
           },
