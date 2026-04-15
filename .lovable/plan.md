@@ -1,44 +1,48 @@
 
 
-## Fix Memory Limit for Large Driver's License Images
+## Fix "Mark All Read" Not Clearing Sidebar Badges
 
 ### Problem
-Ronald Lockett's driver's license image is too large for the edge function's memory limit (~150MB). Even with the optimized `base64Encode`, downloading and encoding a multi-megabyte photo phone image exceeds the limit. Bobby Thompson's works because his file is smaller.
+Three separate issues contribute to the red dots persisting:
 
-### Solution
-Add a file size check before downloading. If the file exceeds a safe threshold (e.g. 4MB), generate a **time-limited signed URL** (7-day expiry) instead of attaching the file. The email template will adapt — showing "Driver's license attached" when small enough to attach, or a clickable link when too large.
+1. **Notifications badge** — The "Mark all read" button in `NotificationHistory` only marks the currently loaded page of notifications (up to 25). If there are more unread notifications beyond the first page, the sidebar badge persists because the re-fetched count is still > 0. The fix is to mark **all** unread notifications in the database, not just the loaded ones.
+
+2. **Applicant Pipeline & Compliance badges** — These red dots show `criticalExpiryCount` (expiring CDLs and Medical Certificates within 30 days). They are **not** notification-based — they represent real compliance alerts. "Mark all read" does not and should not affect them. These badges will only disappear when the underlying expiry dates are updated or the documents are renewed. No code change needed here, but this may warrant a brief clarification.
 
 ### Changes
 
-**`supabase/functions/send-insurance-request/index.ts`**
+**`src/components/management/NotificationHistory.tsx`**
 
-1. **Before downloading**, call `supabase.storage.from(bucket).list()` on the parent folder to get the file's `metadata.size`, or attempt download and check `arrayBuffer.byteLength`.
-
-2. **If the file is ≤ 4MB** — proceed with the current attach flow (download → base64Encode → Resend attachment).
-
-3. **If the file is > 4MB** — skip the download entirely. Instead, generate a signed URL with `createSignedUrl(filePath, 604800)` (7 days). Pass the URL to the email template as a clickable link.
-
-4. **Update `buildInsuranceEmail`** to accept a new optional `dlSignedUrl` parameter. When present (and `dlAttached` is false), render a "View Driver's License" link. When neither is available, show "No driver's license on file."
-
-### Technical Detail
-The simplest approach: attempt the download, then check `arrayBuf.byteLength` before encoding. If it exceeds 4MB, discard the buffer immediately and fall back to the signed URL. This avoids an extra API call to list metadata.
+Update `markAllRead` to mark **all** unread notifications for the user in one query, not just the loaded page:
 
 ```typescript
-const arrayBuf = await fileData.arrayBuffer();
-if (arrayBuf.byteLength > 4 * 1024 * 1024) {
-  // Too large to attach — fall back to signed URL
-  const { data: signedData } = await supabase.storage
-    .from(bucket)
-    .createSignedUrl(filePath, 604800); // 7 days
-  dlSignedUrl = signedData?.signedUrl ?? null;
-} else {
-  const bytes = new Uint8Array(arrayBuf);
-  dlBase64 = base64Encode(bytes);
-}
+const markAllRead = async () => {
+  if (!session?.user?.id) return;
+  setMarkingAll(true);
+  // Mark ALL unread notifications, not just the loaded page
+  await supabase
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .eq('user_id', session.user.id)
+    .is('read_at', null);
+  // Update local state
+  setNotifications(prev =>
+    prev.map(n => ({ ...n, read_at: n.read_at ?? new Date().toISOString() }))
+  );
+  setMarkingAll(false);
+};
 ```
+
+This ensures the sidebar badge drops to 0 because the realtime subscription in `ManagementPortal` re-fetches the true unread count (which will now be 0).
+
+**Same fix in `src/pages/staff/StaffPortal.tsx`** — The Staff Portal's notification realtime subscription only listens for `INSERT` events, so it never decrements the badge when notifications are marked as read. Update it to listen for all events (`event: '*'`) and re-fetch the actual count (matching the Management Portal pattern).
 
 ### Files
 | File | Change |
 |------|--------|
-| `supabase/functions/send-insurance-request/index.ts` | Add size check, signed URL fallback, update email template |
+| `src/components/management/NotificationHistory.tsx` | Mark all unread notifications for the user, not just loaded page |
+| `src/pages/staff/StaffPortal.tsx` | Change notification realtime subscription from INSERT-only to `*` with re-fetch |
+
+### Note on Pipeline & Compliance badges
+The red dots on Applicant Pipeline and Compliance represent **real expiring documents** (CDL or Medical Certificate expiring within 30 days). These are intentional safety indicators and are separate from the notification system. They clear automatically when the operator's certifications are renewed.
 
