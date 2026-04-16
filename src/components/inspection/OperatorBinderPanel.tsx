@@ -287,11 +287,22 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
         <div className="h-9 w-9 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
           <FolderOpen className="h-4 w-4 text-gold" />
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <h3 className="text-sm font-bold text-foreground">Inspection Binder</h3>
           <p className="text-xs text-muted-foreground">Per-driver documents &amp; uploads for {operatorName}</p>
         </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5 text-xs shrink-0"
+          onClick={() => setFlipbookOpen(true)}
+          disabled={loading}
+        >
+          <BookOpen className="h-3.5 w-3.5" />
+          Open Flipbook
+        </Button>
       </div>
+
 
       <div className="p-5 space-y-4">
         {/* Tabs */}
