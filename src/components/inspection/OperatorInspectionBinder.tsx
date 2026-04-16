@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useBinderOrder } from '@/hooks/useBinderOrder';
 import {
   FileText, Truck, Shield, CheckSquare, Square, Send, Mail, MessageSquare,
-  Upload, Loader2, AlertTriangle, Clock, X, QrCode,
+  Upload, Loader2, AlertTriangle, Clock, X, QrCode, List, BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,6 +15,7 @@ import {
   COMPANY_WIDE_DOCS, PER_DRIVER_DOCS, getExpiryStatus,
 } from './InspectionBinderTypes';
 import { DocRow, ExpiryBadge, FilePreviewModal } from './DocRow';
+import BinderFlipbook, { FlipbookPage } from './BinderFlipbook';
 
 interface Props {
   userId: string;
@@ -73,6 +74,8 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [viewMode, setViewMode] = useState<'list' | 'pages'>('list');
+  const [flipbookOpen, setFlipbookOpen] = useState(false);
 
   // In-app file preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -224,8 +227,26 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
         </div>
       </div>
 
-      {/* ─── SELECT MODE CONTROLS ─── */}
-      <div className="flex items-center gap-2">
+      {/* ─── VIEW MODE + SELECT CONTROLS ─── */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+              viewMode === 'list' ? 'bg-gold text-surface-dark' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <List className="h-3.5 w-3.5" /> List
+          </button>
+          <button
+            onClick={() => { setViewMode('pages'); setFlipbookOpen(true); }}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+              viewMode === 'pages' ? 'bg-gold text-surface-dark' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <BookOpen className="h-3.5 w-3.5" /> Pages
+          </button>
+        </div>
         <Button
           variant={selectMode ? 'default' : 'outline'}
           size="sm"
@@ -396,6 +417,66 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
           onSaved={() => fetchDocs()}
         />
       )}
+
+      {flipbookOpen && (() => {
+        const pages: FlipbookPage[] = [
+          {
+            id: 'cover',
+            title: 'Cover Page',
+            kind: 'cover',
+            fileUrl: null,
+          },
+          ...companyOrder.map((key): FlipbookPage | null => {
+            const spec = COMPANY_WIDE_DOCS.find(d => d.key === key);
+            if (!spec) return null;
+            const doc = findCompanyDoc(key);
+            return {
+              id: `c-${key}`,
+              title: key,
+              subtitle: 'Company Document',
+              fileUrl: doc?.file_url ?? null,
+              fileName: doc?.file_url ?? null,
+              shareToken: doc?.public_share_token ?? null,
+              expiresAt: doc?.expires_at ?? null,
+              kind: 'doc' as const,
+            };
+          }).filter(Boolean) as FlipbookPage[],
+          ...driverOrder.map((key): FlipbookPage | null => {
+            const spec = PER_DRIVER_DOCS.find(d => d.key === key);
+            if (!spec) return null;
+            const doc = findDriverDoc(key);
+            return {
+              id: `d-${key}`,
+              title: key,
+              subtitle: 'My Document',
+              fileUrl: doc?.file_url ?? null,
+              fileName: doc?.file_url ?? null,
+              shareToken: doc?.public_share_token ?? null,
+              expiresAt: doc?.expires_at ?? null,
+              kind: 'doc' as const,
+            };
+          }).filter(Boolean) as FlipbookPage[],
+          ...driverUploads.map((u): FlipbookPage => ({
+            id: `u-${u.id}`,
+            title: u.file_name || 'Upload',
+            subtitle: UPLOAD_SECTIONS.find(s => s.key === u.category)?.label || 'Upload',
+            fileUrl: u.file_url,
+            fileName: u.file_name,
+            shareToken: null,
+            expiresAt: null,
+            kind: 'upload',
+          })),
+        ];
+        return (
+          <BinderFlipbook
+            pages={pages}
+            driverName={driverName}
+            unitNumber={unitNumber}
+            storageKey={`flipbook:${userId}`}
+            onClose={() => { setFlipbookOpen(false); setViewMode('list'); }}
+          />
+        );
+      })()}
     </div>
   );
 }
