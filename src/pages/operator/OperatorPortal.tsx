@@ -28,7 +28,7 @@ import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
 import OperatorInspectionBinder from '@/components/inspection/OperatorInspectionBinder';
 import ContractorPaySetup from '@/components/operator/ContractorPaySetup';
-import TruckInfoCard, { TruckInfo } from '@/components/operator/TruckInfoCard';
+import TruckInfoCard, { TruckInfo, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
 
@@ -105,6 +105,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const [cdlExpiration, setCdlExpiration] = useState<string | null>(null);
   const [medicalCertExpiration, setMedicalCertExpiration] = useState<string | null>(null);
   const [icaTruckInfo, setIcaTruckInfo] = useState<TruckInfo | null>(null);
+  const [equipmentShipping, setEquipmentShipping] = useState<EquipmentShippingInfo[]>([]);
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
 
@@ -1123,6 +1124,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 bestpass_number: onboardingStatus.bestpass_number as string | null,
                 fuel_card_number: onboardingStatus.fuel_card_number as string | null,
               }}
+              shippingInfo={equipmentShipping}
             />
 
             {/* ── CONTACT SECTION ── */}
