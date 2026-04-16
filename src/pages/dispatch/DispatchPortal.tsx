@@ -164,6 +164,8 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
   // Dispatcher filter
   const [dispatcherFilter, setDispatcherFilter] = useState<string>('my');
   const [dispatcherNames, setDispatcherNames] = useState<Record<string, string>>({});
+  // All dispatchers/management for the assignment dropdown
+  const [allDispatchers, setAllDispatchers] = useState<Record<string, string>>({});
   // Binder sheet
   const [binderTarget, setBinderTarget] = useState<{ userId: string; operatorId: string; name: string } | null>(null);
 
