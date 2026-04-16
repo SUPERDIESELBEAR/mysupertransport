@@ -992,6 +992,9 @@ export type Database = {
           contractor_signed_at: string | null
           contractor_typed_name: string | null
           created_at: string
+          deposit_elected: boolean
+          deposit_elected_date: string | null
+          deposit_initials: string | null
           equipment_location: string | null
           id: string
           lease_effective_date: string | null
@@ -1027,6 +1030,9 @@ export type Database = {
           contractor_signed_at?: string | null
           contractor_typed_name?: string | null
           created_at?: string
+          deposit_elected?: boolean
+          deposit_elected_date?: string | null
+          deposit_initials?: string | null
           equipment_location?: string | null
           id?: string
           lease_effective_date?: string | null
@@ -1062,6 +1068,9 @@ export type Database = {
           contractor_signed_at?: string | null
           contractor_typed_name?: string | null
           created_at?: string
+          deposit_elected?: boolean
+          deposit_elected_date?: string | null
+          deposit_initials?: string | null
           equipment_location?: string | null
           id?: string
           lease_effective_date?: string | null
