@@ -1,24 +1,34 @@
 
 
-## Add Dispatcher Name to Cards and Sort by Dispatcher
+## Fleet Compliance View — Cleaner Layout and Human-Readable Dates
 
-### What's Changing
+### Problems Identified
 
-1. **Dispatcher name label at the top of each card** — Display the assigned dispatcher's name in the card header strip (below the status badge area). Shows as a small muted label like "Dispatcher: John Smith" or "Unassigned" if none.
+1. **Confusing sort order** — Currently sorted purely by urgency tier then days-until-expiry, which interleaves different drivers' CDL and Med Cert rows randomly. A driver with an expiring CDL could be 20 rows away from their Med Cert.
+2. **Status shows raw day counts** — Badges show `"342d"` or `"15d ago"` which is hard to parse at a glance. The `formatDaysHuman` utility already exists but isn't used here.
 
-2. **Sort cards by dispatcher** — When viewing "All Drivers", group/sort cards alphabetically by dispatcher name so all of one dispatcher's drivers appear together. Unassigned drivers sort to the end. Within each dispatcher group, maintain the existing sort order (name/unit).
+### Recommendations and Changes
+
+**Default view: Group by operator, fleet docs on top**
+- Fleet-wide rows (Insurance, IFTA) stay at the top as a distinct group
+- Then operators are sorted by their *worst* document status (expired operators first, valid operators last)
+- Within each operator, CDL and Med Cert appear together — so you see the full picture for each driver at a glance
+- This eliminates the scattered feel and makes it scannable
+
+**Human-readable time display**
+- Replace `"342d"` with `"11m 12d"` and `"15d ago"` with `"15d ago"` (short durations stay as days)
+- Import and use the existing `formatDaysHuman()` from `InspectionBinderTypes.ts`
+- Apply to both the badge text and the tooltip
 
 ### Technical Details
 
 | Area | Change |
 |------|--------|
-| `src/pages/dispatch/DispatchPortal.tsx` — Card header (line ~1074) | Add a small dispatcher name line using `dispatcherNames[row.assigned_dispatcher]` below the status strip, styled as `text-[11px] text-muted-foreground` |
-| `src/pages/dispatch/DispatchPortal.tsx` — `filteredRows` memo (line ~613) | After filtering, sort results by dispatcher name (alphabetically), with unassigned rows last. Secondary sort by driver last name. |
+| `InspectionComplianceSummary.tsx` — sort logic (lines 196–204) | Split fleet rows to top, then group remaining by operator. Sort operators by worst status tier, then alphabetically. Within each operator, order CDL before Med Cert. |
+| `InspectionComplianceSummary.tsx` — status badges (lines 588–597) | Replace `${entry.daysUntil}d` with `formatDaysHuman(entry.daysUntil)` for both positive and negative values |
+| `InspectionComplianceSummary.tsx` — tooltips (lines 601–607) | Update tooltip text to use human-readable format |
+| `InspectionComplianceSummary.tsx` — import | Add `formatDaysHuman` to the existing import from `./InspectionBinderTypes` |
 
-### Behavior
-
-- Each card shows the dispatcher's first+last name in the header area
-- If no dispatcher is assigned, it shows "Unassigned" in italic
-- Cards are sorted so all drivers for the same dispatcher are grouped together
-- The dispatcher name map (`dispatcherNames`) is already fetched — no new queries needed
+### Single file change
+Only `src/components/inspection/InspectionComplianceSummary.tsx` is modified. No database changes needed.
 
