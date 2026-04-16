@@ -686,7 +686,7 @@ export default function ManagementPortal() {
     { label: 'Messages',          icon: <MessageSquare className="h-4 w-4" />,   path: 'messages',          badge: unreadMsgCount },
     { label: 'Notifications',     icon: <BellRing className="h-4 w-4" />,        path: 'notifications',     badge: unreadNotifCount },
     { label: 'Compliance',        icon: <ShieldCheck className="h-4 w-4" />,     path: 'compliance',        badge: criticalExpiryCount || undefined, dividerBefore: 'Operations' },
-    { label: 'Dispatch',          icon: <Truck className="h-4 w-4" />,           path: 'dispatch',          badge: truckDownCount || undefined },
+    { label: 'Dispatch Board',    icon: <Truck className="h-4 w-4" />,           path: 'dispatch',          badge: truckDownCount || undefined },
     { label: 'Driver Hub',        icon: <Users2 className="h-4 w-4" />,          path: 'drivers' },
     { label: 'Vehicle Hub',       icon: <CarFront className="h-4 w-4" />,        path: 'vehicle-hub' },
     { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />,          path: 'inspection-binder' },
