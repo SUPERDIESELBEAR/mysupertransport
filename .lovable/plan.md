@@ -1,53 +1,28 @@
 
 
-## Fix: Print CSS Targeting Wrong DOM Level
+## Fix Application Print — Clone-to-Body Approach
 
-### Problem
-The print CSS rule `body > *:not(.app-print-root)` targets direct children of `<body>`, but the drawer lives inside `<div id="root">` — a child of body. This rule hides `#root` entirely, which hides the drawer content too. Result: blank print preview.
+### Root Cause
+
+The CSS-only print approach (`#root > *:not(.app-print-root)`) fails because `.app-print-root` is not a direct child of `#root` — it's deeply nested inside React Router wrappers, providers, and layout components. The CSS selector never matches, so all parent containers with `overflow: hidden` and fixed heights remain active during print, clipping content to one page.
 
 ### Solution
-Update the `@media print` block in `src/index.css` to:
-1. Target `#root > *` instead of `body > *` so the selector reaches the correct DOM level
-2. Alternatively, hide `#root`'s siblings (script tags, etc.) and then drill into `#root` to hide everything except the drawer
 
-### Technical Details
+Abandon the CSS-only approach. Instead, reuse the proven `printDocumentById` pattern already in `src/lib/printDocument.ts` — clone the scrollable content area to a top-level `<div>` appended directly to `<body>`, inject a `@media print` style that hides everything else, call `window.print()`, then clean up.
+
+### Changes
 
 | File | Change |
 |------|--------|
-| `src/index.css` (lines 191–215) | Fix the print CSS selectors to account for the `#root` wrapper div |
+| `src/components/management/ApplicationReviewDrawer.tsx` | 1. Add an `id` (e.g. `app-review-print-content`) to the scrollable content div. 2. Replace `handlePrint` to call `printDocumentById('app-review-print-content', fullName + ' — Application')`. 3. Remove the `app-print-root`, `app-print-drawer`, `app-print-scroll`, `app-print-hide` CSS classes — they're no longer needed. |
+| `src/index.css` | Remove the entire `@media print` block (lines 190–221) since the clone-to-body approach handles print isolation via injected inline styles. |
 
-**Updated CSS approach:**
-```css
-@media print {
-  /* Make root fill naturally */
-  #root { overflow: visible !important; height: auto !important; }
+### How it works
 
-  /* Hide everything inside #root except the drawer */
-  #root > *:not(.app-print-root) { display: none !important; }
+1. The scrollable `<div>` containing all application content gets an `id`
+2. `printDocumentById` clones that element, appends it to `<body>`, injects a scoped print style that hides `body > *:not(#__print_clone_wrapper__)`, and calls `window.print()`
+3. The clone is not trapped inside any fixed/overflow containers, so the browser paginates it naturally across multiple pages
+4. After printing, the clone and style are removed — no DOM side effects
 
-  /* Inside the print root, hide non-drawer elements */
-  .app-print-root > *:not(.app-print-drawer) { display: none !important; }
-
-  /* Unclip the drawer */
-  .app-print-drawer {
-    position: static !important;
-    overflow: visible !important;
-    height: auto !important;
-    max-height: none !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-
-  .app-print-scroll {
-    overflow: visible !important;
-    height: auto !important;
-    max-height: none !important;
-  }
-
-  .app-print-hide { display: none !important; }
-  @page { size: letter; margin: 0.5in; }
-}
-```
-
-Single file change. No database changes needed.
+This is the same pattern already used successfully for standalone document printing elsewhere in the app.
 
