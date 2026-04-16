@@ -1,28 +1,27 @@
 
 
-## Make ICA Deposit Election Interactive and Fillable
+## Vehicle Hub Enhancements — License Plates, Deactivated Units, and MO Plate Integration
 
-### Problem
-The Deposit Election section in Section 4 of the ICA is currently static text — the checkbox, initials, and date are plain characters that cannot be interacted with.
+### What's Changing
 
-### Approach
-1. **Add 3 columns to `ica_contracts` table** via migration: `deposit_elected` (boolean), `deposit_initials` (text), `deposit_elected_date` (text)
-2. **Update `ICADocumentView`** to accept and render these as interactive form fields during signing, and as static filled values when viewing a signed ICA
-3. **Update `OperatorICASign`** to pass the deposit election state to the document view and include it in the signing save
-4. **Update `ICABuilderModal`** and `ICAViewModal`** to pass through the stored deposit election data for preview/view modes
+1. **License Plate columns on Fleet Roster table** — Add "Plate #" and "Plate State" columns to the Vehicle Hub roster, sourced from `onboarding_status` or `ica_contracts` (same fallback chain used elsewhere).
 
-### Details
+2. **Deactivated Units section** — Add an Active/Deactivated toggle at the top of the Vehicle Hub (following the same pattern as Archived Drivers). The deactivated view queries `operators` with `is_active = false` and shows the same table structure in a muted/dimmed style.
+
+3. **License Plate in FleetDetailDrawer Truck Specs** — Display plate number and state in the read-only Truck Specs card. Make them editable alongside Year, Make, VIN, and Unit Number (saving to `onboarding_status`).
+
+4. **MO Plate Registry integration** — When viewing an assigned MO plate, show the operator's truck license plate number alongside the driver name and unit number. This surfaces the truck's plate directly in the MO Plate Registry table rows for quick cross-reference.
+
+5. **Search enhancements** — Include license plate number in the Vehicle Hub search filter so staff can search by plate.
+
+### Technical Details
 
 | File | Change |
 |------|--------|
-| **Migration** | `ALTER TABLE ica_contracts ADD COLUMN deposit_elected boolean DEFAULT false, ADD COLUMN deposit_initials text, ADD COLUMN deposit_elected_date text;` |
-| `src/components/ica/ICADocumentView.tsx` | Add optional props (`depositElected`, `depositInitials`, `depositElectedDate`, and change handlers). Render a real `<Checkbox>`, `<Input>` for initials, and `<DateInput>` for the date inside the election box when in signing mode. Show filled values in view mode. |
-| `src/components/operator/OperatorICASign.tsx` | Add local state for the 3 deposit fields. Pass them to `ICADocumentView`. Include them in the `.update()` call when signing. |
-| `src/components/ica/ICAViewModal.tsx` | Read `deposit_elected`, `deposit_initials`, `deposit_elected_date` from the contract record and pass to `ICADocumentView` as read-only display. |
-| `src/components/ica/ICABuilderModal.tsx` | No changes needed — builder creates the ICA before contractor signs, so deposit election fields start empty. |
+| `src/components/fleet/FleetRoster.tsx` | Add `truckPlate`, `truckPlateState`, `isActive` to `FleetRow`. Add Active/Deactivated toggle. Add Plate # column. Include plate in search filter. Fetch deactivated operators separately. |
+| `src/components/fleet/FleetDetailDrawer.tsx` | Add `truck_plate`, `truck_plate_state` to the `onboarding_status` select. Display in Truck Specs card (read-only and edit mode). Include in `handleSaveSpecs`. |
+| `src/components/mo-plates/MoPlateRegistry.tsx` | Enrich assigned plates with the operator's truck plate info by joining through `operator_id` on the open assignment → `onboarding_status`/`ica_contracts`. Show truck plate in the assigned plate row. |
 
-### Behavior
-- **During operator signing**: The checkbox, initials, and date fields are interactive. The operator can optionally check the box, type initials, and enter a date. These are saved alongside the signature.
-- **After signing (view mode)**: If elected, the checkbox shows checked, initials and date display as filled text. If not elected, the section shows as unchecked with blank fields.
-- **Print/preview**: Fields render as filled or blank based on stored data.
+### No database migration needed
+The `onboarding_status` and `ica_contracts` tables already have `truck_plate` and `truck_plate_state` columns. No schema changes required.
 
