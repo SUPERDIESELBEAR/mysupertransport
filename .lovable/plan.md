@@ -1,13 +1,14 @@
 
 
-## Default Dispatch Board to "All Drivers" & Rename Title
+## Rename Sidebar Label to "Dispatch Board"
 
-### Changes
+The sidebar item that navigates to the Dispatch portal is defined in **`ManagementPortal.tsx`** (line 689), not in `DispatchPortal.tsx`. The previous edit only changed the internal nav and page title — the Management Portal sidebar still shows "Dispatch".
 
-| File | What |
-|------|------|
-| `src/pages/dispatch/DispatchPortal.tsx` (line 165) | Change `dispatcherFilter` default from `'my'` to `'all'` so the board shows all drivers on load |
-| `src/pages/dispatch/DispatchPortal.tsx` (line 1823) | Change `title="Dispatch"` to `title="Dispatch Board"` in the StaffLayout prop |
+### Change
 
-Two single-line edits in one file. No database changes.
+| File | Line | From | To |
+|------|------|------|----|
+| `src/pages/management/ManagementPortal.tsx` | 689 | `label: 'Dispatch'` | `label: 'Dispatch Board'` |
+
+Single-line edit. No database changes.
 
