@@ -11,8 +11,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, User,
-  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, FolderOpen, Plus,
+  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, FolderOpen, Plus, BookOpen,
 } from 'lucide-react';
+import { useBinderOrder } from '@/hooks/useBinderOrder';
+import BinderFlipbook, { FlipbookPage } from './BinderFlipbook';
 import { DateInput } from '@/components/ui/date-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -78,15 +80,19 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
   const { user } = useAuth();
   const { toast } = useToast();
   const { guardDemo } = useDemoMode();
+  const { companyOrder, driverOrder } = useBinderOrder();
 
   const [perDriverDocs, setPerDriverDocs] = useState<InspectionDocument[]>([]);
+  const [companyDocs, setCompanyDocs] = useState<InspectionDocument[]>([]);
   const [driverUploads, setDriverUploads] = useState<DriverUpload[]>([]);
+  const [unitNumber, setUnitNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<InspectionDocument | null>(null);
   const [activeTab, setActiveTab] = useState<'driver' | 'uploads'>('driver');
   const [expiryEditing, setExpiryEditing] = useState<string | null>(null);
   const [expiryValue, setExpiryValue] = useState('');
+  const [flipbookOpen, setFlipbookOpen] = useState(false);
 
   // In-app file preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -98,12 +104,16 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
 
   const fetchDocs = useCallback(async () => {
     setLoading(true);
-    const [pdRes, duRes] = await Promise.all([
+    const [pdRes, duRes, cwRes, opRes] = await Promise.all([
       supabase.from('inspection_documents').select('*').eq('scope', 'per_driver').eq('driver_id', driverUserId).order('name'),
       supabase.from('driver_uploads').select('*').eq('driver_id', driverUserId).order('uploaded_at', { ascending: false }),
+      supabase.from('inspection_documents').select('*').eq('scope', 'company_wide').eq('shared_with_fleet', true).order('name'),
+      supabase.from('operators').select('id, unit_number').eq('user_id', driverUserId).maybeSingle(),
     ]);
     setPerDriverDocs((pdRes.data ?? []) as InspectionDocument[]);
     setDriverUploads((duRes.data ?? []) as DriverUpload[]);
+    setCompanyDocs((cwRes.data ?? []) as InspectionDocument[]);
+    setUnitNumber((opRes.data as any)?.unit_number ?? null);
     setLoading(false);
   }, [driverUserId]);
 
@@ -277,11 +287,22 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
         <div className="h-9 w-9 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
           <FolderOpen className="h-4 w-4 text-gold" />
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <h3 className="text-sm font-bold text-foreground">Inspection Binder</h3>
           <p className="text-xs text-muted-foreground">Per-driver documents &amp; uploads for {operatorName}</p>
         </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5 text-xs shrink-0"
+          onClick={() => setFlipbookOpen(true)}
+          disabled={loading}
+        >
+          <BookOpen className="h-3.5 w-3.5" />
+          Open Flipbook
+        </Button>
       </div>
+
 
       <div className="p-5 space-y-4">
         {/* Tabs */}
@@ -499,6 +520,67 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
       {previewUrl && (
         <FilePreviewModal url={previewUrl} name={previewName} onClose={() => { setPreviewUrl(null); setPreviewFilePath(null); setPreviewBucket(null); }} bucketName={previewBucket ?? undefined} filePath={previewFilePath ?? undefined} onSaved={async () => { await fetchDocs(); }} />
       )}
+
+      {flipbookOpen && (() => {
+        const pages: FlipbookPage[] = [
+          { id: 'cover', title: 'Cover', kind: 'cover', fileUrl: null },
+        ];
+        // Company docs in admin-configured order
+        for (const key of companyOrder) {
+          const spec = COMPANY_WIDE_DOCS.find(d => d.key === key);
+          if (!spec) continue;
+          const doc = companyDocs.find(d => d.name === key);
+          pages.push({
+            id: `cw-${key}`,
+            title: key,
+            subtitle: 'Company Document',
+            kind: 'doc',
+            fileUrl: doc?.file_url ?? null,
+            fileName: doc?.file_url ? key : null,
+            shareToken: doc?.public_share_token ?? null,
+            expiresAt: doc?.expires_at ?? null,
+          });
+        }
+        // Per-driver docs in admin-configured order
+        for (const key of driverOrder) {
+          const spec = PER_DRIVER_DOCS.find(d => d.key === key);
+          if (!spec) continue;
+          const doc = perDriverDocs.find(d => d.name === key);
+          pages.push({
+            id: `pd-${key}`,
+            title: key,
+            subtitle: 'Driver Document',
+            kind: 'doc',
+            fileUrl: doc?.file_url ?? null,
+            fileName: doc?.file_url ? key : null,
+            shareToken: doc?.public_share_token ?? null,
+            expiresAt: doc?.expires_at ?? null,
+          });
+        }
+        // Driver uploads
+        for (const up of driverUploads) {
+          pages.push({
+            id: `up-${up.id}`,
+            title: up.file_name ?? 'Uploaded Document',
+            subtitle: UPLOAD_CATEGORY_LABELS[up.category as DriverUploadCategory] ?? 'Upload',
+            kind: 'upload',
+            fileUrl: up.file_url ?? null,
+            fileName: up.file_name ?? null,
+            shareToken: null,
+            expiresAt: null,
+          });
+        }
+        return (
+          <BinderFlipbook
+            pages={pages}
+            driverName={operatorName}
+            unitNumber={unitNumber}
+            storageKey={`flipbook:staff:${driverUserId}`}
+            onClose={() => setFlipbookOpen(false)}
+          />
+        );
+      })()}
     </div>
   );
 }
+
