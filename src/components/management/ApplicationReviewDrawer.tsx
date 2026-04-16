@@ -426,7 +426,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   };
 
   const handlePrint = () => {
-    window.print();
+    const fullName = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Application';
+    printDocumentById('app-review-print-content', `${fullName} — Application`);
   };
 
   const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email;
@@ -576,14 +577,14 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex app-print-root">
+    <div className="fixed inset-0 z-50 flex">
       {/* Backdrop */}
-      <div className="flex-1 bg-black/40 app-print-hide" onClick={onClose} />
+      <div className="flex-1 bg-black/40" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="w-full max-w-2xl bg-white shadow-2xl flex flex-col h-full overflow-hidden app-print-drawer">
+      <div className="w-full max-w-2xl bg-white shadow-2xl flex flex-col h-full overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-dark shrink-0 app-print-hide">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-dark shrink-0">
           <div>
             <div className="flex items-center gap-2.5">
               <h2 className="text-lg font-bold text-white">{fullName}</h2>
@@ -610,7 +611,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-border bg-surface-dark/5 shrink-0 app-print-hide">
+        <div className="flex border-b border-border bg-surface-dark/5 shrink-0">
           <button
             onClick={() => setActiveTab('overview')}
             className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
@@ -635,7 +636,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto app-print-scroll">
+        <div id="app-review-print-content" className="flex-1 overflow-y-auto">
 
           {/* ── OVERVIEW TAB ── */}
           {activeTab === 'overview' && (
@@ -998,7 +999,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
         {/* Action Footer — only show for pending */}
         {app.review_status === 'pending' && (
-          <div className="border-t border-border p-5 bg-secondary/30 shrink-0 space-y-3 app-print-hide">
+          <div className="border-t border-border p-5 bg-secondary/30 shrink-0 space-y-3">
             {!confirmAction ? (
               <>
                 <div>
