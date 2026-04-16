@@ -50,6 +50,15 @@ export interface TruckFieldsEditPayload {
   trailer_number: string | null;
 }
 
+/** One device's shipping info, keyed by device_type ('eld' | 'dash_cam' | 'bestpass' | 'fuel_card'). */
+export interface EquipmentShippingInfo {
+  device_type: string;
+  shipping_carrier: string | null;
+  tracking_number: string | null;
+  ship_date: string | null;
+  tracking_receipt_url: string | null;
+}
+
 interface TruckInfoCardProps {
   truckInfo?: TruckInfo | null;
   deviceInfo?: DeviceInfo | null;
@@ -57,6 +66,8 @@ interface TruckInfoCardProps {
   onEdit?: (payload: TruckInfoCardEditPayload) => Promise<void>;
   /** If provided, truck fields (year/make/model/VIN/plate) become editable */
   onTruckEdit?: (payload: TruckFieldsEditPayload) => Promise<void>;
+  /** Optional shipping info per device — when set, shows tracking badges next to serial numbers */
+  shippingInfo?: EquipmentShippingInfo[] | null;
 }
 
 interface InfoFieldProps {
