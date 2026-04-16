@@ -90,12 +90,20 @@ function InfoField({ label, value, mono = false }: InfoFieldProps) {
   );
 }
 
-export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEdit }: TruckInfoCardProps) {
+export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEdit, shippingInfo }: TruckInfoCardProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [truckEditOpen, setTruckEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [truckSaving, setTruckSaving] = useState(false);
   const [trailerOpen, setTrailerOpen] = useState(false);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+
+  // Map device_type -> latest shipping row for quick lookup beside each serial
+  const shippingByDevice: Record<string, EquipmentShippingInfo | undefined> = {};
+  for (const s of shippingInfo ?? []) {
+    // First entry per device_type wins (RPC returns most recent first)
+    if (!shippingByDevice[s.device_type]) shippingByDevice[s.device_type] = s;
+  }
 
   const [draft, setDraft] = useState<TruckInfoCardEditPayload>({
     unit_number: deviceInfo?.unit_number ?? null,
