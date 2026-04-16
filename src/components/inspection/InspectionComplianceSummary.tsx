@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { differenceInDays, format } from 'date-fns';
-import { parseLocalDate } from './InspectionBinderTypes'; 
+import { parseLocalDate, formatDaysHuman } from './InspectionBinderTypes'; 
 import { ShieldCheck, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Clock, ExternalLink, CalendarIcon, Loader2, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -192,15 +192,40 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       });
     });
 
-    // Sort: expired first → critical → warning → valid → missing; then by daysUntil asc
+    // Sort: fleet rows first, then group by operator (worst status first), within operator CDL before Med Cert
     const tierOrder: Record<Status, number> = { expired: 0, critical: 1, warning: 2, valid: 3, missing: 4 };
+
+    // Compute worst tier per operator for grouping
+    const worstTier: Record<string, number> = {};
+    result.forEach(e => {
+      if (e.operatorId === '__fleet__') return;
+      const t = tierOrder[e.status];
+      if (worstTier[e.operatorId] === undefined || t < worstTier[e.operatorId]) {
+        worstTier[e.operatorId] = t;
+      }
+    });
+
+    const docOrder: Record<DocKey, number> = {
+      'Insurance': 0, 'IFTA License': 1, 'IRP Registration (cab card)': 2, 'CDL': 3, 'Medical Certificate': 4,
+    };
+
     result.sort((a, b) => {
-      const td = tierOrder[a.status] - tierOrder[b.status];
-      if (td !== 0) return td;
-      if (a.daysUntil === null && b.daysUntil === null) return 0;
-      if (a.daysUntil === null) return 1;
-      if (b.daysUntil === null) return -1;
-      return a.daysUntil - b.daysUntil;
+      const aFleet = a.operatorId === '__fleet__' ? 0 : 1;
+      const bFleet = b.operatorId === '__fleet__' ? 0 : 1;
+      if (aFleet !== bFleet) return aFleet - bFleet;
+
+      // Both fleet
+      if (aFleet === 0) return docOrder[a.docKey] - docOrder[b.docKey];
+
+      // Both per-operator: sort by worst tier, then name, then doc type
+      const wA = worstTier[a.operatorId] ?? 4;
+      const wB = worstTier[b.operatorId] ?? 4;
+      if (wA !== wB) return wA - wB;
+
+      const nameCmp = a.operatorName.localeCompare(b.operatorName);
+      if (nameCmp !== 0) return nameCmp;
+
+      return docOrder[a.docKey] - docOrder[b.docKey];
     });
 
     setEntries(result);
@@ -586,25 +611,23 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                               cfg.badgeCls,
                             )}>
                               {entry.status === 'expired'
-                                ? `${Math.abs(entry.daysUntil!)}d ago`
+                                ? `${formatDaysHuman(Math.abs(entry.daysUntil!))} ago`
                                 : entry.status === 'missing'
                                 ? 'No date'
-                                : entry.status === 'valid'
-                                ? `${entry.daysUntil}d`
                                 : entry.daysUntil === 0
                                 ? 'Today'
-                                : `${entry.daysUntil}d`
+                                : formatDaysHuman(entry.daysUntil!)
                               }
                             </span>
                           </TooltipTrigger>
                           <TooltipContent side="top" className="text-xs">
                             {entry.status === 'expired'
-                              ? `Expired ${Math.abs(entry.daysUntil!)} days ago`
+                              ? `Expired ${formatDaysHuman(Math.abs(entry.daysUntil!))} ago`
                               : entry.status === 'missing'
                               ? 'No expiry date set'
                               : entry.daysUntil === 0
                               ? 'Expires today'
-                              : `${entry.daysUntil} days until expiry`}
+                              : `${formatDaysHuman(entry.daysUntil!)} until expiry`}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
