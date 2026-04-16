@@ -576,12 +576,12 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex">
+    <div className="fixed inset-0 z-50 flex app-print-root">
       {/* Backdrop */}
-      <div className="flex-1 bg-black/40" onClick={onClose} />
+      <div className="flex-1 bg-black/40 app-print-hide" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="w-full max-w-2xl bg-white shadow-2xl flex flex-col h-full overflow-hidden">
+      <div className="w-full max-w-2xl bg-white shadow-2xl flex flex-col h-full overflow-hidden app-print-drawer">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-dark shrink-0">
           <div>
