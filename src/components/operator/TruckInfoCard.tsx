@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Truck, Cpu, Camera, Gauge, CreditCard, Pencil, Save, X, Hash, ChevronDown, Plus } from 'lucide-react';
+import { Truck, Cpu, Camera, Gauge, CreditCard, Pencil, Save, X, Hash, ChevronDown, Plus, Package, ExternalLink, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { US_STATES } from '@/components/application/types';
+import { buildTrackingUrl, shortTracking } from '@/components/equipment/equipmentTracking';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { format, parseISO } from 'date-fns';
 
 export const TRUCK_MAKES = [
   'Freightliner', 'Kenworth', 'Peterbilt', 'Volvo',
