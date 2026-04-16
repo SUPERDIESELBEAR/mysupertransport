@@ -55,7 +55,8 @@ export default function ICADocumentView({
   carrierSignatureUrl, carrierTypedName, carrierTitle, carrierSignedAt,
   contractorSignatureUrl, contractorTypedName, contractorSignedAt,
   contractorSigRef, contractorSignedName, onContractorSignedNameChange,
-  onSignatureEnd, onSignatureClear
+  onSignatureEnd, onSignatureClear,
+  depositElected, depositInitials, depositElectedDate, onDepositChange
 }: ICADocumentViewProps) {
 
   const fullTruck = [data.truck_year, data.truck_make].filter(Boolean).join(' ');
