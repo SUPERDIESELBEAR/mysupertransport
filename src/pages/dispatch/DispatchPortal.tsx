@@ -904,6 +904,19 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
             })}
           </div>
         </div>
+        {/* Dispatcher filter */}
+        <Select value={dispatcherFilter} onValueChange={setDispatcherFilter}>
+          <SelectTrigger className="h-8 text-xs w-full sm:w-40 shrink-0">
+            <SelectValue placeholder="Filter by dispatcher" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="my">My Drivers</SelectItem>
+            <SelectItem value="all">All Drivers</SelectItem>
+            {Object.entries(dispatcherNames).map(([id, name]) => (
+              <SelectItem key={id} value={id}>{name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="relative sm:ml-auto w-full sm:w-56">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <Input
