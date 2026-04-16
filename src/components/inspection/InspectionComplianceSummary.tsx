@@ -611,25 +611,23 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                               cfg.badgeCls,
                             )}>
                               {entry.status === 'expired'
-                                ? `${Math.abs(entry.daysUntil!)}d ago`
+                                ? `${formatDaysHuman(Math.abs(entry.daysUntil!))} ago`
                                 : entry.status === 'missing'
                                 ? 'No date'
-                                : entry.status === 'valid'
-                                ? `${entry.daysUntil}d`
                                 : entry.daysUntil === 0
                                 ? 'Today'
-                                : `${entry.daysUntil}d`
+                                : formatDaysHuman(entry.daysUntil!)
                               }
                             </span>
                           </TooltipTrigger>
                           <TooltipContent side="top" className="text-xs">
                             {entry.status === 'expired'
-                              ? `Expired ${Math.abs(entry.daysUntil!)} days ago`
+                              ? `Expired ${formatDaysHuman(Math.abs(entry.daysUntil!))} ago`
                               : entry.status === 'missing'
                               ? 'No expiry date set'
                               : entry.daysUntil === 0
                               ? 'Expires today'
-                              : `${entry.daysUntil} days until expiry`}
+                              : `${formatDaysHuman(entry.daysUntil!)} until expiry`}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
