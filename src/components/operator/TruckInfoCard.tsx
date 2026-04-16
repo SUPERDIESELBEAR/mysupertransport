@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Truck, Cpu, Camera, Gauge, CreditCard, Pencil, Save, X, Hash, ChevronDown, Plus } from 'lucide-react';
+import { Truck, Cpu, Camera, Gauge, CreditCard, Pencil, Save, X, Hash, ChevronDown, Plus, Package, ExternalLink, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { US_STATES } from '@/components/application/types';
+import { buildTrackingUrl, shortTracking } from '@/components/equipment/equipmentTracking';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { format, parseISO } from 'date-fns';
 
 export const TRUCK_MAKES = [
   'Freightliner', 'Kenworth', 'Peterbilt', 'Volvo',
@@ -47,6 +50,15 @@ export interface TruckFieldsEditPayload {
   trailer_number: string | null;
 }
 
+/** One device's shipping info, keyed by device_type ('eld' | 'dash_cam' | 'bestpass' | 'fuel_card'). */
+export interface EquipmentShippingInfo {
+  device_type: string;
+  shipping_carrier: string | null;
+  tracking_number: string | null;
+  ship_date: string | null;
+  tracking_receipt_url: string | null;
+}
+
 interface TruckInfoCardProps {
   truckInfo?: TruckInfo | null;
   deviceInfo?: DeviceInfo | null;
@@ -54,6 +66,8 @@ interface TruckInfoCardProps {
   onEdit?: (payload: TruckInfoCardEditPayload) => Promise<void>;
   /** If provided, truck fields (year/make/model/VIN/plate) become editable */
   onTruckEdit?: (payload: TruckFieldsEditPayload) => Promise<void>;
+  /** Optional shipping info per device — when set, shows tracking badges next to serial numbers */
+  shippingInfo?: EquipmentShippingInfo[] | null;
 }
 
 interface InfoFieldProps {
@@ -76,12 +90,84 @@ function InfoField({ label, value, mono = false }: InfoFieldProps) {
   );
 }
 
-export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEdit }: TruckInfoCardProps) {
+interface DeviceCellProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  shipping?: EquipmentShippingInfo;
+  onPreviewReceipt: (url: string) => void;
+}
+
+function DeviceCell({ icon, label, value, shipping, onPreviewReceipt }: DeviceCellProps) {
+  const trackingUrl = shipping ? buildTrackingUrl(shipping.shipping_carrier, shipping.tracking_number) : null;
+  const hasShipping = !!(shipping && (shipping.shipping_carrier || shipping.tracking_number || shipping.tracking_receipt_url));
+  return (
+    <div className="bg-card px-4 py-3 flex items-start gap-3">
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-none mb-1">{label}</p>
+        <p className="font-mono text-sm font-bold text-foreground tracking-widest break-all">{value}</p>
+        {hasShipping && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {(shipping!.shipping_carrier || shipping!.tracking_number) && (
+              trackingUrl ? (
+                <a
+                  href={trackingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/15 transition-colors"
+                >
+                  <Package className="h-2.5 w-2.5" />
+                  Shipped {shipping!.shipping_carrier}
+                  {shipping!.tracking_number && <span className="font-mono">· {shortTracking(shipping!.tracking_number, 6)}</span>}
+                  <ExternalLink className="h-2.5 w-2.5" />
+                </a>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                  <Package className="h-2.5 w-2.5" />
+                  Shipped {shipping!.shipping_carrier ?? ''}
+                  {shipping!.tracking_number && <span className="font-mono">· {shortTracking(shipping!.tracking_number, 6)}</span>}
+                </span>
+              )
+            )}
+            {shipping!.ship_date && (
+              <span className="text-[10px] text-muted-foreground">
+                {format(parseISO(shipping!.ship_date), 'MMM d, yyyy')}
+              </span>
+            )}
+            {shipping!.tracking_receipt_url && (
+              <button
+                type="button"
+                onClick={() => onPreviewReceipt(shipping!.tracking_receipt_url!)}
+                className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-foreground hover:bg-muted/60 transition-colors"
+              >
+                <FileText className="h-2.5 w-2.5 text-primary" />
+                Receipt
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEdit, shippingInfo }: TruckInfoCardProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [truckEditOpen, setTruckEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [truckSaving, setTruckSaving] = useState(false);
   const [trailerOpen, setTrailerOpen] = useState(false);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+
+  // Map device_type -> latest shipping row for quick lookup beside each serial
+  const shippingByDevice: Record<string, EquipmentShippingInfo | undefined> = {};
+  for (const s of shippingInfo ?? []) {
+    // First entry per device_type wins (RPC returns most recent first)
+    if (!shippingByDevice[s.device_type]) shippingByDevice[s.device_type] = s;
+  }
 
   const [draft, setDraft] = useState<TruckInfoCardEditPayload>({
     unit_number: deviceInfo?.unit_number ?? null,
@@ -384,48 +470,40 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
                   </div>
                 )}
                 {deviceInfo?.eld_serial_number && (
-                  <div className="bg-card px-4 py-3 flex items-start gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
-                      <Cpu className="h-3.5 w-3.5 text-primary" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-none mb-1">ELD Serial #</p>
-                      <p className="font-mono text-sm font-bold text-foreground tracking-widest break-all">{deviceInfo.eld_serial_number}</p>
-                    </div>
-                  </div>
+                  <DeviceCell
+                    icon={<Cpu className="h-3.5 w-3.5 text-primary" />}
+                    label="ELD Serial #"
+                    value={deviceInfo.eld_serial_number}
+                    shipping={shippingByDevice['eld']}
+                    onPreviewReceipt={setReceiptPreview}
+                  />
                 )}
                 {deviceInfo?.dash_cam_number && (
-                  <div className="bg-card px-4 py-3 flex items-start gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
-                      <Camera className="h-3.5 w-3.5 text-primary" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-none mb-1">Dash Cam #</p>
-                      <p className="font-mono text-sm font-bold text-foreground tracking-widest break-all">{deviceInfo.dash_cam_number}</p>
-                    </div>
-                  </div>
+                  <DeviceCell
+                    icon={<Camera className="h-3.5 w-3.5 text-primary" />}
+                    label="Dash Cam #"
+                    value={deviceInfo.dash_cam_number}
+                    shipping={shippingByDevice['dash_cam']}
+                    onPreviewReceipt={setReceiptPreview}
+                  />
                 )}
                 {deviceInfo?.bestpass_number && (
-                  <div className="bg-card px-4 py-3 flex items-start gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
-                      <Gauge className="h-3.5 w-3.5 text-primary" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-none mb-1">BestPass #</p>
-                      <p className="font-mono text-sm font-bold text-foreground tracking-widest break-all">{deviceInfo.bestpass_number}</p>
-                    </div>
-                  </div>
+                  <DeviceCell
+                    icon={<Gauge className="h-3.5 w-3.5 text-primary" />}
+                    label="BestPass #"
+                    value={deviceInfo.bestpass_number}
+                    shipping={shippingByDevice['bestpass']}
+                    onPreviewReceipt={setReceiptPreview}
+                  />
                 )}
                 {deviceInfo?.fuel_card_number && (
-                  <div className="bg-card px-4 py-3 flex items-start gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
-                      <CreditCard className="h-3.5 w-3.5 text-primary" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-none mb-1">Fuel Card #</p>
-                      <p className="font-mono text-sm font-bold text-foreground tracking-widest break-all">{deviceInfo.fuel_card_number}</p>
-                    </div>
-                  </div>
+                  <DeviceCell
+                    icon={<CreditCard className="h-3.5 w-3.5 text-primary" />}
+                    label="Fuel Card #"
+                    value={deviceInfo.fuel_card_number}
+                    shipping={shippingByDevice['fuel_card']}
+                    onPreviewReceipt={setReceiptPreview}
+                  />
                 )}
               </div>
             ) : onEdit ? (
@@ -434,6 +512,14 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
           </div>
         )}
       </div>
+      {receiptPreview && (
+        <FilePreviewModal
+          url={receiptPreview}
+          name="Shipping Receipt"
+          onClose={() => setReceiptPreview(null)}
+          bucketName="operator-documents"
+        />
+      )}
     </div>
   );
 }
