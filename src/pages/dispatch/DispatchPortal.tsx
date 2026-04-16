@@ -997,7 +997,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
               {filteredRows.map(row => {
                 const cfg = STATUS_CONFIG[row.dispatch_status];
                 const isEditing = editRow === row.operator_id;
