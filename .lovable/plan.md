@@ -1,39 +1,44 @@
 
 
-## Add Flipbook View to Staff Inspection Binder Panel
+## Fix: Documents Not Rendering in Staff Flipbook
 
-### What's Built Now
-- **Operator portal**: `OperatorInspectionBinder.tsx` has both List and Pages (flipbook) modes with cover page → company docs → driver docs → uploads.
-- **Staff/Management portal**: `OperatorBinderPanel.tsx` (embedded in each driver's detail panel inside the Management/Staff Pipeline) only shows per-driver docs + driver uploads in list form. **No flipbook. No company docs. No cover page.**
+### Root Cause
 
-### What I'll Add
+In `OperatorBinderPanel.tsx` (the staff-side panel), when building the `pages` array passed to `<BinderFlipbook>`, the `fileName` field is set to the **document's display name** (e.g. `"CDL (Front)"`, `"Lease Agreement"`) instead of the actual file URL/path.
 
-Bring full flipbook parity to the staff-side panel so coordinators and management can preview the binder exactly as the driver sees it on their phone — including the cover page with USDOT/MC/driver name/unit number.
+```ts
+// Current (broken) — line 539, 555
+fileName: doc?.file_url ? key : null,   // "CDL (Front)" — no extension
+```
 
-**1. `OperatorBinderPanel.tsx` changes**
-- Fetch shared company-wide docs (same query the operator binder uses) in addition to per-driver docs and uploads — read-only, just for the flipbook.
-- Fetch the driver's `unit_number` from `operators` to render on the cover page.
-- Add a header action: **"Open Flipbook"** button (next to existing tab strip).
-- Build the same `FlipbookPage[]` array as the operator binder — Cover → Company Docs → Driver Docs → Driver Uploads — respecting `useBinderOrder()` ordering.
-- Mount `<BinderFlipbook>` (the existing component) with:
-  - `driverName` = `operatorName`
-  - `unitNumber` = fetched unit
-  - `storageKey` = `flipbook:staff:${driverUserId}` (separate from operator's session memory so staff scrolling doesn't affect the driver)
-  - `onClose` → close overlay
+`BinderFlipbook`'s `PageRenderer` uses `fileName` (or `fileUrl`) to detect file type via extension regex (`.pdf`, `.png`, `.jpg`, etc.). Since `"CDL (Front)"` has no extension, **every document falls through to the "Unknown type" fallback** → nothing renders.
 
-**2. No changes to**
-- `BinderFlipbook.tsx` — already fully reusable.
-- Operator-side binder.
-- Database, RLS, storage. Staff already has `is_staff()` SELECT on `inspection_documents` and `driver_uploads`.
-- Existing list view, upload, expiry, review actions in the staff panel — all preserved.
+The operator-side binder (`OperatorInspectionBinder.tsx` line 438, 453) does it correctly:
+
+```ts
+fileName: doc?.file_url ?? null,   // full signed URL → ".png" detected
+```
+
+Confirmed via DB: Johnathan Pratt has all 6 per-driver documents with proper file extensions (.pdf, .png, .jpg) — the data is fine; only the rendering logic is wrong on the staff side.
+
+### Fix
+
+Two-line change in `src/components/inspection/OperatorBinderPanel.tsx`:
+
+| Line | From | To |
+|---|---|---|
+| 539 | `fileName: doc?.file_url ? key : null,` | `fileName: doc?.file_url ?? null,` |
+| 555 | `fileName: doc?.file_url ? key : null,` | `fileName: doc?.file_url ?? null,` |
+
+The driver-uploads page (line 568) already does `fileName: up.file_name ?? null` correctly (uploads carry their original filename with extension).
+
+### Side Note (not blocking, will leave as-is)
+
+The console warning `"Function components cannot be given refs. Check the render method of BinderFlipbook"` is harmless — it comes from `useSwipeGesture` attaching a ref to the inner `<div>`. Doesn't affect rendering.
 
 ### Files Touched
+
 | File | Change |
 |---|---|
-| `src/components/inspection/OperatorBinderPanel.tsx` | Add company-doc fetch, unit fetch, "Open Flipbook" button, flipbook mount |
-
-### Open Question
-Should the staff flipbook be **read-only** (preview only — no email/text/QR sharing actions in the ⋯ menu), or should it keep the same share actions the operator has so staff can email a doc to themselves or to inspectors on the driver's behalf?
-
-My recommendation: **keep share actions enabled** — same component, same buttons. Staff already share docs from the list view, and disabling actions would mean forking the component. Let me know if you'd prefer read-only.
+| `src/components/inspection/OperatorBinderPanel.tsx` | Two-line fix to pass file URL (with extension) as `fileName` so `PageRenderer` can detect PDF vs image |
 
