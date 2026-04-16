@@ -998,7 +998,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
         {/* Action Footer — only show for pending */}
         {app.review_status === 'pending' && (
-          <div className="border-t border-border p-5 bg-secondary/30 shrink-0 space-y-3">
+          <div className="border-t border-border p-5 bg-secondary/30 shrink-0 space-y-3 app-print-hide">
             {!confirmAction ? (
               <>
                 <div>
