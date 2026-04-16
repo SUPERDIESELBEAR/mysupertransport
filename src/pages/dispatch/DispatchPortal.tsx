@@ -161,6 +161,11 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
   const [bulkStatus, setBulkStatus] = useState<DispatchStatusType>('not_dispatched');
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkMode, setBulkMode] = useState(false);
+  // Dispatcher filter
+  const [dispatcherFilter, setDispatcherFilter] = useState<string>('my');
+  const [dispatcherNames, setDispatcherNames] = useState<Record<string, string>>({});
+  // Binder sheet
+  const [binderTarget, setBinderTarget] = useState<{ userId: string; operatorId: string; name: string } | null>(null);
 
   // Keep rowsRef in sync so realtime callbacks can access current operator info
   useEffect(() => { rowsRef.current = rows; }, [rows]);
