@@ -1070,33 +1070,35 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                             <span className="sm:hidden">{formatDistanceToNow(new Date(row.updated_at), { addSuffix: false })}</span>
                           </span>
                         )}
-                        {row.unit_number && (
-                          <span className="font-mono text-xs bg-background/80 border border-border px-1.5 py-0.5 rounded text-foreground shrink-0">{row.unit_number}</span>
-                        )}
                       </div>
                     </div>
 
                     {/* Card body */}
-                    <div className="p-4 space-y-3">
-                       {/* Operator identity */}
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full overflow-hidden border border-border/60 shrink-0 flex items-center justify-center bg-surface-dark">
+                    <div className="p-3 space-y-2">
+                       {/* Operator identity with bold unit # */}
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-9 w-9 rounded-full overflow-hidden border border-border/60 shrink-0 flex items-center justify-center bg-surface-dark">
                           {row.avatar_url ? (
                             <img src={row.avatar_url} alt={fullName} className="h-full w-full object-cover" />
                           ) : (
-                            <span className="text-sm font-bold text-gold">{initials}</span>
+                            <span className="text-xs font-bold text-gold">{initials}</span>
                           )}
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-foreground text-sm truncate">{fullName}</p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-semibold text-foreground text-sm truncate">{fullName}</p>
+                            {row.unit_number && (
+                              <span className="font-mono font-bold text-sm text-primary shrink-0">#{row.unit_number}</span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                             {row.phone && (
-                              <a href={`tel:${row.phone}`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-gold transition-colors">
-                                <Phone className="h-3 w-3" />{row.phone}
+                              <a href={`tel:${row.phone}`} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-gold transition-colors">
+                                <Phone className="h-2.5 w-2.5" />{row.phone}
                               </a>
                             )}
                             {row.home_state && (
-                              <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
                                 <MapPin className="h-2.5 w-2.5" />{row.home_state}
                               </span>
                             )}
@@ -1104,39 +1106,8 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                         </div>
                       </div>
 
-                      {/* Load / Lane + ETA — the key at-a-glance fields */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-muted/40 rounded-lg px-3 py-2">
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Load / Lane</p>
-                          {isEditing ? (
-                            <Input
-                              value={editData.current_load_lane ?? ''}
-                              onChange={e => setEditData(p => ({ ...p, current_load_lane: e.target.value }))}
-                              className="h-7 text-xs px-2"
-                              placeholder="e.g. ATL→CHI"
-                            />
-                          ) : (
-                            <p className="text-sm font-semibold font-mono text-foreground truncate">
-                              {row.current_load_lane || <span className="text-muted-foreground/50 font-normal text-xs">—</span>}
-                            </p>
-                          )}
-                        </div>
-                        <div className="bg-muted/40 rounded-lg px-3 py-2">
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">ETA Redispatch</p>
-                          {isEditing ? (
-                            <Input
-                              value={editData.eta_redispatch ?? ''}
-                              onChange={e => setEditData(p => ({ ...p, eta_redispatch: e.target.value }))}
-                              className="h-7 text-xs px-2"
-                              placeholder="e.g. Fri AM"
-                            />
-                          ) : (
-                            <p className="text-sm font-semibold text-foreground truncate">
-                              {row.eta_redispatch || <span className="text-muted-foreground/50 font-normal text-xs">—</span>}
-                            </p>
-                          )}
-                        </div>
-                      </div>
+                      {/* Mini calendar */}
+                      <MiniDispatchCalendar operatorId={row.operator_id} />
 
                       {/* Status select (editing) */}
                       {isEditing && (
