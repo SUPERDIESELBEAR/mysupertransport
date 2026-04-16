@@ -227,8 +227,26 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
         </div>
       </div>
 
-      {/* ─── SELECT MODE CONTROLS ─── */}
-      <div className="flex items-center gap-2">
+      {/* ─── VIEW MODE + SELECT CONTROLS ─── */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+              viewMode === 'list' ? 'bg-gold text-surface-dark' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <List className="h-3.5 w-3.5" /> List
+          </button>
+          <button
+            onClick={() => { setViewMode('pages'); setFlipbookOpen(true); }}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+              viewMode === 'pages' ? 'bg-gold text-surface-dark' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <BookOpen className="h-3.5 w-3.5" /> Pages
+          </button>
+        </div>
         <Button
           variant={selectMode ? 'default' : 'outline'}
           size="sm"
