@@ -90,6 +90,8 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
   const [draftMake, setDraftMake] = useState('');
   const [draftVin, setDraftVin] = useState('');
   const [draftUnit, setDraftUnit] = useState('');
+  const [draftPlate, setDraftPlate] = useState('');
+  const [draftPlateState, setDraftPlateState] = useState('');
   const [otherMake, setOtherMake] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -101,6 +103,8 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     setOtherMake(isKnown ? '' : currentMake);
     setDraftVin(truckInfo?.vin || '');
     setDraftUnit(unitNumber || '');
+    setDraftPlate(truckInfo?.plate || '');
+    setDraftPlateState(truckInfo?.plateState || '');
     setIsEditing(true);
   };
 
@@ -117,6 +121,8 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
           truck_make: resolvedMake || null,
           truck_vin: draftVin.trim() || null,
           unit_number: draftUnit.trim() || null,
+          truck_plate: draftPlate.trim() || null,
+          truck_plate_state: draftPlateState.trim() || null,
         })
         .eq('operator_id', operatorId);
       if (error) throw error;
@@ -139,7 +145,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
         .select(`
           id, unit_number,
           applications(first_name, last_name),
-          onboarding_status(unit_number, truck_year, truck_make, truck_vin),
+      onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state),
           ica_contracts(owner_name, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state)
         `)
         .eq('id', operatorId)
@@ -167,8 +173,8 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
         year: os?.truck_year || ica?.truck_year,
         make: os?.truck_make || ica?.truck_make,
         vin: os?.truck_vin || ica?.truck_vin,
-        plate: ica?.truck_plate,
-        plateState: ica?.truck_plate_state,
+        plate: os?.truck_plate || ica?.truck_plate,
+        plateState: os?.truck_plate_state || ica?.truck_plate_state,
       });
     }
 
@@ -287,6 +293,14 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                   <Label className="text-xs">Unit Number</Label>
                   <Input className="h-8 text-xs" value={draftUnit} onChange={e => setDraftUnit(e.target.value)} placeholder="Unit #" />
                 </div>
+                <div>
+                  <Label className="text-xs">License Plate</Label>
+                  <Input className="h-8 text-xs font-mono" value={draftPlate} onChange={e => setDraftPlate(e.target.value)} placeholder="Plate #" />
+                </div>
+                <div>
+                  <Label className="text-xs">Plate State</Label>
+                  <Input className="h-8 text-xs" value={draftPlateState} onChange={e => setDraftPlateState(e.target.value)} placeholder="e.g. MO" />
+                </div>
               </div>
               <div className="flex justify-end gap-2">
                 <Button size="sm" variant="ghost" className="text-xs h-7" onClick={cancelEditing} disabled={saving}>
@@ -315,6 +329,14 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
               <div>
                 <p className="text-[10px] text-muted-foreground">Unit Number</p>
                 <p className="text-xs font-medium">{unitNumber || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">License Plate</p>
+                <p className="text-xs font-medium font-mono">
+                  {truckInfo?.plate
+                    ? `${truckInfo.plate}${truckInfo.plateState ? ` (${truckInfo.plateState})` : ''}`
+                    : '—'}
+                </p>
               </div>
             </div>
           )}

@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 
@@ -15,6 +15,8 @@ interface FleetRow {
   truckYear: string | null;
   truckMake: string | null;
   truckVin: string | null;
+  truckPlate: string | null;
+  truckPlateState: string | null;
   totalRepairCost: number;
   dotNextDue: string | null;
 }
@@ -33,42 +35,37 @@ function dotStatusBadge(nextDue: string | null) {
 }
 
 export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
-  const [rows, setRows] = useState<FleetRow[]>([]);
+  const [activeRows, setActiveRows] = useState<FleetRow[]>([]);
+  const [deactivatedRows, setDeactivatedRows] = useState<FleetRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [showDeactivated, setShowDeactivated] = useState(false);
 
-  const fetchFleet = useCallback(async () => {
-    setLoading(true);
-
-    // Get operators with their truck info from onboarding_status + ICA + application name
+  const buildRows = useCallback(async (isActive: boolean) => {
     const { data: operators } = await supabase
       .from('operators')
       .select(`
         id,
         unit_number,
         applications(first_name, last_name),
-        onboarding_status(unit_number, truck_year, truck_make, truck_vin),
-        ica_contracts(owner_name, owner_business_name, truck_year, truck_make, truck_vin)
+        onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state),
+        ica_contracts(owner_name, owner_business_name, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state)
       `)
-      .eq('is_active', true);
+      .eq('is_active', isActive);
 
-    if (!operators) { setLoading(false); return; }
+    if (!operators) return [];
 
-    // Get total repair costs per operator
-    const { data: maintenance } = await supabase
-      .from('truck_maintenance_records')
-      .select('operator_id, amount');
+    const opIds = (operators as any[]).map(o => o.id);
+
+    const [{ data: maintenance }, { data: dotInspections }] = await Promise.all([
+      supabase.from('truck_maintenance_records').select('operator_id, amount').in('operator_id', opIds),
+      supabase.from('truck_dot_inspections').select('operator_id, next_due_date').order('inspection_date', { ascending: false }).in('operator_id', opIds),
+    ]);
 
     const costMap = new Map<string, number>();
     (maintenance ?? []).forEach((r: any) => {
       costMap.set(r.operator_id, (costMap.get(r.operator_id) ?? 0) + Number(r.amount ?? 0));
     });
-
-    // Get latest DOT inspection per operator
-    const { data: dotInspections } = await supabase
-      .from('truck_dot_inspections')
-      .select('operator_id, next_due_date')
-      .order('inspection_date', { ascending: false });
 
     const dotMap = new Map<string, string>();
     (dotInspections ?? []).forEach((r: any) => {
@@ -91,6 +88,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         truckYear: os?.truck_year || ica?.truck_year || null,
         truckMake: os?.truck_make || ica?.truck_make || null,
         truckVin: os?.truck_vin || ica?.truck_vin || null,
+        truckPlate: os?.truck_plate || ica?.truck_plate || null,
+        truckPlateState: os?.truck_plate_state || ica?.truck_plate_state || null,
         totalRepairCost: costMap.get(op.id) ?? 0,
         dotNextDue: dotMap.get(op.id) ?? null,
       };
@@ -102,11 +101,23 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
       return aNum - bNum;
     });
 
-    setRows(fleet);
-    setLoading(false);
+    return fleet;
   }, []);
 
+  const fetchFleet = useCallback(async () => {
+    setLoading(true);
+    const [active, deactivated] = await Promise.all([
+      buildRows(true),
+      buildRows(false),
+    ]);
+    setActiveRows(active);
+    setDeactivatedRows(deactivated);
+    setLoading(false);
+  }, [buildRows]);
+
   useEffect(() => { fetchFleet(); }, [fetchFleet]);
+
+  const rows = showDeactivated ? deactivatedRows : activeRows;
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
@@ -116,7 +127,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
       r.ownerName.toLowerCase().includes(q) ||
       (r.unitNumber ?? '').toLowerCase().includes(q) ||
       (r.truckVin ?? '').toLowerCase().includes(q) ||
-      (r.truckMake ?? '').toLowerCase().includes(q)
+      (r.truckMake ?? '').toLowerCase().includes(q) ||
+      (r.truckPlate ?? '').toLowerCase().includes(q)
     );
   }, [rows, search]);
 
@@ -127,7 +139,10 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           <Truck className="h-6 w-6 text-primary" />
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-foreground">Vehicle Hub</h1>
-            <p className="text-muted-foreground text-sm mt-0.5">{rows.length} vehicle{rows.length !== 1 ? 's' : ''} in fleet</p>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              {activeRows.length} active vehicle{activeRows.length !== 1 ? 's' : ''}
+              {deactivatedRows.length > 0 && ` · ${deactivatedRows.length} deactivated`}
+            </p>
           </div>
         </div>
         <div className="relative w-full sm:w-64">
@@ -141,6 +156,37 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         </div>
       </div>
 
+      {/* Active / Deactivated toggle */}
+      <div className="flex gap-1.5">
+        <button
+          onClick={() => setShowDeactivated(false)}
+          className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${
+            !showDeactivated
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'bg-background text-muted-foreground border-border hover:border-primary/40 hover:text-foreground'
+          }`}
+        >
+          Active
+          <span className={`ml-1.5 text-[10px] px-1 py-0.5 rounded-full ${!showDeactivated ? 'bg-white/20' : 'bg-muted'}`}>
+            {activeRows.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setShowDeactivated(true)}
+          className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors flex items-center gap-1 ${
+            showDeactivated
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'bg-background text-muted-foreground border-border hover:border-primary/40 hover:text-foreground'
+          }`}
+        >
+          <Archive className="h-3 w-3" />
+          Deactivated
+          <span className={`ml-1 text-[10px] px-1 py-0.5 rounded-full ${showDeactivated ? 'bg-white/20' : 'bg-muted'}`}>
+            {deactivatedRows.length}
+          </span>
+        </button>
+      </div>
+
       {loading ? (
         <div className="text-center py-16 text-muted-foreground">
           <Loader2 className="h-6 w-6 mx-auto animate-spin mb-2" />
@@ -149,10 +195,10 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Truck className="h-10 w-10 mx-auto mb-2 opacity-30" />
-          <p className="text-sm">{search ? 'No vehicles match your search.' : 'No active vehicles found.'}</p>
+          <p className="text-sm">{search ? 'No vehicles match your search.' : showDeactivated ? 'No deactivated vehicles.' : 'No active vehicles found.'}</p>
         </div>
       ) : (
-        <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
+        <div className={`bg-white border border-border rounded-xl overflow-hidden shadow-sm ${showDeactivated ? 'opacity-75' : ''}`}>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -161,6 +207,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                   <TableHead className="text-xs font-semibold">Driver</TableHead>
                   <TableHead className="text-xs font-semibold hidden lg:table-cell">Owner</TableHead>
                   <TableHead className="text-xs font-semibold hidden md:table-cell">Vehicle</TableHead>
+                  <TableHead className="text-xs font-semibold hidden md:table-cell">Plate #</TableHead>
                   <TableHead className="text-xs font-semibold hidden lg:table-cell">VIN</TableHead>
                   <TableHead className="text-xs font-semibold text-right">Repair Cost</TableHead>
                   <TableHead className="text-xs font-semibold text-center">DOT Status</TableHead>
@@ -180,6 +227,11 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">{row.ownerName}</TableCell>
                     <TableCell className="text-xs text-muted-foreground hidden md:table-cell">
                       {[row.truckYear, row.truckMake].filter(Boolean).join(' ') || '—'}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground hidden md:table-cell">
+                      {row.truckPlate
+                        ? <span className="font-mono">{row.truckPlate}{row.truckPlateState ? ` (${row.truckPlateState})` : ''}</span>
+                        : '—'}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground hidden lg:table-cell font-mono">
                       {row.truckVin || '—'}
