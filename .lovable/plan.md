@@ -1,67 +1,39 @@
 
 
-## Digital 3-Ring Binder — Flipbook Mode for Operator Inspection Binder
+## Add Flipbook View to Staff Inspection Binder Panel
 
-### My Thoughts
+### What's Built Now
+- **Operator portal**: `OperatorInspectionBinder.tsx` has both List and Pages (flipbook) modes with cover page → company docs → driver docs → uploads.
+- **Staff/Management portal**: `OperatorBinderPanel.tsx` (embedded in each driver's detail panel inside the Management/Staff Pipeline) only shows per-driver docs + driver uploads in list form. **No flipbook. No company docs. No cover page.**
 
-**This is an excellent idea** and a natural fit for the existing Inspection Binder. The current binder is already organized like a real 3-ring binder (Cover Page → Company Documents → My Documents → My Uploads), but drivers interact with it as a list. A flipbook view adds a second, complementary mode that mirrors the physical experience an officer expects at roadside.
+### What I'll Add
 
-**Why it works for SUPERDRIVE specifically:**
-- Drivers already think in "binder pages" (CDL, Med Cert, Insurance, IFTA…). A swipe-to-flip view matches their mental model.
-- At a roadside stop, swiping is faster than tapping → preview → close → tap next. One thumb, one motion.
-- We already have `useSwipeGesture` (used elsewhere in the app), `pdfToImage` for rendering PDFs to canvas, and signed URLs with year-long expiry — all the pieces exist.
-- Email/text/QR sharing stays 100% intact — flipbook is an *additional* view mode, not a replacement.
+Bring full flipbook parity to the staff-side panel so coordinators and management can preview the binder exactly as the driver sees it on their phone — including the cover page with USDOT/MC/driver name/unit number.
 
-**Recommended approach: "Page View" toggle, not a separate screen.** Add a view-mode switch at the top of the binder (`List` ↔ `Pages`). In Pages mode, each binder document becomes a full-screen "page" the driver swipes through, just like flipping a physical binder. The same Select / Email / Text / QR actions remain available from a top action bar.
+**1. `OperatorBinderPanel.tsx` changes**
+- Fetch shared company-wide docs (same query the operator binder uses) in addition to per-driver docs and uploads — read-only, just for the flipbook.
+- Fetch the driver's `unit_number` from `operators` to render on the cover page.
+- Add a header action: **"Open Flipbook"** button (next to existing tab strip).
+- Build the same `FlipbookPage[]` array as the operator binder — Cover → Company Docs → Driver Docs → Driver Uploads — respecting `useBinderOrder()` ordering.
+- Mount `<BinderFlipbook>` (the existing component) with:
+  - `driverName` = `operatorName`
+  - `unitNumber` = fetched unit
+  - `storageKey` = `flipbook:staff:${driverUserId}` (separate from operator's session memory so staff scrolling doesn't affect the driver)
+  - `onClose` → close overlay
 
-**No true "page curl" animation** — those libraries (turn.js, StPageFlip) are heavy, jQuery-era, or don't play well with React + dynamic PDF content. A clean horizontal slide transition (like Instagram stories or a carousel) is faster, more reliable on mobile, and still feels like flipping a page. We can add a subtle page-turn shadow/curl effect with pure CSS for polish.
+**2. No changes to**
+- `BinderFlipbook.tsx` — already fully reusable.
+- Operator-side binder.
+- Database, RLS, storage. Staff already has `is_staff()` SELECT on `inspection_documents` and `driver_uploads`.
+- Existing list view, upload, expiry, review actions in the staff panel — all preserved.
 
----
+### Files Touched
+| File | Change |
+|---|---|
+| `src/components/inspection/OperatorBinderPanel.tsx` | Add company-doc fetch, unit fetch, "Open Flipbook" button, flipbook mount |
 
-### What Gets Built
+### Open Question
+Should the staff flipbook be **read-only** (preview only — no email/text/QR sharing actions in the ⋯ menu), or should it keep the same share actions the operator has so staff can email a doc to themselves or to inspectors on the driver's behalf?
 
-**1. New component: `BinderFlipbook.tsx`**
-- Full-screen overlay (mobile) / large modal (desktop).
-- Renders an ordered array of "pages" — one per document, in the same order as the existing binder (Cover → Company Docs → Driver Docs → Driver Uploads).
-- Each page renders:
-  - **PDFs** → first page rendered to canvas via existing `pdfToImage.ts` (with prev/next page controls inside multi-page PDFs).
-  - **Images** (CDL front/back, etc.) → fitted `<img>`.
-  - **Missing docs** → a clean placeholder page ("Not yet uploaded").
-- Swipe left/right (touch) + arrow keys (desktop) + on-screen ◀ ▶ buttons.
-- Top bar shows: doc name, page X of Y, Close (×), and a "⋯" menu with **Email this page / Text this page / Show QR / Email all / Select multiple**.
-- Bottom strip: tiny thumbnail dots or scrollable mini-thumbnails to jump to any page.
-
-**2. Toggle in `OperatorInspectionBinder.tsx`**
-- Add a `List | Pages` segmented control near the existing "Select Documents" button.
-- Default = `List` (preserves current behavior).
-- `Pages` opens `BinderFlipbook`.
-
-**3. Reuse, don't duplicate**
-- Sharing logic (mailto / sms / public share token) → reuse the existing `bulkShareText` / `bulkShareEmail` functions.
-- Page order → reuse `useBinderOrder` hook so the flipbook respects the admin-configured order.
-- PDF rendering → reuse `src/lib/pdfToImage.ts`.
-- Swipe → reuse `useSwipeGesture` (already battle-tested elsewhere).
-
-**4. Polish (lightweight)**
-- Subtle slide transition (200ms ease-out) between pages.
-- Optional CSS page-curl shadow on the leading edge during swipe.
-- Haptic tap (`navigator.vibrate(10)`) on page change (mobile only).
-- Remember last-viewed page in `sessionStorage` so closing/reopening returns to the same place.
-
----
-
-### What Stays Untouched
-- The existing list view, upload flows, expiry editing, staff-side `OperatorBinderPanel`, and all sharing endpoints.
-- Database schema — no changes needed.
-- RLS / storage policies — no changes needed.
-
----
-
-### Open Questions Before I Build
-
-1. **Scope of flipbook pages** — Should "My Uploads" (roadside reports, repair receipts, miscellaneous) be included as flippable pages, or limit the flipbook to the formal Company + Driver docs only?
-2. **Where the toggle lives** — Operator-only (mobile-first roadside use), or also surface "Pages" mode inside the staff-side `OperatorBinderPanel` so coordinators can preview what the driver sees?
-3. **Multi-page PDFs** — When a single document is a 3-page PDF (e.g. Insurance), should each PDF page count as its own flipbook page, or stay as one document with internal prev/next?
-
-I'll wait for your answers on these three before producing the build plan.
+My recommendation: **keep share actions enabled** — same component, same buttons. Staff already share docs from the list view, and disabling actions would mean forking the component. Let me know if you'd prefer read-only.
 
