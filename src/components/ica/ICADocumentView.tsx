@@ -40,6 +40,11 @@ interface ICADocumentViewProps {
   onContractorSignedNameChange?: (v: string) => void;
   onSignatureEnd?: () => void;
   onSignatureClear?: () => void;
+  // Deposit election
+  depositElected?: boolean;
+  depositInitials?: string;
+  depositElectedDate?: string;
+  onDepositChange?: (values: { elected?: boolean; initials?: string; date?: string }) => void;
 }
 
 const fmt = (v: string | null | undefined) => v || '___________________________';
@@ -134,8 +139,46 @@ export default function ICADocumentView({
           <p>Contractor may voluntarily elect to establish a Repair and Maintenance Deposit at the commencement of this Agreement by completing the Repair and Maintenance Deposit Election below, or at any time thereafter by providing written notice to Carrier. Regardless of whether Contractor has made a voluntary election, a Repair and Maintenance Deposit shall be required upon Contractor's first request for an advance from Carrier for repairs, maintenance, or any other purpose. Once established — whether voluntarily or upon an advance request — the deposit requirement shall remain in effect for the duration of the Agreement. The Repair and Maintenance Deposit shall be $2,000 per power unit, funded through automatic deductions of $200 per weekly settlement, beginning with the first settlement following either Contractor's written election or the advance request, as applicable, and continuing until the full $2,000 deposit has been accumulated. Any unused portion of the Repair and Maintenance Deposit shall be refunded to Contractor within 45 days following the termination or expiration of this Agreement.</p>
           <div className="mt-6 border border-border rounded p-4">
             <p className="font-bold mb-3">Repair and Maintenance Deposit Election</p>
-            <p className="mb-4">☐ I voluntarily elect to establish a Repair and Maintenance Deposit effective upon commencement of this Agreement. I authorize Carrier to deduct $200 per weekly settlement until the full $2,000 deposit has been accumulated.</p>
-            <p>Contractor Initials: ________ &nbsp;&nbsp;&nbsp; Date: ________</p>
+            {onDepositChange ? (
+              <>
+                <label className="flex items-start gap-2 mb-4 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!depositElected}
+                    onChange={(e) => onDepositChange({ elected: e.target.checked })}
+                    className="mt-0.5 h-4 w-4 rounded border-primary accent-primary"
+                  />
+                  <span className="text-xs leading-relaxed">I voluntarily elect to establish a Repair and Maintenance Deposit effective upon commencement of this Agreement. I authorize Carrier to deduct $200 per weekly settlement until the full $2,000 deposit has been accumulated.</span>
+                </label>
+                <div className="flex flex-wrap items-center gap-4 text-xs">
+                  <label className="flex items-center gap-2">
+                    Contractor Initials:
+                    <input
+                      type="text"
+                      value={depositInitials ?? ''}
+                      onChange={(e) => onDepositChange({ initials: e.target.value })}
+                      maxLength={5}
+                      className="w-20 border-b border-border bg-transparent text-center font-medium focus:outline-none focus:border-gold"
+                      placeholder="______"
+                    />
+                  </label>
+                  <label className="flex items-center gap-2">
+                    Date:
+                    <input
+                      type="date"
+                      value={depositElectedDate ?? ''}
+                      onChange={(e) => onDepositChange({ date: e.target.value })}
+                      className="border-b border-border bg-transparent text-center font-medium focus:outline-none focus:border-gold"
+                    />
+                  </label>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="mb-4">{depositElected ? '☑' : '☐'} I voluntarily elect to establish a Repair and Maintenance Deposit effective upon commencement of this Agreement. I authorize Carrier to deduct $200 per weekly settlement until the full $2,000 deposit has been accumulated.</p>
+                <p>Contractor Initials: {depositInitials || '________'} &nbsp;&nbsp;&nbsp; Date: {depositElectedDate || '________'}</p>
+              </>
+            )}
           </div>
         </ClauseSection>
 
