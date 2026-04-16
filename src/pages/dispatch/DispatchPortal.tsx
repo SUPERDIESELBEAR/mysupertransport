@@ -542,6 +542,22 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
         });
       setRows(mapped);
 
+      // Build dispatcher name map from profiles of assigned dispatchers
+      const dispIds = [...new Set(mapped.map(r => r.assigned_dispatcher).filter(Boolean))] as string[];
+      if (dispIds.length > 0) {
+        const { data: dispProfiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', dispIds);
+        if (dispProfiles) {
+          const names: Record<string, string> = {};
+          (dispProfiles as any[]).forEach(p => {
+            names[p.user_id] = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown';
+          });
+          setDispatcherNames(names);
+        }
+      }
+
       // Fetch history for any already-expanded rows
       const currentExpanded = expandedHistory;
       if (currentExpanded.size > 0) {
