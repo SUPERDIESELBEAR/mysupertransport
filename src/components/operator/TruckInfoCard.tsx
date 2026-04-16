@@ -406,48 +406,40 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
                   </div>
                 )}
                 {deviceInfo?.eld_serial_number && (
-                  <div className="bg-card px-4 py-3 flex items-start gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
-                      <Cpu className="h-3.5 w-3.5 text-primary" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-none mb-1">ELD Serial #</p>
-                      <p className="font-mono text-sm font-bold text-foreground tracking-widest break-all">{deviceInfo.eld_serial_number}</p>
-                    </div>
-                  </div>
+                  <DeviceCell
+                    icon={<Cpu className="h-3.5 w-3.5 text-primary" />}
+                    label="ELD Serial #"
+                    value={deviceInfo.eld_serial_number}
+                    shipping={shippingByDevice['eld']}
+                    onPreviewReceipt={setReceiptPreview}
+                  />
                 )}
                 {deviceInfo?.dash_cam_number && (
-                  <div className="bg-card px-4 py-3 flex items-start gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
-                      <Camera className="h-3.5 w-3.5 text-primary" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-none mb-1">Dash Cam #</p>
-                      <p className="font-mono text-sm font-bold text-foreground tracking-widest break-all">{deviceInfo.dash_cam_number}</p>
-                    </div>
-                  </div>
+                  <DeviceCell
+                    icon={<Camera className="h-3.5 w-3.5 text-primary" />}
+                    label="Dash Cam #"
+                    value={deviceInfo.dash_cam_number}
+                    shipping={shippingByDevice['dash_cam']}
+                    onPreviewReceipt={setReceiptPreview}
+                  />
                 )}
                 {deviceInfo?.bestpass_number && (
-                  <div className="bg-card px-4 py-3 flex items-start gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
-                      <Gauge className="h-3.5 w-3.5 text-primary" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-none mb-1">BestPass #</p>
-                      <p className="font-mono text-sm font-bold text-foreground tracking-widest break-all">{deviceInfo.bestpass_number}</p>
-                    </div>
-                  </div>
+                  <DeviceCell
+                    icon={<Gauge className="h-3.5 w-3.5 text-primary" />}
+                    label="BestPass #"
+                    value={deviceInfo.bestpass_number}
+                    shipping={shippingByDevice['bestpass']}
+                    onPreviewReceipt={setReceiptPreview}
+                  />
                 )}
                 {deviceInfo?.fuel_card_number && (
-                  <div className="bg-card px-4 py-3 flex items-start gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
-                      <CreditCard className="h-3.5 w-3.5 text-primary" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-none mb-1">Fuel Card #</p>
-                      <p className="font-mono text-sm font-bold text-foreground tracking-widest break-all">{deviceInfo.fuel_card_number}</p>
-                    </div>
-                  </div>
+                  <DeviceCell
+                    icon={<CreditCard className="h-3.5 w-3.5 text-primary" />}
+                    label="Fuel Card #"
+                    value={deviceInfo.fuel_card_number}
+                    shipping={shippingByDevice['fuel_card']}
+                    onPreviewReceipt={setReceiptPreview}
+                  />
                 )}
               </div>
             ) : onEdit ? (
