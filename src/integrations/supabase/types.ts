@@ -874,6 +874,11 @@ export type Database = {
           operator_id: string
           return_condition: string | null
           returned_at: string | null
+          ship_date: string | null
+          shipping_carrier: string | null
+          tracking_number: string | null
+          tracking_receipt_uploaded_at: string | null
+          tracking_receipt_url: string | null
         }
         Insert: {
           assigned_at?: string
@@ -885,6 +890,11 @@ export type Database = {
           operator_id: string
           return_condition?: string | null
           returned_at?: string | null
+          ship_date?: string | null
+          shipping_carrier?: string | null
+          tracking_number?: string | null
+          tracking_receipt_uploaded_at?: string | null
+          tracking_receipt_url?: string | null
         }
         Update: {
           assigned_at?: string
@@ -896,6 +906,11 @@ export type Database = {
           operator_id?: string
           return_condition?: string | null
           returned_at?: string | null
+          ship_date?: string | null
+          shipping_carrier?: string | null
+          tracking_number?: string | null
+          tracking_receipt_uploaded_at?: string | null
+          tracking_receipt_url?: string | null
         }
         Relationships: [
           {
@@ -2517,6 +2532,22 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_equipment_shipping_for_operator: {
+        Args: { p_operator_id: string }
+        Returns: {
+          assigned_at: string
+          assignment_id: string
+          device_type: string
+          equipment_id: string
+          returned_at: string
+          serial_number: string
+          ship_date: string
+          shipping_carrier: string
+          tracking_number: string
+          tracking_receipt_uploaded_at: string
+          tracking_receipt_url: string
+        }[]
       }
       get_inspection_doc_by_token: {
         Args: { p_token: string }
