@@ -626,8 +626,16 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
         (r.home_state ?? '').toLowerCase().includes(q)
       );
     }
+    // Sort by dispatcher name (alphabetical), unassigned last, then by driver last name
+    result = [...result].sort((a, b) => {
+      const dNameA = a.assigned_dispatcher ? (dispatcherNames[a.assigned_dispatcher] ?? '') : '\uffff';
+      const dNameB = b.assigned_dispatcher ? (dispatcherNames[b.assigned_dispatcher] ?? '') : '\uffff';
+      const cmp = dNameA.localeCompare(dNameB);
+      if (cmp !== 0) return cmp;
+      return (a.last_name ?? '').localeCompare(b.last_name ?? '');
+    });
     return result;
-  }, [rows, activeTab, search, dispatcherFilter, session?.user?.id]);
+  }, [rows, activeTab, search, dispatcherFilter, session?.user?.id, dispatcherNames]);
 
   const startEdit = (row: DispatchRow) => {
     setEditRow(row.operator_id);
@@ -1073,8 +1081,15 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                       </div>
                     </div>
 
+                    {/* Dispatcher label */}
+                    <div className="px-3 pt-1.5">
+                      <span className={`text-[11px] ${row.assigned_dispatcher ? 'text-muted-foreground' : 'text-muted-foreground/60 italic'}`}>
+                        Dispatcher: {row.assigned_dispatcher ? (dispatcherNames[row.assigned_dispatcher] || 'Unknown') : 'Unassigned'}
+                      </span>
+                    </div>
+
                     {/* Card body */}
-                    <div className="p-3 space-y-2">
+                    <div className="p-3 pt-1 space-y-2">
                        {/* Operator identity with bold unit # */}
                       <div className="flex items-center gap-2.5">
                         <div className="h-9 w-9 rounded-full overflow-hidden border border-border/60 shrink-0 flex items-center justify-center bg-surface-dark">
