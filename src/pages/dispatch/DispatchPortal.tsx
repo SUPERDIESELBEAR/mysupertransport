@@ -612,17 +612,22 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
 
   const filteredRows = useMemo(() => {
     let result = activeTab === 'all' ? rows : rows.filter(r => r.dispatch_status === activeTab);
+    // Dispatcher filter
+    if (dispatcherFilter === 'my' && session?.user?.id) {
+      result = result.filter(r => r.assigned_dispatcher === session.user.id);
+    } else if (dispatcherFilter !== 'all' && dispatcherFilter !== 'my') {
+      result = result.filter(r => r.assigned_dispatcher === dispatcherFilter);
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(r =>
         `${r.first_name} ${r.last_name}`.toLowerCase().includes(q) ||
         (r.unit_number ?? '').toLowerCase().includes(q) ||
-        (r.current_load_lane ?? '').toLowerCase().includes(q) ||
         (r.home_state ?? '').toLowerCase().includes(q)
       );
     }
     return result;
-  }, [rows, activeTab, search]);
+  }, [rows, activeTab, search, dispatcherFilter, session?.user?.id]);
 
   const startEdit = (row: DispatchRow) => {
     setEditRow(row.operator_id);
