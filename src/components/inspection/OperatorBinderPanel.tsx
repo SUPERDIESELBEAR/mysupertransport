@@ -80,15 +80,19 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
   const { user } = useAuth();
   const { toast } = useToast();
   const { guardDemo } = useDemoMode();
+  const { companyOrder, driverOrder } = useBinderOrder();
 
   const [perDriverDocs, setPerDriverDocs] = useState<InspectionDocument[]>([]);
+  const [companyDocs, setCompanyDocs] = useState<InspectionDocument[]>([]);
   const [driverUploads, setDriverUploads] = useState<DriverUpload[]>([]);
+  const [unitNumber, setUnitNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<InspectionDocument | null>(null);
   const [activeTab, setActiveTab] = useState<'driver' | 'uploads'>('driver');
   const [expiryEditing, setExpiryEditing] = useState<string | null>(null);
   const [expiryValue, setExpiryValue] = useState('');
+  const [flipbookOpen, setFlipbookOpen] = useState(false);
 
   // In-app file preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -100,12 +104,16 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
 
   const fetchDocs = useCallback(async () => {
     setLoading(true);
-    const [pdRes, duRes] = await Promise.all([
+    const [pdRes, duRes, cwRes, opRes] = await Promise.all([
       supabase.from('inspection_documents').select('*').eq('scope', 'per_driver').eq('driver_id', driverUserId).order('name'),
       supabase.from('driver_uploads').select('*').eq('driver_id', driverUserId).order('uploaded_at', { ascending: false }),
+      supabase.from('inspection_documents').select('*').eq('scope', 'company_wide').eq('shared_with_fleet', true).order('name'),
+      supabase.from('operators').select('id, unit_number').eq('user_id', driverUserId).maybeSingle(),
     ]);
     setPerDriverDocs((pdRes.data ?? []) as InspectionDocument[]);
     setDriverUploads((duRes.data ?? []) as DriverUpload[]);
+    setCompanyDocs((cwRes.data ?? []) as InspectionDocument[]);
+    setUnitNumber((opRes.data as any)?.unit_number ?? null);
     setLoading(false);
   }, [driverUserId]);
 
