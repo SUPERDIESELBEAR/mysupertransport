@@ -1203,15 +1203,15 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                       })()}
                     </div>
 
-                    {/* Card footer — actions; wraps to two rows on very small viewports */}
-                    <div className="px-4 pb-4 pt-0 flex flex-wrap items-center gap-1">
+                    {/* Card footer — actions */}
+                    <div className="px-3 pb-3 pt-0 flex flex-wrap items-center gap-1">
                       {/* Call */}
                       {row.phone && (
                         <Button
                           variant="ghost"
                           size="sm"
                           asChild
-                          className="h-7 text-xs gap-1 px-2.5 text-muted-foreground hover:text-status-complete hover:bg-status-complete/10"
+                          className="h-7 text-xs gap-1 px-2 text-muted-foreground hover:text-status-complete hover:bg-status-complete/10"
                           title={`Call ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
                         >
                           <a href={`tel:${row.phone}`}>
@@ -1220,6 +1220,17 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                           </a>
                         </Button>
                       )}
+                      {/* Binder */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setBinderTarget({ userId: row.operator_user_id, operatorId: row.operator_id, name: fullName })}
+                        className="h-7 text-xs gap-1 px-2 text-muted-foreground hover:text-gold hover:bg-gold/10"
+                        title="Inspection Binder"
+                      >
+                        <Shield className="h-3 w-3" />
+                        Binder
+                      </Button>
                       {/* Message quick-action */}
                       <Button
                         variant="ghost"
