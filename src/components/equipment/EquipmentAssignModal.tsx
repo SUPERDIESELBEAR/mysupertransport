@@ -158,7 +158,7 @@ export default function EquipmentAssignModal({ open, item, onClose, onSaved }: P
 
     const { data: inserted, error: assignError } = await supabase
       .from('equipment_assignments')
-      .insert(insertPayload)
+      .insert(insertPayload as any)
       .select('id')
       .single();
 
