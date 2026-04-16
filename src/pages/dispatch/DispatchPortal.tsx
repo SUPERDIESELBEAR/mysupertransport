@@ -1533,6 +1533,16 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => setBinderTarget({ userId: row.operator_user_id, operatorId: row.operator_id, name: fullName })}
+                              className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5"
+                              title="Inspection Binder"
+                            >
+                              <Shield className="h-3 w-3" />
+                              Binder
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => startEdit(row)}
                               className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5"
                             >
