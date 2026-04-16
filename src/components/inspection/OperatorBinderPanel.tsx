@@ -11,8 +11,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import {
   Upload, Trash2, Calendar, Loader2, FileText, User,
-  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, FolderOpen, Plus,
+  CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, FolderOpen, Plus, BookOpen,
 } from 'lucide-react';
+import { useBinderOrder } from '@/hooks/useBinderOrder';
+import BinderFlipbook, { FlipbookPage } from './BinderFlipbook';
 import { DateInput } from '@/components/ui/date-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
