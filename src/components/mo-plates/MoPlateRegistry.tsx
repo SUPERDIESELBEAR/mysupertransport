@@ -465,10 +465,16 @@ export default function MoPlateRegistry() {
                       <User className="h-3.5 w-3.5 text-primary shrink-0" />
                       <p className="text-sm font-semibold text-primary leading-tight">{plate.current_driver}</p>
                     </div>
-                    {plate.current_driver_unit && (
+                     {plate.current_driver_unit && (
                       <div className="flex items-center gap-1.5">
                         <Hash className="h-3 w-3 text-muted-foreground shrink-0" />
                         <p className="text-xs text-muted-foreground">Unit #{plate.current_driver_unit}</p>
+                      </div>
+                    )}
+                    {plate.current_truck_plate && (
+                      <div className="flex items-center gap-1.5">
+                        <Car className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <p className="text-xs text-muted-foreground font-mono">Truck Plate: {plate.current_truck_plate}</p>
                       </div>
                     )}
                     {plate.assigned_since && (
