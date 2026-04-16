@@ -90,6 +90,70 @@ function InfoField({ label, value, mono = false }: InfoFieldProps) {
   );
 }
 
+interface DeviceCellProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  shipping?: EquipmentShippingInfo;
+  onPreviewReceipt: (url: string) => void;
+}
+
+function DeviceCell({ icon, label, value, shipping, onPreviewReceipt }: DeviceCellProps) {
+  const trackingUrl = shipping ? buildTrackingUrl(shipping.shipping_carrier, shipping.tracking_number) : null;
+  const hasShipping = !!(shipping && (shipping.shipping_carrier || shipping.tracking_number || shipping.tracking_receipt_url));
+  return (
+    <div className="bg-card px-4 py-3 flex items-start gap-3">
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/8 shrink-0 mt-0.5">
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-none mb-1">{label}</p>
+        <p className="font-mono text-sm font-bold text-foreground tracking-widest break-all">{value}</p>
+        {hasShipping && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {(shipping!.shipping_carrier || shipping!.tracking_number) && (
+              trackingUrl ? (
+                <a
+                  href={trackingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/15 transition-colors"
+                >
+                  <Package className="h-2.5 w-2.5" />
+                  Shipped {shipping!.shipping_carrier}
+                  {shipping!.tracking_number && <span className="font-mono">· {shortTracking(shipping!.tracking_number, 6)}</span>}
+                  <ExternalLink className="h-2.5 w-2.5" />
+                </a>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                  <Package className="h-2.5 w-2.5" />
+                  Shipped {shipping!.shipping_carrier ?? ''}
+                  {shipping!.tracking_number && <span className="font-mono">· {shortTracking(shipping!.tracking_number, 6)}</span>}
+                </span>
+              )
+            )}
+            {shipping!.ship_date && (
+              <span className="text-[10px] text-muted-foreground">
+                {format(parseISO(shipping!.ship_date), 'MMM d, yyyy')}
+              </span>
+            )}
+            {shipping!.tracking_receipt_url && (
+              <button
+                type="button"
+                onClick={() => onPreviewReceipt(shipping!.tracking_receipt_url!)}
+                className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-foreground hover:bg-muted/60 transition-colors"
+              >
+                <FileText className="h-2.5 w-2.5 text-primary" />
+                Receipt
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEdit, shippingInfo }: TruckInfoCardProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [truckEditOpen, setTruckEditOpen] = useState(false);
