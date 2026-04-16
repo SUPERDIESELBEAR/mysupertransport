@@ -185,6 +185,23 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         .maybeSingle();
       setPaySetupData(ps ? { submitted_at: (ps as any).submitted_at, terms_accepted: (ps as any).terms_accepted } : null);
 
+      // Fetch equipment shipping info via secure RPC (operator-scoped)
+      const { data: shippingData } = await supabase.rpc(
+        'get_equipment_shipping_for_operator' as any,
+        { p_operator_id: opId },
+      );
+      if (Array.isArray(shippingData)) {
+        setEquipmentShipping((shippingData as any[]).map(r => ({
+          device_type: r.device_type,
+          shipping_carrier: r.shipping_carrier,
+          tracking_number: r.tracking_number,
+          ship_date: r.ship_date,
+          tracking_receipt_url: r.tracking_receipt_url,
+        })));
+      } else {
+        setEquipmentShipping([]);
+      }
+
       // Fetch coordinator info
       fetchCoordinatorInfo((op as any).assigned_onboarding_staff ?? null);
 
