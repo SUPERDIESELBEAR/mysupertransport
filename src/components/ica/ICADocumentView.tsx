@@ -130,8 +130,8 @@ export default function ICADocumentView({
           </ol>
         </ClauseSection>
 
-        <ClauseSection num="4" title="Security Deposit">
-          Contractor agrees to maintain a $2,000 refundable security deposit per power unit with Carrier as assurance for the performance of obligations under this Agreement. Deducted automatically at $200 per week until $2,000 is reached. Any unused portion will be refunded within 45 days after termination.
+        <ClauseSection num="4" title="Repair and Maintenance Deposit">
+          The Repair and Maintenance Deposit is optional unless and until Contractor requests an advance from Carrier for repairs, maintenance, or any other purpose. Upon Contractor's first request for an advance, a Repair and Maintenance Deposit of $2,000 per power unit shall be established as assurance for the performance of Contractor's obligations under this Agreement. Once triggered, the deposit requirement shall remain in effect for the duration of the Agreement, regardless of whether the advance is subsequently repaid. The deposit shall be funded through automatic deductions of $200 per weekly settlement, beginning with the first settlement following the advance request, and continuing until the full $2,000 deposit has been accumulated. Any unused portion of the Repair and Maintenance Deposit shall be refunded to Contractor within 45 days following the termination or expiration of this Agreement.
         </ClauseSection>
 
         <ClauseSection num="5" title="Insurance & Liability">
