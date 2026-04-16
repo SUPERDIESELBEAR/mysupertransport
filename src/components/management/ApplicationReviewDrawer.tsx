@@ -583,7 +583,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
       {/* Drawer */}
       <div className="w-full max-w-2xl bg-white shadow-2xl flex flex-col h-full overflow-hidden app-print-drawer">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-dark shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-dark shrink-0 app-print-hide">
           <div>
             <div className="flex items-center gap-2.5">
               <h2 className="text-lg font-bold text-white">{fullName}</h2>
@@ -610,7 +610,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-border bg-surface-dark/5 shrink-0">
+        <div className="flex border-b border-border bg-surface-dark/5 shrink-0 app-print-hide">
           <button
             onClick={() => setActiveTab('overview')}
             className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
@@ -635,7 +635,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto app-print-scroll">
 
           {/* ── OVERVIEW TAB ── */}
           {activeTab === 'overview' && (
