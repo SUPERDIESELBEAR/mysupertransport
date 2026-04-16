@@ -520,6 +520,67 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
       {previewUrl && (
         <FilePreviewModal url={previewUrl} name={previewName} onClose={() => { setPreviewUrl(null); setPreviewFilePath(null); setPreviewBucket(null); }} bucketName={previewBucket ?? undefined} filePath={previewFilePath ?? undefined} onSaved={async () => { await fetchDocs(); }} />
       )}
+
+      {flipbookOpen && (() => {
+        const pages: FlipbookPage[] = [
+          { id: 'cover', title: 'Cover', kind: 'cover', fileUrl: null },
+        ];
+        // Company docs in admin-configured order
+        for (const key of companyOrder) {
+          const spec = COMPANY_WIDE_DOCS.find(d => d.key === key);
+          if (!spec) continue;
+          const doc = companyDocs.find(d => d.name === key);
+          pages.push({
+            id: `cw-${key}`,
+            title: key,
+            subtitle: 'Company Document',
+            kind: 'doc',
+            fileUrl: doc?.file_url ?? null,
+            fileName: doc?.file_url ? key : null,
+            shareToken: doc?.public_share_token ?? null,
+            expiresAt: doc?.expires_at ?? null,
+          });
+        }
+        // Per-driver docs in admin-configured order
+        for (const key of driverOrder) {
+          const spec = PER_DRIVER_DOCS.find(d => d.key === key);
+          if (!spec) continue;
+          const doc = perDriverDocs.find(d => d.name === key);
+          pages.push({
+            id: `pd-${key}`,
+            title: key,
+            subtitle: 'Driver Document',
+            kind: 'doc',
+            fileUrl: doc?.file_url ?? null,
+            fileName: doc?.file_url ? key : null,
+            shareToken: doc?.public_share_token ?? null,
+            expiresAt: doc?.expires_at ?? null,
+          });
+        }
+        // Driver uploads
+        for (const up of driverUploads) {
+          pages.push({
+            id: `up-${up.id}`,
+            title: up.file_name ?? 'Uploaded Document',
+            subtitle: UPLOAD_CATEGORY_LABELS[up.category as DriverUploadCategory] ?? 'Upload',
+            kind: 'upload',
+            fileUrl: up.file_url ?? null,
+            fileName: up.file_name ?? null,
+            shareToken: null,
+            expiresAt: null,
+          });
+        }
+        return (
+          <BinderFlipbook
+            pages={pages}
+            driverName={operatorName}
+            unitNumber={unitNumber}
+            storageKey={`flipbook:staff:${driverUserId}`}
+            onClose={() => setFlipbookOpen(false)}
+          />
+        );
+      })()}
     </div>
   );
 }
+
