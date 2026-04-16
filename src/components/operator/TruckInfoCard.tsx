@@ -512,6 +512,14 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onEdit, onTruckEd
           </div>
         )}
       </div>
+      {receiptPreview && (
+        <FilePreviewModal
+          url={receiptPreview}
+          name="Shipping Receipt"
+          onClose={() => setReceiptPreview(null)}
+          bucketName="operator-documents"
+        />
+      )}
     </div>
   );
 }
