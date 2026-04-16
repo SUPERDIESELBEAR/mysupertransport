@@ -1462,30 +1462,6 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                         )
                       }
                       </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
-                        {isEditing ? (
-                          <Input
-                            value={editData.current_load_lane ?? ''}
-                            onChange={e => setEditData(p => ({ ...p, current_load_lane: e.target.value }))}
-                            className="h-8 text-xs w-36"
-                            placeholder="e.g. ATL→CHI"
-                          />
-                        ) : (
-                          <span className="text-xs text-muted-foreground font-mono">{row.current_load_lane ?? <span className="opacity-40">—</span>}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
-                        {isEditing ? (
-                          <Input
-                            value={editData.eta_redispatch ?? ''}
-                            onChange={e => setEditData(p => ({ ...p, eta_redispatch: e.target.value }))}
-                            className="h-8 text-xs w-28"
-                            placeholder="e.g. Fri AM"
-                          />
-                        ) : (
-                          <span className="text-xs text-muted-foreground">{row.eta_redispatch ?? <span className="opacity-40">—</span>}</span>
-                        )}
-                      </td>
                       <td className="px-4 py-3 hidden xl:table-cell max-w-[220px]">
                         {isEditing ? (
                           <Textarea
