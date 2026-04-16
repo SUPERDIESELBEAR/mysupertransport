@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useBinderOrder } from '@/hooks/useBinderOrder';
 import {
   FileText, Truck, Shield, CheckSquare, Square, Send, Mail, MessageSquare,
-  Upload, Loader2, AlertTriangle, Clock, X, QrCode,
+  Upload, Loader2, AlertTriangle, Clock, X, QrCode, List, BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,6 +15,7 @@ import {
   COMPANY_WIDE_DOCS, PER_DRIVER_DOCS, getExpiryStatus,
 } from './InspectionBinderTypes';
 import { DocRow, ExpiryBadge, FilePreviewModal } from './DocRow';
+import BinderFlipbook, { FlipbookPage } from './BinderFlipbook';
 
 interface Props {
   userId: string;
