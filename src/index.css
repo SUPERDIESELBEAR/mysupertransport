@@ -189,8 +189,11 @@
 
 /* ── Application Review Drawer: multi-page print support ── */
 @media print {
-  /* Hide everything except the drawer */
-  body > *:not(.app-print-root) { display: none !important; }
+  /* Let #root flow naturally */
+  #root { overflow: visible !important; height: auto !important; }
+
+  /* Hide everything inside #root except the drawer's ancestor */
+  #root > *:not(.app-print-root) { display: none !important; }
   .app-print-root > *:not(.app-print-drawer) { display: none !important; }
 
   /* Unclip the drawer so content flows across pages */
@@ -198,6 +201,7 @@
     position: static !important;
     overflow: visible !important;
     height: auto !important;
+    max-height: none !important;
     max-width: 100% !important;
     width: 100% !important;
     box-shadow: none !important;
@@ -206,6 +210,7 @@
   .app-print-scroll {
     overflow: visible !important;
     height: auto !important;
+    max-height: none !important;
     flex: none !important;
   }
 
