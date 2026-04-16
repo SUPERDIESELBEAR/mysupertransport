@@ -19,12 +19,15 @@ import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
   LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell, Volume2, VolumeX,
-  CheckCheck, Users2
+  CheckCheck, Users2, Shield
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
 import { formatDistanceToNow } from 'date-fns';
 import DriverHubView from '@/components/drivers/DriverHubView';
+import MiniDispatchCalendar from '@/components/dispatch/MiniDispatchCalendar';
+import OperatorInspectionBinder from '@/components/inspection/OperatorInspectionBinder';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 interface QuickComposeTarget {
   operatorUserId: string;
@@ -158,6 +161,11 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
   const [bulkStatus, setBulkStatus] = useState<DispatchStatusType>('not_dispatched');
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkMode, setBulkMode] = useState(false);
+  // Dispatcher filter
+  const [dispatcherFilter, setDispatcherFilter] = useState<string>('my');
+  const [dispatcherNames, setDispatcherNames] = useState<Record<string, string>>({});
+  // Binder sheet
+  const [binderTarget, setBinderTarget] = useState<{ userId: string; operatorId: string; name: string } | null>(null);
 
   // Keep rowsRef in sync so realtime callbacks can access current operator info
   useEffect(() => { rowsRef.current = rows; }, [rows]);
@@ -534,6 +542,22 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
         });
       setRows(mapped);
 
+      // Build dispatcher name map from profiles of assigned dispatchers
+      const dispIds = [...new Set(mapped.map(r => r.assigned_dispatcher).filter(Boolean))] as string[];
+      if (dispIds.length > 0) {
+        const { data: dispProfiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', dispIds);
+        if (dispProfiles) {
+          const names: Record<string, string> = {};
+          (dispProfiles as any[]).forEach(p => {
+            names[p.user_id] = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown';
+          });
+          setDispatcherNames(names);
+        }
+      }
+
       // Fetch history for any already-expanded rows
       const currentExpanded = expandedHistory;
       if (currentExpanded.size > 0) {
@@ -588,17 +612,22 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
 
   const filteredRows = useMemo(() => {
     let result = activeTab === 'all' ? rows : rows.filter(r => r.dispatch_status === activeTab);
+    // Dispatcher filter
+    if (dispatcherFilter === 'my' && session?.user?.id) {
+      result = result.filter(r => r.assigned_dispatcher === session.user.id);
+    } else if (dispatcherFilter !== 'all' && dispatcherFilter !== 'my') {
+      result = result.filter(r => r.assigned_dispatcher === dispatcherFilter);
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(r =>
         `${r.first_name} ${r.last_name}`.toLowerCase().includes(q) ||
         (r.unit_number ?? '').toLowerCase().includes(q) ||
-        (r.current_load_lane ?? '').toLowerCase().includes(q) ||
         (r.home_state ?? '').toLowerCase().includes(q)
       );
     }
     return result;
-  }, [rows, activeTab, search]);
+  }, [rows, activeTab, search, dispatcherFilter, session?.user?.id]);
 
   const startEdit = (row: DispatchRow) => {
     setEditRow(row.operator_id);
@@ -875,6 +904,19 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
             })}
           </div>
         </div>
+        {/* Dispatcher filter */}
+        <Select value={dispatcherFilter} onValueChange={setDispatcherFilter}>
+          <SelectTrigger className="h-8 text-xs w-full sm:w-40 shrink-0">
+            <SelectValue placeholder="Filter by dispatcher" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="my">My Drivers</SelectItem>
+            <SelectItem value="all">All Drivers</SelectItem>
+            {Object.entries(dispatcherNames).map(([id, name]) => (
+              <SelectItem key={id} value={id}>{name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="relative sm:ml-auto w-full sm:w-56">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <Input
@@ -955,7 +997,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
               {filteredRows.map(row => {
                 const cfg = STATUS_CONFIG[row.dispatch_status];
                 const isEditing = editRow === row.operator_id;
@@ -1028,33 +1070,35 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                             <span className="sm:hidden">{formatDistanceToNow(new Date(row.updated_at), { addSuffix: false })}</span>
                           </span>
                         )}
-                        {row.unit_number && (
-                          <span className="font-mono text-xs bg-background/80 border border-border px-1.5 py-0.5 rounded text-foreground shrink-0">{row.unit_number}</span>
-                        )}
                       </div>
                     </div>
 
                     {/* Card body */}
-                    <div className="p-4 space-y-3">
-                       {/* Operator identity */}
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full overflow-hidden border border-border/60 shrink-0 flex items-center justify-center bg-surface-dark">
+                    <div className="p-3 space-y-2">
+                       {/* Operator identity with bold unit # */}
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-9 w-9 rounded-full overflow-hidden border border-border/60 shrink-0 flex items-center justify-center bg-surface-dark">
                           {row.avatar_url ? (
                             <img src={row.avatar_url} alt={fullName} className="h-full w-full object-cover" />
                           ) : (
-                            <span className="text-sm font-bold text-gold">{initials}</span>
+                            <span className="text-xs font-bold text-gold">{initials}</span>
                           )}
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-foreground text-sm truncate">{fullName}</p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-semibold text-foreground text-sm truncate">{fullName}</p>
+                            {row.unit_number && (
+                              <span className="font-mono font-bold text-sm text-primary shrink-0">#{row.unit_number}</span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                             {row.phone && (
-                              <a href={`tel:${row.phone}`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-gold transition-colors">
-                                <Phone className="h-3 w-3" />{row.phone}
+                              <a href={`tel:${row.phone}`} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-gold transition-colors">
+                                <Phone className="h-2.5 w-2.5" />{row.phone}
                               </a>
                             )}
                             {row.home_state && (
-                              <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
                                 <MapPin className="h-2.5 w-2.5" />{row.home_state}
                               </span>
                             )}
@@ -1062,39 +1106,8 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                         </div>
                       </div>
 
-                      {/* Load / Lane + ETA — the key at-a-glance fields */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-muted/40 rounded-lg px-3 py-2">
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Load / Lane</p>
-                          {isEditing ? (
-                            <Input
-                              value={editData.current_load_lane ?? ''}
-                              onChange={e => setEditData(p => ({ ...p, current_load_lane: e.target.value }))}
-                              className="h-7 text-xs px-2"
-                              placeholder="e.g. ATL→CHI"
-                            />
-                          ) : (
-                            <p className="text-sm font-semibold font-mono text-foreground truncate">
-                              {row.current_load_lane || <span className="text-muted-foreground/50 font-normal text-xs">—</span>}
-                            </p>
-                          )}
-                        </div>
-                        <div className="bg-muted/40 rounded-lg px-3 py-2">
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">ETA Redispatch</p>
-                          {isEditing ? (
-                            <Input
-                              value={editData.eta_redispatch ?? ''}
-                              onChange={e => setEditData(p => ({ ...p, eta_redispatch: e.target.value }))}
-                              className="h-7 text-xs px-2"
-                              placeholder="e.g. Fri AM"
-                            />
-                          ) : (
-                            <p className="text-sm font-semibold text-foreground truncate">
-                              {row.eta_redispatch || <span className="text-muted-foreground/50 font-normal text-xs">—</span>}
-                            </p>
-                          )}
-                        </div>
-                      </div>
+                      {/* Mini calendar */}
+                      <MiniDispatchCalendar operatorId={row.operator_id} />
 
                       {/* Status select (editing) */}
                       {isEditing && (
@@ -1190,15 +1203,15 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                       })()}
                     </div>
 
-                    {/* Card footer — actions; wraps to two rows on very small viewports */}
-                    <div className="px-4 pb-4 pt-0 flex flex-wrap items-center gap-1">
+                    {/* Card footer — actions */}
+                    <div className="px-3 pb-3 pt-0 flex flex-wrap items-center gap-1">
                       {/* Call */}
                       {row.phone && (
                         <Button
                           variant="ghost"
                           size="sm"
                           asChild
-                          className="h-7 text-xs gap-1 px-2.5 text-muted-foreground hover:text-status-complete hover:bg-status-complete/10"
+                          className="h-7 text-xs gap-1 px-2 text-muted-foreground hover:text-status-complete hover:bg-status-complete/10"
                           title={`Call ${[row.first_name, row.last_name].filter(Boolean).join(' ') || 'operator'}`}
                         >
                           <a href={`tel:${row.phone}`}>
@@ -1207,6 +1220,17 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                           </a>
                         </Button>
                       )}
+                      {/* Binder */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setBinderTarget({ userId: row.operator_user_id, operatorId: row.operator_id, name: fullName })}
+                        className="h-7 text-xs gap-1 px-2 text-muted-foreground hover:text-gold hover:bg-gold/10"
+                        title="Inspection Binder"
+                      >
+                        <Shield className="h-3 w-3" />
+                        Binder
+                      </Button>
                       {/* Message quick-action */}
                       <Button
                         variant="ghost"
@@ -1306,16 +1330,14 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Operator</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Unit #</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden lg:table-cell">Load / Lane</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden lg:table-cell">ETA Redispatch</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden xl:table-cell">Notes</th>
-                <th className="w-20" />
+                <th className="w-24" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-16">
+                  <td colSpan={5} className="text-center py-16">
                     <div className="flex flex-col items-center gap-3">
                       <div className="h-7 w-7 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                       <p className="text-sm text-muted-foreground">Loading operators…</p>
@@ -1324,7 +1346,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                 </tr>
               ) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-16">
+                  <td colSpan={5} className="text-center py-16">
                     <div className="flex flex-col items-center gap-2">
                       <Truck className="h-8 w-8 text-muted-foreground/30" />
                       <p className="text-sm text-muted-foreground">
@@ -1440,30 +1462,6 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                         )
                       }
                       </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
-                        {isEditing ? (
-                          <Input
-                            value={editData.current_load_lane ?? ''}
-                            onChange={e => setEditData(p => ({ ...p, current_load_lane: e.target.value }))}
-                            className="h-8 text-xs w-36"
-                            placeholder="e.g. ATL→CHI"
-                          />
-                        ) : (
-                          <span className="text-xs text-muted-foreground font-mono">{row.current_load_lane ?? <span className="opacity-40">—</span>}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
-                        {isEditing ? (
-                          <Input
-                            value={editData.eta_redispatch ?? ''}
-                            onChange={e => setEditData(p => ({ ...p, eta_redispatch: e.target.value }))}
-                            className="h-8 text-xs w-28"
-                            placeholder="e.g. Fri AM"
-                          />
-                        ) : (
-                          <span className="text-xs text-muted-foreground">{row.eta_redispatch ?? <span className="opacity-40">—</span>}</span>
-                        )}
-                      </td>
                       <td className="px-4 py-3 hidden xl:table-cell max-w-[220px]">
                         {isEditing ? (
                           <Textarea
@@ -1535,6 +1533,16 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => setBinderTarget({ userId: row.operator_user_id, operatorId: row.operator_id, name: fullName })}
+                              className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5"
+                              title="Inspection Binder"
+                            >
+                              <Shield className="h-3 w-3" />
+                              Binder
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => startEdit(row)}
                               className="h-7 text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1 px-2.5"
                             >
@@ -1549,7 +1557,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                     {/* Status history expansion row */}
                     {isHistoryExpanded && (
                       <tr key={`${row.operator_id}-history`} className="bg-muted/20">
-                        <td colSpan={7} className="px-6 py-3">
+                        <td colSpan={5} className="px-6 py-3">
                           <div className="flex items-start gap-2 mb-2">
                             <Clock className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
                             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Last 3 Status Changes</p>
@@ -1739,6 +1747,18 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
           ? <DriverHubView dispatchMode={true} onMessageDriver={userId => { setMessageInitialUserId(userId); setActivePage('dispatch-messages'); }} />
           : board}
       </StaffLayout>
+
+      {/* Inspection Binder Sheet */}
+      <Sheet open={!!binderTarget} onOpenChange={open => { if (!open) setBinderTarget(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto p-0">
+          <SheetHeader className="px-4 py-3 border-b border-border">
+            <SheetTitle className="text-base">Inspection Binder — {binderTarget?.name}</SheetTitle>
+          </SheetHeader>
+          {binderTarget && (
+            <OperatorInspectionBinder userId={binderTarget.userId} operatorId={binderTarget.operatorId} />
+          )}
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

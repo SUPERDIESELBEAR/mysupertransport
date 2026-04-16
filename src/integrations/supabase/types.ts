@@ -488,6 +488,44 @@ export type Database = {
           },
         ]
       }
+      dispatch_daily_log: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          log_date: string
+          notes: string | null
+          operator_id: string
+          status: Database["public"]["Enums"]["daily_dispatch_status"]
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          log_date: string
+          notes?: string | null
+          operator_id: string
+          status: Database["public"]["Enums"]["daily_dispatch_status"]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          log_date?: string
+          notes?: string | null
+          operator_id?: string
+          status?: Database["public"]["Enums"]["daily_dispatch_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_daily_log_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dispatch_status_history: {
         Row: {
           changed_at: string
@@ -2546,6 +2584,11 @@ export type Database = {
         | "management"
         | "owner"
       approval_status: "pending" | "approved" | "denied"
+      daily_dispatch_status:
+        | "dispatched"
+        | "home"
+        | "truck_down"
+        | "not_dispatched"
       dispatch_status: "not_dispatched" | "dispatched" | "home" | "truck_down"
       doc_review_status: "pending" | "approved" | "rejected"
       document_status: "not_started" | "requested" | "received"
@@ -2737,6 +2780,12 @@ export const Constants = {
         "owner",
       ],
       approval_status: ["pending", "approved", "denied"],
+      daily_dispatch_status: [
+        "dispatched",
+        "home",
+        "truck_down",
+        "not_dispatched",
+      ],
       dispatch_status: ["not_dispatched", "dispatched", "home", "truck_down"],
       doc_review_status: ["pending", "approved", "rejected"],
       document_status: ["not_started", "requested", "received"],
