@@ -1747,6 +1747,18 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
           ? <DriverHubView dispatchMode={true} onMessageDriver={userId => { setMessageInitialUserId(userId); setActivePage('dispatch-messages'); }} />
           : board}
       </StaffLayout>
+
+      {/* Inspection Binder Sheet */}
+      <Sheet open={!!binderTarget} onOpenChange={open => { if (!open) setBinderTarget(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto p-0">
+          <SheetHeader className="px-4 py-3 border-b border-border">
+            <SheetTitle className="text-base">Inspection Binder — {binderTarget?.name}</SheetTitle>
+          </SheetHeader>
+          {binderTarget && (
+            <OperatorInspectionBinder userId={binderTarget.userId} operatorId={binderTarget.operatorId} />
+          )}
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
