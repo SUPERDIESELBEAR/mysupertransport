@@ -38,6 +38,7 @@ import MoPlateHistoryModal from './MoPlateHistoryModal';
 type PlateWithAssignee = MoPlate & {
   current_driver?: string | null;
   current_driver_unit?: string | null;
+  current_truck_plate?: string | null;
   assigned_since?: string | null;
   lost_since?: string | null;
 };
@@ -103,9 +104,25 @@ export default function MoPlateRegistry() {
     const plateIds = platesData.map((p: any) => p.id);
     const { data: openAssignments } = await supabase
       .from('mo_plate_assignments')
-      .select('plate_id, driver_name, unit_number, event_type, assigned_at')
+      .select('plate_id, driver_name, unit_number, event_type, assigned_at, operator_id')
       .in('plate_id', plateIds)
       .is('returned_at', null);
+
+    // Fetch truck plates for assigned operators
+    const operatorIds = [...new Set((openAssignments ?? []).filter(a => a.operator_id).map(a => a.operator_id!))];
+    const truckPlateMap = new Map<string, string>();
+    if (operatorIds.length > 0) {
+      const { data: osData } = await supabase
+        .from('onboarding_status')
+        .select('operator_id, truck_plate, truck_plate_state')
+        .in('operator_id', operatorIds);
+      (osData ?? []).forEach((os: any) => {
+        const plate = os.truck_plate;
+        if (plate) {
+          truckPlateMap.set(os.operator_id, `${plate}${os.truck_plate_state ? ` (${os.truck_plate_state})` : ''}`);
+        }
+      });
+    }
 
     // Build a map of plate_id → open event
     const openMap: Record<string, any> = {};
@@ -119,6 +136,7 @@ export default function MoPlateRegistry() {
         ...p,
         current_driver: open?.event_type === 'assignment' ? open.driver_name : null,
         current_driver_unit: open?.unit_number ?? null,
+        current_truck_plate: open?.operator_id ? truckPlateMap.get(open.operator_id) ?? null : null,
         assigned_since: open?.event_type === 'assignment' ? open.assigned_at : null,
         lost_since: open?.event_type === 'lost_stolen' ? open.assigned_at : null,
       };
