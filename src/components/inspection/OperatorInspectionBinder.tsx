@@ -74,6 +74,8 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [viewMode, setViewMode] = useState<'list' | 'pages'>('list');
+  const [flipbookOpen, setFlipbookOpen] = useState(false);
 
   // In-app file preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
