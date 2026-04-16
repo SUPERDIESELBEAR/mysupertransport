@@ -536,7 +536,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
             subtitle: 'Company Document',
             kind: 'doc',
             fileUrl: doc?.file_url ?? null,
-            fileName: doc?.file_url ? key : null,
+            fileName: doc?.file_url ?? null,
             shareToken: doc?.public_share_token ?? null,
             expiresAt: doc?.expires_at ?? null,
           });
@@ -552,7 +552,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
             subtitle: 'Driver Document',
             kind: 'doc',
             fileUrl: doc?.file_url ?? null,
-            fileName: doc?.file_url ? key : null,
+            fileName: doc?.file_url ?? null,
             shareToken: doc?.public_share_token ?? null,
             expiresAt: doc?.expires_at ?? null,
           });
