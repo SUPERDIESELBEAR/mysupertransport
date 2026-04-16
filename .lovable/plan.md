@@ -1,15 +1,17 @@
 
 
-## Update ICA Section 4 — Rename and Reword Deposit Clause
+## Update ICA Section 4 — Revised Deposit Clause with Election Checkbox
 
 ### Change
-In `src/components/ica/ICADocumentView.tsx`, update Section 4:
+In `src/components/ica/ICADocumentView.tsx`, replace the body of Section 4 (line 134) with:
 
-1. **Title**: Change `"Security Deposit"` → `"Repair and Maintenance Deposit"`
-2. **Body**: Replace the current single-sentence text with the new multi-sentence paragraph provided
+1. The new paragraph covering voluntary election and advance-triggered deposit
+2. A styled "Repair and Maintenance Deposit Election" sub-section with a checkbox line, and Contractor Initials / Date blanks
+
+The election section will use the same print-friendly styling as the rest of the document — a bold sub-heading, a checkbox character (☐), and underline blanks for initials and date.
 
 ### File
 | File | Change |
 |------|--------|
-| `src/components/ica/ICADocumentView.tsx` (lines 133–135) | Update title and body text of Section 4 |
+| `src/components/ica/ICADocumentView.tsx` (lines 133–135) | Replace Section 4 body with new verbiage + election block |
 
