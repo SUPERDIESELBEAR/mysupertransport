@@ -1526,6 +1526,36 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                         )
                       }
                       </td>
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        {isEditing ? (
+                          <Select
+                            value={editData.assigned_dispatcher ?? ''}
+                            onValueChange={v => setEditData(p => ({ ...p, assigned_dispatcher: v === '__unassigned__' ? '' : v }))}
+                          >
+                            <SelectTrigger className="h-8 text-xs min-w-[140px]">
+                              <SelectValue placeholder="Assign Dispatcher" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                              {session?.user?.id && allDispatchers[session.user.id] && (
+                                <SelectItem value={session.user.id}>
+                                  {allDispatchers[session.user.id]} (Me)
+                                </SelectItem>
+                              )}
+                              {Object.entries(allDispatchers)
+                                .filter(([id]) => id !== session?.user?.id)
+                                .sort(([, a], [, b]) => a.localeCompare(b))
+                                .map(([id, name]) => (
+                                  <SelectItem key={id} value={id}>{name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            {row.assigned_dispatcher ? (dispatcherNames[row.assigned_dispatcher] ?? '—') : <span className="opacity-40">—</span>}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 hidden xl:table-cell max-w-[220px]">
                         {isEditing ? (
                           <Textarea
