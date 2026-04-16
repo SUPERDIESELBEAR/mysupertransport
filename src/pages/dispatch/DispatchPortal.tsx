@@ -162,7 +162,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkMode, setBulkMode] = useState(false);
   // Dispatcher filter
-  const [dispatcherFilter, setDispatcherFilter] = useState<string>('my');
+  const [dispatcherFilter, setDispatcherFilter] = useState<string>('all');
   const [dispatcherNames, setDispatcherNames] = useState<Record<string, string>>({});
   // All dispatchers/management for the assignment dropdown
   const [allDispatchers, setAllDispatchers] = useState<Record<string, string>>({});
@@ -1820,7 +1820,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
         navItems={navItems}
         currentPath={activePage}
         onNavigate={handleNavigate}
-        title="Dispatch"
+        title="Dispatch Board"
         notificationsPath="/dispatch?tab=notifications"
         headerActions={
           <button
