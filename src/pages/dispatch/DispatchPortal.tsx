@@ -1337,7 +1337,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-16">
+                  <td colSpan={5} className="text-center py-16">
                     <div className="flex flex-col items-center gap-3">
                       <div className="h-7 w-7 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                       <p className="text-sm text-muted-foreground">Loading operators…</p>
@@ -1346,7 +1346,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                 </tr>
               ) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-16">
+                  <td colSpan={5} className="text-center py-16">
                     <div className="flex flex-col items-center gap-2">
                       <Truck className="h-8 w-8 text-muted-foreground/30" />
                       <p className="text-sm text-muted-foreground">
@@ -1571,7 +1571,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                     {/* Status history expansion row */}
                     {isHistoryExpanded && (
                       <tr key={`${row.operator_id}-history`} className="bg-muted/20">
-                        <td colSpan={7} className="px-6 py-3">
+                        <td colSpan={5} className="px-6 py-3">
                           <div className="flex items-start gap-2 mb-2">
                             <Clock className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
                             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Last 3 Status Changes</p>
