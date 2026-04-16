@@ -203,14 +203,14 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
-                  <TableHead className="text-xs font-semibold w-20">Unit #</TableHead>
-                  <TableHead className="text-xs font-semibold">Driver</TableHead>
-                  <TableHead className="text-xs font-semibold hidden lg:table-cell">Owner</TableHead>
-                  <TableHead className="text-xs font-semibold hidden md:table-cell">Vehicle</TableHead>
-                  <TableHead className="text-xs font-semibold hidden md:table-cell">Plate #</TableHead>
-                  <TableHead className="text-xs font-semibold hidden lg:table-cell">VIN</TableHead>
-                  <TableHead className="text-xs font-semibold text-right">Repair Cost</TableHead>
-                  <TableHead className="text-xs font-semibold text-center">DOT Status</TableHead>
+                  <TableHead className="text-sm font-semibold w-20">Unit #</TableHead>
+                  <TableHead className="text-sm font-semibold">Driver</TableHead>
+                  <TableHead className="text-sm font-semibold hidden lg:table-cell">Owner</TableHead>
+                  <TableHead className="text-sm font-semibold hidden md:table-cell">Vehicle</TableHead>
+                  <TableHead className="text-sm font-semibold hidden md:table-cell">Plate #</TableHead>
+                  <TableHead className="text-sm font-semibold hidden lg:table-cell">VIN</TableHead>
+                  <TableHead className="text-sm font-semibold text-right">Repair Cost</TableHead>
+                  <TableHead className="text-sm font-semibold text-center">DOT Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -220,23 +220,23 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     className="cursor-pointer hover:bg-muted/30 transition-colors"
                     onClick={() => onSelectOperator(row.operatorId)}
                   >
-                    <TableCell className="text-xs font-mono font-semibold text-primary">
+                    <TableCell className="text-sm font-mono font-semibold text-primary">
                       {row.unitNumber || '—'}
                     </TableCell>
-                    <TableCell className="text-xs font-medium">{row.driverName}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground hidden lg:table-cell">{row.ownerName}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground hidden md:table-cell">
+                    <TableCell className="text-sm font-medium">{row.driverName}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground hidden lg:table-cell">{row.ownerName}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground hidden md:table-cell">
                       {[row.truckYear, row.truckMake].filter(Boolean).join(' ') || '—'}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground hidden md:table-cell">
+                    <TableCell className="text-sm text-muted-foreground hidden md:table-cell">
                       {row.truckPlate
                         ? <span className="font-mono">{row.truckPlate}{row.truckPlateState ? ` (${row.truckPlateState})` : ''}</span>
                         : '—'}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground hidden lg:table-cell font-mono">
+                    <TableCell className="text-sm text-muted-foreground hidden lg:table-cell font-mono">
                       {row.truckVin || '—'}
                     </TableCell>
-                    <TableCell className="text-xs text-right font-mono">
+                    <TableCell className="text-sm text-right font-mono">
                       {row.totalRepairCost > 0 ? `$${row.totalRepairCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
                     </TableCell>
                     <TableCell className="text-center">
