@@ -232,6 +232,9 @@ export default function ICAViewModal({ operatorId, operatorName, onClose }: ICAV
                 contractorSignatureUrl={contract.contractor_signature_url}
                 contractorTypedName={contract.contractor_typed_name}
                 contractorSignedAt={contract.contractor_signed_at}
+                depositElected={contract.deposit_elected}
+                depositInitials={contract.deposit_initials}
+                depositElectedDate={contract.deposit_elected_date}
               />
             </>
           )}

@@ -37,6 +37,9 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
   const sigRef = useRef<SignatureCanvas>(null);
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [operatorName, setOperatorName] = useState('');
+  const [depositElected, setDepositElected] = useState(false);
+  const [depositInitials, setDepositInitials] = useState('');
+  const [depositElectedDate, setDepositElectedDate] = useState('');
 
   useEffect(() => {
     if (session?.user?.id) fetchContract();
@@ -113,6 +116,9 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
           contractor_signature_url: path,
           contractor_signed_at: new Date().toISOString(),
           status: 'fully_executed',
+          deposit_elected: depositElected,
+          deposit_initials: depositInitials || null,
+          deposit_elected_date: depositElectedDate || null,
         })
         .eq('id', contract.id);
 
@@ -244,6 +250,14 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
         onContractorSignedNameChange={setSignedName}
         onSignatureEnd={() => setHasDrawn(true)}
         onSignatureClear={() => setHasDrawn(false)}
+        depositElected={depositElected}
+        depositInitials={depositInitials}
+        depositElectedDate={depositElectedDate}
+        onDepositChange={!isFullyExecuted ? (vals) => {
+          if (vals.elected !== undefined) setDepositElected(vals.elected);
+          if (vals.initials !== undefined) setDepositInitials(vals.initials);
+          if (vals.date !== undefined) setDepositElectedDate(vals.date);
+        } : undefined}
       />
 
       {/* Spacer so content isn't hidden behind sticky bar */}
