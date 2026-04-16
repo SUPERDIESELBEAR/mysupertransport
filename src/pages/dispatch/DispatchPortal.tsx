@@ -164,6 +164,8 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
   // Dispatcher filter
   const [dispatcherFilter, setDispatcherFilter] = useState<string>('my');
   const [dispatcherNames, setDispatcherNames] = useState<Record<string, string>>({});
+  // All dispatchers/management for the assignment dropdown
+  const [allDispatchers, setAllDispatchers] = useState<Record<string, string>>({});
   // Binder sheet
   const [binderTarget, setBinderTarget] = useState<{ userId: string; operatorId: string; name: string } | null>(null);
 
@@ -542,19 +544,41 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
         });
       setRows(mapped);
 
-      // Build dispatcher name map from profiles of assigned dispatchers
-      const dispIds = [...new Set(mapped.map(r => r.assigned_dispatcher).filter(Boolean))] as string[];
-      if (dispIds.length > 0) {
-        const { data: dispProfiles } = await supabase
+      // Fetch all users with dispatcher or management roles for assignment dropdown
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .in('role', ['dispatcher', 'management', 'owner']);
+      const roleUserIds = [...new Set((roleData ?? []).map((r: any) => r.user_id))];
+      if (roleUserIds.length > 0) {
+        const { data: roleProfiles } = await supabase
           .from('profiles')
           .select('user_id, first_name, last_name')
-          .in('user_id', dispIds);
-        if (dispProfiles) {
-          const names: Record<string, string> = {};
-          (dispProfiles as any[]).forEach(p => {
-            names[p.user_id] = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown';
+          .in('user_id', roleUserIds);
+        if (roleProfiles) {
+          const allNames: Record<string, string> = {};
+          (roleProfiles as any[]).forEach(p => {
+            allNames[p.user_id] = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown';
           });
-          setDispatcherNames(names);
+          setAllDispatchers(allNames);
+          // Also use this for the filter dropdown + display names
+          setDispatcherNames(allNames);
+        }
+      } else {
+        // Fallback: build from assigned dispatchers on rows
+        const dispIds = [...new Set(mapped.map(r => r.assigned_dispatcher).filter(Boolean))] as string[];
+        if (dispIds.length > 0) {
+          const { data: dispProfiles } = await supabase
+            .from('profiles')
+            .select('user_id, first_name, last_name')
+            .in('user_id', dispIds);
+          if (dispProfiles) {
+            const names: Record<string, string> = {};
+            (dispProfiles as any[]).forEach(p => {
+              names[p.user_id] = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown';
+            });
+            setDispatcherNames(names);
+          }
         }
       }
 
@@ -641,6 +665,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
     setEditRow(row.operator_id);
     setEditData({
       dispatch_status: row.dispatch_status,
+      assigned_dispatcher: row.assigned_dispatcher ?? '',
       current_load_lane: row.current_load_lane ?? '',
       eta_redispatch: row.eta_redispatch ?? '',
       status_notes: row.status_notes ?? '',
@@ -701,6 +726,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
     const payload = {
       operator_id: row.operator_id,
       dispatch_status: newStatus,
+      assigned_dispatcher: editData.assigned_dispatcher || null,
       current_load_lane: lane || null,
       eta_redispatch: eta || null,
       status_notes: notes || null,
@@ -1141,6 +1167,28 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                               <SelectItem value="truck_down">Truck Down</SelectItem>
                             </SelectContent>
                           </Select>
+                          <Select
+                            value={editData.assigned_dispatcher ?? ''}
+                            onValueChange={v => setEditData(p => ({ ...p, assigned_dispatcher: v === '__unassigned__' ? '' : v }))}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Assign Dispatcher" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                              {session?.user?.id && allDispatchers[session.user.id] && (
+                                <SelectItem value={session.user.id}>
+                                  {allDispatchers[session.user.id]} (Me)
+                                </SelectItem>
+                              )}
+                              {Object.entries(allDispatchers)
+                                .filter(([id]) => id !== session?.user?.id)
+                                .sort(([, a], [, b]) => a.localeCompare(b))
+                                .map(([id, name]) => (
+                                  <SelectItem key={id} value={id}>{name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
                           <Textarea
                             value={editData.status_notes ?? ''}
                             onChange={e => setEditData(p => ({ ...p, status_notes: e.target.value }))}
@@ -1345,6 +1393,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Operator</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Unit #</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden lg:table-cell">Dispatcher</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden xl:table-cell">Notes</th>
                 <th className="w-24" />
               </tr>
@@ -1476,6 +1525,36 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                           </div>
                         )
                       }
+                      </td>
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        {isEditing ? (
+                          <Select
+                            value={editData.assigned_dispatcher ?? ''}
+                            onValueChange={v => setEditData(p => ({ ...p, assigned_dispatcher: v === '__unassigned__' ? '' : v }))}
+                          >
+                            <SelectTrigger className="h-8 text-xs min-w-[140px]">
+                              <SelectValue placeholder="Assign Dispatcher" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                              {session?.user?.id && allDispatchers[session.user.id] && (
+                                <SelectItem value={session.user.id}>
+                                  {allDispatchers[session.user.id]} (Me)
+                                </SelectItem>
+                              )}
+                              {Object.entries(allDispatchers)
+                                .filter(([id]) => id !== session?.user?.id)
+                                .sort(([, a], [, b]) => a.localeCompare(b))
+                                .map(([id, name]) => (
+                                  <SelectItem key={id} value={id}>{name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            {row.assigned_dispatcher ? (dispatcherNames[row.assigned_dispatcher] ?? '—') : <span className="opacity-40">—</span>}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 hidden xl:table-cell max-w-[220px]">
                         {isEditing ? (
