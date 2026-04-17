@@ -27,14 +27,15 @@ export interface DriverUpload {
 }
 
 // Company-wide document slots (one per scope: company_wide)
+// `optional: true` → hidden by default, only appears for drivers who opt in
 export const COMPANY_WIDE_DOCS = [
   { key: 'IFTA License', hasExpiry: true },
   { key: 'Insurance', hasExpiry: true },
   { key: 'UCR', hasExpiry: true },
   { key: 'MC Authority', hasExpiry: false },
   { key: 'State Specific Permits', hasExpiry: true },
-  { key: 'Overweight/Oversize Permits', hasExpiry: true },
-  { key: 'Hazmat', hasExpiry: true },
+  { key: 'Overweight/Oversize Permits', hasExpiry: true, optional: true },
+  { key: 'Hazmat', hasExpiry: true, optional: true },
   { key: 'ELD Procedures', hasExpiry: false },
   { key: 'Accident Packet', hasExpiry: false },
 ] as const;
@@ -52,6 +53,31 @@ export const PER_DRIVER_DOCS = [
 export type DocName =
   | (typeof COMPANY_WIDE_DOCS)[number]['key']
   | (typeof PER_DRIVER_DOCS)[number]['key'];
+
+/** Names of company-wide docs that are hidden by default and only appear when a driver opts in */
+export const OPTIONAL_COMPANY_DOCS: string[] = COMPANY_WIDE_DOCS
+  .filter(d => 'optional' in d && (d as any).optional)
+  .map(d => d.key);
+
+/** Returns true if a company doc is opt-in (hidden by default) */
+export function isOptionalCompanyDoc(name: string): boolean {
+  return OPTIONAL_COMPANY_DOCS.includes(name);
+}
+
+/**
+ * Filter a list of doc keys, removing optional company docs unless the driver has opted in.
+ * Pass `enabledOptional` as the set of doc names this driver has explicitly opted into.
+ * If `enabledOptional` is null/undefined, ALL optional docs are excluded.
+ */
+export function filterOptionalDocs<T extends string>(
+  keys: T[],
+  enabledOptional?: Set<string> | null,
+): T[] {
+  return keys.filter(k => {
+    if (!isOptionalCompanyDoc(k)) return true;
+    return !!enabledOptional && enabledOptional.has(k);
+  });
+}
 
 /** Parse a YYYY-MM-DD date string as local midnight (not UTC) */
 export function parseLocalDate(dateStr: string): Date {

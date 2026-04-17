@@ -14,6 +14,7 @@ import {
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, FolderOpen, Plus, BookOpen,
 } from 'lucide-react';
 import { useBinderOrder } from '@/hooks/useBinderOrder';
+import { useDriverOptionalDocs } from '@/hooks/useDriverOptionalDocs';
 import BinderFlipbook, { FlipbookPage } from './BinderFlipbook';
 import { DateInput } from '@/components/ui/date-input';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,7 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS, parseLocalDate } from './InspectionBinderTypes';
+import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS, parseLocalDate, filterOptionalDocs } from './InspectionBinderTypes';
 import { ExpiryBadge, FilePreviewModal } from './DocRow';
 
 type DriverUploadCategory = 'roadside_inspection_report' | 'repairs_maintenance_receipt' | 'miscellaneous';
@@ -81,6 +82,8 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
   const { toast } = useToast();
   const { guardDemo } = useDemoMode();
   const { companyOrder, driverOrder } = useBinderOrder();
+  const { enabled: enabledOptional } = useDriverOptionalDocs(driverUserId);
+  const visibleCompanyOrder = filterOptionalDocs(companyOrder, enabledOptional);
 
   const [perDriverDocs, setPerDriverDocs] = useState<InspectionDocument[]>([]);
   const [companyDocs, setCompanyDocs] = useState<InspectionDocument[]>([]);
@@ -526,7 +529,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
           { id: 'cover', title: 'Cover', kind: 'cover', fileUrl: null },
         ];
         // Company docs in admin-configured order
-        for (const key of companyOrder) {
+        for (const key of visibleCompanyOrder) {
           const spec = COMPANY_WIDE_DOCS.find(d => d.key === key);
           if (!spec) continue;
           const doc = companyDocs.find(d => d.name === key);
