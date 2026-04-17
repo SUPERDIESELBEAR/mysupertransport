@@ -2222,6 +2222,68 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           onSaved={() => fetchDocs()}
         />
       )}
+
+      {flipbookOpen && selectedDriverId && (() => {
+        const findCompanyDoc = (name: string) => companyDocs.find(d => d.name === name) ?? null;
+        const findDriverDoc = (name: string) => perDriverDocs.find(d => d.name === name) ?? null;
+        const uploadSubtitleMap: Record<string, string> = {
+          roadside_inspection_report: 'Roadside Inspection Reports',
+          repairs_maintenance_receipt: 'Repairs & Maintenance Receipts',
+          miscellaneous: 'Miscellaneous',
+        };
+        const pages: FlipbookPage[] = [
+          { id: 'cover', title: 'Cover Page', kind: 'cover', fileUrl: null },
+          ...companyOrder.map((key): FlipbookPage | null => {
+            const spec = COMPANY_WIDE_DOCS.find(d => d.key === key);
+            if (!spec) return null;
+            const doc = findCompanyDoc(key);
+            return {
+              id: `c-${key}`,
+              title: key,
+              subtitle: 'Company Document',
+              fileUrl: doc?.file_url ?? null,
+              fileName: doc?.file_url ?? null,
+              shareToken: doc?.public_share_token ?? null,
+              expiresAt: doc?.expires_at ?? null,
+              kind: 'doc' as const,
+            };
+          }).filter(Boolean) as FlipbookPage[],
+          ...driverOrder.map((key): FlipbookPage | null => {
+            const spec = PER_DRIVER_DOCS.find(d => d.key === key);
+            if (!spec) return null;
+            const doc = findDriverDoc(key);
+            return {
+              id: `d-${key}`,
+              title: key,
+              subtitle: 'Driver Document',
+              fileUrl: doc?.file_url ?? null,
+              fileName: doc?.file_url ?? null,
+              shareToken: doc?.public_share_token ?? null,
+              expiresAt: doc?.expires_at ?? null,
+              kind: 'doc' as const,
+            };
+          }).filter(Boolean) as FlipbookPage[],
+          ...driverUploads.map((u): FlipbookPage => ({
+            id: `u-${u.id}`,
+            title: u.file_name || 'Upload',
+            subtitle: uploadSubtitleMap[u.category] || 'Upload',
+            fileUrl: u.file_url,
+            fileName: u.file_name,
+            shareToken: null,
+            expiresAt: null,
+            kind: 'upload',
+          })),
+        ];
+        return (
+          <BinderFlipbook
+            pages={pages}
+            driverName={selectedDriverName || 'Driver'}
+            unitNumber={unitNumber}
+            storageKey={`flipbook-admin:${selectedDriverId}`}
+            onClose={() => setFlipbookOpen(false)}
+          />
+        );
+      })()}
     </div>
   );
 }
