@@ -37,7 +37,6 @@ export const COMPANY_WIDE_DOCS = [
   { key: 'Overweight/Oversize Permits', hasExpiry: true, optional: true },
   { key: 'Hazmat', hasExpiry: true, optional: true },
   { key: 'ELD Procedures', hasExpiry: false },
-  { key: 'Accident Packet', hasExpiry: false },
 ] as const;
 
 // Per-driver document slots
