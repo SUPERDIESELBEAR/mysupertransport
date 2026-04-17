@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive } from 'lucide-react';
+import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
+import QuickTruckEditModal from './QuickTruckEditModal';
 
 interface FleetRow {
   operatorId: string;
