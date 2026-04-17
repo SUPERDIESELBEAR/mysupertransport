@@ -1,41 +1,53 @@
 
 
-## Truck Specs Sync — Final Plan (with Fleet Roster inline edit)
+## Why Salman Mohamed Still Shows on Dispatch Board
 
-### What I'm building
-Centralize all truck spec writes through one helper so staff never re-type VIN/plate/make/model/year/trailer across the app. Plus add a quick-edit pencil on Fleet Roster rows.
+### Root Cause
+The Dispatch Board query in `src/pages/dispatch/DispatchPortal.tsx` (line 490–505) fetches **all operators** and only filters by `onboarding_status.fully_onboarded = true`. It **never checks `operators.is_active`**.
 
-### The Helper
-**`src/lib/truckSync.ts`** — `saveTruckSpecs(operatorId, statusId, payload, actorId)`
-- Updates `onboarding_status` (always)
-- Mirrors to `ica_contracts` only where `status IN ('draft','sent_to_operator')` — never touches signed contracts
-- Normalizes VIN (uppercase, trim, strip dashes/spaces)
-- Skips empty values (coalesce semantics — half-filled forms can't blank existing data)
-- Logs one `audit_log` entry per save with the diff in `metadata`
+Confirmed in DB:
+| Field | Value |
+|---|---|
+| Name | Salman Mohamed |
+| `is_active` | **false** (deactivated) |
+| `fully_onboarded` | true |
 
-### Entry Points Wired to Helper
+Because he was fully onboarded before deactivation, he passes the only filter the Dispatch Board uses. Same bug likely affects anyone deactivated post-onboarding.
 
+### The Fix
+One-line change in `fetchDispatch()` — exclude inactive operators from the result set:
+
+```ts
+const onboarded = (data as any[]).filter(op =>
+  getOne(op.onboarding_status)?.fully_onboarded && op.is_active !== false
+);
+```
+
+And add `is_active` to the SELECT:
+```ts
+.select(`id, user_id, unit_number, is_active, onboarding_status (...), active_dispatch (...)`)
+```
+
+### Audit for Same Bug Elsewhere
+While I'm in there, I'll also check these dispatch-adjacent surfaces and apply the same `is_active` guard if missing:
+- `src/components/dispatch/MiniDispatchCalendar.tsx`
+- Any "Truck Down" banner / global alerts that read from `active_dispatch`
+- Driver Roster / Fleet Roster (likely already correct — verify only)
+
+### Cleanup Question
+Salman currently has an `active_dispatch` row. After the filter fix he won't appear, but the row remains in the DB. Two options:
+
+1. **Leave it** — historical record preserved; if reactivated, his last status returns.
+2. **Auto-reset on deactivation** — extend the existing `on_operator_deactivated` trigger to also set `dispatch_status = 'not_dispatched'` and clear `assigned_dispatcher` / `current_load_lane` / `eta_redispatch`. Cleaner, matches how deactivation already clears other operational state.
+
+My recommendation: **option 2** — consistent with the existing deactivation trigger pattern.
+
+### Files Changed
 | File | Change |
 |---|---|
-| `src/lib/truckSync.ts` *(new)* | The shared save helper |
-| `src/pages/staff/OperatorDetailPanel.tsx` | Replace inline dual-update in `handleTruckInfoEdit` with helper call |
-| `src/components/fleet/FleetDetailDrawer.tsx` | Switch save handler to helper (gains automatic ICA sync) |
-| `src/components/drivers/AddDriverModal.tsx` | Submit also writes truck specs to `onboarding_status` via helper |
-| `src/components/ica/ICABuilderModal.tsx` | On "Send to Operator", mirror truck spec edits back through helper |
-| `src/components/fleet/FleetRoster.tsx` | Add quick-edit pencil per row → opens compact modal → helper |
-| `src/components/fleet/QuickTruckEditModal.tsx` *(new)* | Small modal: year/make/model/VIN/plate/state/trailer — uses helper |
+| `src/pages/dispatch/DispatchPortal.tsx` | Add `is_active` to SELECT + filter inactive operators out |
+| `src/components/dispatch/MiniDispatchCalendar.tsx` | Same filter if applicable |
+| Migration *(only if option 2)* | Extend `on_operator_deactivated` trigger to reset dispatch state |
 
-### Read Side
-No changes — Fleet Roster, Operator Portal, and Operator Detail Panel already merge `onboarding_status → ica_contracts` correctly.
-
-### Guardrails
-1. Signed ICA contracts are immutable — helper never updates them
-2. VIN normalization prevents duplicate-looking trucks
-3. `coalesce(new, old)` — empty fields never wipe existing data
-4. Single audit log entry per save with before/after diff
-5. No DB migration — reuses existing columns, zero schema risk
-
-### Out of Scope
-- Operator-facing edits (operators stay read-only on truck specs)
-- Backfilling existing mismatches between the two tables (one-time cleanup if you want it later)
+No UI redesign, no schema changes (unless you pick option 2).
 
