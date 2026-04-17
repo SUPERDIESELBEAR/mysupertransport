@@ -1,37 +1,47 @@
 
-## Make the Driver Selector Stand Out
 
-### Where it lives
-`src/components/inspection/InspectionBinderAdmin.tsx` lines 1181–1206 — the `<Select>` with placeholder "Select a driver to manage their binder…". Right now it's a plain default-styled SelectTrigger that visually blends with the page (same border, same background as everything else), so staff don't immediately notice they need to pick a driver before anything works.
+## Fix: Truck Unit number missing on Flipbook cover (staff drill-down)
 
-### Proposed redesign
+### Root cause
+`src/components/inspection/OperatorBinderPanel.tsx` line 114 queries `unit_number` from the `operators` table — but that column does **not exist** on `operators`. It lives on `onboarding_status.unit_number` (one row per operator). The query silently returns no `unit_number`, so the Flipbook cover renders `—` for every driver.
 
-Wrap the selector in a prominent **call-to-action card** that only shows its "attention" styling while no driver is selected, then calms down once a driver is chosen.
+The other two surfaces are already correct:
+- `OperatorInspectionBinder.tsx` (operator portal) → reads `onboarding_status` ✅
+- `InspectionBinderAdmin.tsx` (admin) → reads `onboarding_status` ✅
 
-**When no driver selected (attention state):**
-- Gold-tinted card: `bg-gold/5 border-2 border-dashed border-gold/40 rounded-xl p-3`
-- Small label row above the select: `UserCircle` icon + "Choose a driver to begin" in gold, semibold
-- Larger SelectTrigger: `h-11 text-sm font-medium border-gold/30 bg-card` with placeholder text in foreground color (not muted) so it reads as instruction, not filler
-- Subtle pulse animation on the icon (`animate-pulse`) to draw the eye
+Only the **staff drill-down panel** (Operator Detail → Inspection Binder tab) is broken — which matches the symptom of "each driver" missing the unit number when staff open the flipbook.
 
-**When a driver is selected (calm state):**
-- Drop the dashed border and gold tint → solid `border-border bg-card rounded-xl p-3`
-- Label switches to "Managing binder for:" in muted-foreground
-- Trigger returns to normal height/weight
-- Flipbook button stays inline on the right as today
+### Fix
+In `OperatorBinderPanel.tsx`, change the operators query to also fetch the related `onboarding_status.unit_number`, then read it from there.
 
-### Why this works
-- Staff immediately see the empty-state card as the **next required action** rather than a generic dropdown
-- Gold matches brand identity (#C9A84C) and is already used for primary CTAs
-- Auto-calms once a driver is picked, so it doesn't keep shouting after the task is done
-- No layout shift on mobile — the card still stacks naturally above the tabs
+Replace the 4th promise in the `Promise.all` (line 114) and the assignment on line 119:
+
+```ts
+// before
+supabase.from('operators').select('id, unit_number').eq('user_id', driverUserId).maybeSingle(),
+...
+setUnitNumber((opRes.data as any)?.unit_number ?? null);
+
+// after
+supabase
+  .from('operators')
+  .select('id, onboarding_status(unit_number)')
+  .eq('user_id', driverUserId)
+  .maybeSingle(),
+...
+setUnitNumber((opRes.data as any)?.onboarding_status?.unit_number ?? null);
+```
+
+Per project memory (one-to-one relations), `onboarding_status` returns as a single object on `operators`, not an array — so the access pattern above is correct.
 
 ### File changed
 | File | Change |
 |---|---|
-| `src/components/inspection/InspectionBinderAdmin.tsx` | Replace lines 1181–1206 with the conditional attention/calm card wrapper around the Select + Flipbook button |
+| `src/components/inspection/OperatorBinderPanel.tsx` | Fetch `unit_number` via the embedded `onboarding_status` relation instead of the non-existent `operators.unit_number` column |
 
-### Out of scope
-- Operator-scoped view (`operatorUserId` branch, lines 1207–1217) — already has a driver implicitly, no selector shown
-- Tab styling, document rows, flipbook itself — untouched
-- No new dependencies, no logic changes, no DB
+### Why this is safe
+- Single-file, single-query change
+- Matches the pattern already used in the other two binder surfaces
+- No schema changes, no RLS changes, no UI changes
+- Verified against DB: `unit_number` exists only on `onboarding_status` (e.g., operator `817c1084…` → unit `221`)
+
