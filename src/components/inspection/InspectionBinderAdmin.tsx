@@ -9,7 +9,7 @@ import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2, Bell,
   Inbox, UserCheck, X, Pencil, ArrowRight, CheckSquare, Copy, Check, GripVertical,
-  BookOpen,
+  BookOpen, UserCircle2,
 } from 'lucide-react';
 import BinderFlipbook, { type FlipbookPage } from './BinderFlipbook';
 import { DateInput } from '@/components/ui/date-input';
@@ -1180,28 +1180,60 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
       {/* Driver selector (non-scoped) */}
       {!operatorUserId && (
-        <div className="flex items-center gap-2">
-          <Select value={selectedDriverId} onValueChange={setSelectedDriverId}>
-            <SelectTrigger className="flex-1">
-              <SelectValue placeholder="Select a driver to manage their binder…" />
-            </SelectTrigger>
-            <SelectContent>
-              {operators.map(op => (
-                <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {selectedDriverId && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setFlipbookOpen(true)}
-              className="gap-1.5 shrink-0"
+        <div
+          className={
+            selectedDriverId
+              ? "rounded-xl p-3 bg-card border border-border transition-all"
+              : "rounded-xl p-3 bg-gold/5 border-2 border-dashed border-gold/40 transition-all"
+          }
+        >
+          <div className="flex items-center gap-1.5 mb-2">
+            <UserCircle2
+              className={
+                selectedDriverId
+                  ? "h-3.5 w-3.5 text-muted-foreground"
+                  : "h-3.5 w-3.5 text-gold animate-pulse"
+              }
+            />
+            <span
+              className={
+                selectedDriverId
+                  ? "text-xs text-muted-foreground"
+                  : "text-xs font-semibold text-gold"
+              }
             >
-              <BookOpen className="h-3.5 w-3.5" />
-              View as Flipbook
-            </Button>
-          )}
+              {selectedDriverId ? "Managing binder for:" : "Choose a driver to begin"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={selectedDriverId} onValueChange={setSelectedDriverId}>
+              <SelectTrigger
+                className={
+                  selectedDriverId
+                    ? "flex-1"
+                    : "flex-1 h-11 text-sm font-medium border-gold/30 bg-card [&>span]:text-foreground"
+                }
+              >
+                <SelectValue placeholder="Select a driver to manage their binder…" />
+              </SelectTrigger>
+              <SelectContent>
+                {operators.map(op => (
+                  <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedDriverId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setFlipbookOpen(true)}
+                className="gap-1.5 shrink-0"
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                View as Flipbook
+              </Button>
+            )}
+          </div>
         </div>
       )}
       {operatorUserId && selectedDriverId && (
