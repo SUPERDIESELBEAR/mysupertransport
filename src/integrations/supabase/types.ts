@@ -741,6 +741,33 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_optional_docs: {
+        Row: {
+          created_at: string
+          doc_name: string
+          driver_id: string
+          enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          doc_name: string
+          driver_id: string
+          enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          doc_name?: string
+          driver_id?: string
+          enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       driver_uploads: {
         Row: {
           category: Database["public"]["Enums"]["driver_upload_category"]
