@@ -387,6 +387,27 @@ export default function ICABuilderModal({
 
       if (result.error) throw result.error;
 
+      // Mirror truck spec edits back to onboarding_status so Fleet Roster + Operator Portal stay in sync.
+      // (Helper handles dual-write + audit. Skip the ICA mirror — we just wrote it directly above.)
+      try {
+        await saveTruckSpecs(
+          operatorId,
+          null,
+          {
+            truck_year: data.truck_year,
+            truck_make: data.truck_make,
+            truck_vin: data.truck_vin,
+            truck_plate: data.truck_plate,
+            truck_plate_state: data.truck_plate_state,
+            trailer_number: data.trailer_number,
+          },
+          session?.user?.id ?? null,
+          { skipIcaMirror: true, entityLabel: operatorName },
+        );
+      } catch (syncErr) {
+        console.warn('Truck specs sync failed:', syncErr);
+      }
+
       // Update onboarding status to sent_for_signature
       const { data: os } = await supabase
         .from('onboarding_status')
