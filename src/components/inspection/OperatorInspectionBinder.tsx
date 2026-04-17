@@ -475,7 +475,6 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
             pages={pages}
             driverName={driverName}
             unitNumber={unitNumber}
-            storageKey={`flipbook:${userId}`}
             onClose={() => { setFlipbookOpen(false); setViewMode('list'); }}
           />
         );
