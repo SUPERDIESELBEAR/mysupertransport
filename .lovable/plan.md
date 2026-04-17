@@ -1,73 +1,81 @@
 
 
-## Why your signature isn't on the ICAs (and how to fix it)
+User clarification: Don't add a new "Vehicle Registration" per-driver section. Instead, when an operator uploads their registration (because they have their own), drop it into the **existing** `IRP Registration (cab card)` per-driver binder section.
 
-### Root cause — verified against the database
+Let me revise the plan accordingly.
 
-This affects **all 23 ICAs**, not just McMillan and Lockett:
+## Revised Plan: Conditional Registration Upload + Auto-Sync to Existing Binder Sections
 
-| What's saved | Status |
+### Part 1 — Conditional registration upload (operator Stage 2)
+
+In `src/components/operator/OperatorDocumentUpload.tsx`:
+- Remove `registration` from the always-shown `DOCUMENT_SLOTS`
+- Add a conditional block (modeled on the Physical Damage Insurance pattern) that renders **only when** `onboardingStatus.registration_status === 'own_registration'`
+- Mark it **Required** (gold pill) with copy: *"Since you have your own registration, please upload a current copy so your coordinator can verify it and file it in your inspection binder."*
+
+Mirror the same conditional visibility on the staff side in `OperatorDetailPanel.tsx`.
+
+### Part 2 — Auto-sync uploads to the Inspection Binder (existing sections only)
+
+In `OperatorDocumentUpload.tsx → handleUpload`, after the existing `operator_documents` insert, also insert a row into `inspection_documents` for these two slot types:
+
+| Stage 2 upload | Existing binder section (per-driver) |
 |---|---|
-| `carrier_typed_name` = "Marc Mueller" | ✓ present |
-| `carrier_title` = "Owner" | ✓ present |
-| `carrier_signature_url` (image) | **NULL on every ICA** |
+| `truck_inspection` | `Periodic DOT Inspections` |
+| `registration` | `IRP Registration (cab card)` |
 
-The default carrier signature row also confirms it:
-```
-carrier_signature_settings → typed_name: "Marc Mueller", title: "Owner", signature_url: (empty)
-```
-
-So when ICAs render, `ICADocumentView` falls back to the empty signature line because no image URL was ever stored — the typed name and title alone don't draw a signature graphic.
-
-### How this happened
-
-In `ICABuilderModal.tsx` the "Save as default" flow saves whatever was in the canvas at that moment:
 ```ts
-signature_url: carrierSigUrl,  // null if you didn't draw before clicking Save & Send
+const binderName = slot.key === 'truck_inspection' ? 'Periodic DOT Inspections'
+                 : slot.key === 'registration'    ? 'IRP Registration (cab card)'
+                 : null;
+
+if (binderName && operator?.user_id) {
+  await supabase.from('inspection_documents').insert({
+    name: binderName,
+    scope: 'per_driver',
+    driver_id: operator.user_id,
+    file_url: fileUrl,
+    file_path: path,        // bucket: operator-documents
+    uploaded_by: operator.user_id,
+    expires_at: null,       // staff sets expiry later
+  });
+}
 ```
-At some point a default was saved with the canvas blank → `signature_url` stored as `NULL` → every subsequent ICA reuses that empty default → image never rendered.
 
-### The fix — three parts
+### Part 3 — Bucket routing for binder preview/editor
 
-**1. New "Carrier Signature Settings" panel (Management portal)**
-A small dedicated UI to manage your default carrier block:
-- Draw signature on a canvas (DPR-aware, same pattern as the operator signing canvas)
-- Edit typed name + title
-- Live preview of the saved signature image
-- "Save default" button — uploads to `ica-signatures/carrier-default/...` and updates `carrier_signature_settings`
-- "Clear signature" to start over
+Extend `bucketForBinderDoc()` in `src/components/inspection/DocRow.tsx` to recognize `operator-documents` paths (path's first segment is a UUID, not `applications/`):
+```ts
+export function bucketForBinderDoc(filePath: string | null | undefined): string {
+  if (!filePath) return 'inspection-documents';
+  if (filePath.startsWith('applications/')) return 'application-documents';
+  // operator uploads are stored under "{user_uuid}/..."
+  if (/^[0-9a-f-]{36}\//i.test(filePath)) return 'operator-documents';
+  return 'inspection-documents';
+}
+```
 
-Location: Management → Settings → "Carrier Signature" card (adjacent to existing settings).
+### Part 4 — No changes to `InspectionBinderTypes.ts`
 
-**2. Backfill the 23 existing ICAs**
-Once you save a real signature default, a one-shot button "Apply to existing draft/sent ICAs" updates every `ica_contracts` row whose `carrier_signature_url IS NULL` to point at the new default URL. McMillan, Lockett, and the other 21 instantly show your signature in the ICA viewer, printout, and PDF.
+`IRP Registration (cab card)` and `Periodic DOT Inspections` already exist in `PER_DRIVER_DOCS`. No new section, no schema change.
 
-(Fully-executed contracts are included by default since they're missing the carrier image; we'll show a confirmation listing each one before applying. You can uncheck any you want to leave alone.)
-
-**3. Guardrail in the ICA builder**
-Prevent this from happening again:
-- If "Save as default" is checked but the canvas is empty AND there's no existing default image → block the save with a clear toast ("Draw your signature before saving as default").
-- If sending an ICA with no carrier signature image (neither freshly drawn nor in defaults) → warning toast asking to draw one or load default.
-
-### Files to touch
+### Files to change
 
 | File | Change |
 |---|---|
-| `src/components/ica/ICABuilderModal.tsx` | Add empty-signature guards on Save-as-default and Save-and-Send |
-| `src/pages/management/ManagementPortal.tsx` (or settings sub-page) | Mount new `CarrierSignatureSettings` panel |
-| `src/components/ica/CarrierSignatureSettings.tsx` *(new)* | Draw/save/clear default carrier signature + backfill action |
-| No DB migration | `carrier_signature_settings` and `ica_contracts.carrier_signature_url` already exist |
-
-### After deploying
-
-1. Open Management → Carrier Signature settings
-2. Draw your signature, confirm typed name "Marc Mueller" + title "Owner", click **Save default**
-3. Click **Apply to existing ICAs** → all 23 contracts (including McMillan & Lockett) refresh with your signature
-4. Reopen Johnathan McMillan's ICA → carrier signature image now renders in the viewer, print, and PDF
+| `src/components/operator/OperatorDocumentUpload.tsx` | Conditional Required Registration slot + binder auto-sync for both upload types |
+| `src/components/inspection/DocRow.tsx` | Extend `bucketForBinderDoc()` to recognize `operator-documents` paths |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Hide/show staff-side Registration row based on `registration_status === 'own_registration'` |
 
 ### Why this is safe
-- No schema changes; uses existing tables and storage bucket (`ica-signatures`)
-- Backfill only updates rows where `carrier_signature_url IS NULL` — won't overwrite anything
-- RLS already restricts `carrier_signature_settings` writes to management/owner
-- Builder guards are additive — no behavior change when a signature is already present
+- No schema change, no new binder section
+- Operators not flagged `own_registration` see no UI change
+- Auto-sync writes to existing sections drivers/staff already use
+- Bucket routing additive — application & inspection paths unchanged
+
+### After deploying
+1. Staff sets Stage 4 → "O/O Has Own Registration"
+2. Operator opens Stage 2 → sees new Required **Vehicle Registration** slot
+3. Operator uploads it → appears under existing **IRP Registration (cab card)** binder section
+4. Operator uploads **Truck Inspection Report** → appears under existing **Periodic DOT Inspections**
 
