@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { DemoModeProvider } from "@/hooks/useDemoMode";
 import IdleWarningModal from "@/components/IdleWarningModal";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
+import { useVersionCheck } from "@/hooks/useVersionCheck";
 
 // Pages
 import LoginPage from "./pages/LoginPage";
@@ -28,6 +29,10 @@ const queryClient = new QueryClient();
 
 function AppRoutes() {
   const { user, loading, roles, isManagement, isOnboardingStaff, isDispatcher, isOperator, activeRole } = useAuth();
+
+  // Poll for new builds and prompt logged-in users to refresh
+  useVersionCheck();
+
 
   if (loading) {
     return (
