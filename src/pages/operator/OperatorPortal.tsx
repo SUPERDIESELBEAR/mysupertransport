@@ -31,6 +31,7 @@ import ContractorPaySetup from '@/components/operator/ContractorPaySetup';
 import TruckInfoCard, { TruckInfo, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
+import { BuildInfo } from '@/components/BuildInfo';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 type OperatorView = 'progress' | 'documents' | 'messages' | 'resource-center' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'pay-setup' | 'my-docs' | 'my-truck';
@@ -1316,6 +1317,13 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               nextStep.variant === 'urgent' ? 'text-white/70' : nextStep.variant === 'action' ? 'text-surface-dark/60' : 'text-surface-dark-muted'
             }`} />
           </button>
+        </div>
+      )}
+
+      {/* Build info — confirms which deployed build the operator is on */}
+      {!isPreview && (
+        <div className="max-w-4xl mx-auto px-4 pt-6 pb-24 md:pb-6">
+          <BuildInfo />
         </div>
       )}
 

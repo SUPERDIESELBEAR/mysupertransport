@@ -11,6 +11,7 @@ import type { Database } from '@/integrations/supabase/types';
 import NotificationBell from '@/components/NotificationBell';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
+import { BuildInfo } from '@/components/BuildInfo';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
@@ -291,6 +292,14 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
             )}
           </div>
         </TooltipProvider>
+        {/* Build info — confirms which deployed build the user is on */}
+        <BuildInfo
+          className={
+            (sidebarOpen || isMobileDrawer)
+              ? 'mt-2 text-[10px] text-surface-dark-muted/60 font-mono tracking-tight text-center select-none'
+              : 'mt-2 text-[9px] text-surface-dark-muted/60 font-mono tracking-tight text-center select-none truncate'
+          }
+        />
       </div>
     </>
   );

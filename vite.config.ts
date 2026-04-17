@@ -3,6 +3,10 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
+// Build-time constants — baked into the bundle on every build
+const buildTime = new Date().toISOString();
+const buildVersion = Buffer.from(buildTime).toString("hex").slice(-6);
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
@@ -13,6 +17,10 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  define: {
+    __BUILD_TIME__: JSON.stringify(buildTime),
+    __BUILD_VERSION__: JSON.stringify(buildVersion),
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
