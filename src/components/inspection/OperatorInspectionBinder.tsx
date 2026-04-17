@@ -284,7 +284,7 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
               </div>
             ) : (
               <div className="space-y-2">
-                {companyOrder.map((key) => {
+                {visibleCompanyOrder.map((key) => {
                   const spec = COMPANY_WIDE_DOCS.find(d => d.key === key);
                   if (!spec) return null;
                   const doc = findCompanyDoc(key);
@@ -429,7 +429,7 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
             kind: 'cover',
             fileUrl: null,
           },
-          ...companyOrder.map((key): FlipbookPage | null => {
+          ...visibleCompanyOrder.map((key): FlipbookPage | null => {
             const spec = COMPANY_WIDE_DOCS.find(d => d.key === key);
             if (!spec) return null;
             const doc = findCompanyDoc(key);
