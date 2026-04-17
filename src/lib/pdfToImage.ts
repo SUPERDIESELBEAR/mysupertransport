@@ -3,6 +3,14 @@
  * Fetches the PDF as a blob first to handle CORS / signed URLs.
  */
 export async function pdfToImage(pdfUrl: string): Promise<string> {
+  // Guard against bare storage paths (e.g. "applications/foo.pdf") that the
+  // browser would resolve relative to the current page → 404.
+  if (!pdfUrl || !/^https?:\/\//i.test(pdfUrl)) {
+    throw new Error(
+      'Document source not accessible — please re-upload this document from the Inspection Binder.',
+    );
+  }
+
   const pdfjsLib = await import('pdfjs-dist');
 
   // Use the bundled worker

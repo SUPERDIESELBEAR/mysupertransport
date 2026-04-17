@@ -225,45 +225,77 @@ Deno.serve(async (req) => {
     }
 
     // ── Auto-sync application docs to Inspection Binder ──
+    // Resolve bare storage paths (from application-documents bucket) to long-lived
+    // signed URLs so they actually load in the Flipbook / preview.
+    const FIVE_YEARS_SECS = 60 * 60 * 24 * 365 * 5;
+    async function signAppDoc(rawPath: string | null): Promise<{ url: string | null; path: string | null }> {
+      if (!rawPath) return { url: null, path: null };
+      // Already a full URL — leave it as-is.
+      if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) {
+        return { url: rawPath, path: null };
+      }
+      const { data, error } = await supabaseAdmin.storage
+        .from('application-documents')
+        .createSignedUrl(rawPath, FIVE_YEARS_SECS);
+      if (error || !data?.signedUrl) {
+        console.error('signAppDoc error for path', rawPath, error?.message);
+        return { url: null, path: rawPath };
+      }
+      return { url: data.signedUrl, path: rawPath };
+    }
+
     if (operatorId && invitedUserId) {
       const docRows: Array<{
         name: string;
         scope: 'per_driver';
         driver_id: string;
         file_url: string;
+        file_path: string | null;
         uploaded_by: string;
         expires_at: string | null;
       }> = [];
 
       if (app.dl_front_url) {
-        docRows.push({
-          name: 'CDL (Front)',
-          scope: 'per_driver',
-          driver_id: invitedUserId,
-          file_url: app.dl_front_url,
-          uploaded_by: callerUser.id,
-          expires_at: app.cdl_expiration ?? null,
-        });
+        const { url, path } = await signAppDoc(app.dl_front_url);
+        if (url) {
+          docRows.push({
+            name: 'CDL (Front)',
+            scope: 'per_driver',
+            driver_id: invitedUserId,
+            file_url: url,
+            file_path: path,
+            uploaded_by: callerUser.id,
+            expires_at: app.cdl_expiration ?? null,
+          });
+        }
       }
       if (app.dl_rear_url) {
-        docRows.push({
-          name: 'CDL (Back)',
-          scope: 'per_driver',
-          driver_id: invitedUserId,
-          file_url: app.dl_rear_url,
-          uploaded_by: callerUser.id,
-          expires_at: app.cdl_expiration ?? null,
-        });
+        const { url, path } = await signAppDoc(app.dl_rear_url);
+        if (url) {
+          docRows.push({
+            name: 'CDL (Back)',
+            scope: 'per_driver',
+            driver_id: invitedUserId,
+            file_url: url,
+            file_path: path,
+            uploaded_by: callerUser.id,
+            expires_at: app.cdl_expiration ?? null,
+          });
+        }
       }
       if (app.medical_cert_url) {
-        docRows.push({
-          name: 'Medical Certificate',
-          scope: 'per_driver',
-          driver_id: invitedUserId,
-          file_url: app.medical_cert_url,
-          uploaded_by: callerUser.id,
-          expires_at: app.medical_cert_expiration ?? null,
-        });
+        const { url, path } = await signAppDoc(app.medical_cert_url);
+        if (url) {
+          docRows.push({
+            name: 'Medical Certificate',
+            scope: 'per_driver',
+            driver_id: invitedUserId,
+            file_url: url,
+            file_path: path,
+            uploaded_by: callerUser.id,
+            expires_at: app.medical_cert_expiration ?? null,
+          });
+        }
       }
 
       if (docRows.length > 0) {

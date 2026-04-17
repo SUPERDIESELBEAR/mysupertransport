@@ -42,6 +42,14 @@ function isPdf(url: string | null, name?: string | null) {
   const test = (name || url).toLowerCase().split('?')[0];
   return /\.pdf$/i.test(test);
 }
+/**
+ * Detect file_url values that aren't fetchable as-is (bare storage paths like
+ * "applications/foo.jpg" that would 404 when used as <img src>).
+ */
+function isBadSource(url: string | null) {
+  if (!url) return false;
+  return !/^https?:\/\//i.test(url) && !url.startsWith('data:') && !url.startsWith('blob:');
+}
 
 function PageRenderer({ page }: { page: FlipbookPage }) {
   const [pdfImage, setPdfImage] = useState<string | null>(null);
@@ -74,6 +82,23 @@ function PageRenderer({ page }: { page: FlipbookPage }) {
         </div>
         <p className="text-sm font-semibold text-foreground">Not yet uploaded</p>
         <p className="text-xs text-muted-foreground max-w-xs">This document slot is empty. Once it's uploaded, it will appear here.</p>
+      </div>
+    );
+  }
+
+  // Bad source (bare path saved before the URL-signing fix) — surface a clear,
+  // actionable message instead of a silent blank.
+  if (isBadSource(page.fileUrl)) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full w-full text-center px-6 gap-3">
+        <div className="h-16 w-16 rounded-2xl bg-warning/15 flex items-center justify-center">
+          <AlertTriangle className="h-7 w-7 text-warning" />
+        </div>
+        <p className="text-sm font-semibold text-foreground">Source link broken</p>
+        <p className="text-xs text-muted-foreground max-w-xs">
+          This document was saved with an outdated reference. Please re-upload it from the
+          Inspection Binder tab so it can be displayed here.
+        </p>
       </div>
     );
   }
