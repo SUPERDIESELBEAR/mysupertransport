@@ -12,6 +12,7 @@ import { DateInput } from '@/components/ui/date-input';
 import DemoLockIcon from '@/components/DemoLockIcon';
 import SignatureCanvas from 'react-signature-canvas';
 import ICADocumentView from './ICADocumentView';
+import { saveTruckSpecs } from '@/lib/truckSync';
 
 interface ICABuilderModalProps {
   operatorId: string;

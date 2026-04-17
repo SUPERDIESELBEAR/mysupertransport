@@ -13,6 +13,7 @@ import { UserPlus, Loader2, Truck } from 'lucide-react';
 import DemoLockIcon from '@/components/DemoLockIcon';
 import { DateInput } from '@/components/ui/date-input';
 import { syncDeviceToInventory } from '@/lib/equipmentSync';
+import { saveTruckSpecs } from '@/lib/truckSync';
 
 const US_STATES = [
   'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA',
@@ -172,21 +173,25 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
           ));
         if (syncPromises.length > 0) await Promise.all(syncPromises);
 
-        // If truck info was provided, create an ICA contract record to hold it
-        const hasTruckInfo = form.truck_year || form.truck_make || form.truck_vin || form.truck_plate;
+        // If truck info was provided, save it via the centralized helper.
+        // This writes to onboarding_status (source of truth) and mirrors to any
+        // active ICA contracts. Skips empty values automatically.
+        const hasTruckInfo = form.truck_year || form.truck_make || form.truck_vin || form.truck_plate || form.trailer_number || form.truck_plate_state;
         if (hasTruckInfo) {
-          await supabase
-            .from('ica_contracts')
-            .insert({
-              operator_id: operator.id,
-              truck_year: form.truck_year.trim() || null,
-              truck_make: form.truck_make.trim() || null,
-              truck_vin: form.truck_vin.trim() || null,
-              truck_plate: form.truck_plate.trim() || null,
-              truck_plate_state: form.truck_plate_state || null,
-              trailer_number: form.trailer_number.trim() || null,
-              status: 'complete',
-            });
+          await saveTruckSpecs(
+            operator.id,
+            null,
+            {
+              truck_year: form.truck_year,
+              truck_make: form.truck_make,
+              truck_vin: form.truck_vin,
+              truck_plate: form.truck_plate,
+              truck_plate_state: form.truck_plate_state,
+              trailer_number: form.trailer_number,
+            },
+            session?.user?.id ?? null,
+            { entityLabel: `${form.first_name} ${form.last_name}`.trim() },
+          );
         }
       }
 
