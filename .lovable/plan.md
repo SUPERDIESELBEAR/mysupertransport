@@ -1,31 +1,42 @@
 
 
-## Show Driver Docs Before Company Docs (Binder + Flipbook)
+## Reset Flipbook to Page 1 on Each Open
 
-### What changes
+### Root cause
+`BinderFlipbook` (lines 162–171) restores its `index` from `sessionStorage` using `storageKey`. The three callers always pass a `storageKey`:
 
-In every place the binder lists or paginates documents, render **Driver Docs first**, then **Company Docs**. Currently it's Company → Driver in all four surfaces.
+- Operator portal: `flipbook:${userId}`
+- Staff drill-down (Johnathan's view): `flipbook:staff:${driverUserId}`
+- Admin: `flipbook-admin:${selectedDriverId}`
 
-### Surfaces affected
+Every page you visit is written back (line 200), so the next time the binder is opened it picks up where you left off — not page 1. That's why Johnathan's binder reopened on page 13 of 15.
 
-| File | What renders today | After |
-|---|---|---|
-| `src/components/inspection/OperatorInspectionBinder.tsx` (operator portal — what drivers see) | "Company Documents" section, then "My Documents" section, then "My Uploads" | "My Documents" → "Company Documents" → "My Uploads" |
-| Same file — Flipbook page array (lines ~424–470) | Cover → company pages → driver pages → uploads | Cover → **driver pages → company pages** → uploads |
-| `src/components/inspection/OperatorBinderPanel.tsx` (staff drill-down) — Flipbook page array (lines ~530–560) | Cover → company → driver → uploads | Cover → **driver → company** → uploads |
-| `src/components/inspection/InspectionBinderAdmin.tsx` — Flipbook page array (lines ~2281–2323) | Cover → company → driver → uploads | Cover → **driver → company** → uploads |
+### Fix
+Remove the auto-resume behavior so the flipbook always opens on the **Cover (page 1)**.
 
-### Out of scope (unchanged)
+In `src/components/inspection/BinderFlipbook.tsx`:
+1. **Initial state** (lines 162–171): drop the `sessionStorage` lookup. Initialize to `Math.min(initialIndex, pages.length - 1)` only.
+2. **Persist effect** (lines 198–201): remove the `sessionStorage.setItem` write. With no resume, no need to persist.
+3. Leave the `storageKey` prop in place (typed as optional, currently unused) so callers don't need to change — it just becomes a no-op. We can also delete the prop entirely; preference below.
 
-- **InspectionBinderAdmin tabs** (the staff editor): the "Company" and "Per-Driver" tabs are independent buttons, not stacked sections — order doesn't apply. We could swap the tab order if you want, but you only mentioned the binder/flipbook viewing experience, so leaving that alone.
-- **My Uploads** (driver self-uploads) stays at the bottom in both the operator binder view and the flipbook — it's a separate category and felt natural last.
-- No DB changes, no constants changes, no admin reorder UI changes — `driverOrder` and `companyOrder` continue to work exactly as before; we just render them in the new outer sequence.
+### One small choice
+The `storageKey` prop is now dead code. Two options:
+
+| Option | What it does |
+|---|---|
+| **A. Keep prop, ignore it** | Zero risk. Callers untouched. Prop sits unused. |
+| **B. Remove prop + all 3 callers' usages** | Cleaner. 4 files touched (BinderFlipbook + 3 callers). |
+
+Recommend **B** for a clean removal, but A is fine if you'd rather minimize blast radius.
+
+### Files
+| File | Change |
+|---|---|
+| `src/components/inspection/BinderFlipbook.tsx` | Remove sessionStorage read + write so flipbook always opens on cover |
+| (Option B only) `OperatorInspectionBinder.tsx`, `OperatorBinderPanel.tsx`, `InspectionBinderAdmin.tsx` | Drop the `storageKey={...}` prop |
 
 ### Why this is safe
-
-- Pure reordering of JSX blocks and array spreads — no logic, no data, no permissions touched
-- Flipbook navigation, share tokens, expiry badges, and selection mode all keep working unchanged
-- Cover page still appears first in flipbook
-
-
+- Pure UI behavior tweak — no data, no auth, no permissions touched
+- Cover page already exists at index 0 in every caller's `pages` array
+- All other flipbook features (swipe, keyboard nav, dot indicator, share, QR) keep working
 
