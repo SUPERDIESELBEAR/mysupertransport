@@ -1684,20 +1684,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       truck_plate_state: payload.truck_plate_state,
       trailer_number: payload.trailer_number,
     };
-    const { error } = await supabase
-      .from('onboarding_status')
-      .update(truckFields as any)
-      .eq('id', statusId);
-    if (error) throw error;
 
-    // Sync truck info to any active ICA draft/sent contract
-    if (operatorId) {
-      await supabase
-        .from('ica_contracts')
-        .update(truckFields)
-        .eq('operator_id', operatorId)
-        .in('status', ['draft', 'sent_to_operator']);
-    }
+    const result = await saveTruckSpecs(
+      operatorId!,
+      statusId,
+      truckFields,
+      session?.user?.id ?? null,
+      { entityLabel: operatorName },
+    );
+    if (!result.ok) throw new Error(result.error || 'Failed to save truck info');
 
     // Update local truck info state + main status state
     setStatus(prev => ({ ...prev, ...truckFields }));
