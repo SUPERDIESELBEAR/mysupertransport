@@ -273,6 +273,30 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
         </div>
       ) : (
         <div className="space-y-8">
+          {/* My Documents */}
+          <div>
+            <SectionHeader title="My Documents" icon={<FileText className="h-3.5 w-3.5 text-gold" />} />
+            <div className="space-y-2">
+              {driverOrder.map((key) => {
+                const spec = PER_DRIVER_DOCS.find(d => d.key === key);
+                if (!spec) return null;
+                const doc = findDriverDoc(key);
+                return (
+                  <DocRow
+                    key={key}
+                    name={key}
+                    doc={doc}
+                    hasExpiry={spec.hasExpiry}
+                    selected={doc ? selected.has(doc.id) : false}
+                    selectMode={selectMode}
+                    onToggleSelect={() => doc && toggleSelect(doc.id)}
+                    canUpload={false}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
           {/* Company Documents */}
           <div>
             <SectionHeader title="Company Documents" icon={<Shield className="h-3.5 w-3.5 text-gold" />} />
@@ -304,30 +328,6 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
                 })}
               </div>
             )}
-          </div>
-
-          {/* My Documents */}
-          <div>
-            <SectionHeader title="My Documents" icon={<FileText className="h-3.5 w-3.5 text-gold" />} />
-            <div className="space-y-2">
-              {driverOrder.map((key) => {
-                const spec = PER_DRIVER_DOCS.find(d => d.key === key);
-                if (!spec) return null;
-                const doc = findDriverDoc(key);
-                return (
-                  <DocRow
-                    key={key}
-                    name={key}
-                    doc={doc}
-                    hasExpiry={spec.hasExpiry}
-                    selected={doc ? selected.has(doc.id) : false}
-                    selectMode={selectMode}
-                    onToggleSelect={() => doc && toggleSelect(doc.id)}
-                    canUpload={false}
-                  />
-                );
-              })}
-            </div>
           </div>
 
           {/* My Uploads */}
