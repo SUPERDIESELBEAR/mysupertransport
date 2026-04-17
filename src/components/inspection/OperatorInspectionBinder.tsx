@@ -15,7 +15,7 @@ import {
   InspectionDocument, DriverUpload,
   COMPANY_WIDE_DOCS, PER_DRIVER_DOCS, getExpiryStatus, filterOptionalDocs,
 } from './InspectionBinderTypes';
-import { DocRow, ExpiryBadge, FilePreviewModal } from './DocRow';
+import { DocRow, ExpiryBadge, FilePreviewModal, bucketForBinderDoc } from './DocRow';
 import BinderFlipbook, { FlipbookPage } from './BinderFlipbook';
 
 interface Props {
@@ -442,7 +442,7 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
               shareToken: doc?.public_share_token ?? null,
               expiresAt: doc?.expires_at ?? null,
               filePath: doc?.file_path ?? null,
-              bucket: 'inspection-documents',
+              bucket: bucketForBinderDoc(doc?.file_path),
               kind: 'doc' as const,
             };
           }).filter(Boolean) as FlipbookPage[],
@@ -459,7 +459,7 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
               shareToken: doc?.public_share_token ?? null,
               expiresAt: doc?.expires_at ?? null,
               filePath: doc?.file_path ?? null,
-              bucket: 'inspection-documents',
+              bucket: bucketForBinderDoc(doc?.file_path),
               kind: 'doc' as const,
             };
           }).filter(Boolean) as FlipbookPage[],

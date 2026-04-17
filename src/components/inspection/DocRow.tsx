@@ -15,6 +15,16 @@ import { useIsMobile } from '@/hooks/use-mobile';
 const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
 import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
 
+/**
+ * Derives the correct storage bucket for an inspection-binder document based on its file_path.
+ * Application-sourced docs (CDL, Medical Cert, etc. copied from applications) live in
+ * 'application-documents'; everything else lives in 'inspection-documents'.
+ */
+export function bucketForBinderDoc(filePath: string | null | undefined): string {
+  if (filePath?.startsWith('applications/')) return 'application-documents';
+  return 'inspection-documents';
+}
+
 interface DocRowProps {
   doc: InspectionDocument | null;
   name: string;

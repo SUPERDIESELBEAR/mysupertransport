@@ -31,7 +31,7 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS, parseLocalDate, filterOptionalDocs } from './InspectionBinderTypes';
-import { ExpiryBadge, FilePreviewModal } from './DocRow';
+import { ExpiryBadge, FilePreviewModal, bucketForBinderDoc } from './DocRow';
 
 type DriverUploadCategory = 'roadside_inspection_report' | 'repairs_maintenance_receipt' | 'miscellaneous';
 
@@ -231,7 +231,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
                     size="sm"
                     variant="ghost"
                     className="h-8 w-8 p-0"
-                    onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(docName); setPreviewFilePath(doc.file_path ?? null); setPreviewBucket('inspection-documents'); }}
+                    onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(docName); setPreviewFilePath(doc.file_path ?? null); setPreviewBucket(bucketForBinderDoc(doc.file_path)); }}
                   >
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
@@ -543,7 +543,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
             shareToken: doc?.public_share_token ?? null,
             expiresAt: doc?.expires_at ?? null,
             filePath: doc?.file_path ?? null,
-            bucket: 'inspection-documents',
+            bucket: bucketForBinderDoc(doc?.file_path),
           });
         }
         // Company docs in admin-configured order
@@ -561,7 +561,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
             shareToken: doc?.public_share_token ?? null,
             expiresAt: doc?.expires_at ?? null,
             filePath: doc?.file_path ?? null,
-            bucket: 'inspection-documents',
+            bucket: bucketForBinderDoc(doc?.file_path),
           });
         }
         // Driver uploads
