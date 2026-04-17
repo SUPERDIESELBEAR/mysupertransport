@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useBinderOrder } from '@/hooks/useBinderOrder';
+import { useDriverOptionalDocs } from '@/hooks/useDriverOptionalDocs';
 import {
   FileText, Truck, Shield, CheckSquare, Square, Send, Mail, MessageSquare,
   Upload, Loader2, AlertTriangle, Clock, X, QrCode, List, BookOpen,
@@ -12,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import logo from '@/assets/supertransport-logo.png';
 import {
   InspectionDocument, DriverUpload,
-  COMPANY_WIDE_DOCS, PER_DRIVER_DOCS, getExpiryStatus,
+  COMPANY_WIDE_DOCS, PER_DRIVER_DOCS, getExpiryStatus, filterOptionalDocs,
 } from './InspectionBinderTypes';
 import { DocRow, ExpiryBadge, FilePreviewModal } from './DocRow';
 import BinderFlipbook, { FlipbookPage } from './BinderFlipbook';
@@ -65,6 +66,8 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
   const { profile, user } = useAuth();
   const { toast } = useToast();
   const { companyOrder, driverOrder } = useBinderOrder();
+  const { enabled: enabledOptional } = useDriverOptionalDocs(userId);
+  const visibleCompanyOrder = filterOptionalDocs(companyOrder, enabledOptional);
   const [companyDocs, setCompanyDocs] = useState<InspectionDocument[]>([]);
   const [perDriverDocs, setPerDriverDocs] = useState<InspectionDocument[]>([]);
   const [driverUploads, setDriverUploads] = useState<DriverUpload[]>([]);
