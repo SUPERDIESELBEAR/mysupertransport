@@ -1390,7 +1390,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                                   </div>
                                   <div className="flex-1 relative">
                                     {isOptional && (
-                                      <Badge variant="outline" className="absolute right-2 top-2 z-10 text-[10px] px-1.5 py-0 h-5 bg-background border-amber-500/40 text-amber-600 dark:text-amber-400">
+                                      <Badge variant="outline" className="absolute right-2 top-2 z-10 text-[10px] px-1.5 py-0 h-5 bg-background border-warning/40 text-warning">
                                         Optional · Opt-in per driver
                                       </Badge>
                                     )}
