@@ -493,9 +493,11 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
         id,
         user_id,
         unit_number,
+        is_active,
         onboarding_status (fully_onboarded, unit_number),
         active_dispatch (id, dispatch_status, assigned_dispatcher, current_load_lane, eta_redispatch, status_notes, updated_at)
-      `);
+      `)
+      .neq('is_active', false);
 
     if (data) {
       // onboarding_status and active_dispatch are one-to-one relations — Supabase returns
