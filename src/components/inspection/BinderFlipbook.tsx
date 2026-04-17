@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { pdfToImage } from '@/lib/pdfToImage';
+import { supabase } from '@/integrations/supabase/client';
 import { InspectionDocument, DriverUpload, getExpiryStatus, formatDaysHuman, daysUntilExpiry } from './InspectionBinderTypes';
 import logo from '@/assets/supertransport-logo.png';
 
@@ -22,6 +23,27 @@ export interface FlipbookPage {
   shareToken?: string | null;
   expiresAt?: string | null;
   kind: 'cover' | 'doc' | 'upload';
+  /** Storage path for on-the-fly re-signing if `fileUrl` has expired. */
+  filePath?: string | null;
+  /** Storage bucket the `filePath` lives in. Defaults to 'inspection-documents'. */
+  bucket?: string | null;
+}
+
+/** Decode a Supabase signed-URL JWT and return its `exp` (epoch seconds) or null. */
+function getSignedUrlExp(url: string): number | null {
+  try {
+    const u = new URL(url);
+    const token = u.searchParams.get('token');
+    if (!token) return null;
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+    const json = JSON.parse(atob(padded));
+    return typeof json.exp === 'number' ? json.exp : null;
+  } catch {
+    return null;
+  }
 }
 
 interface Props {
