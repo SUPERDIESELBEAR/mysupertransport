@@ -1372,9 +1372,10 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 <Droppable droppableId="company-docs">
                   {(provided) => (
                     <div ref={provided.innerRef} {...provided.droppableProps}>
-                      {visibleCompanyOrder.map((key, index) => {
+                      {companyOrder.map((key, index) => {
                         const spec = COMPANY_WIDE_DOCS.find(d => d.key === key);
                         if (!spec) return null;
+                        const isOptional = isOptionalCompanyDoc(key);
                         return (
                           <Draggable key={key} draggableId={`company-${key}`} index={index}>
                             {(dragProvided, snapshot) => (
@@ -1387,7 +1388,12 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                                   <div {...dragProvided.dragHandleProps} className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground/40 hover:text-muted-foreground">
                                     <GripVertical className="h-4 w-4" />
                                   </div>
-                                  <div className="flex-1">
+                                  <div className="flex-1 relative">
+                                    {isOptional && (
+                                      <Badge variant="outline" className="absolute right-2 top-2 z-10 text-[10px] px-1.5 py-0 h-5 bg-background border-amber-500/40 text-amber-600 dark:text-amber-400">
+                                        Optional · Opt-in per driver
+                                      </Badge>
+                                    )}
                                     <AdminDocRow docName={key} scope="company_wide" hasExpiry={spec.hasExpiry} />
                                   </div>
                                 </div>
