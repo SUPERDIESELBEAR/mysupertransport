@@ -31,6 +31,7 @@ import ContractorPaySetup from '@/components/operator/ContractorPaySetup';
 import TruckInfoCard, { TruckInfo, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
+import { BuildInfo } from '@/components/BuildInfo';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 type OperatorView = 'progress' | 'documents' | 'messages' | 'resource-center' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'pay-setup' | 'my-docs' | 'my-truck';

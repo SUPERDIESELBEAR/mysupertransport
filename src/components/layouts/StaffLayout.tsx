@@ -11,6 +11,7 @@ import type { Database } from '@/integrations/supabase/types';
 import NotificationBell from '@/components/NotificationBell';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
+import { BuildInfo } from '@/components/BuildInfo';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
