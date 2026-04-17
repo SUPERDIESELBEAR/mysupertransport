@@ -1,53 +1,37 @@
 
 
-## Why Salman Mohamed Still Shows on Dispatch Board
+## Add Flipbook to Inspection Binder (Staff/Management view)
 
-### Root Cause
-The Dispatch Board query in `src/pages/dispatch/DispatchPortal.tsx` (line 490–505) fetches **all operators** and only filters by `onboarding_status.fully_onboarded = true`. It **never checks `operators.is_active`**.
+### Where it goes
+Inside `InspectionBinderAdmin.tsx` — the component mounted by both **Staff Portal → Inspection Binder** and **Management Portal → Inspection Binder**. A "View as Flipbook" button appears in the header **only when a driver is selected** (matches the user's request).
 
-Confirmed in DB:
-| Field | Value |
-|---|---|
-| Name | Salman Mohamed |
-| `is_active` | **false** (deactivated) |
-| `fully_onboarded` | true |
-
-Because he was fully onboarded before deactivation, he passes the only filter the Dispatch Board uses. Same bug likely affects anyone deactivated post-onboarding.
-
-### The Fix
-One-line change in `fetchDispatch()` — exclude inactive operators from the result set:
-
-```ts
-const onboarded = (data as any[]).filter(op =>
-  getOne(op.onboarding_status)?.fully_onboarded && op.is_active !== false
-);
+### How it'll look
+```text
+┌─ Inspection Binder ─────────────────────────────────────┐
+│  Driver: [ Salman Mohamed ▾ ]   [📖 View as Flipbook]  │  ← new button
+│                                                         │
+│  [ Company ] [ Driver ] [ Uploads ] [ Staging ]         │
+│  ...existing tabs...                                    │
+└─────────────────────────────────────────────────────────┘
 ```
+- Button is **disabled / hidden** until a driver is selected (Flipbook is per-driver)
+- Click opens the existing full-screen `BinderFlipbook` overlay
+- Pages built from the same data the admin already loads: cover → company docs (in saved order) → per-driver docs (in saved order) → driver uploads
+- Reuses every existing capability of the Flipbook: swipe, keyboard nav, share via email/SMS/QR, multi-select share
 
-And add `is_active` to the SELECT:
-```ts
-.select(`id, user_id, unit_number, is_active, onboarding_status (...), active_dispatch (...)`)
-```
+### Files to change
 
-### Audit for Same Bug Elsewhere
-While I'm in there, I'll also check these dispatch-adjacent surfaces and apply the same `is_active` guard if missing:
-- `src/components/dispatch/MiniDispatchCalendar.tsx`
-- Any "Truck Down" banner / global alerts that read from `active_dispatch`
-- Driver Roster / Fleet Roster (likely already correct — verify only)
-
-### Cleanup Question
-Salman currently has an `active_dispatch` row. After the filter fix he won't appear, but the row remains in the DB. Two options:
-
-1. **Leave it** — historical record preserved; if reactivated, his last status returns.
-2. **Auto-reset on deactivation** — extend the existing `on_operator_deactivated` trigger to also set `dispatch_status = 'not_dispatched'` and clear `assigned_dispatcher` / `current_load_lane` / `eta_redispatch`. Cleaner, matches how deactivation already clears other operational state.
-
-My recommendation: **option 2** — consistent with the existing deactivation trigger pattern.
-
-### Files Changed
 | File | Change |
 |---|---|
-| `src/pages/dispatch/DispatchPortal.tsx` | Add `is_active` to SELECT + filter inactive operators out |
-| `src/components/dispatch/MiniDispatchCalendar.tsx` | Same filter if applicable |
-| Migration *(only if option 2)* | Extend `on_operator_deactivated` trigger to reset dispatch state |
+| `src/components/inspection/InspectionBinderAdmin.tsx` | • Import `BinderFlipbook` + `FlipbookPage`<br>• Add `flipbookOpen` state<br>• Add "View as Flipbook" button next to the driver selector (visible only when `selectedDriverId` is set)<br>• Render `<BinderFlipbook>` at bottom — build pages from existing `companyDocs`, `perDriverDocs`, `driverUploads`, `companyOrder`, `driverOrder` (same recipe used in `OperatorInspectionBinder.tsx` lines 421-469)<br>• Resolve driver name + unit number for the cover (look up `operators` row → `applications.first/last_name` + `onboarding_status.unit_number`) |
 
-No UI redesign, no schema changes (unless you pick option 2).
+### Why this is safe
+- Zero changes to `BinderFlipbook` itself — the component is already proven (used by operator portal + operator drill-down panel)
+- Zero DB changes
+- Zero impact when no driver is selected — button stays hidden
+- Read-only feature — no writes, no permissions changes
+
+### Out of scope
+- Adding a Flipbook button to the **company-wide tab** when no driver is picked (Flipbook is inherently per-driver — the cover page needs a driver name + unit)
+- Re-ordering pages (already handled via the existing binder-order admin UI)
 
