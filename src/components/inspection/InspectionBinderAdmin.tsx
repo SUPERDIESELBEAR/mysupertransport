@@ -1388,12 +1388,20 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                                   <div {...dragProvided.dragHandleProps} className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground/40 hover:text-muted-foreground">
                                     <GripVertical className="h-4 w-4" />
                                   </div>
-                                  <div className="flex-1 relative">
-                                    {isOptional && (
-                                      <Badge variant="outline" className="absolute right-2 top-2 z-10 text-[10px] px-1.5 py-0 h-5 bg-background border-warning/40 text-warning">
-                                        Optional · Opt-in per driver
-                                      </Badge>
-                                    )}
+                                  {isOptional && (
+                                    <Tooltip delayDuration={150}>
+                                      <TooltipTrigger asChild>
+                                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/40 border border-border/60 cursor-help shrink-0">
+                                          <Switch checked={false} disabled className="pointer-events-none scale-75 origin-center data-[state=unchecked]:bg-muted-foreground/30" />
+                                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Optional</span>
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="text-xs max-w-[220px]">
+                                        Hidden from drivers by default. Enable per driver in the Per-Driver tab.
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  <div className="flex-1">
                                     <AdminDocRow docName={key} scope="company_wide" hasExpiry={spec.hasExpiry} />
                                   </div>
                                 </div>
