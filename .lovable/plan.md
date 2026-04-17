@@ -1,38 +1,31 @@
 
 
-## Remove "Accident Packet" from Inspection Binder → Move to Resource Center
+## Show Driver Docs Before Company Docs (Binder + Flipbook)
 
 ### What changes
 
-**1. Remove from Inspection Binder constants**
-- `src/components/inspection/InspectionBinderTypes.ts` — drop the `Accident Packet` entry from `COMPANY_WIDE_DOCS` (line 40). All admin/operator/flipbook/share/compliance views read from this list, so the slot disappears everywhere automatically.
+In every place the binder lists or paginates documents, render **Driver Docs first**, then **Company Docs**. Currently it's Company → Driver in all four surfaces.
 
-**2. Migrate the existing PDF to Resource Center**
-There is already one Accident Packet uploaded in the company binder (file URL: `inspection-documents/company/accident-packet/1774527172990.pdf`). The migration will:
-- Insert a row into `resource_documents` with:
-  - `title`: "Accident Packet"
-  - `category`: `forms_compliance` (matches the "Forms & Compliance 📋" tab in Resource Center → Company Documents)
-  - `file_url`: existing signed URL (or re-sign from the file path)
-  - `is_visible`: true, `sort_order`: 0
-- Delete the row from `inspection_documents` so the binder no longer shows it
-- Leave the actual file bytes in storage (no destructive deletion). Operators will reach it via Resource Center → Company Documents → Forms & Compliance.
+### Surfaces affected
 
-**3. Clean any saved binder ordering**
-- `src/hooks/useBinderOrder.ts` and the `inspection_binder_order` DB rows reference doc keys. Since we just remove the key from `COMPANY_WIDE_DOCS`, any stale `"Accident Packet"` entry in saved order arrays will be silently skipped on render — no migration required for the order table.
+| File | What renders today | After |
+|---|---|---|
+| `src/components/inspection/OperatorInspectionBinder.tsx` (operator portal — what drivers see) | "Company Documents" section, then "My Documents" section, then "My Uploads" | "My Documents" → "Company Documents" → "My Uploads" |
+| Same file — Flipbook page array (lines ~424–470) | Cover → company pages → driver pages → uploads | Cover → **driver pages → company pages** → uploads |
+| `src/components/inspection/OperatorBinderPanel.tsx` (staff drill-down) — Flipbook page array (lines ~530–560) | Cover → company → driver → uploads | Cover → **driver → company** → uploads |
+| `src/components/inspection/InspectionBinderAdmin.tsx` — Flipbook page array (lines ~2281–2323) | Cover → company → driver → uploads | Cover → **driver → company** → uploads |
 
-### Files / changes summary
+### Out of scope (unchanged)
 
-| File | Change |
-|---|---|
-| `src/components/inspection/InspectionBinderTypes.ts` | Remove `Accident Packet` from `COMPANY_WIDE_DOCS` |
-| Migration | Insert into `resource_documents` (Forms & Compliance), delete from `inspection_documents` |
+- **InspectionBinderAdmin tabs** (the staff editor): the "Company" and "Per-Driver" tabs are independent buttons, not stacked sections — order doesn't apply. We could swap the tab order if you want, but you only mentioned the binder/flipbook viewing experience, so leaving that alone.
+- **My Uploads** (driver self-uploads) stays at the bottom in both the operator binder view and the flipbook — it's a separate category and felt natural last.
+- No DB changes, no constants changes, no admin reorder UI changes — `driverOrder` and `companyOrder` continue to work exactly as before; we just render them in the new outer sequence.
 
 ### Why this is safe
-- Pure removal from a constant array → all binder UIs (operator portal, flipbook, share page, compliance summary, alerts, admin Company tab) drop it automatically
-- Existing file is preserved in storage; we just point to it from the Resource Center
-- Operators get one less item in their binder, plus a visible entry in Resource Center → Forms & Compliance
 
-### Out of scope
-- Renaming/recategorizing other binder docs
-- Building a generic "move binder doc to Resource Center" UI (one-time relocation only)
+- Pure reordering of JSX blocks and array spreads — no logic, no data, no permissions touched
+- Flipbook navigation, share tokens, expiry badges, and selection mode all keep working unchanged
+- Cover page still appears first in flipbook
+
+
 
