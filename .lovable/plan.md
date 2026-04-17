@@ -1,37 +1,75 @@
 
 
-## Add Flipbook to Inspection Binder (Staff/Management view)
+Let me first understand the current structure. The Inspection Binder has company-wide docs defined in `InspectionBinderTypes.ts`:
+- Hazmat (company_wide)
+- Overweight/Oversize Permits (company_wide)
 
-### Where it goes
-Inside `InspectionBinderAdmin.tsx` — the component mounted by both **Staff Portal → Inspection Binder** and **Management Portal → Inspection Binder**. A "View as Flipbook" button appears in the header **only when a driver is selected** (matches the user's request).
+User wants these hidden by default from the company-wide binder view, but available as opt-in per-driver overrides for the rare case a specific driver hauls hazmat or oversize loads.
 
-### How it'll look
-```text
-┌─ Inspection Binder ─────────────────────────────────────┐
-│  Driver: [ Salman Mohamed ▾ ]   [📖 View as Flipbook]  │  ← new button
-│                                                         │
-│  [ Company ] [ Driver ] [ Uploads ] [ Staging ]         │
-│  ...existing tabs...                                    │
-└─────────────────────────────────────────────────────────┘
+Let me look at how this would work cleanly.
+
+## Plan: Hide Hazmat & Overweight/Oversize from Inspection Binder
+
+### What changes
+Mark **Hazmat** and **Overweight/Oversize Permits** as "hidden by default" company-wide. They disappear from:
+- Operator Inspection Binder (main view + flipbook)
+- Inspection Compliance Summary / Alerts
+- Staff/Management Inspection Binder admin (Company tab)
+- Inspection share page
+
+They remain available to **opt in per driver** via a new toggle in the Per-Driver tab — "Add Hazmat" / "Add Overweight/Oversize" — for the rare case a specific driver needs them.
+
+### How it works
+
+**1. Schema flag — minimal addition**
+Add one boolean column to a new lightweight table:
 ```
-- Button is **disabled / hidden** until a driver is selected (Flipbook is per-driver)
-- Click opens the existing full-screen `BinderFlipbook` overlay
-- Pages built from the same data the admin already loads: cover → company docs (in saved order) → per-driver docs (in saved order) → driver uploads
-- Reuses every existing capability of the Flipbook: swipe, keyboard nav, share via email/SMS/QR, multi-select share
+driver_optional_docs (driver_id uuid, doc_name text, enabled bool, primary key (driver_id, doc_name))
+```
+- Empty by default → driver does NOT see Hazmat or Oversize
+- Staff toggles row on for a specific driver → that driver's binder shows the slot
 
-### Files to change
+**2. Constants update**
+In `src/components/inspection/InspectionBinderTypes.ts`:
+- Tag Hazmat and Overweight/Oversize with `optional: true`
+- Add a helper `isOptionalCompanyDoc(name)` and `getVisibleCompanyDocs(enabledOptionalDocs)`
+
+**3. Filter at every read site**
+Components that loop over `COMPANY_WIDE_DOCS` get filtered through the helper:
 
 | File | Change |
 |---|---|
-| `src/components/inspection/InspectionBinderAdmin.tsx` | • Import `BinderFlipbook` + `FlipbookPage`<br>• Add `flipbookOpen` state<br>• Add "View as Flipbook" button next to the driver selector (visible only when `selectedDriverId` is set)<br>• Render `<BinderFlipbook>` at bottom — build pages from existing `companyDocs`, `perDriverDocs`, `driverUploads`, `companyOrder`, `driverOrder` (same recipe used in `OperatorInspectionBinder.tsx` lines 421-469)<br>• Resolve driver name + unit number for the cover (look up `operators` row → `applications.first/last_name` + `onboarding_status.unit_number`) |
+| `src/components/inspection/InspectionBinderTypes.ts` | Add `optional` flag + helpers |
+| `src/components/inspection/OperatorInspectionBinder.tsx` | Filter company docs by driver's opt-in list |
+| `src/components/inspection/OperatorBinderPanel.tsx` | Same filter |
+| `src/components/inspection/InspectionBinderAdmin.tsx` | Hide optional docs in Company tab; add per-driver toggle UI in Per-Driver tab header: "Optional add-ons: ☐ Hazmat  ☐ Overweight/Oversize" |
+| `src/components/inspection/InspectionComplianceSummary.tsx` | Skip optional docs unless any driver opts in |
+| `src/components/inspection/ComplianceAlertsPanel.tsx` | Same — don't alert on docs no one needs |
+| `src/pages/InspectionSharePage.tsx` | Filter the public share view too |
+| `src/hooks/useBinderOrder.ts` | Exclude optional docs from default order; include only when opted in |
 
-### Why this is safe
-- Zero changes to `BinderFlipbook` itself — the component is already proven (used by operator portal + operator drill-down panel)
-- Zero DB changes
-- Zero impact when no driver is selected — button stays hidden
-- Read-only feature — no writes, no permissions changes
+**4. Migration**
+- Create `driver_optional_docs` table with RLS (staff manage; drivers read own)
+- No data migration needed — empty table = current behavior preserved (hidden everywhere)
+
+### UI for the per-driver toggle
+In the admin Per-Driver tab, above the existing per-driver doc list when a driver is selected:
+
+```
+┌─ Optional Add-ons (this driver only) ─────────┐
+│  ☐ Hazmat Permit                              │
+│  ☐ Overweight / Oversize Permit               │
+└───────────────────────────────────────────────┘
+```
+Toggling on inserts the row + that driver's Hazmat/Oversize slot appears in their binder, compliance alerts, and flipbook. Toggling off removes the slot but does NOT delete an existing uploaded file (kept on the server, just hidden — re-enable to restore).
+
+### Why this design
+- **Zero impact on existing fleet**: defaults match user's reality (no hazmat / no oversize)
+- **Per-driver granularity**: matches the requested "specific driver only" workflow
+- **Reversible**: toggling off doesn't destroy files; toggling on restores
+- **Safe placeholder**: data model ready when needs change, but UI stays clean today
 
 ### Out of scope
-- Adding a Flipbook button to the **company-wide tab** when no driver is picked (Flipbook is inherently per-driver — the cover page needs a driver name + unit)
-- Re-ordering pages (already handled via the existing binder-order admin UI)
+- Removing Hazmat/Oversize from the existing uploaded data (none has been uploaded based on schema review — and we don't delete it even if it had been)
+- Making other company docs optional (only the two requested)
 
