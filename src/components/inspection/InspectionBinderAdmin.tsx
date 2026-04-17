@@ -9,7 +9,7 @@ import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2, Bell,
   Inbox, UserCheck, X, Pencil, ArrowRight, CheckSquare, Copy, Check, GripVertical,
-  BookOpen,
+  BookOpen, UserCircle2,
 } from 'lucide-react';
 import BinderFlipbook, { type FlipbookPage } from './BinderFlipbook';
 import { DateInput } from '@/components/ui/date-input';
