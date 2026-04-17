@@ -1,67 +1,88 @@
 
 
-## Notify Users When a New Build Is Available
+## Fix Flipbook: CDL/Medical/etc. not rendering for many drivers
 
-### Goal
-When you Publish, anyone with the app already open (browser tab or installed PWA) sees a sonner toast: "A new version is available — Refresh now" with a one-click reload button. No reinstall, no manual cache clearing.
+### Root cause (verified against DB)
 
-### How it works
+The Inspection Binder's per-driver docs get auto-populated from the application by `supabase/functions/invite-operator/index.ts` (lines 238–265). It copies `app.dl_front_url`, `app.dl_rear_url`, and `app.medical_cert_url` straight into `inspection_documents.file_url`.
 
-**1. Build-time version (already exists)**
-`vite.config.ts` already injects `__BUILD_VERSION__` on every build. We'll reuse it as the source of truth.
+**Problem:** Those source values aren't full URLs — they're bare relative paths like `applications/1774892583625_86i6uhypr6q.jpg` (from the application-documents storage bucket).
 
-**2. Lightweight version manifest at a fixed URL**
-On every build, write a tiny JSON file to `public/version.json`:
-```json
-{ "version": "b7f3a2", "buildTime": "2026-04-17T19:14:00Z" }
-```
-Done via a small custom Vite plugin in `vite.config.ts` — runs in the `buildStart` hook, no extra dependencies. The file is served from `https://mysupertransport.lovable.app/version.json` and is **never cached** (we'll fetch with `cache: 'no-store'` + a cache-busting `?t=` query).
+When `BinderFlipbook` does `<img src="applications/...">` or `pdfToImage("applications/...")`, the browser resolves these relative to the current page (e.g. `/dashboard/applications/...`) → 404 → blank/error in the flipbook. Same reason these wouldn't render in `Eye` preview either.
 
-**3. Polling hook**
-New `src/hooks/useVersionCheck.tsx`:
-- On mount, store the current `__BUILD_VERSION__` as the "session version"
-- Every **2 minutes**, plus whenever the tab becomes visible (focus/visibilitychange), fetch `/version.json?t={Date.now()}`
-- If the fetched `version` differs from the session version → fire toast (only once per detection)
+**Scope (verified via DB):**
+- 76 of 309 per-driver docs (~25%) have broken bare paths
+- Affects only: `CDL (Front)` (25), `CDL (Back)` (26), `Medical Certificate` (25)
+- Affects 26+ drivers including Ronald Lockett (`6b2a1a67-…`)
+- `Periodic DOT Inspections`, `Lease Agreement`, `IRP Registration` are stored as proper signed URLs and render fine — Ronald's Periodic shows fine in the DB; if the user reported it failing too it's because it sits next to the broken slots in the same flipbook session and visually conflates
 
-**4. Toast UX (sonner)**
+### The fix — two parts
+
+**Part 1: Backfill the 76 broken rows (one-time SQL migration)**
+
+The bare paths point into the `application-documents` bucket. We generate a fresh long-lived signed URL for each broken row and overwrite `file_url` + populate `file_path`.
+
+Approach: a small migration that, for every `inspection_documents` row where `file_url LIKE 'applications/%'`:
+1. Sets `file_path = file_url` (the bare path is already a valid storage path within `application-documents`)
+2. Calls `storage.create_signed_url('application-documents', file_path, 5_years)` and writes the result to `file_url`
+
+Since SQL can't directly call storage signing, the cleanest pattern is a tiny one-shot edge function (`backfill-binder-urls`) that:
+- Selects all `inspection_documents` where `file_url LIKE 'applications/%'`
+- For each: `supabase.storage.from('application-documents').createSignedUrl(file_url, 60*60*24*365*5)`
+- Updates the row with the new `file_url` and sets `file_path` to the original bare path
+- Returns counts. Idempotent (only touches `applications/%` rows).
+
+We invoke it once after deploy from the Lovable Cloud function tester or a tiny admin button.
+
+**Part 2: Fix the source so future invites don't repeat the bug**
+
+In `supabase/functions/invite-operator/index.ts` (lines 238–265), before inserting the three doc rows, generate a signed URL from the bucket `application-documents` for each path and insert that as `file_url`, with `file_path` set to the bare path.
+
 ```ts
-toast("A new version of SUPERDRIVE is available", {
-  description: "Refresh to load the latest build.",
-  duration: Infinity,        // sticky until dismissed/clicked
-  action: {
-    label: "Refresh now",
-    onClick: () => window.location.reload(),
-  },
-  id: "version-update",      // dedupe — only one toast ever
+async function signAppDoc(path: string | null) {
+  if (!path) return { url: null, path: null };
+  // Already a full URL? leave it.
+  if (path.startsWith('http')) return { url: path, path: null };
+  const { data, error } = await supabase.storage
+    .from('application-documents')
+    .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+  if (error) return { url: null, path };
+  return { url: data.signedUrl, path };
+}
+```
+
+Then in each of the three insert blocks:
+```ts
+const { url, path } = await signAppDoc(app.dl_front_url);
+await supabase.from('inspection_documents').insert({
+  ...,
+  file_url: url,
+  file_path: path,
 });
 ```
-Sonner is already mounted in `App.tsx` (`<Sonner />`).
 
-**5. Wire it in**
-Mount `useVersionCheck()` once inside `AppRoutes` in `src/App.tsx` (only when `user` is logged in, so the splash/login pages stay quiet).
+### Defensive UI hardening (small, optional but recommended)
 
-### Edge cases handled
-- **Dev/preview**: skip the check when hostname includes `lovableproject.com` or `id-preview--` (preview iframe rebuilds constantly — would spam toasts)
-- **Network failure**: fail silently, retry next interval
-- **Missing `version.json` (first deploy after rollout)**: skip silently
-- **User dismisses toast**: don't re-fire for the same version (track `lastNotifiedVersion` in a ref)
-- **Tab in background**: visibility listener catches them right when they return
-- **Logout**: hook unmounts cleanly, no leaks
+In `src/lib/pdfToImage.ts` and `src/components/inspection/BinderFlipbook.tsx`'s `<img>` / `pdfToImage` calls, add a tiny resolver that detects bare `applications/` (or any non-http) values and surfaces a clear "Source link broken — please re-upload" message instead of a silent blank. Catches any future drift.
 
 ### Files changed
 
 | File | Change |
 |---|---|
-| `vite.config.ts` | Add tiny inline plugin that writes `public/version.json` (or `dist/version.json`) on every build |
-| `src/hooks/useVersionCheck.tsx` | **New** — polling + visibility + sonner toast |
-| `src/App.tsx` | Call `useVersionCheck()` inside `AppRoutes` (gated on logged-in user) |
+| `supabase/functions/invite-operator/index.ts` | Resolve `dl_front_url` / `dl_rear_url` / `medical_cert_url` to signed URLs before insert; populate `file_path` |
+| `supabase/functions/backfill-binder-urls/index.ts` | **New** one-shot fixer that re-signs the 76 broken rows |
+| `src/lib/pdfToImage.ts` | Throw a clear "Document source not accessible" error if URL doesn't start with `http(s)` |
+| `src/components/inspection/BinderFlipbook.tsx` | Render the bad-source case with a helpful "Please re-upload this document" panel + link to the staff binder tab |
 
-No DB, no edge functions, no new dependencies. Just one file written at build, one hook, one line in `App.tsx`.
+### What you'll do after deploy
+1. I deploy the changes (auto)
+2. You hit "Run" once on `backfill-binder-urls` (or I trigger it via the function tester)
+3. Open Ronald Lockett's flipbook — CDL Front, CDL Back, Medical Cert, and Periodic DOT all render
 
 ### Why this is safe
-- `version.json` is a plain static file — same domain, no CORS, no auth
-- Polling is gentle (2 min + visibility) — minimal network impact
-- Toast is dedupe'd by `id`, so no duplicates even if poll fires fast
-- Skipped entirely on Lovable preview hosts so it never annoys you in the editor
-- Works for both browser users and installed PWA users — same mechanism
+- Backfill function only touches rows where `file_url LIKE 'applications/%'` — fully scoped
+- Idempotent: re-running just re-signs (still works)
+- Existing good rows (full URLs, signed `inspection-documents` URLs) are untouched
+- No schema changes; only data updates
+- UI hardening fails gracefully — replaces silent blanks with actionable messages
 
