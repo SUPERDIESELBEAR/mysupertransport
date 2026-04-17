@@ -103,7 +103,7 @@ export default function ManagementPortal() {
   const [searchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const v = searchParams.get('view') as ManagementView | null;
-    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub'].includes(v)) ? v : 'overview';
+    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature'].includes(v)) ? v : 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [scrollToStageKeyMgmt, setScrollToStageKeyMgmt] = useState<string | undefined>(undefined);
