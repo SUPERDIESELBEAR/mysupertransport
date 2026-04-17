@@ -35,7 +35,9 @@ import {
 import {
   InspectionDocument, DriverUpload,
   COMPANY_WIDE_DOCS, PER_DRIVER_DOCS, parseLocalDate, formatDaysHuman,
+  OPTIONAL_COMPANY_DOCS, isOptionalCompanyDoc, filterOptionalDocs,
 } from './InspectionBinderTypes';
+import { useDriverOptionalDocs } from '@/hooks/useDriverOptionalDocs';
 import { ExpiryBadge, OnFileBadge, FilePreviewModal } from './DocRow';
 
 /** Returns true if a reminder was sent within the last 24 hours */
