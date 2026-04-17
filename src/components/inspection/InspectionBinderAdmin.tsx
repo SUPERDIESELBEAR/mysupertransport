@@ -2324,6 +2324,8 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
               fileName: doc?.file_url ?? null,
               shareToken: doc?.public_share_token ?? null,
               expiresAt: doc?.expires_at ?? null,
+              filePath: doc?.file_path ?? null,
+              bucket: 'inspection-documents',
               kind: 'doc' as const,
             };
           }).filter(Boolean) as FlipbookPage[],
@@ -2339,6 +2341,8 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
               fileName: doc?.file_url ?? null,
               shareToken: doc?.public_share_token ?? null,
               expiresAt: doc?.expires_at ?? null,
+              filePath: doc?.file_path ?? null,
+              bucket: 'inspection-documents',
               kind: 'doc' as const,
             };
           }).filter(Boolean) as FlipbookPage[],
@@ -2350,6 +2354,8 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             fileName: u.file_name,
             shareToken: null,
             expiresAt: null,
+            filePath: u.file_path ?? null,
+            bucket: 'driver-uploads',
             kind: 'upload',
           })),
         ];

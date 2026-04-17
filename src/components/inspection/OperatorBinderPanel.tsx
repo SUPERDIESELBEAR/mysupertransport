@@ -542,6 +542,8 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
             fileName: doc?.file_url ?? null,
             shareToken: doc?.public_share_token ?? null,
             expiresAt: doc?.expires_at ?? null,
+            filePath: doc?.file_path ?? null,
+            bucket: 'inspection-documents',
           });
         }
         // Company docs in admin-configured order
@@ -558,6 +560,8 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
             fileName: doc?.file_url ?? null,
             shareToken: doc?.public_share_token ?? null,
             expiresAt: doc?.expires_at ?? null,
+            filePath: doc?.file_path ?? null,
+            bucket: 'inspection-documents',
           });
         }
         // Driver uploads
@@ -571,6 +575,8 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
             fileName: up.file_name ?? null,
             shareToken: null,
             expiresAt: null,
+            filePath: up.file_path ?? null,
+            bucket: 'driver-uploads',
           });
         }
         return (
