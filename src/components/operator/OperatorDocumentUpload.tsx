@@ -19,9 +19,16 @@ const DOCUMENT_SLOTS: DocumentSlot[] = [
   { key: 'truck_title', label: 'Truck Title', description: 'Vehicle title document', required: true, accept: '.pdf,.jpg,.jpeg,.png' },
   { key: 'truck_photos', label: 'Truck Photos', description: 'Clear exterior photos of the truck', required: true, accept: '.jpg,.jpeg,.png,.heic' },
   { key: 'truck_inspection', label: 'Truck Inspection Report', description: 'DOT vehicle inspection certificate', required: true, accept: '.pdf,.jpg,.jpeg,.png' },
-  { key: 'registration', label: 'Vehicle Registration', description: 'Current registration document', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
   { key: 'other', label: 'Other Document', description: 'Any other requested document', required: false, accept: '.pdf,.jpg,.jpeg,.png,.doc,.docx' },
 ];
+
+const REGISTRATION_SLOT: DocumentSlot = {
+  key: 'registration',
+  label: 'Vehicle Registration',
+  description: 'Current vehicle registration (cab card)',
+  required: true,
+  accept: '.pdf,.jpg,.jpeg,.png',
+};
 
 const PHYSICAL_DAMAGE_SLOT: DocumentSlot = {
   key: 'insurance_cert',
