@@ -335,6 +335,29 @@ export default function ICABuilderModal({
 
   const handleSaveAndSend = async () => {
     if (guardDemo()) return;
+
+    // Guard: must have a signature image (newly drawn OR saved default)
+    const canvasEmpty = !carrierSigRef.current || carrierSigRef.current.isEmpty();
+    const hasDefault = useDefaultSig && !!defaultSig?.signature_url;
+    if (canvasEmpty && !hasDefault) {
+      toast({
+        title: 'Carrier signature required',
+        description: 'Draw your signature in the canvas, or load your saved default before sending.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Guard: block save-as-default with empty canvas
+    if (saveAsDefault && canvasEmpty) {
+      toast({
+        title: 'Draw your signature first',
+        description: 'Cannot save an empty signature as the default. Draw your signature in the canvas, then try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       let carrierSigUrl: string | null = null;
