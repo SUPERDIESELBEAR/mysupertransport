@@ -94,6 +94,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         truckVin: os?.truck_vin || ica?.truck_vin || null,
         truckPlate: os?.truck_plate || ica?.truck_plate || null,
         truckPlateState: os?.truck_plate_state || ica?.truck_plate_state || null,
+        trailerNumber: os?.trailer_number || ica?.trailer_number || null,
         totalRepairCost: costMap.get(op.id) ?? 0,
         dotNextDue: dotMap.get(op.id) ?? null,
       };
