@@ -1,34 +1,41 @@
 
 
-### Goal
-Replace the passenger-car icon (`CarFront`) on **Vehicle Hub** with a more appropriate trucking-industry icon, since SUPERDRIVE serves a trucking fleet.
+## Truck Specs Sync — Final Plan (with Fleet Roster inline edit)
 
-### Current State
-| Item | Current Icon | Where |
-|---|---|---|
-| Vehicle Hub | `CarFront` (passenger car) | Staff sidebar, Management sidebar |
-| Vehicle Hub page header | `Truck` | `FleetRoster.tsx` |
-| Dispatch Board | `Truck` | Management + Dispatch sidebars |
+### What I'm building
+Centralize all truck spec writes through one helper so staff never re-type VIN/plate/make/model/year/trailer across the app. Plus add a quick-edit pencil on Fleet Roster rows.
 
-So the page header for Vehicle Hub is already a `Truck` — only the **sidebar nav icons** show the car. Both Vehicle Hub and Dispatch Board would also collide visually if both used `Truck`.
+### The Helper
+**`src/lib/truckSync.ts`** — `saveTruckSpecs(operatorId, statusId, payload, actorId)`
+- Updates `onboarding_status` (always)
+- Mirrors to `ica_contracts` only where `status IN ('draft','sent_to_operator')` — never touches signed contracts
+- Normalizes VIN (uppercase, trim, strip dashes/spaces)
+- Skips empty values (coalesce semantics — half-filled forms can't blank existing data)
+- Logs one `audit_log` entry per save with the diff in `metadata`
 
-### My Recommendation
-Use **two distinct truck-family icons** so the sidebar stays scannable:
+### Entry Points Wired to Helper
 
-- **Vehicle Hub** → `Container` (a trailer/box — represents the fleet of trucks/trailers in inventory)
-  *Alternative:* `Caravan` (trailer silhouette)
-- **Dispatch Board** → keep `Truck` (cab in motion — represents trucks being dispatched/on the road)
-
-This gives a clear mental model: **Truck on the road = Dispatch**, **Trailer/Container in the yard = Vehicle Hub (inventory)**.
-
-### Files to Change
 | File | Change |
 |---|---|
-| `src/pages/staff/StaffPortal.tsx` | Swap `CarFront` → `Container` on Vehicle Hub nav item; update lucide-react import |
-| `src/pages/management/ManagementPortal.tsx` | Same swap; update import |
+| `src/lib/truckSync.ts` *(new)* | The shared save helper |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Replace inline dual-update in `handleTruckInfoEdit` with helper call |
+| `src/components/fleet/FleetDetailDrawer.tsx` | Switch save handler to helper (gains automatic ICA sync) |
+| `src/components/drivers/AddDriverModal.tsx` | Submit also writes truck specs to `onboarding_status` via helper |
+| `src/components/ica/ICABuilderModal.tsx` | On "Send to Operator", mirror truck spec edits back through helper |
+| `src/components/fleet/FleetRoster.tsx` | Add quick-edit pencil per row → opens compact modal → helper |
+| `src/components/fleet/QuickTruckEditModal.tsx` *(new)* | Small modal: year/make/model/VIN/plate/state/trailer — uses helper |
 
-No DB, no logic, no other UI affected. ~4 lines total.
+### Read Side
+No changes — Fleet Roster, Operator Portal, and Operator Detail Panel already merge `onboarding_status → ica_contracts` correctly.
 
-### Quick Question Before I Build
-Which icon do you want for **Vehicle Hub**?
+### Guardrails
+1. Signed ICA contracts are immutable — helper never updates them
+2. VIN normalization prevents duplicate-looking trucks
+3. `coalesce(new, old)` — empty fields never wipe existing data
+4. Single audit log entry per save with before/after diff
+5. No DB migration — reuses existing columns, zero schema risk
+
+### Out of Scope
+- Operator-facing edits (operators stay read-only on truck specs)
+- Backfilling existing mismatches between the two tables (one-time cleanup if you want it later)
 
