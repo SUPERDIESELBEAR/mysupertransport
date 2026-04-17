@@ -138,7 +138,7 @@ function PageRenderer({ page }: { page: FlipbookPage }) {
 
   // Bad source (bare path saved before the URL-signing fix) — surface a clear,
   // actionable message instead of a silent blank.
-  if (isBadSource(page.fileUrl)) {
+  if (isBadSource(effectiveUrl)) {
     return (
       <div className="flex flex-col items-center justify-center h-full w-full text-center px-6 gap-3">
         <div className="h-16 w-16 rounded-2xl bg-warning/15 flex items-center justify-center">
@@ -153,15 +153,15 @@ function PageRenderer({ page }: { page: FlipbookPage }) {
     );
   }
 
-  if (isImage(page.fileUrl, page.fileName)) {
+  if (isImage(effectiveUrl, page.fileName)) {
     return (
       <div className="flex items-center justify-center h-full w-full bg-black/5">
-        <img src={page.fileUrl} alt={page.title} className="max-h-full max-w-full object-contain select-none" draggable={false} />
+        <img src={effectiveUrl} alt={page.title} className="max-h-full max-w-full object-contain select-none" draggable={false} />
       </div>
     );
   }
 
-  if (isPdf(page.fileUrl, page.fileName)) {
+  if (isPdf(effectiveUrl, page.fileName)) {
     if (loading) {
       return (
         <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
@@ -175,7 +175,7 @@ function PageRenderer({ page }: { page: FlipbookPage }) {
         <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
           <AlertTriangle className="h-7 w-7 text-warning" />
           <p className="text-sm font-medium text-foreground">Could not render PDF</p>
-          <a href={page.fileUrl} target="_blank" rel="noreferrer" className="text-xs text-gold underline">Open in new tab</a>
+          <a href={effectiveUrl} target="_blank" rel="noreferrer" className="text-xs text-gold underline">Open in new tab</a>
         </div>
       );
     }
@@ -193,7 +193,7 @@ function PageRenderer({ page }: { page: FlipbookPage }) {
     <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
       <FileText className="h-8 w-8 text-muted-foreground/60" />
       <p className="text-sm font-medium text-foreground">{page.fileName || 'Document'}</p>
-      <a href={page.fileUrl} target="_blank" rel="noreferrer" className="text-xs text-gold underline">Open in new tab</a>
+      <a href={effectiveUrl} target="_blank" rel="noreferrer" className="text-xs text-gold underline">Open in new tab</a>
     </div>
   );
 }
