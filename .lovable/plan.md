@@ -1,54 +1,38 @@
 
 
-User wants the "Optional · Opt-in per driver" badge replaced with a toggle switch (because the badge covers the Upload button and they don't like the pill style).
-
-Let me check the current rendering location.
-<lov-tool-use id="toolu_vrtx_01L2QRGz74WK1DtJubTVsJ6Q" name="code--search_files" integration-id="code" data="{\"query\": \"Optional · Opt-in|isOptional|Opt-in per driver\", \"include_patterns\": \"src/components/inspection/InspectionBinderAdmin.tsx\"}">
-</lov-tool-use>
-
-<lov-tool-use id="toolu_vrtx_018h7y8RzksV6Y8hKjHdVXuV" name="code--search_files" integration-id="code" data="{\"query\": \"Optional · Opt-in|isOptional|Opt-in per driver\", \"include_patterns\": \"src/components/inspection/InspectionBinderAdmin.tsx\"}">
-</lov-tool-use>
-
-<lov-tool-use id="toolu_vrtx_01FHDsDLQpMJ4D9brWvsfMnS" name="code--view" integration-id="code" data="{\"file_path\": \"src/components/inspection/InspectionBinderAdmin.tsx\", \"lines\": \"1360-1430\"}">
-</lov-tool-use>
-I have what I need. The user wants the pill replaced with a Switch toggle that controls visibility, and not overlap the upload button.
-
-<lov-plan>
-
-## Replace "Optional · Opt-in" Badge with a Switch Toggle
-
-### Current issue
-The "Optional · Opt-in per driver" badge in the admin Company tab (lines 1392–1396 of `InspectionBinderAdmin.tsx`) is positioned absolutely over the row's top-right corner, where it overlaps the Upload button on the optional doc rows (Hazmat, Overweight/Oversize). The user also doesn't like the pill aesthetic.
+## Remove "Accident Packet" from Inspection Binder → Move to Resource Center
 
 ### What changes
 
-Replace the absolute-positioned badge with a clean **Switch toggle** placed inline to the **left of the row content** (next to the drag handle), labeled simply **"Optional"**. The toggle visually communicates the same concept (opt-in by default) but stays out of the way of the Upload button.
+**1. Remove from Inspection Binder constants**
+- `src/components/inspection/InspectionBinderTypes.ts` — drop the `Accident Packet` entry from `COMPANY_WIDE_DOCS` (line 40). All admin/operator/flipbook/share/compliance views read from this list, so the slot disappears everywhere automatically.
 
-```text
-Before:
-┌──────────────────────────────────────────────────┐
-│ ⋮⋮  Hazmat            [Optional·Opt-in] [Upload] │  ← overlap
-└──────────────────────────────────────────────────┘
+**2. Migrate the existing PDF to Resource Center**
+There is already one Accident Packet uploaded in the company binder (file URL: `inspection-documents/company/accident-packet/1774527172990.pdf`). The migration will:
+- Insert a row into `resource_documents` with:
+  - `title`: "Accident Packet"
+  - `category`: `forms_compliance` (matches the "Forms & Compliance 📋" tab in Resource Center → Company Documents)
+  - `file_url`: existing signed URL (or re-sign from the file path)
+  - `is_visible`: true, `sort_order`: 0
+- Delete the row from `inspection_documents` so the binder no longer shows it
+- Leave the actual file bytes in storage (no destructive deletion). Operators will reach it via Resource Center → Company Documents → Forms & Compliance.
 
-After:
-┌──────────────────────────────────────────────────┐
-│ ⋮⋮  [⊙ Optional]  Hazmat              [Upload]   │  ← clean
-└──────────────────────────────────────────────────┘
-```
+**3. Clean any saved binder ordering**
+- `src/hooks/useBinderOrder.ts` and the `inspection_binder_order` DB rows reference doc keys. Since we just remove the key from `COMPANY_WIDE_DOCS`, any stale `"Accident Packet"` entry in saved order arrays will be silently skipped on render — no migration required for the order table.
 
-### Behavior
-- The toggle on the **Company tab** is **read-only / informational** (shows that this doc is "optional" by default fleet-wide). It cannot be toggled here — global on/off toggling lives on the Per-Driver tab where staff already enables it per driver via the existing checkboxes.
-- A small tooltip on the toggle reads: *"Hidden from drivers by default. Enable per driver in the Per-Driver tab."*
+### Files / changes summary
 
-If the user prefers the toggle to be **clickable** (e.g. a future "globally enable for all drivers" switch), we can wire that up in a follow-up — but right now there's no fleet-wide opt-in feature requested.
-
-### File changed
 | File | Change |
 |---|---|
-| `src/components/inspection/InspectionBinderAdmin.tsx` | Remove the absolute Badge (lines 1392–1396). Add a small inline Switch + "Optional" label between the drag handle and `AdminDocRow`. Wrap in Tooltip explaining the per-driver opt-in. |
+| `src/components/inspection/InspectionBinderTypes.ts` | Remove `Accident Packet` from `COMPANY_WIDE_DOCS` |
+| Migration | Insert into `resource_documents` (Forms & Compliance), delete from `inspection_documents` |
 
 ### Why this is safe
-- Pure UI change — no logic, no data, no dependencies altered
-- `Switch` and `Tooltip` components already exist in the codebase
-- Upload button is no longer obscured
+- Pure removal from a constant array → all binder UIs (operator portal, flipbook, share page, compliance summary, alerts, admin Company tab) drop it automatically
+- Existing file is preserved in storage; we just point to it from the Resource Center
+- Operators get one less item in their binder, plus a visible entry in Resource Center → Forms & Compliance
+
+### Out of scope
+- Renaming/recategorizing other binder docs
+- Building a generic "move binder doc to Resource Center" UI (one-time relocation only)
 
