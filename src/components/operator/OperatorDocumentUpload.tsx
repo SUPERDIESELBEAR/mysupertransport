@@ -120,6 +120,39 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       });
       if (insertError) throw insertError;
 
+      // ── Auto-sync to Inspection Binder for select doc types ──────────
+      // Drops a copy into existing per-driver binder sections so it appears
+      // automatically in the operator's Inspection Binder.
+      const binderName =
+        slot.key === 'truck_inspection' ? 'Periodic DOT Inspections' :
+        slot.key === 'registration'     ? 'IRP Registration (cab card)' :
+        null;
+
+      if (binderName) {
+        try {
+          // Look up the operator's auth user_id (binder is keyed by driver_id = user_id)
+          const { data: opRow } = await supabase
+            .from('operators')
+            .select('user_id')
+            .eq('id', operatorId)
+            .maybeSingle();
+
+          if (opRow?.user_id) {
+            await supabase.from('inspection_documents').insert({
+              name: binderName,
+              scope: 'per_driver',
+              driver_id: opRow.user_id,
+              file_url: fileUrl,
+              file_path: path,
+              uploaded_by: opRow.user_id,
+              expires_at: null,
+            });
+          }
+        } catch {
+          // Non-critical — primary upload already succeeded
+        }
+      }
+
       // For PE receipt, fire a notification to staff
       if (slot.key === 'pe_receipt') {
         try {
