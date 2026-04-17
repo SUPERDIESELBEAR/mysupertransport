@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { DemoModeProvider } from "@/hooks/useDemoMode";
 import IdleWarningModal from "@/components/IdleWarningModal";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
+import { useVersionCheck } from "@/hooks/useVersionCheck";
 
 // Pages
 import LoginPage from "./pages/LoginPage";
