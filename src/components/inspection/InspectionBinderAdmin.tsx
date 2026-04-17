@@ -1176,16 +1176,40 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
       {/* Driver selector (non-scoped) */}
       {!operatorUserId && (
-        <Select value={selectedDriverId} onValueChange={setSelectedDriverId}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select a driver to manage their binder…" />
-          </SelectTrigger>
-          <SelectContent>
-            {operators.map(op => (
-              <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select value={selectedDriverId} onValueChange={setSelectedDriverId}>
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder="Select a driver to manage their binder…" />
+            </SelectTrigger>
+            <SelectContent>
+              {operators.map(op => (
+                <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedDriverId && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFlipbookOpen(true)}
+              className="gap-1.5 shrink-0"
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              View as Flipbook
+            </Button>
+          )}
+        </div>
+      )}
+      {operatorUserId && selectedDriverId && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setFlipbookOpen(true)}
+          className="gap-1.5 w-full sm:w-auto"
+        >
+          <BookOpen className="h-3.5 w-3.5" />
+          View as Flipbook
+        </Button>
       )}
 
       {/* Tabs */}
