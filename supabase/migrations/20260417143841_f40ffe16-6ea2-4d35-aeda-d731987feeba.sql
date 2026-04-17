@@ -1,0 +1,1 @@
+DELETE FROM public.inspection_documents WHERE id = '43fd1925-d06a-41ac-a145-f547e7adbe1a';
