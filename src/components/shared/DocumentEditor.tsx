@@ -235,10 +235,11 @@ export function DocumentEditor({ fileUrl, fileName, bucketName, filePath, onSave
           .from(bucketName)
           .upload(filePath, blob, { upsert: true, contentType: 'image/png' });
         if (uploadError) throw uploadError;
-        // Generate a fresh signed URL with a cache-busting token
+        // Generate a fresh long-lived signed URL (5 years) so the saved
+        // reference doesn't silently expire and break the flipbook/preview.
         const { data: signedData } = await supabase.storage
           .from(bucketName)
-          .createSignedUrl(filePath, 60 * 60);
+          .createSignedUrl(filePath, 60 * 60 * 24 * 365 * 5);
         const newUrl = signedData?.signedUrl || '';
         toast({ title: 'Document saved', description: 'Edited version saved successfully.' });
         await onSave?.(newUrl);

@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { pdfToImage } from '@/lib/pdfToImage';
+import { supabase } from '@/integrations/supabase/client';
 import { InspectionDocument, DriverUpload, getExpiryStatus, formatDaysHuman, daysUntilExpiry } from './InspectionBinderTypes';
 import logo from '@/assets/supertransport-logo.png';
 
@@ -22,6 +23,27 @@ export interface FlipbookPage {
   shareToken?: string | null;
   expiresAt?: string | null;
   kind: 'cover' | 'doc' | 'upload';
+  /** Storage path for on-the-fly re-signing if `fileUrl` has expired. */
+  filePath?: string | null;
+  /** Storage bucket the `filePath` lives in. Defaults to 'inspection-documents'. */
+  bucket?: string | null;
+}
+
+/** Decode a Supabase signed-URL JWT and return its `exp` (epoch seconds) or null. */
+function getSignedUrlExp(url: string): number | null {
+  try {
+    const u = new URL(url);
+    const token = u.searchParams.get('token');
+    if (!token) return null;
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+    const json = JSON.parse(atob(padded));
+    return typeof json.exp === 'number' ? json.exp : null;
+  } catch {
+    return null;
+  }
 }
 
 interface Props {
@@ -55,26 +77,54 @@ function PageRenderer({ page }: { page: FlipbookPage }) {
   const [pdfImage, setPdfImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The URL we actually render (may be a freshly re-signed version of page.fileUrl).
+  const [effectiveUrl, setEffectiveUrl] = useState<string | null>(page.fileUrl);
+
+  // Resolve the URL to render: if the saved signed URL is expired (or about to
+  // expire) and we have a filePath, request a fresh signed URL on the fly.
+  useEffect(() => {
+    let cancelled = false;
+    const resolve = async () => {
+      if (!page.fileUrl) {
+        setEffectiveUrl(null);
+        return;
+      }
+      const exp = getSignedUrlExp(page.fileUrl);
+      const nowSecs = Math.floor(Date.now() / 1000);
+      // Only attempt re-sign for our own signed URLs that have a filePath fallback.
+      if (exp !== null && exp <= nowSecs + 30 && page.filePath) {
+        const bucket = page.bucket || 'inspection-documents';
+        const { data } = await supabase.storage
+          .from(bucket)
+          .createSignedUrl(page.filePath, 60 * 60 * 24 * 365 * 5);
+        if (!cancelled) setEffectiveUrl(data?.signedUrl ?? page.fileUrl);
+      } else {
+        setEffectiveUrl(page.fileUrl);
+      }
+    };
+    resolve();
+    return () => { cancelled = true; };
+  }, [page.fileUrl, page.filePath, page.bucket]);
 
   useEffect(() => {
     let cancelled = false;
     setPdfImage(null);
     setError(null);
-    if (page.fileUrl && isPdf(page.fileUrl, page.fileName)) {
+    if (effectiveUrl && isPdf(effectiveUrl, page.fileName)) {
       setLoading(true);
-      pdfToImage(page.fileUrl)
+      pdfToImage(effectiveUrl)
         .then(img => { if (!cancelled) setPdfImage(img); })
         .catch(err => { if (!cancelled) setError(err.message || 'Failed to render PDF'); })
         .finally(() => { if (!cancelled) setLoading(false); });
     }
     return () => { cancelled = true; };
-  }, [page.fileUrl, page.fileName]);
+  }, [effectiveUrl, page.fileName]);
 
   if (page.kind === 'cover') {
     return null; // handled outside
   }
 
-  if (!page.fileUrl) {
+  if (!effectiveUrl) {
     return (
       <div className="flex flex-col items-center justify-center h-full w-full text-center px-6 gap-3">
         <div className="h-16 w-16 rounded-2xl bg-muted/40 flex items-center justify-center">
@@ -88,7 +138,7 @@ function PageRenderer({ page }: { page: FlipbookPage }) {
 
   // Bad source (bare path saved before the URL-signing fix) — surface a clear,
   // actionable message instead of a silent blank.
-  if (isBadSource(page.fileUrl)) {
+  if (isBadSource(effectiveUrl)) {
     return (
       <div className="flex flex-col items-center justify-center h-full w-full text-center px-6 gap-3">
         <div className="h-16 w-16 rounded-2xl bg-warning/15 flex items-center justify-center">
@@ -103,15 +153,15 @@ function PageRenderer({ page }: { page: FlipbookPage }) {
     );
   }
 
-  if (isImage(page.fileUrl, page.fileName)) {
+  if (isImage(effectiveUrl, page.fileName)) {
     return (
       <div className="flex items-center justify-center h-full w-full bg-black/5">
-        <img src={page.fileUrl} alt={page.title} className="max-h-full max-w-full object-contain select-none" draggable={false} />
+        <img src={effectiveUrl} alt={page.title} className="max-h-full max-w-full object-contain select-none" draggable={false} />
       </div>
     );
   }
 
-  if (isPdf(page.fileUrl, page.fileName)) {
+  if (isPdf(effectiveUrl, page.fileName)) {
     if (loading) {
       return (
         <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
@@ -125,7 +175,7 @@ function PageRenderer({ page }: { page: FlipbookPage }) {
         <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
           <AlertTriangle className="h-7 w-7 text-warning" />
           <p className="text-sm font-medium text-foreground">Could not render PDF</p>
-          <a href={page.fileUrl} target="_blank" rel="noreferrer" className="text-xs text-gold underline">Open in new tab</a>
+          <a href={effectiveUrl} target="_blank" rel="noreferrer" className="text-xs text-gold underline">Open in new tab</a>
         </div>
       );
     }
@@ -143,7 +193,7 @@ function PageRenderer({ page }: { page: FlipbookPage }) {
     <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
       <FileText className="h-8 w-8 text-muted-foreground/60" />
       <p className="text-sm font-medium text-foreground">{page.fileName || 'Document'}</p>
-      <a href={page.fileUrl} target="_blank" rel="noreferrer" className="text-xs text-gold underline">Open in new tab</a>
+      <a href={effectiveUrl} target="_blank" rel="noreferrer" className="text-xs text-gold underline">Open in new tab</a>
     </div>
   );
 }
