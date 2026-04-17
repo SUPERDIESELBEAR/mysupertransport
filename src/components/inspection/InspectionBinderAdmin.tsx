@@ -116,6 +116,8 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const [stagedDocs, setStagedDocs] = useState<StagedDoc[]>([]);
   const [operators, setOperators] = useState<OperatorOption[]>([]);
   const [selectedDriverId, setSelectedDriverId] = useState<string>(operatorUserId ?? urlDriver);
+  const { enabled: enabledOptional, setOptional: setOptionalDoc } = useDriverOptionalDocs(selectedDriverId);
+  const visibleCompanyOrder = filterOptionalDocs(companyOrder, enabledOptional);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<InspectionDocument | null>(null);
