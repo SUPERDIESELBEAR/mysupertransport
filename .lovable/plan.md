@@ -1,75 +1,64 @@
 
 
-Let me first understand the current structure. The Inspection Binder has company-wide docs defined in `InspectionBinderTypes.ts`:
-- Hazmat (company_wide)
-- Overweight/Oversize Permits (company_wide)
+The user wants Hazmat and Overweight/Oversize visible in the admin Per-Driver tab as toggleable rows (not entirely hidden). Currently my last implementation filtered them out completely from the admin Company tab and hid them everywhere unless opted in. The user wants the admin to still SEE them in the binder admin so they can toggle them on per driver.
 
-User wants these hidden by default from the company-wide binder view, but available as opt-in per-driver overrides for the rare case a specific driver hauls hazmat or oversize loads.
+Let me check the current state of InspectionBinderAdmin.tsx to see exactly what was done.
+<lov-tool-use id="toolu_vrtx_01MQyc2M4sMi3tVRXrKH5ChA" name="code--search_files" integration-id="code" data="{\"query\": \"filterOptionalDocs|isOptionalCompanyDoc|optionalEnabled\", \"include_patterns\": \"src/components/inspection/*.tsx,src/components/inspection/*.ts\"}">
+</lov-tool-use>
 
-Let me look at how this would work cleanly.
+<lov-tool-use id="toolu_vrtx_01MZmruSY55uZ8ioC8mYyrmt" name="code--search_files" integration-id="code" data="{\"query\": \"filterOptionalDocs|isOptionalCompanyDoc|OPTIONAL_COMPANY_DOCS|optionalEnabled\", \"include_patterns\": \"src/**/*.ts,src/**/*.tsx\"}">
+</lov-tool-use>
 
-## Plan: Hide Hazmat & Overweight/Oversize from Inspection Binder
+<lov-tool-use id="toolu_vrtx_01Gk2KKF9Uekzvx3U5LbSw3P" name="code--view" integration-id="code" data="{\"file_path\": \"src/components/inspection/InspectionBinderTypes.ts\"}">
+</lov-tool-use>
 
-### What changes
-Mark **Hazmat** and **Overweight/Oversize Permits** as "hidden by default" company-wide. They disappear from:
-- Operator Inspection Binder (main view + flipbook)
-- Inspection Compliance Summary / Alerts
-- Staff/Management Inspection Binder admin (Company tab)
-- Inspection share page
+<lov-tool-use id="toolu_vrtx_01CEMgbmJXzN4erxUbhr2zwf" name="code--view" integration-id="code" data="{\"file_path\": \"src/components/inspection/InspectionBinderAdmin.tsx\", \"lines\": \"1400-1470\"}">
+</lov-tool-use>
+Let me find where the Company tab renders the docs list, to understand where the optional docs are currently being filtered out (hidden).
+<lov-tool-use id="toolu_vrtx_01GwQjQW7uxcxqMq1xEcrz95" name="code--search_files" integration-id="code" data="{\"query\": \"visibleCompanyOrder|companyOrder.map|activeTab === 'company'\", \"include_patterns\": \"src/components/inspection/InspectionBinderAdmin.tsx\"}">
+</lov-tool-use>
+Now I have full understanding. The user wants the optional docs to remain **visible/listed in the Company tab** (currently they're filtered out everywhere) but with a per-driver toggle to show/hide them in that driver's binder.
 
-They remain available to **opt in per driver** via a new toggle in the Per-Driver tab — "Add Hazmat" / "Add Overweight/Oversize" — for the rare case a specific driver needs them.
+Actually, re-reading the request: *"keep these two listed and just create a toggle to hide from binder"*. So the user wants to see Hazmat and Overweight/Oversize listed in the **admin Company tab** (so staff can manage them company-wide), and have a toggle that controls whether each driver's binder shows them.
 
-### How it works
+The current implementation filters them out of the Company tab entirely. Let me also check the operator binder and compliance summary.
+<lov-tool-use id="toolu_vrtx_017jMnKoREqkSH8fmDCxScX3" name="code--search_files" integration-id="code" data="{\"include_patterns\": \"src/components/inspection/InspectionComplianceSummary.tsx,src/components/inspection/ComplianceAlertsPanel.tsx,src/pages/InspectionSharePage.tsx\", \"query\": \"filterOptionalDocs|isOptionalCompanyDoc|COMPANY_WIDE_DOCS\"}">
+</lov-tool-use>
+<lov-plan>
 
-**1. Schema flag — minimal addition**
-Add one boolean column to a new lightweight table:
-```
-driver_optional_docs (driver_id uuid, doc_name text, enabled bool, primary key (driver_id, doc_name))
-```
-- Empty by default → driver does NOT see Hazmat or Oversize
-- Staff toggles row on for a specific driver → that driver's binder shows the slot
+## Show Hazmat & Overweight/Oversize in Admin — Toggle Controls Binder Visibility
 
-**2. Constants update**
-In `src/components/inspection/InspectionBinderTypes.ts`:
-- Tag Hazmat and Overweight/Oversize with `optional: true`
-- Add a helper `isOptionalCompanyDoc(name)` and `getVisibleCompanyDocs(enabledOptionalDocs)`
+### Current behavior (issue)
+After the last change, the two optional docs were hidden from **everywhere**, including the admin Company tab. The user wants them visible to staff for management, with a per-driver toggle that controls whether they appear in **that driver's binder** (operator portal, flipbook, compliance, share page).
 
-**3. Filter at every read site**
-Components that loop over `COMPANY_WIDE_DOCS` get filtered through the helper:
+### New behavior
+
+**Admin Company tab (`InspectionBinderAdmin.tsx`)**
+- Hazmat and Overweight/Oversize Permits **always listed** (with all the other company docs)
+- Each row gets an "Optional" badge so staff know they're opt-in by default
+- Drag-and-drop reorder still works for them
+
+**Per-Driver tab (existing UI stays)**
+- "Optional Add-ons" section with the two checkboxes — unchanged from current implementation
+- Toggle controls whether the doc appears in the **driver's** binder views
+
+**Driver-facing surfaces (binder, flipbook, compliance, share page)**
+- Behavior unchanged from now: hidden by default, only shown for drivers who've been opted in
+
+### Files to change
 
 | File | Change |
 |---|---|
-| `src/components/inspection/InspectionBinderTypes.ts` | Add `optional` flag + helpers |
-| `src/components/inspection/OperatorInspectionBinder.tsx` | Filter company docs by driver's opt-in list |
-| `src/components/inspection/OperatorBinderPanel.tsx` | Same filter |
-| `src/components/inspection/InspectionBinderAdmin.tsx` | Hide optional docs in Company tab; add per-driver toggle UI in Per-Driver tab header: "Optional add-ons: ☐ Hazmat  ☐ Overweight/Oversize" |
-| `src/components/inspection/InspectionComplianceSummary.tsx` | Skip optional docs unless any driver opts in |
-| `src/components/inspection/ComplianceAlertsPanel.tsx` | Same — don't alert on docs no one needs |
-| `src/pages/InspectionSharePage.tsx` | Filter the public share view too |
-| `src/hooks/useBinderOrder.ts` | Exclude optional docs from default order; include only when opted in |
+| `src/components/inspection/InspectionBinderAdmin.tsx` | Render the Company tab using `companyOrder` (full list) instead of `visibleCompanyOrder`. Add an "Optional" badge next to Hazmat & Overweight rows. Keep `visibleCompanyOrder` for the **flipbook page builder** so staff flipbook still respects the per-driver opt-in. |
+| `src/hooks/useBinderOrder.ts` | Stop stripping optional docs from the saved order — include them in the default company order so they appear in the admin Company tab. (Driver-facing components already filter via `filterOptionalDocs` so they stay hidden by default for non-opted-in drivers.) |
 
-**4. Migration**
-- Create `driver_optional_docs` table with RLS (staff manage; drivers read own)
-- No data migration needed — empty table = current behavior preserved (hidden everywhere)
-
-### UI for the per-driver toggle
-In the admin Per-Driver tab, above the existing per-driver doc list when a driver is selected:
-
-```
-┌─ Optional Add-ons (this driver only) ─────────┐
-│  ☐ Hazmat Permit                              │
-│  ☐ Overweight / Oversize Permit               │
-└───────────────────────────────────────────────┘
-```
-Toggling on inserts the row + that driver's Hazmat/Oversize slot appears in their binder, compliance alerts, and flipbook. Toggling off removes the slot but does NOT delete an existing uploaded file (kept on the server, just hidden — re-enable to restore).
-
-### Why this design
-- **Zero impact on existing fleet**: defaults match user's reality (no hazmat / no oversize)
-- **Per-driver granularity**: matches the requested "specific driver only" workflow
-- **Reversible**: toggling off doesn't destroy files; toggling on restores
-- **Safe placeholder**: data model ready when needs change, but UI stays clean today
+### Why this is safe
+- Driver-facing filtering via `filterOptionalDocs` is unchanged → drivers still don't see Hazmat/Oversize unless opted in
+- Admin gets full visibility back — they can upload/manage the company-wide files for opted-in drivers' use
+- Per-driver toggle continues to work exactly as built
+- No DB changes, no data migration
 
 ### Out of scope
-- Removing Hazmat/Oversize from the existing uploaded data (none has been uploaded based on schema review — and we don't delete it even if it had been)
-- Making other company docs optional (only the two requested)
+- Changing the per-driver toggle UI (already in place)
+- Adding a separate "company-wide toggle" to globally enable/disable optional docs (not requested)
 
