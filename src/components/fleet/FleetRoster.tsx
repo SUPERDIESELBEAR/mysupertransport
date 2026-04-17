@@ -19,6 +19,7 @@ interface FleetRow {
   truckVin: string | null;
   truckPlate: string | null;
   truckPlateState: string | null;
+  trailerNumber: string | null;
   totalRepairCost: number;
   dotNextDue: string | null;
 }
@@ -42,6 +43,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showDeactivated, setShowDeactivated] = useState(false);
+  const [editTarget, setEditTarget] = useState<FleetRow | null>(null);
 
   const buildRows = useCallback(async (isActive: boolean) => {
     const { data: operators } = await supabase
@@ -50,8 +52,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         id,
         unit_number,
         applications(first_name, last_name),
-        onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state),
-        ica_contracts(owner_name, owner_business_name, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state)
+        onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number),
+        ica_contracts(owner_name, owner_business_name, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number)
       `)
       .eq('is_active', isActive);
 
