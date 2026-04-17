@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn, formatPhoneDisplay } from '@/lib/utils';
 import { sanitizeText } from '@/lib/sanitize';
 import { syncAllDeviceFields } from '@/lib/equipmentSync';
+import { saveTruckSpecs } from '@/lib/truckSync';
 import { reminderErrorToast } from '@/lib/reminderError';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
