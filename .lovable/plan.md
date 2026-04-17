@@ -1,83 +1,67 @@
 
 
-## Add Visible Build Version + Last Updated Timestamp
+## Notify Users When a New Build Is Available
 
 ### Goal
-Give staff a quick way to confirm they're on the latest build by showing a small version/timestamp badge inside the app. Useful right after you Publish — staff can glance at it and know if their PWA picked up the new version.
+When you Publish, anyone with the app already open (browser tab or installed PWA) sees a sonner toast: "A new version is available — Refresh now" with a one-click reload button. No reinstall, no manual cache clearing.
 
-### Approach: Vite build-time constants
-Vite can inject values at build time via `define` in `vite.config.ts`. We'll inject:
-- `__BUILD_TIME__` — ISO timestamp of when the build ran
-- `__BUILD_VERSION__` — short hash of the timestamp (e.g. `b7f3a2`) so it's easy to read and compare
+### How it works
 
-Every time you click **Publish → Update**, Vite rebuilds and bakes in fresh values. No DB, no API call, no manual bumping.
+**1. Build-time version (already exists)**
+`vite.config.ts` already injects `__BUILD_VERSION__` on every build. We'll reuse it as the source of truth.
 
-### Where to display it
-
-**Two placements** (both lightweight, no layout disruption):
-
-1. **Staff sidebar footer** (`src/components/layouts/StaffLayout.tsx`) — small muted text below the user/logout area: `v.b7f3a2 · Apr 17, 2026 2:14 PM CT`
-   - Visible to staff/management/dispatch on every internal page
-   - Doesn't show to operators (their portal uses a different layout)
-
-2. **Operator portal footer** (`src/pages/operator/OperatorPortal.tsx`) — same tiny line at the bottom of the portal so operators can also confirm their installed PWA is current
-
-Both render via a single shared component: `src/components/BuildInfo.tsx`
-
-### The component
-```tsx
-// src/components/BuildInfo.tsx
-declare const __BUILD_TIME__: string;
-declare const __BUILD_VERSION__: string;
-
-export function BuildInfo({ className }: { className?: string }) {
-  const date = new Date(__BUILD_TIME__);
-  const formatted = date.toLocaleString('en-US', {
-    timeZone: 'America/Chicago',
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: 'numeric', minute: '2-digit', hour12: true,
-  });
-  return (
-    <div className={className} title={`Build ${__BUILD_VERSION__} · ${date.toISOString()}`}>
-      v.{__BUILD_VERSION__} · {formatted} CT
-    </div>
-  );
-}
+**2. Lightweight version manifest at a fixed URL**
+On every build, write a tiny JSON file to `public/version.json`:
+```json
+{ "version": "b7f3a2", "buildTime": "2026-04-17T19:14:00Z" }
 ```
+Done via a small custom Vite plugin in `vite.config.ts` — runs in the `buildStart` hook, no extra dependencies. The file is served from `https://mysupertransport.lovable.app/version.json` and is **never cached** (we'll fetch with `cache: 'no-store'` + a cache-busting `?t=` query).
 
-### Vite config addition
+**3. Polling hook**
+New `src/hooks/useVersionCheck.tsx`:
+- On mount, store the current `__BUILD_VERSION__` as the "session version"
+- Every **2 minutes**, plus whenever the tab becomes visible (focus/visibilitychange), fetch `/version.json?t={Date.now()}`
+- If the fetched `version` differs from the session version → fire toast (only once per detection)
+
+**4. Toast UX (sonner)**
 ```ts
-// vite.config.ts (inside defineConfig)
-const buildTime = new Date().toISOString();
-const buildVersion = Buffer.from(buildTime).toString('hex').slice(-6);
-
-define: {
-  __BUILD_TIME__: JSON.stringify(buildTime),
-  __BUILD_VERSION__: JSON.stringify(buildVersion),
-},
+toast("A new version of SUPERDRIVE is available", {
+  description: "Refresh to load the latest build.",
+  duration: Infinity,        // sticky until dismissed/clicked
+  action: {
+    label: "Refresh now",
+    onClick: () => window.location.reload(),
+  },
+  id: "version-update",      // dedupe — only one toast ever
+});
 ```
+Sonner is already mounted in `App.tsx` (`<Sonner />`).
+
+**5. Wire it in**
+Mount `useVersionCheck()` once inside `AppRoutes` in `src/App.tsx` (only when `user` is logged in, so the splash/login pages stay quiet).
+
+### Edge cases handled
+- **Dev/preview**: skip the check when hostname includes `lovableproject.com` or `id-preview--` (preview iframe rebuilds constantly — would spam toasts)
+- **Network failure**: fail silently, retry next interval
+- **Missing `version.json` (first deploy after rollout)**: skip silently
+- **User dismisses toast**: don't re-fire for the same version (track `lastNotifiedVersion` in a ref)
+- **Tab in background**: visibility listener catches them right when they return
+- **Logout**: hook unmounts cleanly, no leaks
 
 ### Files changed
+
 | File | Change |
 |---|---|
-| `vite.config.ts` | Add `define` block with build time + version hash |
-| `src/components/BuildInfo.tsx` | New tiny component (~15 lines) |
-| `src/components/layouts/StaffLayout.tsx` | Render `<BuildInfo />` in sidebar footer |
-| `src/pages/operator/OperatorPortal.tsx` | Render `<BuildInfo />` at bottom of portal |
-| `src/vite-env.d.ts` | Declare `__BUILD_TIME__` / `__BUILD_VERSION__` globals so TS is happy |
+| `vite.config.ts` | Add tiny inline plugin that writes `public/version.json` (or `dist/version.json`) on every build |
+| `src/hooks/useVersionCheck.tsx` | **New** — polling + visibility + sonner toast |
+| `src/App.tsx` | Call `useVersionCheck()` inside `AppRoutes` (gated on logged-in user) |
 
-### Styling
-Muted, small, unobtrusive: `text-[10px] text-muted-foreground/60 font-mono tracking-tight px-3 py-2`. Hover tooltip shows the full ISO timestamp for precise comparison.
-
-### How you'll use it
-1. Make a change → Publish → Update
-2. Tell staff "the new build is `v.b7f3a2` from Apr 17 2:14 PM CT"
-3. Staff opens their installed PWA — if they see an older version/date, they pull-to-refresh or quit-and-reopen
-4. Once it matches, they're confirmed on latest
+No DB, no edge functions, no new dependencies. Just one file written at build, one hook, one line in `App.tsx`.
 
 ### Why this is safe
-- Pure UI addition + one Vite config tweak
-- No runtime dependencies, no network calls, no DB
-- Build constants are tree-shakable strings — zero perf cost
-- Tooltip with full ISO makes precise diffs trivial when troubleshooting
+- `version.json` is a plain static file — same domain, no CORS, no auth
+- Polling is gentle (2 min + visibility) — minimal network impact
+- Toast is dedupe'd by `id`, so no duplicates even if poll fires fast
+- Skipped entirely on Lovable preview hosts so it never annoys you in the editor
+- Works for both browser users and installed PWA users — same mechanism
 
