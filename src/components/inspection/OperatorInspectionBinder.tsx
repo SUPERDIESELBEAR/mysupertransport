@@ -15,7 +15,7 @@ import {
   InspectionDocument, DriverUpload,
   COMPANY_WIDE_DOCS, PER_DRIVER_DOCS, getExpiryStatus, filterOptionalDocs,
 } from './InspectionBinderTypes';
-import { DocRow, ExpiryBadge, FilePreviewModal } from './DocRow';
+import { DocRow, ExpiryBadge, FilePreviewModal, bucketForBinderDoc } from './DocRow';
 import BinderFlipbook, { FlipbookPage } from './BinderFlipbook';
 
 interface Props {

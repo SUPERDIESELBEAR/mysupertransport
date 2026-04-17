@@ -38,7 +38,7 @@ import {
   OPTIONAL_COMPANY_DOCS, isOptionalCompanyDoc, filterOptionalDocs,
 } from './InspectionBinderTypes';
 import { useDriverOptionalDocs } from '@/hooks/useDriverOptionalDocs';
-import { ExpiryBadge, OnFileBadge, FilePreviewModal } from './DocRow';
+import { ExpiryBadge, OnFileBadge, FilePreviewModal, bucketForBinderDoc } from './DocRow';
 
 /** Returns true if a reminder was sent within the last 24 hours */
 function isOnCooldown(sentAt: string | undefined): boolean {
