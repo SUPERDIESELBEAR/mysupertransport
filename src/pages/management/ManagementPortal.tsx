@@ -39,6 +39,7 @@ import EmailCatalog from '@/components/management/EmailCatalog';
 import FormsCatalog from '@/components/management/FormsCatalog';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
 import ReleaseNotesManager from '@/components/management/ReleaseNotesManager';
+import CarrierSignatureSettings from '@/components/ica/CarrierSignatureSettings';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
 import DriverHubView from '@/components/drivers/DriverHubView';
@@ -701,6 +702,7 @@ export default function ManagementPortal() {
     { label: 'Content Manager',   icon: <LayoutTemplate className="h-4 w-4" />,  path: 'content-manager' },
     { label: 'Forms Catalog',     icon: <FileText className="h-4 w-4" />,         path: 'forms-catalog' },
     { label: "What's New",        icon: <Megaphone className="h-4 w-4" />,        path: 'whats-new' },
+    { label: 'Carrier Signature', icon: <Pen className="h-4 w-4" />,             path: 'carrier-signature' },
     { label: 'Demo Mode',         icon: <GraduationCap className="h-4 w-4" />,   path: '__demo__' },
   ];
 
