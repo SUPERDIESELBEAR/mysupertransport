@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive } from 'lucide-react';
+import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
+import QuickTruckEditModal from './QuickTruckEditModal';
 
 interface FleetRow {
   operatorId: string;
@@ -17,6 +19,7 @@ interface FleetRow {
   truckVin: string | null;
   truckPlate: string | null;
   truckPlateState: string | null;
+  trailerNumber: string | null;
   totalRepairCost: number;
   dotNextDue: string | null;
 }
@@ -40,6 +43,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showDeactivated, setShowDeactivated] = useState(false);
+  const [editTarget, setEditTarget] = useState<FleetRow | null>(null);
 
   const buildRows = useCallback(async (isActive: boolean) => {
     const { data: operators } = await supabase
@@ -48,8 +52,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         id,
         unit_number,
         applications(first_name, last_name),
-        onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state),
-        ica_contracts(owner_name, owner_business_name, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state)
+        onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number),
+        ica_contracts(owner_name, owner_business_name, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number)
       `)
       .eq('is_active', isActive);
 
@@ -90,6 +94,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         truckVin: os?.truck_vin || ica?.truck_vin || null,
         truckPlate: os?.truck_plate || ica?.truck_plate || null,
         truckPlateState: os?.truck_plate_state || ica?.truck_plate_state || null,
+        trailerNumber: os?.trailer_number || ica?.trailer_number || null,
         totalRepairCost: costMap.get(op.id) ?? 0,
         dotNextDue: dotMap.get(op.id) ?? null,
       };
@@ -211,6 +216,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                   <TableHead className="text-sm font-semibold hidden lg:table-cell">VIN</TableHead>
                   <TableHead className="text-sm font-semibold text-right">Repair Cost</TableHead>
                   <TableHead className="text-sm font-semibold text-center">DOT Status</TableHead>
+                  <TableHead className="text-sm font-semibold w-12 text-center">Edit</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -242,12 +248,42 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     <TableCell className="text-center">
                       {dotStatusBadge(row.dotNextDue)}
                     </TableCell>
+                    <TableCell className="text-center" onClick={e => e.stopPropagation()}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => setEditTarget(row)}
+                        title="Quick edit truck specs"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
         </div>
+      )}
+
+      {editTarget && (
+        <QuickTruckEditModal
+          open={!!editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={fetchFleet}
+          operatorId={editTarget.operatorId}
+          driverName={editTarget.driverName}
+          initialValues={{
+            truck_year: editTarget.truckYear,
+            truck_make: editTarget.truckMake,
+            truck_vin: editTarget.truckVin,
+            truck_plate: editTarget.truckPlate,
+            truck_plate_state: editTarget.truckPlateState,
+            unit_number: editTarget.unitNumber,
+            trailer_number: editTarget.trailerNumber,
+          }}
+        />
       )}
     </div>
   );

@@ -12,6 +12,8 @@ import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { TRUCK_MAKES } from '@/components/operator/TruckInfoCard';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { saveTruckSpecs } from '@/lib/truckSync';
 import MaintenanceRecordModal from './MaintenanceRecordModal';
 import DOTInspectionModal from './DOTInspectionModal';
 import {
@@ -72,6 +74,7 @@ function categoryBadge(cat: string) {
 }
 
 export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false }: FleetDetailDrawerProps) {
+  const { session } = useAuth();
   const [truckInfo, setTruckInfo] = useState<any>(null);
   const [driverName, setDriverName] = useState('');
   const [unitNumber, setUnitNumber] = useState<string | null>(null);
@@ -114,18 +117,21 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     setSaving(true);
     try {
       const resolvedMake = draftMake === 'Other' ? otherMake.trim() : draftMake;
-      const { error } = await supabase
-        .from('onboarding_status')
-        .update({
-          truck_year: draftYear.trim() || null,
-          truck_make: resolvedMake || null,
-          truck_vin: draftVin.trim() || null,
-          unit_number: draftUnit.trim() || null,
-          truck_plate: draftPlate.trim() || null,
-          truck_plate_state: draftPlateState.trim() || null,
-        })
-        .eq('operator_id', operatorId);
-      if (error) throw error;
+      const result = await saveTruckSpecs(
+        operatorId,
+        null,
+        {
+          truck_year: draftYear,
+          truck_make: resolvedMake,
+          truck_vin: draftVin,
+          unit_number: draftUnit,
+          truck_plate: draftPlate,
+          truck_plate_state: draftPlateState,
+        },
+        session?.user?.id ?? null,
+        { entityLabel: driverName },
+      );
+      if (!result.ok) throw new Error(result.error || 'Failed to save');
       toast({ title: 'Truck specs updated' });
       setIsEditing(false);
       await fetchData();
