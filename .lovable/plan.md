@@ -1,82 +1,70 @@
 
 
-## Fix Flipbook: Periodic DOT (and other edited docs) not rendering
+## Fix: "Could not load this document for editing" for application-sourced binder docs
 
-### Root cause
+### Root cause (verified)
 
-When staff edit any document in the in-app editor (rotate/crop), `src/components/shared/DocumentEditor.tsx` line 241 generates a **1-hour** signed URL and persists it back to `inspection_documents.file_url`:
-
+When you click **Edit** on Johnathan McMillan's CDL/Medical in the Inspection Binder, the editor calls:
 ```ts
-.createSignedUrl(filePath, 60 * 60);  // ← 1 hour, then dead forever
+supabase.storage.from('inspection-documents').download('applications/175...jpg')
 ```
+…which 404s, because his CDL/Medical actually live in the `application-documents` bucket (their `file_path` starts with `applications/`).
 
-The flipbook reads `file_url` directly (no re-signing). After 1 hour the saved URL is permanently expired → image fails silently → flipbook shows nothing.
+Three call sites hardcode `bucketName='inspection-documents'` regardless of where the file actually lives:
+| File | Line | Bug |
+|---|---|---|
+| `src/components/inspection/InspectionBinderAdmin.tsx` | 2299 | `bucketName={previewFilePath ? 'inspection-documents' : undefined}` |
+| `src/components/inspection/OperatorBinderPanel.tsx` | 234 | `setPreviewBucket('inspection-documents')` for per-driver docs |
+| `src/components/inspection/OperatorInspectionBinder.tsx` | (per-driver doc click handler) | same — sets `'inspection-documents'` for per-driver docs |
 
-**Verified for Ronald Lockett's Periodic DOT row**: signed URL has `iat: 1776265922, exp: 1776269522` (1-hour window, expired ~2 days ago).
+**Scope**: 76 of 315 binder rows (~24%) are application-sourced — affects the same set of drivers as the previous flipbook fix (Johnathan, Ronald Lockett, ~25 others).
 
-**Scope**: ~140 `inspection_documents` rows have been edited and now hold stale URLs:
-- CDL (Front): 41 · CDL (Back): 40 · Medical Cert: 32 · IRP: 11 · **Periodic DOT: 11** · plus 6 others
+### The fix — one-line bucket derivation, applied in three places
 
-This is also why CDL/Medical render for some drivers and not others — only the *edited* ones are broken.
-
-### The fix — three parts
-
-**1. Stop the bleed (1 line)**
-`src/components/shared/DocumentEditor.tsx` line 241: change `60 * 60` → `60 * 60 * 24 * 365 * 5` (5 years), matching the rest of the codebase. Future edits will save long-lived URLs.
-
-**2. Backfill the existing broken rows**
-Extend the existing `supabase/functions/backfill-binder-urls/index.ts` to also re-sign rows whose URL is expired. Detect by:
-- `file_path IS NOT NULL` (we know where it lives)
-- AND `file_url` contains a JWT we can decode whose `exp < now` (or simpler: re-sign every row that has a `file_path` and a token-style URL, since re-signing is idempotent and harmless for currently-valid ones)
-
-For each row: `supabase.storage.from('inspection-documents').createSignedUrl(file_path, 5_years)` → write to `file_url`. Keeps the existing `applications/%` branch too so it remains a single one-shot tool.
-
-**3. Defensive: flipbook auto-resigns on render (small, recommended)**
-`src/components/inspection/BinderFlipbook.tsx` `PageRenderer`: if `fileUrl` looks like a signed URL but the embedded `exp` claim is in the past, attempt a fresh `createSignedUrl` from `file_path` before giving up. Prevents this exact category of bug from ever surfacing as a blank page again.
-
-To do this cleanly, plumb `filePath` through `FlipbookPage`:
-
+Add a tiny helper at the top of `DocRow.tsx` (and re-export it):
 ```ts
-export interface FlipbookPage {
-  // …existing fields
-  filePath?: string | null;   // ← new, used for on-the-fly re-signing
-  bucket?: string | null;     // ← new (defaults to 'inspection-documents')
+export function bucketForBinderDoc(filePath: string | null | undefined): string {
+  if (filePath?.startsWith('applications/')) return 'application-documents';
+  return 'inspection-documents';
 }
 ```
 
-Then `OperatorBinderPanel`, `OperatorInspectionBinder`, and `InspectionBinderAdmin` pass `filePath: doc?.file_path` and `bucket: 'inspection-documents'` when building pages.
+Then update the three callers to use it instead of hardcoding:
 
-Renderer flow:
-```
-useEffect(fileUrl):
-  if expired-looking signed URL && filePath:
-     supabase.storage.from(bucket).createSignedUrl(filePath, 5y)
-       → setEffectiveUrl(...)
-  else:
-     setEffectiveUrl(fileUrl)
+**1. `InspectionBinderAdmin.tsx` line 2299**
+```ts
+bucketName={previewFilePath ? bucketForBinderDoc(previewFilePath) : undefined}
 ```
 
-### After deploy
+**2. `OperatorBinderPanel.tsx` per-driver Eye button (~line 234)**
+```ts
+setPreviewBucket(bucketForBinderDoc(doc.file_path));
+```
 
-1. I deploy the four file changes
-2. I run the updated `backfill-binder-urls` once → re-signs all ~140 broken rows in one shot
-3. Open Ronald Lockett's flipbook → Periodic DOT renders. Same for every other affected driver.
+**3. `OperatorInspectionBinder.tsx` per-driver Eye button**
+Same — derive from `doc.file_path` instead of hardcoding `'inspection-documents'`.
+
+(Driver-uploads rows already correctly use `'driver-uploads'` — left untouched. Company-wide docs always live in `inspection-documents` — also fine.)
+
+### What this fixes immediately
+- Johnathan McMillan's CDL Front, CDL Back, Medical Cert → editor opens, download succeeds, can rotate/crop and save
+- Same for Ronald Lockett and all other ~25 drivers whose application docs got copied into the binder
+- Operator side too (drivers viewing their own binder)
+
+### Save path note
+The editor's `onSave` already writes back to whatever bucket it downloaded from, so re-saving an application-sourced edit will correctly upload to `application-documents` and re-sign. No migration needed.
 
 ### Files changed
-
 | File | Change |
 |---|---|
-| `src/components/shared/DocumentEditor.tsx` | Use 5-year expiry on save (was 1 hour) |
-| `supabase/functions/backfill-binder-urls/index.ts` | Also re-sign rows with `file_path` (extend existing one-shot) |
-| `src/components/inspection/BinderFlipbook.tsx` | `FlipbookPage.filePath` field + auto re-sign expired URLs in `PageRenderer` |
-| `src/components/inspection/OperatorBinderPanel.tsx` | Pass `filePath` + `bucket` when building flipbook pages |
+| `src/components/inspection/DocRow.tsx` | Add and export `bucketForBinderDoc` helper |
+| `src/components/inspection/InspectionBinderAdmin.tsx` | Use helper in `FilePreviewModal` `bucketName` prop |
+| `src/components/inspection/OperatorBinderPanel.tsx` | Use helper when calling `setPreviewBucket` for per-driver docs |
 | `src/components/inspection/OperatorInspectionBinder.tsx` | Same |
-| `src/components/inspection/InspectionBinderAdmin.tsx` | Same |
 
 ### Why this is safe
-
-- Editor expiry change is a single-token swap; no behavior change beyond URL TTL
-- Backfill is idempotent and scoped (`file_path IS NOT NULL`); re-signing valid URLs is harmless
-- Flipbook auto-resign is a fallback layer — does nothing for healthy URLs
-- No schema changes, no RLS changes, no new dependencies
+- Pure derivation from existing `file_path` data — no schema, no migration, no edge function
+- Falls back to `'inspection-documents'` (current behavior) for any path that doesn't start with `applications/`
+- Driver-uploads + company-wide docs paths are unchanged
+- One-line helper, three one-line call-site swaps
 
