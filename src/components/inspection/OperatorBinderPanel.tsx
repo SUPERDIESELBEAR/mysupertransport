@@ -528,22 +528,6 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
         const pages: FlipbookPage[] = [
           { id: 'cover', title: 'Cover', kind: 'cover', fileUrl: null },
         ];
-        // Company docs in admin-configured order
-        for (const key of visibleCompanyOrder) {
-          const spec = COMPANY_WIDE_DOCS.find(d => d.key === key);
-          if (!spec) continue;
-          const doc = companyDocs.find(d => d.name === key);
-          pages.push({
-            id: `cw-${key}`,
-            title: key,
-            subtitle: 'Company Document',
-            kind: 'doc',
-            fileUrl: doc?.file_url ?? null,
-            fileName: doc?.file_url ?? null,
-            shareToken: doc?.public_share_token ?? null,
-            expiresAt: doc?.expires_at ?? null,
-          });
-        }
         // Per-driver docs in admin-configured order
         for (const key of driverOrder) {
           const spec = PER_DRIVER_DOCS.find(d => d.key === key);
@@ -553,6 +537,22 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
             id: `pd-${key}`,
             title: key,
             subtitle: 'Driver Document',
+            kind: 'doc',
+            fileUrl: doc?.file_url ?? null,
+            fileName: doc?.file_url ?? null,
+            shareToken: doc?.public_share_token ?? null,
+            expiresAt: doc?.expires_at ?? null,
+          });
+        }
+        // Company docs in admin-configured order
+        for (const key of visibleCompanyOrder) {
+          const spec = COMPANY_WIDE_DOCS.find(d => d.key === key);
+          if (!spec) continue;
+          const doc = companyDocs.find(d => d.name === key);
+          pages.push({
+            id: `cw-${key}`,
+            title: key,
+            subtitle: 'Company Document',
             kind: 'doc',
             fileUrl: doc?.file_url ?? null,
             fileName: doc?.file_url ?? null,
