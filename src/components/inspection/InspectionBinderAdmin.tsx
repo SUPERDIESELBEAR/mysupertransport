@@ -1372,7 +1372,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 <Droppable droppableId="company-docs">
                   {(provided) => (
                     <div ref={provided.innerRef} {...provided.droppableProps}>
-                      {companyOrder.map((key, index) => {
+                      {visibleCompanyOrder.map((key, index) => {
                         const spec = COMPANY_WIDE_DOCS.find(d => d.key === key);
                         if (!spec) return null;
                         return (
@@ -1415,6 +1415,35 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
               )}
               {selectedDriverId && (
                 <>
+                  {/* Optional Add-ons (per-driver only) */}
+                  <div className="bg-secondary/40 border border-border rounded-xl p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-semibold text-foreground">Optional Add-ons</p>
+                      <span className="text-[10px] text-muted-foreground">(this driver only)</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Enable specialized permits for drivers who haul hazmat or oversize loads. Hidden by default.
+                    </p>
+                    <div className="flex flex-col gap-1.5 pt-1">
+                      {OPTIONAL_COMPANY_DOCS.map(name => (
+                        <label key={name} className="flex items-center gap-2 cursor-pointer text-xs text-foreground">
+                          <Checkbox
+                            checked={enabledOptional.has(name)}
+                            onCheckedChange={(checked) => {
+                              if (guardDemo()) return;
+                              setOptionalDoc(name, checked === true);
+                              fetchDocs();
+                            }}
+                          />
+                          <span>{name}</span>
+                          {enabledOptional.has(name) && (
+                            <Badge variant="secondary" className="text-[10px] ml-1">Enabled</Badge>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs text-muted-foreground">
                       These documents are specific to this driver's binder.
