@@ -102,6 +102,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const { toast } = useToast();
   const { guardDemo } = useDemoMode();
   const { companyOrder, driverOrder, saveOrder } = useBinderOrder();
+  const { enabled: enabledOptional, setOptional: setOptionalDoc } = useDriverOptionalDocs(selectedDriverIdRef());
   const [searchParams] = useSearchParams();
 
   // Support deep-link: ?driver=<userId>&tab=driver|company|uploads
