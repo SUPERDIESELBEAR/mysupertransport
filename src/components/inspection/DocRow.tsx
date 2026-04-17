@@ -22,6 +22,10 @@ import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
  */
 export function bucketForBinderDoc(filePath: string | null | undefined): string {
   if (filePath?.startsWith('applications/')) return 'application-documents';
+  // Operator-uploaded docs are stored under "{operator_uuid}/..." in the operator-documents bucket
+  if (filePath && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\//i.test(filePath)) {
+    return 'operator-documents';
+  }
   return 'inspection-documents';
 }
 
