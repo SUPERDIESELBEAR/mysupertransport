@@ -30,6 +30,10 @@ const queryClient = new QueryClient();
 function AppRoutes() {
   const { user, loading, roles, isManagement, isOnboardingStaff, isDispatcher, isOperator, activeRole } = useAuth();
 
+  // Poll for new builds and prompt logged-in users to refresh
+  useVersionCheck();
+
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface-dark">
