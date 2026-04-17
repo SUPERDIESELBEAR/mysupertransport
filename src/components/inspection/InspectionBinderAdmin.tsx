@@ -9,7 +9,9 @@ import {
   Upload, Trash2, Calendar, Loader2, FileText, Globe, User,
   CheckCircle2, AlertTriangle, Clock, Eye, RotateCcw, Users, Share2, Bell,
   Inbox, UserCheck, X, Pencil, ArrowRight, CheckSquare, Copy, Check, GripVertical,
+  BookOpen,
 } from 'lucide-react';
+import BinderFlipbook, { type FlipbookPage } from './BinderFlipbook';
 import { DateInput } from '@/components/ui/date-input';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { Switch } from '@/components/ui/switch';
@@ -127,6 +129,10 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const [unshareAllDialogOpen, setUnshareAllDialogOpen] = useState(false);
   const [sendingReminder, setSendingReminder] = useState<string | null>(null);
   const [reminderDialogDoc, setReminderDialogDoc] = useState<string | null>(null);
+
+  // Flipbook overlay (per-driver only)
+  const [flipbookOpen, setFlipbookOpen] = useState(false);
+  const [unitNumber, setUnitNumber] = useState<string | null>(null);
 
   // In-app file preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -313,6 +319,25 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   }, [selectedDriverId]);
 
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
+
+  // Fetch unit number for the Flipbook cover whenever the selected driver changes
+  useEffect(() => {
+    if (!selectedDriverId) { setUnitNumber(null); return; }
+    (async () => {
+      const { data: opRow } = await supabase
+        .from('operators')
+        .select('id')
+        .eq('user_id', selectedDriverId)
+        .maybeSingle();
+      if (!opRow?.id) { setUnitNumber(null); return; }
+      const { data: status } = await supabase
+        .from('onboarding_status')
+        .select('unit_number')
+        .eq('operator_id', opRow.id)
+        .maybeSingle();
+      setUnitNumber((status as any)?.unit_number ?? null);
+    })();
+  }, [selectedDriverId]);
 
   const handleUpload = async (docName: string, scope: 'company_wide' | 'per_driver', file: File, existingId?: string) => {
     if (!user) return;
@@ -1151,16 +1176,40 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
       {/* Driver selector (non-scoped) */}
       {!operatorUserId && (
-        <Select value={selectedDriverId} onValueChange={setSelectedDriverId}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select a driver to manage their binder…" />
-          </SelectTrigger>
-          <SelectContent>
-            {operators.map(op => (
-              <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select value={selectedDriverId} onValueChange={setSelectedDriverId}>
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder="Select a driver to manage their binder…" />
+            </SelectTrigger>
+            <SelectContent>
+              {operators.map(op => (
+                <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedDriverId && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFlipbookOpen(true)}
+              className="gap-1.5 shrink-0"
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              View as Flipbook
+            </Button>
+          )}
+        </div>
+      )}
+      {operatorUserId && selectedDriverId && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setFlipbookOpen(true)}
+          className="gap-1.5 w-full sm:w-auto"
+        >
+          <BookOpen className="h-3.5 w-3.5" />
+          View as Flipbook
+        </Button>
       )}
 
       {/* Tabs */}
@@ -2173,6 +2222,68 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           onSaved={() => fetchDocs()}
         />
       )}
+
+      {flipbookOpen && selectedDriverId && (() => {
+        const findCompanyDoc = (name: string) => companyDocs.find(d => d.name === name) ?? null;
+        const findDriverDoc = (name: string) => perDriverDocs.find(d => d.name === name) ?? null;
+        const uploadSubtitleMap: Record<string, string> = {
+          roadside_inspection_report: 'Roadside Inspection Reports',
+          repairs_maintenance_receipt: 'Repairs & Maintenance Receipts',
+          miscellaneous: 'Miscellaneous',
+        };
+        const pages: FlipbookPage[] = [
+          { id: 'cover', title: 'Cover Page', kind: 'cover', fileUrl: null },
+          ...companyOrder.map((key): FlipbookPage | null => {
+            const spec = COMPANY_WIDE_DOCS.find(d => d.key === key);
+            if (!spec) return null;
+            const doc = findCompanyDoc(key);
+            return {
+              id: `c-${key}`,
+              title: key,
+              subtitle: 'Company Document',
+              fileUrl: doc?.file_url ?? null,
+              fileName: doc?.file_url ?? null,
+              shareToken: doc?.public_share_token ?? null,
+              expiresAt: doc?.expires_at ?? null,
+              kind: 'doc' as const,
+            };
+          }).filter(Boolean) as FlipbookPage[],
+          ...driverOrder.map((key): FlipbookPage | null => {
+            const spec = PER_DRIVER_DOCS.find(d => d.key === key);
+            if (!spec) return null;
+            const doc = findDriverDoc(key);
+            return {
+              id: `d-${key}`,
+              title: key,
+              subtitle: 'Driver Document',
+              fileUrl: doc?.file_url ?? null,
+              fileName: doc?.file_url ?? null,
+              shareToken: doc?.public_share_token ?? null,
+              expiresAt: doc?.expires_at ?? null,
+              kind: 'doc' as const,
+            };
+          }).filter(Boolean) as FlipbookPage[],
+          ...driverUploads.map((u): FlipbookPage => ({
+            id: `u-${u.id}`,
+            title: u.file_name || 'Upload',
+            subtitle: uploadSubtitleMap[u.category] || 'Upload',
+            fileUrl: u.file_url,
+            fileName: u.file_name,
+            shareToken: null,
+            expiresAt: null,
+            kind: 'upload',
+          })),
+        ];
+        return (
+          <BinderFlipbook
+            pages={pages}
+            driverName={selectedDriverName || 'Driver'}
+            unitNumber={unitNumber}
+            storageKey={`flipbook-admin:${selectedDriverId}`}
+            onClose={() => setFlipbookOpen(false)}
+          />
+        );
+      })()}
     </div>
   );
 }
