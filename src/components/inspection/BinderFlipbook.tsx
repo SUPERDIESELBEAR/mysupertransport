@@ -30,7 +30,6 @@ interface Props {
   unitNumber: string | null;
   initialIndex?: number;
   onClose: () => void;
-  storageKey?: string;
 }
 
 function isImage(url: string | null, name?: string | null) {
@@ -157,18 +156,9 @@ function CoverPage({ driverName, unitNumber, totalPages }: { driverName: string;
 }
 
 export default function BinderFlipbook({
-  pages, driverName, unitNumber, initialIndex = 0, onClose, storageKey,
+  pages, driverName, unitNumber, initialIndex = 0, onClose,
 }: Props) {
-  const [index, setIndex] = useState(() => {
-    if (storageKey) {
-      const saved = sessionStorage.getItem(storageKey);
-      if (saved) {
-        const n = parseInt(saved, 10);
-        if (!isNaN(n) && n >= 0 && n < pages.length) return n;
-      }
-    }
-    return Math.min(initialIndex, pages.length - 1);
-  });
+  const [index, setIndex] = useState(() => Math.min(initialIndex, Math.max(0, pages.length - 1)));
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [direction, setDirection] = useState<'next' | 'prev' | null>(null);
@@ -194,11 +184,6 @@ export default function BinderFlipbook({
       haptic();
     }
   }, [index]);
-
-  // Persist current page
-  useEffect(() => {
-    if (storageKey) sessionStorage.setItem(storageKey, String(index));
-  }, [index, storageKey]);
 
   // Keyboard navigation
   useEffect(() => {

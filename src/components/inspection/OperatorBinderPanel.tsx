@@ -578,7 +578,6 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
             pages={pages}
             driverName={operatorName}
             unitNumber={unitNumber}
-            storageKey={`flipbook:staff:${driverUserId}`}
             onClose={() => setFlipbookOpen(false)}
           />
         );

@@ -2326,7 +2326,6 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             pages={pages}
             driverName={selectedDriverName || 'Driver'}
             unitNumber={unitNumber}
-            storageKey={`flipbook-admin:${selectedDriverId}`}
             onClose={() => setFlipbookOpen(false)}
           />
         );
