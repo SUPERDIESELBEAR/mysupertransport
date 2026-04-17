@@ -2296,7 +2296,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           url={previewUrl}
           name={previewName}
           onClose={() => { setPreviewUrl(null); setPreviewFilePath(null); }}
-          bucketName={previewFilePath ? 'inspection-documents' : undefined}
+          bucketName={previewFilePath ? bucketForBinderDoc(previewFilePath) : undefined}
           filePath={previewFilePath ?? undefined}
           onSaved={() => fetchDocs()}
         />
