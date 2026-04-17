@@ -77,26 +77,54 @@ function PageRenderer({ page }: { page: FlipbookPage }) {
   const [pdfImage, setPdfImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The URL we actually render (may be a freshly re-signed version of page.fileUrl).
+  const [effectiveUrl, setEffectiveUrl] = useState<string | null>(page.fileUrl);
+
+  // Resolve the URL to render: if the saved signed URL is expired (or about to
+  // expire) and we have a filePath, request a fresh signed URL on the fly.
+  useEffect(() => {
+    let cancelled = false;
+    const resolve = async () => {
+      if (!page.fileUrl) {
+        setEffectiveUrl(null);
+        return;
+      }
+      const exp = getSignedUrlExp(page.fileUrl);
+      const nowSecs = Math.floor(Date.now() / 1000);
+      // Only attempt re-sign for our own signed URLs that have a filePath fallback.
+      if (exp !== null && exp <= nowSecs + 30 && page.filePath) {
+        const bucket = page.bucket || 'inspection-documents';
+        const { data } = await supabase.storage
+          .from(bucket)
+          .createSignedUrl(page.filePath, 60 * 60 * 24 * 365 * 5);
+        if (!cancelled) setEffectiveUrl(data?.signedUrl ?? page.fileUrl);
+      } else {
+        setEffectiveUrl(page.fileUrl);
+      }
+    };
+    resolve();
+    return () => { cancelled = true; };
+  }, [page.fileUrl, page.filePath, page.bucket]);
 
   useEffect(() => {
     let cancelled = false;
     setPdfImage(null);
     setError(null);
-    if (page.fileUrl && isPdf(page.fileUrl, page.fileName)) {
+    if (effectiveUrl && isPdf(effectiveUrl, page.fileName)) {
       setLoading(true);
-      pdfToImage(page.fileUrl)
+      pdfToImage(effectiveUrl)
         .then(img => { if (!cancelled) setPdfImage(img); })
         .catch(err => { if (!cancelled) setError(err.message || 'Failed to render PDF'); })
         .finally(() => { if (!cancelled) setLoading(false); });
     }
     return () => { cancelled = true; };
-  }, [page.fileUrl, page.fileName]);
+  }, [effectiveUrl, page.fileName]);
 
   if (page.kind === 'cover') {
     return null; // handled outside
   }
 
-  if (!page.fileUrl) {
+  if (!effectiveUrl) {
     return (
       <div className="flex flex-col items-center justify-center h-full w-full text-center px-6 gap-3">
         <div className="h-16 w-16 rounded-2xl bg-muted/40 flex items-center justify-center">
