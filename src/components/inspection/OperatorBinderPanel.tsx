@@ -111,12 +111,12 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
       supabase.from('inspection_documents').select('*').eq('scope', 'per_driver').eq('driver_id', driverUserId).order('name'),
       supabase.from('driver_uploads').select('*').eq('driver_id', driverUserId).order('uploaded_at', { ascending: false }),
       supabase.from('inspection_documents').select('*').eq('scope', 'company_wide').eq('shared_with_fleet', true).order('name'),
-      supabase.from('operators').select('id, unit_number').eq('user_id', driverUserId).maybeSingle(),
+      supabase.from('operators').select('id, onboarding_status(unit_number)').eq('user_id', driverUserId).maybeSingle(),
     ]);
     setPerDriverDocs((pdRes.data ?? []) as InspectionDocument[]);
     setDriverUploads((duRes.data ?? []) as DriverUpload[]);
     setCompanyDocs((cwRes.data ?? []) as InspectionDocument[]);
-    setUnitNumber((opRes.data as any)?.unit_number ?? null);
+    setUnitNumber((opRes.data as any)?.onboarding_status?.unit_number ?? null);
     setLoading(false);
   }, [driverUserId]);
 
