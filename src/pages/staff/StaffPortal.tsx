@@ -15,7 +15,7 @@ import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff, HardDrive, GraduationCap, CarFront, Eye } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff, HardDrive, GraduationCap, Container, Eye } from 'lucide-react';
 import FleetRoster from '@/components/fleet/FleetRoster';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
@@ -203,7 +203,7 @@ export default function StaffPortal() {
   const navItems = [
     { label: 'Applicant Pipeline', icon: <LayoutDashboard className="h-4 w-4" />, path: 'pipeline', dividerBefore: 'Operations' },
     { label: 'Driver Hub', icon: <Users2 className="h-4 w-4" />, path: 'drivers', badge: driverAlertCount || undefined },
-    { label: 'Vehicle Hub', icon: <CarFront className="h-4 w-4" />, path: 'vehicle-hub' },
+    { label: 'Vehicle Hub', icon: <Container className="h-4 w-4" />, path: 'vehicle-hub' },
     { label: 'Compliance', icon: <ShieldCheck className="h-4 w-4" />, path: 'compliance', badge: criticalExpiryCount || undefined },
     { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />, path: 'inspection-binder' },
     { label: 'Document Hub', icon: <Library className="h-4 w-4" />, path: 'docs-hub' },
