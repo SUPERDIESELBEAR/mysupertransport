@@ -130,6 +130,10 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const [sendingReminder, setSendingReminder] = useState<string | null>(null);
   const [reminderDialogDoc, setReminderDialogDoc] = useState<string | null>(null);
 
+  // Flipbook overlay (per-driver only)
+  const [flipbookOpen, setFlipbookOpen] = useState(false);
+  const [unitNumber, setUnitNumber] = useState<string | null>(null);
+
   // In-app file preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>('');
