@@ -216,6 +216,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                   <TableHead className="text-sm font-semibold hidden lg:table-cell">VIN</TableHead>
                   <TableHead className="text-sm font-semibold text-right">Repair Cost</TableHead>
                   <TableHead className="text-sm font-semibold text-center">DOT Status</TableHead>
+                  <TableHead className="text-sm font-semibold w-12 text-center">Edit</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -247,12 +248,42 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     <TableCell className="text-center">
                       {dotStatusBadge(row.dotNextDue)}
                     </TableCell>
+                    <TableCell className="text-center" onClick={e => e.stopPropagation()}>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => setEditTarget(row)}
+                        title="Quick edit truck specs"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
         </div>
+      )}
+
+      {editTarget && (
+        <QuickTruckEditModal
+          open={!!editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={fetchFleet}
+          operatorId={editTarget.operatorId}
+          driverName={editTarget.driverName}
+          initialValues={{
+            truck_year: editTarget.truckYear,
+            truck_make: editTarget.truckMake,
+            truck_vin: editTarget.truckVin,
+            truck_plate: editTarget.truckPlate,
+            truck_plate_state: editTarget.truckPlateState,
+            unit_number: editTarget.unitNumber,
+            trailer_number: editTarget.trailerNumber,
+          }}
+        />
       )}
     </div>
   );
