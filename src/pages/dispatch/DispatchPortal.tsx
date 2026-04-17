@@ -19,7 +19,7 @@ import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
   LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell, Volume2, VolumeX,
-  CheckCheck, Users2, Shield
+  CheckCheck, Users2, Shield, Container
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -1712,7 +1712,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
   if (embedded) return board;
 
   const navItems = [
-    { label: 'Dispatch Board', icon: <Truck className="h-4 w-4" />, path: 'dispatch',               dividerBefore: 'Operations' },
+    { label: 'Dispatch Board', icon: <Container className="h-4 w-4" />, path: 'dispatch',               dividerBefore: 'Operations' },
     { label: 'Drivers',        icon: <Users2 className="h-4 w-4" />, path: 'dispatch-drivers' },
     { label: 'Messages',       icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages',       badge: unreadMessages || undefined, dividerBefore: 'Tools' },
     { label: 'Notifications',  icon: <Bell className="h-4 w-4" />, path: 'dispatch-notifications',  badge: unreadNotifCount || undefined },
