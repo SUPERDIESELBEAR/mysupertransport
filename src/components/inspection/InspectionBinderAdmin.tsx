@@ -320,6 +320,25 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
+  // Fetch unit number for the Flipbook cover whenever the selected driver changes
+  useEffect(() => {
+    if (!selectedDriverId) { setUnitNumber(null); return; }
+    (async () => {
+      const { data: opRow } = await supabase
+        .from('operators')
+        .select('id')
+        .eq('user_id', selectedDriverId)
+        .maybeSingle();
+      if (!opRow?.id) { setUnitNumber(null); return; }
+      const { data: status } = await supabase
+        .from('onboarding_status')
+        .select('unit_number')
+        .eq('operator_id', opRow.id)
+        .maybeSingle();
+      setUnitNumber((status as any)?.unit_number ?? null);
+    })();
+  }, [selectedDriverId]);
+
   const handleUpload = async (docName: string, scope: 'company_wide' | 'per_driver', file: File, existingId?: string) => {
     if (!user) return;
     if (guardDemo()) return;
