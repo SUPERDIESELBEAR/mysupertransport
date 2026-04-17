@@ -1832,6 +1832,10 @@ export default function ManagementPortal() {
           <ReleaseNotesManager />
         )}
 
+        {view === 'carrier-signature' && (
+          <CarrierSignatureSettings />
+        )}
+
 
         {view === 'messages' && (
           <div className="flex flex-col gap-0" style={{ height: 'calc(100vh - 160px - 64px)' }}>
