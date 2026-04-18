@@ -1703,7 +1703,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           return !cfg.items.every(item => evalItem(op, item.field, item.complete_value));
         });
       })();
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchException && matchStageNode && !op.on_hold && !OWNER_USER_IDS.has(op.user_id);
+      // Exclude operators surfaced in the "Active — Open Onboarding Items" top section
+      // (they're fully onboarded but Stage 5 is still open — already shown above).
+      const inActiveOpenSection = op.fully_onboarded && isStage5Open(op);
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchException && matchStageNode && !op.on_hold && !inActiveOpenSection && !OWNER_USER_IDS.has(op.user_id);
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
