@@ -325,16 +325,67 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
 
                     <p className="text-xs text-muted-foreground mt-0.5">{slot.description}</p>
 
-                    {slot.key === 'truck_photos' && (
-                      <Button
-                        size="sm"
-                        className="mt-2 text-xs gap-1.5 h-9 px-4 bg-gold text-surface-dark hover:bg-gold-light"
-                        onClick={() => setShowPhotoGuide(true)}
-                      >
-                        <Camera className="h-3.5 w-3.5" />
-                        Take Truck Photos (10 Required)
-                      </Button>
-                    )}
+                    {slot.key === 'truck_photos' && (() => {
+                      const REQUIRED_PHOTO_COUNT = 10;
+                      // Count distinct truck-photo slots uploaded (file_name prefix encodes the slot label)
+                      const distinctSlotsUploaded = new Set(
+                        uploaded
+                          .map(d => (d.file_name ?? '').split(' — ')[0].trim())
+                          .filter(Boolean)
+                      ).size;
+                      const isReceivedByStaff = reviewStatus === 'received';
+                      const photosComplete = distinctSlotsUploaded >= REQUIRED_PHOTO_COUNT;
+
+                      // Staff-side override: photos received via email and uploaded/confirmed by coordinator
+                      if (isReceivedByStaff) {
+                        return (
+                          <div className="mt-2 p-3 rounded-lg bg-status-complete/10 border border-status-complete/30">
+                            <div className="flex items-start gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0 mt-0.5" />
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-status-complete leading-tight">
+                                  Received by coordinator ✓
+                                </p>
+                                <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                                  Your truck photos have been received and filed by your onboarding coordinator. No further action needed.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="mt-2 space-y-2">
+                          {/* Progress chip — required count */}
+                          <div className={`inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md font-medium ${
+                            photosComplete
+                              ? 'bg-status-complete/15 text-status-complete'
+                              : 'bg-warning/15 text-warning'
+                          }`}>
+                            <Camera className="h-3 w-3" />
+                            <span>{distinctSlotsUploaded} of {REQUIRED_PHOTO_COUNT} required photos uploaded</span>
+                          </div>
+                          {!photosComplete && distinctSlotsUploaded > 0 && (
+                            <p className="text-[11px] text-warning/90 leading-snug">
+                              All 10 photos are required. Tap below to capture the missing shots.
+                            </p>
+                          )}
+                          <Button
+                            size="sm"
+                            className="text-xs gap-1.5 h-9 px-4 bg-gold text-surface-dark hover:bg-gold-light"
+                            onClick={() => setShowPhotoGuide(true)}
+                          >
+                            <Camera className="h-3.5 w-3.5" />
+                            {distinctSlotsUploaded === 0
+                              ? 'Take Truck Photos (10 Required)'
+                              : photosComplete
+                              ? 'Review / Replace Photos'
+                              : `Continue Truck Photos (${REQUIRED_PHOTO_COUNT - distinctSlotsUploaded} left)`}
+                          </Button>
+                        </div>
+                      );
+                    })()}
 
                     {uploaded.length > 0 && (
                       <div className="mt-2 space-y-1.5">
@@ -764,6 +815,11 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
         onClose={() => setShowPhotoGuide(false)}
         operatorId={operatorId}
         onComplete={onUploadComplete}
+        alreadyUploadedLabels={Array.from(new Set(
+          getUploaded('truck_photos')
+            .map(d => (d.file_name ?? '').split(' — ')[0].trim())
+            .filter(Boolean)
+        ))}
       />
 
       {docPreview && (
