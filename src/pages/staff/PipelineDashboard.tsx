@@ -663,6 +663,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
    // On Hold section collapsed state
   const [onHoldExpanded, setOnHoldExpanded] = useState(true);
   const [ownerTestExpanded, setOwnerTestExpanded] = useState(false);
+  // "Active — Open Onboarding Items" section collapsed state
+  const [activeOpenExpanded, setActiveOpenExpanded] = useState(true);
   // Archive from On Hold
   const [archiveTarget, setArchiveTarget] = useState<OperatorRow | null>(null);
   const [archiveReason, setArchiveReason] = useState('');
