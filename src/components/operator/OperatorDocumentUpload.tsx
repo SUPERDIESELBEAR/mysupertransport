@@ -815,6 +815,11 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
         onClose={() => setShowPhotoGuide(false)}
         operatorId={operatorId}
         onComplete={onUploadComplete}
+        alreadyUploadedLabels={Array.from(new Set(
+          getUploaded('truck_photos')
+            .map(d => (d.file_name ?? '').split(' — ')[0].trim())
+            .filter(Boolean)
+        ))}
       />
 
       {docPreview && (
