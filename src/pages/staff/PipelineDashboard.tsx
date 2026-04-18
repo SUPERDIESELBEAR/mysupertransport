@@ -108,6 +108,27 @@ function computeProgressFromConfig(
   return Math.round((doneCount / activeConfigs.length) * 100);
 }
 
+/**
+ * Stage 5 (Equipment Setup) is "open" when any installation isn't finalized
+ * OR a temporary exception is in effect (paper logbook / temp decal).
+ * Used to keep fully-onboarded drivers visible at the top of the Pipeline
+ * until the shop visit closes out their equipment work.
+ */
+function isStage5Open(op: {
+  decal_applied: string;
+  eld_installed: string;
+  fuel_card_issued: string;
+  paper_logbook_approved: boolean;
+  temp_decal_approved: boolean;
+}): boolean {
+  const installComplete =
+    op.decal_applied === 'yes' &&
+    op.eld_installed === 'yes' &&
+    op.fuel_card_issued === 'yes';
+  const hasException = op.paper_logbook_approved || op.temp_decal_approved;
+  return !installComplete || hasException;
+}
+
 // Stage key → OperatorDetailPanel stageRefs key mapping
 const STAGE_KEY_TO_DETAIL: Record<string, string> = {
   bg:        'stage1',
@@ -663,6 +684,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
    // On Hold section collapsed state
   const [onHoldExpanded, setOnHoldExpanded] = useState(true);
   const [ownerTestExpanded, setOwnerTestExpanded] = useState(false);
+  // "Active — Open Onboarding Items" section collapsed state
+  const [activeOpenExpanded, setActiveOpenExpanded] = useState(true);
   // Archive from On Hold
   const [archiveTarget, setArchiveTarget] = useState<OperatorRow | null>(null);
   const [archiveReason, setArchiveReason] = useState('');
@@ -1159,7 +1182,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         on_hold_date: op.on_hold_date ?? null,
       };
     });
-    setOperators(rows.filter(r => !r.fully_onboarded));
+    // Keep operators in the Pipeline view if either:
+    //  • they're not yet fully onboarded, OR
+    //  • they're fully onboarded BUT Stage 5 (Equipment Setup) is still open
+    //    (decal/eld/fuel-card not all "yes" OR an exception flag is active)
+    setOperators(rows.filter(r => !r.fully_onboarded || isStage5Open(r)));
     setLoading(false);
   };
 
@@ -1676,7 +1703,10 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           return !cfg.items.every(item => evalItem(op, item.field, item.complete_value));
         });
       })();
-      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchException && matchStageNode && !op.on_hold && !OWNER_USER_IDS.has(op.user_id);
+      // Exclude operators surfaced in the "Active — Open Onboarding Items" top section
+      // (they're fully onboarded but Stage 5 is still open — already shown above).
+      const inActiveOpenSection = op.fully_onboarded && isStage5Open(op);
+      return matchSearch && matchStage && matchStatus && matchCoordinator && matchDispatch && matchProgress && matchCompliance && matchIdle && matchUnread && matchInvitePending && matchException && matchStageNode && !op.on_hold && !inActiveOpenSection && !OWNER_USER_IDS.has(op.user_id);
     })
     .sort((a, b) => {
       if (!sortKey) return 0;
@@ -1784,6 +1814,123 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Onboarding Pipeline</h1>
         <p className="text-muted-foreground text-sm mt-1">Track all operators through the onboarding process</p>
       </div>
+
+      {/* ─── Active — Open Onboarding Items (top section) ────────────────────
+          Operators who graduated to the Driver Hub (insurance added) but still
+          have Stage 5 work open (decal/ELD/fuel card not finalized OR running
+          under a paper-logbook / temp-decal exception). Pinned to the top so
+          coordinators can't forget the outstanding shop visit. */}
+      {(() => {
+        const activeOpenOps = operators.filter(
+          op => op.fully_onboarded && isStage5Open(op) && !op.on_hold && !OWNER_USER_IDS.has(op.user_id),
+        );
+        if (activeOpenOps.length === 0) return null;
+        return (
+          <div className="rounded-xl border-2 shadow-sm overflow-hidden" style={{ borderColor: 'hsl(var(--warning) / 0.5)' }}>
+            {/* Header */}
+            <button
+              onClick={() => setActiveOpenExpanded(v => !v)}
+              className="w-full flex items-center gap-3 px-4 py-3 transition-colors text-left hover:opacity-90"
+              style={{ background: 'hsl(var(--warning) / 0.10)' }}
+            >
+              <span
+                className="inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-black shrink-0"
+                style={{ background: 'hsl(var(--warning))', color: 'hsl(var(--warning-foreground))' }}
+              >
+                E
+              </span>
+              <span className="text-sm font-semibold text-foreground">Active — Open Onboarding Items</span>
+              <span
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ml-0.5"
+                style={{ background: 'hsl(var(--warning) / 0.15)', color: 'hsl(var(--warning))', borderColor: 'hsl(var(--warning) / 0.4)' }}
+              >
+                {activeOpenOps.length}
+              </span>
+              <span className="ml-2 text-xs text-muted-foreground font-normal hidden sm:inline">
+                Dispatching now, but Stage 5 (Equipment Setup) is still open — finalize before clearing
+              </span>
+              <div className="ml-auto shrink-0">
+                {activeOpenExpanded
+                  ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </div>
+            </button>
+
+            {activeOpenExpanded && (
+              <div className="divide-y divide-border bg-background">
+                {activeOpenOps.map(op => {
+                  const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim() || 'Unknown Operator';
+                  const dispatchInfo = op.dispatch_status ? DISPATCH_BADGE[op.dispatch_status] : null;
+                  const openItems: string[] = [];
+                  if (op.decal_applied !== 'yes') openItems.push('Decal');
+                  if (op.eld_installed !== 'yes') openItems.push('ELD');
+                  if (op.fuel_card_issued !== 'yes') openItems.push('Fuel Card');
+                  const exceptionParts: string[] = [];
+                  if (op.paper_logbook_approved) exceptionParts.push('Paper Logbook');
+                  if (op.temp_decal_approved) exceptionParts.push('Temp Decal');
+                  return (
+                    <div key={op.id} className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors">
+                      <button
+                        onClick={() => onOpenOperator(op.id)}
+                        className="font-medium text-sm text-foreground hover:text-gold hover:underline underline-offset-2 transition-colors text-left shrink-0"
+                      >
+                        {name}
+                      </button>
+
+                      {dispatchInfo && (
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0 ${dispatchInfo.className}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dispatchInfo.dot}`} />
+                          {dispatchInfo.label}
+                        </span>
+                      )}
+
+                      {openItems.length > 0 && (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0"
+                          style={{
+                            background: 'hsl(var(--warning) / 0.12)',
+                            color: 'hsl(var(--warning))',
+                            borderColor: 'hsl(var(--warning) / 0.4)',
+                          }}
+                        >
+                          Open: {openItems.join(', ')}
+                        </span>
+                      )}
+
+                      {exceptionParts.length > 0 && (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0"
+                          style={{
+                            background: 'hsl(var(--warning))',
+                            color: 'hsl(var(--warning-foreground))',
+                            borderColor: 'hsl(var(--warning))',
+                          }}
+                        >
+                          <span className="text-[9px] font-black">E</span>
+                          Exception: {exceptionParts.join(' + ')}
+                        </span>
+                      )}
+
+                      <div className="ml-auto shrink-0 hidden lg:block">
+                        <StageTrack op={op} stageConfigs={stageConfigs} onNodeClick={onOpenOperatorAtStage} />
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onOpenOperatorAtStage ? onOpenOperatorAtStage(op.id, 'stage5') : onOpenOperator(op.id)}
+                        className="text-gold hover:text-gold-light hover:bg-gold/10 text-xs shrink-0"
+                      >
+                        Finalize Stage 5 →
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
 
 
