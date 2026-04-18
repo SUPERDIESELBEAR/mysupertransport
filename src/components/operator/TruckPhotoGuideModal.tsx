@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { validateFile } from '@/lib/validateFile';
@@ -108,14 +108,32 @@ interface Props {
   onClose: () => void;
   operatorId: string;
   onComplete: () => void;
+  /** Slot labels (e.g. "Front", "DS Steer Tire") already uploaded — used to mark steps complete on open. */
+  alreadyUploadedLabels?: string[];
 }
 
-export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComplete }: Props) {
+export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComplete, alreadyUploadedLabels = [] }: Props) {
   const { toast } = useToast();
-  const [step, setStep] = useState(0); // 0 = intro, 1-6 = photo slots, 7 = done
+  const [step, setStep] = useState(0); // 0 = intro, 1-N = photo slots, N+1 = done
   const [uploaded, setUploaded] = useState<Record<string, UploadedPhoto>>({});
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Seed uploaded map from already-saved photos when modal opens, so users can resume
+  useEffect(() => {
+    if (!open) return;
+    const seed: Record<string, UploadedPhoto> = {};
+    PHOTO_SLOTS.forEach(slot => {
+      if (alreadyUploadedLabels.includes(slot.label)) {
+        seed[slot.key] = {
+          slotKey: slot.key,
+          fileName: 'Previously uploaded',
+          fileUrl: '',
+        };
+      }
+    });
+    setUploaded(seed);
+  }, [open, alreadyUploadedLabels]);
 
   const totalPhotoSteps = PHOTO_SLOTS.length;
   const currentSlot = step > 0 && step <= totalPhotoSteps ? PHOTO_SLOTS[step - 1] : null;
