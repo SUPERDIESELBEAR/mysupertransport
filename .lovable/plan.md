@@ -1,81 +1,65 @@
 
 
-User clarification: Don't add a new "Vehicle Registration" per-driver section. Instead, when an operator uploads their registration (because they have their own), drop it into the **existing** `IRP Registration (cab card)` per-driver binder section.
+The user has chosen the approach: keep operators with open Stage 5 exceptions in the Applicant Pipeline (block graduation to Driver Hub) until Stage 5 is fully complete, and place this new section at the **top** of the Pipeline.
 
-Let me revise the plan accordingly.
+Let me confirm the relevant details before finalizing.
 
-## Revised Plan: Conditional Registration Upload + Auto-Sync to Existing Binder Sections
+## Plan: "Active w/ Open Stages" section at top of Applicant Pipeline
 
-### Part 1 — Conditional registration upload (operator Stage 2)
+### Concept
 
-In `src/components/operator/OperatorDocumentUpload.tsx`:
-- Remove `registration` from the always-shown `DOCUMENT_SLOTS`
-- Add a conditional block (modeled on the Physical Damage Insurance pattern) that renders **only when** `onboardingStatus.registration_status === 'own_registration'`
-- Mark it **Required** (gold pill) with copy: *"Since you have your own registration, please upload a current copy so your coordinator can verify it and file it in your inspection binder."*
+When an operator hits "fully onboarded" (insurance added) but Stage 5 still has open items (decal, ELD, fuel card not finalized — i.e., they're dispatching under an exception like paper logbook or temp decal), they should:
 
-Mirror the same conditional visibility on the staff side in `OperatorDetailPanel.tsx`.
+1. **Stay visible at the TOP of the Applicant Pipeline** in a new "Active — Open Onboarding Items" section
+2. **Also appear in the Driver Hub** (so dispatch can use them)
+3. **Auto-graduate** off the Pipeline once Stage 5 is genuinely complete
 
-### Part 2 — Auto-sync uploads to the Inspection Binder (existing sections only)
+This is the "dual visibility" safety net — operators are dispatchable, but coordinators can't forget about open items.
 
-In `OperatorDocumentUpload.tsx → handleUpload`, after the existing `operator_documents` insert, also insert a row into `inspection_documents` for these two slot types:
+### Trigger condition
 
-| Stage 2 upload | Existing binder section (per-driver) |
-|---|---|
-| `truck_inspection` | `Periodic DOT Inspections` |
-| `registration` | `IRP Registration (cab card)` |
+An operator appears in the new top section when ALL of:
+- `onboarding_status.insurance_added_date IS NOT NULL` (would normally graduate them)
+- AND Stage 5 is not fully complete — i.e., any of:
+  - `decal_applied !== 'yes'`
+  - `eld_installed !== 'yes'`
+  - `fuel_card_issued !== 'yes'`
+  - OR an active exception flag is set: `paper_logbook_approved = true` or `temp_decal_approved = true`
 
-```ts
-const binderName = slot.key === 'truck_inspection' ? 'Periodic DOT Inspections'
-                 : slot.key === 'registration'    ? 'IRP Registration (cab card)'
-                 : null;
+Once Stage 5 closes (all three "yes" + exceptions cleared), they drop off the Pipeline automatically and remain only in the Driver Hub.
 
-if (binderName && operator?.user_id) {
-  await supabase.from('inspection_documents').insert({
-    name: binderName,
-    scope: 'per_driver',
-    driver_id: operator.user_id,
-    file_url: fileUrl,
-    file_path: path,        // bucket: operator-documents
-    uploaded_by: operator.user_id,
-    expires_at: null,       // staff sets expiry later
-  });
-}
-```
+### UI changes
 
-### Part 3 — Bucket routing for binder preview/editor
+**`src/pages/staff/PipelineDashboard.tsx`**
+- Modify the operator-fetch filter so `fully_onboarded = true` operators are still included **if** Stage 5 is incomplete
+- Group results into three sections, rendered top-to-bottom:
+  1. **🟡 Active — Open Onboarding Items** (NEW, at top) — fully_onboarded but Stage 5 open
+  2. **In Pipeline** (existing) — not fully onboarded
+  3. (existing other sections like Stalled, etc., remain in their current order below)
+- New section header styling matches existing section headers (gold accent, count badge)
+- Each row in the new section gets an "Open: Decal, ELD" style chip showing what's still pending, plus an "Active w/ Exception" badge if `paper_logbook_approved` or `temp_decal_approved` is true
 
-Extend `bucketForBinderDoc()` in `src/components/inspection/DocRow.tsx` to recognize `operator-documents` paths (path's first segment is a UUID, not `applications/`):
-```ts
-export function bucketForBinderDoc(filePath: string | null | undefined): string {
-  if (!filePath) return 'inspection-documents';
-  if (filePath.startsWith('applications/')) return 'application-documents';
-  // operator uploads are stored under "{user_uuid}/..."
-  if (/^[0-9a-f-]{36}\//i.test(filePath)) return 'operator-documents';
-  return 'inspection-documents';
-}
-```
+**`src/components/operator/OperatorStatusPage.tsx`** (operator-facing, optional polish)
+- No change needed — operator still sees normal Stage 5 "Pending" status
 
-### Part 4 — No changes to `InspectionBinderTypes.ts`
-
-`IRP Registration (cab card)` and `Periodic DOT Inspections` already exist in `PER_DRIVER_DOCS`. No new section, no schema change.
+### No DB / backend changes
+- `fully_onboarded` generated column stays as-is (Driver Hub continues using it)
+- No migration, no edge function changes, no notification timing changes
 
 ### Files to change
 
 | File | Change |
 |---|---|
-| `src/components/operator/OperatorDocumentUpload.tsx` | Conditional Required Registration slot + binder auto-sync for both upload types |
-| `src/components/inspection/DocRow.tsx` | Extend `bucketForBinderDoc()` to recognize `operator-documents` paths |
-| `src/pages/staff/OperatorDetailPanel.tsx` | Hide/show staff-side Registration row based on `registration_status === 'own_registration'` |
+| `src/pages/staff/PipelineDashboard.tsx` | Adjust query filter to include Stage-5-open onboarded operators; add new top section with header + filtered list; add "open items" chips |
 
 ### Why this is safe
-- No schema change, no new binder section
-- Operators not flagged `own_registration` see no UI change
-- Auto-sync writes to existing sections drivers/staff already use
-- Bucket routing additive — application & inspection paths unchanged
+- Driver Hub behavior unchanged — dispatch can still use these operators
+- Pipeline gets a richer, safer view — coordinators see exactly who still owes Stage 5 work
+- Auto-clears once Stage 5 is closed — no manual cleanup needed
+- Pure UI/query change — no schema, no triggers, no notifications affected
 
 ### After deploying
-1. Staff sets Stage 4 → "O/O Has Own Registration"
-2. Operator opens Stage 2 → sees new Required **Vehicle Registration** slot
-3. Operator uploads it → appears under existing **IRP Registration (cab card)** binder section
-4. Operator uploads **Truck Inspection Report** → appears under existing **Periodic DOT Inspections**
+1. Operator gets insurance added → still graduates to Driver Hub (dispatch uses them)
+2. **Same operator now also pinned at the top of Applicant Pipeline** under "Active — Open Onboarding Items" with chips like "Open: ELD, Fuel Card • Exception: Paper Logbook"
+3. Coordinator finishes Stage 5 (decal + ELD + fuel card all "yes") → operator quietly drops off the Pipeline, stays in Driver Hub
 
