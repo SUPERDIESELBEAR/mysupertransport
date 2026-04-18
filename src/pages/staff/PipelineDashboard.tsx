@@ -108,6 +108,27 @@ function computeProgressFromConfig(
   return Math.round((doneCount / activeConfigs.length) * 100);
 }
 
+/**
+ * Stage 5 (Equipment Setup) is "open" when any installation isn't finalized
+ * OR a temporary exception is in effect (paper logbook / temp decal).
+ * Used to keep fully-onboarded drivers visible at the top of the Pipeline
+ * until the shop visit closes out their equipment work.
+ */
+function isStage5Open(op: {
+  decal_applied: string;
+  eld_installed: string;
+  fuel_card_issued: string;
+  paper_logbook_approved: boolean;
+  temp_decal_approved: boolean;
+}): boolean {
+  const installComplete =
+    op.decal_applied === 'yes' &&
+    op.eld_installed === 'yes' &&
+    op.fuel_card_issued === 'yes';
+  const hasException = op.paper_logbook_approved || op.temp_decal_approved;
+  return !installComplete || hasException;
+}
+
 // Stage key → OperatorDetailPanel stageRefs key mapping
 const STAGE_KEY_TO_DETAIL: Record<string, string> = {
   bg:        'stage1',
