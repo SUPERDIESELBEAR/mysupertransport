@@ -1161,7 +1161,11 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         on_hold_date: op.on_hold_date ?? null,
       };
     });
-    setOperators(rows.filter(r => !r.fully_onboarded));
+    // Keep operators in the Pipeline view if either:
+    //  • they're not yet fully onboarded, OR
+    //  • they're fully onboarded BUT Stage 5 (Equipment Setup) is still open
+    //    (decal/eld/fuel-card not all "yes" OR an exception flag is active)
+    setOperators(rows.filter(r => !r.fully_onboarded || isStage5Open(r)));
     setLoading(false);
   };
 
