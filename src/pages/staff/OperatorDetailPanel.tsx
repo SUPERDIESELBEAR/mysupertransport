@@ -35,6 +35,7 @@ import { Switch } from '@/components/ui/switch';
 import { Suspense } from 'react';
 const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
 import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
+import SettlementForecast from '@/components/operator/SettlementForecast';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
