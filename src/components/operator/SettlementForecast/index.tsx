@@ -15,9 +15,11 @@ import PastSettlements from './PastSettlements';
 
 interface Props {
   operatorId: string;
+  /** When true, hides all add/edit/delete affordances and modals. Used by Staff/Management views. */
+  readOnly?: boolean;
 }
 
-export default function SettlementForecast({ operatorId }: Props) {
+export default function SettlementForecast({ operatorId, readOnly = false }: Props) {
   const [loading, setLoading] = useState(true);
   const [payPercentage, setPayPercentage] = useState<number>(PAY_PERCENTAGE_DEFAULT);
   const [loads, setLoads] = useState<LoadRow[]>([]);
@@ -117,11 +119,20 @@ export default function SettlementForecast({ operatorId }: Props) {
           <div>
             <h2 className="text-lg font-bold text-foreground">Settlement Forecast</h2>
             <p className="text-sm text-muted-foreground">
-              Plan your next 3 paydays · Your pay rate: <strong>{payPercentage}%</strong>
+              {readOnly ? 'Operator view · ' : 'Plan your next 3 paydays · '}
+              {readOnly ? 'Pay rate: ' : 'Your pay rate: '}
+              <strong>{payPercentage}%</strong>
             </p>
           </div>
         </div>
       </div>
+
+      {/* Staff banner — only shown in read-only (staff/management) view */}
+      {readOnly && (
+        <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          Viewing as operator — read-only. Operators self-manage these entries.
+        </div>
+      )}
 
       {/* Disclaimer */}
       <div className="flex gap-2 rounded-md border border-status-progress/30 bg-status-progress/10 p-3 text-xs">
@@ -158,55 +169,62 @@ export default function SettlementForecast({ operatorId }: Props) {
               expenses={b.expenses}
               deductions={b.deductions}
               payPercentage={payPercentage}
-              onAddLoad={() => setAddLoadFor(week)}
-              onAddFuel={() => setAddFuelFor(week)}
-              onAddAdvance={() => setAddAdvanceFor(week)}
+              readOnly={readOnly}
+              onAddLoad={readOnly ? undefined : () => setAddLoadFor(week)}
+              onAddFuel={readOnly ? undefined : () => setAddFuelFor(week)}
+              onAddAdvance={readOnly ? undefined : () => setAddAdvanceFor(week)}
               onChanged={fetchAll}
             />
           );
         })
       )}
 
-      {/* Manage deductions */}
-      <Button variant="outline" className="w-full" onClick={() => setDeductionsOpen(true)}>
-        <Settings2 className="h-4 w-4 mr-2" />
-        Manage Repair Payback & Other Deductions
-      </Button>
+      {/* Manage deductions — hidden in read-only mode */}
+      {!readOnly && (
+        <Button variant="outline" className="w-full" onClick={() => setDeductionsOpen(true)}>
+          <Settings2 className="h-4 w-4 mr-2" />
+          Manage Repair Payback & Other Deductions
+        </Button>
+      )}
 
       {/* History */}
       <PastSettlements operatorId={operatorId} payPercentage={payPercentage} />
 
-      {/* Modals */}
-      <AddLoadModal
-        open={!!addLoadFor}
-        onOpenChange={(v) => !v && setAddLoadFor(null)}
-        operatorId={operatorId}
-        payPercentage={payPercentage}
-        defaultDate={addLoadFor ? defaultDateForWeek(addLoadFor) : undefined}
-        onSaved={fetchAll}
-      />
-      <AddExpenseModal
-        open={!!addFuelFor}
-        onOpenChange={(v) => !v && setAddFuelFor(null)}
-        operatorId={operatorId}
-        expenseType="fuel"
-        defaultDate={addFuelFor ? defaultDateForWeek(addFuelFor) : undefined}
-        onSaved={fetchAll}
-      />
-      <AddExpenseModal
-        open={!!addAdvanceFor}
-        onOpenChange={(v) => !v && setAddAdvanceFor(null)}
-        operatorId={operatorId}
-        expenseType="advance"
-        defaultDate={addAdvanceFor ? defaultDateForWeek(addAdvanceFor) : undefined}
-        onSaved={fetchAll}
-      />
-      <DeductionsManager
-        open={deductionsOpen}
-        onOpenChange={setDeductionsOpen}
-        operatorId={operatorId}
-        onSaved={fetchAll}
-      />
+      {/* Modals — only mounted when editing is enabled */}
+      {!readOnly && (
+        <>
+          <AddLoadModal
+            open={!!addLoadFor}
+            onOpenChange={(v) => !v && setAddLoadFor(null)}
+            operatorId={operatorId}
+            payPercentage={payPercentage}
+            defaultDate={addLoadFor ? defaultDateForWeek(addLoadFor) : undefined}
+            onSaved={fetchAll}
+          />
+          <AddExpenseModal
+            open={!!addFuelFor}
+            onOpenChange={(v) => !v && setAddFuelFor(null)}
+            operatorId={operatorId}
+            expenseType="fuel"
+            defaultDate={addFuelFor ? defaultDateForWeek(addFuelFor) : undefined}
+            onSaved={fetchAll}
+          />
+          <AddExpenseModal
+            open={!!addAdvanceFor}
+            onOpenChange={(v) => !v && setAddAdvanceFor(null)}
+            operatorId={operatorId}
+            expenseType="advance"
+            defaultDate={addAdvanceFor ? defaultDateForWeek(addAdvanceFor) : undefined}
+            onSaved={fetchAll}
+          />
+          <DeductionsManager
+            open={deductionsOpen}
+            onOpenChange={setDeductionsOpen}
+            operatorId={operatorId}
+            onSaved={fetchAll}
+          />
+        </>
+      )}
     </div>
   );
 }

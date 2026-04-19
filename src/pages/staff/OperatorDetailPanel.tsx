@@ -35,6 +35,7 @@ import { Switch } from '@/components/ui/switch';
 import { Suspense } from 'react';
 const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
 import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
+import SettlementForecast from '@/components/operator/SettlementForecast';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -5800,6 +5801,27 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           <DriverVaultCard operatorId={operatorId} operatorName={operatorName} />
         </div>
       )}
+
+      {/* Settlement Forecast — read-only mirror of operator's self-service planning tool */}
+      <div className="bg-white border border-border rounded-xl shadow-sm" style={isQuickView ? { order: 9 } : undefined}>
+        <button
+          onClick={() => toggleStage('settlement_forecast')}
+          className="w-full flex items-center justify-between px-5 py-4 text-left"
+        >
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-gold" />
+            <h3 className="font-semibold text-foreground text-sm">Settlement Forecast</h3>
+            <span className="text-[11px] text-muted-foreground">(operator view · read-only)</span>
+          </div>
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${collapsedStages.has('settlement_forecast') ? '-rotate-90' : ''}`} />
+        </button>
+        {!collapsedStages.has('settlement_forecast') && (
+          <div className="px-5 pb-5">
+            <SettlementForecast operatorId={operatorId} readOnly />
+          </div>
+        )}
+      </div>
+
 
       {/* Internal Notes */}
       <div className="bg-white border border-border rounded-xl p-5 shadow-sm" style={isQuickView ? { order: 13 } : undefined}>
