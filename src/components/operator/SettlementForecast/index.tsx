@@ -124,11 +124,11 @@ export default function SettlementForecast({ operatorId }: Props) {
       </div>
 
       {/* Disclaimer */}
-      <div className="flex gap-2 rounded-md border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-3 text-xs">
-        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+      <div className="flex gap-2 rounded-md border border-status-warning/30 bg-status-warning/10 p-3 text-xs">
+        <AlertTriangle className="h-4 w-4 shrink-0 text-status-warning mt-0.5" />
         <div>
-          <p className="font-semibold text-amber-900 dark:text-amber-200">Forecast Only</p>
-          <p className="text-amber-800 dark:text-amber-300/80 mt-0.5">
+          <p className="font-semibold text-foreground">Forecast Only</p>
+          <p className="text-muted-foreground mt-0.5">
             This tool estimates your settlement based on the loads, fuel, and deductions you enter. It does
             not include tolls, IFTA, registration renewals, or other fees that may apply. Actual settlement
             may differ.

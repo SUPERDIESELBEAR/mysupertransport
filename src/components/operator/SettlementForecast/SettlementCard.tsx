@@ -143,7 +143,7 @@ export default function SettlementCard({
 
           {/* Fuel */}
           <Section
-            icon={<Fuel className="h-4 w-4 text-orange-500" />}
+            icon={<Fuel className="h-4 w-4 text-primary" />}
             title={`Fuel (${fuel.length})`}
             total={fuelTotal > 0 ? `−${formatMoney(fuelTotal)}` : formatMoney(0)}
             totalTone={fuelTotal > 0 ? 'negative' : 'neutral'}
@@ -166,7 +166,7 @@ export default function SettlementCard({
 
           {/* Cash advance */}
           <Section
-            icon={<Wallet className="h-4 w-4 text-blue-500" />}
+            icon={<Wallet className="h-4 w-4 text-primary" />}
             title={`Cash Advance (${advances.length})`}
             total={advTotal > 0 ? `−${formatMoney(advTotal)}` : formatMoney(0)}
             totalTone={advTotal > 0 ? 'negative' : 'neutral'}
@@ -190,7 +190,7 @@ export default function SettlementCard({
           {/* Repair payback */}
           {repairItems.length > 0 && (
             <Section
-              icon={<Wrench className="h-4 w-4 text-amber-600" />}
+              icon={<Wrench className="h-4 w-4 text-muted-foreground" />}
               title="Repair Payback"
               total={`−${formatMoney(repairTotal)}`}
               totalTone="negative"
@@ -212,7 +212,7 @@ export default function SettlementCard({
           {/* Other one-off deductions */}
           {otherItems.length > 0 && (
             <Section
-              icon={<Receipt className="h-4 w-4 text-purple-500" />}
+              icon={<Receipt className="h-4 w-4 text-muted-foreground" />}
               title="Other Deductions"
               total={`−${formatMoney(otherTotal)}`}
               totalTone="negative"
