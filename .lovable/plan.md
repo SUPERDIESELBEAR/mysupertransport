@@ -1,152 +1,72 @@
 
 
-## Settlement Forecast — Operator Self-Service Planning Tool
+The user wants Management and Staff to be able to see what an operator sees in their Settlement Forecast. The simplest, lowest-risk approach is a **read-only mirror** of the operator's forecast view, embedded inside the Operator Detail Panel that staff already use.
 
-A new operator-portal tab where drivers enter loads, fuel, advances, and repair payback to see what their settlement Tuesday will look like — 3 weeks out, with full history.
+Let me check how the Operator Detail Panel is structured and how other operator-portal views are reused (the codebase already has an `embedded` prop pattern per memory).
 
-### Settlement math (from your PDFs)
+Key facts from context:
+- `mem://arch/component-patterns` documents the `embedded` prop pattern for reusing operator views in staff/management portals
+- RLS already allows staff to SELECT all three forecast tables (set up in v1)
+- `OperatorDetailPanel.tsx` exists in `src/pages/staff/` and is shared by Staff + Management
+- v1 already shipped a `SettlementForecast/index.tsx` component on the operator portal
+- "Out of scope (v1): Staff-side editing of operator forecasts" — read-only is the right call
 
-- **Work Week:** Wednesday 12:00 AM → Tuesday 11:59 PM (US Central)
-- **Payday:** Tuesday, exactly **2 Tuesdays after** the work week ends
-- Example: Work week Apr 1–7 (Wed–Tue) → Payday Apr 21
-- A load delivered on Apr 5 is auto-bucketed into the Apr 21 settlement
-- A fuel purchase on Apr 5 is deducted on the same Apr 21 settlement
+Yes, this is very doable. Read-only is the right scope.
 
-The tool computes the work-week boundaries and matching payday from any date the operator enters — they never pick a "settlement week" manually.
+## Plan: Settlement Forecast — Read-Only View for Staff & Management
 
-### Per-settlement formula
+### What staff/management will see
 
-```
-Gross Pay      = Σ load rates in week × operator pay % (default 72%)
-Fuel           = Σ fuel purchases in week
-Cash Advances  = Σ advances in week
-Repair Payback = scheduled installment for that payday (if any)
-Other          = scheduled one-off deductions hitting that payday
-─────────────────────────────────────────────
-Net Forecast   = Gross Pay − Fuel − Advances − Repair − Other
-```
-
-### UI placement & layout
-
-New top-level tab in `OperatorPortal.tsx`: **"Settlement Forecast"** (icon: `Calculator` or `TrendingUp`), positioned near "My Truck" / "Pay Setup".
-
-**Page layout — 3 settlement cards stacked vertically (mobile-first):**
+A new **"Settlement Forecast"** tab inside the existing Operator Detail Panel (the same drawer they use today for Documents, Onboarding, ICA, etc.). Inside that tab, staff see exactly what the operator sees — the same 3 upcoming payday cards, past settlements history, and per-operator pay percentage — but **read-only** (no Add/Edit/Delete buttons, no modals).
 
 ```text
-┌─────────────────────────────────────────────┐
-│ ⚠ Forecast Only — does not include tolls,    │
-│   IFTA, registrations, or unlisted fees      │
-└─────────────────────────────────────────────┘
-
-┌─ Payday Tue Apr 21 ────────── Net: $2,680 ─┐
-│  Work Week: Apr 1 – Apr 7                  │
-│  ─────────────────────────────────────────│
-│  Loads (3)              [+ Add load]       │
-│   • Apr 3 · Dallas, TX · $2,400 → $1,728  │
-│   • Apr 5 · Memphis, TN · $1,800 → $1,296 │
-│   • Apr 6 · Atlanta, GA · $2,100 → $1,512 │
-│  Fuel (2)               [+ Add fuel]       │
-│   • Apr 4 · $620                           │
-│   • Apr 6 · $580                           │
-│  Cash Advance: $0       [+ Add]            │
-│  Repair Payback: $250 (2 of 3) ⓘ          │
-│  Other: —               [+ Add]            │
-└────────────────────────────────────────────┘
-
-┌─ Payday Tue Apr 28 ─ ...                    │
-┌─ Payday Tue May 5  ─ ...                    │
-
-[ Manage Repair & Recurring Deductions ]
-[ View Past Settlements ▼ ]
+Operator Detail Panel
+├─ Onboarding
+├─ Documents
+├─ ICA
+├─ Pay Setup
+├─ Settlement Forecast   ← NEW
+└─ ...
 ```
 
-Each card: collapsible sections, inline `+ Add` buttons that open a small modal (Date, City/State, Rate for loads; Date + Amount for fuel/advance). The 72% conversion happens live as they type the rate ("$2,000 → you'll see $1,440").
+Top of the tab shows a small staff-only banner:
+> *Viewing as operator — read-only. Operators self-manage these entries.*
 
-**Repair & recurring deductions modal:** simple list manager — "$1,000 over 3 weeks starting Apr 21" auto-generates 3 installments of $333.34/$333.33/$333.33 across the matching paydays. Same form supports one-off "Other" items (registration, etc.) tied to a single payday.
+### How we'll build it
 
-**History view:** below the 3 active cards, a collapsible "Past Settlements" list shows all previous paydays the operator has data for, read-only.
+**Reuse, don't rebuild.** Follow the existing `embedded` prop pattern (per project memory):
 
-### Data model (3 new tables)
+1. Add a `readOnly?: boolean` and `operatorId?: string` prop to `SettlementForecast/index.tsx` and to `SettlementCard.tsx`.
+2. When `readOnly === true`:
+   - Hide all "+ Add load / + Add fuel / + Add advance / Manage Deductions" buttons
+   - Hide row-level edit/delete affordances
+   - Don't mount the Add/Manage modals
+3. When `operatorId` is passed, fetch that operator's data instead of `auth.uid()`'s. RLS already permits staff SELECT, so no migration needed.
+4. Wire it into `OperatorDetailPanel.tsx` as a new tab.
 
-```sql
--- 1. Loads
-forecast_loads (
-  id uuid pk,
-  operator_id uuid,           -- RLS: operator owns own rows
-  delivery_date date,
-  delivery_city text,
-  delivery_state text,
-  load_rate numeric(10,2),    -- gross rate; 72% applied at display time
-  notes text,                 -- optional
-  created_at, updated_at
-)
-
--- 2. Fuel & cash advances (same shape, type discriminator)
-forecast_expenses (
-  id uuid pk,
-  operator_id uuid,
-  expense_date date,
-  expense_type text,          -- 'fuel' | 'advance'
-  amount numeric(10,2),
-  notes text,
-  created_at, updated_at
-)
-
--- 3. Repair installments + one-off "other" deductions
-forecast_deductions (
-  id uuid pk,
-  operator_id uuid,
-  label text,                 -- "Truck repair – brake job", "MO registration"
-  payday_date date,           -- the Tuesday this hits
-  amount numeric(10,2),
-  group_id uuid,              -- groups installments of one repair together
-  installment_number int,     -- "2 of 3"
-  installment_total int,
-  created_at, updated_at
-)
-```
-
-**Pay percentage:** add `pay_percentage int default 72` to the existing `operators` table. Operator sees it read-only in the tool ("Your pay rate: 72%"); staff can edit it in the Operator Detail Panel later (out of scope for v1).
-
-**RLS:** strict per-operator on all three tables (operator can CRUD own rows; staff can SELECT for support).
-
-### Date math (US Central, follows existing project convention)
-
-- All dates parsed as `YYYY-MM-DD` + `T12:00:00` (per your timezone memory)
-- Helper `getWorkWeekFor(date)` → returns `{ weekStart: Wed, weekEnd: Tue, payday: Tue+14d }`
-- Helper `getNext3Paydays(today)` → returns the 3 upcoming Tuesdays the operator can plan against
-- Loads/fuel auto-route to the correct settlement card by their date — operator never picks a week
-
-### Disclaimer (always visible at top)
-
-> **Forecast Only.** This tool estimates your settlement based on the loads, fuel, and deductions you enter. It does not include tolls, IFTA, registration renewals, or other fees that may apply. Actual settlement may differ.
-
-### Files to create / change
+### Files to change (small, focused diff)
 
 | File | Change |
 |---|---|
-| `supabase/migrations/...` | 3 new tables + RLS + add `pay_percentage` to `operators` |
-| `src/lib/settlementMath.ts` | NEW — work-week + payday math, 72% calc, installment splitter |
-| `src/components/operator/SettlementForecast/index.tsx` | NEW — main page, 3-card layout |
-| `src/components/operator/SettlementForecast/SettlementCard.tsx` | NEW — single payday card |
-| `src/components/operator/SettlementForecast/AddLoadModal.tsx` | NEW |
-| `src/components/operator/SettlementForecast/AddExpenseModal.tsx` | NEW (handles fuel + advance) |
-| `src/components/operator/SettlementForecast/DeductionsManager.tsx` | NEW — modal for repair installments + one-off |
-| `src/components/operator/SettlementForecast/PastSettlements.tsx` | NEW — history accordion |
-| `src/pages/operator/OperatorPortal.tsx` | Add `forecast` view + sidebar link |
+| `src/components/operator/SettlementForecast/index.tsx` | Add `readOnly` + `operatorId` props; gate buttons & modals; switch the operator-id source |
+| `src/components/operator/SettlementForecast/SettlementCard.tsx` | Accept `readOnly` prop; hide add/edit/delete affordances when true |
+| `src/components/operator/SettlementForecast/PastSettlements.tsx` | Accept `readOnly` (already mostly read-only — just suppress any edit links) |
+| `src/pages/staff/OperatorDetailPanel.tsx` | Add new "Settlement Forecast" tab that renders `<SettlementForecast operatorId={operator.id} readOnly />` |
 
-### Out of scope (v1)
+No new tables, no new RLS, no new edge functions. Pure UI surfacing of data staff can already query.
 
-- Staff-side editing of operator forecasts
-- Importing actual settlement data to compare forecast vs actual
-- Dispatch/load auto-population (operator types loads manually for now)
-- Per-operator pay % override UI for staff (column added, but staff editing UI is later)
+### What stays out of scope (matches v1 boundary)
+
+- ❌ Staff cannot add/edit/delete operator loads, fuel, advances, or deductions
+- ❌ Staff cannot change the operator's pay percentage from this view (separate future change in Operator Detail Panel)
+- ❌ No notifications when operators add forecast data
+
+If staff later need to *edit* on behalf of an operator, that becomes a separate, deliberate change with audit logging — not bundled here.
 
 ### After deploying
 
-1. Operator opens portal → new **Settlement Forecast** tab
-2. Sees 3 payday cards (next 3 Tuesdays) with disclaimer banner at top
-3. Taps **+ Add load** → enters Apr 5, "Memphis, TN", $1,800 → instantly slots into the correct payday card and shows $1,296 net contribution
-4. Adds fuel, schedules a 3-installment repair payback once → tool auto-applies it across the right paydays
-5. Each Tuesday, the oldest card rolls off into "Past Settlements" history; a new future card appears
+1. Staff opens any operator from the Pipeline / Driver Hub
+2. Clicks the new **Settlement Forecast** tab in the detail panel
+3. Sees the same 3 upcoming payday cards + past settlements as the operator, fully read-only
+4. Same view works in the Management portal (since Management uses the same Operator Detail Panel)
 
