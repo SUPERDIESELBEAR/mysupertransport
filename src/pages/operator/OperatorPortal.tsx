@@ -7,7 +7,7 @@ import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound,
-  ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye,
+  ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye, Calculator,
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
 import DriverServiceLibrary from '@/components/service-library/DriverServiceLibrary';
@@ -32,9 +32,10 @@ import TruckInfoCard, { TruckInfo, EquipmentShippingInfo } from '@/components/op
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
 import { BuildInfo } from '@/components/BuildInfo';
+import SettlementForecast from '@/components/operator/SettlementForecast';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'progress' | 'documents' | 'messages' | 'resource-center' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'pay-setup' | 'my-docs' | 'my-truck';
+type OperatorView = 'progress' | 'documents' | 'messages' | 'resource-center' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'pay-setup' | 'my-docs' | 'my-truck' | 'forecast';
 
 interface Stage {
   number: number;
@@ -70,7 +71,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const [view, setView] = useState<OperatorView>(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck'].includes(tab)) return tab;
+    if (tab && ['progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'].includes(tab)) return tab;
     return 'progress';
   });
   const [paySetupData, setPaySetupData] = useState<{ submitted_at: string | null; terms_accepted: boolean } | null>(null);
@@ -84,7 +85,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck'].includes(tab)) setView(tab);
+    if (tab && ['progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'].includes(tab)) setView(tab);
   }, [location.search]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [operatorId, setOperatorId] = useState<string | null>(null);
@@ -686,6 +687,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     { view: 'my-truck' as OperatorView, label: 'My Truck', icon: <Truck className="h-5 w-5" /> },
     { view: 'resource-center' as OperatorView, label: 'Resource Center', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
+    { view: 'forecast' as OperatorView, label: 'Settlement Forecast', icon: <Calculator className="h-5 w-5" /> },
     { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete', icaDot: icaActionDot },
     { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
@@ -1205,6 +1207,14 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {/* ── MY TRUCK VIEW (read-only fleet detail) ── */}
         {view === 'my-truck' && operatorId && (
           <FleetDetailDrawer operatorId={operatorId} onBack={() => setView('progress')} readOnly />
+        )}
+
+        {/* ── SETTLEMENT FORECAST VIEW ── */}
+        {view === 'forecast' && operatorId && (
+          <SettlementForecast operatorId={operatorId} />
+        )}
+        {view === 'forecast' && !operatorId && (
+          <div className="py-16 text-center text-muted-foreground text-sm">Loading your operator profile…</div>
         )}
 
         {/* ── ICA SIGN VIEW ── */}

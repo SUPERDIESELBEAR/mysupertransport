@@ -1061,6 +1061,138 @@ export type Database = {
         }
         Relationships: []
       }
+      forecast_deductions: {
+        Row: {
+          amount: number
+          created_at: string
+          group_id: string | null
+          id: string
+          installment_number: number | null
+          installment_total: number | null
+          label: string
+          operator_id: string
+          payday_date: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          installment_number?: number | null
+          installment_total?: number | null
+          label: string
+          operator_id: string
+          payday_date: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          installment_number?: number | null
+          installment_total?: number | null
+          label?: string
+          operator_id?: string
+          payday_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forecast_deductions_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forecast_expenses: {
+        Row: {
+          amount: number
+          created_at: string
+          expense_date: string
+          expense_type: string
+          id: string
+          notes: string | null
+          operator_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          expense_date: string
+          expense_type: string
+          id?: string
+          notes?: string | null
+          operator_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          expense_date?: string
+          expense_type?: string
+          id?: string
+          notes?: string | null
+          operator_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forecast_expenses_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forecast_loads: {
+        Row: {
+          created_at: string
+          delivery_city: string | null
+          delivery_date: string
+          delivery_state: string | null
+          id: string
+          load_rate: number
+          notes: string | null
+          operator_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          delivery_city?: string | null
+          delivery_date: string
+          delivery_state?: string | null
+          id?: string
+          load_rate: number
+          notes?: string | null
+          operator_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          delivery_city?: string | null
+          delivery_date?: string
+          delivery_state?: string | null
+          id?: string
+          load_rate?: number
+          notes?: string | null
+          operator_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forecast_loads_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ica_contracts: {
         Row: {
           carrier_signature_url: string | null
@@ -1816,6 +1948,7 @@ export type Database = {
           on_hold: boolean
           on_hold_date: string | null
           on_hold_reason: string | null
+          pay_percentage: number
           pwa_installed_at: string | null
           unit_number: string | null
           updated_at: string
@@ -1831,6 +1964,7 @@ export type Database = {
           on_hold?: boolean
           on_hold_date?: string | null
           on_hold_reason?: string | null
+          pay_percentage?: number
           pwa_installed_at?: string | null
           unit_number?: string | null
           updated_at?: string
@@ -1846,6 +1980,7 @@ export type Database = {
           on_hold?: boolean
           on_hold_date?: string | null
           on_hold_reason?: string | null
+          pay_percentage?: number
           pwa_installed_at?: string | null
           unit_number?: string | null
           updated_at?: string
