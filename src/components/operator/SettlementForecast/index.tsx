@@ -124,8 +124,8 @@ export default function SettlementForecast({ operatorId }: Props) {
       </div>
 
       {/* Disclaimer */}
-      <div className="flex gap-2 rounded-md border border-status-warning/30 bg-status-warning/10 p-3 text-xs">
-        <AlertTriangle className="h-4 w-4 shrink-0 text-status-warning mt-0.5" />
+      <div className="flex gap-2 rounded-md border border-status-progress/30 bg-status-progress/10 p-3 text-xs">
+        <AlertTriangle className="h-4 w-4 shrink-0 text-status-progress mt-0.5" />
         <div>
           <p className="font-semibold text-foreground">Forecast Only</p>
           <p className="text-muted-foreground mt-0.5">
