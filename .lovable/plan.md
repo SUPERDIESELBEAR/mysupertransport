@@ -1,30 +1,152 @@
 
 
-Let me check the current Truck Photos slot config first.
-<lov-tool-use id="toolu_vrtx_01SRfy7Ux3qVakBtYpz4p2Xd" name="code--search_files" integration-id="code" data="{\"query\": \"truck_photos\", \"include_patterns\": \"src/components/operator/OperatorDocumentUpload.tsx,src/pages/staff/OperatorDetailPanel.tsx\"}">
-</lov-tool-use>
+## Settlement Forecast — Operator Self-Service Planning Tool
 
-<lov-tool-use id="toolu_vrtx_01GAdeWNQbKRmGaXfypbmy4B" name="code--search_files" integration-id="code" data="{\"query\": \"truck_photos\", \"include_patterns\": \"src/components/operator/OperatorDocumentUpload.tsx,src/pages/staff/OperatorDetailPanel.tsx\"}">
-</lov-tool-use>
+A new operator-portal tab where drivers enter loads, fuel, advances, and repair payback to see what their settlement Tuesday will look like — 3 weeks out, with full history.
 
-<lov-tool-use id="toolu_vrtx_01Mswd6jVLC7XizGMyNoVihq" name="code--search_files" integration-id="code" data="{\"query\": \"truck_photos\", \"include_patterns\": \"src/components/operator/OperatorDocumentUpload.tsx\"}">
-</lov-tool-use>
+### Settlement math (from your PDFs)
 
-<lov-tool-use id="toolu_vrtx_01PPHHvWm6dYJQx7VWREkzDg" name="code--view" integration-id="code" data="{\"file_path\": \"src/components/operator/OperatorDocumentUpload.tsx\", \"lines\": \"280-380\"}">
-</lov-tool-use>
-Now let me check the staff-side upload flow for truck_photos to understand how a staff override would be modeled.
-<lov-tool-use id="toolu_vrtx_01MAAtc5vFvXiZADyKk9Netn" name="code--search_files" integration-id="code" data="{\"include_patterns\": \"src/pages/staff/OperatorDetailPanel.tsx\", \"query\": \"truck_photos|upload.*operator|staff.*upload\"}">
-</lov-tool-use>
-I have enough context. The TruckPhotoGuide currently requires 10 photos. The user wants this enforced as required from the applicant, but with a staff override path so a coordinator who received photos via email can upload them on behalf of the operator without sending them back to the truck.
+- **Work Week:** Wednesday 12:00 AM → Tuesday 11:59 PM (US Central)
+- **Payday:** Tuesday, exactly **2 Tuesdays after** the work week ends
+- Example: Work week Apr 1–7 (Wed–Tue) → Payday Apr 21
+- A load delivered on Apr 5 is auto-bucketed into the Apr 21 settlement
+- A fuel purchase on Apr 5 is deducted on the same Apr 21 settlement
 
-Let me check the staff-side document upload section to know whether staff can already upload truck_photos.
-<lov-tool-use id="toolu_vrtx_01Hmx1razAje24dY7ZGWRZxg" name="code--search_files" integration-id="code" data="{\"include_patterns\": \"src/pages/staff/OperatorDetailPanel.tsx\", \"query\": \"operator-documents|operator_documents.*insert|handleStaffUpload|uploadDoc\"}">
-</lov-tool-use>
-Good — staff already have the ability to upload `truck_photos` documents through the standard upload UI in the Operator Detail Panel (lines 278-287). So the override is essentially: staff uploads on the operator's behalf. The question then becomes how to:
+The tool computes the work-week boundaries and matching payday from any date the operator enters — they never pick a "settlement week" manually.
 
-1. Enforce "10 photos required" for the operator on the operator side
-2. Bypass that 10-photo enforcement when staff uploads (i.e., the operator no longer sees a "still required" warning if staff has uploaded what they have)
+### Per-settlement formula
 
-Let me ask a couple of clarifying questions before planning.
-<lov-tool-use id="toolu_vrtx_0168E3ZAucLhzRUJTiZsKmX9" name="questions--ask_questions" requires-approval="true" integration-id="questions" data="{\"questions\": [{\"header\":\"Operator enforcement\",\"question\":\"Right now the operator can upload Truck Photos but isn't strictly blocked from progressing without all 10. How strict should the requirement be on the operator side?\",\"options\":[{\"label\":\"Hard block — all 10 photos required\",\"description\":\"Operator cannot mark Stage 2 complete (and Stage 2 stays incomplete in the pipeline) until all 10 photos are uploaded OR a staff override is in place. Strongest enforcement.\"},{\"label\":\"Strong nudge — required badge + warning\",\"description\":\"Show the gold 'Required' pill, a clear warning chip if fewer than 10 are uploaded, and surface in the operator's progress widget — but don't hard-block uploads of other documents.\"},{\"label\":\"Keep current (Required pill only)\",\"description\":\"Leave operator UX as-is; only add the staff override + waive concept on the staff side.\"}],\"multiSelect\":false},{\"header\":\"Staff override mechanism\",\"question\":\"How should the staff override work when the operator emailed the photos instead of using the app?\",\"options\":[{\"label\":\"Mark as 'Received' after staff upload\",\"description\":\"When staff uploads 1+ photos via the existing Stage 2 upload tools, they then click 'Mark Received' (existing flow). This already counts as fulfilled — no separate waive needed. Simplest.\"},{\"label\":\"Explicit 'Waive 10-photo requirement' toggle\",\"description\":\"Add a staff-only checkbox like 'Photos received via email — waive in-app 10-photo requirement' on the Truck Photos row. Records who waived and when, with an optional note. Cleanest audit trail.\"},{\"label\":\"Both — staff uploads AND explicit waive flag\",\"description\":\"Staff uploads what they have AND must check the waive box, which records reason + actor. Belt-and-suspenders for compliance.\"}],\"multiSelect\":false},{\"header\":\"Operator visibility of override\",\"question\":\"When staff has uploaded/waived the photos, what should the operator see in their Stage 2?\",\"options\":[{\"label\":\"Show 'Received by coordinator ✓' banner\",\"description\":\"Truck Photos row shows a green confirmation that the coordinator has received & filed the photos, with the in-app camera button hidden. Clear and reassuring.\"},{\"label\":\"Hide the row entirely once received\",\"description\":\"Once staff marks Truck Photos as Received, the slot collapses out of the operator's checklist.\"},{\"label\":\"Leave the row visible with current 'Received' pill\",\"description\":\"No change to existing behavior — operator just sees the standard 'Received' state.\"}],\"multiSelect\":false}]}">
-</lov-tool-use>
+```
+Gross Pay      = Σ load rates in week × operator pay % (default 72%)
+Fuel           = Σ fuel purchases in week
+Cash Advances  = Σ advances in week
+Repair Payback = scheduled installment for that payday (if any)
+Other          = scheduled one-off deductions hitting that payday
+─────────────────────────────────────────────
+Net Forecast   = Gross Pay − Fuel − Advances − Repair − Other
+```
+
+### UI placement & layout
+
+New top-level tab in `OperatorPortal.tsx`: **"Settlement Forecast"** (icon: `Calculator` or `TrendingUp`), positioned near "My Truck" / "Pay Setup".
+
+**Page layout — 3 settlement cards stacked vertically (mobile-first):**
+
+```text
+┌─────────────────────────────────────────────┐
+│ ⚠ Forecast Only — does not include tolls,    │
+│   IFTA, registrations, or unlisted fees      │
+└─────────────────────────────────────────────┘
+
+┌─ Payday Tue Apr 21 ────────── Net: $2,680 ─┐
+│  Work Week: Apr 1 – Apr 7                  │
+│  ─────────────────────────────────────────│
+│  Loads (3)              [+ Add load]       │
+│   • Apr 3 · Dallas, TX · $2,400 → $1,728  │
+│   • Apr 5 · Memphis, TN · $1,800 → $1,296 │
+│   • Apr 6 · Atlanta, GA · $2,100 → $1,512 │
+│  Fuel (2)               [+ Add fuel]       │
+│   • Apr 4 · $620                           │
+│   • Apr 6 · $580                           │
+│  Cash Advance: $0       [+ Add]            │
+│  Repair Payback: $250 (2 of 3) ⓘ          │
+│  Other: —               [+ Add]            │
+└────────────────────────────────────────────┘
+
+┌─ Payday Tue Apr 28 ─ ...                    │
+┌─ Payday Tue May 5  ─ ...                    │
+
+[ Manage Repair & Recurring Deductions ]
+[ View Past Settlements ▼ ]
+```
+
+Each card: collapsible sections, inline `+ Add` buttons that open a small modal (Date, City/State, Rate for loads; Date + Amount for fuel/advance). The 72% conversion happens live as they type the rate ("$2,000 → you'll see $1,440").
+
+**Repair & recurring deductions modal:** simple list manager — "$1,000 over 3 weeks starting Apr 21" auto-generates 3 installments of $333.34/$333.33/$333.33 across the matching paydays. Same form supports one-off "Other" items (registration, etc.) tied to a single payday.
+
+**History view:** below the 3 active cards, a collapsible "Past Settlements" list shows all previous paydays the operator has data for, read-only.
+
+### Data model (3 new tables)
+
+```sql
+-- 1. Loads
+forecast_loads (
+  id uuid pk,
+  operator_id uuid,           -- RLS: operator owns own rows
+  delivery_date date,
+  delivery_city text,
+  delivery_state text,
+  load_rate numeric(10,2),    -- gross rate; 72% applied at display time
+  notes text,                 -- optional
+  created_at, updated_at
+)
+
+-- 2. Fuel & cash advances (same shape, type discriminator)
+forecast_expenses (
+  id uuid pk,
+  operator_id uuid,
+  expense_date date,
+  expense_type text,          -- 'fuel' | 'advance'
+  amount numeric(10,2),
+  notes text,
+  created_at, updated_at
+)
+
+-- 3. Repair installments + one-off "other" deductions
+forecast_deductions (
+  id uuid pk,
+  operator_id uuid,
+  label text,                 -- "Truck repair – brake job", "MO registration"
+  payday_date date,           -- the Tuesday this hits
+  amount numeric(10,2),
+  group_id uuid,              -- groups installments of one repair together
+  installment_number int,     -- "2 of 3"
+  installment_total int,
+  created_at, updated_at
+)
+```
+
+**Pay percentage:** add `pay_percentage int default 72` to the existing `operators` table. Operator sees it read-only in the tool ("Your pay rate: 72%"); staff can edit it in the Operator Detail Panel later (out of scope for v1).
+
+**RLS:** strict per-operator on all three tables (operator can CRUD own rows; staff can SELECT for support).
+
+### Date math (US Central, follows existing project convention)
+
+- All dates parsed as `YYYY-MM-DD` + `T12:00:00` (per your timezone memory)
+- Helper `getWorkWeekFor(date)` → returns `{ weekStart: Wed, weekEnd: Tue, payday: Tue+14d }`
+- Helper `getNext3Paydays(today)` → returns the 3 upcoming Tuesdays the operator can plan against
+- Loads/fuel auto-route to the correct settlement card by their date — operator never picks a week
+
+### Disclaimer (always visible at top)
+
+> **Forecast Only.** This tool estimates your settlement based on the loads, fuel, and deductions you enter. It does not include tolls, IFTA, registration renewals, or other fees that may apply. Actual settlement may differ.
+
+### Files to create / change
+
+| File | Change |
+|---|---|
+| `supabase/migrations/...` | 3 new tables + RLS + add `pay_percentage` to `operators` |
+| `src/lib/settlementMath.ts` | NEW — work-week + payday math, 72% calc, installment splitter |
+| `src/components/operator/SettlementForecast/index.tsx` | NEW — main page, 3-card layout |
+| `src/components/operator/SettlementForecast/SettlementCard.tsx` | NEW — single payday card |
+| `src/components/operator/SettlementForecast/AddLoadModal.tsx` | NEW |
+| `src/components/operator/SettlementForecast/AddExpenseModal.tsx` | NEW (handles fuel + advance) |
+| `src/components/operator/SettlementForecast/DeductionsManager.tsx` | NEW — modal for repair installments + one-off |
+| `src/components/operator/SettlementForecast/PastSettlements.tsx` | NEW — history accordion |
+| `src/pages/operator/OperatorPortal.tsx` | Add `forecast` view + sidebar link |
+
+### Out of scope (v1)
+
+- Staff-side editing of operator forecasts
+- Importing actual settlement data to compare forecast vs actual
+- Dispatch/load auto-population (operator types loads manually for now)
+- Per-operator pay % override UI for staff (column added, but staff editing UI is later)
+
+### After deploying
+
+1. Operator opens portal → new **Settlement Forecast** tab
+2. Sees 3 payday cards (next 3 Tuesdays) with disclaimer banner at top
+3. Taps **+ Add load** → enters Apr 5, "Memphis, TN", $1,800 → instantly slots into the correct payday card and shows $1,296 net contribution
+4. Adds fuel, schedules a 3-installment repair payback once → tool auto-applies it across the right paydays
+5. Each Tuesday, the oldest card rolls off into "Past Settlements" history; a new future card appears
+
