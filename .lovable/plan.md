@@ -1,72 +1,53 @@
 
 
-The user wants Management and Staff to be able to see what an operator sees in their Settlement Forecast. The simplest, lowest-risk approach is a **read-only mirror** of the operator's forecast view, embedded inside the Operator Detail Panel that staff already use.
+## Short answer
 
-Let me check how the Operator Detail Panel is structured and how other operator-portal views are reused (the codebase already has an `embedded` prop pattern per memory).
+**No** — shipping carrier, tracking number, ship date, and tracking receipt do **not** currently sync into the applicant's profile in the pipeline (the Operator Detail Panel that Staff and Management open from the Pipeline / Driver Hub).
 
-Key facts from context:
-- `mem://arch/component-patterns` documents the `embedded` prop pattern for reusing operator views in staff/management portals
-- RLS already allows staff to SELECT all three forecast tables (set up in v1)
-- `OperatorDetailPanel.tsx` exists in `src/pages/staff/` and is shared by Staff + Management
-- v1 already shipped a `SettlementForecast/index.tsx` component on the operator portal
-- "Out of scope (v1): Staff-side editing of operator forecasts" — read-only is the right call
+### Where the data lives today
 
-Yes, this is very doable. Read-only is the right scope.
+- **Stored in**: `equipment_assignments` table (`shipping_carrier`, `tracking_number`, `ship_date`, `tracking_receipt_url`).
+- **Visible in**: 
+  - Equipment Inventory (staff/management) — via `EquipmentAssignModal` and `EquipmentHistoryModal`.
+  - Operator Portal — `TruckInfoCard` shows a "Shipped UPS · 1Z999…" chip + receipt link beside each device serial.
+- **Missing in**: The Operator Detail Panel (the applicant/operator profile drawer used in the Pipeline). It renders `<TruckInfoCard>` but only passes `truckInfo` and `deviceInfo` — the `shippingInfo` prop is omitted, so no tracking chip ever shows.
 
-## Plan: Settlement Forecast — Read-Only View for Staff & Management
+### Plan — sync shipping into the applicant profile
 
-### What staff/management will see
+Mirror the same one-line shipping chip the operator already sees, on the staff/management side. No new schema, no new RPC if one already exists for the operator portal — we'll reuse the same fetch.
 
-A new **"Settlement Forecast"** tab inside the existing Operator Detail Panel (the same drawer they use today for Documents, Onboarding, ICA, etc.). Inside that tab, staff see exactly what the operator sees — the same 3 upcoming payday cards, past settlements history, and per-operator pay percentage — but **read-only** (no Add/Edit/Delete buttons, no modals).
+1. **Reuse the operator-side fetch**
+   - Find the call in `OperatorPortal.tsx` (around line 194) that returns `EquipmentShippingInfo[]` per device. It already exists and is RLS-safe for staff (staff can view `equipment_assignments` directly).
+   - Extract it into `src/lib/equipmentSync.ts` as `fetchOperatorEquipmentShipping(operatorId)` so both portals share one source of truth.
 
-```text
-Operator Detail Panel
-├─ Onboarding
-├─ Documents
-├─ ICA
-├─ Pay Setup
-├─ Settlement Forecast   ← NEW
-└─ ...
-```
+2. **Wire it into the Operator Detail Panel** (`src/pages/staff/OperatorDetailPanel.tsx`)
+   - Add `equipmentShipping` state, fetch on mount whenever `operatorId` changes (and after EquipmentAssignModal saves, via the existing refresh hook).
+   - Pass it to the existing `<TruckInfoCard>` at line 3012:
+     ```tsx
+     <TruckInfoCard
+       truckInfo={icaTruckInfo}
+       deviceInfo={{ ... }}
+       shippingInfo={equipmentShipping}
+       onEdit={handleTruckDeviceEdit}
+       onTruckEdit={handleTruckInfoEdit}
+     />
+     ```
+   - This automatically lights up the same shipping chips (Carrier · tracking# · receipt preview) the operator sees, since `TruckInfoCard` already supports the prop.
 
-Top of the tab shows a small staff-only banner:
-> *Viewing as operator — read-only. Operators self-manage these entries.*
+3. **Coverage**
+   - Staff Portal → Pipeline → open applicant → Truck & Equipment card now shows shipping per device.
+   - Management Portal → same panel is reused → gets it automatically.
+   - No changes needed in `ApplicationReviewDrawer` (that drawer is for the *application* stage, before equipment is assigned — equipment doesn't apply there).
 
-### How we'll build it
+### What stays unchanged
 
-**Reuse, don't rebuild.** Follow the existing `embedded` prop pattern (per project memory):
-
-1. Add a `readOnly?: boolean` and `operatorId?: string` prop to `SettlementForecast/index.tsx` and to `SettlementCard.tsx`.
-2. When `readOnly === true`:
-   - Hide all "+ Add load / + Add fuel / + Add advance / Manage Deductions" buttons
-   - Hide row-level edit/delete affordances
-   - Don't mount the Add/Manage modals
-3. When `operatorId` is passed, fetch that operator's data instead of `auth.uid()`'s. RLS already permits staff SELECT, so no migration needed.
-4. Wire it into `OperatorDetailPanel.tsx` as a new tab.
-
-### Files to change (small, focused diff)
-
-| File | Change |
-|---|---|
-| `src/components/operator/SettlementForecast/index.tsx` | Add `readOnly` + `operatorId` props; gate buttons & modals; switch the operator-id source |
-| `src/components/operator/SettlementForecast/SettlementCard.tsx` | Accept `readOnly` prop; hide add/edit/delete affordances when true |
-| `src/components/operator/SettlementForecast/PastSettlements.tsx` | Accept `readOnly` (already mostly read-only — just suppress any edit links) |
-| `src/pages/staff/OperatorDetailPanel.tsx` | Add new "Settlement Forecast" tab that renders `<SettlementForecast operatorId={operator.id} readOnly />` |
-
-No new tables, no new RLS, no new edge functions. Pure UI surfacing of data staff can already query.
-
-### What stays out of scope (matches v1 boundary)
-
-- ❌ Staff cannot add/edit/delete operator loads, fuel, advances, or deductions
-- ❌ Staff cannot change the operator's pay percentage from this view (separate future change in Operator Detail Panel)
-- ❌ No notifications when operators add forecast data
-
-If staff later need to *edit* on behalf of an operator, that becomes a separate, deliberate change with audit logging — not bundled here.
+- Permissions (staff already have read access via existing RLS on `equipment_assignments`).
+- Edit flow remains in Equipment Inventory's `EquipmentAssignModal` / `EquipmentHistoryModal` — the profile view is read-only display, matching the existing pattern.
+- Operator portal display and Equipment Inventory views stay as-is.
 
 ### After deploying
 
-1. Staff opens any operator from the Pipeline / Driver Hub
-2. Clicks the new **Settlement Forecast** tab in the detail panel
-3. Sees the same 3 upcoming payday cards + past settlements as the operator, fully read-only
-4. Same view works in the Management portal (since Management uses the same Operator Detail Panel)
+1. Staff opens any operator from Pipeline → Truck & Equipment card now shows "Shipped UPS · 1Z999…" with a clickable carrier link and receipt preview, beside each ELD / Dash Cam / BestPass / Fuel Card serial — exactly what the operator sees.
+2. Same in Management Portal (uses the same panel).
+3. Updates made in Equipment Inventory flow through on next open.
 
