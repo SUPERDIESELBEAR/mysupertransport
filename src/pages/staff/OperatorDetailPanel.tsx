@@ -1435,6 +1435,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         eld_installed: status.eld_installed ?? prev.eld_installed,
         fuel_card_issued: status.fuel_card_issued ?? prev.fuel_card_issued,
         mo_reg_received: status.mo_reg_received ?? prev.mo_reg_received,
+        eld_serial_number: status.eld_serial_number ?? prev.eld_serial_number,
+        dash_cam_number: status.dash_cam_number ?? prev.dash_cam_number,
+        bestpass_number: status.bestpass_number ?? prev.bestpass_number,
+        fuel_card_number: status.fuel_card_number ?? prev.fuel_card_number,
       };
 
       // ── Per-doc received notifications → operator ─────────────────────
