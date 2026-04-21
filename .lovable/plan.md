@@ -1,43 +1,86 @@
 
 
-## Verify ScrollJumpButton on every Applicant Pipeline subview
+## Email-based resume for unfinished applications
 
-I'll exercise each subview state in the live preview with a short viewport so any list naturally exceeds the 400px threshold, then confirm the floating button renders (and flips between "Jump to bottom" and "Back to top").
+Applicants can currently only resume a draft on the same browser/device where it was saved (via `localStorage`). This plan adds an **email-based resume flow**: an applicant enters their email, receives a secure link, and lands back in the application with their progress restored — on any device.
 
-### Checklist of subviews to verify
+It also adds a **"Resume application" banner** on the splash page so applicants who return later have a clear, obvious entry point.
 
-1. **Default Active list** — `/staff?view=pipeline` on load (no filters)
-2. **All meaningful filter / section states**, exercised in this order:
-   - Search results (type a partial name in the search box)
-   - ICA filter active (Stage 3 — ICA chip)
-   - Truck Down filter (set via the Truck Down banner / chip)
-   - On Hold section expanded
-   - Owner Test section expanded (if present)
+### What the user will see
 
-### How I'll verify each one
+**1. "Resume application" banner on the splash page (`/`)**
+- A prominent banner above the hero: *"Started an application? Pick up where you left off →"*
+- Clicking it opens a lightweight "Resume" dialog.
 
-For every subview:
-1. `set_viewport_size` to **1280 × 600** so even short lists overflow past 400px.
-2. `navigate_to_sandbox` to `/staff?view=pipeline` (or click the right filter from the active page — session state is preserved across viewport changes).
-3. Apply the subview state (toggle filter, expand section, etc.).
-4. `screenshot` at scroll-top → expect "Jump to bottom" pill in bottom-right.
-5. Scroll the page past 300px → `screenshot` again → expect the same pill flipped to "Back to top".
-6. Record pass/fail per subview.
+**2. Resume dialog**
+- Single email input + "Send resume link" button.
+- Always responds with the same confirmation message (*"If an application exists for that email, we've sent a resume link"*) to avoid leaking which emails are in our system.
+- No rate-limit prompts visible to the user beyond a friendly "Please wait a moment before trying again."
 
-### What "pass" means
+**3. Email**
+- Subject: *"Resume your SUPERTRANSPORT application"*
+- Body: branded, short, with a single primary button "Resume application" → link valid for **24 hours, single use**.
+- Sent via Lovable's built-in transactional email system (no third-party provider).
 
-- Pill is visible, fixed in the bottom-right of the viewport.
-- Label/icon flips correctly after scrolling >300px.
-- Pill correctly **hides** if a subview happens to be shorter than viewport + 400px (this is by-design behavior — I'll call those out separately rather than as failures).
+**4. Resume landing (`/apply?resume=<token>`)**
+- The application form validates the token, restores the draft, and shows the existing gold "Your previous progress has been restored" banner.
+- If the token is invalid/expired/used, a clear message: *"This resume link has expired. Request a new one from the home page."* with a button back to the splash.
 
-### Expected outcome
+**5. Draft save UX tweak**
+- When the applicant clicks "Save Progress" and they have an email on file, a small confirmation toast: *"Saved. You can resume from any device — just enter your email on the home page."* (no email sent here; this is informational only).
 
-The button is page-level (only checks `document.documentElement.scrollHeight`), so all six subviews should pass at 1280×600. If any subview fails to show the button despite the page being scrollable, I'll flag it and propose a fix in a follow-up plan (no code changes in this verification pass).
+### How it works (technical)
 
-### Deliverable
+**Backend**
 
-A short report in chat:
-- Subview → Pass / Fail / Hidden-by-design (with screenshot reference)
-- Any anomalies (e.g., button overlapping a sticky element, wrong z-index, label not flipping)
-- No code changes unless a real bug surfaces — in which case I'll stop and call it out before editing.
+- New table `application_resume_tokens`:
+  - `token text PRIMARY KEY` (random 32-byte URL-safe)
+  - `application_id uuid REFERENCES applications(id) ON DELETE CASCADE`
+  - `email text NOT NULL`
+  - `expires_at timestamptz NOT NULL` (24 h)
+  - `used_at timestamptz`
+  - `created_at timestamptz DEFAULT now()`
+  - RLS: no client access (service-role only). Applicants never query it directly.
+
+- **Edge function `request-application-resume`** (public, `verify_jwt = false`):
+  - Input: `{ email }` validated with zod.
+  - Rate-limit: max 3 requests per email per hour (tracked by timestamp on recent tokens).
+  - Looks up the most recent `applications` row where `lower(email) = lower(input)` AND `is_draft = true`.
+  - If found: creates a resume token, enqueues a transactional email with the resume URL (`${APP_URL}/apply?resume=<token>`).
+  - **Always returns 200** with a generic success message (no account enumeration).
+
+- **Edge function `consume-application-resume`** (public, `verify_jwt = false`):
+  - Input: `{ token }`.
+  - Validates: exists, not used, not expired.
+  - Atomically marks `used_at = now()` and returns `{ draft_token }` for that application.
+  - The client then stores `draft_token` in `localStorage` and reuses the existing `get_application_by_draft_token` flow — **no duplication of the restore logic**.
+
+- **Transactional email template** `resume-application.tsx` (React Email): branded with SUPERTRANSPORT gold, includes applicant first name if available, single CTA button, expiry note.
+
+**Frontend**
+
+- `src/pages/SplashPage.tsx`: add a "Resume application" banner (above hero) that opens a new `ResumeApplicationDialog`.
+- New `src/components/application/ResumeApplicationDialog.tsx`: email input + submit → calls `request-application-resume` → shows generic confirmation.
+- `src/pages/ApplicationForm.tsx`: on mount, if `?resume=<token>` in URL:
+  1. Call `consume-application-resume` with the token.
+  2. On success, store returned `draft_token` in `localStorage`, strip the query param from the URL, and fall through to the existing draft-load path (which already shows the restore banner).
+  3. On failure, show an inline error card with a "Back to home" button.
+
+**Infrastructure prerequisites**
+
+- Requires email domain + transactional email scaffolding (Lovable Emails). If not yet set up, the setup dialog will appear first, then this work continues automatically.
+
+### Security & privacy
+
+- Tokens are 32-byte URL-safe random (not UUIDs) stored server-side only.
+- Single-use, 24-hour expiry.
+- Generic API responses prevent email enumeration.
+- Rate-limited per email to prevent abuse.
+- No applicant data returned from `request-application-resume` — the draft is only loaded after token consumption on the resume URL.
+
+### Out of scope
+
+- No change to the existing localStorage-based resume (still works for same-device).
+- No change to submitted applications (resume only applies to `is_draft = true` rows).
+- No "forgot my email" flow — applicants must know the email they applied with.
 
