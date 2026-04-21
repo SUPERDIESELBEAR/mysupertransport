@@ -350,6 +350,47 @@ export default function ApplicationForm() {
     );
   }
 
+  // ── Resume link error screen ────────────────────────────────────────────
+  if (resumeError) {
+    return (
+      <div className="min-h-screen bg-secondary flex items-center justify-center p-4">
+        <div className="w-full max-w-md text-center">
+          <div className="flex justify-center mb-6">
+            <img src={logo} alt="SUPERTRANSPORT" className="h-28 w-auto max-w-[400px] object-contain" />
+          </div>
+          <div className="bg-white border border-border rounded-2xl p-8 shadow-sm">
+            <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+              <Link2Off className="h-8 w-8 text-destructive" />
+            </div>
+            <h1 className="text-xl font-bold text-foreground mb-2">Resume link unavailable</h1>
+            <p className="text-muted-foreground text-sm leading-relaxed">{resumeError}</p>
+            <div className="mt-6 flex flex-col gap-2">
+              <a
+                href="/"
+                className="inline-flex items-center justify-center h-11 rounded-xl bg-gold text-surface-dark text-sm font-bold hover:bg-gold-light transition-colors"
+              >
+                Back to home
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setResumeError(null);
+                  localStorage.removeItem(DRAFT_TOKEN_KEY);
+                  setFormData(defaultFormData);
+                  setApplicationId(null);
+                  setStep(1);
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+              >
+                Or start a fresh application
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-secondary">
       {/* Header */}
