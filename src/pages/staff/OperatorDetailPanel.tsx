@@ -1259,11 +1259,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const equipmentReady =
       status.decal_applied === 'yes' &&
       status.eld_installed === 'yes' &&
-      status.fuel_card_issued === 'yes';
+      status.fuel_card_issued === 'yes' &&
+      !!status.eld_serial_number &&
+      !!status.dash_cam_number &&
+      !!status.fuel_card_number;
     const wasEquipmentReady =
       prev.decal_applied === 'yes' &&
       prev.eld_installed === 'yes' &&
-      prev.fuel_card_issued === 'yes';
+      prev.fuel_card_issued === 'yes' &&
+      !!prev.eld_serial_number &&
+      !!prev.dash_cam_number &&
+      !!prev.fuel_card_number;
 
     const milestones: { key: string; label: string; triggered: boolean }[] = [
       {
@@ -1322,15 +1328,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     let statusError: { message: string } | null = null;
     if (statusId) {
       // fully_onboarded is a DB-generated column (insurance_added_date IS NOT NULL) — never write it
-      // Truck & device fields are saved independently via handleTruckInfoEdit / handleTruckDeviceEdit — exclude them here
+      // Truck fields are saved independently via handleTruckInfoEdit — exclude them here.
+      // Device serial fields ARE included in the main save (and additionally synced to Equipment Inventory below)
+      // so that staff who type them directly into the Stage 5 form and click the main Save button get them persisted.
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const {
         id: _id, fully_onboarded: _fo, operator_id: _oid, updated_at: _ua, updated_by: _ub,
         // Truck fields — saved separately via handleTruckInfoEdit
         truck_year: _ty, truck_make: _tm, truck_vin: _tv,
         truck_plate: _tp, truck_plate_state: _tps, trailer_number: _tn,
-        // Device fields — saved separately via handleTruckDeviceEdit
-        eld_serial_number: _eld, dash_cam_number: _dc, bestpass_number: _bp, fuel_card_number: _fc,
         ...updateData
       } = status as any;
       const { error: stErr } = await supabase
@@ -1342,6 +1348,32 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       // Reflect generated value in local state immediately so header badge updates
       if (!stErr && isNewlyFullyOnboarded) {
         setStatus(prev => ({ ...prev, fully_onboarded: true }));
+      }
+
+      // Two-way sync: if any device serial changed via the main save, mirror to Equipment Inventory
+      if (!stErr && operatorId) {
+        const oldDevices = {
+          eld_serial_number: prev.eld_serial_number,
+          dash_cam_number: prev.dash_cam_number,
+          bestpass_number: prev.bestpass_number,
+          fuel_card_number: prev.fuel_card_number,
+        };
+        const newDevices = {
+          eld_serial_number: status.eld_serial_number,
+          dash_cam_number: status.dash_cam_number,
+          bestpass_number: status.bestpass_number,
+          fuel_card_number: status.fuel_card_number,
+        };
+        const changed = Object.keys(oldDevices).some(
+          k => (oldDevices as any)[k] !== (newDevices as any)[k],
+        );
+        if (changed) {
+          try {
+            await syncAllDeviceFields(operatorId, oldDevices, newDevices, session?.user?.id ?? null);
+          } catch (syncErr) {
+            console.error('[OperatorDetailPanel] Equipment Inventory sync failed:', syncErr);
+          }
+        }
       }
     }
 
