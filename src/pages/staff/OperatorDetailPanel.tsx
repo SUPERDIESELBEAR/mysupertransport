@@ -28,7 +28,7 @@ import OperatorBinderPanel from '@/components/inspection/OperatorBinderPanel';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 import TruckPhotoGridModal from '@/components/staff/TruckPhotoGridModal';
 import { formatDistanceToNow, format, differenceInDays, parseISO, startOfDay } from 'date-fns';
-import TruckInfoCard, { TruckInfo, TruckInfoCardEditPayload, TruckFieldsEditPayload } from '@/components/operator/TruckInfoCard';
+import TruckInfoCard, { TruckInfo, TruckInfoCardEditPayload, TruckFieldsEditPayload, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
 import { US_STATES } from '@/components/application/types';
 import { DateInput } from '@/components/ui/date-input';
 import { Switch } from '@/components/ui/switch';
@@ -452,7 +452,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
   // ICA truck info for TruckInfoCard
   const [icaTruckInfo, setIcaTruckInfo] = useState<TruckInfo | null>(null);
-  
+  const [equipmentShipping, setEquipmentShipping] = useState<EquipmentShippingInfo[]>([]);
+
   const [companyDocUrls, setCompanyDocUrls] = useState<{ overview: string | null; calendar: string | null }>({ overview: null, calendar: null });
   const [previewDoc, setPreviewDoc] = useState<{ title: string; url: string } | null>(null);
   const [sendingPayrollDocs, setSendingPayrollDocs] = useState(false);
@@ -1067,6 +1068,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setIcaTruckInfo(merged);
     } else {
       setIcaTruckInfo(null);
+    }
+
+    // Fetch equipment shipping info (carrier / tracking # / receipt) per device.
+    // Uses the same operator-scoped RPC the operator portal uses, so staff see exactly what the operator sees.
+    const { data: shippingData } = await supabase.rpc(
+      'get_equipment_shipping_for_operator' as any,
+      { p_operator_id: operatorId },
+    );
+    if (Array.isArray(shippingData)) {
+      setEquipmentShipping((shippingData as any[]).map(r => ({
+        device_type: r.device_type,
+        shipping_carrier: r.shipping_carrier,
+        tracking_number: r.tracking_number,
+        ship_date: r.ship_date,
+        tracking_receipt_url: r.tracking_receipt_url,
+      })));
+    } else {
+      setEquipmentShipping([]);
     }
 
     setLoading(false);
@@ -3018,6 +3037,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             bestpass_number: status.bestpass_number,
             fuel_card_number: status.fuel_card_number,
           }}
+          shippingInfo={equipmentShipping}
           onEdit={handleTruckDeviceEdit}
           onTruckEdit={handleTruckInfoEdit}
         />
