@@ -604,6 +604,21 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     return () => { supabase.removeChannel(channel); };
   }, [operatorId]);
 
+  // Realtime: keep equipment shipping chips fresh when assignments are
+  // created / updated / returned anywhere (Equipment Inventory, History modal, etc.)
+  useEffect(() => {
+    if (!operatorId) return;
+    const channel = supabase
+      .channel(`equipment-assignments-${operatorId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'equipment_assignments', filter: `operator_id=eq.${operatorId}` },
+        () => { refreshEquipmentShipping(operatorId); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [operatorId]);
+
   // Auto-collapse Stage 8 once pay setup data loads
   useEffect(() => {
     if (paySetupLoaded && paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted) {
@@ -1072,9 +1087,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
     // Fetch equipment shipping info (carrier / tracking # / receipt) per device.
     // Uses the same operator-scoped RPC the operator portal uses, so staff see exactly what the operator sees.
+    await refreshEquipmentShipping(operatorId);
+
+    setLoading(false);
+  };
+
+  // Re-fetch shipping info for the current operator. Called on initial load
+  // and from the equipment_assignments realtime subscription so chips update
+  // instantly after any assign / edit / return done in another view.
+  const refreshEquipmentShipping = async (opId: string) => {
     const { data: shippingData } = await supabase.rpc(
       'get_equipment_shipping_for_operator' as any,
-      { p_operator_id: operatorId },
+      { p_operator_id: opId },
     );
     if (Array.isArray(shippingData)) {
       setEquipmentShipping((shippingData as any[]).map(r => ({
@@ -1087,8 +1111,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     } else {
       setEquipmentShipping([]);
     }
-
-    setLoading(false);
   };
 
   // Map doc field keys to human-readable labels
