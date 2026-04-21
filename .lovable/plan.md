@@ -1,53 +1,65 @@
 
 
-## Short answer
+## What's wrong
 
-**No** — shipping carrier, tracking number, ship date, and tracking receipt do **not** currently sync into the applicant's profile in the pipeline (the Operator Detail Panel that Staff and Management open from the Pipeline / Driver Hub).
+The Operator Detail Panel has **two different save flows** for the Truck & Equipment card, and they don't agree:
 
-### Where the data lives today
+1. **Main "Save Changes" button** (bottom of panel) — saves Stage 5 toggles (Decal Applied, ELD Installed, Fuel Card Issued) but **explicitly excludes** the four serial-number fields (line 1333 strips them out before the update).
+2. **Pencil icon → "Edit Device Numbers" popover** inside the Truck & Equipment card — the *only* path that actually persists `eld_serial_number`, `dash_cam_number`, `bestpass_number`, `fuel_card_number`.
 
-- **Stored in**: `equipment_assignments` table (`shipping_carrier`, `tracking_number`, `ship_date`, `tracking_receipt_url`).
-- **Visible in**: 
-  - Equipment Inventory (staff/management) — via `EquipmentAssignModal` and `EquipmentHistoryModal`.
-  - Operator Portal — `TruckInfoCard` shows a "Shipped UPS · 1Z999…" chip + receipt link beside each device serial.
-- **Missing in**: The Operator Detail Panel (the applicant/operator profile drawer used in the Pipeline). It renders `<TruckInfoCard>` but only passes `truckInfo` and `deviceInfo` — the `shippingInfo` prop is omitted, so no tracking chip ever shows.
+For Johnathan McMillan (`mcmill16@yahoo.com`), the database shows exactly that pattern: `eld_installed = yes`, `decal_applied = yes`, `fuel_card_issued = yes` all saved, but ELD / Dash Cam / BestPass serials are NULL. The Fuel Card # `"198"` only landed because it was also assigned through the Equipment Inventory module. Craig typed the ELD and Dash Cam serials, hit the panel's main Save, got a "Saved successfully" toast, and the serial fields were silently dropped.
 
-### Plan — sync shipping into the applicant profile
+## Fix — two parts
 
-Mirror the same one-line shipping chip the operator already sees, on the staff/management side. No new schema, no new RPC if one already exists for the operator portal — we'll reuse the same fetch.
+### Part 1 — Recover Johnathan's data (manual, immediate)
 
-1. **Reuse the operator-side fetch**
-   - Find the call in `OperatorPortal.tsx` (around line 194) that returns `EquipmentShippingInfo[]` per device. It already exists and is RLS-safe for staff (staff can view `equipment_assignments` directly).
-   - Extract it into `src/lib/equipmentSync.ts` as `fetchOperatorEquipmentShipping(operatorId)` so both portals share one source of truth.
+Ask Craig for the ELD and Dash Cam serial numbers he originally entered, then re-enter them through the **correct path**:
 
-2. **Wire it into the Operator Detail Panel** (`src/pages/staff/OperatorDetailPanel.tsx`)
-   - Add `equipmentShipping` state, fetch on mount whenever `operatorId` changes (and after EquipmentAssignModal saves, via the existing refresh hook).
-   - Pass it to the existing `<TruckInfoCard>` at line 3012:
-     ```tsx
-     <TruckInfoCard
-       truckInfo={icaTruckInfo}
-       deviceInfo={{ ... }}
-       shippingInfo={equipmentShipping}
-       onEdit={handleTruckDeviceEdit}
-       onTruckEdit={handleTruckInfoEdit}
-     />
-     ```
-   - This automatically lights up the same shipping chips (Carrier · tracking# · receipt preview) the operator sees, since `TruckInfoCard` already supports the prop.
+```text
+Operator Detail Panel → Truck & Equipment card → ✏️ pencil icon
+  → "Edit Device Numbers" popover → Save
+```
 
-3. **Coverage**
-   - Staff Portal → Pipeline → open applicant → Truck & Equipment card now shows shipping per device.
-   - Management Portal → same panel is reused → gets it automatically.
-   - No changes needed in `ApplicationReviewDrawer` (that drawer is for the *application* stage, before equipment is assigned — equipment doesn't apply there).
+That path triggers `handleTruckDeviceEdit`, which writes to `onboarding_status` *and* syncs to Equipment Inventory.
 
-### What stays unchanged
+### Part 2 — Code change so this can't happen again
 
-- Permissions (staff already have read access via existing RLS on `equipment_assignments`).
-- Edit flow remains in Equipment Inventory's `EquipmentAssignModal` / `EquipmentHistoryModal` — the profile view is read-only display, matching the existing pattern.
-- Operator portal display and Equipment Inventory views stay as-is.
+Make the panel's main **Save Changes** button persist device serial numbers too, so staff intuition matches behavior. Two reinforcing changes:
+
+**A. Include device serial fields in the main save** (`src/pages/staff/OperatorDetailPanel.tsx`, ~line 1317-1346)
+
+- Stop stripping `eld_serial_number`, `dash_cam_number`, `bestpass_number`, `fuel_card_number` from `updateData`.
+- After the `onboarding_status` update succeeds, if any of the four serial values changed vs. `prev`, call the existing `syncAllDeviceFields(...)` helper so Equipment Inventory stays in sync (same call already used by `handleTruckDeviceEdit`).
+- Keep the pencil-popover flow as-is — it remains the fast inline editor; both paths now do the same thing.
+
+**B. Guardrail against the silent milestone**
+
+Update the `equipmentReady` check (~line 1259) used to fire the "Equipment Setup Complete" milestone:
+
+```ts
+const equipmentReady =
+  status.decal_applied === 'yes' &&
+  status.eld_installed === 'yes' &&
+  status.fuel_card_issued === 'yes' &&
+  !!status.eld_serial_number &&
+  !!status.dash_cam_number &&
+  !!status.fuel_card_number;
+```
+
+This matches the existing `autoCollapse` rule on line 1047 and prevents marking equipment "complete" when serials are still missing — which is what hid the bug for Johnathan in the first place.
+
+### Why this is safe
+
+- The `syncAllDeviceFields` helper is already idempotent (no-op when old === new), already used by `handleTruckDeviceEdit`, and handles the duplicate-serial case.
+- No schema change, no migration, no RLS change — the columns and policies already allow staff updates.
+- Operator-side display (`TruckInfoCard` on the operator portal) keeps reading the same fields, so it benefits automatically.
+- Equipment Inventory module is unchanged.
 
 ### After deploying
 
-1. Staff opens any operator from Pipeline → Truck & Equipment card now shows "Shipped UPS · 1Z999…" with a clickable carrier link and receipt preview, beside each ELD / Dash Cam / BestPass / Fuel Card serial — exactly what the operator sees.
-2. Same in Management Portal (uses the same panel).
-3. Updates made in Equipment Inventory flow through on next open.
+1. Tell Craig to reopen Johnathan McMillan and either:
+   - re-type the serials in Stage 5 and click the main Save button (now works), **or**
+   - use the ✏️ Edit Device Numbers popover (was always working).
+2. Verify the chips appear in the Truck & Equipment card and that matching rows now exist in Equipment Inventory.
+3. Going forward, both save paths persist the serials, and the "Equipment Setup Complete" milestone won't fire until serials are actually present.
 
