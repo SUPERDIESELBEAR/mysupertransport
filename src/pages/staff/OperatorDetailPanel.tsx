@@ -1752,6 +1752,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       bestpass_number: payload.bestpass_number,
       fuel_card_number: payload.fuel_card_number,
     }));
+    // Keep milestone snapshot in sync so the main Save button doesn't re-fire
+    // the "Equipment Setup Complete" milestone after a popover-only device edit.
+    savedMilestones.current = {
+      ...savedMilestones.current,
+      eld_serial_number: payload.eld_serial_number,
+      dash_cam_number: payload.dash_cam_number,
+      bestpass_number: payload.bestpass_number,
+      fuel_card_number: payload.fuel_card_number,
+    };
     if (savedSnapshot.current) {
       savedSnapshot.current = {
         ...savedSnapshot.current,
