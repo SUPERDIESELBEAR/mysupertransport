@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowRight, Shield, TrendingUp, Headphones, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Shield, TrendingUp, Headphones, CheckCircle2, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logo from '@/assets/supertransport-logo.png';
+import ResumeApplicationDialog from '@/components/application/ResumeApplicationDialog';
 
 const valueProps = [
   {
@@ -36,6 +38,7 @@ const checkpoints = [
 
 export default function SplashPage() {
   const navigate = useNavigate();
+  const [resumeOpen, setResumeOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-surface-dark text-surface-dark-foreground flex flex-col">
