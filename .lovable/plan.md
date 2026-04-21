@@ -1,65 +1,43 @@
 
 
-## What's wrong
+## Verify ScrollJumpButton on every Applicant Pipeline subview
 
-The Operator Detail Panel has **two different save flows** for the Truck & Equipment card, and they don't agree:
+I'll exercise each subview state in the live preview with a short viewport so any list naturally exceeds the 400px threshold, then confirm the floating button renders (and flips between "Jump to bottom" and "Back to top").
 
-1. **Main "Save Changes" button** (bottom of panel) — saves Stage 5 toggles (Decal Applied, ELD Installed, Fuel Card Issued) but **explicitly excludes** the four serial-number fields (line 1333 strips them out before the update).
-2. **Pencil icon → "Edit Device Numbers" popover** inside the Truck & Equipment card — the *only* path that actually persists `eld_serial_number`, `dash_cam_number`, `bestpass_number`, `fuel_card_number`.
+### Checklist of subviews to verify
 
-For Johnathan McMillan (`mcmill16@yahoo.com`), the database shows exactly that pattern: `eld_installed = yes`, `decal_applied = yes`, `fuel_card_issued = yes` all saved, but ELD / Dash Cam / BestPass serials are NULL. The Fuel Card # `"198"` only landed because it was also assigned through the Equipment Inventory module. Craig typed the ELD and Dash Cam serials, hit the panel's main Save, got a "Saved successfully" toast, and the serial fields were silently dropped.
+1. **Default Active list** — `/staff?view=pipeline` on load (no filters)
+2. **All meaningful filter / section states**, exercised in this order:
+   - Search results (type a partial name in the search box)
+   - ICA filter active (Stage 3 — ICA chip)
+   - Truck Down filter (set via the Truck Down banner / chip)
+   - On Hold section expanded
+   - Owner Test section expanded (if present)
 
-## Fix — two parts
+### How I'll verify each one
 
-### Part 1 — Recover Johnathan's data (manual, immediate)
+For every subview:
+1. `set_viewport_size` to **1280 × 600** so even short lists overflow past 400px.
+2. `navigate_to_sandbox` to `/staff?view=pipeline` (or click the right filter from the active page — session state is preserved across viewport changes).
+3. Apply the subview state (toggle filter, expand section, etc.).
+4. `screenshot` at scroll-top → expect "Jump to bottom" pill in bottom-right.
+5. Scroll the page past 300px → `screenshot` again → expect the same pill flipped to "Back to top".
+6. Record pass/fail per subview.
 
-Ask Craig for the ELD and Dash Cam serial numbers he originally entered, then re-enter them through the **correct path**:
+### What "pass" means
 
-```text
-Operator Detail Panel → Truck & Equipment card → ✏️ pencil icon
-  → "Edit Device Numbers" popover → Save
-```
+- Pill is visible, fixed in the bottom-right of the viewport.
+- Label/icon flips correctly after scrolling >300px.
+- Pill correctly **hides** if a subview happens to be shorter than viewport + 400px (this is by-design behavior — I'll call those out separately rather than as failures).
 
-That path triggers `handleTruckDeviceEdit`, which writes to `onboarding_status` *and* syncs to Equipment Inventory.
+### Expected outcome
 
-### Part 2 — Code change so this can't happen again
+The button is page-level (only checks `document.documentElement.scrollHeight`), so all six subviews should pass at 1280×600. If any subview fails to show the button despite the page being scrollable, I'll flag it and propose a fix in a follow-up plan (no code changes in this verification pass).
 
-Make the panel's main **Save Changes** button persist device serial numbers too, so staff intuition matches behavior. Two reinforcing changes:
+### Deliverable
 
-**A. Include device serial fields in the main save** (`src/pages/staff/OperatorDetailPanel.tsx`, ~line 1317-1346)
-
-- Stop stripping `eld_serial_number`, `dash_cam_number`, `bestpass_number`, `fuel_card_number` from `updateData`.
-- After the `onboarding_status` update succeeds, if any of the four serial values changed vs. `prev`, call the existing `syncAllDeviceFields(...)` helper so Equipment Inventory stays in sync (same call already used by `handleTruckDeviceEdit`).
-- Keep the pencil-popover flow as-is — it remains the fast inline editor; both paths now do the same thing.
-
-**B. Guardrail against the silent milestone**
-
-Update the `equipmentReady` check (~line 1259) used to fire the "Equipment Setup Complete" milestone:
-
-```ts
-const equipmentReady =
-  status.decal_applied === 'yes' &&
-  status.eld_installed === 'yes' &&
-  status.fuel_card_issued === 'yes' &&
-  !!status.eld_serial_number &&
-  !!status.dash_cam_number &&
-  !!status.fuel_card_number;
-```
-
-This matches the existing `autoCollapse` rule on line 1047 and prevents marking equipment "complete" when serials are still missing — which is what hid the bug for Johnathan in the first place.
-
-### Why this is safe
-
-- The `syncAllDeviceFields` helper is already idempotent (no-op when old === new), already used by `handleTruckDeviceEdit`, and handles the duplicate-serial case.
-- No schema change, no migration, no RLS change — the columns and policies already allow staff updates.
-- Operator-side display (`TruckInfoCard` on the operator portal) keeps reading the same fields, so it benefits automatically.
-- Equipment Inventory module is unchanged.
-
-### After deploying
-
-1. Tell Craig to reopen Johnathan McMillan and either:
-   - re-type the serials in Stage 5 and click the main Save button (now works), **or**
-   - use the ✏️ Edit Device Numbers popover (was always working).
-2. Verify the chips appear in the Truck & Equipment card and that matching rows now exist in Equipment Inventory.
-3. Going forward, both save paths persist the serials, and the "Equipment Setup Complete" milestone won't fire until serials are actually present.
+A short report in chat:
+- Subview → Pass / Fail / Hidden-by-design (with screenshot reference)
+- Any anomalies (e.g., button overlapping a sticky element, wrong z-index, label not flipping)
+- No code changes unless a real bug surfaces — in which case I'll stop and call it out before editing.
 
