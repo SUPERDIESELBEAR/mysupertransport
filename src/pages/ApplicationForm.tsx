@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { supabase } from '@/integrations/supabase/client';
-import { Truck, Save, ChevronLeft, ChevronRight, CheckCircle2, Loader2, AlertTriangle, FileText, X } from 'lucide-react';
+import { Truck, Save, ChevronLeft, ChevronRight, CheckCircle2, Loader2, AlertTriangle, FileText, X, Link2Off } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import FormProgress from '@/components/application/FormProgress';
 import Step1Personal from '@/components/application/Step1Personal';
@@ -33,6 +34,7 @@ import { validateStep, buildPayload } from '@/components/application/utils';
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function ApplicationForm() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [step, setStep] = useState(1);
   const [slideDir, setSlideDir] = useState<'forward' | 'back'>('forward');
   const [formData, setFormData] = useState<ApplicationFormData>(defaultFormData);
@@ -44,15 +46,18 @@ export default function ApplicationForm() {
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [duplicateEmailBlocked, setDuplicateEmailBlocked] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
 
   // ── Load draft on mount ─────────────────────────────────────────────────
   useEffect(() => {
-    const token = localStorage.getItem(DRAFT_TOKEN_KEY);
-    if (!token) { setDraftLoaded(true); return; }
-    supabase
-      .rpc('get_application_by_draft_token', { p_token: token })
+    let cancelled = false;
+
+    const loadDraft = (token: string) => {
+      supabase
+        .rpc('get_application_by_draft_token', { p_token: token })
       .single()
       .then(({ data }) => {
+        if (cancelled) return;
         if (data) {
           setApplicationId(data.id);
           const restored: ApplicationFormData = {
@@ -111,6 +116,45 @@ export default function ApplicationForm() {
         }
         setDraftLoaded(true);
       });
+    };
+
+    const resumeToken = searchParams.get('resume');
+    if (resumeToken) {
+      // Email-based resume: exchange the resume token for a draft_token.
+      supabase.functions
+        .invoke('consume-application-resume', { body: { token: resumeToken } })
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          // Always strip the resume param from the URL so the token isn't re-used/logged.
+          const next = new URLSearchParams(searchParams);
+          next.delete('resume');
+          setSearchParams(next, { replace: true });
+
+          const draftToken = (data as { draft_token?: string } | null)?.draft_token;
+          if (error || !draftToken) {
+            const code = (error as any)?.context?.error || (data as any)?.error || 'invalid_token';
+            setResumeError(
+              code === 'token_expired'
+                ? 'This resume link has expired. Please request a new one from the home page.'
+                : code === 'token_used'
+                ? 'This resume link has already been used. Request a new one from the home page if needed.'
+                : 'This resume link is not valid. Please request a new one from the home page.',
+            );
+            setDraftLoaded(true);
+            return;
+          }
+          localStorage.setItem(DRAFT_TOKEN_KEY, draftToken);
+          loadDraft(draftToken);
+        });
+      return () => { cancelled = true; };
+    }
+
+    const token = localStorage.getItem(DRAFT_TOKEN_KEY);
+    if (!token) { setDraftLoaded(true); return; }
+    loadDraft(token);
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Field change handler ────────────────────────────────────────────────
@@ -302,6 +346,47 @@ export default function ApplicationForm() {
     return (
       <div className="min-h-screen bg-secondary flex items-center justify-center">
         <Loader2 className="h-8 w-8 text-gold animate-spin" />
+      </div>
+    );
+  }
+
+  // ── Resume link error screen ────────────────────────────────────────────
+  if (resumeError) {
+    return (
+      <div className="min-h-screen bg-secondary flex items-center justify-center p-4">
+        <div className="w-full max-w-md text-center">
+          <div className="flex justify-center mb-6">
+            <img src={logo} alt="SUPERTRANSPORT" className="h-28 w-auto max-w-[400px] object-contain" />
+          </div>
+          <div className="bg-white border border-border rounded-2xl p-8 shadow-sm">
+            <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+              <Link2Off className="h-8 w-8 text-destructive" />
+            </div>
+            <h1 className="text-xl font-bold text-foreground mb-2">Resume link unavailable</h1>
+            <p className="text-muted-foreground text-sm leading-relaxed">{resumeError}</p>
+            <div className="mt-6 flex flex-col gap-2">
+              <a
+                href="/"
+                className="inline-flex items-center justify-center h-11 rounded-xl bg-gold text-surface-dark text-sm font-bold hover:bg-gold-light transition-colors"
+              >
+                Back to home
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setResumeError(null);
+                  localStorage.removeItem(DRAFT_TOKEN_KEY);
+                  setFormData(defaultFormData);
+                  setApplicationId(null);
+                  setStep(1);
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+              >
+                Or start a fresh application
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

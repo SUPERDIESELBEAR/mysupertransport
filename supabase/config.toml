@@ -21,3 +21,9 @@ verify_jwt = false
 [functions.send-resource-email]
 verify_jwt = false
 
+[functions.request-application-resume]
+verify_jwt = false
+
+[functions.consume-application-resume]
+verify_jwt = false
+

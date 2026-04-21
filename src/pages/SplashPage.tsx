@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowRight, Shield, TrendingUp, Headphones, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Shield, TrendingUp, Headphones, CheckCircle2, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import logo from '@/assets/supertransport-logo.png';
+import ResumeApplicationDialog from '@/components/application/ResumeApplicationDialog';
 
 const valueProps = [
   {
@@ -36,6 +38,7 @@ const checkpoints = [
 
 export default function SplashPage() {
   const navigate = useNavigate();
+  const [resumeOpen, setResumeOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-surface-dark text-surface-dark-foreground flex flex-col">
@@ -111,6 +114,26 @@ export default function SplashPage() {
         <p className="text-surface-dark-muted text-sm">
           No login required to apply &middot; Takes about 10&ndash;15 minutes
         </p>
+
+        {/* Resume application banner */}
+        <button
+          type="button"
+          onClick={() => setResumeOpen(true)}
+          className="mt-6 group inline-flex items-center gap-3 rounded-xl border border-gold/30 bg-gold/[0.06] px-4 py-2.5 text-left transition-colors hover:border-gold/60 hover:bg-gold/10"
+        >
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold/15 text-gold">
+            <RotateCcw className="h-4 w-4" />
+          </span>
+          <span className="flex flex-col">
+            <span className="text-sm font-semibold text-surface-dark-foreground">
+              Started an application?
+            </span>
+            <span className="text-xs text-surface-dark-muted">
+              Pick up where you left off — we'll email you a secure resume link.
+            </span>
+          </span>
+          <ArrowRight className="ml-1 h-4 w-4 text-gold transition-transform group-hover:translate-x-0.5" />
+        </button>
       </section>
 
       {/* QUICK CHECKLIST */}
@@ -162,6 +185,8 @@ export default function SplashPage() {
           </div>
         </div>
       </footer>
+
+      <ResumeApplicationDialog open={resumeOpen} onOpenChange={setResumeOpen} />
     </div>
   );
 }
