@@ -103,6 +103,41 @@ export type Database = {
         }
         Relationships: []
       }
+      application_resume_tokens: {
+        Row: {
+          application_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          email: string
+          expires_at: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_resume_tokens_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       applications: {
         Row: {
           address_city: string | null
@@ -2621,6 +2656,13 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      consume_application_resume_token: {
+        Args: { p_token: string }
+        Returns: {
+          application_id: string
+          draft_token: string
+        }[]
       }
       get_application_by_draft_token: {
         Args: { p_token: string }
