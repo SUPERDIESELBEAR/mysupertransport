@@ -34,6 +34,7 @@ import { validateStep, buildPayload } from '@/components/application/utils';
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function ApplicationForm() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [step, setStep] = useState(1);
   const [slideDir, setSlideDir] = useState<'forward' | 'back'>('forward');
   const [formData, setFormData] = useState<ApplicationFormData>(defaultFormData);
@@ -45,15 +46,18 @@ export default function ApplicationForm() {
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [duplicateEmailBlocked, setDuplicateEmailBlocked] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
 
   // ── Load draft on mount ─────────────────────────────────────────────────
   useEffect(() => {
-    const token = localStorage.getItem(DRAFT_TOKEN_KEY);
-    if (!token) { setDraftLoaded(true); return; }
-    supabase
-      .rpc('get_application_by_draft_token', { p_token: token })
+    let cancelled = false;
+
+    const loadDraft = (token: string) => {
+      supabase
+        .rpc('get_application_by_draft_token', { p_token: token })
       .single()
       .then(({ data }) => {
+        if (cancelled) return;
         if (data) {
           setApplicationId(data.id);
           const restored: ApplicationFormData = {
@@ -112,6 +116,45 @@ export default function ApplicationForm() {
         }
         setDraftLoaded(true);
       });
+    };
+
+    const resumeToken = searchParams.get('resume');
+    if (resumeToken) {
+      // Email-based resume: exchange the resume token for a draft_token.
+      supabase.functions
+        .invoke('consume-application-resume', { body: { token: resumeToken } })
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          // Always strip the resume param from the URL so the token isn't re-used/logged.
+          const next = new URLSearchParams(searchParams);
+          next.delete('resume');
+          setSearchParams(next, { replace: true });
+
+          const draftToken = (data as { draft_token?: string } | null)?.draft_token;
+          if (error || !draftToken) {
+            const code = (error as any)?.context?.error || (data as any)?.error || 'invalid_token';
+            setResumeError(
+              code === 'token_expired'
+                ? 'This resume link has expired. Please request a new one from the home page.'
+                : code === 'token_used'
+                ? 'This resume link has already been used. Request a new one from the home page if needed.'
+                : 'This resume link is not valid. Please request a new one from the home page.',
+            );
+            setDraftLoaded(true);
+            return;
+          }
+          localStorage.setItem(DRAFT_TOKEN_KEY, draftToken);
+          loadDraft(draftToken);
+        });
+      return () => { cancelled = true; };
+    }
+
+    const token = localStorage.getItem(DRAFT_TOKEN_KEY);
+    if (!token) { setDraftLoaded(true); return; }
+    loadDraft(token);
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Field change handler ────────────────────────────────────────────────
