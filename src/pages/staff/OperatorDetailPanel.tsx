@@ -528,10 +528,15 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     eld_installed: string;
     fuel_card_issued: string;
     mo_reg_received: string;
+    eld_serial_number: string | null;
+    dash_cam_number: string | null;
+    bestpass_number: string | null;
+    fuel_card_number: string | null;
   }>({
     ica_status: '', mvr_ch_approval: '', pe_screening_result: '', insurance_added_date: null,
     form_2290: '', truck_title: '', truck_photos: '', truck_inspection: '',
     decal_applied: '', eld_installed: '', fuel_card_issued: '', mo_reg_received: '',
+    eld_serial_number: null, dash_cam_number: null, bestpass_number: null, fuel_card_number: null,
   });
 
   useEffect(() => {
@@ -1033,6 +1038,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           eld_installed: os.eld_installed ?? '',
           fuel_card_issued: os.fuel_card_issued ?? '',
           mo_reg_received: os.mo_reg_received ?? '',
+          eld_serial_number: os.eld_serial_number ?? null,
+          dash_cam_number: os.dash_cam_number ?? null,
+          bestpass_number: os.bestpass_number ?? null,
+          fuel_card_number: os.fuel_card_number ?? null,
         };
         // Auto-collapse stages that are already complete on load
         const autoCollapse = new Set<string>();
