@@ -2204,6 +2204,61 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         {status.pe_screening_result === 'clear' && <Badge className="status-complete border text-xs">PE Clear</Badge>}
       </div>
 
+      {/* Exclude from Dispatch Hub toggle (staff & management only) */}
+      {isActive && (
+        <div className="rounded-xl border border-gold/30 bg-gold/5 px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🚫</span>
+                <Label className="text-sm font-semibold text-foreground cursor-pointer" htmlFor="exclude-dispatch-toggle">
+                  Exclude from Dispatch Hub
+                </Label>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-snug mt-1">
+                Hides this driver from the Dispatch Board and removes them from daily counts (Total Active, Dispatched, Home, Truck Down, Not Dispatched).
+                Use for backup-only drivers, owners who don't run loads daily, or test accounts.
+                Driver remains fully active everywhere else.
+              </p>
+            </div>
+            <Switch
+              id="exclude-dispatch-toggle"
+              checked={excludedFromDispatch}
+              disabled={savingExclusion}
+              onCheckedChange={(checked) => handleToggleDispatchExclusion(checked)}
+              className="data-[state=checked]:bg-gold shrink-0"
+            />
+          </div>
+          {excludedFromDispatch && (
+            <div className="mt-3 space-y-1.5">
+              <Label className="text-[11px] font-medium text-muted-foreground">
+                Reason (optional)
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  value={excludedReason}
+                  onChange={(e) => setExcludedReason(e.target.value)}
+                  placeholder='e.g., "Backup driver for Truck 412 — runs only when primary driver is off"'
+                  maxLength={200}
+                  className="h-8 text-xs flex-1"
+                  disabled={savingExclusion}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleToggleDispatchExclusion(true)}
+                  disabled={savingExclusion}
+                  className="h-8 text-xs gap-1 px-2.5 border-gold/40 text-gold hover:bg-gold/10 hover:text-gold shrink-0"
+                >
+                  {savingExclusion ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  Save
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Top Completion Summary ── */}
       {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 20 } : undefined}>{(() => {
         const _exceptionActive = status.paper_logbook_approved || status.temp_decal_approved;
