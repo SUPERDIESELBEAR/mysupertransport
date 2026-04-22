@@ -1954,6 +1954,67 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Excluded-from-Dispatch Dialog */}
+      <Dialog open={showExcludedDialog} onOpenChange={setShowExcludedDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <EyeOff className="h-4 w-4 text-gold" />
+              Excluded from Dispatch Hub
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              These drivers are active in the system but hidden from the Dispatch Board and excluded from the daily count tiles.
+              Re-include any driver to bring them back into the Dispatch Hub.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto -mx-1 px-1">
+            {excludedRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                No drivers are currently excluded.
+              </p>
+            ) : (
+              excludedRows.map(r => {
+                const name = [r.first_name, r.last_name].filter(Boolean).join(' ') || 'Unknown Driver';
+                return (
+                  <div
+                    key={r.operator_id}
+                    className="flex items-start gap-2 p-2.5 rounded-lg border border-border bg-muted/30"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-foreground truncate">{name}</span>
+                        {r.unit_number && (
+                          <span className="font-mono text-[11px] text-muted-foreground">#{r.unit_number}</span>
+                        )}
+                      </div>
+                      {r.excluded_from_dispatch_reason && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                          {r.excluded_from_dispatch_reason}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleReIncludeOperator(r.operator_id, name)}
+                      disabled={reIncludingId === r.operator_id}
+                      className="h-7 text-[11px] gap-1 px-2 shrink-0 border-gold/40 text-gold hover:bg-gold/10 hover:text-gold"
+                    >
+                      {reIncludingId === r.operator_id ? (
+                        <RefreshCw className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <RotateCcw className="h-3 w-3" />
+                      )}
+                      Re-include
+                    </Button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
