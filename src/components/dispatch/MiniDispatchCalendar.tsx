@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, EyeOff } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -37,6 +37,23 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
   });
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [saving, setSaving] = useState(false);
+  const [excluded, setExcluded] = useState<boolean | null>(null);
+
+  // Check whether this operator is excluded from the Dispatch Hub
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('operators')
+        .select('excluded_from_dispatch')
+        .eq('id', operatorId)
+        .maybeSingle();
+      if (!cancelled) {
+        setExcluded(((data as any)?.excluded_from_dispatch ?? false) === true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [operatorId]);
 
   const fetchLogs = useCallback(async () => {
     const start = `${month.year}-${String(month.month + 1).padStart(2, '0')}-01`;
@@ -115,6 +132,18 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
 
   const today = new Date();
   const isCurrentMonth = month.year === today.getFullYear() && month.month === today.getMonth();
+
+  if (excluded === true) {
+    return (
+      <div className="flex items-start gap-2 px-3 py-3 rounded-lg border border-gold/30 bg-gold/5 text-[11px] text-muted-foreground">
+        <EyeOff className="h-3.5 w-3.5 text-gold shrink-0 mt-0.5" />
+        <p className="leading-snug">
+          This driver is <span className="font-semibold text-foreground">excluded from the Dispatch Hub</span>.
+          Daily dispatch tracking is disabled. Toggle exclusion off in the Operator panel to resume.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1.5">
