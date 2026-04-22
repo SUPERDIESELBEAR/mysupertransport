@@ -995,6 +995,22 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
         ))}
       </div>
 
+      {/* Excluded-from-dispatch footer line */}
+      {excludedRows.length > 0 && (
+        <div className="flex items-center justify-end gap-1 -mt-1 text-[11px] text-muted-foreground">
+          <EyeOff className="h-3 w-3" />
+          <span>
+            Showing {counts.total} of {counts.total + excludedRows.length} active operators.{' '}
+            <button
+              onClick={() => setShowExcludedDialog(true)}
+              className="text-foreground hover:text-gold underline underline-offset-2 transition-colors"
+            >
+              {excludedRows.length} excluded from Dispatch Hub — View
+            </button>
+          </span>
+        </div>
+      )}
+
       {/* Filter tabs + search bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
         {/* Tabs — horizontal scroll on mobile */}
