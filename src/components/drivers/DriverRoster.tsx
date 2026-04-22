@@ -27,6 +27,7 @@ interface DriverRow {
   medical_cert_expiration: string | null;
   is_active: boolean;
   pwa_installed_at: string | null;
+  excluded_from_dispatch: boolean;
 }
 
 interface ReminderEntry {
@@ -422,14 +423,18 @@ export default function DriverRoster({
 
     // Fetch is_active and pwa_installed_at separately to avoid deep TS inference issues
     const operatorIds = (rawData as any[] ?? []).map((op: any) => op.id);
-    let activeMap: Record<string, { is_active: boolean; pwa_installed_at: string | null }> = {};
+    let activeMap: Record<string, { is_active: boolean; pwa_installed_at: string | null; excluded_from_dispatch: boolean }> = {};
     if (operatorIds.length > 0) {
       const { data: activeData } = await supabase
         .from('operators')
-        .select('id, is_active, pwa_installed_at')
+        .select('id, is_active, pwa_installed_at, excluded_from_dispatch')
         .in('id', operatorIds) as any;
       for (const row of (activeData ?? []) as any[]) {
-        activeMap[row.id] = { is_active: row.is_active ?? true, pwa_installed_at: row.pwa_installed_at ?? null };
+        activeMap[row.id] = {
+          is_active: row.is_active ?? true,
+          pwa_installed_at: row.pwa_installed_at ?? null,
+          excluded_from_dispatch: row.excluded_from_dispatch === true,
+        };
       }
     }
     const activeSet = new Set(Object.entries(activeMap).filter(([, v]) => v.is_active === !showInactive).map(([k]) => k));
@@ -496,6 +501,7 @@ export default function DriverRoster({
           medical_cert_expiration: binderDates[op.user_id]?.med ?? app?.medical_cert_expiration ?? null,
           is_active: activeSet.has(op.id),
           pwa_installed_at: activeMap[op.id]?.pwa_installed_at ?? null,
+          excluded_from_dispatch: activeMap[op.id]?.excluded_from_dispatch ?? false,
         };
       }).sort((a, b) => {
         const order: Record<DriverRow['dispatch_status'], number> = { truck_down: 0, not_dispatched: 1, home: 2, dispatched: 3 };
@@ -971,6 +977,18 @@ export default function DriverRoster({
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
+                        {driver.excluded_from_dispatch && (
+                          <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-muted-foreground bg-muted border border-border rounded px-1.5 py-0.5 shrink-0">
+                                  Excluded
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>Excluded from Dispatch Hub — not counted in daily dispatch tiles</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                       </div>
                     </TableCell>
 
