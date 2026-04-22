@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 
 /** High-priority notification types that trigger a desktop push alert */
-const HIGH_PRIORITY_TYPES = new Set(['truck_down', 'new_message']);
+const HIGH_PRIORITY_TYPES = new Set(['truck_down', 'new_message', 'pay_setup_submitted']);
 
 const STORAGE_KEY = 'supertransport_desktop_notifs_enabled';
 

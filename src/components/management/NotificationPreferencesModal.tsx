@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle, FileText, Target, Paperclip, Truck, Loader2, Check } from 'lucide-react';
+import { Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle, FileText, Target, Paperclip, Truck, Loader2, Check, Banknote } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Switch } from '@/components/ui/switch';
@@ -20,6 +20,7 @@ const EVENT_TYPES: { type: string; label: string; description: string; icon: Rea
   { type: 'dispatch_status_change', label: 'Dispatch Status Change',  description: "When an operator's dispatch status changes", icon: Truck,        iconBg: 'bg-muted',      iconColor: 'text-muted-foreground' },
   { type: 'onboarding_milestone',   label: 'Onboarding Milestone',    description: 'When an operator completes an onboarding step', icon: Target,    iconBg: 'bg-gold/15',    iconColor: 'text-gold' },
   { type: 'docs_uploaded',          label: 'Documents Uploaded',      description: 'When an operator uploads requested documents', icon: Paperclip,  iconBg: 'bg-muted',      iconColor: 'text-muted-foreground' },
+  { type: 'pay_setup_submitted',    label: 'Pay Setup Submitted',     description: 'When an operator completes Stage 8 (Contractor Pay Setup)', icon: Banknote, iconBg: 'bg-gold/15', iconColor: 'text-gold' },
   { type: 'new_message',            label: 'New Message',             description: 'When you receive a new message',          icon: MessageCircle,  iconBg: 'bg-blue-100',   iconColor: 'text-blue-500' },
 ];
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Bell, Truck, AlertTriangle, MessageCircle, Target,
-  Paperclip, Check, Loader2, UserCheck, Monitor, ShieldAlert, Clock,
+  Paperclip, Check, Loader2, UserCheck, Monitor, ShieldAlert, Clock, Banknote,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -110,6 +110,15 @@ const EVENT_TYPES: EventTypeDef[] = [
     iconBg: 'bg-amber-100',
     iconColor: 'text-amber-600',
     roles: ['onboarding_staff', 'management'],
+  },
+  {
+    type: 'pay_setup_submitted',
+    label: 'Pay Setup Submitted',
+    description: 'When an operator completes Stage 8 (Contractor Pay Setup) — owner is alerted by default',
+    icon: Banknote,
+    iconBg: 'bg-gold/15',
+    iconColor: 'text-gold',
+    roles: ['management'],
   },
 ];
 
