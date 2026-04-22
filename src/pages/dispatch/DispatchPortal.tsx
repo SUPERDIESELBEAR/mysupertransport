@@ -19,7 +19,7 @@ import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
   LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell, Volume2, VolumeX,
-  CheckCheck, Users2, Shield, Container
+  CheckCheck, Users2, Shield, Container, EyeOff, RotateCcw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -28,6 +28,7 @@ import DriverHubView from '@/components/drivers/DriverHubView';
 import MiniDispatchCalendar from '@/components/dispatch/MiniDispatchCalendar';
 import OperatorInspectionBinder from '@/components/inspection/OperatorInspectionBinder';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface QuickComposeTarget {
   operatorUserId: string;
@@ -168,6 +169,16 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
   const [allDispatchers, setAllDispatchers] = useState<Record<string, string>>({});
   // Binder sheet
   const [binderTarget, setBinderTarget] = useState<{ userId: string; operatorId: string; name: string } | null>(null);
+  // Excluded-from-dispatch tracking
+  const [excludedRows, setExcludedRows] = useState<Array<{
+    operator_id: string;
+    first_name: string | null;
+    last_name: string | null;
+    unit_number: string | null;
+    excluded_from_dispatch_reason: string | null;
+  }>>([]);
+  const [showExcludedDialog, setShowExcludedDialog] = useState(false);
+  const [reIncludingId, setReIncludingId] = useState<string | null>(null);
 
   // Keep rowsRef in sync so realtime callbacks can access current operator info
   useEffect(() => { rowsRef.current = rows; }, [rows]);
@@ -474,6 +485,18 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
           });
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'operators' },
+        (payload: any) => {
+          const oldExcluded = (payload.old as any)?.excluded_from_dispatch;
+          const newExcluded = (payload.new as any)?.excluded_from_dispatch;
+          // Only re-fetch if the dispatch-exclusion flag flipped (avoids unnecessary refetch on unrelated updates)
+          if (oldExcluded !== newExcluded) {
+            fetchDispatch(true);
+          }
+        }
+      )
       .subscribe();
 
     return () => {
@@ -494,6 +517,8 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
         user_id,
         unit_number,
         is_active,
+        excluded_from_dispatch,
+        excluded_from_dispatch_reason,
         onboarding_status (fully_onboarded, unit_number),
         active_dispatch (id, dispatch_status, assigned_dispatcher, current_load_lane, eta_redispatch, status_notes, updated_at)
       `)
@@ -505,17 +530,37 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
       const getOne = (val: any) => (Array.isArray(val) ? val[0] : val) ?? null;
 
       const onboarded = (data as any[]).filter(op => getOne(op.onboarding_status)?.fully_onboarded);
-      const userIds = onboarded.map(op => op.user_id).filter(Boolean);
+      // Split into included vs excluded — only included operators count on the board/tiles
+      const excludedOnboarded = onboarded.filter(op => op.excluded_from_dispatch === true);
+      const includedOnboarded = onboarded.filter(op => op.excluded_from_dispatch !== true);
+      const userIds = includedOnboarded.map(op => op.user_id).filter(Boolean);
+      // Also fetch profiles for excluded operators so we can list them in the dialog
+      const excludedUserIds = excludedOnboarded.map(op => op.user_id).filter(Boolean);
       const profileMap: Record<string, any> = {};
-      if (userIds.length > 0) {
+      const allProfileIds = [...new Set([...userIds, ...excludedUserIds])];
+      if (allProfileIds.length > 0) {
         const { data: profileData } = await supabase
           .from('profiles')
           .select('user_id, first_name, last_name, phone, home_state, avatar_url')
-          .in('user_id', userIds);
+          .in('user_id', allProfileIds);
         (profileData ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
       }
 
-      const mapped: DispatchRow[] = onboarded
+      // Build excluded list for the footer dialog
+      const excludedList = excludedOnboarded.map(op => {
+        const os = getOne(op.onboarding_status) ?? {};
+        const p = profileMap[op.user_id] ?? {};
+        return {
+          operator_id: op.id,
+          first_name: p.first_name ?? null,
+          last_name: p.last_name ?? null,
+          unit_number: os.unit_number ?? op.unit_number ?? null,
+          excluded_from_dispatch_reason: op.excluded_from_dispatch_reason ?? null,
+        };
+      }).sort((a, b) => (a.last_name ?? '').localeCompare(b.last_name ?? ''));
+      setExcludedRows(excludedList);
+
+      const mapped: DispatchRow[] = includedOnboarded
         .map(op => {
           const d = getOne(op.active_dispatch) ?? {};
           const os = getOne(op.onboarding_status) ?? {};
@@ -718,6 +763,44 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
     }
   };
 
+  // ── Re-include an operator in the Dispatch Hub ───────────────────────────
+  const handleReIncludeOperator = async (operatorId: string, operatorName: string) => {
+    setReIncludingId(operatorId);
+    try {
+      const { error } = await supabase
+        .from('operators')
+        .update({
+          excluded_from_dispatch: false,
+          excluded_from_dispatch_reason: null,
+          excluded_from_dispatch_at: null,
+          excluded_from_dispatch_by: null,
+        } as any)
+        .eq('id', operatorId);
+      if (error) throw error;
+
+      // Audit-log the change
+      void supabase.from('audit_log' as any).insert({
+        actor_id: session?.user?.id ?? null,
+        action: 'operator.dispatch_exclusion_changed',
+        entity_type: 'operator',
+        entity_id: operatorId,
+        entity_label: operatorName,
+        metadata: { from: true, to: false, reason: null, source: 'dispatch_portal_dialog' },
+      });
+
+      toast({
+        title: 'Driver re-included',
+        description: `${operatorName} now appears in the Dispatch Hub.`,
+      });
+      // Realtime listener will refresh, but force one too for snappy UX
+      fetchDispatch(true);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setReIncludingId(null);
+    }
+  };
+
   const saveEdit = async (row: DispatchRow) => {
     setSaving(true);
     const newStatus = editData.dispatch_status ?? 'not_dispatched';
@@ -911,6 +994,22 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
           </div>
         ))}
       </div>
+
+      {/* Excluded-from-dispatch footer line */}
+      {excludedRows.length > 0 && (
+        <div className="flex items-center justify-end gap-1 -mt-1 text-[11px] text-muted-foreground">
+          <EyeOff className="h-3 w-3" />
+          <span>
+            Showing {counts.total} of {counts.total + excludedRows.length} active operators.{' '}
+            <button
+              onClick={() => setShowExcludedDialog(true)}
+              className="text-foreground hover:text-gold underline underline-offset-2 transition-colors"
+            >
+              {excludedRows.length} excluded from Dispatch Hub — View
+            </button>
+          </span>
+        </div>
+      )}
 
       {/* Filter tabs + search bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
@@ -1855,6 +1954,67 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Excluded-from-Dispatch Dialog */}
+      <Dialog open={showExcludedDialog} onOpenChange={setShowExcludedDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <EyeOff className="h-4 w-4 text-gold" />
+              Excluded from Dispatch Hub
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              These drivers are active in the system but hidden from the Dispatch Board and excluded from the daily count tiles.
+              Re-include any driver to bring them back into the Dispatch Hub.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto -mx-1 px-1">
+            {excludedRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                No drivers are currently excluded.
+              </p>
+            ) : (
+              excludedRows.map(r => {
+                const name = [r.first_name, r.last_name].filter(Boolean).join(' ') || 'Unknown Driver';
+                return (
+                  <div
+                    key={r.operator_id}
+                    className="flex items-start gap-2 p-2.5 rounded-lg border border-border bg-muted/30"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-foreground truncate">{name}</span>
+                        {r.unit_number && (
+                          <span className="font-mono text-[11px] text-muted-foreground">#{r.unit_number}</span>
+                        )}
+                      </div>
+                      {r.excluded_from_dispatch_reason && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                          {r.excluded_from_dispatch_reason}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleReIncludeOperator(r.operator_id, name)}
+                      disabled={reIncludingId === r.operator_id}
+                      className="h-7 text-[11px] gap-1 px-2 shrink-0 border-gold/40 text-gold hover:bg-gold/10 hover:text-gold"
+                    >
+                      {reIncludingId === r.operator_id ? (
+                        <RefreshCw className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <RotateCcw className="h-3 w-3" />
+                      )}
+                      Re-include
+                    </Button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

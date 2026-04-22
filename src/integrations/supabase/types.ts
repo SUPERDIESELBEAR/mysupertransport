@@ -1983,6 +1983,10 @@ export type Database = {
           application_id: string | null
           assigned_onboarding_staff: string | null
           created_at: string
+          excluded_from_dispatch: boolean
+          excluded_from_dispatch_at: string | null
+          excluded_from_dispatch_by: string | null
+          excluded_from_dispatch_reason: string | null
           id: string
           is_active: boolean
           notes: string | null
@@ -1999,6 +2003,10 @@ export type Database = {
           application_id?: string | null
           assigned_onboarding_staff?: string | null
           created_at?: string
+          excluded_from_dispatch?: boolean
+          excluded_from_dispatch_at?: string | null
+          excluded_from_dispatch_by?: string | null
+          excluded_from_dispatch_reason?: string | null
           id?: string
           is_active?: boolean
           notes?: string | null
@@ -2015,6 +2023,10 @@ export type Database = {
           application_id?: string | null
           assigned_onboarding_staff?: string | null
           created_at?: string
+          excluded_from_dispatch?: boolean
+          excluded_from_dispatch_at?: string | null
+          excluded_from_dispatch_by?: string | null
+          excluded_from_dispatch_reason?: string | null
           id?: string
           is_active?: boolean
           notes?: string | null

@@ -438,6 +438,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [deactivating, setDeactivating] = useState(false);
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [deactivateReason, setDeactivateReason] = useState<string>('');
+  // Dispatch Hub exclusion state
+  const [excludedFromDispatch, setExcludedFromDispatch] = useState(false);
+  const [excludedReason, setExcludedReason] = useState<string>('');
+  const [savingExclusion, setSavingExclusion] = useState(false);
   const { isManagement } = useAuth();
 
   // On Hold state
@@ -983,6 +987,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setIsOnHold((op as any).on_hold ?? false);
       setOnHoldReason((op as any).on_hold_reason ?? '');
       setOnHoldDate((op as any).on_hold_date ?? null);
+      setExcludedFromDispatch((op as any).excluded_from_dispatch === true);
+      setExcludedReason((op as any).excluded_from_dispatch_reason ?? '');
       // Fetch profile separately to avoid FK hint issues
       const { data: profile } = await supabase
         .from('profiles')
@@ -1639,6 +1645,46 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
   };
 
+  const handleToggleDispatchExclusion = async (nextExcluded: boolean) => {
+    setSavingExclusion(true);
+    const trimmedReason = nextExcluded ? excludedReason.trim() : '';
+    try {
+      const { error } = await supabase
+        .from('operators')
+        .update({
+          excluded_from_dispatch: nextExcluded,
+          excluded_from_dispatch_reason: nextExcluded && trimmedReason ? trimmedReason : null,
+          excluded_from_dispatch_at: nextExcluded ? new Date().toISOString() : null,
+          excluded_from_dispatch_by: nextExcluded ? (session?.user?.id ?? null) : null,
+        } as any)
+        .eq('id', operatorId);
+      if (error) throw error;
+
+      void supabase.from('audit_log' as any).insert({
+        actor_id: session?.user?.id ?? null,
+        actor_name: null,
+        action: 'operator.dispatch_exclusion_changed',
+        entity_type: 'operator',
+        entity_id: operatorId,
+        entity_label: operatorName,
+        metadata: { from: !nextExcluded, to: nextExcluded, reason: trimmedReason || null },
+      });
+
+      setExcludedFromDispatch(nextExcluded);
+      if (!nextExcluded) setExcludedReason('');
+      toast({
+        title: nextExcluded ? 'Excluded from Dispatch Hub' : 'Included in Dispatch Hub',
+        description: nextExcluded
+          ? `${operatorName} is hidden from the Dispatch Board and removed from daily counts.`
+          : `${operatorName} now appears in the Dispatch Board and is counted in daily tiles.`,
+      });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingExclusion(false);
+    }
+  };
+
   const handleSaveOnHold = async () => {
     if (!onHoldModalReason.trim()) {
       toast({ title: 'Reason required', description: 'Please enter a reason for placing this operator on hold.', variant: 'destructive' });
@@ -2151,11 +2197,67 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       <div className="flex flex-wrap gap-2">
         {!isActive && <Badge className="bg-muted text-muted-foreground border text-xs">⊘ Inactive</Badge>}
         {isOnHold && <Badge className="bg-blue-100 text-blue-700 border border-blue-300 text-xs">⏸ On Hold</Badge>}
+        {excludedFromDispatch && <Badge className="bg-gold/10 text-gold border border-gold/30 text-xs">🚫 Excluded from Dispatch</Badge>}
         {isAlert && <Badge className="status-action border text-xs">⚠ Alert — Review Required</Badge>}
         {status.fully_onboarded && <Badge className="status-complete border text-xs">✓ Fully Onboarded</Badge>}
         {status.ica_status === 'complete' && <Badge className="status-complete border text-xs">ICA Signed</Badge>}
         {status.pe_screening_result === 'clear' && <Badge className="status-complete border text-xs">PE Clear</Badge>}
       </div>
+
+      {/* Exclude from Dispatch Hub toggle (staff & management only) */}
+      {isActive && (
+        <div className="rounded-xl border border-gold/30 bg-gold/5 px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🚫</span>
+                <Label className="text-sm font-semibold text-foreground cursor-pointer" htmlFor="exclude-dispatch-toggle">
+                  Exclude from Dispatch Hub
+                </Label>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-snug mt-1">
+                Hides this driver from the Dispatch Board and removes them from daily counts (Total Active, Dispatched, Home, Truck Down, Not Dispatched).
+                Use for backup-only drivers, owners who don't run loads daily, or test accounts.
+                Driver remains fully active everywhere else.
+              </p>
+            </div>
+            <Switch
+              id="exclude-dispatch-toggle"
+              checked={excludedFromDispatch}
+              disabled={savingExclusion}
+              onCheckedChange={(checked) => handleToggleDispatchExclusion(checked)}
+              className="data-[state=checked]:bg-gold shrink-0"
+            />
+          </div>
+          {excludedFromDispatch && (
+            <div className="mt-3 space-y-1.5">
+              <Label className="text-[11px] font-medium text-muted-foreground">
+                Reason (optional)
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  value={excludedReason}
+                  onChange={(e) => setExcludedReason(e.target.value)}
+                  placeholder='e.g., "Backup driver for Truck 412 — runs only when primary driver is off"'
+                  maxLength={200}
+                  className="h-8 text-xs flex-1"
+                  disabled={savingExclusion}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleToggleDispatchExclusion(true)}
+                  disabled={savingExclusion}
+                  className="h-8 text-xs gap-1 px-2.5 border-gold/40 text-gold hover:bg-gold/10 hover:text-gold shrink-0"
+                >
+                  {savingExclusion ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  Save
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Top Completion Summary ── */}
       {(!isQuickView || onboardingHistoryExpanded) && <div style={isQuickView ? { order: 20 } : undefined}>{(() => {
