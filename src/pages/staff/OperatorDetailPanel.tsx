@@ -4971,6 +4971,52 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   {/* ELD section */}
                   <div className="space-y-3">
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">ELD</p>
+
+                    {/* ELD Exempt toggle (pre-2000 trucks, FMCSA §395.8(a)(1)(iii)) */}
+                    <div className="rounded-lg border border-gold/40 bg-gold/5 p-3 space-y-2">
+                      <label className="flex items-start gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={status.eld_exempt ?? false}
+                          onChange={e => {
+                            const checked = e.target.checked;
+                            updateStatus('eld_exempt' as any, checked as any);
+                            if (checked && !status.eld_exempt_reason) {
+                              updateStatus('eld_exempt_reason' as any, ELD_EXEMPT_DEFAULT_REASON as any);
+                            }
+                          }}
+                          className="rounded border-border h-4 w-4 mt-0.5"
+                        />
+                        <span className="flex-1">
+                          <span className="text-xs font-semibold text-foreground block">ELD Exempt — Pre-2000 truck (paper logs allowed)</span>
+                          <span className="text-[11px] text-muted-foreground block mt-0.5">FMCSA §395.8(a)(1)(iii). When on, ELD device + Dash Cam are not required for Stage 5 completion.</span>
+                        </span>
+                      </label>
+                      {!status.eld_exempt && looksPre2000(status.truck_year) && (
+                        <div className="flex items-start gap-1.5 p-2 rounded bg-gold/10 border border-gold/30">
+                          <AlertTriangle className="h-3.5 w-3.5 text-gold shrink-0 mt-0.5" />
+                          <p className="text-[11px] text-gold-muted font-medium">This truck appears to be pre-2000 ({status.truck_year}). Consider enabling ELD Exempt.</p>
+                        </div>
+                      )}
+                      {status.eld_exempt && (
+                        <div className="space-y-1.5 pt-1">
+                          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Exemption Reason</Label>
+                          <Textarea
+                            value={status.eld_exempt_reason ?? ''}
+                            onChange={e => updateStatus('eld_exempt_reason' as any, (e.target.value || null) as any)}
+                            placeholder="e.g. Pre-2000 truck — paper logs in use under FMCSA §395.8(a)(1)(iii)"
+                            className="text-sm min-h-[48px] resize-none"
+                          />
+                          <div className="flex items-center gap-1.5 p-2 rounded bg-gold/10 border border-gold/30">
+                            <span className="text-base">🛡️</span>
+                            <p className="text-[11px] text-gold-muted font-medium">ELD Exempt — Paper logs in use. ELD/Dash Cam serial numbers are not required.</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {!status.eld_exempt && (
+                      <>
                     <SelectField label="ELD Install Method" field="eld_method" options={methodOptions} />
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">ELD Installed</Label>
@@ -4979,6 +5025,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         <SelectContent>{yesNoOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Shop Visit Exceptions — shown when either method is supertransport_shop */}
