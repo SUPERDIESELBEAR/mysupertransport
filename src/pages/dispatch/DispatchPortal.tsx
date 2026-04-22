@@ -505,6 +505,8 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
         user_id,
         unit_number,
         is_active,
+        excluded_from_dispatch,
+        excluded_from_dispatch_reason,
         onboarding_status (fully_onboarded, unit_number),
         active_dispatch (id, dispatch_status, assigned_dispatcher, current_load_lane, eta_redispatch, status_notes, updated_at)
       `)
@@ -516,17 +518,37 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
       const getOne = (val: any) => (Array.isArray(val) ? val[0] : val) ?? null;
 
       const onboarded = (data as any[]).filter(op => getOne(op.onboarding_status)?.fully_onboarded);
-      const userIds = onboarded.map(op => op.user_id).filter(Boolean);
+      // Split into included vs excluded — only included operators count on the board/tiles
+      const excludedOnboarded = onboarded.filter(op => op.excluded_from_dispatch === true);
+      const includedOnboarded = onboarded.filter(op => op.excluded_from_dispatch !== true);
+      const userIds = includedOnboarded.map(op => op.user_id).filter(Boolean);
+      // Also fetch profiles for excluded operators so we can list them in the dialog
+      const excludedUserIds = excludedOnboarded.map(op => op.user_id).filter(Boolean);
       const profileMap: Record<string, any> = {};
-      if (userIds.length > 0) {
+      const allProfileIds = [...new Set([...userIds, ...excludedUserIds])];
+      if (allProfileIds.length > 0) {
         const { data: profileData } = await supabase
           .from('profiles')
           .select('user_id, first_name, last_name, phone, home_state, avatar_url')
-          .in('user_id', userIds);
+          .in('user_id', allProfileIds);
         (profileData ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
       }
 
-      const mapped: DispatchRow[] = onboarded
+      // Build excluded list for the footer dialog
+      const excludedList = excludedOnboarded.map(op => {
+        const os = getOne(op.onboarding_status) ?? {};
+        const p = profileMap[op.user_id] ?? {};
+        return {
+          operator_id: op.id,
+          first_name: p.first_name ?? null,
+          last_name: p.last_name ?? null,
+          unit_number: os.unit_number ?? op.unit_number ?? null,
+          excluded_from_dispatch_reason: op.excluded_from_dispatch_reason ?? null,
+        };
+      }).sort((a, b) => (a.last_name ?? '').localeCompare(b.last_name ?? ''));
+      setExcludedRows(excludedList);
+
+      const mapped: DispatchRow[] = includedOnboarded
         .map(op => {
           const d = getOne(op.active_dispatch) ?? {};
           const os = getOne(op.onboarding_status) ?? {};
