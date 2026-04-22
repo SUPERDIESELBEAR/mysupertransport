@@ -169,6 +169,16 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
   const [allDispatchers, setAllDispatchers] = useState<Record<string, string>>({});
   // Binder sheet
   const [binderTarget, setBinderTarget] = useState<{ userId: string; operatorId: string; name: string } | null>(null);
+  // Excluded-from-dispatch tracking
+  const [excludedRows, setExcludedRows] = useState<Array<{
+    operator_id: string;
+    first_name: string | null;
+    last_name: string | null;
+    unit_number: string | null;
+    excluded_from_dispatch_reason: string | null;
+  }>>([]);
+  const [showExcludedDialog, setShowExcludedDialog] = useState(false);
+  const [reIncludingId, setReIncludingId] = useState<string | null>(null);
 
   // Keep rowsRef in sync so realtime callbacks can access current operator info
   useEffect(() => { rowsRef.current = rows; }, [rows]);
