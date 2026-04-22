@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { isEquipmentFullyComplete, looksPre2000, ELD_EXEMPT_DEFAULT_REASON } from '@/lib/equipmentCompletion';
 import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn, formatPhoneDisplay } from '@/lib/utils';
@@ -1056,7 +1057,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         if (os.ica_status === 'complete') autoCollapse.add('stage3');
         if ((os.mo_reg_received === 'yes' || os.registration_status === 'own_registration') &&
             os.mo_docs_submitted === 'submitted') autoCollapse.add('stage4');
-        if (os.decal_applied === 'yes' && os.eld_installed === 'yes' && os.fuel_card_issued === 'yes' && !!os.eld_serial_number && !!os.dash_cam_number && !!os.bestpass_number && !!os.fuel_card_number) autoCollapse.add('stage5');
+        if (isEquipmentFullyComplete(os as any)) autoCollapse.add('stage5');
         if (os.insurance_added_date) autoCollapse.add('stage6');
         if (os.go_live_date) autoCollapse.add('stage7');
         if (autoCollapse.size > 0) setCollapsedStages(autoCollapse);
@@ -1268,20 +1269,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       (prev.truck_inspection !== 'requested' && status.truck_inspection === 'requested');
 
     // Equipment ready: all three equipment items just became complete together
-    const equipmentReady =
-      status.decal_applied === 'yes' &&
-      status.eld_installed === 'yes' &&
-      status.fuel_card_issued === 'yes' &&
-      !!status.eld_serial_number &&
-      !!status.dash_cam_number &&
-      !!status.fuel_card_number;
-    const wasEquipmentReady =
-      prev.decal_applied === 'yes' &&
-      prev.eld_installed === 'yes' &&
-      prev.fuel_card_issued === 'yes' &&
-      !!prev.eld_serial_number &&
-      !!prev.dash_cam_number &&
-      !!prev.fuel_card_number;
+    const equipmentReady = isEquipmentFullyComplete(status as any);
+    const wasEquipmentReady = isEquipmentFullyComplete(prev as any);
 
     const milestones: { key: string; label: string; triggered: boolean }[] = [
       {
