@@ -203,6 +203,8 @@ function StageTrack({
                     style={
                       isEquipException
                         ? { background: 'hsl(var(--warning) / 0.15)', border: '2px solid hsl(var(--warning))' }
+                        : node.state === 'na'
+                        ? { background: 'hsl(var(--brand-gold))', border: '1.5px solid hsl(var(--brand-gold))' }
                         : node.state === 'complete'
                         ? { background: 'hsl(var(--status-complete))', border: '1.5px solid hsl(var(--status-complete))' }
                         : node.state === 'partial'
@@ -212,6 +214,9 @@ function StageTrack({
                   >
                     {isEquipException && (
                       <span className="text-[9px] font-black leading-none pointer-events-none" style={{ color: 'hsl(var(--warning))' }}>E</span>
+                    )}
+                    {!isEquipException && node.state === 'na' && (
+                      <span className="text-[8px] font-black leading-none pointer-events-none text-white">OO</span>
                     )}
                     {!isEquipException && node.state === 'complete' && (
                       <Check className="h-2.5 w-2.5 text-white pointer-events-none" strokeWidth={3} />
@@ -228,6 +233,8 @@ function StageTrack({
                     style={{
                       color: isEquipException
                         ? 'hsl(var(--warning))'
+                        : node.state === 'na'
+                        ? 'hsl(var(--brand-gold))'
                         : node.state === 'complete'
                         ? 'hsl(var(--status-complete))'
                         : node.state === 'partial'
@@ -247,7 +254,15 @@ function StageTrack({
                     <span className="text-[10px] font-semibold" style={{ color: 'hsl(var(--warning))' }}>Exception active — en route to shop</span>
                   </div>
                 )}
-                {node.items.filter(i => !i.done).length > 0 ? (
+                {node.state === 'na' ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 rounded px-2 py-1" style={{ background: 'hsl(var(--brand-gold) / 0.12)', border: '1px solid hsl(var(--brand-gold) / 0.4)' }}>
+                      <span className="text-[9px] font-black text-white rounded-sm px-1" style={{ background: 'hsl(var(--brand-gold))' }}>OO</span>
+                      <span className="text-[10px] font-semibold" style={{ color: 'hsl(var(--brand-gold))' }}>N/A · Owner-Operator has own registration</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground italic">No state filing required for this driver.</p>
+                  </div>
+                ) : node.items.filter(i => !i.done).length > 0 ? (
                   <div className="space-y-1">
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-destructive/80">Still needed</p>
                     <ul className="space-y-1">
