@@ -204,7 +204,7 @@ function StageTrack({
                       isEquipException
                         ? { background: 'hsl(var(--warning) / 0.15)', border: '2px solid hsl(var(--warning))' }
                         : node.state === 'na'
-                        ? { background: 'hsl(var(--brand-gold))', border: '1.5px solid hsl(var(--brand-gold))' }
+                        ? { background: 'hsl(var(--gold-main))', border: '1.5px solid hsl(var(--gold-main))' }
                         : node.state === 'complete'
                         ? { background: 'hsl(var(--status-complete))', border: '1.5px solid hsl(var(--status-complete))' }
                         : node.state === 'partial'
