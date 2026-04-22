@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle, FileText, Target, Paperclip, Truck, ShieldCheck, Megaphone } from 'lucide-react';
+import { Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle, FileText, Target, Paperclip, Truck, ShieldCheck, Megaphone, Banknote } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow } from 'date-fns';
@@ -120,6 +120,7 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
     dispatch_status_change: { icon: Truck,            bg: 'bg-muted',      color: 'text-muted-foreground' },
     compliance_update:      { icon: ShieldCheck,      bg: 'bg-sky-100',    color: 'text-sky-600' },
     release_note:           { icon: Megaphone,        bg: 'bg-purple-100', color: 'text-purple-600' },
+    pay_setup_submitted:    { icon: Banknote,         bg: 'bg-gold/15',    color: 'text-gold' },
   };
   const defaultIconConfig = { icon: Bell, bg: 'bg-muted', color: 'text-muted-foreground' };
 

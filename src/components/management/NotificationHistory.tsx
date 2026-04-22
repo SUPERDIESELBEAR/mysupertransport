@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow, format } from 'date-fns';
 import {
   Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle,
-  FileText, Target, Paperclip, Truck, RefreshCcw, CheckCheck, Filter, ArrowRight,
+  FileText, Target, Paperclip, Truck, RefreshCcw, CheckCheck, Filter, ArrowRight, Banknote,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +32,7 @@ const TYPE_CONFIG: Record<string, { icon: React.ElementType; bg: string; color: 
   document_uploaded:      { icon: Paperclip,    bg: 'bg-muted',           color: 'text-muted-foreground',  label: 'Document Uploaded' },
   new_application:        { icon: FileText,     bg: 'bg-muted',           color: 'text-muted-foreground',  label: 'New Application' },
   dispatch_status_change: { icon: Truck,        bg: 'bg-muted',           color: 'text-muted-foreground',  label: 'Dispatch Status' },
+  pay_setup_submitted:    { icon: Banknote,     bg: 'bg-gold/15',         color: 'text-gold',              label: 'Pay Setup Submitted' },
 };
 const DEFAULT_CONFIG = { icon: Bell, bg: 'bg-muted', color: 'text-muted-foreground', label: 'Notification' };
 
