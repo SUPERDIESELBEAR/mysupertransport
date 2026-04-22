@@ -184,9 +184,10 @@ export default function ManagementPortal() {
   const fetchTruckDownCount = useCallback(async () => {
     const { data } = await supabase
       .from('active_dispatch')
-      .select('operator_id, operators!inner(onboarding_status(fully_onboarded))')
+      .select('operator_id, operators!inner(excluded_from_dispatch, onboarding_status(fully_onboarded))')
       .eq('dispatch_status', 'truck_down');
     const count = (data ?? []).filter((row: any) => {
+      if (row.operators?.excluded_from_dispatch === true) return false;
       const os = row.operators?.onboarding_status;
       const status = Array.isArray(os) ? os[0] : os;
       return status?.fully_onboarded === true;
@@ -197,7 +198,7 @@ export default function ManagementPortal() {
   const fetchDispatchBreakdown = useCallback(async () => {
     const { data } = await supabase
       .from('active_dispatch')
-      .select('dispatch_status, updated_by, updated_at, operators!inner(onboarding_status(fully_onboarded))')
+      .select('dispatch_status, updated_by, updated_at, operators!inner(excluded_from_dispatch, onboarding_status(fully_onboarded))')
       .order('updated_at', { ascending: false });
     if (!data) return;
 
@@ -208,6 +209,8 @@ export default function ManagementPortal() {
     const seenStatus = new Set<string>();
 
     for (const row of data) {
+      // Skip operators excluded from the Dispatch Hub
+      if ((row as any).operators?.excluded_from_dispatch === true) continue;
       // Only count fully-onboarded operators (matches Dispatch Board visibility)
       const os = (row as any).operators?.onboarding_status;
       const onboardingStatus = Array.isArray(os) ? os[0] : os;
