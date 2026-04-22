@@ -137,8 +137,10 @@ const STAGE_INFO: Record<number, StageInfo> = {
   },
   5: {
     blockerText: (os) => {
-      const done = [os.decal_applied === 'yes', os.eld_installed === 'yes', os.fuel_card_issued === 'yes'];
-      const remaining = ['Decal', 'ELD Device', 'Fuel Card'].filter((_, i) => !done[i]);
+      const eldDone = (os as any).eld_exempt === true || os.eld_installed === 'yes';
+      const done = [os.decal_applied === 'yes', eldDone, os.fuel_card_issued === 'yes'];
+      const eldLabel = (os as any).eld_exempt === true ? 'ELD (exempt)' : 'ELD Device';
+      const remaining = ['Decal', eldLabel, 'Fuel Card'].filter((_, i) => !done[i]);
       if (remaining.length === 0) return 'All equipment is set up.';
       return `Your coordinator will arrange: ${remaining.join(', ')}. You'll be contacted to schedule installation.`;
     },
@@ -146,7 +148,7 @@ const STAGE_INFO: Record<number, StageInfo> = {
     responsibleLabel: 'Coordinator arranges installation',
     steps: [
       { label: 'Decal applied to truck', who: 'coordinator', done: (os) => os.decal_applied === 'yes' },
-      { label: 'ELD device installed', who: 'coordinator', done: (os) => os.eld_installed === 'yes' },
+      { label: 'ELD device installed', who: 'coordinator', done: (os) => (os as any).eld_exempt === true || os.eld_installed === 'yes' },
       { label: 'Fuel card issued', who: 'coordinator', done: (os) => os.fuel_card_issued === 'yes' },
     ],
   },
