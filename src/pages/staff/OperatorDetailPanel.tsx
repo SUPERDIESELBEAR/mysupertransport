@@ -78,6 +78,9 @@ type OnboardingStatus = {
   eld_method: string | null;
   eld_installed: string;
   fuel_card_issued: string;
+  // ELD exemption (pre-2000 trucks, FMCSA §395.8(a)(1)(iii))
+  eld_exempt: boolean;
+  eld_exempt_reason: string | null;
   // Stage 5 exceptions
   paper_logbook_approved: boolean;
   temp_decal_approved: boolean;
