@@ -1,86 +1,94 @@
 
 
-## Notify Marcus when a driver completes Stage 8
+## Hide specific drivers from the Dispatch Hub
 
-When a driver hits **Submit** on Stage 8 (Contractor Pay Setup), you'll get an instant **in-app notification + email at marc@mysupertranport.com** with everything you need to send them the Everee setup link.
+### The problem
+
+The Dispatch Hub pulls every operator where `is_active = true` and `fully_onboarded = true`. That's the right default, but it sweeps in two kinds of drivers who shouldn't affect the daily counts:
+
+- **Backup-only drivers** (e.g. an O/O whose hired driver runs the truck most days; the O/O only drives when the driver is off).
+- **Non-driving accounts** (e.g. your own Marcus Mueller test account).
+
+Today they're counted in **Total Active**, **Dispatched**, **Home**, **Truck Down**, and **Not Dispatched**, which skews the dashboard.
+
+Deactivating them isn't right either — that strips them from the Driver Hub, Fleet Roster, messaging, ICA, etc. We just want them **excluded from the dispatch board**, while staying fully active everywhere else.
+
+### Recommendation
+
+Add a per-operator **"Exclude from Dispatch Hub"** flag. Toggleable from the Operator Detail Panel (staff/management only). Off by default. When ON:
+
+- The driver does **not** appear in the Dispatch Portal list.
+- They are **not** counted in any of the 5 status tiles (Total Active, Dispatched, Home, Truck Down, Not Dispatched).
+- They are **not** counted in Management Portal's "Trucks Down" banner or dispatch overview.
+- They are **excluded** from `MiniDispatchCalendar` / dispatch-history surfaces.
+- They **still** appear normally in: Driver Hub, Fleet Roster, Pipeline, Messaging, Inspection Binder, Compliance, Settlement Forecast, ICA, Equipment, Notifications.
 
 ### What you'll see
 
-**The moment a driver submits Stage 8:**
+**In the Operator Detail Panel** (staff & management view), inside the existing "Status & Access" area near the Deactivate / Reactivate button, a new gold toggle row:
 
-1. **In-app bell badge** — red dot in the top bar:
-   > 💰 **Pay setup ready — Bobby Thompson**
-   > Submitted as Business (Thompson Trucking LLC). Send the payroll setup link.
-   > *Tap to open driver →*
+> 🚫 **Exclude from Dispatch Hub**
+> *Hides this driver from the Dispatch Board and removes them from daily dispatch counts (Total Active, Dispatched, Home, Truck Down, Not Dispatched). Use for backup-only drivers, owners who don't run loads daily, or test accounts. Driver remains fully active everywhere else.*
+> *Optional reason field below (e.g. "Backup driver for Truck 412 — runs only when primary driver is off")*
 
-2. **Email to marc@mysupertranport.com** with:
-   - Driver's full name
-   - Contractor type (Individual / Business)
-   - Legal name + business name (if applicable)
-   - Phone & email
-   - One-click "View Driver" button → operator detail panel
-   - Submitted timestamp
+When toggled ON, a small gold "Excluded from Dispatch" pill appears at the top of the panel next to the unit number.
 
-3. **Desktop push** if the tab is hidden (joins `truck_down` and `new_message` in the high-priority push set).
+**In the Dispatch Portal**, an unobtrusive footer line under the status tiles:
 
-**In Notification Preferences (Management):**
-A new toggle row appears:
-> 💰 **Pay Setup Submitted** — When an operator completes Stage 8 (Contractor Pay Setup) — *In-app · Email*
+> *Showing 23 of 25 active operators. 2 excluded from Dispatch Hub — [View](link)*
 
-Default: **ON for owner (you)**, OFF for other management users — they can flip it on if they want a copy.
+Clicking opens a small dialog listing the excluded drivers with a one-click "Re-include in Dispatch" button per row, in case you want to bring someone back in.
 
-**No-spam guard:** If a driver edits and re-submits within 30 minutes, you don't get a second alert (same dedupe pattern as `truck_down`).
+**In the Management Portal "Trucks Down" banner** and **dispatch overview** widget — same exclusion applies; counts only reflect dispatch-eligible drivers.
 
 ### How it works (technical)
 
-**1. Database — one trigger + one event type**
+**1. Database — one migration**
 
-New trigger `notify_owner_on_pay_setup_submitted` on `public.contractor_pay_setup` (AFTER INSERT OR UPDATE):
-- Fires only when `submitted_at` transitions from NULL → NOT NULL **AND** `terms_accepted = true`.
-- Looks up every user with role `owner` or `management` who has `pay_setup_submitted` enabled in `notification_preferences` (defaults TRUE for owner, FALSE for others — seeded in the migration).
-- Inserts an in-app `notifications` row per recipient with `type = 'pay_setup_submitted'`, link `/management?operator=<id>`.
-- Calls `net.http_post` to a new edge function `notify-pay-setup-submitted` for the email side.
-
-**2. Edge function — `notify-pay-setup-submitted`**
-- Receives `{ operator_id, contractor_pay_setup_id }`.
-- Joins `operators → applications` for driver name + `contractor_pay_setup` for the submitted info.
-- Sends a Resend email (same template style as `notify-onboarding-update`) to every recipient whose `email_enabled = true` for `pay_setup_submitted`.
-
-**3. Frontend — small additions**
-- `src/components/management/NotificationPreferencesModal.tsx`: add `pay_setup_submitted` row with `Banknote` icon, gold accent.
-- `src/components/staff/StaffNotificationPreferencesModal.tsx`: same row.
-- `src/components/NotificationBell.tsx` + `src/components/management/NotificationHistory.tsx`: add icon mapping for `pay_setup_submitted`.
-- `src/hooks/useDesktopNotifications.tsx`: add `'pay_setup_submitted'` to `HIGH_PRIORITY_TYPES`.
-
-**4. Seeding owner default**
-
-In the same migration:
+Add to `public.operators`:
 ```sql
-INSERT INTO public.notification_preferences (user_id, event_type, in_app_enabled, email_enabled)
-SELECT user_id, 'pay_setup_submitted', true, true
-FROM public.user_roles WHERE role = 'owner'
-ON CONFLICT (user_id, event_type) DO NOTHING;
+ALTER TABLE public.operators
+  ADD COLUMN excluded_from_dispatch boolean NOT NULL DEFAULT false,
+  ADD COLUMN excluded_from_dispatch_reason text NULL,
+  ADD COLUMN excluded_from_dispatch_at timestamptz NULL,
+  ADD COLUMN excluded_from_dispatch_by uuid NULL;
 ```
 
-You (Marcus) get both channels enabled the moment the migration runs — and the email goes to **marc@mysupertranport.com** (the address on your owner account).
+No RLS changes needed (existing `operators` policies cover it).
 
-> **Note on the email address:** I'll send to whatever email is on your auth account. If your account email is different from `marc@mysupertranport.com` (note: that spelling is missing the "s" in "transport" — the project's published domain is `mysupertransport.lovable.app`), let me know and I'll update your owner profile email to match before deploying. Otherwise the email will go to whatever is currently on your auth user record.
+**2. Frontend — small surgical edits**
+
+- **`src/pages/staff/OperatorDetailPanel.tsx`** — add the toggle UI in the Status & Access block (≈ near line 1979 where the Deactivate button lives). On change: update `operators` row, write `audit_log` entry (`action: 'operator.dispatch_exclusion_changed'`, metadata `{ from, to, reason }`), update local state. Show "Excluded from Dispatch" gold pill in header when ON.
+- **`src/pages/dispatch/DispatchPortal.tsx`** — `fetchDispatch` (line 490): add `.eq('excluded_from_dispatch', false)` to the operators query. Also select the field so we can show the "X excluded — View" footer + dialog. Realtime channel already covers `operators` updates indirectly via the existing refresh, but add a subscription on `operators` UPDATE so toggling exclusion live-updates the board for everyone.
+- **`src/pages/management/ManagementPortal.tsx`** — the two `active_dispatch` aggregate queries (lines ~186, ~199, ~504) need to inner-join operators and filter `operators.excluded_from_dispatch = false`. Equivalent pattern: switch from `.from('active_dispatch')` to `.from('active_dispatch').select('..., operators!inner(excluded_from_dispatch)').eq('operators.excluded_from_dispatch', false)`.
+- **`src/components/drivers/DriverRoster.tsx`** — no exclusion filter (driver hub still shows everyone), but read the field and surface a small "Excluded from Dispatch" muted pill on the row so staff has visibility.
+- **`src/components/dispatch/MiniDispatchCalendar.tsx`** — if the operator is excluded, render a small empty state ("This driver is excluded from the Dispatch Hub.") instead of the calendar.
+- **`src/integrations/supabase/types.ts`** — auto-regen.
+
+**3. Audit trail**
+
+Toggling the flag writes an `audit_log` row mirroring the existing `operator_deactivated` pattern (lines 1614–1624 of OperatorDetailPanel).
 
 ### Files touched
 
 ```text
-supabase/migrations/<new>.sql                              [trigger + seed]
-supabase/functions/notify-pay-setup-submitted/index.ts     [NEW — email sender]
-src/components/management/NotificationPreferencesModal.tsx [+ toggle row]
-src/components/staff/StaffNotificationPreferencesModal.tsx [+ toggle row]
-src/components/NotificationBell.tsx                        [+ icon mapping]
-src/components/management/NotificationHistory.tsx          [+ icon mapping]
-src/hooks/useDesktopNotifications.tsx                      [+ high-priority type]
+supabase/migrations/<new>.sql                               [+ 4 columns on operators]
+src/integrations/supabase/types.ts                          [auto-regen]
+src/pages/staff/OperatorDetailPanel.tsx                     [+ toggle UI + audit + header pill]
+src/pages/dispatch/DispatchPortal.tsx                       [+ filter + footer + dialog]
+src/pages/management/ManagementPortal.tsx                   [+ filter on 3 aggregate queries]
+src/components/drivers/DriverRoster.tsx                     [+ small "Excluded" pill]
+src/components/dispatch/MiniDispatchCalendar.tsx            [+ empty state when excluded]
+mem://features/dispatch/excluded-from-dispatch              [NEW memory]
 ```
+
+### What you'll do after deploy
+
+Open each of the two drivers (your account + the backup O/O), flip the **"Exclude from Dispatch Hub"** toggle ON, optionally add a reason. The board immediately drops them from the list and recalculates the 5 tiles. If the backup driver ever needs to be tracked daily again, flip it off — no data is lost.
 
 ### Out of scope
 
-- No change to the operator-facing Stage 8 UI.
-- No automation of the Everee link send — you stay in the loop.
-- Re-submissions within 30 minutes are de-duped.
+- No change to Deactivate/Reactivate flow.
+- No change to who can message, dispatch-assign manually, or view these drivers — exclusion only hides them from the Dispatch Hub aggregation.
+- No bulk-toggle UI; per-driver only (you mentioned ~2 drivers, so a bulk tool would be overkill).
 
