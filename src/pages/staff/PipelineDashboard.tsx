@@ -111,6 +111,8 @@ function computeProgressFromConfig(
   if (activeConfigs.length === 0) return op.progress_pct;
   const doneCount = activeConfigs.filter(cfg => {
     if (cfg.items.length === 0) return false;
+    // MO stage is considered satisfied when operator owns their own registration.
+    if (cfg.stage_key === 'mo' && op.registration_status === 'own_registration') return true;
     return cfg.items.every(item => evalItem(op, item.field, item.complete_value));
   }).length;
   return Math.round((doneCount / activeConfigs.length) * 100);
