@@ -1038,7 +1038,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
           updated_at
         ),
         contractor_pay_setup ( submitted_at, terms_accepted )
-      `),
+      `).eq('is_active', true),
       supabase.from('user_roles').select('user_id').in('role', ['onboarding_staff', 'management']),
     ]);
 
