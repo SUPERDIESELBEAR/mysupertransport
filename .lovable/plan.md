@@ -1,113 +1,86 @@
 
 
-## Add "ELD Exempt" toggle for pre-2000 trucks (Stage 5)
+## Notify Marcus when a driver completes Stage 8
 
-Per FMCSA rule §395.8(a)(1)(iii), trucks with engines manufactured before model year 2000 are exempt from ELD requirements and may use paper logs instead. Today, Stage 5 always requires an **ELD Serial #** and **Dash Cam #**, which forces staff to enter junk data for these trucks. This plan adds a clean exempt flag that propagates everywhere.
+When a driver hits **Submit** on Stage 8 (Contractor Pay Setup), you'll get an instant **in-app notification + email at marc@mysupertranport.com** with everything you need to send them the Everee setup link.
 
 ### What you'll see
 
-**Stage 5 — Equipment Setup (OperatorDetailPanel)**
-- A new gold toggle at the top of the **ELD section**: **"ELD Exempt — Pre-2000 truck (paper logs allowed)"**
-- When ON:
-  - "ELD Install Method", "ELD Installed", **ELD Serial #**, and **Dash Cam #** fields collapse and are visually replaced by a single gold info chip:
-    > 🛡️ *ELD Exempt — Pre-2000 truck. Paper logs in use. (FMCSA §395.8(a)(1)(iii))*
-  - Stage 5 completion no longer requires `eld_installed = yes`, `eld_serial_number`, or `dash_cam_number`. Only **Decal Applied** + **Fuel Card Issued** + assigned BestPass/Fuel numbers are required.
-  - The "Equipment Setup Complete" milestone email still fires, but with adjusted body ("Decal applied, paper logs approved, fuel card issued").
-- When OFF: current behavior unchanged.
+**The moment a driver submits Stage 8:**
 
-**Auto-suggest when truck year < 2000**
-- If `truck_year` is filled and parses as < 2000, a small inline hint appears next to the toggle: *"This truck appears to be pre-2000. Consider enabling ELD Exempt."* — never auto-toggled; staff stays in control.
+1. **In-app bell badge** — red dot in the top bar:
+   > 💰 **Pay setup ready — Bobby Thompson**
+   > Submitted as Business (Thompson Trucking LLC). Send the payroll setup link.
+   > *Tap to open driver →*
 
-**Operator Portal (Stage 5 view)**
-- Substep list omits "ELD Installed" and shows a single read-only row instead:
-  > **ELD Status:** Exempt — Pre-2000 truck (paper logs)
-- Stage 5 status logic treats exempt trucks as satisfying the ELD requirement.
+2. **Email to marc@mysupertranport.com** with:
+   - Driver's full name
+   - Contractor type (Individual / Business)
+   - Legal name + business name (if applicable)
+   - Phone & email
+   - One-click "View Driver" button → operator detail panel
+   - Submitted timestamp
 
-**Pipeline Dashboard (EQUIP dot)**
-- For exempt operators, the EQUIP dot completion check ignores ELD; if Decal + Fuel Card are done, the dot turns green (no more "stuck at 2/3" forever).
-- Tooltip line for ELD reads: *"ELD — Exempt (pre-2000)"* in gold instead of grey/green.
+3. **Desktop push** if the tab is hidden (joins `truck_down` and `new_message` in the high-priority push set).
 
-**TruckInfoCard (operator + staff views)**
-- "ELD Serial #" row is hidden when exempt and replaced with a small gold "Exempt" badge in the device grid.
-- "Dash Cam #" row is hidden the same way (since dash cam is only required alongside ELD policy).
+**In Notification Preferences (Management):**
+A new toggle row appears:
+> 💰 **Pay Setup Submitted** — When an operator completes Stage 8 (Contractor Pay Setup) — *In-app · Email*
 
-**Fleet Roster / Vehicle Hub**
-- New small gold "ELD Exempt" pill on the truck card.
+Default: **ON for owner (you)**, OFF for other management users — they can flip it on if they want a copy.
 
-**Equipment Inventory → Assign Modal**
-- When assigning ELD or Dash Cam to an exempt operator, a warning appears: *"This operator is marked ELD Exempt. Assign anyway?"* — does not block, just confirms.
-
-**Bulk Message / Stage filters**
-- `computeStage` treats exempt operators' Stage 5 as complete on Decal + Fuel Card alone.
+**No-spam guard:** If a driver edits and re-submits within 30 minutes, you don't get a second alert (same dedupe pattern as `truck_down`).
 
 ### How it works (technical)
 
-**Database (1 migration)**
-- Add `eld_exempt boolean NOT NULL DEFAULT false` to `public.onboarding_status`.
-- Add `eld_exempt_reason text NULL` (free-text, defaults to "Pre-2000 truck — FMCSA §395.8(a)(1)(iii)" when toggled on; staff-editable).
-- Update milestone trigger `notify_operator_on_status_change` so the `equipment_ready` notification fires when:
-  ```
-  decal_applied='yes' AND fuel_card_issued='yes'
-    AND (eld_installed='yes' OR eld_exempt=true)
-  ```
-- Update `pipeline_config.equip.items` JSON to include a synthetic note for ELD: when `eld_exempt=true`, the `eld_installed` item is treated as satisfied. (Implemented in app code, not SQL — the config row stays as-is for non-exempt ops.)
+**1. Database — one trigger + one event type**
 
-**Frontend (one shared completion helper)**
+New trigger `notify_owner_on_pay_setup_submitted` on `public.contractor_pay_setup` (AFTER INSERT OR UPDATE):
+- Fires only when `submitted_at` transitions from NULL → NOT NULL **AND** `terms_accepted = true`.
+- Looks up every user with role `owner` or `management` who has `pay_setup_submitted` enabled in `notification_preferences` (defaults TRUE for owner, FALSE for others — seeded in the migration).
+- Inserts an in-app `notifications` row per recipient with `type = 'pay_setup_submitted'`, link `/management?operator=<id>`.
+- Calls `net.http_post` to a new edge function `notify-pay-setup-submitted` for the email side.
 
-Create `src/lib/equipmentCompletion.ts`:
-```ts
-export function isEldRequirementMet(s: { eld_installed?: string|null; eld_exempt?: boolean|null }) {
-  return s.eld_exempt === true || s.eld_installed === 'yes';
-}
-export function isEquipmentStageComplete(s: {...}) {
-  return s.decal_applied === 'yes' && s.fuel_card_issued === 'yes' && isEldRequirementMet(s);
-}
+**2. Edge function — `notify-pay-setup-submitted`**
+- Receives `{ operator_id, contractor_pay_setup_id }`.
+- Joins `operators → applications` for driver name + `contractor_pay_setup` for the submitted info.
+- Sends a Resend email (same template style as `notify-onboarding-update`) to every recipient whose `email_enabled = true` for `pay_setup_submitted`.
+
+**3. Frontend — small additions**
+- `src/components/management/NotificationPreferencesModal.tsx`: add `pay_setup_submitted` row with `Banknote` icon, gold accent.
+- `src/components/staff/StaffNotificationPreferencesModal.tsx`: same row.
+- `src/components/NotificationBell.tsx` + `src/components/management/NotificationHistory.tsx`: add icon mapping for `pay_setup_submitted`.
+- `src/hooks/useDesktopNotifications.tsx`: add `'pay_setup_submitted'` to `HIGH_PRIORITY_TYPES`.
+
+**4. Seeding owner default**
+
+In the same migration:
+```sql
+INSERT INTO public.notification_preferences (user_id, event_type, in_app_enabled, email_enabled)
+SELECT user_id, 'pay_setup_submitted', true, true
+FROM public.user_roles WHERE role = 'owner'
+ON CONFLICT (user_id, event_type) DO NOTHING;
 ```
-All ~12 inline checks across these files refactor to use the helper:
-- `src/pages/staff/OperatorDetailPanel.tsx` (Stage 5 panel, auto-collapse, milestone detection, mini status track, save handler)
-- `src/pages/operator/OperatorPortal.tsx` (Stage 5 status + substeps)
-- `src/pages/staff/PipelineDashboard.tsx` (EQUIP dot state, `computeStage`, `isStage5Open`)
-- `src/components/staff/BulkMessageModal.tsx` (`computeStage`)
-- `src/components/operator/TruckInfoCard.tsx` (hide ELD/Dash rows when exempt; show badge)
-- `src/components/equipment/EquipmentAssignModal.tsx` (confirm-before-assign warning)
-- `src/components/fleet/FleetRoster.tsx` (exempt pill)
 
-**Stage 5 UI changes (OperatorDetailPanel, ~line 4979)**
-- Insert toggle row above "ELD Install Method".
-- Wrap the ELD method/installed/serial/dash-cam fields in `{!status.eld_exempt && (...)}`.
-- When `eld_exempt`, render the gold info chip + a textarea for `eld_exempt_reason` (collapsed by default).
+You (Marcus) get both channels enabled the moment the migration runs — and the email goes to **marc@mysupertranport.com** (the address on your owner account).
 
-**Auto-suggest logic**
-```ts
-const looksPre2000 = (() => {
-  const y = parseInt(status.truck_year ?? '', 10);
-  return Number.isFinite(y) && y > 1900 && y < 2000;
-})();
-```
-Shown only when `!status.eld_exempt && looksPre2000`.
-
-**Audit trail**
-- Toggling `eld_exempt` writes an `audit_log` entry: action `equipment.eld_exempt_changed`, metadata `{ from, to, reason, truck_year }` — same pattern as existing equipment changes.
+> **Note on the email address:** I'll send to whatever email is on your auth account. If your account email is different from `marc@mysupertranport.com` (note: that spelling is missing the "s" in "transport" — the project's published domain is `mysupertransport.lovable.app`), let me know and I'll update your owner profile email to match before deploying. Otherwise the email will go to whatever is currently on your auth user record.
 
 ### Files touched
 
 ```text
-supabase/migrations/<new>.sql                              [+ columns, trigger update]
-src/lib/equipmentCompletion.ts                             [NEW — shared helper]
-src/integrations/supabase/types.ts                         [auto-regen]
-src/pages/staff/OperatorDetailPanel.tsx                    [toggle UI + refactors]
-src/pages/operator/OperatorPortal.tsx                      [stage status + substeps]
-src/pages/staff/PipelineDashboard.tsx                      [EQUIP dot + computeStage]
-src/components/staff/BulkMessageModal.tsx                  [computeStage]
-src/components/operator/TruckInfoCard.tsx                  [hide ELD/Dash rows]
-src/components/equipment/EquipmentAssignModal.tsx          [confirm warning]
-src/components/fleet/FleetRoster.tsx                       [exempt pill]
-mem://features/onboarding/eld-exempt                       [NEW memory file]
+supabase/migrations/<new>.sql                              [trigger + seed]
+supabase/functions/notify-pay-setup-submitted/index.ts     [NEW — email sender]
+src/components/management/NotificationPreferencesModal.tsx [+ toggle row]
+src/components/staff/StaffNotificationPreferencesModal.tsx [+ toggle row]
+src/components/NotificationBell.tsx                        [+ icon mapping]
+src/components/management/NotificationHistory.tsx          [+ icon mapping]
+src/hooks/useDesktopNotifications.tsx                      [+ high-priority type]
 ```
 
 ### Out of scope
 
-- No change to ELD/Dash Cam inventory tracking itself — exempt operators simply don't need devices assigned.
-- No change to insurance, ICA, or dispatch flows.
-- No automatic "set exempt" based on truck year — staff confirms manually.
+- No change to the operator-facing Stage 8 UI.
+- No automation of the Everee link send — you stay in the loop.
+- Re-submissions within 30 minutes are de-duped.
 
