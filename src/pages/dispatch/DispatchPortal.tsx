@@ -763,6 +763,44 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
     }
   };
 
+  // ── Re-include an operator in the Dispatch Hub ───────────────────────────
+  const handleReIncludeOperator = async (operatorId: string, operatorName: string) => {
+    setReIncludingId(operatorId);
+    try {
+      const { error } = await supabase
+        .from('operators')
+        .update({
+          excluded_from_dispatch: false,
+          excluded_from_dispatch_reason: null,
+          excluded_from_dispatch_at: null,
+          excluded_from_dispatch_by: null,
+        } as any)
+        .eq('id', operatorId);
+      if (error) throw error;
+
+      // Audit-log the change
+      void supabase.from('audit_log' as any).insert({
+        actor_id: session?.user?.id ?? null,
+        action: 'operator.dispatch_exclusion_changed',
+        entity_type: 'operator',
+        entity_id: operatorId,
+        entity_label: operatorName,
+        metadata: { from: true, to: false, reason: null, source: 'dispatch_portal_dialog' },
+      });
+
+      toast({
+        title: 'Driver re-included',
+        description: `${operatorName} now appears in the Dispatch Hub.`,
+      });
+      // Realtime listener will refresh, but force one too for snappy UX
+      fetchDispatch(true);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setReIncludingId(null);
+    }
+  };
+
   const saveEdit = async (row: DispatchRow) => {
     setSaving(true);
     const newStatus = editData.dispatch_status ?? 'not_dispatched';
