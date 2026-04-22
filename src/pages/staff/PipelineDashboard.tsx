@@ -234,7 +234,7 @@ function StageTrack({
                       color: isEquipException
                         ? 'hsl(var(--warning))'
                         : node.state === 'na'
-                        ? 'hsl(var(--brand-gold))'
+                        ? 'hsl(var(--gold-main))'
                         : node.state === 'complete'
                         ? 'hsl(var(--status-complete))'
                         : node.state === 'partial'
