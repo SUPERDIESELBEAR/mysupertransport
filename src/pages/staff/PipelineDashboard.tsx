@@ -21,7 +21,7 @@ import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 // ─── StageTrack ──────────────────────────────────────────────────────────────
 // Parallel 6-node progress track — driven by pipeline_config DB records.
 
-type NodeState = 'complete' | 'partial' | 'none';
+type NodeState = 'complete' | 'partial' | 'none' | 'na';
 
 interface StageNode {
   key: string;
@@ -78,7 +78,15 @@ function computeStageNodesFromConfig(
       }));
       const allDone = itemResults.length > 0 && itemResults.every(i => i.done);
       const anyDone = itemResults.some(i => i.done);
-      const state: NodeState = allDone ? 'complete' : anyDone ? 'partial' : 'none';
+      // Special case: MO stage is N/A when the owner-operator has their own registration.
+      const isMoOwnReg = cfg.stage_key === 'mo' && op.registration_status === 'own_registration';
+      const state: NodeState = isMoOwnReg
+        ? 'na'
+        : allDone
+        ? 'complete'
+        : anyDone
+        ? 'partial'
+        : 'none';
       return {
         key: cfg.stage_key,
         label: cfg.label,
