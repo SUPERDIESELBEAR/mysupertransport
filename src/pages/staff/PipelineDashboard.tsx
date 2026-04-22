@@ -21,7 +21,7 @@ import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 // ─── StageTrack ──────────────────────────────────────────────────────────────
 // Parallel 6-node progress track — driven by pipeline_config DB records.
 
-type NodeState = 'complete' | 'partial' | 'none';
+type NodeState = 'complete' | 'partial' | 'none' | 'na';
 
 interface StageNode {
   key: string;
@@ -78,7 +78,15 @@ function computeStageNodesFromConfig(
       }));
       const allDone = itemResults.length > 0 && itemResults.every(i => i.done);
       const anyDone = itemResults.some(i => i.done);
-      const state: NodeState = allDone ? 'complete' : anyDone ? 'partial' : 'none';
+      // Special case: MO stage is N/A when the owner-operator has their own registration.
+      const isMoOwnReg = cfg.stage_key === 'mo' && op.registration_status === 'own_registration';
+      const state: NodeState = isMoOwnReg
+        ? 'na'
+        : allDone
+        ? 'complete'
+        : anyDone
+        ? 'partial'
+        : 'none';
       return {
         key: cfg.stage_key,
         label: cfg.label,
@@ -103,6 +111,8 @@ function computeProgressFromConfig(
   if (activeConfigs.length === 0) return op.progress_pct;
   const doneCount = activeConfigs.filter(cfg => {
     if (cfg.items.length === 0) return false;
+    // MO stage is considered satisfied when operator owns their own registration.
+    if (cfg.stage_key === 'mo' && op.registration_status === 'own_registration') return true;
     return cfg.items.every(item => evalItem(op, item.field, item.complete_value));
   }).length;
   return Math.round((doneCount / activeConfigs.length) * 100);
@@ -168,6 +178,8 @@ function StageTrack({
               style={{
                 background: nodes[i - 1].state === 'complete'
                   ? 'hsl(var(--status-complete))'
+                  : nodes[i - 1].state === 'na'
+                  ? 'hsl(var(--gold-main))'
                   : 'hsl(var(--border))',
               }}
             />
@@ -191,6 +203,8 @@ function StageTrack({
                     style={
                       isEquipException
                         ? { background: 'hsl(var(--warning) / 0.15)', border: '2px solid hsl(var(--warning))' }
+                        : node.state === 'na'
+                        ? { background: 'hsl(var(--gold-main))', border: '1.5px solid hsl(var(--gold-main))' }
                         : node.state === 'complete'
                         ? { background: 'hsl(var(--status-complete))', border: '1.5px solid hsl(var(--status-complete))' }
                         : node.state === 'partial'
@@ -200,6 +214,9 @@ function StageTrack({
                   >
                     {isEquipException && (
                       <span className="text-[9px] font-black leading-none pointer-events-none" style={{ color: 'hsl(var(--warning))' }}>E</span>
+                    )}
+                    {!isEquipException && node.state === 'na' && (
+                      <span className="text-[8px] font-black leading-none pointer-events-none text-white">OO</span>
                     )}
                     {!isEquipException && node.state === 'complete' && (
                       <Check className="h-2.5 w-2.5 text-white pointer-events-none" strokeWidth={3} />
@@ -216,6 +233,8 @@ function StageTrack({
                     style={{
                       color: isEquipException
                         ? 'hsl(var(--warning))'
+                        : node.state === 'na'
+                        ? 'hsl(var(--gold-main))'
                         : node.state === 'complete'
                         ? 'hsl(var(--status-complete))'
                         : node.state === 'partial'
@@ -235,7 +254,15 @@ function StageTrack({
                     <span className="text-[10px] font-semibold" style={{ color: 'hsl(var(--warning))' }}>Exception active — en route to shop</span>
                   </div>
                 )}
-                {node.items.filter(i => !i.done).length > 0 ? (
+                {node.state === 'na' ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 rounded px-2 py-1" style={{ background: 'hsl(var(--gold-main) / 0.12)', border: '1px solid hsl(var(--gold-main) / 0.4)' }}>
+                      <span className="text-[9px] font-black text-white rounded-sm px-1" style={{ background: 'hsl(var(--gold-main))' }}>OO</span>
+                      <span className="text-[10px] font-semibold" style={{ color: 'hsl(var(--gold-main))' }}>N/A · Owner-Operator has own registration</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground italic">No state filing required for this driver.</p>
+                  </div>
+                ) : node.items.filter(i => !i.done).length > 0 ? (
                   <div className="space-y-1">
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-destructive/80">Still needed</p>
                     <ul className="space-y-1">
