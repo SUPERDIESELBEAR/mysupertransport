@@ -1203,6 +1203,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         fuel_card_issued: os.fuel_card_issued ?? 'no',
         paper_logbook_approved: os.paper_logbook_approved ?? false,
         temp_decal_approved: os.temp_decal_approved ?? false,
+        eld_exempt: os.eld_exempt ?? false,
         pay_setup_submitted: paySetupSubmitted,
         registration_status: os.registration_status ?? null,
         progress_pct: 0, // placeholder; real % computed in StageTrack from pipeline_config
