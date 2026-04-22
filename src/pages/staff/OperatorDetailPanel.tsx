@@ -4992,10 +4992,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                           <span className="text-[11px] text-muted-foreground block mt-0.5">FMCSA §395.8(a)(1)(iii). When on, ELD device + Dash Cam are not required for Stage 5 completion.</span>
                         </span>
                       </label>
-                      {!status.eld_exempt && looksPre2000(status.truck_year) && (
+                      {!status.eld_exempt && looksPre2000((status as any).truck_year) && (
                         <div className="flex items-start gap-1.5 p-2 rounded bg-gold/10 border border-gold/30">
                           <AlertTriangle className="h-3.5 w-3.5 text-gold shrink-0 mt-0.5" />
-                          <p className="text-[11px] text-gold-muted font-medium">This truck appears to be pre-2000 ({status.truck_year}). Consider enabling ELD Exempt.</p>
+                          <p className="text-[11px] text-gold-muted font-medium">This truck appears to be pre-2000 ({(status as any).truck_year}). Consider enabling ELD Exempt.</p>
                         </div>
                       )}
                       {status.eld_exempt && (
