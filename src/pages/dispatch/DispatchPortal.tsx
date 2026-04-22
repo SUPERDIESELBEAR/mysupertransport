@@ -19,7 +19,7 @@ import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
   LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell, Volume2, VolumeX,
-  CheckCheck, Users2, Shield, Container
+  CheckCheck, Users2, Shield, Container, EyeOff, RotateCcw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -28,6 +28,7 @@ import DriverHubView from '@/components/drivers/DriverHubView';
 import MiniDispatchCalendar from '@/components/dispatch/MiniDispatchCalendar';
 import OperatorInspectionBinder from '@/components/inspection/OperatorInspectionBinder';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface QuickComposeTarget {
   operatorUserId: string;
