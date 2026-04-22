@@ -485,6 +485,18 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
           });
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'operators' },
+        (payload: any) => {
+          const oldExcluded = (payload.old as any)?.excluded_from_dispatch;
+          const newExcluded = (payload.new as any)?.excluded_from_dispatch;
+          // Only re-fetch if the dispatch-exclusion flag flipped (avoids unnecessary refetch on unrelated updates)
+          if (oldExcluded !== newExcluded) {
+            fetchDispatch(true);
+          }
+        }
+      )
       .subscribe();
 
     return () => {
