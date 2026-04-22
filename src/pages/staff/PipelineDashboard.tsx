@@ -178,6 +178,8 @@ function StageTrack({
               style={{
                 background: nodes[i - 1].state === 'complete'
                   ? 'hsl(var(--status-complete))'
+                  : nodes[i - 1].state === 'na'
+                  ? 'hsl(var(--brand-gold))'
                   : 'hsl(var(--border))',
               }}
             />
