@@ -1674,6 +1674,8 @@ export type Database = {
           dispatch_ready_first_assigned: boolean
           dispatch_ready_orientation: boolean
           doc_notes: string | null
+          eld_exempt: boolean
+          eld_exempt_reason: string | null
           eld_installed: Database["public"]["Enums"]["yes_no"]
           eld_method: Database["public"]["Enums"]["install_method"] | null
           eld_serial_number: string | null
@@ -1765,6 +1767,8 @@ export type Database = {
           dispatch_ready_first_assigned?: boolean
           dispatch_ready_orientation?: boolean
           doc_notes?: string | null
+          eld_exempt?: boolean
+          eld_exempt_reason?: string | null
           eld_installed?: Database["public"]["Enums"]["yes_no"]
           eld_method?: Database["public"]["Enums"]["install_method"] | null
           eld_serial_number?: string | null
@@ -1856,6 +1860,8 @@ export type Database = {
           dispatch_ready_first_assigned?: boolean
           dispatch_ready_orientation?: boolean
           doc_notes?: string | null
+          eld_exempt?: boolean
+          eld_exempt_reason?: string | null
           eld_installed?: Database["public"]["Enums"]["yes_no"]
           eld_method?: Database["public"]["Enums"]["install_method"] | null
           eld_serial_number?: string | null

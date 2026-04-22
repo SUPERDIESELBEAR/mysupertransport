@@ -446,10 +446,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         if (s.registration_status === 'needs_mo_reg') return 'not_started';
         return 'not_started';
       case 5:
-        if (s.decal_applied === 'yes' && s.eld_installed === 'yes' && s.fuel_card_issued === 'yes') return 'complete';
+        if (s.decal_applied === 'yes' && ((s as any).eld_exempt === true || s.eld_installed === 'yes') && s.fuel_card_issued === 'yes') return 'complete';
         // Exception active: operator approved to run while en route to shop
         if ((s.paper_logbook_approved || s.temp_decal_approved) && (s.decal_method === 'supertransport_shop' || s.eld_method === 'supertransport_shop')) return 'in_progress';
-        if (s.decal_applied === 'yes' || s.eld_installed === 'yes') return 'in_progress';
+        if (s.decal_applied === 'yes' || s.eld_installed === 'yes' || (s as any).eld_exempt === true) return 'in_progress';
         return 'not_started';
       case 6:
         if (s.insurance_added_date) return 'complete';
@@ -527,13 +527,15 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       status: getStageStatus(5),
       substeps: [
         { label: 'Decal Applied', value: fmt(onboardingStatus.decal_applied ?? 'no'), status: onboardingStatus.decal_applied === 'yes' ? 'complete' : (onboardingStatus.temp_decal_approved && onboardingStatus.decal_method === 'supertransport_shop') ? 'in_progress' : 'not_started' },
-        { label: 'ELD Installed', value: fmt(onboardingStatus.eld_installed ?? 'no'), status: onboardingStatus.eld_installed === 'yes' ? 'complete' : (onboardingStatus.paper_logbook_approved && onboardingStatus.eld_method === 'supertransport_shop') ? 'in_progress' : 'not_started' },
+        ...((onboardingStatus as any).eld_exempt
+          ? [{ label: 'ELD Status', value: 'Exempt — Pre-2000 truck (paper logs)', status: 'complete' as StageStatus }]
+          : [{ label: 'ELD Installed', value: fmt(onboardingStatus.eld_installed ?? 'no'), status: onboardingStatus.eld_installed === 'yes' ? 'complete' as StageStatus : (onboardingStatus.paper_logbook_approved && onboardingStatus.eld_method === 'supertransport_shop') ? 'in_progress' as StageStatus : 'not_started' as StageStatus }]),
         { label: 'Fuel Card Issued', value: fmt(onboardingStatus.fuel_card_issued ?? 'no'), status: onboardingStatus.fuel_card_issued === 'yes' ? 'complete' : 'not_started' },
         ...((onboardingStatus.paper_logbook_approved || onboardingStatus.temp_decal_approved) && (onboardingStatus.decal_method === 'supertransport_shop' || onboardingStatus.eld_method === 'supertransport_shop') ? [
           { label: 'Exception Status', value: 'Approved — En Route to Shop', status: 'in_progress' as StageStatus },
         ] : []),
-        ...(onboardingStatus.eld_serial_number ? [{ label: 'ELD Serial #', value: onboardingStatus.eld_serial_number as string, status: 'complete' as StageStatus }] : []),
-        ...(onboardingStatus.dash_cam_number ? [{ label: 'Dash Cam #', value: onboardingStatus.dash_cam_number as string, status: 'complete' as StageStatus }] : []),
+        ...(!(onboardingStatus as any).eld_exempt && onboardingStatus.eld_serial_number ? [{ label: 'ELD Serial #', value: onboardingStatus.eld_serial_number as string, status: 'complete' as StageStatus }] : []),
+        ...(!(onboardingStatus as any).eld_exempt && onboardingStatus.dash_cam_number ? [{ label: 'Dash Cam #', value: onboardingStatus.dash_cam_number as string, status: 'complete' as StageStatus }] : []),
         ...(onboardingStatus.bestpass_number ? [{ label: 'BestPass #', value: onboardingStatus.bestpass_number as string, status: 'complete' as StageStatus }] : []),
         ...(onboardingStatus.fuel_card_number ? [{ label: 'Fuel Card #', value: onboardingStatus.fuel_card_number as string, status: 'complete' as StageStatus }] : []),
       ],
