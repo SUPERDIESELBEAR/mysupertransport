@@ -438,6 +438,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [deactivating, setDeactivating] = useState(false);
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [deactivateReason, setDeactivateReason] = useState<string>('');
+  // Dispatch Hub exclusion state
+  const [excludedFromDispatch, setExcludedFromDispatch] = useState(false);
+  const [excludedReason, setExcludedReason] = useState<string>('');
+  const [savingExclusion, setSavingExclusion] = useState(false);
   const { isManagement } = useAuth();
 
   // On Hold state
@@ -983,6 +987,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setIsOnHold((op as any).on_hold ?? false);
       setOnHoldReason((op as any).on_hold_reason ?? '');
       setOnHoldDate((op as any).on_hold_date ?? null);
+      setExcludedFromDispatch((op as any).excluded_from_dispatch === true);
+      setExcludedReason((op as any).excluded_from_dispatch_reason ?? '');
       // Fetch profile separately to avoid FK hint issues
       const { data: profile } = await supabase
         .from('profiles')
@@ -1639,6 +1645,46 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
   };
 
+  const handleToggleDispatchExclusion = async (nextExcluded: boolean) => {
+    setSavingExclusion(true);
+    const trimmedReason = nextExcluded ? excludedReason.trim() : '';
+    try {
+      const { error } = await supabase
+        .from('operators')
+        .update({
+          excluded_from_dispatch: nextExcluded,
+          excluded_from_dispatch_reason: nextExcluded && trimmedReason ? trimmedReason : null,
+          excluded_from_dispatch_at: nextExcluded ? new Date().toISOString() : null,
+          excluded_from_dispatch_by: nextExcluded ? (session?.user?.id ?? null) : null,
+        } as any)
+        .eq('id', operatorId);
+      if (error) throw error;
+
+      void supabase.from('audit_log' as any).insert({
+        actor_id: session?.user?.id ?? null,
+        actor_name: null,
+        action: 'operator.dispatch_exclusion_changed',
+        entity_type: 'operator',
+        entity_id: operatorId,
+        entity_label: operatorName,
+        metadata: { from: !nextExcluded, to: nextExcluded, reason: trimmedReason || null },
+      });
+
+      setExcludedFromDispatch(nextExcluded);
+      if (!nextExcluded) setExcludedReason('');
+      toast({
+        title: nextExcluded ? 'Excluded from Dispatch Hub' : 'Included in Dispatch Hub',
+        description: nextExcluded
+          ? `${operatorName} is hidden from the Dispatch Board and removed from daily counts.`
+          : `${operatorName} now appears in the Dispatch Board and is counted in daily tiles.`,
+      });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingExclusion(false);
+    }
+  };
+
   const handleSaveOnHold = async () => {
     if (!onHoldModalReason.trim()) {
       toast({ title: 'Reason required', description: 'Please enter a reason for placing this operator on hold.', variant: 'destructive' });
@@ -2151,6 +2197,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       <div className="flex flex-wrap gap-2">
         {!isActive && <Badge className="bg-muted text-muted-foreground border text-xs">⊘ Inactive</Badge>}
         {isOnHold && <Badge className="bg-blue-100 text-blue-700 border border-blue-300 text-xs">⏸ On Hold</Badge>}
+        {excludedFromDispatch && <Badge className="bg-gold/10 text-gold border border-gold/30 text-xs">🚫 Excluded from Dispatch</Badge>}
         {isAlert && <Badge className="status-action border text-xs">⚠ Alert — Review Required</Badge>}
         {status.fully_onboarded && <Badge className="status-complete border text-xs">✓ Fully Onboarded</Badge>}
         {status.ica_status === 'complete' && <Badge className="status-complete border text-xs">ICA Signed</Badge>}
