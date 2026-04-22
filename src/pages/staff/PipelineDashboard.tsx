@@ -256,9 +256,9 @@ function StageTrack({
                 )}
                 {node.state === 'na' ? (
                   <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 rounded px-2 py-1" style={{ background: 'hsl(var(--brand-gold) / 0.12)', border: '1px solid hsl(var(--brand-gold) / 0.4)' }}>
-                      <span className="text-[9px] font-black text-white rounded-sm px-1" style={{ background: 'hsl(var(--brand-gold))' }}>OO</span>
-                      <span className="text-[10px] font-semibold" style={{ color: 'hsl(var(--brand-gold))' }}>N/A · Owner-Operator has own registration</span>
+                    <div className="flex items-center gap-1.5 rounded px-2 py-1" style={{ background: 'hsl(var(--gold-main) / 0.12)', border: '1px solid hsl(var(--gold-main) / 0.4)' }}>
+                      <span className="text-[9px] font-black text-white rounded-sm px-1" style={{ background: 'hsl(var(--gold-main))' }}>OO</span>
+                      <span className="text-[10px] font-semibold" style={{ color: 'hsl(var(--gold-main))' }}>N/A · Owner-Operator has own registration</span>
                     </div>
                     <p className="text-xs text-muted-foreground italic">No state filing required for this driver.</p>
                   </div>
