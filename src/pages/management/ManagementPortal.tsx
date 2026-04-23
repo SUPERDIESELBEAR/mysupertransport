@@ -1227,7 +1227,7 @@ export default function ManagementPortal() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => guardDemo('Send install instructions') && setInstallSendOpen(true)}
+                        onClick={() => { if (guardDemo()) return; setInstallSendOpen(true); }}
                         className="text-xs gap-1.5 shrink-0"
                       >
                         <Send className="h-3.5 w-3.5" />
