@@ -1348,6 +1348,21 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     setAssigningMap(prev => ({ ...prev, [operatorId]: false }));
   };
 
+  const handleStartDateChange = async (operatorId: string, isoDate: string) => {
+    const value = isoDate || null;
+    // Optimistic local update
+    setOperators(prev => prev.map(op =>
+      op.id === operatorId ? { ...op, anticipated_start_date: value } : op
+    ));
+    const { error } = await supabase
+      .from('operators')
+      .update({ anticipated_start_date: value })
+      .eq('id', operatorId);
+    if (error) {
+      toast({ title: 'Failed to save start date', description: error.message, variant: 'destructive' });
+    }
+  };
+
   const handleSendReminder = async (alert: ComplianceAlert) => {
     const key = `${alert.operator_id}|${alert.doc_type}`;
     setReminderSending(prev => ({ ...prev, [key]: true }));
