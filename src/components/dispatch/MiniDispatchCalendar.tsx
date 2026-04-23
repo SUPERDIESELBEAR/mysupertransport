@@ -40,6 +40,13 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [saving, setSaving] = useState(false);
   const [excluded, setExcluded] = useState<boolean | null>(null);
+  // Mark-range popover state
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [rangeFrom, setRangeFrom] = useState('');
+  const [rangeTo, setRangeTo] = useState('');
+  const [rangeStatus, setRangeStatus] = useState<DailyStatus>('dispatched');
+  const [rangeOverwrite, setRangeOverwrite] = useState(false);
+  const [rangeApplying, setRangeApplying] = useState(false);
 
   // Check whether this operator is excluded from the Dispatch Hub
   useEffect(() => {
