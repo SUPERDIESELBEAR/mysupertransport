@@ -1,30 +1,29 @@
 
 
-## Hide Truck Down ribbon on the Applicant Pipeline page
+## Hide Truck Down ribbon on the Management Pipeline page too
 
-The red **"X Operators Truck Down"** banner currently renders inside `StaffPortal.tsx` above the content slot, so it appears on **every** staff view (Dashboard, Pipeline, Drivers, Fleet, etc.). You want it gone specifically from the Pipeline page.
+The banner you're still seeing lives in **`ManagementPortal.tsx`** (the Management portal has its own copy, separate from StaffPortal). The Staff fix from last round is in place; Management was excluded as "out of scope" — but you're viewing the Management portal's Pipeline at `/dashboard?view=pipeline`, so you still see it.
 
 ### Change
 
-In `src/pages/staff/StaffPortal.tsx` (lines 514–539), wrap the existing banner condition so it also checks the active view:
+In `src/pages/management/ManagementPortal.tsx` (line 756), add the same view guard:
 
 ```tsx
-{truckDownOperators.length > 0 && currentView !== 'pipeline' && (
-  <div className="mb-3 flex flex-wrap …">
+{truckDownCount > 0 && view !== 'pipeline' && (
+  <div className="mb-5 flex flex-wrap … bg-destructive/10 …">
     …
   </div>
 )}
 ```
 
-That's the only edit. Behavior afterwards:
+### Result
 
-- **Pipeline view** → banner hidden (the "Truck Down" status column + filter dropdown inside the pipeline table remain untouched, so dispatchers still see who's down).
-- **All other staff views** (Dashboard, Drivers, Fleet, Equipment, etc.) → banner continues to show as before.
-- The "View Pipeline" button on the banner still works from other views — once it navigates to Pipeline it just disappears, which is the desired behavior.
+- **Management → Pipeline** → banner hidden (Truck Down column + filter inside the table remain).
+- **Management → Overview / Drivers / Fleet / etc.** → banner continues to show.
+- **Staff portal** → already hidden on Pipeline from the previous change; unchanged here.
 
 ### Out of scope
 
-- Not touching the Management portal's truck-down banner (`ManagementPortal.tsx`).
-- Not touching the operator portal's personal truck-down alert.
-- Not removing the ICA Drafts banner directly below it.
+- Operator portal's personal Truck Down alert.
+- The "ICA Drafts in Progress" banner directly below it.
 
