@@ -1034,6 +1034,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setDlRearUrl(app?.dl_rear_url ?? null);
       setMedCertDocUrl(app?.medical_cert_url ?? null);
       setNotes((op as any).notes ?? '');
+      setAnticipatedStartDate((op as any).anticipated_start_date ?? '');
       const os = (op as any).onboarding_status ?? null;
       if (os) {
         setStatus(os);
