@@ -4852,6 +4852,25 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               />
             </div>
 
+            {/* Lease Termination — Appendix C */}
+            <div className="pt-2 border-t border-border/60 space-y-2">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Lease Termination
+              </Label>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10"
+                onClick={() => setShowTerminationBuilder(true)}
+              >
+                <FileSignature className="h-3.5 w-3.5" />
+                Generate Lease Termination (Appendix C)
+              </Button>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Sign with your saved Carrier Signature, then notify the insurance company.
+              </p>
+            </div>
+
             {/* Void ICA — available when a contract has been issued or is in-progress draft */}
             {(status.ica_status === 'in_progress' || status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
               <div className="pt-1 border-t border-border">
@@ -6267,6 +6286,28 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           operatorId={operatorId}
           operatorName={operatorName}
           onClose={() => setShowICAView(false)}
+        />
+      )}
+
+      {/* Lease Termination Builder */}
+      {showTerminationBuilder && (
+        <LeaseTerminationBuilderModal
+          operatorId={operatorId}
+          operatorName={operatorName}
+          onClose={() => setShowTerminationBuilder(false)}
+          onCreated={(id) => {
+            setShowTerminationBuilder(false);
+            setOpenTerminationId(id);
+          }}
+        />
+      )}
+
+      {/* Lease Termination Viewer */}
+      {openTerminationId && (
+        <LeaseTerminationViewModal
+          terminationId={openTerminationId}
+          operatorName={operatorName}
+          onClose={() => setOpenTerminationId(null)}
         />
       )}
 
