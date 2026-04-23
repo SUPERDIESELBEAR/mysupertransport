@@ -1046,6 +1046,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         on_hold,
         on_hold_reason,
         on_hold_date,
+        notes,
+        anticipated_start_date,
         applications ( email, phone, address_state ),
         onboarding_status (
           mvr_status,
