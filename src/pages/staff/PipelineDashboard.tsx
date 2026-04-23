@@ -370,6 +370,8 @@ interface OperatorRow {
   on_hold: boolean;
   on_hold_reason: string | null;
   on_hold_date: string | null;
+  notes: string | null;
+  anticipated_start_date: string | null;
 }
 
 // ─── Temperature ─────────────────────────────────────────────────────────────
