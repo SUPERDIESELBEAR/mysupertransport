@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, ChevronRight, EyeOff } from 'lucide-react';
+import { ChevronLeft, ChevronRight, EyeOff, CalendarRange } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
@@ -38,6 +40,13 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [saving, setSaving] = useState(false);
   const [excluded, setExcluded] = useState<boolean | null>(null);
+  // Mark-range popover state
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [rangeFrom, setRangeFrom] = useState('');
+  const [rangeTo, setRangeTo] = useState('');
+  const [rangeStatus, setRangeStatus] = useState<DailyStatus>('dispatched');
+  const [rangeOverwrite, setRangeOverwrite] = useState(false);
+  const [rangeApplying, setRangeApplying] = useState(false);
 
   // Check whether this operator is excluded from the Dispatch Hub
   useEffect(() => {
@@ -126,7 +135,130 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
     if (error) {
       toast({ title: 'Error saving status', description: error.message, variant: 'destructive' });
     } else {
+      // If editing TODAY, also sync to active_dispatch + history so the live
+      // Dispatch Hub tiles reflect the change immediately.
+      const todayStr = new Date().toISOString().slice(0, 10);
+      if (dateStr === todayStr) {
+        await syncTodayToLive(status);
+      }
       fetchLogs();
+    }
+  };
+
+  // Mirror today's calendar status to active_dispatch (+ history) so the
+  // live Dispatch Hub stays in lockstep. No-ops if status is unchanged.
+  const syncTodayToLive = useCallback(async (status: DailyStatus) => {
+    // Read current live status to avoid spurious history rows / duplicate notifications.
+    const { data: current } = await supabase
+      .from('active_dispatch')
+      .select('id, dispatch_status')
+      .eq('operator_id', operatorId)
+      .maybeSingle();
+
+    if ((current as any)?.dispatch_status === status) return;
+
+    const payload = {
+      operator_id: operatorId,
+      dispatch_status: status,
+      updated_by: session?.user?.id ?? null,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (current) {
+      await supabase.from('active_dispatch').update(payload).eq('operator_id', operatorId);
+    } else {
+      await supabase.from('active_dispatch').insert(payload);
+    }
+
+    await supabase.from('dispatch_status_history').insert({
+      operator_id: operatorId,
+      dispatch_status: status,
+      changed_by: session?.user?.id ?? null,
+      status_notes: 'Synced from calendar today-cell',
+    });
+  }, [operatorId, session?.user?.id]);
+
+  // ── Mark range: bulk-set statuses for a date range (per-operator) ────────
+  const openRangePopover = () => {
+    const firstOfMonth = `${month.year}-${String(month.month + 1).padStart(2, '0')}-01`;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    setRangeFrom(firstOfMonth);
+    setRangeTo(todayStr);
+    setRangeStatus('dispatched');
+    setRangeOverwrite(false);
+    setRangeOpen(true);
+  };
+
+  const applyRange = async () => {
+    if (!rangeFrom || !rangeTo) return;
+    if (rangeFrom > rangeTo) {
+      toast({ title: 'Invalid range', description: 'Start date must be on or before end date.', variant: 'destructive' });
+      return;
+    }
+    const todayStr = new Date().toISOString().slice(0, 10);
+    // Build inclusive list of YYYY-MM-DD strings from rangeFrom to min(rangeTo, today)
+    const effectiveEnd = rangeTo > todayStr ? todayStr : rangeTo;
+    if (rangeFrom > effectiveEnd) {
+      toast({ title: 'Nothing to mark', description: 'The selected range has no past or current dates.', variant: 'destructive' });
+      return;
+    }
+    const dates: string[] = [];
+    const cursor = new Date(rangeFrom + 'T00:00:00');
+    const endD = new Date(effectiveEnd + 'T00:00:00');
+    while (cursor <= endD) {
+      dates.push(cursor.toISOString().slice(0, 10));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    setRangeApplying(true);
+    try {
+      // Fetch existing entries in range to honor "Overwrite existing" toggle
+      const { data: existing } = await supabase
+        .from('dispatch_daily_log')
+        .select('log_date')
+        .eq('operator_id', operatorId)
+        .gte('log_date', rangeFrom)
+        .lte('log_date', effectiveEnd);
+
+      const existingSet = new Set((existing ?? []).map((r: any) => r.log_date));
+      const toWrite = rangeOverwrite ? dates : dates.filter(d => !existingSet.has(d));
+
+      if (toWrite.length === 0) {
+        toast({ title: 'No changes', description: 'All days already have entries. Enable "Overwrite existing" to replace.' });
+        setRangeApplying(false);
+        return;
+      }
+
+      const rows = toWrite.map(log_date => ({
+        operator_id: operatorId,
+        log_date,
+        status: rangeStatus,
+        created_by: session?.user?.id ?? null,
+      }));
+
+      const { error } = await supabase
+        .from('dispatch_daily_log')
+        .upsert(rows, { onConflict: 'operator_id,log_date' });
+
+      if (error) {
+        toast({ title: 'Error applying range', description: error.message, variant: 'destructive' });
+        setRangeApplying(false);
+        return;
+      }
+
+      // If the range covers today AND today was actually written, dual-write to live.
+      if (toWrite.includes(todayStr)) {
+        await syncTodayToLive(rangeStatus);
+      }
+
+      toast({
+        title: 'Range marked',
+        description: `Marked ${toWrite.length} day${toWrite.length !== 1 ? 's' : ''} as ${STATUS_COLORS[rangeStatus].label}.`,
+      });
+      setRangeOpen(false);
+      fetchLogs();
+    } finally {
+      setRangeApplying(false);
     }
   };
 
@@ -147,12 +279,104 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
 
   return (
     <div className="space-y-1.5">
-      {/* Month nav */}
-      <div className="flex items-center justify-between">
+      {/* Month nav + Mark range */}
+      <div className="flex items-center justify-between gap-1">
         <button onClick={prevMonth} className="p-0.5 rounded hover:bg-muted transition-colors">
           <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
-        <span className="text-[11px] font-semibold text-foreground">{monthLabel}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-semibold text-foreground">{monthLabel}</span>
+          <Popover open={rangeOpen} onOpenChange={setRangeOpen}>
+            <PopoverTrigger asChild>
+              <button
+                onClick={openRangePopover}
+                title="Mark a date range with the same status"
+                className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-gold hover:text-gold-light px-1.5 py-0.5 rounded border border-gold/40 hover:bg-gold/5 transition-colors"
+              >
+                <CalendarRange className="h-3 w-3" />
+                Range
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3" side="bottom" align="center" sideOffset={6}>
+              <p className="text-[11px] font-semibold text-foreground mb-2">Mark date range</p>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">From</Label>
+                    <input
+                      type="date"
+                      value={rangeFrom}
+                      max={rangeTo || undefined}
+                      onChange={e => setRangeFrom(e.target.value)}
+                      className="mt-0.5 h-7 w-full rounded border border-input bg-background px-1.5 text-[11px]"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">To</Label>
+                    <input
+                      type="date"
+                      value={rangeTo}
+                      min={rangeFrom || undefined}
+                      max={new Date().toISOString().slice(0, 10)}
+                      onChange={e => setRangeTo(e.target.value)}
+                      className="mt-0.5 h-7 w-full rounded border border-input bg-background px-1.5 text-[11px]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Status</Label>
+                  <div className="mt-0.5 flex flex-col gap-0.5">
+                    {(Object.keys(STATUS_COLORS) as DailyStatus[]).map(s => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setRangeStatus(s)}
+                        className={`flex items-center gap-1.5 px-1.5 py-1 rounded text-[11px] font-medium transition-colors text-left ${
+                          rangeStatus === s
+                            ? STATUS_COLORS[s].bg + ' ' + STATUS_COLORS[s].text
+                            : 'hover:bg-muted text-foreground/80'
+                        }`}
+                      >
+                        <span className={`h-2 w-2 rounded-full ${STATUS_COLORS[s].dot} shrink-0`} />
+                        {STATUS_COLORS[s].label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 pt-1 cursor-pointer">
+                  <Checkbox
+                    checked={rangeOverwrite}
+                    onCheckedChange={c => setRangeOverwrite(c === true)}
+                    className="h-3.5 w-3.5"
+                  />
+                  <span className="text-[10px] text-foreground/80">Overwrite existing entries</span>
+                </label>
+                <div className="flex items-center justify-end gap-1.5 pt-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setRangeOpen(false)}
+                    disabled={rangeApplying}
+                    className="h-7 text-[11px] px-2"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={applyRange}
+                    disabled={rangeApplying || !rangeFrom || !rangeTo}
+                    className="h-7 text-[11px] px-2.5 bg-gold text-surface-dark hover:bg-gold-light"
+                  >
+                    {rangeApplying ? 'Applying…' : 'Apply'}
+                  </Button>
+                </div>
+                <p className="text-[9px] text-muted-foreground leading-snug pt-0.5">
+                  Future days are skipped. If the range includes today, the live Dispatch Hub also updates.
+                </p>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
         <button onClick={nextMonth} className="p-0.5 rounded hover:bg-muted transition-colors">
           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
@@ -178,8 +402,9 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
             <Popover key={day}>
               <PopoverTrigger asChild>
                 <button
+                  title={isToday ? 'Setting status here also updates the live Dispatch Hub' : undefined}
                   className={`h-6 w-full flex items-center justify-center rounded-sm text-[10px] transition-colors relative ${
-                    isToday ? 'font-bold ring-1 ring-primary/40' : ''
+                    isToday ? 'font-bold ring-1 ring-gold/60' : ''
                   } ${statusCfg ? statusCfg.bg : 'hover:bg-muted/50'}`}
                 >
                   <span className={statusCfg ? statusCfg.text + ' font-semibold' : 'text-foreground/70'}>{day}</span>

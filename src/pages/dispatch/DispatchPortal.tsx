@@ -726,6 +726,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
     if (selectedIds.size === 0) return;
     setBulkSaving(true);
     const targets = rows.filter(r => selectedIds.has(r.operator_id));
+    const todayStr = new Date().toISOString().slice(0, 10);
     await Promise.all(targets.map(row => {
       const payload = {
         operator_id: row.operator_id,
@@ -742,6 +743,20 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
         return supabase.from('active_dispatch').insert(payload);
       }
     }));
+    // Mirror today's status to dispatch_daily_log so the calendar stays in sync.
+    await Promise.all(targets.map(row =>
+      supabase
+        .from('dispatch_daily_log')
+        .upsert(
+          {
+            operator_id: row.operator_id,
+            log_date: todayStr,
+            status: bulkStatus,
+            created_by: session?.user?.id ?? null,
+          },
+          { onConflict: 'operator_id,log_date' }
+        )
+    ));
     setBulkSaving(false);
     setSelectedIds(new Set());
     setBulkMode(false);
@@ -829,6 +844,19 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
     if (error) {
       toast({ title: 'Error saving', description: error.message, variant: 'destructive' });
     } else {
+      // Mirror today's status to dispatch_daily_log so the calendar stays in sync.
+      const todayStr = new Date().toISOString().slice(0, 10);
+      void supabase
+        .from('dispatch_daily_log')
+        .upsert(
+          {
+            operator_id: row.operator_id,
+            log_date: todayStr,
+            status: newStatus,
+            created_by: session?.user?.id ?? null,
+          },
+          { onConflict: 'operator_id,log_date' }
+        );
       toast({ title: 'Dispatch updated', description: `${row.first_name} ${row.last_name} status saved.` });
       setEditRow(null);
       // Invalidate history cache for this operator so it refreshes on next expand
