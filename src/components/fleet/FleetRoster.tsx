@@ -4,10 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil } from 'lucide-react';
+import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2 } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 import QuickTruckEditModal from './QuickTruckEditModal';
+import FleetReminderIntervalDialog from './FleetReminderIntervalDialog';
 
 interface FleetRow {
   operatorId: string;
@@ -44,6 +45,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [search, setSearch] = useState('');
   const [showDeactivated, setShowDeactivated] = useState(false);
   const [editTarget, setEditTarget] = useState<FleetRow | null>(null);
+  const [intervalDialogOpen, setIntervalDialogOpen] = useState(false);
 
   const buildRows = useCallback(async (isActive: boolean) => {
     const { data: operators } = await supabase
@@ -161,8 +163,9 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         </div>
       </div>
 
-      {/* Active / Deactivated toggle */}
-      <div className="flex gap-1.5">
+      {/* Active / Deactivated toggle + Fleet settings */}
+      <div className="flex flex-wrap gap-1.5 items-center justify-between">
+        <div className="flex gap-1.5">
         <button
           onClick={() => setShowDeactivated(false)}
           className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${
@@ -190,6 +193,17 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
             {deactivatedRows.length}
           </span>
         </button>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-xs gap-1.5 h-8"
+          onClick={() => setIntervalDialogOpen(true)}
+          title="Set the fleet-wide default DOT reminder interval"
+        >
+          <Settings2 className="h-3.5 w-3.5" />
+          Fleet Reminder Interval
+        </Button>
       </div>
 
       {loading ? (
@@ -285,6 +299,11 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           }}
         />
       )}
+      <FleetReminderIntervalDialog
+        open={intervalDialogOpen}
+        onClose={() => setIntervalDialogOpen(false)}
+        onSaved={fetchFleet}
+      />
     </div>
   );
 }
