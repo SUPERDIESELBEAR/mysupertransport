@@ -28,7 +28,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Shield, Users2, AlertCircle, FileX,
   MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2, FileText,
-  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature,
+  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone,
 } from 'lucide-react';
 import FleetRoster from '@/components/fleet/FleetRoster';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
