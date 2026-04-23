@@ -358,6 +358,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [dlRearUrl, setDlRearUrl] = useState<string | null>(null);
   const [medCertDocUrl, setMedCertDocUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  const [anticipatedStartDate, setAnticipatedStartDate] = useState<string>('');
   const [status, setStatus] = useState<Partial<OnboardingStatus>>({});
   const [statusId, setStatusId] = useState<string | null>(null);
   const [dispatchHistory, setDispatchHistory] = useState<DispatchHistoryEntry[]>([]);
@@ -968,7 +969,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const [{ data: op }, { data: opDocs }] = await Promise.all([
       supabase
         .from('operators')
-        .select(`id, user_id, notes, is_active, on_hold, on_hold_reason, on_hold_date, pwa_installed_at, onboarding_status (*), applications (id, email, first_name, last_name, phone, address_street, address_city, address_state, address_zip, cdl_expiration, medical_cert_expiration, dob, dl_front_url, dl_rear_url, medical_cert_url)`)
+        .select(`id, user_id, notes, anticipated_start_date, is_active, on_hold, on_hold_reason, on_hold_date, pwa_installed_at, onboarding_status (*), applications (id, email, first_name, last_name, phone, address_street, address_city, address_state, address_zip, cdl_expiration, medical_cert_expiration, dob, dl_front_url, dl_rear_url, medical_cert_url)`)
         .eq('id', operatorId)
         .single(),
       supabase
@@ -1033,6 +1034,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       setDlRearUrl(app?.dl_rear_url ?? null);
       setMedCertDocUrl(app?.medical_cert_url ?? null);
       setNotes((op as any).notes ?? '');
+      setAnticipatedStartDate((op as any).anticipated_start_date ?? '');
       const os = (op as any).onboarding_status ?? null;
       if (os) {
         setStatus(os);

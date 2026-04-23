@@ -10,13 +10,14 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw, FileClock, Check, PauseCircle, ArchiveX } from 'lucide-react';
+import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw, FileClock, Check, PauseCircle, ArchiveX, CalendarDays, Paperclip, StickyNote } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
-import { differenceInDays, parseISO, format, formatDistanceToNowStrict } from 'date-fns';
+import { differenceInDays, parseISO, format, formatDistanceToNowStrict, startOfToday } from 'date-fns';
 import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
 import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
+import { DateInput } from '@/components/ui/date-input';
 
 // ─── StageTrack ──────────────────────────────────────────────────────────────
 // Parallel 6-node progress track — driven by pipeline_config DB records.
@@ -369,6 +370,8 @@ interface OperatorRow {
   on_hold: boolean;
   on_hold_reason: string | null;
   on_hold_date: string | null;
+  notes: string | null;
+  anticipated_start_date: string | null;
 }
 
 // ─── Temperature ─────────────────────────────────────────────────────────────
@@ -765,7 +768,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   }, [initialCoordinatorFilter, initialCoordinatorName]);
 
   // Sort state
-  type SortKey = 'name' | 'stage' | 'coordinator' | 'progress' | 'last_activity' | 'docs' | 'compliance' | 'msgs' | 'temperature';
+  type SortKey = 'name' | 'stage' | 'coordinator' | 'progress' | 'last_activity' | 'docs' | 'compliance' | 'msgs' | 'temperature' | 'start_date';
   type SortDir = 'asc' | 'desc';
   const [sortKey, setSortKey] = useState<SortKey | null>('temperature');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -1043,6 +1046,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         on_hold,
         on_hold_reason,
         on_hold_date,
+        notes,
+        anticipated_start_date,
         applications ( email, phone, address_state ),
         onboarding_status (
           mvr_status,
@@ -1211,6 +1216,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         on_hold: op.on_hold ?? false,
         on_hold_reason: op.on_hold_reason ?? null,
         on_hold_date: op.on_hold_date ?? null,
+        notes: op.notes ?? null,
+        anticipated_start_date: op.anticipated_start_date ?? null,
       };
     });
     // Keep operators in the Pipeline view if either:
@@ -1339,6 +1346,21 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     }
 
     setAssigningMap(prev => ({ ...prev, [operatorId]: false }));
+  };
+
+  const handleStartDateChange = async (operatorId: string, isoDate: string) => {
+    const value = isoDate || null;
+    // Optimistic local update
+    setOperators(prev => prev.map(op =>
+      op.id === operatorId ? { ...op, anticipated_start_date: value } : op
+    ));
+    const { error } = await supabase
+      .from('operators')
+      .update({ anticipated_start_date: value })
+      .eq('id', operatorId);
+    if (error) {
+      toast({ title: 'Failed to save start date', description: error.message, variant: 'destructive' });
+    }
   };
 
   const handleSendReminder = async (alert: ComplianceAlert) => {
@@ -1775,6 +1797,16 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       if (sortKey === 'last_activity') {
         const at = a.onboarding_updated_at ?? '';
         const bt = b.onboarding_updated_at ?? '';
+        const cmp = at < bt ? -1 : at > bt ? 1 : 0;
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
+      if (sortKey === 'start_date') {
+        // Empty start dates sort last in ascending; first in descending only when explicitly requested.
+        const at = a.anticipated_start_date ?? '';
+        const bt = b.anticipated_start_date ?? '';
+        if (!at && !bt) return 0;
+        if (!at) return 1;
+        if (!bt) return -1;
         const cmp = at < bt ? -1 : at > bt ? 1 : 0;
         return sortDir === 'asc' ? cmp : -cmp;
       }
@@ -2953,6 +2985,33 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     </Tooltip>
                   </TooltipProvider>
                 </th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
+                  <div className="inline-flex items-center gap-1">
+                    <button
+                      onClick={() => handleSort('start_date')}
+                      className="inline-flex items-center gap-1 hover:text-gold transition-colors group whitespace-nowrap"
+                    >
+                      <CalendarDays className={`h-3.5 w-3.5 ${sortKey === 'start_date' ? 'text-gold' : 'text-muted-foreground group-hover:text-gold/60'}`} />
+                      Start Date
+                      {sortKey === 'start_date'
+                        ? sortDir === 'asc'
+                          ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                          : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                        : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                    </button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[240px] text-left space-y-1.5">
+                          <p className="font-semibold text-xs">Anticipated road-ready date</p>
+                          <p className="text-xs text-muted-foreground">Forecast of when this applicant should be ready to start. Click any cell to edit. Past dates appear in amber if the operator isn't fully onboarded yet.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
                   <div className="inline-flex items-center gap-1">
                     <button
@@ -3077,7 +3136,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             <tbody>
               {loading ? (
                 <tr>
-                   <td colSpan={12} className="text-center py-12 text-muted-foreground">
+                   <td colSpan={11} className="text-center py-12 text-muted-foreground">
                     <div className="flex justify-center">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                     </div>
@@ -3085,7 +3144,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={11} className="text-center py-12 text-muted-foreground">
                     {operators.length === 0 ? 'No operators in the pipeline yet.' : 'No operators match your filters.'}
                   </td>
                 </tr>
@@ -3140,7 +3199,37 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                                  {op.unread_count}
                                </span>
                              )}
+                            {op.doc_count > 0 && (
+                              <TooltipProvider delayDuration={150}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none shrink-0 bg-muted text-muted-foreground border border-border tabular-nums cursor-default">
+                                      <Paperclip className="h-2.5 w-2.5" />
+                                      {op.doc_count}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs">
+                                    {op.doc_count} document{op.doc_count !== 1 ? 's' : ''} uploaded
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
                           </div>
+                         {op.notes && op.notes.trim() && (
+                           <TooltipProvider delayDuration={200}>
+                             <Tooltip>
+                               <TooltipTrigger asChild>
+                                 <p className="text-[11px] italic text-muted-foreground leading-snug truncate max-w-[280px] cursor-default">
+                                   <StickyNote className="inline h-2.5 w-2.5 mr-1 -mt-0.5" />
+                                   {op.notes}
+                                 </p>
+                               </TooltipTrigger>
+                               <TooltipContent side="bottom" className="max-w-[320px] text-left">
+                                 <p className="text-xs whitespace-pre-wrap">{op.notes}</p>
+                               </TooltipContent>
+                             </Tooltip>
+                           </TooltipProvider>
+                         )}
                          {op.never_logged_in && (
                            <div className="flex items-center gap-1.5 flex-wrap">
                              <TooltipProvider delayDuration={100}>
@@ -3236,19 +3325,22 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                         <Badge className="status-progress border text-xs">In Progress</Badge>
                       )}
                     </td>
-                    {/* Dispatch status badge — only shown for fully onboarded operators */}
-                    <td className="px-4 py-3 hidden lg:table-cell">
-                      {op.dispatch_status ? (() => {
-                        const cfg = DISPATCH_BADGE[op.dispatch_status];
+                    {/* Anticipated Start Date — inline editable */}
+                    <td className="px-4 py-3 hidden lg:table-cell" onClick={e => e.stopPropagation()}>
+                      {(() => {
+                        const dateStr = op.anticipated_start_date;
+                        const isPast = dateStr ? parseISO(dateStr).getTime() < startOfToday().getTime() : false;
+                        const overdue = isPast && !op.fully_onboarded;
                         return (
-                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${cfg.className}`}>
-                            <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.dot}`} />
-                            {cfg.label}
-                          </span>
+                          <div className={`min-w-[140px] ${overdue ? '[&_input]:text-warning [&_input]:font-semibold' : ''}`}>
+                            <DateInput
+                              value={dateStr ?? ''}
+                              onChange={iso => handleStartDateChange(op.id, iso)}
+                              placeholder="Add date…"
+                            />
+                          </div>
                         );
-                      })() : (
-                        <span className="text-muted-foreground/40 text-xs">—</span>
-                      )}
+                      })()}
                     </td>
                     <td className="px-4 py-3 hidden xl:table-cell">
                       <div className="flex items-center gap-1.5 min-w-[160px]">
@@ -3405,7 +3497,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               return (
                 <tfoot>
                   <tr className="border-t-2 border-border bg-muted/30">
-                    <td colSpan={12} className="px-4 py-2.5">
+                    <td colSpan={11} className="px-4 py-2.5">
                       <div className="flex items-center gap-4 flex-wrap">
                         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                           Compliance summary — {filtered.length} visible

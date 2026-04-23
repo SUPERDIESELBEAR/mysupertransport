@@ -2112,6 +2112,7 @@ export type Database = {
       }
       operators: {
         Row: {
+          anticipated_start_date: string | null
           application_id: string | null
           assigned_onboarding_staff: string | null
           created_at: string
@@ -2132,6 +2133,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          anticipated_start_date?: string | null
           application_id?: string | null
           assigned_onboarding_staff?: string | null
           created_at?: string
@@ -2152,6 +2154,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          anticipated_start_date?: string | null
           application_id?: string | null
           assigned_onboarding_staff?: string | null
           created_at?: string
