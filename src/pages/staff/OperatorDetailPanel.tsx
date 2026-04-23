@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn, DollarSign, PauseCircle, Pencil, Cake, PartyPopper, Phone, MapPin, Eye, Smartphone } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn, DollarSign, PauseCircle, Pencil, Cake, PartyPopper, Phone, MapPin, Eye, Smartphone, FileSignature } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { Calendar } from '@/components/ui/calendar';
@@ -25,6 +25,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
 import ICAViewModal from '@/components/ica/ICAViewModal';
+import LeaseTerminationBuilderModal from '@/components/ica/LeaseTerminationBuilderModal';
+import LeaseTerminationViewModal from '@/components/ica/LeaseTerminationViewModal';
 import OperatorBinderPanel from '@/components/inspection/OperatorBinderPanel';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 import TruckPhotoGridModal from '@/components/staff/TruckPhotoGridModal';
@@ -346,6 +348,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [pwaInstalledAt, setPwaInstalledAt] = useState<string | null>(null);
   const [showICABuilder, setShowICABuilder] = useState(false);
   const [showICAView, setShowICAView] = useState(false);
+  const [showTerminationBuilder, setShowTerminationBuilder] = useState(false);
+  const [openTerminationId, setOpenTerminationId] = useState<string | null>(null);
   const [applicationData, setApplicationData] = useState<any>(null);
   const [icaDraftUpdatedAt, setIcaDraftUpdatedAt] = useState<string | null>(null);
   const [cdlExpiration, setCdlExpiration] = useState<string | null>(null);
@@ -4848,6 +4852,25 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               />
             </div>
 
+            {/* Lease Termination — Appendix C */}
+            <div className="pt-2 border-t border-border/60 space-y-2">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Lease Termination
+              </Label>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10"
+                onClick={() => setShowTerminationBuilder(true)}
+              >
+                <FileSignature className="h-3.5 w-3.5" />
+                Generate Lease Termination (Appendix C)
+              </Button>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Sign with your saved Carrier Signature, then notify the insurance company.
+              </p>
+            </div>
+
             {/* Void ICA — available when a contract has been issued or is in-progress draft */}
             {(status.ica_status === 'in_progress' || status.ica_status === 'sent_for_signature' || status.ica_status === 'complete') && (
               <div className="pt-1 border-t border-border">
@@ -6263,6 +6286,28 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           operatorId={operatorId}
           operatorName={operatorName}
           onClose={() => setShowICAView(false)}
+        />
+      )}
+
+      {/* Lease Termination Builder */}
+      {showTerminationBuilder && (
+        <LeaseTerminationBuilderModal
+          operatorId={operatorId}
+          operatorName={operatorName}
+          onClose={() => setShowTerminationBuilder(false)}
+          onCreated={(id) => {
+            setShowTerminationBuilder(false);
+            setOpenTerminationId(id);
+          }}
+        />
+      )}
+
+      {/* Lease Termination Viewer */}
+      {openTerminationId && (
+        <LeaseTerminationViewModal
+          terminationId={openTerminationId}
+          operatorName={operatorName}
+          onClose={() => setOpenTerminationId(null)}
         />
       )}
 
