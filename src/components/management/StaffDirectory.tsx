@@ -112,7 +112,17 @@ export default function StaffDirectory() {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Detect a 401 from the edge function (stale/revoked session) and force re-login
+        const status = (error as any)?.context?.status ?? (error as any)?.status;
+        const msg = (error as any)?.message ?? '';
+        if (status === 401 || /non-2xx/i.test(msg)) {
+          await supabase.auth.signOut().catch(() => {});
+          window.location.href = '/login';
+          return;
+        }
+        throw error;
+      }
       if (data?.error) throw new Error(data.error);
 
       setStaff(data.staff ?? []);
