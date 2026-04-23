@@ -14,7 +14,7 @@ import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, 
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
-import { differenceInDays, parseISO, format, formatDistanceToNowStrict } from 'date-fns';
+import { differenceInDays, parseISO, format, formatDistanceToNowStrict, startOfToday } from 'date-fns';
 import InspectionComplianceSummary from '@/components/inspection/InspectionComplianceSummary';
 import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 import { DateInput } from '@/components/ui/date-input';
