@@ -1202,7 +1202,59 @@ export default function ManagementPortal() {
               </div>
             )}
 
-            {/* Staff Workload */}
+            {/* App Install Status */}
+            {(() => {
+              const { installed, total } = installStats;
+              const remaining = Math.max(0, total - installed);
+              const pct = total > 0 ? Math.round((installed / total) * 100) : 0;
+              return (
+                <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+                  <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-9 w-9 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
+                        <Smartphone className="h-4 w-4 text-gold" />
+                      </div>
+                      <div className="min-w-0">
+                        <h2 className="font-semibold text-foreground">App Install Status</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {total === 0
+                            ? 'No active operators yet.'
+                            : `${installed} of ${total} active operator${total === 1 ? '' : 's'} have installed SUPERDRIVE`}
+                        </p>
+                      </div>
+                    </div>
+                    {remaining > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => guardDemo('Send install instructions') && setInstallSendOpen(true)}
+                        className="text-xs gap-1.5 shrink-0"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        Email install instructions to remaining {remaining}
+                      </Button>
+                    )}
+                  </div>
+                  <div className="px-4 sm:px-5 py-4">
+                    <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+                      <div
+                        className="h-full bg-gold transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+                      <span>{pct}% installed</span>
+                      {remaining === 0 && total > 0 && (
+                        <span className="inline-flex items-center gap-1 text-status-complete font-medium">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> All operators installed
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Pending queue preview */}
             <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
               <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-border flex items-center justify-between gap-2 flex-wrap">
