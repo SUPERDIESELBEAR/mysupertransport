@@ -1443,6 +1443,117 @@ export type Database = {
         }
         Relationships: []
       }
+      lease_terminations: {
+        Row: {
+          carrier_signature_url: string | null
+          carrier_signed_at: string
+          carrier_signed_by: string | null
+          carrier_title: string | null
+          carrier_typed_name: string | null
+          contractor_label: string | null
+          contractor_signature_url: string | null
+          contractor_signed_at: string | null
+          contractor_typed_name: string | null
+          created_at: string
+          effective_date: string
+          ica_contract_id: string | null
+          id: string
+          insurance_notified_at: string | null
+          insurance_recipients: string[] | null
+          lease_effective_date: string | null
+          notes: string | null
+          operator_id: string
+          pdf_path: string | null
+          pdf_url: string | null
+          reason: string
+          trailer_number: string | null
+          truck_make: string | null
+          truck_model: string | null
+          truck_plate: string | null
+          truck_plate_state: string | null
+          truck_vin: string | null
+          truck_year: string | null
+          updated_at: string
+        }
+        Insert: {
+          carrier_signature_url?: string | null
+          carrier_signed_at?: string
+          carrier_signed_by?: string | null
+          carrier_title?: string | null
+          carrier_typed_name?: string | null
+          contractor_label?: string | null
+          contractor_signature_url?: string | null
+          contractor_signed_at?: string | null
+          contractor_typed_name?: string | null
+          created_at?: string
+          effective_date: string
+          ica_contract_id?: string | null
+          id?: string
+          insurance_notified_at?: string | null
+          insurance_recipients?: string[] | null
+          lease_effective_date?: string | null
+          notes?: string | null
+          operator_id: string
+          pdf_path?: string | null
+          pdf_url?: string | null
+          reason: string
+          trailer_number?: string | null
+          truck_make?: string | null
+          truck_model?: string | null
+          truck_plate?: string | null
+          truck_plate_state?: string | null
+          truck_vin?: string | null
+          truck_year?: string | null
+          updated_at?: string
+        }
+        Update: {
+          carrier_signature_url?: string | null
+          carrier_signed_at?: string
+          carrier_signed_by?: string | null
+          carrier_title?: string | null
+          carrier_typed_name?: string | null
+          contractor_label?: string | null
+          contractor_signature_url?: string | null
+          contractor_signed_at?: string | null
+          contractor_typed_name?: string | null
+          created_at?: string
+          effective_date?: string
+          ica_contract_id?: string | null
+          id?: string
+          insurance_notified_at?: string | null
+          insurance_recipients?: string[] | null
+          lease_effective_date?: string | null
+          notes?: string | null
+          operator_id?: string
+          pdf_path?: string | null
+          pdf_url?: string | null
+          reason?: string
+          trailer_number?: string | null
+          truck_make?: string | null
+          truck_model?: string | null
+          truck_plate?: string | null
+          truck_plate_state?: string | null
+          truck_vin?: string | null
+          truck_year?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lease_terminations_ica_contract_id_fkey"
+            columns: ["ica_contract_id"]
+            isOneToOne: false
+            referencedRelation: "ica_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lease_terminations_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_templates: {
         Row: {
           body: string
