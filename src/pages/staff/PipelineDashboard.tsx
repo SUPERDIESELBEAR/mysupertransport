@@ -3136,7 +3136,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
             <tbody>
               {loading ? (
                 <tr>
-                   <td colSpan={12} className="text-center py-12 text-muted-foreground">
+                   <td colSpan={11} className="text-center py-12 text-muted-foreground">
                     <div className="flex justify-center">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                     </div>
@@ -3144,7 +3144,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={11} className="text-center py-12 text-muted-foreground">
                     {operators.length === 0 ? 'No operators in the pipeline yet.' : 'No operators match your filters.'}
                   </td>
                 </tr>
@@ -3497,7 +3497,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
               return (
                 <tfoot>
                   <tr className="border-t-2 border-border bg-muted/30">
-                    <td colSpan={12} className="px-4 py-2.5">
+                    <td colSpan={11} className="px-4 py-2.5">
                       <div className="flex items-center gap-4 flex-wrap">
                         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                           Compliance summary — {filtered.length} visible
