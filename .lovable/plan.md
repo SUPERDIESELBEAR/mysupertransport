@@ -1,43 +1,78 @@
 
 
-## Hide drivers from Vehicle Hub until insurance is activated
+## Applicant Pipeline — add Start Date + inline Notes, drop Dispatch & Docs columns
 
-### The signal we'll use
+### My take on each idea
 
-`onboarding_status.insurance_added_date` — set by staff when an operator is added to the company insurance policy (Stage 6). It's already the milestone the rest of the app uses to mark a driver as "active in the fleet" (it triggers `fully_onboarded`, drives Stage 6 completion, fires the "Added to insurance policy ✓" notification, etc.).
+| Idea | Verdict | Why |
+|---|---|---|
+| **Add "Anticipated Start Date" column** | ✅ Do it | Real planning value — gives staff a forecast view of when each applicant should be road-ready. |
+| **Add inline "Notes" preview under the name** | ✅ Do it | We already have `operators.notes` (edited from the Operator Detail Panel). Just surfacing it in the row — no new field needed. Hidden when empty, so no clutter. |
+| **Remove "Dispatch" column** | ✅ Agreed | The Pipeline is fundamentally an *onboarding* view. Dispatch state belongs to drivers already on the road, which now have the Driver Hub + Vehicle Hub. The column is also redundant with the per-status badges shown in the header (Dispatched / Home / Truck Down counts) and the dispatch filter chip. |
+| **Remove "Docs" column** | ✅ Agreed — but with a small replacement | You're right that "In Progress" is near-universal noise. **However**, the column does double as a sort key for "who has uploaded the most." I suggest replacing it with a tiny **doc count chip next to the name** (e.g. `📎 7`) shown only when count > 0 — same info, far less width. Sortable via the column-header `⌥` menu we already have for `%`. |
 
-Once it's set, the operator legally can drive — that matches when they should appear in the Vehicle Hub.
+### What changes
 
-### Change
+**1. Anticipated Start Date column (new)**
+- New nullable column `operators.anticipated_start_date date`.
+- New table column header **"Start Date"** between *State* and *Progress Track*, hidden on `md` (visible `lg+`), sortable.
+- Cell renders the date using the project's `DateInput` component for inline edit (US Central, noon-anchored per memory rules) with a click-to-add chip when empty.
+- Color cues: amber if date is in the past and operator isn't fully onboarded; muted-foreground otherwise.
+- Filter pill row gets a new "Starts this week / this month / overdue" quick filter (matches the existing chip pattern).
 
-In `src/components/fleet/FleetRoster.tsx`:
+**2. Inline notes under the name**
+- Reuses existing `operators.notes` (no schema change).
+- Displays as a small italic muted line right under the name and any "Invite Pending" chip:
+  ```
+  John Smith   45%   📎 7
+  Note: Waiting on truck title — promised by Friday
+  ```
+- Truncated to ~80 chars with full text in a Tooltip; only renders when `notes` is non-empty.
+- Editable from the existing Operator Detail Panel (already wired) — no new edit UI in the table.
+- Pulled into the Pipeline `select` query (`notes` field added to the `operators` select).
 
-1. Pull `insurance_added_date` in the `onboarding_status` select (line 57).
-2. Filter out any operator where `insurance_added_date` is null when building the **Active** rows.
-3. **Deactivated** tab is unchanged — once an operator was on the road, we still want to see them in history if they're later deactivated, regardless of insurance state.
+**3. Remove Dispatch column**
+- Drop the `<th>` header and the `<td>` body cell.
+- **Keep** the dispatch *filter chip* and the *dispatched/home counters* in the toolbar — still useful for staff who want to slice the list. They just don't need the column.
+- `colSpan` on loading/empty rows reduced accordingly.
 
-That's the entire fix — no new tables, no migration, no triggers.
+**4. Remove Docs column → replace with name-row chip**
+- Drop the `<th>` and `<td>`.
+- Add a tiny `📎 N` chip next to the `%` chip on the name cell when `doc_count > 0`. Tooltip lists the breakdown that the old column header showed.
+- Sort key `'docs'` stays in the SortKey union — existing sort buttons and any persisted state continue to work; we'll wire one of the `%`-style header chips on the name column to expose it.
 
-### What staff will see
+### Database
 
-- **Active tab** → only operators who are on the insurance policy. Empty truck-info rows from drivers who haven't reached Stage 6 disappear automatically.
-- **Deactivated tab** → unchanged.
-- **Pipeline / Driver Hub / Onboarding views** → unchanged. Pre-insurance drivers continue to show everywhere they did before; they just don't clutter the Vehicle Hub.
-- The Vehicle Hub becomes a true "trucks on the road" view.
+One migration:
 
-### Edge cases
+```sql
+ALTER TABLE public.operators
+  ADD COLUMN anticipated_start_date date;
+```
 
-- **Driver already in Vehicle Hub but insurance hasn't been backdated** → won't appear until staff sets the insurance date in the Operator Detail Panel (Stage 6). This is the intended behavior; it's also the existing path staff already use.
-- **DOT inspections that exist for a pre-insurance driver** (from the recent backfill) → the records stay in `truck_dot_inspections`; they just don't render in the Vehicle Hub roster until insurance is activated. They re-appear automatically once the date is set.
-- **"Add DOT Inspection" workflow** → unaffected. Staff can still add inspections via the Vehicle Hub for any active row that's now visible.
+No RLS change (existing operator-row RLS covers it).
 
 ### Files touched
 
-- `src/components/fleet/FleetRoster.tsx` — add `insurance_added_date` to the select; filter active rows on it.
+- `supabase/migrations/<new>.sql` — add column.
+- `src/pages/staff/PipelineDashboard.tsx`
+  - Add `notes` and `anticipated_start_date` to the `operators` select; add to `OperatorRow` type.
+  - Remove Dispatch + Docs `<th>`/`<td>`; update `colSpan`.
+  - Add Start Date `<th>`/`<td>` with inline `DateInput`, save handler that calls `update({ anticipated_start_date })`.
+  - Add notes line + 📎 chip in the name cell.
+  - Add Start Date sort key + quick-filter chips (this week / month / overdue).
+- `src/pages/staff/OperatorDetailPanel.tsx` — add an **Anticipated Start Date** field in the same area as the operator notes so staff can edit it without leaving the panel.
+- `src/integrations/supabase/types.ts` — auto-regenerated.
+
+### What stays untouched
+
+- Vehicle Hub, Driver Hub, Compliance views — no changes.
+- Notes textarea + save flow in OperatorDetailPanel — already exists, just exposed in one more place.
+- Dispatch tracking itself (active_dispatch table, dispatcher portal, banners) — unchanged.
 
 ### Out of scope
 
-- Adding an explicit "Pre-Insurance" tab (you'd see those drivers in the Pipeline/Driver Hub already; adding a third tab here would re-introduce the clutter we're removing).
-- Changing what "active" means anywhere else (Driver Hub, Pipeline, Compliance views).
-- Backfilling or modifying the DOT sync from the previous round.
+- Reminders / email automation tied to the Start Date (could be a follow-up — e.g. "30 days to start" alerts).
+- Per-row inline notes editing in the Pipeline table (kept in the Detail Panel to avoid double edit surfaces).
+- Touching the Management portal's Applicant Pipeline copy beyond what flows through the shared `PipelineDashboard` component (it's the same component, so it gets the changes automatically).
 
