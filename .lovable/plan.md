@@ -1,118 +1,200 @@
 
 
-## Sync calendar ↔ live dispatch + one-time backfill + range tool
+## Lease Termination Appendix C — sign with your Carrier Signature, send to insurance
 
-Three changes in one rollout:
+Build a one-sided **Lease Termination (Appendix C)** that you sign with your saved Carrier Signature, then email to the insurance company along with the operator's driver's license — same recipient list as the Stage 6 insurance request, always CC'd to **marc@mysupertranport.com**.
 
-1. **Dual-write going forward** — calendar's today-cell and the dropdown each keep both tables in sync.
-2. **One-time backfill** — silently reconcile the existing mismatch (Makiethian James → Truck Down).
-3. **Backfill Range** — a small "Mark date range" tool inside the calendar so dispatchers can paint April 1 → yesterday quickly.
+### What you'll see
 
-### 1. Dual-write logic (no more drift going forward)
+**1. New "Generate Lease Termination" button on the Operator Detail Panel**
 
-**`src/components/dispatch/MiniDispatchCalendar.tsx` — `setStatus`**
-When the day being set is **today**, after the `dispatch_daily_log` upsert also:
-- `upsert` `active_dispatch` (`operator_id`, `dispatch_status`, `updated_by`, `updated_at`) on conflict `operator_id`.
-- Insert a `dispatch_status_history` row.
-- Skip both writes if the new status equals the current `active_dispatch.dispatch_status` (prevents spurious history rows + duplicate notifications).
-- Skip entirely when operator is excluded (already returns early via the empty state).
+Inside the existing ICA section (right next to "View ICA"), a new button: **🗎 Generate Lease Termination**. Visible only to owner/management. Clicking opens the **Lease Termination Builder** modal.
 
-Past days only write to `dispatch_daily_log` (history journal — unchanged).
+**2. Lease Termination Builder modal**
 
-**`src/pages/dispatch/DispatchPortal.tsx` — `saveEdit` & `confirmBulkAction`**
-After writing `active_dispatch`, also `upsert` today's row into `dispatch_daily_log` (`operator_id`, `log_date = today`, `status`, `created_by`) on conflict `(operator_id, log_date)`. So toggling via the dropdown leaves a calendar trace for today automatically.
+```text
+┌─ Lease Termination — Appendix C ─────────────────────┐
+│ Driver:       Bobby Thompson                          │
+│ Truck:        2019 Freightliner Cascadia · VIN ...    │
+│ Original ICA: Signed Mar 12, 2026                     │
+│                                                       │
+│ Effective termination date: [2026-04-23] (today)      │
+│ Reason (internal, not on doc):                        │
+│   [▾ Voluntary separation │ Mutual release │ Cause ] │
+│ Notes for insurance (optional):                       │
+│   [ textarea ... ]                                    │
+│                                                       │
+│ Carrier signature:  [✓ Marc Mueller, Owner]           │
+│   (uses your saved Carrier Signature)                 │
+│                                                       │
+│        [ Preview ]   [ Cancel ]   [ Sign & Save ]    │
+└───────────────────────────────────────────────────────┘
+```
 
-**Today-cell visual cue (calendar)**
-- Add `ring-1 ring-gold/60` (replacing the existing `ring-primary/40`) on today's button.
-- Add `title="Setting status here also updates the live Dispatch Hub"` for hover tooltip.
+- **Effective date** defaults to today, editable.
+- Auto-pulls truck/owner data from the active `ica_contracts` row.
+- Carrier signature, name, and title come from `carrier_signature_settings` — same pipeline as ICAs. If no carrier signature is saved, button is disabled with tooltip "Save a Carrier Signature first".
+- "Sign & Save" stamps the document, writes a record, and immediately reveals the **Send to Insurance** action.
 
-> Requires a unique index on `dispatch_daily_log (operator_id, log_date)` for `upsert` — included in the migration.
+**3. Lease Termination document (Appendix C)**
 
-### 2. One-time backfill (runs in the migration, no UI)
+A clean, branded one-pager rendered from a new `LeaseTerminationDocumentView` component (mirrors `ICADocumentView` styling):
 
-The migration includes:
+- SUPERTRANSPORT header
+- "**APPENDIX C — LEASE TERMINATION**" title
+- Body:
+  > *Pursuant to Section 10 (Termination) of the Independent Contractor Agreement dated **{lease_effective_date}** between SUPERTRANSPORT, LLC ("Carrier") and **{contractor label}** ("Contractor"), Carrier hereby provides notice that the equipment lease for the unit described below is terminated effective **{effective_date}**. All rights, duties, and obligations under the Agreement and Appendix A cease as of that date, except those that survive by their terms (Sections 8 Set-Off, 9 Confidentiality & Non-Solicitation, and 12 Dispute Resolution).*
+- Equipment block: Year/Make/VIN/Plate/Trailer (read-only, from the ICA)
+- Carrier signature block (your image + typed name + title + signed date)
+- Optional "Contractor Acknowledgment" block — **rendered blank with signature line** by default (carrier-only mode). A future toggle will enable in-portal countersign without changing the document layout.
+
+**4. "Send to Insurance" action (after signing)**
+
+Right under the just-signed termination, a gold button: **📧 Send Termination Notice to Insurance**.
+
+- Sends an email to the same recipients configured in **Stage 6 Insurance Settings** (`insurance_email_settings.recipient_emails`).
+- **CC: `marc@mysupertranport.com`** every time (hardcoded).
+- Subject: `Lease Termination Notice — {Driver Name} — Unit {unit}`.
+- Body: branded HTML with driver name, unit number, VIN, effective termination date, and your optional notes.
+- **Attachments**: the signed Appendix C as PDF + the operator's driver's license image (same fetch logic as `send-insurance-request` — checks `applications.dl_front_url` then falls back to `operator_documents` of type `drivers_license`). DL larger than 4MB falls back to a 7-day signed URL in the email body, same pattern as today.
+- After send: success toast "Termination sent to 2 recipients (CC: marc@mysupertranport.com)", and the record is marked `insurance_notified_at = now()`.
+
+**5. New "Terminations" page in the Management portal**
+
+A standalone view at `/management?view=terminations` (also linked from Staff portal sidebar for record keeping):
+
+```text
+┌─ Lease Terminations ─────────────────────────────────────────┐
+│ [Search…]  [Year ▾]  [Reason ▾]                             │
+│                                                              │
+│ Driver            Unit  Effective    Signed By  Insurance   │
+│ Bobby Thompson    412   Apr 23 2026  Marc M.    ✓ Apr 23   │
+│ Larry Bazin       408   Mar 30 2026  Marc M.    ✓ Mar 30   │
+│ Demetrius S-L     402   Feb 14 2026  Marc M.    — not sent │
+│   ▸ row click → opens viewer + "Resend to insurance" button │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Each row opens a viewer modal showing the signed PDF, a "Download PDF" button, and "Resend to insurance" (re-attaches DL fresh in case it was updated).
+
+### How it works (technical)
+
+**Database — one migration**
 
 ```sql
--- Ensure upsert target exists
-CREATE UNIQUE INDEX IF NOT EXISTS dispatch_daily_log_op_date_uniq
-  ON public.dispatch_daily_log (operator_id, log_date);
+CREATE TABLE public.lease_terminations (
+  id                       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  operator_id              uuid NOT NULL REFERENCES public.operators(id) ON DELETE CASCADE,
+  ica_contract_id          uuid REFERENCES public.ica_contracts(id),
+  effective_date           date NOT NULL,
+  reason                   text NOT NULL CHECK (reason IN ('voluntary','mutual','cause')),
+  notes                    text,
+  -- Snapshot of equipment + parties at time of signing
+  truck_year               text,
+  truck_make               text,
+  truck_vin                text,
+  truck_plate              text,
+  truck_plate_state        text,
+  trailer_number           text,
+  contractor_label         text,
+  -- Carrier signature
+  carrier_signed_by        uuid REFERENCES auth.users(id),
+  carrier_typed_name       text,
+  carrier_title            text,
+  carrier_signature_url    text,
+  carrier_signed_at        timestamptz NOT NULL DEFAULT now(),
+  -- Reserved for optional contractor countersign (Phase 2)
+  contractor_typed_name    text,
+  contractor_signature_url text,
+  contractor_signed_at     timestamptz,
+  -- PDF storage + insurance tracking
+  pdf_url                  text,
+  insurance_notified_at    timestamptz,
+  insurance_recipients     text[],
+  created_at               timestamptz NOT NULL DEFAULT now(),
+  updated_at               timestamptz NOT NULL DEFAULT now()
+);
 
--- Reconcile latest calendar status -> active_dispatch for any drift
-WITH latest AS (
-  SELECT DISTINCT ON (operator_id) operator_id, status, log_date
-  FROM public.dispatch_daily_log
-  WHERE log_date <= CURRENT_DATE
-  ORDER BY operator_id, log_date DESC
-)
-INSERT INTO public.active_dispatch (operator_id, dispatch_status, updated_at)
-SELECT l.operator_id, l.status, now()
-FROM latest l
-JOIN public.operators o ON o.id = l.operator_id
-WHERE o.is_active = true AND o.excluded_from_dispatch = false
-ON CONFLICT (operator_id) DO UPDATE
-SET dispatch_status = EXCLUDED.dispatch_status,
-    updated_at = now()
-WHERE active_dispatch.dispatch_status IS DISTINCT FROM EXCLUDED.dispatch_status;
+CREATE INDEX ON public.lease_terminations (operator_id);
+CREATE INDEX ON public.lease_terminations (effective_date DESC);
 
--- Mirror to history for audit
-INSERT INTO public.dispatch_status_history (operator_id, dispatch_status, status_notes)
-SELECT l.operator_id, l.status, 'Backfill: synced from calendar latest entry'
-FROM latest l
-JOIN public.operators o ON o.id = l.operator_id
-JOIN public.active_dispatch ad ON ad.operator_id = l.operator_id
-WHERE o.is_active = true AND o.excluded_from_dispatch = false
-  AND ad.dispatch_status = l.status
-  AND ad.updated_at > now() - interval '5 seconds';
+ALTER TABLE public.lease_terminations ENABLE ROW LEVEL SECURITY;
+
+-- Staff full access
+CREATE POLICY "Staff manage lease terminations" ON public.lease_terminations
+  FOR ALL USING (public.is_staff(auth.uid())) WITH CHECK (public.is_staff(auth.uid()));
+
+-- Operators can view their own (for future portal exposure)
+CREATE POLICY "Operators view own terminations" ON public.lease_terminations
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM public.operators
+            WHERE id = lease_terminations.operator_id AND user_id = auth.uid())
+  );
+
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.lease_terminations
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 ```
 
-After this runs, **Makiethian James** moves from `not_dispatched` → `truck_down` and immediately joins the Trucks Down tile. (Confirmed exactly one operator currently affected.) No "Sync" pill in the UI — the migration handles it cleanly and the dual-write prevents recurrence.
+**Storage** — reuse existing `operator-documents` bucket under prefix `lease-terminations/{operator_id}/{termination_id}.pdf`. RLS already covers staff + owning operator.
 
-### 3. Backfill Range tool (inside the calendar)
-
-Above the calendar grid in `MiniDispatchCalendar.tsx`, add a small **"Mark range"** button → opens a Popover:
+**Frontend — new files**
 
 ```text
-┌─ Mark date range ───────────────────┐
-│  From: [Apr 1 ▾]   To: [Apr 22 ▾]  │
-│  Status: ● Dispatched               │
-│          ● Home                     │
-│          ● Truck Down               │
-│          ● Not Dispatched           │
-│  ☐ Overwrite existing entries       │
-│           [ Cancel ]  [ Apply ]     │
-└─────────────────────────────────────┘
+src/components/ica/LeaseTerminationDocumentView.tsx     [NEW — single-page Appendix C, mirrors ICADocumentView]
+src/components/ica/LeaseTerminationBuilderModal.tsx     [NEW — builder w/ effective date, reason, notes, sign & save]
+src/components/ica/LeaseTerminationViewModal.tsx        [NEW — read-only viewer + Send/Resend insurance button]
+src/pages/management/TerminationsView.tsx               [NEW — list + filter; embedded in ManagementPortal]
 ```
 
-Behavior:
-- Two date inputs (native `<input type="date">` for speed — no calendar-in-calendar UX).
-- Defaults: From = first of currently-displayed month, To = today.
-- Status pick = same four options as the day-cell popover.
-- **Overwrite** off (default) → only fills blank days. On → replaces existing entries. Either way, never touches future days.
-- On Apply: build the date list, fetch existing logs for the range once, partition into insert/update sets, run `upsert` to `dispatch_daily_log`. If the range includes **today**, also dual-write to `active_dispatch` + history (same rule as a single click).
-- Disable the button (with tooltip) when operator is excluded.
-- Toast on success: *"Marked 22 days as Truck Down for Bobby Thompson."*
-
-### Files touched
+**Frontend — small edits**
 
 ```text
-supabase/migrations/<new>.sql                               [unique index + backfill SQL]
-src/components/dispatch/MiniDispatchCalendar.tsx            [today dual-write, gold ring,
-                                                             "Mark range" popover + apply logic]
-src/pages/dispatch/DispatchPortal.tsx                       [saveEdit & confirmBulkAction:
-                                                             also upsert today's daily_log]
-mem://features/dispatch/calendar-vs-live-sync               [NEW — explains the rules]
+src/pages/staff/OperatorDetailPanel.tsx
+  • Add "Generate Lease Termination" button in ICA section
+  • Render LeaseTerminationBuilderModal / ViewModal on demand
+
+src/pages/management/ManagementPortal.tsx
+  • Add 'terminations' to view router + sidebar nav item
+
+src/integrations/supabase/types.ts                       [auto-regen]
 ```
 
-### What you'll see after deploy
+**PDF generation** — use the existing browser print pipeline (`src/lib/printDocument.ts` already used for ICAs) to render `LeaseTerminationDocumentView` to PDF, then upload the blob to `operator-documents/lease-terminations/...` and store the path in `lease_terminations.pdf_url`. No external PDF library needed.
 
-- **Trucks Down tile immediately reflects Makiethian** — no click needed. The migration syncs him.
-- **Calendar today-cell** has a gold ring + tooltip; setting it auto-updates the live tiles.
-- **Dropdown** auto-stamps today on the calendar — the two surfaces stay in lockstep forever.
-- **"Mark range" button** sits above the calendar; one popover paints April 1 → today for an operator in 4 clicks (date, date, status, Apply).
+**Edge function — `send-lease-termination`**
 
-### Out of scope
+```text
+supabase/functions/send-lease-termination/index.ts       [NEW]
+```
 
-- No automatic backfill of `active_dispatch` on **future** calendar updates — only today is "live."
-- No bulk "mark range across all operators" — per-operator only.
-- The per-day calendar counters at the bottom remain a true history count.
+Modeled directly on `send-insurance-request`:
+
+1. Auth check (Bearer token → `getClaims` → require owner/management role via `user_roles.limit(1)`).
+2. Input: `{ termination_id }`. Loads termination + operator + driver name + DL path (applications.dl_front_url, fallback operator_documents).
+3. Downloads the signed PDF from `operator-documents` and the DL image (same 4MB attachment / 7-day signed URL fallback as the insurance function).
+4. Recipients = `insurance_email_settings.recipient_emails`. **CC always = `['marc@mysupertranport.com']`** (hardcoded constant at top of file).
+5. Sends via Resend with branded HTML matching the existing `emailHeader/emailFooter` shared layout.
+6. On success: `UPDATE lease_terminations SET insurance_notified_at = now(), insurance_recipients = recipients`.
+7. Writes `audit_log` entry `action='lease_termination_sent'` with metadata `{ recipients, cc, effective_date, vin, reason }`.
+
+CORS + JSON envelopes match the existing `send-insurance-request` patterns exactly.
+
+**Audit log** — two new actions: `lease_termination_signed` (on Sign & Save) and `lease_termination_sent` (on insurance email).
+
+**Memory** — new `mem/features/lease-termination/workflow.md` documenting the carrier-only signing flow, the hardcoded CC, the DL attachment fallback, and the Phase 2 hook for optional contractor countersign.
+
+### Out of scope (Phase 1)
+
+- Operator countersign in-portal — schema and UI placeholders are in place; flipping it on is a small Phase 2 follow-up.
+- Auto-generate on Deactivate — kept manual per your decision.
+- Bulk termination tool — per-operator only.
+- Editing a termination after it's signed — locked; you'd void & generate a new one (we can add a "Void" flow later if needed).
+- Driver-side notification when termination is signed.
+
+### What you'll do after deploy
+
+1. Open the operator's panel → click **Generate Lease Termination**.
+2. Confirm date + pick reason → **Sign & Save** (your Carrier Signature is auto-applied).
+3. Click **Send Termination Notice to Insurance** → email goes to your insurance recipients with you on CC, with the signed Appendix C and the operator's DL attached.
+4. Anytime later, open **Management → Terminations** to see the full history or resend.
 
