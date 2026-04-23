@@ -54,14 +54,23 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         id,
         unit_number,
         applications(first_name, last_name),
-        onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number),
+        onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number, insurance_added_date),
         ica_contracts(owner_name, owner_business_name, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number)
       `)
       .eq('is_active', isActive);
 
     if (!operators) return [];
 
-    const opIds = (operators as any[]).map(o => o.id);
+    // For active operators, only include those with an insurance_added_date set (Stage 6 complete).
+    // Deactivated operators show regardless to preserve historical visibility.
+    const filteredOperators = isActive
+      ? (operators as any[]).filter(op => {
+          const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
+          return !!os?.insurance_added_date;
+        })
+      : (operators as any[]);
+
+    const opIds = filteredOperators.map(o => o.id);
 
     const [{ data: maintenance }, { data: dotInspections }] = await Promise.all([
       supabase.from('truck_maintenance_records').select('operator_id, amount').in('operator_id', opIds),
@@ -78,7 +87,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
       if (!dotMap.has(r.operator_id)) dotMap.set(r.operator_id, r.next_due_date);
     });
 
-    const fleet: FleetRow[] = (operators as any[]).map(op => {
+    const fleet: FleetRow[] = filteredOperators.map(op => {
       const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
       const os = Array.isArray(op.onboarding_status) ? op.onboarding_status[0] : op.onboarding_status;
       const ica = Array.isArray(op.ica_contracts) ? op.ica_contracts[0] : op.ica_contracts;
