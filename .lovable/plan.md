@@ -1,32 +1,45 @@
 
 
-## Remove "Onboarding Staff Workload" from Overview
+## Hide Truck Down banner on the Applicant Detail panel
 
-### Change
+### What's happening
 
-In `src/pages/management/ManagementPortal.tsx`, delete the entire **Staff Workload** card on the Overview view (lines 1165–1391). This removes:
+When you click an applicant in the pipeline, the view switches from `'pipeline'` to `'operator-detail'` (it's a full page, not an overlay). The current Truck Down banner is hidden only on the pipeline view itself — so the moment you click into an applicant, the red ribbon reappears at the top of the detail page, taking up vertical space and pulling focus away from the applicant you're reviewing.
 
-- The "Onboarding Staff Workload" header + "Manage Staff" link
-- The per-coordinator rows (counts, load badges, stage progress bars, tooltips)
-- The "Unassigned operators" row
-- The stage color **filter chip legend** at the bottom of that card (Background / Documents / ICA / MO Reg / Equipment / Insurance / Onboarded)
+This affects both:
+- **Staff Portal** (`src/pages/staff/StaffPortal.tsx`, line 515)
+- **Management Portal** (`src/pages/management/ManagementPortal.tsx`, line 756)
 
-### Heads-up on the filter chips
+### Fix
 
-The stage filter chips currently live inside the workload card's footer — removing the card removes them from Overview too. They're still fully available **inside the Pipeline view itself** (same chips, same behavior), so no functionality is lost; you just lose the one-click shortcut from Overview. If you want me to preserve those chips as their own small bar on Overview, say the word and I'll lift them out before deleting the rest.
+One-line change in each file: extend the hide condition from `!== 'pipeline'` to also exclude `'operator-detail'`.
 
-### What stays untouched
+```tsx
+// Before
+{truckDownOperators.length > 0 && currentView !== 'pipeline' && (...)}
 
-- The `staffWorkload`, `unassignedCount`, and `unassignedStages` data computations stay in place for now (cheap, and still used by the Pipeline view's coordinator filter). If you'd like them stripped too for a leaner Overview load, that can be a follow-up pass.
-- All other Overview cards (KPIs, Compliance Risk, Expirations, Pending Application Reviews, etc.) are unchanged.
-- The Staff page, Pipeline view, and coordinator filtering logic — all unchanged.
+// After
+{truckDownOperators.length > 0 &&
+ currentView !== 'pipeline' &&
+ currentView !== 'operator-detail' && (...)}
+```
+
+Same pattern applied in `ManagementPortal.tsx` using `view` instead of `currentView`.
+
+### Why this is the right scope
+
+- The banner still shows everywhere else (Overview, Compliance, Driver Hub, Vehicle Hub, etc.) — you're not losing the alert, just suppressing it on the two screens where it competes with applicant focus.
+- Truck Down information is fundamentally about **active dispatched drivers**, not applicants going through onboarding, so the banner has no operational relevance on an applicant detail page.
+- The Dispatch sidebar badge (red count next to "Dispatch Board") still shows the live truck-down count, so the alert is one click away.
 
 ### Files touched
 
-- `src/pages/management/ManagementPortal.tsx` — single block deletion (lines 1165–1391).
+- `src/pages/staff/StaffPortal.tsx` — extend banner hide condition (line 515).
+- `src/pages/management/ManagementPortal.tsx` — extend banner hide condition (line 756).
 
 ### Out of scope
 
-- Removing the underlying `staffWorkload` queries/state.
-- Relocating the stage filter chips to a different Overview spot (ask if you want this).
+- Removing the banner globally or from other views.
+- Changing the Dispatch sidebar badge or any underlying truck-down tracking.
+- Touching the Dispatch Portal's own Truck Down banner (which is correctly always-on for dispatchers).
 
