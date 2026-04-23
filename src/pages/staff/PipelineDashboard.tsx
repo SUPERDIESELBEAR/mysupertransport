@@ -3261,15 +3261,6 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                          })()}
                        </div>
                      </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      {op.fully_onboarded ? (
-                        <Badge className="status-complete border text-xs">Onboarded</Badge>
-                      ) : op.mvr_ch_approval === 'denied' || op.pe_screening_result === 'non_clear' ? (
-                        <Badge className="status-action border text-xs">Alert</Badge>
-                      ) : (
-                        <Badge className="status-progress border text-xs">In Progress</Badge>
-                      )}
-                    </td>
                     {/* Anticipated Start Date — inline editable */}
                     <td className="px-4 py-3 hidden lg:table-cell" onClick={e => e.stopPropagation()}>
                       {(() => {
