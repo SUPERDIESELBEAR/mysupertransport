@@ -1216,6 +1216,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         on_hold: op.on_hold ?? false,
         on_hold_reason: op.on_hold_reason ?? null,
         on_hold_date: op.on_hold_date ?? null,
+        notes: op.notes ?? null,
+        anticipated_start_date: op.anticipated_start_date ?? null,
       };
     });
     // Keep operators in the Pipeline view if either:
