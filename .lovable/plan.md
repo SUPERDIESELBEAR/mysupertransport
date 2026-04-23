@@ -1,34 +1,43 @@
 
 
-## Yes — the document syncs and is viewable in the Vehicle Hub
+## Hide drivers from Vehicle Hub until insurance is activated
 
-The backfill copies the file references over so the same PDF/image shows in the Vehicle Hub history with a working preview eye-icon. No file duplication — both views point at the same stored file.
+### The signal we'll use
 
-### How it works after backfill
+`onboarding_status.insurance_added_date` — set by staff when an operator is added to the company insurance policy (Stage 6). It's already the milestone the rest of the app uses to mark a driver as "active in the fleet" (it triggers `fully_onboarded`, drives Stage 6 completion, fires the "Added to insurance policy ✓" notification, etc.).
 
-For each of the 46 existing Binder DOT entries, the new `truck_dot_inspections` row receives:
+Once it's set, the operator legally can drive — that matches when they should appear in the Vehicle Hub.
 
-| Field | Source |
-|---|---|
-| `certificate_file_url` | copied from `inspection_documents.file_url` |
-| `certificate_file_path` | copied from `inspection_documents.file_path` |
-| `certificate_file_name` | derived from the file path's basename (e.g. `inspection_2024.pdf`) |
+### Change
 
-The Vehicle Hub drawer (`FleetDetailDrawer.tsx`) already renders an **Eye** preview button on every DOT history row whenever `certificate_file_path` is present, so the existing files become previewable immediately — no UI changes needed.
+In `src/components/fleet/FleetRoster.tsx`:
 
-### One detail — storage bucket
+1. Pull `insurance_added_date` in the `onboarding_status` select (line 57).
+2. Filter out any operator where `insurance_added_date` is null when building the **Active** rows.
+3. **Deactivated** tab is unchanged — once an operator was on the road, we still want to see them in history if they're later deactivated, regardless of insurance state.
 
-Operator-uploaded binder files live in the `inspection-documents` bucket; Vehicle Hub normally writes to `fleet-documents`. The previous migration already taught the previewer (`bucketForBinderDoc` in `DocRow.tsx`) how to route by path — and the Vehicle Hub previewer uses the file path the same way, so files originally uploaded through the Inspection Binder remain viewable from the Vehicle Hub side without being re-uploaded or moved.
+That's the entire fix — no new tables, no migration, no triggers.
 
-### Result after backfill
+### What staff will see
 
-- Vehicle Hub → DOT card shows the latest inspection's countdown.
-- Vehicle Hub → DOT history list shows all 46 entries with a working **Eye** preview on each.
-- Inspection Binder → unchanged (still shows the same file via its own path).
-- Going forward, both new Vehicle Hub additions and operator uploads sync the file in both directions automatically.
+- **Active tab** → only operators who are on the insurance policy. Empty truck-info rows from drivers who haven't reached Stage 6 disappear automatically.
+- **Deactivated tab** → unchanged.
+- **Pipeline / Driver Hub / Onboarding views** → unchanged. Pre-insurance drivers continue to show everywhere they did before; they just don't clutter the Vehicle Hub.
+- The Vehicle Hub becomes a true "trucks on the road" view.
+
+### Edge cases
+
+- **Driver already in Vehicle Hub but insurance hasn't been backdated** → won't appear until staff sets the insurance date in the Operator Detail Panel (Stage 6). This is the intended behavior; it's also the existing path staff already use.
+- **DOT inspections that exist for a pre-insurance driver** (from the recent backfill) → the records stay in `truck_dot_inspections`; they just don't render in the Vehicle Hub roster until insurance is activated. They re-appear automatically once the date is set.
+- **"Add DOT Inspection" workflow** → unaffected. Staff can still add inspections via the Vehicle Hub for any active row that's now visible.
+
+### Files touched
+
+- `src/components/fleet/FleetRoster.tsx` — add `insurance_added_date` to the select; filter active rows on it.
 
 ### Out of scope
 
-- Re-uploading or moving files between buckets (not necessary).
-- Backfilling inspector / location / notes (those fields were never captured by the binder uploads).
+- Adding an explicit "Pre-Insurance" tab (you'd see those drivers in the Pipeline/Driver Hub already; adding a third tab here would re-introduce the clutter we're removing).
+- Changing what "active" means anywhere else (Driver Hub, Pipeline, Compliance views).
+- Backfilling or modifying the DOT sync from the previous round.
 
