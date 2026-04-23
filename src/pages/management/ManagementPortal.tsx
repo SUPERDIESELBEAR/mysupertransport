@@ -544,6 +544,41 @@ export default function ManagementPortal() {
     fetchMetrics();
   }, [fetchMetrics]);
 
+  // Fetch PWA install stats for the Overview "App Install Status" card
+  const fetchInstallStats = useCallback(async () => {
+    const { data } = await supabase
+      .from('operators')
+      .select('id, pwa_installed_at')
+      .eq('is_active', true);
+    const rows = (data as Array<{ id: string; pwa_installed_at: string | null }> | null) ?? [];
+    const installed = rows.filter(r => !!r.pwa_installed_at).length;
+    setInstallStats({ installed, total: rows.length });
+  }, []);
+
+  useEffect(() => {
+    if (view === 'overview') fetchInstallStats();
+  }, [view, fetchInstallStats]);
+
+  const handleBulkInstallSend = useCallback(async () => {
+    setInstallSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('notify-pwa-install', { body: {} });
+      if (error) throw error;
+      const notified = (data as any)?.notified ?? 0;
+      const skipped = (data as any)?.skipped ?? 0;
+      toast({
+        title: 'Install instructions sent',
+        description: `Notified ${notified} operator${notified === 1 ? '' : 's'}${skipped ? ` · ${skipped} skipped (already installed or notified)` : ''}.`,
+      });
+      fetchInstallStats();
+    } catch (e: any) {
+      toast({ title: 'Send failed', description: e?.message ?? 'Could not send install instructions.', variant: 'destructive' });
+    } finally {
+      setInstallSending(false);
+      setInstallSendOpen(false);
+    }
+  }, [toast, fetchInstallStats]);
+
   useEffect(() => {
     if (view === 'applications' || view === 'overview') {
       fetchApplications();
