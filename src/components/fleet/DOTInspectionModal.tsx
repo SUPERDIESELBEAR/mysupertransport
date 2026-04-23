@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -9,7 +9,7 @@ import { DateInput } from '@/components/ui/date-input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { validateFile } from '@/lib/validateFile';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Settings2 } from 'lucide-react';
 
 interface DOTInspectionModalProps {
   open: boolean;
@@ -43,10 +43,30 @@ export default function DOTInspectionModal({ open, onClose, operatorId, onSaved 
   const [result, setResult] = useState('pass');
   const [notes, setNotes] = useState('');
   const [certFile, setCertFile] = useState<File | null>(null);
+  const [fleetDefault, setFleetDefault] = useState<number | null>(null);
+
+  // Load fleet-wide default interval when the modal opens; pre-select it.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    supabase
+      .from('fleet_settings')
+      .select('default_dot_reminder_interval_days')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const val = data?.default_dot_reminder_interval_days ?? 360;
+        setFleetDefault(val);
+        setReminderInterval(String(val));
+      });
+    return () => { cancelled = true; };
+  }, [open]);
 
   const reset = () => {
     setInspectionDate('');
-    setReminderInterval('360');
+    setReminderInterval(String(fleetDefault ?? 360));
     setInspectorName('');
     setLocation('');
     setResult('pass');
@@ -143,6 +163,12 @@ export default function DOTInspectionModal({ open, onClose, operatorId, onSaved 
 
           <div>
             <Label className="text-xs mb-2 block">Reminder Interval</Label>
+            {fleetDefault !== null && (
+              <p className="text-[10px] text-muted-foreground mb-1.5 flex items-center gap-1">
+                <Settings2 className="h-3 w-3" />
+                Fleet default: {fleetDefault} days · override per truck below
+              </p>
+            )}
             <RadioGroup value={reminderInterval} onValueChange={setReminderInterval} className="grid grid-cols-2 gap-2">
               {INTERVALS.map(i => (
                 <label key={i.value} className="flex items-center gap-2 text-xs cursor-pointer border border-border rounded-lg px-3 py-2 hover:bg-muted/30 transition-colors">

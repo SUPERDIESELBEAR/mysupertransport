@@ -1096,6 +1096,27 @@ export type Database = {
         }
         Relationships: []
       }
+      fleet_settings: {
+        Row: {
+          default_dot_reminder_interval_days: number
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          default_dot_reminder_interval_days?: number
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          default_dot_reminder_interval_days?: number
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       forecast_deductions: {
         Row: {
           amount: number

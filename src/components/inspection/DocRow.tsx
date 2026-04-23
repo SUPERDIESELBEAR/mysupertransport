@@ -22,6 +22,11 @@ import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
  */
 export function bucketForBinderDoc(filePath: string | null | undefined): string {
   if (filePath?.startsWith('applications/')) return 'application-documents';
+  // Vehicle Hub DOT inspection certificates live in the fleet-documents bucket
+  // (Path shape: "<operator_uuid>/dot/<filename>")
+  if (filePath && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/dot\//i.test(filePath)) {
+    return 'fleet-documents';
+  }
   // Operator-uploaded docs are stored under "{operator_uuid}/..." in the operator-documents bucket
   if (filePath && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\//i.test(filePath)) {
     return 'operator-documents';

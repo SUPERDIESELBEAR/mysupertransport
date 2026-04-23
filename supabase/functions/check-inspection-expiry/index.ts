@@ -13,6 +13,7 @@ const ALERT_DOCS = new Set([
   "IFTA License",
   "CDL",
   "Medical Certificate",
+  "Periodic DOT Inspections",
 ]);
 
 function buildDocTable(docs: { name: string; daysLeft: number; expiryStr: string }[]): string {
