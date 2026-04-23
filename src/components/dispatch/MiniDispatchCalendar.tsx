@@ -279,12 +279,104 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
 
   return (
     <div className="space-y-1.5">
-      {/* Month nav */}
-      <div className="flex items-center justify-between">
+      {/* Month nav + Mark range */}
+      <div className="flex items-center justify-between gap-1">
         <button onClick={prevMonth} className="p-0.5 rounded hover:bg-muted transition-colors">
           <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
-        <span className="text-[11px] font-semibold text-foreground">{monthLabel}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-semibold text-foreground">{monthLabel}</span>
+          <Popover open={rangeOpen} onOpenChange={setRangeOpen}>
+            <PopoverTrigger asChild>
+              <button
+                onClick={openRangePopover}
+                title="Mark a date range with the same status"
+                className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-gold hover:text-gold-light px-1.5 py-0.5 rounded border border-gold/40 hover:bg-gold/5 transition-colors"
+              >
+                <CalendarRange className="h-3 w-3" />
+                Range
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3" side="bottom" align="center" sideOffset={6}>
+              <p className="text-[11px] font-semibold text-foreground mb-2">Mark date range</p>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">From</Label>
+                    <input
+                      type="date"
+                      value={rangeFrom}
+                      max={rangeTo || undefined}
+                      onChange={e => setRangeFrom(e.target.value)}
+                      className="mt-0.5 h-7 w-full rounded border border-input bg-background px-1.5 text-[11px]"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">To</Label>
+                    <input
+                      type="date"
+                      value={rangeTo}
+                      min={rangeFrom || undefined}
+                      max={new Date().toISOString().slice(0, 10)}
+                      onChange={e => setRangeTo(e.target.value)}
+                      className="mt-0.5 h-7 w-full rounded border border-input bg-background px-1.5 text-[11px]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Status</Label>
+                  <div className="mt-0.5 flex flex-col gap-0.5">
+                    {(Object.keys(STATUS_COLORS) as DailyStatus[]).map(s => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setRangeStatus(s)}
+                        className={`flex items-center gap-1.5 px-1.5 py-1 rounded text-[11px] font-medium transition-colors text-left ${
+                          rangeStatus === s
+                            ? STATUS_COLORS[s].bg + ' ' + STATUS_COLORS[s].text
+                            : 'hover:bg-muted text-foreground/80'
+                        }`}
+                      >
+                        <span className={`h-2 w-2 rounded-full ${STATUS_COLORS[s].dot} shrink-0`} />
+                        {STATUS_COLORS[s].label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 pt-1 cursor-pointer">
+                  <Checkbox
+                    checked={rangeOverwrite}
+                    onCheckedChange={c => setRangeOverwrite(c === true)}
+                    className="h-3.5 w-3.5"
+                  />
+                  <span className="text-[10px] text-foreground/80">Overwrite existing entries</span>
+                </label>
+                <div className="flex items-center justify-end gap-1.5 pt-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setRangeOpen(false)}
+                    disabled={rangeApplying}
+                    className="h-7 text-[11px] px-2"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={applyRange}
+                    disabled={rangeApplying || !rangeFrom || !rangeTo}
+                    className="h-7 text-[11px] px-2.5 bg-gold text-surface-dark hover:bg-gold-light"
+                  >
+                    {rangeApplying ? 'Applying…' : 'Apply'}
+                  </Button>
+                </div>
+                <p className="text-[9px] text-muted-foreground leading-snug pt-0.5">
+                  Future days are skipped. If the range includes today, the live Dispatch Hub also updates.
+                </p>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
         <button onClick={nextMonth} className="p-0.5 rounded hover:bg-muted transition-colors">
           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
