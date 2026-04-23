@@ -1785,6 +1785,16 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         const cmp = at < bt ? -1 : at > bt ? 1 : 0;
         return sortDir === 'asc' ? cmp : -cmp;
       }
+      if (sortKey === 'start_date') {
+        // Empty start dates sort last in ascending; first in descending only when explicitly requested.
+        const at = a.anticipated_start_date ?? '';
+        const bt = b.anticipated_start_date ?? '';
+        if (!at && !bt) return 0;
+        if (!at) return 1;
+        if (!bt) return -1;
+        const cmp = at < bt ? -1 : at > bt ? 1 : 0;
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
       let av = '';
       let bv = '';
       if (sortKey === 'name') {
