@@ -4,13 +4,12 @@ import { formatPhoneDisplay } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useBulkReminderCooldown } from '@/hooks/useBulkReminderCooldown';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Truck, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw, FileClock, Check, PauseCircle, ArchiveX, CalendarDays, Paperclip, StickyNote } from 'lucide-react';
+import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw, FileClock, Check, PauseCircle, ArchiveX, CalendarDays, Paperclip, StickyNote } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
@@ -2933,61 +2932,6 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
                   <div className="inline-flex items-center gap-1">
                     <button
-                      onClick={() => handleSort('docs')}
-                      className="inline-flex items-center gap-1 hover:text-gold transition-colors group"
-                    >
-                      Docs
-                      {sortKey === 'docs'
-                        ? sortDir === 'asc'
-                          ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
-                          : <ArrowDown className="h-3.5 w-3.5 text-gold" />
-                        : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
-                    </button>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[240px] text-left space-y-1.5">
-                          <p className="font-semibold text-xs">Count of uploaded documents, including:</p>
-                          <ul className="text-xs space-y-0.5 text-muted-foreground">
-                            <li><span className="text-foreground font-medium">Registration</span></li>
-                            <li><span className="text-foreground font-medium">Insurance certificate</span></li>
-                            <li><span className="text-foreground font-medium">Inspection report</span></li>
-                            <li><span className="text-foreground font-medium">Form 2290</span></li>
-                            <li><span className="text-foreground font-medium">Truck title</span></li>
-                            <li><span className="text-foreground font-medium">Truck photos</span></li>
-                            <li><span className="text-foreground font-medium">Other uploads</span></li>
-                          </ul>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex items-center gap-1 cursor-default border-b border-dashed border-muted-foreground/50">
-                          <Truck className="h-3.5 w-3.5 text-muted-foreground" />
-                          Dispatch
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-[260px] text-left space-y-1.5">
-                        <p className="font-semibold text-xs">Current dispatch status for fully onboarded operators:</p>
-                        <ul className="text-xs space-y-1 text-muted-foreground">
-                          <li><span className="text-muted-foreground font-medium">⚫ Not Dispatched</span> — Operator is available but not yet on a load</li>
-                          <li><span className="text-status-complete font-medium">🟢 Dispatched</span> — Currently running a load</li>
-                          <li><span className="text-status-progress font-medium">🟠 Home</span> — Back home, between loads</li>
-                          <li><span className="text-destructive font-medium">🔴 Truck Down</span> — Vehicle issue requiring immediate attention</li>
-                        </ul>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </th>
-                <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
-                  <div className="inline-flex items-center gap-1">
-                    <button
                       onClick={() => handleSort('start_date')}
                       className="inline-flex items-center gap-1 hover:text-gold transition-colors group whitespace-nowrap"
                     >
@@ -3316,15 +3260,6 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                          })()}
                        </div>
                      </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      {op.fully_onboarded ? (
-                        <Badge className="status-complete border text-xs">Onboarded</Badge>
-                      ) : op.mvr_ch_approval === 'denied' || op.pe_screening_result === 'non_clear' ? (
-                        <Badge className="status-action border text-xs">Alert</Badge>
-                      ) : (
-                        <Badge className="status-progress border text-xs">In Progress</Badge>
-                      )}
-                    </td>
                     {/* Anticipated Start Date — inline editable */}
                     <td className="px-4 py-3 hidden lg:table-cell" onClick={e => e.stopPropagation()}>
                       {(() => {
