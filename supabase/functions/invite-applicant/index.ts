@@ -43,6 +43,15 @@ function buildInviteEmail(firstName: string, note: string | null, appUrl: string
               </a>
             </div>
             <p style="font-size:13px;color:#999;text-align:center;">Or visit: <a href="${appUrl}/apply" style="color:#C9A84C;">${appUrl}/apply</a></p>
+            <!-- Secondary: Install app CTA -->
+            <div style="margin:28px 0 0;padding:18px 20px;background:#faf7ef;border:1px solid #ecdfb8;border-radius:10px;text-align:center;">
+              <p style="margin:0 0 10px;font-size:13px;color:#555;line-height:1.6;">
+                📱 <strong>While you're here</strong> — install the SUPERDRIVE app on your phone for the smoothest application experience.
+              </p>
+              <a href="${appUrl}/install" style="display:inline-block;font-size:13px;color:#0f1117;background:transparent;border:1px solid #C9A84C;padding:8px 18px;border-radius:6px;text-decoration:none;font-weight:600;">
+                Install SUPERDRIVE
+              </a>
+            </div>
           </td>
         </tr>
         ${emailFooter(RECRUITING_EMAIL, 'You received this email because a SUPERTRANSPORT team member personally invited you to apply.')}

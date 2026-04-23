@@ -28,7 +28,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Shield, Users2, AlertCircle, FileX,
   MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2, FileText,
-  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature,
+  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone,
 } from 'lucide-react';
 import FleetRoster from '@/components/fleet/FleetRoster';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
@@ -168,6 +168,11 @@ export default function ManagementPortal() {
   const [alertsPanelNoAction, setAlertsPanelNoAction] = useState(false);
   const [expiredCount, setExpiredCount] = useState(0);
   const [noReminderCount, setNoReminderCount] = useState(0);
+
+  // App install tracking (operator PWA installs)
+  const [installStats, setInstallStats] = useState<{ installed: number; total: number }>({ installed: 0, total: 0 });
+  const [installSendOpen, setInstallSendOpen] = useState(false);
+  const [installSending, setInstallSending] = useState(false);
 
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
   useEffect(() => {
@@ -538,6 +543,41 @@ export default function ManagementPortal() {
   useEffect(() => {
     fetchMetrics();
   }, [fetchMetrics]);
+
+  // Fetch PWA install stats for the Overview "App Install Status" card
+  const fetchInstallStats = useCallback(async () => {
+    const { data } = await supabase
+      .from('operators')
+      .select('id, pwa_installed_at')
+      .eq('is_active', true);
+    const rows = (data as Array<{ id: string; pwa_installed_at: string | null }> | null) ?? [];
+    const installed = rows.filter(r => !!r.pwa_installed_at).length;
+    setInstallStats({ installed, total: rows.length });
+  }, []);
+
+  useEffect(() => {
+    if (view === 'overview') fetchInstallStats();
+  }, [view, fetchInstallStats]);
+
+  const handleBulkInstallSend = useCallback(async () => {
+    setInstallSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('notify-pwa-install', { body: {} });
+      if (error) throw error;
+      const notified = (data as any)?.notified ?? 0;
+      const skipped = (data as any)?.skipped ?? 0;
+      toast({
+        title: 'Install instructions sent',
+        description: `Notified ${notified} operator${notified === 1 ? '' : 's'}${skipped ? ` · ${skipped} skipped (already installed or notified)` : ''}.`,
+      });
+      fetchInstallStats();
+    } catch (e: any) {
+      toast({ title: 'Send failed', description: e?.message ?? 'Could not send install instructions.', variant: 'destructive' });
+    } finally {
+      setInstallSending(false);
+      setInstallSendOpen(false);
+    }
+  }, [toast, fetchInstallStats]);
 
   useEffect(() => {
     if (view === 'applications' || view === 'overview') {
@@ -1162,7 +1202,59 @@ export default function ManagementPortal() {
               </div>
             )}
 
-            {/* Staff Workload */}
+            {/* App Install Status */}
+            {(() => {
+              const { installed, total } = installStats;
+              const remaining = Math.max(0, total - installed);
+              const pct = total > 0 ? Math.round((installed / total) * 100) : 0;
+              return (
+                <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+                  <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-9 w-9 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
+                        <Smartphone className="h-4 w-4 text-gold" />
+                      </div>
+                      <div className="min-w-0">
+                        <h2 className="font-semibold text-foreground">App Install Status</h2>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {total === 0
+                            ? 'No active operators yet.'
+                            : `${installed} of ${total} active operator${total === 1 ? '' : 's'} have installed SUPERDRIVE`}
+                        </p>
+                      </div>
+                    </div>
+                    {remaining > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => { if (guardDemo()) return; setInstallSendOpen(true); }}
+                        className="text-xs gap-1.5 shrink-0"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        Email install instructions to remaining {remaining}
+                      </Button>
+                    )}
+                  </div>
+                  <div className="px-4 sm:px-5 py-4">
+                    <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+                      <div
+                        className="h-full bg-gold transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+                      <span>{pct}% installed</span>
+                      {remaining === 0 && total > 0 && (
+                        <span className="inline-flex items-center gap-1 text-status-complete font-medium">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> All operators installed
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Pending queue preview */}
             <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
               <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-border flex items-center justify-between gap-2 flex-wrap">
@@ -1815,6 +1907,30 @@ export default function ManagementPortal() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Leave Without Saving
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={installSendOpen} onOpenChange={(open) => { if (!open && !installSending) setInstallSendOpen(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send install instructions?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will email install instructions to every active operator who hasn't installed the SUPERDRIVE app yet
+              and hasn't already received this notification. Operators already notified will be skipped automatically.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={installSending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleBulkInstallSend(); }}
+              disabled={installSending}
+              className="bg-gold text-foreground hover:bg-gold/90"
+            >
+              {installSending ? (
+                <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending…</span>
+              ) : 'Send emails'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
