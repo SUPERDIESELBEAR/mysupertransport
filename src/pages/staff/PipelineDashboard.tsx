@@ -2985,6 +2985,33 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                     </Tooltip>
                   </TooltipProvider>
                 </th>
+                <th className="text-left px-4 py-3 font-semibold text-foreground hidden lg:table-cell">
+                  <div className="inline-flex items-center gap-1">
+                    <button
+                      onClick={() => handleSort('start_date')}
+                      className="inline-flex items-center gap-1 hover:text-gold transition-colors group whitespace-nowrap"
+                    >
+                      <CalendarDays className={`h-3.5 w-3.5 ${sortKey === 'start_date' ? 'text-gold' : 'text-muted-foreground group-hover:text-gold/60'}`} />
+                      Start Date
+                      {sortKey === 'start_date'
+                        ? sortDir === 'asc'
+                          ? <ArrowUp className="h-3.5 w-3.5 text-gold" />
+                          : <ArrowDown className="h-3.5 w-3.5 text-gold" />
+                        : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-gold/60" />}
+                    </button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex cursor-default text-muted-foreground/60 hover:text-muted-foreground border-b border-dashed border-muted-foreground/40 leading-none text-[10px] ml-0.5">?</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[240px] text-left space-y-1.5">
+                          <p className="font-semibold text-xs">Anticipated road-ready date</p>
+                          <p className="text-xs text-muted-foreground">Forecast of when this applicant should be ready to start. Click any cell to edit. Past dates appear in amber if the operator isn't fully onboarded yet.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </th>
                 <th className="text-left px-4 py-3 font-semibold text-foreground hidden xl:table-cell">
                   <div className="inline-flex items-center gap-1">
                     <button
