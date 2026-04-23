@@ -972,8 +972,8 @@ export default function DriverRoster({
                             </TooltipTrigger>
                             <TooltipContent>
                               {driver.pwa_installed_at
-                                ? `App installed ${format(parseISO(driver.pwa_installed_at), 'MM/dd/yyyy')}`
-                                : 'App not installed'}
+                                ? `Installed ${format(parseISO(driver.pwa_installed_at), 'MMM d, yyyy')}`
+                                : 'Not installed yet'}
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
