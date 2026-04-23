@@ -135,7 +135,130 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
     if (error) {
       toast({ title: 'Error saving status', description: error.message, variant: 'destructive' });
     } else {
+      // If editing TODAY, also sync to active_dispatch + history so the live
+      // Dispatch Hub tiles reflect the change immediately.
+      const todayStr = new Date().toISOString().slice(0, 10);
+      if (dateStr === todayStr) {
+        await syncTodayToLive(status);
+      }
       fetchLogs();
+    }
+  };
+
+  // Mirror today's calendar status to active_dispatch (+ history) so the
+  // live Dispatch Hub stays in lockstep. No-ops if status is unchanged.
+  const syncTodayToLive = useCallback(async (status: DailyStatus) => {
+    // Read current live status to avoid spurious history rows / duplicate notifications.
+    const { data: current } = await supabase
+      .from('active_dispatch')
+      .select('id, dispatch_status')
+      .eq('operator_id', operatorId)
+      .maybeSingle();
+
+    if ((current as any)?.dispatch_status === status) return;
+
+    const payload = {
+      operator_id: operatorId,
+      dispatch_status: status,
+      updated_by: session?.user?.id ?? null,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (current) {
+      await supabase.from('active_dispatch').update(payload).eq('operator_id', operatorId);
+    } else {
+      await supabase.from('active_dispatch').insert(payload);
+    }
+
+    await supabase.from('dispatch_status_history').insert({
+      operator_id: operatorId,
+      dispatch_status: status,
+      changed_by: session?.user?.id ?? null,
+      status_notes: 'Synced from calendar today-cell',
+    });
+  }, [operatorId, session?.user?.id]);
+
+  // ── Mark range: bulk-set statuses for a date range (per-operator) ────────
+  const openRangePopover = () => {
+    const firstOfMonth = `${month.year}-${String(month.month + 1).padStart(2, '0')}-01`;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    setRangeFrom(firstOfMonth);
+    setRangeTo(todayStr);
+    setRangeStatus('dispatched');
+    setRangeOverwrite(false);
+    setRangeOpen(true);
+  };
+
+  const applyRange = async () => {
+    if (!rangeFrom || !rangeTo) return;
+    if (rangeFrom > rangeTo) {
+      toast({ title: 'Invalid range', description: 'Start date must be on or before end date.', variant: 'destructive' });
+      return;
+    }
+    const todayStr = new Date().toISOString().slice(0, 10);
+    // Build inclusive list of YYYY-MM-DD strings from rangeFrom to min(rangeTo, today)
+    const effectiveEnd = rangeTo > todayStr ? todayStr : rangeTo;
+    if (rangeFrom > effectiveEnd) {
+      toast({ title: 'Nothing to mark', description: 'The selected range has no past or current dates.', variant: 'destructive' });
+      return;
+    }
+    const dates: string[] = [];
+    const cursor = new Date(rangeFrom + 'T00:00:00');
+    const endD = new Date(effectiveEnd + 'T00:00:00');
+    while (cursor <= endD) {
+      dates.push(cursor.toISOString().slice(0, 10));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    setRangeApplying(true);
+    try {
+      // Fetch existing entries in range to honor "Overwrite existing" toggle
+      const { data: existing } = await supabase
+        .from('dispatch_daily_log')
+        .select('log_date')
+        .eq('operator_id', operatorId)
+        .gte('log_date', rangeFrom)
+        .lte('log_date', effectiveEnd);
+
+      const existingSet = new Set((existing ?? []).map((r: any) => r.log_date));
+      const toWrite = rangeOverwrite ? dates : dates.filter(d => !existingSet.has(d));
+
+      if (toWrite.length === 0) {
+        toast({ title: 'No changes', description: 'All days already have entries. Enable "Overwrite existing" to replace.' });
+        setRangeApplying(false);
+        return;
+      }
+
+      const rows = toWrite.map(log_date => ({
+        operator_id: operatorId,
+        log_date,
+        status: rangeStatus,
+        created_by: session?.user?.id ?? null,
+      }));
+
+      const { error } = await supabase
+        .from('dispatch_daily_log')
+        .upsert(rows, { onConflict: 'operator_id,log_date' });
+
+      if (error) {
+        toast({ title: 'Error applying range', description: error.message, variant: 'destructive' });
+        setRangeApplying(false);
+        return;
+      }
+
+      // If the range covers today AND today was actually written, dual-write to live.
+      if (toWrite.includes(todayStr)) {
+        await syncTodayToLive(rangeStatus);
+      }
+
+      toast({
+        title: 'Range marked',
+        description: `Marked ${toWrite.length} day${toWrite.length !== 1 ? 's' : ''} as ${STATUS_COLORS[rangeStatus].label}.`,
+      });
+      setRangeOpen(false);
+      fetchLogs();
+    } finally {
+      setRangeApplying(false);
     }
   };
 
