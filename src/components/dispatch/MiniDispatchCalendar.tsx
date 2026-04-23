@@ -402,8 +402,9 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
             <Popover key={day}>
               <PopoverTrigger asChild>
                 <button
+                  title={isToday ? 'Setting status here also updates the live Dispatch Hub' : undefined}
                   className={`h-6 w-full flex items-center justify-center rounded-sm text-[10px] transition-colors relative ${
-                    isToday ? 'font-bold ring-1 ring-primary/40' : ''
+                    isToday ? 'font-bold ring-1 ring-gold/60' : ''
                   } ${statusCfg ? statusCfg.bg : 'hover:bg-muted/50'}`}
                 >
                   <span className={statusCfg ? statusCfg.text + ' font-semibold' : 'text-foreground/70'}>{day}</span>
