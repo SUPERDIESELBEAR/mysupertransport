@@ -753,7 +753,7 @@ export default function ManagementPortal() {
         }
       >
         {/* ── TRUCK DOWN ALERT BANNER ── */}
-        {truckDownCount > 0 && (
+        {truckDownCount > 0 && view !== 'pipeline' && (
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 animate-fade-in">
             <div className="flex items-center gap-3 min-w-0">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/15 shrink-0">
