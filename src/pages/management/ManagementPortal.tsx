@@ -1911,6 +1911,30 @@ export default function ManagementPortal() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={installSendOpen} onOpenChange={(open) => { if (!open && !installSending) setInstallSendOpen(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send install instructions?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will email install instructions to every active operator who hasn't installed the SUPERDRIVE app yet
+              and hasn't already received this notification. Operators already notified will be skipped automatically.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={installSending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleBulkInstallSend(); }}
+              disabled={installSending}
+              className="bg-gold text-foreground hover:bg-gold/90"
+            >
+              {installSending ? (
+                <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending…</span>
+              ) : 'Send emails'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <ScrollJumpButton />
     </>
   );
