@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { FilePreviewModal, bucketForBinderDoc } from '@/components/inspection/DocRow';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { TRUCK_MAKES } from '@/components/operator/TruckInfoCard';
 import { toast } from '@/hooks/use-toast';
@@ -218,7 +218,8 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     : null;
 
   const handlePreviewFile = async (filePath: string, fileName: string) => {
-    const { data } = await supabase.storage.from('fleet-documents').createSignedUrl(filePath, 3600);
+    const bucket = bucketForBinderDoc(filePath);
+    const { data } = await supabase.storage.from(bucket).createSignedUrl(filePath, 3600);
     if (data?.signedUrl) {
       setPreviewDoc({ url: data.signedUrl, name: fileName });
     }
