@@ -169,6 +169,11 @@ export default function ManagementPortal() {
   const [expiredCount, setExpiredCount] = useState(0);
   const [noReminderCount, setNoReminderCount] = useState(0);
 
+  // App install tracking (operator PWA installs)
+  const [installStats, setInstallStats] = useState<{ installed: number; total: number }>({ installed: 0, total: 0 });
+  const [installSendOpen, setInstallSendOpen] = useState(false);
+  const [installSending, setInstallSending] = useState(false);
+
   // Sync view/statusFilter when URL params change (e.g. notification deep-links)
   useEffect(() => {
     const v = searchParams.get('view') as ManagementView | null;
