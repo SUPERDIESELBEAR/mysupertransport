@@ -28,7 +28,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Shield, Users2, AlertCircle, FileX,
   MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2, FileText,
-  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car, LayoutTemplate, Megaphone, Container, Pen,
+  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature,
 } from 'lucide-react';
 import FleetRoster from '@/components/fleet/FleetRoster';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
@@ -41,6 +41,7 @@ import ServiceLibraryManager from '@/components/service-library/ServiceLibraryMa
 import ReleaseNotesManager from '@/components/management/ReleaseNotesManager';
 import CarrierSignatureSettings from '@/components/ica/CarrierSignatureSettings';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import TerminationsView from './TerminationsView';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
 import DriverHubView from '@/components/drivers/DriverHubView';
 import type { ComplianceCounts, ComplianceFilter } from '@/components/drivers/DriverRoster';
@@ -73,7 +74,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'email-catalog' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'email-catalog' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations';
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -104,7 +105,7 @@ export default function ManagementPortal() {
   const [searchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const v = searchParams.get('view') as ManagementView | null;
-    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature'].includes(v)) ? v : 'overview';
+    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations'].includes(v)) ? v : 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [scrollToStageKeyMgmt, setScrollToStageKeyMgmt] = useState<string | undefined>(undefined);
@@ -172,7 +173,7 @@ export default function ManagementPortal() {
   useEffect(() => {
     const v = searchParams.get('view') as ManagementView | null;
     const s = searchParams.get('status') as StatusFilter | null;
-    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature'].includes(v)) {
+    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations'].includes(v)) {
       setView(v);
     }
     if (s && ['pending','approved','denied','all'].includes(s)) {
@@ -706,6 +707,7 @@ export default function ManagementPortal() {
     { label: 'Forms Catalog',     icon: <FileText className="h-4 w-4" />,         path: 'forms-catalog' },
     { label: "What's New",        icon: <Megaphone className="h-4 w-4" />,        path: 'whats-new' },
     { label: 'Carrier Signature', icon: <Pen className="h-4 w-4" />,             path: 'carrier-signature' },
+    { label: 'Terminations',      icon: <FileSignature className="h-4 w-4" />,   path: 'terminations' },
     { label: 'Demo Mode',         icon: <GraduationCap className="h-4 w-4" />,   path: '__demo__' },
   ];
 
@@ -1837,6 +1839,10 @@ export default function ManagementPortal() {
 
         {view === 'carrier-signature' && (
           <CarrierSignatureSettings />
+        )}
+
+        {view === 'terminations' && (
+          <TerminationsView />
         )}
 
 
