@@ -768,7 +768,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   }, [initialCoordinatorFilter, initialCoordinatorName]);
 
   // Sort state
-  type SortKey = 'name' | 'stage' | 'coordinator' | 'progress' | 'last_activity' | 'docs' | 'compliance' | 'msgs' | 'temperature';
+  type SortKey = 'name' | 'stage' | 'coordinator' | 'progress' | 'last_activity' | 'docs' | 'compliance' | 'msgs' | 'temperature' | 'start_date';
   type SortDir = 'asc' | 'desc';
   const [sortKey, setSortKey] = useState<SortKey | null>('temperature');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
