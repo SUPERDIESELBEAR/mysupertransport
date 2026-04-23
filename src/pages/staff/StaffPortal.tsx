@@ -512,7 +512,7 @@ export default function StaffPortal() {
       }
     >
       {/* ── TRUCK DOWN ALERT BANNER ── */}
-      {truckDownOperators.length > 0 && currentView !== 'pipeline' && (
+      {truckDownOperators.length > 0 && currentView !== 'pipeline' && currentView !== 'operator-detail' && (
         <div className="mb-3 flex flex-wrap items-start sm:items-center justify-between gap-3 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 animate-fade-in">
           <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/15 shrink-0 mt-0.5 sm:mt-0">
