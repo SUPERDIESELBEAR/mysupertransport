@@ -1,78 +1,43 @@
 
 
-## Applicant Pipeline — add Start Date + inline Notes, drop Dispatch & Docs columns
+## Finish the Pipeline cleanup — actually remove the Dispatch & Docs columns
 
-### My take on each idea
+### What went wrong last round
 
-| Idea | Verdict | Why |
-|---|---|---|
-| **Add "Anticipated Start Date" column** | ✅ Do it | Real planning value — gives staff a forecast view of when each applicant should be road-ready. |
-| **Add inline "Notes" preview under the name** | ✅ Do it | We already have `operators.notes` (edited from the Operator Detail Panel). Just surfacing it in the row — no new field needed. Hidden when empty, so no clutter. |
-| **Remove "Dispatch" column** | ✅ Agreed | The Pipeline is fundamentally an *onboarding* view. Dispatch state belongs to drivers already on the road, which now have the Driver Hub + Vehicle Hub. The column is also redundant with the per-status badges shown in the header (Dispatched / Home / Truck Down counts) and the dispatch filter chip. |
-| **Remove "Docs" column** | ✅ Agreed — but with a small replacement | You're right that "In Progress" is near-universal noise. **However**, the column does double as a sort key for "who has uploaded the most." I suggest replacing it with a tiny **doc count chip next to the name** (e.g. `📎 7`) shown only when count > 0 — same info, far less width. Sortable via the column-header `⌥` menu we already have for `%`. |
+The previous pass added the new pieces (Start Date column, notes preview, 📎 chip) but **left the old Dispatch and Docs column headers in place**, and the body cells fell out of alignment with their headers. Net result on screen: the table still looks essentially the same as before, just with one extra column tacked on — exactly the opposite of the cleanup you asked for.
 
-### What changes
+Specifically, in `src/pages/staff/PipelineDashboard.tsx`:
 
-**1. Anticipated Start Date column (new)**
-- New nullable column `operators.anticipated_start_date date`.
-- New table column header **"Start Date"** between *State* and *Progress Track*, hidden on `md` (visible `lg+`), sortable.
-- Cell renders the date using the project's `DateInput` component for inline edit (US Central, noon-anchored per memory rules) with a click-to-add chip when empty.
-- Color cues: amber if date is in the past and operator isn't fully onboarded; muted-foreground otherwise.
-- Filter pill row gets a new "Starts this week / this month / overdue" quick filter (matches the existing chip pattern).
+- **`<th>` Docs** (line 2933–2966) — still present.
+- **`<th>` Dispatch** (line 2967–2987) — still present.
+- The old Docs `<td>` was **replaced** by an "Onboarded / In Progress / Alert" status badge (line 3319–3327) — neither requested nor in the plan, and now misaligned under the Docs header.
+- The old Dispatch `<td>` is **gone**, leaving the Dispatch header floating with no body cell underneath it.
+- `colSpan={11}` is wrong both ways (header count is 13, body count is 12).
 
-**2. Inline notes under the name**
-- Reuses existing `operators.notes` (no schema change).
-- Displays as a small italic muted line right under the name and any "Invite Pending" chip:
-  ```
-  John Smith   45%   📎 7
-  Note: Waiting on truck title — promised by Friday
-  ```
-- Truncated to ~80 chars with full text in a Tooltip; only renders when `notes` is non-empty.
-- Editable from the existing Operator Detail Panel (already wired) — no new edit UI in the table.
-- Pulled into the Pipeline `select` query (`notes` field added to the `operators` select).
+### Fix — three precise edits
 
-**3. Remove Dispatch column**
-- Drop the `<th>` header and the `<td>` body cell.
-- **Keep** the dispatch *filter chip* and the *dispatched/home counters* in the toolbar — still useful for staff who want to slice the list. They just don't need the column.
-- `colSpan` on loading/empty rows reduced accordingly.
+**1. Remove the Docs `<th>`** — lines 2933–2966 (the entire `<th>` block including its sort button and tooltip). The 📎 chip already lives next to the name and tooltips list the same doc breakdown.
 
-**4. Remove Docs column → replace with name-row chip**
-- Drop the `<th>` and `<td>`.
-- Add a tiny `📎 N` chip next to the `%` chip on the name cell when `doc_count > 0`. Tooltip lists the breakdown that the old column header showed.
-- Sort key `'docs'` stays in the SortKey union — existing sort buttons and any persisted state continue to work; we'll wire one of the `%`-style header chips on the name column to expose it.
+**2. Remove the Dispatch `<th>`** — lines 2967–2987 (the entire `<th>` block including its tooltip). The toolbar dispatch filter chip + counters stay.
 
-### Database
+**3. Remove the orphaned status-badge `<td>`** — lines 3319–3327 (the `Onboarded / Alert / In Progress` cell that was inserted under the old Docs header). It was never in scope; "In Progress" universally is exactly the noise we agreed to drop. The `Onboarded` badge is already conveyed by the green Stage 6 node in the Progress Track and the 100% chip; the `Alert` state is already conveyed by the red MVR/CH badges in the name cell and the Compliance shield column.
 
-One migration:
+After these three deletions, header `<th>` count = 11, body `<td>` count = 11, and the `colSpan={11}` on the empty/loading rows becomes correct.
 
-```sql
-ALTER TABLE public.operators
-  ADD COLUMN anticipated_start_date date;
-```
+### What stays (unchanged)
 
-No RLS change (existing operator-row RLS covers it).
+- ✅ Start Date column — already added correctly (lines 2988–3014 header + 3329–3344 cell).
+- ✅ 📎 doc-count chip + notes preview under the name (lines 3202–3232).
+- ✅ Sort key `'docs'` retained in code so existing sort state doesn't break (it just no longer has a header chip — fine, sorting by doc count was a niche use case anyway).
+- ✅ Dispatch toolbar filter chip + Dispatched/Home/Truck Down counters.
+- ✅ Anticipated Start Date editor in `OperatorDetailPanel.tsx` (already wired in last round).
 
 ### Files touched
 
-- `supabase/migrations/<new>.sql` — add column.
-- `src/pages/staff/PipelineDashboard.tsx`
-  - Add `notes` and `anticipated_start_date` to the `operators` select; add to `OperatorRow` type.
-  - Remove Dispatch + Docs `<th>`/`<td>`; update `colSpan`.
-  - Add Start Date `<th>`/`<td>` with inline `DateInput`, save handler that calls `update({ anticipated_start_date })`.
-  - Add notes line + 📎 chip in the name cell.
-  - Add Start Date sort key + quick-filter chips (this week / month / overdue).
-- `src/pages/staff/OperatorDetailPanel.tsx` — add an **Anticipated Start Date** field in the same area as the operator notes so staff can edit it without leaving the panel.
-- `src/integrations/supabase/types.ts` — auto-regenerated.
-
-### What stays untouched
-
-- Vehicle Hub, Driver Hub, Compliance views — no changes.
-- Notes textarea + save flow in OperatorDetailPanel — already exists, just exposed in one more place.
-- Dispatch tracking itself (active_dispatch table, dispatcher portal, banners) — unchanged.
+- `src/pages/staff/PipelineDashboard.tsx` — three targeted deletions described above.
 
 ### Out of scope
 
-- Reminders / email automation tied to the Start Date (could be a follow-up — e.g. "30 days to start" alerts).
-- Per-row inline notes editing in the Pipeline table (kept in the Detail Panel to avoid double edit surfaces).
-- Touching the Management portal's Applicant Pipeline copy beyond what flows through the shared `PipelineDashboard` component (it's the same component, so it gets the changes automatically).
+- The "Starts this week / month / overdue" quick-filter chips. Pulling those in next can be a separate pass if you still want them after seeing the cleaner table.
+- Any dispatch logic, compliance logic, or detail-panel changes — none needed.
 
