@@ -10,11 +10,15 @@ const corsHeaders = {
 async function encryptSSN(ssn: string, keyHex: string): Promise<string> {
   const keyBytes = hexToBytes(keyHex.padEnd(64, '0').slice(0, 64));
   const cryptoKey = await crypto.subtle.importKey(
-    'raw', keyBytes, { name: 'AES-GCM' }, false, ['encrypt']
+    'raw', toArrayBuffer(keyBytes), { name: 'AES-GCM' }, false, ['encrypt']
   );
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(ssn);
-  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, encoded);
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: toArrayBuffer(iv) },
+    cryptoKey,
+    toArrayBuffer(encoded),
+  );
   // Store as base64(iv):base64(ciphertext)
   return `${bytesToBase64(iv)}:${bytesToBase64(new Uint8Array(ciphertext))}`;
 }
