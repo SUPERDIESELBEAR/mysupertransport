@@ -528,9 +528,10 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
         user_id,
         unit_number,
         is_active,
+        created_at,
         excluded_from_dispatch,
         excluded_from_dispatch_reason,
-        onboarding_status (fully_onboarded, unit_number),
+        onboarding_status (fully_onboarded, unit_number, go_live_date),
         active_dispatch (id, dispatch_status, assigned_dispatcher, current_load_lane, eta_redispatch, status_notes, updated_at)
       `)
       .neq('is_active', false);
