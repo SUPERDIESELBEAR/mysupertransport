@@ -159,16 +159,33 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
         'image/heic': 'heic',
         'image/heif': 'heif',
       };
-      const ext = MIME_EXT[file.type] || file.name.split('.').pop() || 'jpg';
+      const extFromName = file.name.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
+      const ext = MIME_EXT[file.type] || extFromName || 'jpg';
       const path = `${operatorId}/truck_photos/${currentSlot.key}_${Date.now()}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
+      // Wrap upload in 60s timeout so a hung request always fails loudly
+      const uploadPromise = supabase.storage
         .from('operator-documents')
         .upload(path, file, { upsert: false });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Upload timed out — check your connection and try again.')), 60000)
+      );
+      const { error: uploadError } = (await Promise.race([uploadPromise, timeoutPromise])) as Awaited<typeof uploadPromise>;
 
       if (uploadError) throw uploadError;
 
-      const fileUrl = path;
+      // Generate a long-lived signed URL so previews work in FilePreviewModal
+      // (operator-UUID-prefixed paths are NOT auto-signed by useSignedUrl)
+      let fileUrl = path;
+      const { data: signedData } = await supabase.storage
+        .from('operator-documents')
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (signedData?.signedUrl) {
+        fileUrl = signedData.signedUrl;
+      } else {
+        const { data: pub } = supabase.storage.from('operator-documents').getPublicUrl(path);
+        if (pub?.publicUrl) fileUrl = pub.publicUrl;
+      }
 
       // Insert into operator_documents
       const { error: insertError } = await supabase.from('operator_documents').insert({
