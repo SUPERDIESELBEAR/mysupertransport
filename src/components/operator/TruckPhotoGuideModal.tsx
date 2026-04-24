@@ -244,7 +244,7 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
         <input
           ref={fileInputRef}
           type="file"
-          accept=".jpg,.jpeg,.png,.heic"
+          accept="image/*"
           capture="environment"
           className="hidden"
           onChange={e => {
@@ -345,14 +345,16 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
                 </div>
                 <p className="text-xs text-muted-foreground truncate">{uploaded[currentSlot.key].fileName}</p>
                 {uploaded[currentSlot.key].fileUrl && (
-                  <a
-                    href={uploaded[currentSlot.key].fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => setPreviewing({
+                      url: uploaded[currentSlot.key].fileUrl,
+                      name: `${currentSlot.label} — ${uploaded[currentSlot.key].fileName}`,
+                    })}
                     className="inline-flex items-center gap-1 text-xs text-gold hover:text-gold-light font-medium"
                   >
-                    View photo <ExternalLink className="h-3 w-3" />
-                  </a>
+                    <Eye className="h-3 w-3" /> View photo
+                  </button>
                 )}
                 <Button
                   variant="outline"
