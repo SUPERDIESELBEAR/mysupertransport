@@ -306,11 +306,30 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                             <CheckCircle2 className="h-3 w-3" /> Received
                           </span>
                         )}
-                        {reviewStatus === 'pending' && (
+                        {reviewStatus === 'pending' && slot.key !== 'truck_photos' && (
                           <span className="text-[10px] bg-info/10 text-info px-1.5 py-0.5 rounded font-semibold flex items-center gap-1">
                             <Clock className="h-3 w-3" /> Pending Review
                           </span>
                         )}
+                        {reviewStatus === 'pending' && slot.key === 'truck_photos' && (() => {
+                          const distinctSlotsUploaded = new Set(
+                            uploaded
+                              .map(d => (d.file_name ?? '').split(' — ')[0].trim())
+                              .filter(Boolean)
+                          ).size;
+                          if (distinctSlotsUploaded >= 10) {
+                            return (
+                              <span className="text-[10px] bg-gold/15 text-gold-muted px-1.5 py-0.5 rounded font-semibold flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" /> Awaiting coordinator review
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="text-[10px] bg-info/10 text-info px-1.5 py-0.5 rounded font-semibold flex items-center gap-1">
+                              <Clock className="h-3 w-3" /> {distinctSlotsUploaded} of 10 uploaded
+                            </span>
+                          );
+                        })()}
                         {!reviewStatus && uploaded.length > 0 && (
                           <span className="text-[10px] bg-status-complete/15 text-status-complete px-1.5 py-0.5 rounded font-medium">Submitted</span>
                         )}
