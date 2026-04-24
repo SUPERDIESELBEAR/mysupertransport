@@ -10,11 +10,15 @@ const corsHeaders = {
 async function encryptSSN(ssn: string, keyHex: string): Promise<string> {
   const keyBytes = hexToBytes(keyHex.padEnd(64, '0').slice(0, 64));
   const cryptoKey = await crypto.subtle.importKey(
-    'raw', keyBytes, { name: 'AES-GCM' }, false, ['encrypt']
+    'raw', toArrayBuffer(keyBytes), { name: 'AES-GCM' }, false, ['encrypt']
   );
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(ssn);
-  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, encoded);
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: toArrayBuffer(iv) },
+    cryptoKey,
+    toArrayBuffer(encoded),
+  );
   // Store as base64(iv):base64(ciphertext)
   return `${bytesToBase64(iv)}:${bytesToBase64(new Uint8Array(ciphertext))}`;
 }
@@ -29,6 +33,10 @@ function hexToBytes(hex: string): Uint8Array {
 
 function strToBytes(str: string): Uint8Array {
   return new TextEncoder().encode(str.slice(0, 32).padEnd(32, '0'));
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return Uint8Array.from(bytes).buffer as ArrayBuffer;
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -58,11 +66,15 @@ serve(async (req) => {
     // Convert string key to 32-byte (256-bit) key material via raw bytes
     const keyBytes = strToBytes(rawKey);
     const cryptoKey = await crypto.subtle.importKey(
-      'raw', keyBytes, { name: 'AES-GCM' }, false, ['encrypt']
+      'raw', toArrayBuffer(keyBytes), { name: 'AES-GCM' }, false, ['encrypt']
     );
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const encoded = new TextEncoder().encode(ssn.replace(/\D/g, ''));
-    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, encoded);
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: toArrayBuffer(iv) },
+      cryptoKey,
+      toArrayBuffer(encoded),
+    );
 
     const encrypted = `${bytesToBase64(iv)}:${bytesToBase64(new Uint8Array(ciphertext))}`;
 

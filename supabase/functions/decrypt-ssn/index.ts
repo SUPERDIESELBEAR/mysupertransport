@@ -17,6 +17,10 @@ function base64ToBytes(b64: string): Uint8Array {
   return bytes;
 }
 
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return Uint8Array.from(bytes).buffer as ArrayBuffer;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -83,7 +87,7 @@ serve(async (req) => {
     const rawKey = Deno.env.get('SSN_ENCRYPTION_KEY') ?? '';
     const keyBytes = strToBytes(rawKey);
     const cryptoKey = await crypto.subtle.importKey(
-      'raw', keyBytes, { name: 'AES-GCM' }, false, ['decrypt']
+      'raw', toArrayBuffer(keyBytes), { name: 'AES-GCM' }, false, ['decrypt']
     );
 
     const [ivB64, ciphertextB64] = app.ssn_encrypted.split(':');
@@ -101,7 +105,11 @@ serve(async (req) => {
     const iv = base64ToBytes(ivB64);
     const ciphertext = base64ToBytes(ciphertextB64);
 
-    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, ciphertext);
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: toArrayBuffer(iv) },
+      cryptoKey,
+      toArrayBuffer(ciphertext),
+    );
     const ssn = new TextDecoder().decode(decrypted);
 
     // Log the decryption for audit
