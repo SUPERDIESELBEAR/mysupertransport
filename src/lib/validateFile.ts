@@ -32,6 +32,58 @@ export interface FileValidationResult {
 }
 
 /**
+ * Normalizes a file from a mobile camera capture so it always has a usable
+ * MIME type and filename extension. Some mobile browsers (notably Samsung's
+ * stock Camera app on Android) hand the page a File with an empty `type`
+ * and/or a generic filename with no extension. This breaks downstream
+ * MIME-based validation. We backfill MIME from the extension, default the
+ * extension to `jpg`, and rewrap into a fresh File so validation accepts it.
+ */
+export function normalizeMobileCaptureFile(file: File): File {
+  const originalName = file.name || '';
+  let ext = originalName.split('.').pop()?.toLowerCase() || '';
+  // If the "extension" is the entire filename (no dot), discard it
+  if (!originalName.includes('.')) ext = '';
+
+  let mime = file.type || '';
+
+  // Infer MIME from extension when blank
+  if (!mime && ext) {
+    mime = EXT_MIME_MAP[ext] || '';
+  }
+
+  // Final fallback: assume JPEG (most common camera capture)
+  if (!mime) {
+    mime = 'image/jpeg';
+    if (!ext) ext = 'jpg';
+  }
+
+  // Ensure filename has an extension
+  let safeName = originalName;
+  if (!ext) {
+    ext = mime === 'image/png' ? 'png'
+        : mime === 'image/heic' ? 'heic'
+        : mime === 'image/heif' ? 'heif'
+        : 'jpg';
+  }
+  if (!safeName) {
+    safeName = `capture_${Date.now()}.${ext}`;
+  } else if (!originalName.includes('.')) {
+    safeName = `${originalName}.${ext}`;
+  }
+
+  // Only rewrap if we actually changed something
+  if (safeName === originalName && mime === file.type) return file;
+
+  try {
+    return new File([file], safeName, { type: mime, lastModified: file.lastModified });
+  } catch {
+    // Some very old browsers don't support the File constructor — return original
+    return file;
+  }
+}
+
+/**
  * Validates a file before uploading.
  * @param file - The File object to validate
  * @param allowDocs - Whether to also allow Word .doc/.docx (for "other" slot)
