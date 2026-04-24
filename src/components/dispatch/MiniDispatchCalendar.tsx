@@ -10,6 +10,11 @@ import { useToast } from '@/hooks/use-toast';
 
 type DailyStatus = 'dispatched' | 'home' | 'truck_down' | 'not_dispatched';
 
+// Pre-existing (legacy) drivers without a recorded go-live date should not
+// show "?" marks for dates before this cutoff. Drivers onboarded through the
+// app use their `onboarding_status.go_live_date` instead.
+const LEGACY_DISPATCH_START = '2026-04-01';
+
 interface DailyLog {
   id: string;
   log_date: string;
@@ -55,13 +60,21 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
     (async () => {
       const { data } = await supabase
         .from('operators')
-        .select('excluded_from_dispatch, created_at')
+        .select('excluded_from_dispatch, created_at, onboarding_status(go_live_date)')
         .eq('id', operatorId)
         .maybeSingle();
       if (!cancelled) {
         setExcluded(((data as any)?.excluded_from_dispatch ?? false) === true);
+        // Anchor resolution (in order):
+        //   1. onboarding_status.go_live_date  → app-onboarded driver's actual go-live
+        //   2. LEGACY_DISPATCH_START           → pre-existing/imported drivers
+        //   3. operators.created_at            → safety-net fallback
+        const goLive = (data as any)?.onboarding_status?.go_live_date as string | undefined;
         const created = (data as any)?.created_at as string | undefined;
-        setOperatorStartDate(created ? created.slice(0, 10) : null);
+        const anchor = goLive
+          ? goLive.slice(0, 10)
+          : (LEGACY_DISPATCH_START || (created ? created.slice(0, 10) : null));
+        setOperatorStartDate(anchor);
       }
     })();
     return () => { cancelled = true; };
