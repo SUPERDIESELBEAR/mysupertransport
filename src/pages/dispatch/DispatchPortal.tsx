@@ -40,6 +40,14 @@ interface QuickComposeTarget {
 type DispatchStatusType = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
 type FilterTab = 'all' | DispatchStatusType;
 
+// Mirror of the cutoff defined in MiniDispatchCalendar — drivers without a
+// `go_live_date` are treated as if they started dispatching on this date when
+// counting "unlogged" past days (no false-positive gaps for legacy/imported drivers).
+const LEGACY_DISPATCH_START = '2026-04-01';
+
+// Rolling window for the roster-level "unlogged" rollup.
+const UNLOGGED_WINDOW_DAYS = 7;
+
 interface DispatchRow {
   operator_id: string;
   operator_user_id: string;
