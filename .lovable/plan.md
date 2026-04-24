@@ -1,92 +1,61 @@
-## Problem (confirmed against production data)
+# Final Consolidation & UI Cleanup Plan
 
-For operator `marcsmueller@gmail.com` (id `ee993ec0-…`):
-- All **10 truck photos exist** in `operator_documents` (one row per slot — Front, Driver Side, Rear, Passenger Side, PS/DS Steer, PS/DS Front Drive, PS/DS Rear Drive).
-- But `onboarding_status.truck_photos = 'not_started'`.
+## What I Confirmed in the Database
+- **Only ONE auth user exists** for you: `marcsmueller@gmail.com` → `7e356f94...`
+- That auth user is already linked to operator `ee993ec0...` — the one with all 10 truck photos, 15 documents, and a fully-executed ICA. ✅
+- The "duplicate" operator (`ec79e22f...`) is an **orphan** — its `user_id` (`5cca4f77...`) does not exist in `auth.users`. It was likely created by an earlier abandoned application flow.
+- That orphan only has 2 stray documents and a draft ICA — nothing important.
 
-That field is what every UI reads for the substep label (`OperatorPortal.tsx` line 497):
+## Step 1 — Database Cleanup (via insert tool)
+1. **Delete the orphan operator** `ec79e22f...` and its application `566e9b11...` (cascades will clean up the 2 stray docs, draft ICA, onboarding_status row).
+2. **Rename your real account** — update application `a364e0e6...`:
+   - `email` → `marcsmueller@gmail.com` (currently `marcsmueller+test@gmail.com`)
+   - `last_name` → `Mueller` (strip the "(Test)" suffix)
+3. **Mark Stage 2 complete** — set `onboarding_status.truck_photos = 'received'` for operator `ee993ec0...`. This also triggers the existing `notify_operator_on_status_change` flow.
 
-```ts
-{ label: 'Truck Photos',
-  value: fmt(onboardingStatus.truck_photos ?? 'not_started'),  // ← shows "Not Started"
-  status: onboardingStatus.truck_photos === 'received'
-    ? 'complete'
-    : uploadedDocs.some(d => d.document_type === 'truck_photos')
-      ? 'in_progress'
-      : 'not_started' }
+## Step 2 — UI Banner Logic (`src/pages/operator/OperatorPortal.tsx`)
+Update the "Documents Requested — Upload Required" banner so it ignores any document type that has already met its upload threshold:
+
+```typescript
+const DOC_THRESHOLDS: Record<string, number> = {
+  truck_photos: 10,
+  // others default to 1
+};
+
+const requestedButMissing = REQUESTABLE_DOC_TYPES.filter(key => {
+  if (onboardingStatus[key] !== 'requested') return false;
+  const have = uploadedDocs.filter(d => d.document_type === key).length;
+  const need = DOC_THRESHOLDS[key] ?? 1;
+  return have < need;
+});
+
+// Hide entire banner if list is empty
 ```
 
-The visual color *does* shift to gold (`in_progress`) because uploads exist, but the **text label** stays "Not Started" because nothing in the codebase ever bumps `onboarding_status.truck_photos` away from `not_started` after the guided flow finishes. Form 2290 / Truck Title / Truck Inspection rely on staff to manually mark `received`, which is fine for those single-file docs — but the Truck Photo Guide is operator-driven and has no equivalent trigger.
+## Step 3 — Status Badge Polish (`src/components/operator/OperatorDocumentUpload.tsx`)
+Replace the generic "Pending Review" badge for truck photos once 10/10 are uploaded:
+- `0/10` → "Not Started" (gray)
+- `1–9/10` → "X of 10 uploaded" (gold)
+- `10/10` and status = `requested` → "Awaiting coordinator review ✓" (gold)
+- status = `received` → "Reviewed" (green)
 
-Staff side suffers the same thing: the operator detail panel "Truck Photos" line stays unchecked even though all 10 photos are visible in the document list.
+## Step 4 — Update Test-Operator Edge Function (`supabase/functions/create-test-operator/index.ts`)
+Change `testEmail` constant from `marcsmueller+test@gmail.com` back to `marcsmueller@gmail.com` so future test re-provisioning targets your single real account.
 
-## Fix
+## Step 5 — Verification
+After applying:
+- Reload the Management Portal → only **one** Marcus Mueller card remains, labeled `marcsmueller@gmail.com`.
+- Reload the Operator Portal on your phone → blue "Documents Requested" banner is gone, Stage 2 shows **Reviewed** in green, "Truck Photos" row says **Reviewed**.
 
-Two coordinated changes — one in the modal, one in the operator substep — plus a one-shot data fix for Marcus.
+## Files Changed
+- `src/pages/operator/OperatorPortal.tsx` (banner filter)
+- `src/components/operator/OperatorDocumentUpload.tsx` (badge logic)
+- `supabase/functions/create-test-operator/index.ts` (test email)
+- Database operations via insert tool (no migration needed — data only)
 
-### 1. `src/components/operator/TruckPhotoGuideModal.tsx`
+## Risk Notes
+- Deleting the orphan operator is safe: it has no auth user, no executed contracts, no real photos.
+- Flipping `truck_photos` to `received` will fire the milestone trigger and send you the "Stage 2 reviewed" notification — expected behavior.
+- All UI changes are additive/refining; no breaking changes to other operators.
 
-After every successful photo insert (inside `handleFileSelect`, right after `setUploaded(...)` succeeds), upsert `onboarding_status.truck_photos`:
-
-- If staff already set it to `received`, leave it alone (don't downgrade their review).
-- Otherwise, count distinct slot-keys that have rows in `operator_documents` for this operator with `document_type = 'truck_photos'`.
-  - `>= 1 && < 10` → set `truck_photos = 'requested'` (means "operator has started, awaiting more / staff review")
-  - `>= 10` → set `truck_photos = 'requested'` as well (still needs staff review; staff is the one who flips to `received`)
-- The 10-vs-partial distinction is already visible to staff via the document count, so we don't need a separate enum value — going to `'requested'` is enough to (a) flip the operator's substep label off "Not Started" and (b) signal staff that there's review work waiting.
-
-Also do the same upsert in `OperatorDocumentUpload.tsx` `handleUpload` for the legacy single-file truck-photos path (line 86–179) for consistency.
-
-### 2. `src/pages/operator/OperatorPortal.tsx` (line 497)
-
-Replace the plain `fmt(...)` value with a count-aware label so the operator gets immediate, accurate feedback **even before the DB roundtrip completes**:
-
-```ts
-{
-  label: 'Truck Photos',
-  value: (() => {
-    if (onboardingStatus.truck_photos === 'received') return 'Reviewed';
-    const n = uploadedDocs.filter(d => d.document_type === 'truck_photos').length;
-    if (n === 0) return 'Not Started';
-    if (n >= 10) return 'All 10 uploaded · awaiting review';
-    return `${n} of 10 uploaded`;
-  })(),
-  status: onboardingStatus.truck_photos === 'received'
-    ? 'complete'
-    : uploadedDocs.some(d => d.document_type === 'truck_photos')
-      ? 'in_progress'
-      : 'not_started',
-},
-```
-
-This means even if the `onboarding_status` upsert (#1) ever fails, the operator still sees an honest count.
-
-### 3. One-time data backfill (migration)
-
-For every operator who already has truck-photo rows but whose `onboarding_status.truck_photos` is still `'not_started'`, set it to `'requested'`. This unsticks Marcus and anyone else in the same boat without overwriting any staff-marked `'received'` rows:
-
-```sql
-UPDATE public.onboarding_status os
-SET    truck_photos = 'requested', updated_at = now()
-WHERE  os.truck_photos = 'not_started'
-  AND  EXISTS (
-    SELECT 1 FROM public.operator_documents od
-    WHERE od.operator_id = os.operator_id
-      AND od.document_type = 'truck_photos'
-  );
-```
-
-## Verification
-
-1. Reload `/dashboard` as Marcus — Stage 2 → Truck Photos row should now read **"All 10 uploaded · awaiting review"** in gold (no longer "Not Started").
-2. Open Staff/Management → Marcus's detail panel → Stage 2 — same row reflects upload progress; staff still drives the final `received` flip via the existing toggle.
-3. Take a fresh photo on a different test operator → the substep value updates from "Not Started" to "1 of 10 uploaded" the moment the row is inserted, even before reload.
-4. After staff clicks "Truck Photos received", the substep flips to "Reviewed" / green.
-
-## Files touched
-
-- `src/components/operator/TruckPhotoGuideModal.tsx` (status upsert in `handleFileSelect`)
-- `src/components/operator/OperatorDocumentUpload.tsx` (same upsert in legacy `handleUpload`)
-- `src/pages/operator/OperatorPortal.tsx` (count-aware substep label)
-- `supabase/migrations/<timestamp>_backfill_truck_photos_status.sql` (one-shot UPDATE)
-
-No schema changes, no new tables, no edge-function deploys.
+**Approve to execute all five steps.**
