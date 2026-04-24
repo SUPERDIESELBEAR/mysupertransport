@@ -238,6 +238,7 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
       <DialogContent className="max-w-md w-full p-0 overflow-hidden max-h-[90dvh] overflow-y-auto [&>button:first-of-type]:hidden">
         {/* Hidden file input */}
