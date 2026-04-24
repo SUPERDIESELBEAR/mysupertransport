@@ -344,6 +344,23 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
                   <CheckCircle2 className="h-4 w-4 text-status-complete" />
                   <p className="text-sm font-medium text-status-complete">Photo uploaded!</p>
                 </div>
+                {uploaded[currentSlot.key].fileUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewing({
+                      url: uploaded[currentSlot.key].fileUrl,
+                      name: `${currentSlot.label} — ${uploaded[currentSlot.key].fileName}`,
+                    })}
+                    className="block w-full overflow-hidden rounded-lg border border-status-complete/30 bg-secondary/40"
+                  >
+                    <img
+                      src={uploaded[currentSlot.key].fileUrl}
+                      alt={`${currentSlot.label} preview`}
+                      className="w-full max-h-56 object-contain"
+                      loading="lazy"
+                    />
+                  </button>
+                )}
                 <p className="text-xs text-muted-foreground truncate">{uploaded[currentSlot.key].fileName}</p>
                 {uploaded[currentSlot.key].fileUrl && (
                   <button
