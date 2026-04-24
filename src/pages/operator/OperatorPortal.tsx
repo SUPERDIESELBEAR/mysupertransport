@@ -638,12 +638,18 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       icon: <FileText className="h-4 w-4" />,
     };
 
-    // 2. Documents explicitly requested by staff
+    // 2. Documents explicitly requested by staff — only flag if the
+    //    operator hasn't already met the upload threshold for that doc type.
+    const docMissing = (key: string, threshold = 1) => {
+      if ((s as any)[key] !== 'requested') return false;
+      const have = uploadedDocs.filter(d => d.document_type === key).length;
+      return have < threshold;
+    };
     const requestedDocs = [
-      s.form_2290 === 'requested' && 'Form 2290',
-      s.truck_title === 'requested' && 'Truck Title',
-      s.truck_photos === 'requested' && 'Truck Photos',
-      s.truck_inspection === 'requested' && 'Truck Inspection',
+      docMissing('form_2290') && 'Form 2290',
+      docMissing('truck_title') && 'Truck Title',
+      docMissing('truck_photos', 10) && 'Truck Photos',
+      docMissing('truck_inspection') && 'Truck Inspection',
     ].filter(Boolean) as string[];
     if (requestedDocs.length > 0) return {
       label: requestedDocs.length === 1 ? `Upload ${requestedDocs[0]}` : `Upload ${requestedDocs.length} Documents`,
@@ -1071,11 +1077,18 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
         {/* ── DOCUMENTS REQUESTED BANNER ── */}
         {(() => {
+          // Only surface document types that are still missing uploads.
+          // Truck Photos requires 10; everything else requires at least 1.
+          const stillNeeded = (key: string, threshold = 1) => {
+            if ((onboardingStatus as any)[key] !== 'requested') return false;
+            const have = uploadedDocs.filter(d => d.document_type === key).length;
+            return have < threshold;
+          };
           const requestedDocs = [
-            onboardingStatus.form_2290 === 'requested' && 'Form 2290',
-            onboardingStatus.truck_title === 'requested' && 'Truck Title',
-            onboardingStatus.truck_photos === 'requested' && 'Truck Photos',
-            onboardingStatus.truck_inspection === 'requested' && 'Truck Inspection',
+            stillNeeded('form_2290') && 'Form 2290',
+            stillNeeded('truck_title') && 'Truck Title',
+            stillNeeded('truck_photos', 10) && 'Truck Photos',
+            stillNeeded('truck_inspection') && 'Truck Inspection',
           ].filter(Boolean) as string[];
           if (requestedDocs.length === 0 || view === 'documents') return null;
           return (
