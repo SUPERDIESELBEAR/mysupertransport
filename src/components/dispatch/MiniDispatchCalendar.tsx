@@ -110,8 +110,13 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
   const nextMonth = () => setMonth(p => p.month === 11 ? { year: p.year + 1, month: 0 } : { ...p, month: p.month + 1 });
 
   const setStatus = async (day: number, status: DailyStatus) => {
-    setSaving(true);
     const dateStr = `${month.year}-${String(month.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (dateStr > todayStr) {
+      toast({ title: "Can't set a status for a future date.", variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
     const existing = logMap[dateStr];
 
     let error;
@@ -137,12 +142,60 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
     } else {
       // If editing TODAY, also sync to active_dispatch + history so the live
       // Dispatch Hub tiles reflect the change immediately.
-      const todayStr = new Date().toISOString().slice(0, 10);
       if (dateStr === todayStr) {
         await syncTodayToLive(status);
       }
       fetchLogs();
     }
+  };
+
+  // Clear a logged status for a given day. Deletes the dispatch_daily_log row.
+  // If the cleared day is today and the live status differs, also resets
+  // active_dispatch back to 'not_dispatched' + appends a history row.
+  const clearStatus = async (day: number) => {
+    const dateStr = `${month.year}-${String(month.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const existing = logMap[dateStr];
+    if (!existing) return;
+    setSaving(true);
+    const { error } = await supabase
+      .from('dispatch_daily_log')
+      .delete()
+      .eq('id', existing.id);
+    setSaving(false);
+    if (error) {
+      toast({ title: 'Error clearing status', description: error.message, variant: 'destructive' });
+      return;
+    }
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (dateStr === todayStr) {
+      // Reset live tile back to not_dispatched (no-op if already that).
+      const { data: current } = await supabase
+        .from('active_dispatch')
+        .select('id, dispatch_status')
+        .eq('operator_id', operatorId)
+        .maybeSingle();
+      if ((current as any)?.dispatch_status !== 'not_dispatched') {
+        const payload = {
+          operator_id: operatorId,
+          dispatch_status: 'not_dispatched' as DailyStatus,
+          updated_by: session?.user?.id ?? null,
+          updated_at: new Date().toISOString(),
+        };
+        if (current) {
+          await supabase.from('active_dispatch').update(payload).eq('operator_id', operatorId);
+        } else {
+          await supabase.from('active_dispatch').insert(payload);
+        }
+        await supabase.from('dispatch_status_history').insert({
+          operator_id: operatorId,
+          dispatch_status: 'not_dispatched',
+          changed_by: session?.user?.id ?? null,
+          status_notes: 'Cleared from calendar today-cell',
+        });
+      }
+    }
+    toast({ title: 'Status cleared' });
+    fetchLogs();
   };
 
   // Mirror today's calendar status to active_dispatch (+ history) so the
