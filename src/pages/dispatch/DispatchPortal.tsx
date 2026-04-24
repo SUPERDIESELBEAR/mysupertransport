@@ -1007,6 +1007,15 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
               {chimeMuted ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
               <span className="hidden sm:inline">{chimeMuted ? 'Muted' : 'Sound'}</span>
             </button>
+            {totalUnlogged > 0 && (
+              <span
+                className="flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-400"
+                title={`${totalUnlogged} unlogged day${totalUnlogged !== 1 ? 's' : ''} across the fleet in the last ${UNLOGGED_WINDOW_DAYS} days`}
+              >
+                <HelpCircle className="h-3 w-3" />
+                {totalUnlogged} unlogged across fleet
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
