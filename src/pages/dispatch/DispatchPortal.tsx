@@ -1740,6 +1740,15 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                               <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
                               {cfg.label}
                             </Badge>
+                            {!!unloggedCountMap[row.operator_id] && (
+                              <span
+                                className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-400 w-fit"
+                                title={`${unloggedCountMap[row.operator_id]} unlogged day${unloggedCountMap[row.operator_id] !== 1 ? 's' : ''} in the last ${UNLOGGED_WINDOW_DAYS} days`}
+                              >
+                                <HelpCircle className="h-2.5 w-2.5" />
+                                {unloggedCountMap[row.operator_id]} unlogged
+                              </span>
+                            )}
                             {row.dispatch_status === 'truck_down' && ackMap[row.operator_id] && (
                               <span
                                 className="flex items-center gap-1 bg-status-complete/10 text-status-complete border border-status-complete/30 text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit"
