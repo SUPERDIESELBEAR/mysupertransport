@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, ChevronRight, EyeOff, CalendarRange } from 'lucide-react';
+import { ChevronLeft, ChevronRight, EyeOff, CalendarRange, HelpCircle } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -40,6 +40,7 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [saving, setSaving] = useState(false);
   const [excluded, setExcluded] = useState<boolean | null>(null);
+  const [operatorStartDate, setOperatorStartDate] = useState<string | null>(null);
   // Mark-range popover state
   const [rangeOpen, setRangeOpen] = useState(false);
   const [rangeFrom, setRangeFrom] = useState('');
@@ -54,11 +55,13 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
     (async () => {
       const { data } = await supabase
         .from('operators')
-        .select('excluded_from_dispatch')
+        .select('excluded_from_dispatch, created_at')
         .eq('id', operatorId)
         .maybeSingle();
       if (!cancelled) {
         setExcluded(((data as any)?.excluded_from_dispatch ?? false) === true);
+        const created = (data as any)?.created_at as string | undefined;
+        setOperatorStartDate(created ? created.slice(0, 10) : null);
       }
     })();
     return () => { cancelled = true; };
@@ -313,6 +316,37 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
 
   const today = new Date();
   const isCurrentMonth = month.year === today.getFullYear() && month.month === today.getMonth();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  // Refs for each day-cell button so the "unlogged" chip can scroll/focus the first gap.
+  const cellRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  // Build the list of unlogged past dates within the visible month.
+  // Skips: future days, today, days before the operator's start date, and excluded operators.
+  const unloggedPastDates = useMemo(() => {
+    if (excluded) return [] as string[];
+    const daysInMonth = new Date(month.year, month.month + 1, 0).getDate();
+    const out: string[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${month.year}-${String(month.month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      if (dateStr >= todayStr) continue; // today and future are skipped
+      if (operatorStartDate && dateStr < operatorStartDate) continue; // pre-employment
+      if (logMap[dateStr]) continue; // already has a status
+      out.push(dateStr);
+    }
+    return out;
+  }, [excluded, month.year, month.month, todayStr, operatorStartDate, logMap]);
+
+  const jumpToFirstUnlogged = () => {
+    const first = unloggedPastDates[0];
+    if (!first) return;
+    const el = cellRefs.current[first];
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      // Trigger the popover by clicking the cell.
+      el.click();
+    }
+  };
 
   if (excluded === true) {
     return (
@@ -431,6 +465,19 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
         </button>
       </div>
 
+      {/* Unlogged-past chip — quietly nudges dispatchers to backfill gaps */}
+      {unloggedPastDates.length > 0 && (
+        <button
+          type="button"
+          onClick={jumpToFirstUnlogged}
+          title="Jump to the first unlogged past day in this month"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gold/15 text-gold border border-gold/40 hover:bg-gold/25 transition-colors"
+        >
+          <HelpCircle className="h-3 w-3" />
+          {unloggedPastDates.length} unlogged past day{unloggedPastDates.length !== 1 ? 's' : ''}
+        </button>
+      )}
+
       {/* Day headers */}
       <div className="grid grid-cols-7 gap-0">
         {DAY_HEADERS.map(d => (
@@ -446,14 +493,18 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
           const log = logMap[dateStr];
           const isToday = isCurrentMonth && day === today.getDate();
           const statusCfg = log ? STATUS_COLORS[log.status] : null;
+          const isUnloggedPast = !log && unloggedPastDates.includes(dateStr);
 
           return (
             <Popover key={day}>
               <PopoverTrigger asChild>
                 <button
+                  ref={el => { cellRefs.current[dateStr] = el; }}
                   title={
                     isToday
                       ? 'Setting status here also updates the live Dispatch Hub'
+                      : isUnloggedPast
+                      ? 'No status logged for this day — click to set one.'
                       : undefined
                   }
                   className={`h-6 w-full flex items-center justify-center rounded-sm text-[10px] transition-colors relative ${
@@ -465,6 +516,9 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
                   <span className={statusCfg ? statusCfg.text + ' font-semibold' : 'text-foreground/70'}>{day}</span>
                   {statusCfg && (
                     <span className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full ${statusCfg.dot}`} />
+                  )}
+                  {isUnloggedPast && (
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[8px] font-bold leading-none text-gold">?</span>
                   )}
                 </button>
               </PopoverTrigger>
