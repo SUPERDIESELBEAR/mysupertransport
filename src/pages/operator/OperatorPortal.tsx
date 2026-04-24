@@ -494,7 +494,13 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       substeps: [
         { label: 'Form 2290', value: fmt(onboardingStatus.form_2290 ?? 'not_started'), status: onboardingStatus.form_2290 === 'received' ? 'complete' : onboardingStatus.form_2290 === 'requested' ? 'action_required' : uploadedDocs.some(d => d.document_type === 'form_2290') ? 'in_progress' : 'not_started' },
         { label: 'Truck Title', value: fmt(onboardingStatus.truck_title ?? 'not_started'), status: onboardingStatus.truck_title === 'received' ? 'complete' : onboardingStatus.truck_title === 'requested' ? 'action_required' : uploadedDocs.some(d => d.document_type === 'truck_title') ? 'in_progress' : 'not_started' },
-        { label: 'Truck Photos', value: fmt(onboardingStatus.truck_photos ?? 'not_started'), status: onboardingStatus.truck_photos === 'received' ? 'complete' : uploadedDocs.some(d => d.document_type === 'truck_photos') ? 'in_progress' : 'not_started' },
+        { label: 'Truck Photos', value: (() => {
+            if (onboardingStatus.truck_photos === 'received') return 'Reviewed';
+            const n = uploadedDocs.filter(d => d.document_type === 'truck_photos').length;
+            if (n === 0) return 'Not Started';
+            if (n >= 10) return 'All 10 uploaded · awaiting review';
+            return `${n} of 10 uploaded`;
+          })(), status: onboardingStatus.truck_photos === 'received' ? 'complete' : uploadedDocs.some(d => d.document_type === 'truck_photos') ? 'in_progress' : 'not_started' },
         { label: 'Truck Inspection', value: fmt(onboardingStatus.truck_inspection ?? 'not_started'), status: onboardingStatus.truck_inspection === 'received' ? 'complete' : uploadedDocs.some(d => d.document_type === 'truck_inspection') ? 'in_progress' : 'not_started' },
       ],
     },

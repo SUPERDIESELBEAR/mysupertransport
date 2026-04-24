@@ -1,60 +1,92 @@
-## Goal
-Fix the Truck Photo Guide so that after taking a photo, the UI immediately reflects the upload — the slot shows the green "Photo uploaded ✓" card with thumbnail, the counter ticks up (e.g. "1 uploaded"), and the **Next Photo** button turns gold so the user can continue to photo 2.
+## Problem (confirmed against production data)
 
-## Root cause (confirmed in code)
+For operator `marcsmueller@gmail.com` (id `ee993ec0-…`):
+- All **10 truck photos exist** in `operator_documents` (one row per slot — Front, Driver Side, Rear, Passenger Side, PS/DS Steer, PS/DS Front Drive, PS/DS Rear Drive).
+- But `onboarding_status.truck_photos = 'not_started'`.
 
-In `src/components/operator/TruckPhotoGuideModal.tsx`:
+That field is what every UI reads for the substep label (`OperatorPortal.tsx` line 497):
 
-1. **State-wipe `useEffect` (lines 125–138)** runs on `[open, alreadyUploadedLabels]`. The parent (`OperatorDocumentUpload.tsx` line 818) recomputes `alreadyUploadedLabels` inline on every render — a brand-new array reference each time. Any parent re-render causes the effect to fire and **overwrite** the `uploaded` map with the seed (which contains only placeholder entries `fileUrl: ''` for already-saved photos), wiping the photo the user just uploaded.
-2. **Brittle upload chain**: `createSignedUrl` runs *before* the DB insert and *before* `setUploaded`. If signing throws (e.g., transient storage/RLS edge case), the whole `try` jumps to `catch`, the spinner disappears, no toast may render visibly on mobile, and nothing is saved — yet sometimes the storage object is already written, leaving an orphan.
+```ts
+{ label: 'Truck Photos',
+  value: fmt(onboardingStatus.truck_photos ?? 'not_started'),  // ← shows "Not Started"
+  status: onboardingStatus.truck_photos === 'received'
+    ? 'complete'
+    : uploadedDocs.some(d => d.document_type === 'truck_photos')
+      ? 'in_progress'
+      : 'not_started' }
+```
 
-## Changes
+The visual color *does* shift to gold (`in_progress`) because uploads exist, but the **text label** stays "Not Started" because nothing in the codebase ever bumps `onboarding_status.truck_photos` away from `not_started` after the guided flow finishes. Form 2290 / Truck Title / Truck Inspection rely on staff to manually mark `received`, which is fine for those single-file docs — but the Truck Photo Guide is operator-driven and has no equivalent trigger.
+
+Staff side suffers the same thing: the operator detail panel "Truck Photos" line stays unchecked even though all 10 photos are visible in the document list.
+
+## Fix
+
+Two coordinated changes — one in the modal, one in the operator substep — plus a one-shot data fix for Marcus.
 
 ### 1. `src/components/operator/TruckPhotoGuideModal.tsx`
 
-**a. Stop the seed effect from clobbering live uploads**
-- Change the seeding `useEffect` to depend on `[open]` only (not `alreadyUploadedLabels`), and only seed when transitioning from closed → open.
-- When seeding, **merge** with current `uploaded` rather than replace, so any in-session uploads survive a parent re-render.
-- Use a ref (`hasSeededRef`) to guarantee seed-on-open runs exactly once per open cycle. Reset it in `handleClose` / `handleComplete`.
+After every successful photo insert (inside `handleFileSelect`, right after `setUploaded(...)` succeeds), upsert `onboarding_status.truck_photos`:
 
-**b. Reorder the upload flow so the UI updates the moment the file is safely stored**
+- If staff already set it to `received`, leave it alone (don't downgrade their review).
+- Otherwise, count distinct slot-keys that have rows in `operator_documents` for this operator with `document_type = 'truck_photos'`.
+  - `>= 1 && < 10` → set `truck_photos = 'requested'` (means "operator has started, awaiting more / staff review")
+  - `>= 10` → set `truck_photos = 'requested'` as well (still needs staff review; staff is the one who flips to `received`)
+- The 10-vs-partial distinction is already visible to staff via the document count, so we don't need a separate enum value — going to `'requested'` is enough to (a) flip the operator's substep label off "Not Started" and (b) signal staff that there's review work waiting.
 
-Order inside `handleFileSelect`:
-1. Upload to storage (existing 60s timeout race — keep).
-2. Insert row into `operator_documents` with `file_url = path` (the storage path is sufficient — `FilePreviewModal` resolves it via `bucketName="operator-documents"`).
-3. **Immediately** call `setUploaded(prev => ({ ...prev, [currentSlot.key]: { slotKey, fileName, fileUrl: path } }))` and fire the success toast.
-4. **Then** attempt `createSignedUrl` in a separate `try/catch`. If it succeeds, update the same slot with the signed URL (for inline `<img>` thumbnail preview). If it fails, log a `console.warn` and leave the slot marked as uploaded — the thumbnail simply won't render but the slot is green and the user can advance.
+Also do the same upsert in `OperatorDocumentUpload.tsx` `handleUpload` for the legacy single-file truck-photos path (line 86–179) for consistency.
 
-**c. Render thumbnail only when `fileUrl` looks like a real URL**
-- Guard the `<img>` and "View photo" button with `uploaded[currentSlot.key].fileUrl?.startsWith('http')` so seeded "Previously uploaded" placeholder rows (which have `fileUrl: ''`) and bare storage paths don't try to render as `<img src="">`.
+### 2. `src/pages/operator/OperatorPortal.tsx` (line 497)
 
-**d. Minor: drop the orphan-test concern**
-- No code change needed; with the reordered flow we never write storage without also writing a DB row, so future uploads can't leave orphans.
+Replace the plain `fmt(...)` value with a count-aware label so the operator gets immediate, accurate feedback **even before the DB roundtrip completes**:
 
-### 2. Database / storage cleanup
+```ts
+{
+  label: 'Truck Photos',
+  value: (() => {
+    if (onboardingStatus.truck_photos === 'received') return 'Reviewed';
+    const n = uploadedDocs.filter(d => d.document_type === 'truck_photos').length;
+    if (n === 0) return 'Not Started';
+    if (n >= 10) return 'All 10 uploaded · awaiting review';
+    return `${n} of 10 uploaded`;
+  })(),
+  status: onboardingStatus.truck_photos === 'received'
+    ? 'complete'
+    : uploadedDocs.some(d => d.document_type === 'truck_photos')
+      ? 'in_progress'
+      : 'not_started',
+},
+```
 
-Use a one-shot SQL migration to remove orphan rows and storage objects created during the failed test runs for operator `ee993ec0-e0a2-4d0f-aa05-6d22eb931405`:
+This means even if the `onboarding_status` upsert (#1) ever fails, the operator still sees an honest count.
 
-- `DELETE FROM public.operator_documents WHERE operator_id = 'ee993ec0…' AND document_type = 'truck_photos' AND created_at >= '2026-04-24'::date;`
-- `DELETE FROM storage.objects WHERE bucket_id = 'operator-documents' AND name LIKE 'ee993ec0…/truck_photos/%' AND created_at >= '2026-04-24'::date;`
+### 3. One-time data backfill (migration)
 
-(Exact timestamps will be confirmed against `supabase--read_query` results before running, so we don't touch any pre-test legitimate data.)
+For every operator who already has truck-photo rows but whose `onboarding_status.truck_photos` is still `'not_started'`, set it to `'requested'`. This unsticks Marcus and anyone else in the same boat without overwriting any staff-marked `'received'` rows:
 
-## Verification steps (after changes ship)
+```sql
+UPDATE public.onboarding_status os
+SET    truck_photos = 'requested', updated_at = now()
+WHERE  os.truck_photos = 'not_started'
+  AND  EXISTS (
+    SELECT 1 FROM public.operator_documents od
+    WHERE od.operator_id = os.operator_id
+      AND od.document_type = 'truck_photos'
+  );
+```
 
-1. Sign in as `marcsmueller@gmail.com`, open Operator Portal → Documents → **Open Truck Photo Guide**.
-2. Tap **Start Guide** → take photo 1 (Front).
-3. Confirm:
-   - Spinner appears, then is replaced by the green "Photo uploaded ✓" card.
-   - An inline thumbnail of the photo renders.
-   - Header shows "Photo 1 of 10 · **1 uploaded**".
-   - The **Next Photo** button is gold and enabled.
-4. Tap **Next Photo** → take photo 2 → confirm counter increments to "2 uploaded".
-5. Close and reopen the modal → previously uploaded slots remain checked (seed still works on fresh open).
-6. Verify in `operator_documents` that exactly one row per upload exists and that no storage orphans remain.
+## Verification
 
-## Files changed
-- `src/components/operator/TruckPhotoGuideModal.tsx` (logic + render guards)
-- One new SQL migration under `supabase/migrations/` for the orphan cleanup
+1. Reload `/dashboard` as Marcus — Stage 2 → Truck Photos row should now read **"All 10 uploaded · awaiting review"** in gold (no longer "Not Started").
+2. Open Staff/Management → Marcus's detail panel → Stage 2 — same row reflects upload progress; staff still drives the final `received` flip via the existing toggle.
+3. Take a fresh photo on a different test operator → the substep value updates from "Not Started" to "1 of 10 uploaded" the moment the row is inserted, even before reload.
+4. After staff clicks "Truck Photos received", the substep flips to "Reviewed" / green.
 
-No other files affected.
+## Files touched
+
+- `src/components/operator/TruckPhotoGuideModal.tsx` (status upsert in `handleFileSelect`)
+- `src/components/operator/OperatorDocumentUpload.tsx` (same upsert in legacy `handleUpload`)
+- `src/pages/operator/OperatorPortal.tsx` (count-aware substep label)
+- `supabase/migrations/<timestamp>_backfill_truck_photos_status.sql` (one-shot UPDATE)
+
+No schema changes, no new tables, no edge-function deploys.

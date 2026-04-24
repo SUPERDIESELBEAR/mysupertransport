@@ -165,6 +165,27 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
         }
       }
 
+      // For truck photos uploaded outside the guided flow, bump onboarding
+      // status off 'not_started' so the operator's Stage 2 substep reflects
+      // progress immediately. Don't downgrade a staff 'received' mark.
+      if (slot.key === 'truck_photos') {
+        try {
+          const { data: osRow } = await supabase
+            .from('onboarding_status')
+            .select('truck_photos')
+            .eq('operator_id', operatorId)
+            .maybeSingle();
+          if (osRow && osRow.truck_photos !== 'received') {
+            await supabase
+              .from('onboarding_status')
+              .update({ truck_photos: 'requested' })
+              .eq('operator_id', operatorId);
+          }
+        } catch {
+          // non-critical
+        }
+      }
+
       toast({ title: 'Document uploaded', description: `${slot.label} has been submitted for review.` });
       onUploadComplete();
     } catch (err: unknown) {

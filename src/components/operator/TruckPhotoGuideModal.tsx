@@ -222,6 +222,26 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
 
       toast({ title: `${currentSlot.label} uploaded ✓`, description: 'Photo saved. Move to the next shot.' });
 
+      // Bump onboarding_status.truck_photos off 'not_started' so the operator
+      // dashboard substep stops reading "Not Started" the moment the first
+      // photo lands. Don't downgrade a staff-marked 'received' approval.
+      // Best-effort — never block the upload UI on this.
+      try {
+        const { data: osRow } = await supabase
+          .from('onboarding_status')
+          .select('truck_photos')
+          .eq('operator_id', operatorId)
+          .maybeSingle();
+        if (osRow && osRow.truck_photos !== 'received') {
+          await supabase
+            .from('onboarding_status')
+            .update({ truck_photos: 'requested' })
+            .eq('operator_id', operatorId);
+        }
+      } catch (statusErr) {
+        console.warn('[TruckPhotoGuide] onboarding_status bump failed (non-fatal):', statusErr);
+      }
+
       // Best-effort: upgrade to a long-lived signed URL so the inline thumbnail
       // can render. Failures here are non-fatal — the slot stays marked done.
       try {
