@@ -1,56 +1,59 @@
 
 
-## Fix three glitches in the Truck Photo Guide
+## Fix the truck photo flow for Samsung Android (and all mobile)
 
-You're hitting three distinct bugs, all confined to the truck photo flow. Here's what's broken and how each gets fixed.
+### Why the previous diagnosis was off
 
-### Glitch 1 — Spinner never stops after taking a photo
+I had framed the symptoms around iPhone quirks, but you're on Samsung Android — the **mechanism is different but the fixes are the same**. Here's the corrected picture:
 
-**Root cause:** When the photo upload runs in `TruckPhotoGuideModal.handleFileSelect`, two things go wrong on iPhone captures:
+### What's actually breaking on Samsung Android
 
-1. iOS Safari sometimes returns an empty `file.type` for camera captures. The MIME→extension map only handles known MIMEs, so `ext` falls through to whatever the camera-generated filename has — often a generic name with no extension → resulting upload path becomes `..._timestamp.undefined`, which Storage may reject with a slow/silent error.
-2. The error path *does* clear `setUploading(false)`, but if the network request hangs (no response), the `try/catch` never resolves → spinner spins forever.
+1. **"Next Photo" button stays gray after taking the photo**
+   - Samsung's stock Camera app sometimes hands Chrome a file with **blank `file.type`** and a generic filename (e.g. `1714000000.jpg` or even no extension at all when sharing through certain Samsung gallery flows).
+   - `validateFile()` requires the MIME to be in its allow-list. With blank MIME and no extension, it rejects the file with a toast like *"File type not allowed (UNKNOWN)"* — the toast may be hidden behind the modal so you don't notice.
+   - Result: `uploaded[slot.key]` never gets set → button stays gray → you can keep advancing without anything actually saving.
+   - Also: the input has `accept=".jpg,.jpeg,.png,.heic"`. Samsung's HDR/Scene Optimizer mode occasionally produces `.heif` files. Chrome may filter those out before `onChange` fires.
 
-**Fix:**
-- Force a default extension (`'jpg'`) when neither MIME nor filename extension resolves cleanly.
-- Wrap the upload in a 60-second timeout (`Promise.race`) so a hung request always fails loudly with a toast and clears the spinner.
-- Surface the actual error message in the toast so we can see what Storage said next time.
+2. **"View photo" shows nothing**
+   - The inline "View photo" link inside the guide is a raw `<a href={fileUrl} target="_blank">`. On Samsung Internet / Chrome PWA this opens a new tab *outside* the PWA. If the URL is relative or expired, the new tab gets a 404 / blank page.
+   - Separately, the Documents tab's preview only auto-signs paths starting with `applications/` or `inspection-documents/`. Operator-prefixed paths (`{uuid}/truck_photos/...`) aren't signed → broken `<img>` → blank screen.
 
-### Glitch 2 — Photos invisible when clicking "View"
+### The fix (works for Android, iOS, and desktop)
 
-**Root cause:** `TruckPhotoGuideModal` saves the bare path (e.g., `{operatorId}/truck_photos/front_1714000000.jpg`) into `operator_documents.file_url`. But the `useSignedUrl` hook inside `FilePreviewModal` only auto-signs paths that start with `applications/` or `inspection-documents/`. An operator-UUID-prefixed path is never signed → `<img src="...">` gets a relative path → broken image, blank screen.
+**A. Make camera files always pass validation**
+- Add a small normalization step in `TruckPhotoGuideModal.handleFileSelect` that runs **before** `validateFile()`:
+  - If `file.type` is blank, infer from extension; if extension is also missing, default to `image/jpeg`.
+  - If filename has no extension, append `.jpg`.
+  - Wrap into a fresh `File` object with the corrected name + type so validation accepts it.
+- Broaden the input `accept` to `image/*` so Samsung HDR/HEIF captures aren't filtered at the picker level.
 
-For comparison, the regular `OperatorDocumentUpload.handleUpload` path generates a 365-day signed URL at upload time and stores the full URL — that's why every other doc type previews fine.
+**B. Make the "Next Photo" button reflect reality**
+- Already wired to `uploaded[currentSlot.key]` — once normalization fixes upload, this turns gold automatically.
+- Add a clearer toast on failure (already in place; we'll surface the actual storage error instead of a generic "Unknown error" so we can debug if it ever happens again).
 
-**Fix:**
-- Update `TruckPhotoGuideModal.handleFileSelect` to mirror the existing pattern: after upload, call `createSignedUrl(path, 60*60*24*365)` and store the **signed URL** in `operator_documents.file_url` (not the bare path). This matches every other slot in the app and the existing previews will then work without further changes.
+**C. Fix the inline "View photo" link**
+- Replace the raw `<a target="_blank">` with the in-app `FilePreviewModal` (the same one the Documents tab uses). This guarantees:
+  - URL gets normalized through `resolveDocumentUrl`/`useSignedUrl` before display
+  - Hardware back / swipe-back closes the preview cleanly (already wired in `FilePreviewModal`)
+  - The preview stays inside the PWA — no escape to a tab that might 404
 
-### Glitch 3 — No way to back out of the preview; swipe navigates to Notification History
-
-**Root cause:** `FilePreviewModal` is a custom fixed-position overlay (not a Radix `Dialog`), and it does **not** call `useBackButton`. So:
-- The PWA's hardware back / swipe-back gesture is unhandled by the modal → it triggers normal browser history navigation instead of closing the preview.
-- After swiping twice, you land on whatever was earlier in the history stack (Notification History was the last page you visited before opening Documents).
-- The modal's only close affordances are the small `X` in the top-right corner and `Esc` (no keyboard on phone). On a tall mobile screen with a long photo, the `X` may also be off-screen behind the iOS browser chrome.
-
-**Fix:**
-- Add `useBackButton(true, onClose)` to `FilePreviewModal` so swipe-back / hardware-back closes the preview cleanly without escaping the page.
-- Add a visible **"← Back"** button on the left side of the preview header (mirrors the close button). Now there's a deliberate close target plus the gesture works.
+**D. Fix the Documents-tab preview for operator-uploaded truck photos**
+- Extend `useSignedUrl()` and `inferStorageInfo()` in `DocRow.tsx` to recognize bare operator-document paths (`{uuid}/...`) and sign them on the fly. Backwards-compatible — also still works for the new signed URLs we now store at upload time.
 
 ### Files touched
 
-- `src/components/operator/TruckPhotoGuideModal.tsx` — extension fallback, upload timeout, store signed URL.
-- `src/components/inspection/DocRow.tsx` — `useBackButton` wiring + visible back button in `FilePreviewModal` header.
+- `src/lib/validateFile.ts` — add `normalizeMobileCaptureFile()` helper that backfills MIME + extension from camera captures.
+- `src/components/operator/TruckPhotoGuideModal.tsx` — call the normalizer before `validateFile`; broaden input `accept` to `image/*`; replace inline `<a>` with `FilePreviewModal`.
+- `src/components/inspection/DocRow.tsx` — extend `useSignedUrl` + `inferStorageInfo` to handle bare `{operator-uuid}/...` paths.
 
-### Technical notes
+### Why this works on Android specifically
 
-- **Extension fallback order:** `MIME_EXT[file.type] || file.name.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase() || 'jpg'`. iPhone HEIC captures sometimes report `image/heic` (works) and sometimes empty type with `IMG_1234.HEIC` filename (now handled) and rarely both empty (defaults to `jpg`, file still uploads with the right bytes — Storage doesn't care about the extension for object integrity).
-- **Upload timeout:** `Promise.race([uploadPromise, new Promise((_, r) => setTimeout(() => r(new Error('Upload timed out — check connection')), 60000))])`. 60s is generous for a 10 MB photo on LTE.
-- **Signed URL storage:** use `getPublicUrl` as a final fallback in case `createSignedUrl` returns null (matches the existing pattern in `OperatorDocumentUpload`).
-- **`useBackButton` in `FilePreviewModal`:** the hook pushes a virtual history entry on mount and intercepts the resulting `popstate` to call `onClose`. The hook is already imported in `DocRow.tsx`; we just need to call it inside `FilePreviewModal`.
-- **Back button position:** added to the **left** of the filename in the header (currently only the document icon + name sit there), so it's reachable with the thumb and visually balances the existing right-side action cluster.
+- Samsung Camera → blank `file.type` + generic `1714…jpg` name → normalizer detects `.jpg` extension, sets `image/jpeg` → validation passes → upload runs → button turns gold.
+- Samsung HDR → `.heif` capture → broadened `accept="image/*"` lets it through the picker → normalizer recognizes `.heif` extension → upload runs.
+- Samsung Internet / Chrome PWA → in-app preview modal stays inside the PWA, no broken new-tab navigation.
 
 ### Out of scope
 
-- Refactoring `useSignedUrl` to handle arbitrary `operator-documents` bare paths (we're standardizing on storing signed URLs at upload time, which is already the pattern everywhere else; not worth changing the hook).
-- Reworking the truck photo modal into a multi-photo bulk upload (separate plan if you want it).
+- Backfilling existing broken truck-photo records — once `useSignedUrl` is extended in step D, old records with bare paths will start rendering correctly automatically. No migration needed.
+- HEIC → JPG conversion — not necessary; the storage bucket accepts HEIC and the in-app viewer renders it on modern Android. If we ever need universal HEIC support across all browsers, we can add a converter as a follow-up.
 
