@@ -410,7 +410,15 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   }, [name, resolvedUrl]);
 
   const scale = zoom / 100;
-  const isLoading = signing || (!blobUrl && !error && !isImage);
+  // For images: loading until signed URL resolves AND <img> fires onLoad.
+  // For PDFs/other: loading until blob is fetched (existing behavior).
+  const isLoading = isImage
+    ? (signing || !loaded)
+    : (signing || (!blobUrl && !error));
+
+  // Don't render <img> with a bare/unsigned path while we're waiting for the signed URL —
+  // it would 403 and flash a broken image behind the spinner.
+  const imageReady = !signing && !!resolvedUrl && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\//i.test(resolvedUrl) && !/^applications\//i.test(resolvedUrl) && !/^inspection-documents\//i.test(resolvedUrl);
 
   // On mobile + PDF: show a friendly card instead of broken iframe
   const showMobilePdfFallback = isMobile && isPdf && blobUrl;
@@ -536,7 +544,9 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
         {isLoading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 z-10">
             <Loader2 className="h-8 w-8 text-gold animate-spin" />
-            <span className="text-sm text-muted-foreground">Loading document…</span>
+            <span className="text-sm text-muted-foreground">
+              {signing ? 'Preparing secure preview…' : 'Loading document…'}
+            </span>
           </div>
         )}
         {error && !isImage && (
@@ -549,13 +559,15 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
         {/* Images: render directly from resolved URL (no blob needed, avoids CORS) */}
         {isImage ? (
           <div className="w-full h-full flex items-center justify-center overflow-auto">
-            <img
-              src={resolvedUrl}
-              alt={name}
-              className="max-w-full max-h-full object-contain"
-              style={{ transform: `scale(${scale})`, transformOrigin: 'center center', transition: 'transform 0.15s ease' }}
-              onLoad={handleLoad}
-            />
+            {imageReady && (
+              <img
+                src={resolvedUrl}
+                alt={name}
+                className="max-w-full max-h-full object-contain"
+                style={{ transform: `scale(${scale})`, transformOrigin: 'center center', transition: 'transform 0.15s ease' }}
+                onLoad={handleLoad}
+              />
+            )}
           </div>
         ) :
 
