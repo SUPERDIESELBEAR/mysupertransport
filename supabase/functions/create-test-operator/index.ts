@@ -61,14 +61,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 2. Insert approved application (use test-specific email to avoid unique constraint)
-    const testEmail = 'marcsmueller+test@gmail.com';
+    // 2. Insert approved application using the canonical operator email.
+    //    The accounts have been consolidated — there is only one Marcus Mueller.
+    const testEmail = TEST_EMAIL;
     const { data: app, error: appErr } = await supabaseAdmin
       .from('applications')
       .insert({
         email: testEmail,
         first_name: 'Marcus',
-        last_name: 'Mueller (Test)',
+        last_name: 'Mueller',
         user_id: TEST_USER_ID,
         review_status: 'approved',
         is_draft: false,
