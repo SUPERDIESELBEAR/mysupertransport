@@ -446,23 +446,19 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
           const log = logMap[dateStr];
           const isToday = isCurrentMonth && day === today.getDate();
           const statusCfg = log ? STATUS_COLORS[log.status] : null;
-          const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-          const isFuture = dateStr > todayStr;
 
           return (
             <Popover key={day}>
               <PopoverTrigger asChild>
                 <button
                   title={
-                    isFuture
-                      ? "Future date — can't set a status yet"
-                      : isToday
+                    isToday
                       ? 'Setting status here also updates the live Dispatch Hub'
                       : undefined
                   }
                   className={`h-6 w-full flex items-center justify-center rounded-sm text-[10px] transition-colors relative ${
                     isToday ? 'font-bold ring-1 ring-gold/60' : ''
-                  } ${isFuture ? 'opacity-40 cursor-not-allowed' : ''} ${
+                  } ${
                     statusCfg ? statusCfg.bg : 'hover:bg-muted/50'
                   }`}
                 >
@@ -475,13 +471,12 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
               <PopoverContent className="w-36 p-1.5" side="top" align="center" sideOffset={4}>
                 <p className="text-[10px] font-semibold text-muted-foreground mb-1 px-1">
                   {new Date(month.year, month.month, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  {isFuture && <span className="ml-1 font-normal text-foreground/60">(future)</span>}
                 </p>
                 <div className="flex flex-col gap-0.5">
                   {(Object.keys(STATUS_COLORS) as DailyStatus[]).map(s => (
                     <button
                       key={s}
-                      disabled={saving || isFuture}
+                      disabled={saving}
                       onClick={() => setStatus(day, s)}
                       className={`flex items-center gap-1.5 px-1.5 py-1 rounded text-[11px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                         log?.status === s ? STATUS_COLORS[s].bg + ' ' + STATUS_COLORS[s].text : 'hover:bg-muted text-foreground/80'
@@ -492,7 +487,7 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
                     </button>
                   ))}
                 </div>
-                {log && !isFuture && (
+                {log && (
                   <>
                     <div className="my-1 h-px bg-border" />
                     <button
@@ -505,11 +500,6 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
                       Clear status
                     </button>
                   </>
-                )}
-                {isFuture && (
-                  <p className="text-[9px] text-muted-foreground leading-snug px-1 pt-1">
-                    Can't set a status for a future date.
-                  </p>
                 )}
               </PopoverContent>
             </Popover>
