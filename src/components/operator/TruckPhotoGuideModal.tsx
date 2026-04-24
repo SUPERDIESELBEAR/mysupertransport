@@ -469,5 +469,13 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
         )}
       </DialogContent>
     </Dialog>
+    {previewing && (
+      <FilePreviewModal
+        url={previewing.url}
+        name={previewing.name}
+        onClose={() => setPreviewing(null)}
+      />
+    )}
+    </>
   );
 }
