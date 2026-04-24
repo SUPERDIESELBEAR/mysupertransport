@@ -471,7 +471,7 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
           type="button"
           onClick={jumpToFirstUnlogged}
           title="Jump to the first unlogged past day in this month"
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 transition-colors"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gold/15 text-gold border border-gold/40 hover:bg-gold/25 transition-colors"
         >
           <HelpCircle className="h-3 w-3" />
           {unloggedPastDates.length} unlogged past day{unloggedPastDates.length !== 1 ? 's' : ''}
