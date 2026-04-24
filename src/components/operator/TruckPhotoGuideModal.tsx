@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { validateFile } from '@/lib/validateFile';
+import { validateFile, normalizeMobileCaptureFile } from '@/lib/validateFile';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +19,7 @@ import {
   ChevronRight,
   ChevronLeft,
   Loader2,
-  ExternalLink,
+  Eye,
   X,
 } from 'lucide-react';
 
@@ -117,6 +118,7 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
   const [step, setStep] = useState(0); // 0 = intro, 1-N = photo slots, N+1 = done
   const [uploaded, setUploaded] = useState<Record<string, UploadedPhoto>>({});
   const [uploading, setUploading] = useState(false);
+  const [previewing, setPreviewing] = useState<{ url: string; name: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Seed uploaded map from already-saved photos when modal opens, so users can resume
@@ -140,9 +142,13 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
   const uploadedCount = Object.keys(uploaded).length;
   const allDone = step > totalPhotoSteps;
 
-  const handleFileSelect = async (file: File) => {
+  const handleFileSelect = async (rawFile: File) => {
     if (!currentSlot) return;
 
+    // Normalize first — Samsung Camera (and other mobile browsers) sometimes
+    // produce files with blank MIME and/or no extension, which would otherwise
+    // be rejected by validateFile().
+    const file = normalizeMobileCaptureFile(rawFile);
     const { valid, error: validationError } = validateFile(file, false);
     if (!valid) {
       toast({ title: 'Invalid file', description: validationError, variant: 'destructive' });
