@@ -271,6 +271,24 @@ function useSignedUrl(rawUrl: string) {
         .finally(() => setSigning(false));
       return;
     }
+    // Bare path inside the operator-documents bucket: "{operator-uuid}/..."
+    // Examples: "{uuid}/truck_photos/front_123.jpg"
+    // Skip the "{uuid}/dot/..." shape — that lives in the fleet-documents bucket.
+    if (
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\//i.test(rawUrl) &&
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/dot\//i.test(rawUrl)
+    ) {
+      setSigning(true);
+      setSignedUrl(null);
+      supabase.storage.from('operator-documents').createSignedUrl(rawUrl, 3600)
+        .then(({ data }) => {
+          if (data?.signedUrl) {
+            setSignedUrl(resolveDocumentUrl(data.signedUrl));
+          }
+        })
+        .finally(() => setSigning(false));
+      return;
+    }
     // Not a bare path — no signing needed
     setSignedUrl(null);
     setSigning(false);
@@ -294,6 +312,16 @@ function inferStorageInfo(rawUrl: string): { bucket: string; path: string } | nu
   // Bare path: "inspection-documents/..." → inspection-documents bucket
   if (/^inspection-documents\//i.test(rawUrl)) {
     return { bucket: 'inspection-documents', path: rawUrl.replace(/^inspection-documents\//i, '') };
+  }
+
+  // Bare path: "{operator-uuid}/dot/..." → fleet-documents bucket
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/dot\//i.test(rawUrl)) {
+    return { bucket: 'fleet-documents', path: rawUrl };
+  }
+
+  // Bare path: "{operator-uuid}/..." → operator-documents bucket
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\//i.test(rawUrl)) {
+    return { bucket: 'operator-documents', path: rawUrl };
   }
 
   // Signed/public URL containing bucket name in path
