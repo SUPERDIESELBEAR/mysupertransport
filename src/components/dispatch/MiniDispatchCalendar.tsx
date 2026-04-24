@@ -21,7 +21,7 @@ const STATUS_COLORS: Record<DailyStatus, { dot: string; bg: string; label: strin
   dispatched:     { dot: 'bg-status-complete', bg: 'bg-status-complete/15', label: 'Dispatched', text: 'text-status-complete' },
   home:           { dot: 'bg-status-progress', bg: 'bg-status-progress/15', label: 'Home', text: 'text-status-progress' },
   truck_down:     { dot: 'bg-destructive',     bg: 'bg-destructive/15',     label: 'Truck Down', text: 'text-destructive' },
-  not_dispatched: { dot: 'bg-muted-foreground', bg: 'bg-muted/40',          label: 'Not Dispatched', text: 'text-muted-foreground' },
+  not_dispatched: { dot: 'bg-slate-500',        bg: 'bg-slate-200',         label: 'Not Dispatched', text: 'text-slate-700' },
 };
 
 const DAY_HEADERS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
