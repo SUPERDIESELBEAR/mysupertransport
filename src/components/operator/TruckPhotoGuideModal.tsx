@@ -379,7 +379,7 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
                   <CheckCircle2 className="h-4 w-4 text-status-complete" />
                   <p className="text-sm font-medium text-status-complete">Photo uploaded!</p>
                 </div>
-                {uploaded[currentSlot.key].fileUrl && (
+                {uploaded[currentSlot.key].fileUrl?.startsWith('http') && (
                   <button
                     type="button"
                     onClick={() => setPreviewing({
@@ -397,7 +397,7 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
                   </button>
                 )}
                 <p className="text-xs text-muted-foreground truncate">{uploaded[currentSlot.key].fileName}</p>
-                {uploaded[currentSlot.key].fileUrl && (
+                {uploaded[currentSlot.key].fileUrl?.startsWith('http') && (
                   <button
                     type="button"
                     onClick={() => setPreviewing({
