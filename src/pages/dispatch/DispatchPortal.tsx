@@ -19,7 +19,7 @@ import {
   Truck, Users, AlertTriangle, CheckCircle2, Home,
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
   LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell, Volume2, VolumeX,
-  CheckCheck, Users2, Shield, Container, EyeOff, RotateCcw
+  CheckCheck, Users2, Shield, Container, EyeOff, RotateCcw, HelpCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -39,6 +39,14 @@ interface QuickComposeTarget {
 
 type DispatchStatusType = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
 type FilterTab = 'all' | DispatchStatusType;
+
+// Mirror of the cutoff defined in MiniDispatchCalendar — drivers without a
+// `go_live_date` are treated as if they started dispatching on this date when
+// counting "unlogged" past days (no false-positive gaps for legacy/imported drivers).
+const LEGACY_DISPATCH_START = '2026-04-01';
+
+// Rolling window for the roster-level "unlogged" rollup.
+const UNLOGGED_WINDOW_DAYS = 7;
 
 interface DispatchRow {
   operator_id: string;
@@ -179,6 +187,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
   }>>([]);
   const [showExcludedDialog, setShowExcludedDialog] = useState(false);
   const [reIncludingId, setReIncludingId] = useState<string | null>(null);
+  // Per-operator count of unlogged days in the rolling 7-day window (excludes today + future,
+  // and respects each operator's go-live / legacy-cutoff anchor).
+  const [unloggedCountMap, setUnloggedCountMap] = useState<Record<string, number>>({});
 
   // Keep rowsRef in sync so realtime callbacks can access current operator info
   useEffect(() => { rowsRef.current = rows; }, [rows]);
@@ -517,9 +528,10 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
         user_id,
         unit_number,
         is_active,
+        created_at,
         excluded_from_dispatch,
         excluded_from_dispatch_reason,
-        onboarding_status (fully_onboarded, unit_number),
+        onboarding_status (fully_onboarded, unit_number, go_live_date),
         active_dispatch (id, dispatch_status, assigned_dispatcher, current_load_lane, eta_redispatch, status_notes, updated_at)
       `)
       .neq('is_active', false);
@@ -590,6 +602,67 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
           return order[a.dispatch_status] - order[b.dispatch_status];
         });
       setRows(mapped);
+
+      // ── Roster-level "unlogged days" rollup ──────────────────────────────
+      // For each included driver, count past days in the rolling 7-day window
+      // that have no row in dispatch_daily_log. Window excludes today + future.
+      // The lower bound for each driver is max(go_live_date, LEGACY_DISPATCH_START
+      // for legacy drivers, created_at as final fallback) so a driver who went
+      // live 3 days ago can show at most 3 unlogged days, not 7.
+      try {
+        const includedIds = includedOnboarded.map(op => op.id);
+        if (includedIds.length === 0) {
+          setUnloggedCountMap({});
+        } else {
+          // Build the past-day list for the window (excludes today).
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const windowDates: string[] = [];
+          for (let i = 1; i <= UNLOGGED_WINDOW_DAYS; i++) {
+            const d = new Date(today);
+            d.setDate(d.getDate() - i);
+            windowDates.push(d.toISOString().slice(0, 10));
+          }
+          const earliestStr = windowDates[windowDates.length - 1]; // oldest date in the window
+          const todayStr = today.toISOString().slice(0, 10);
+
+          const { data: logRows } = await supabase
+            .from('dispatch_daily_log')
+            .select('operator_id, log_date')
+            .in('operator_id', includedIds)
+            .gte('log_date', earliestStr)
+            .lt('log_date', todayStr);
+
+          const loggedByOp = new Map<string, Set<string>>();
+          (logRows ?? []).forEach((r: any) => {
+            const date = String(r.log_date).slice(0, 10);
+            if (!loggedByOp.has(r.operator_id)) loggedByOp.set(r.operator_id, new Set());
+            loggedByOp.get(r.operator_id)!.add(date);
+          });
+
+          const map: Record<string, number> = {};
+          includedOnboarded.forEach(op => {
+            const os = getOne(op.onboarding_status) ?? {};
+            const goLive: string | null = os.go_live_date ?? null;
+            const created: string | null = op.created_at ?? null;
+            const anchorRaw = goLive
+              ? goLive.slice(0, 10)
+              : (LEGACY_DISPATCH_START || (created ? created.slice(0, 10) : null));
+            if (!anchorRaw) return;
+            const logged = loggedByOp.get(op.id) ?? new Set<string>();
+            let unlogged = 0;
+            for (const d of windowDates) {
+              if (d < anchorRaw) continue; // before this driver's start
+              if (!logged.has(d)) unlogged++;
+            }
+            if (unlogged > 0) map[op.id] = unlogged;
+          });
+          setUnloggedCountMap(map);
+        }
+      } catch (e) {
+        // Non-fatal — chip just won't render.
+        console.error('Failed to compute unlogged counts', e);
+      }
 
       // Fetch all users with dispatcher or management roles for assignment dropdown
       const { data: roleData } = await supabase
@@ -896,6 +969,12 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
     { key: 'dispatched', label: 'Dispatched', count: counts.dispatched },
   ];
 
+  // Roster-wide total of unlogged days across all included drivers (last 7 days).
+  const totalUnlogged = useMemo(
+    () => Object.values(unloggedCountMap).reduce((a, b) => a + b, 0),
+    [unloggedCountMap]
+  );
+
   const board = (
     <div className="space-y-5 animate-fade-in">
       {/* Header — stacks on mobile */}
@@ -928,6 +1007,15 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
               {chimeMuted ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
               <span className="hidden sm:inline">{chimeMuted ? 'Muted' : 'Sound'}</span>
             </button>
+            {totalUnlogged > 0 && (
+              <span
+                className="flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-400"
+                title={`${totalUnlogged} unlogged day${totalUnlogged !== 1 ? 's' : ''} across the fleet in the last ${UNLOGGED_WINDOW_DAYS} days`}
+              >
+                <HelpCircle className="h-3 w-3" />
+                {totalUnlogged} unlogged across fleet
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -1211,6 +1299,16 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                         <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
                         {cfg.label}
                       </Badge>
+                      {/* Unlogged-days rollup chip — last 7 days, hidden when 0 */}
+                      {!!unloggedCountMap[row.operator_id] && (
+                        <span
+                          className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-400 shrink-0"
+                          title={`${unloggedCountMap[row.operator_id]} unlogged day${unloggedCountMap[row.operator_id] !== 1 ? 's' : ''} in the last ${UNLOGGED_WINDOW_DAYS} days`}
+                        >
+                          <HelpCircle className="h-2.5 w-2.5" />
+                          {unloggedCountMap[row.operator_id]} unlogged
+                        </span>
+                      )}
                       {/* Operator-acknowledged badge — only on truck_down cards */}
                       {row.dispatch_status === 'truck_down' && ackMap[row.operator_id] && (
                         <span
@@ -1642,6 +1740,15 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                               <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
                               {cfg.label}
                             </Badge>
+                            {!!unloggedCountMap[row.operator_id] && (
+                              <span
+                                className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-400 w-fit"
+                                title={`${unloggedCountMap[row.operator_id]} unlogged day${unloggedCountMap[row.operator_id] !== 1 ? 's' : ''} in the last ${UNLOGGED_WINDOW_DAYS} days`}
+                              >
+                                <HelpCircle className="h-2.5 w-2.5" />
+                                {unloggedCountMap[row.operator_id]} unlogged
+                              </span>
+                            )}
                             {row.dispatch_status === 'truck_down' && ackMap[row.operator_id] && (
                               <span
                                 className="flex items-center gap-1 bg-status-complete/10 text-status-complete border border-status-complete/30 text-[10px] font-semibold px-2 py-0.5 rounded-full w-fit"
