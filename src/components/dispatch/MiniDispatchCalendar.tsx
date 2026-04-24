@@ -316,6 +316,37 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
 
   const today = new Date();
   const isCurrentMonth = month.year === today.getFullYear() && month.month === today.getMonth();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  // Refs for each day-cell button so the "unlogged" chip can scroll/focus the first gap.
+  const cellRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  // Build the list of unlogged past dates within the visible month.
+  // Skips: future days, today, days before the operator's start date, and excluded operators.
+  const unloggedPastDates = useMemo(() => {
+    if (excluded) return [] as string[];
+    const daysInMonth = new Date(month.year, month.month + 1, 0).getDate();
+    const out: string[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${month.year}-${String(month.month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      if (dateStr >= todayStr) continue; // today and future are skipped
+      if (operatorStartDate && dateStr < operatorStartDate) continue; // pre-employment
+      if (logMap[dateStr]) continue; // already has a status
+      out.push(dateStr);
+    }
+    return out;
+  }, [excluded, month.year, month.month, todayStr, operatorStartDate, logMap]);
+
+  const jumpToFirstUnlogged = () => {
+    const first = unloggedPastDates[0];
+    if (!first) return;
+    const el = cellRefs.current[first];
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      // Trigger the popover by clicking the cell.
+      el.click();
+    }
+  };
 
   if (excluded === true) {
     return (
