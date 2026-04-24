@@ -603,6 +603,67 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
         });
       setRows(mapped);
 
+      // ── Roster-level "unlogged days" rollup ──────────────────────────────
+      // For each included driver, count past days in the rolling 7-day window
+      // that have no row in dispatch_daily_log. Window excludes today + future.
+      // The lower bound for each driver is max(go_live_date, LEGACY_DISPATCH_START
+      // for legacy drivers, created_at as final fallback) so a driver who went
+      // live 3 days ago can show at most 3 unlogged days, not 7.
+      try {
+        const includedIds = includedOnboarded.map(op => op.id);
+        if (includedIds.length === 0) {
+          setUnloggedCountMap({});
+        } else {
+          // Build the past-day list for the window (excludes today).
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const windowDates: string[] = [];
+          for (let i = 1; i <= UNLOGGED_WINDOW_DAYS; i++) {
+            const d = new Date(today);
+            d.setDate(d.getDate() - i);
+            windowDates.push(d.toISOString().slice(0, 10));
+          }
+          const earliestStr = windowDates[windowDates.length - 1]; // oldest date in the window
+          const todayStr = today.toISOString().slice(0, 10);
+
+          const { data: logRows } = await supabase
+            .from('dispatch_daily_log')
+            .select('operator_id, log_date')
+            .in('operator_id', includedIds)
+            .gte('log_date', earliestStr)
+            .lt('log_date', todayStr);
+
+          const loggedByOp = new Map<string, Set<string>>();
+          (logRows ?? []).forEach((r: any) => {
+            const date = String(r.log_date).slice(0, 10);
+            if (!loggedByOp.has(r.operator_id)) loggedByOp.set(r.operator_id, new Set());
+            loggedByOp.get(r.operator_id)!.add(date);
+          });
+
+          const map: Record<string, number> = {};
+          includedOnboarded.forEach(op => {
+            const os = getOne(op.onboarding_status) ?? {};
+            const goLive: string | null = os.go_live_date ?? null;
+            const created: string | null = op.created_at ?? null;
+            const anchorRaw = goLive
+              ? goLive.slice(0, 10)
+              : (LEGACY_DISPATCH_START || (created ? created.slice(0, 10) : null));
+            if (!anchorRaw) return;
+            const logged = loggedByOp.get(op.id) ?? new Set<string>();
+            let unlogged = 0;
+            for (const d of windowDates) {
+              if (d < anchorRaw) continue; // before this driver's start
+              if (!logged.has(d)) unlogged++;
+            }
+            if (unlogged > 0) map[op.id] = unlogged;
+          });
+          setUnloggedCountMap(map);
+        }
+      } catch (e) {
+        // Non-fatal — chip just won't render.
+        console.error('Failed to compute unlogged counts', e);
+      }
+
       // Fetch all users with dispatcher or management roles for assignment dropdown
       const { data: roleData } = await supabase
         .from('user_roles')
