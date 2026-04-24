@@ -112,10 +112,6 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
   const setStatus = async (day: number, status: DailyStatus) => {
     const dateStr = `${month.year}-${String(month.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const todayStr = new Date().toISOString().slice(0, 10);
-    if (dateStr > todayStr) {
-      toast({ title: "Can't set a status for a future date.", variant: 'destructive' });
-      return;
-    }
     setSaving(true);
     const existing = logMap[dateStr];
 
