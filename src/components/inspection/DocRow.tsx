@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { pdfToImage } from '@/lib/pdfToImage';
-import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut, Pencil } from 'lucide-react';
+import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut, Pencil, ArrowLeft } from 'lucide-react';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -332,6 +332,8 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   const [pdfImageSource, setPdfImageSource] = useState<string | null>(null);
   const [convertingPdf, setConvertingPdf] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  // Hardware back / swipe-back closes the preview instead of navigating away
+  useBackButton(true, onClose);
   // Local override URL so the preview refreshes after an edit save
   const [overrideUrl, setOverrideUrl] = useState<string | null>(null);
   const activeUrl = overrideUrl || url;
@@ -389,8 +391,16 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
     <div className="fixed inset-0 z-50 flex flex-col bg-black/90" onClick={onClose}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-surface-dark border-b border-surface-dark-border" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 text-gold" />
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            className="h-8 px-2 flex items-center gap-1 rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors shrink-0"
+            title="Back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="text-xs font-medium">Back</span>
+          </button>
+          <FileText className="h-4 w-4 text-gold shrink-0" />
           <span className="text-sm font-semibold text-surface-dark-foreground truncate max-w-[40vw]">{name}</span>
         </div>
         <div className="flex items-center gap-1">
