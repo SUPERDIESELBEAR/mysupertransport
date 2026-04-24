@@ -465,6 +465,19 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
         </button>
       </div>
 
+      {/* Unlogged-past chip — quietly nudges dispatchers to backfill gaps */}
+      {unloggedPastDates.length > 0 && (
+        <button
+          type="button"
+          onClick={jumpToFirstUnlogged}
+          title="Jump to the first unlogged past day in this month"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 transition-colors"
+        >
+          <HelpCircle className="h-3 w-3" />
+          {unloggedPastDates.length} unlogged past day{unloggedPastDates.length !== 1 ? 's' : ''}
+        </button>
+      )}
+
       {/* Day headers */}
       <div className="grid grid-cols-7 gap-0">
         {DAY_HEADERS.map(d => (
