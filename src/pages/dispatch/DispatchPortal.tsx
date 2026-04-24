@@ -187,6 +187,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
   }>>([]);
   const [showExcludedDialog, setShowExcludedDialog] = useState(false);
   const [reIncludingId, setReIncludingId] = useState<string | null>(null);
+  // Per-operator count of unlogged days in the rolling 7-day window (excludes today + future,
+  // and respects each operator's go-live / legacy-cutoff anchor).
+  const [unloggedCountMap, setUnloggedCountMap] = useState<Record<string, number>>({});
 
   // Keep rowsRef in sync so realtime callbacks can access current operator info
   useEffect(() => { rowsRef.current = rows; }, [rows]);
