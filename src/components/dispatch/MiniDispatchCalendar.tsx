@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, ChevronRight, EyeOff, CalendarRange } from 'lucide-react';
+import { ChevronLeft, ChevronRight, EyeOff, CalendarRange, HelpCircle } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -40,6 +40,7 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [saving, setSaving] = useState(false);
   const [excluded, setExcluded] = useState<boolean | null>(null);
+  const [operatorStartDate, setOperatorStartDate] = useState<string | null>(null);
   // Mark-range popover state
   const [rangeOpen, setRangeOpen] = useState(false);
   const [rangeFrom, setRangeFrom] = useState('');
@@ -54,11 +55,13 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
     (async () => {
       const { data } = await supabase
         .from('operators')
-        .select('excluded_from_dispatch')
+        .select('excluded_from_dispatch, created_at')
         .eq('id', operatorId)
         .maybeSingle();
       if (!cancelled) {
         setExcluded(((data as any)?.excluded_from_dispatch ?? false) === true);
+        const created = (data as any)?.created_at as string | undefined;
+        setOperatorStartDate(created ? created.slice(0, 10) : null);
       }
     })();
     return () => { cancelled = true; };
