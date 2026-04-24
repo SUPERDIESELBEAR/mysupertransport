@@ -120,21 +120,35 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
   const [uploading, setUploading] = useState(false);
   const [previewing, setPreviewing] = useState<{ url: string; name: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Track whether we've already seeded for this open cycle. Without this guard,
+  // the parent passes a fresh `alreadyUploadedLabels` array reference on every
+  // render, which would re-trigger the seed effect and wipe any photo the user
+  // just uploaded inside the modal.
+  const hasSeededRef = useRef(false);
 
-  // Seed uploaded map from already-saved photos when modal opens, so users can resume
+  // Seed uploaded map from already-saved photos when modal opens, so users can
+  // resume an in-progress session. Runs at most once per open cycle and MERGES
+  // (does not overwrite) any in-session uploads.
   useEffect(() => {
-    if (!open) return;
-    const seed: Record<string, UploadedPhoto> = {};
-    PHOTO_SLOTS.forEach(slot => {
-      if (alreadyUploadedLabels.includes(slot.label)) {
-        seed[slot.key] = {
-          slotKey: slot.key,
-          fileName: 'Previously uploaded',
-          fileUrl: '',
-        };
-      }
+    if (!open) {
+      hasSeededRef.current = false;
+      return;
+    }
+    if (hasSeededRef.current) return;
+    hasSeededRef.current = true;
+    setUploaded(prev => {
+      const merged = { ...prev };
+      PHOTO_SLOTS.forEach(slot => {
+        if (alreadyUploadedLabels.includes(slot.label) && !merged[slot.key]) {
+          merged[slot.key] = {
+            slotKey: slot.key,
+            fileName: 'Previously uploaded',
+            fileUrl: '',
+          };
+        }
+      });
+      return merged;
     });
-    setUploaded(seed);
   }, [open, alreadyUploadedLabels]);
 
   const totalPhotoSteps = PHOTO_SLOTS.length;
@@ -180,40 +194,61 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
 
       if (uploadError) throw uploadError;
 
-      // Generate a long-lived signed URL so previews work in FilePreviewModal
-      // (operator-UUID-prefixed paths are NOT auto-signed by useSignedUrl)
-      let fileUrl = path;
-      const { data: signedData } = await supabase.storage
-        .from('operator-documents')
-        .createSignedUrl(path, 60 * 60 * 24 * 365);
-      if (signedData?.signedUrl) {
-        fileUrl = signedData.signedUrl;
-      } else {
-        const { data: pub } = supabase.storage.from('operator-documents').getPublicUrl(path);
-        if (pub?.publicUrl) fileUrl = pub.publicUrl;
-      }
-
-      // Insert into operator_documents
+      // Insert into operator_documents using the bare storage path. The path
+      // alone is enough for downstream resolvers (FilePreviewModal, the staff
+      // photo grid) to re-sign on demand, so we don't block the UI on a signed
+      // URL round-trip here.
       const { error: insertError } = await supabase.from('operator_documents').insert({
         operator_id: operatorId,
         document_type: 'truck_photos' as any,
         file_name: `${currentSlot.label} — ${file.name}`,
-        file_url: fileUrl,
+        file_url: path,
       });
 
       if (insertError) throw insertError;
 
+      // ✅ Mark slot as uploaded immediately. The fileUrl starts as the bare
+      // storage path (no http://). The thumbnail render is guarded against
+      // non-http URLs, so the slot still flips to its green "uploaded" state
+      // and the Next Photo button activates regardless of signed-URL success.
       setUploaded(prev => ({
         ...prev,
         [currentSlot.key]: {
           slotKey: currentSlot.key,
           fileName: file.name,
-          fileUrl,
+          fileUrl: path,
         },
       }));
 
       toast({ title: `${currentSlot.label} uploaded ✓`, description: 'Photo saved. Move to the next shot.' });
+
+      // Best-effort: upgrade to a long-lived signed URL so the inline thumbnail
+      // can render. Failures here are non-fatal — the slot stays marked done.
+      try {
+        const { data: signedData } = await supabase.storage
+          .from('operator-documents')
+          .createSignedUrl(path, 60 * 60 * 24 * 365);
+        if (signedData?.signedUrl) {
+          setUploaded(prev => ({
+            ...prev,
+            [currentSlot.key]: {
+              ...(prev[currentSlot.key] ?? { slotKey: currentSlot.key, fileName: file.name, fileUrl: path }),
+              fileUrl: signedData.signedUrl,
+            },
+          }));
+          // Keep the DB row in sync so the staff grid resolves it without re-signing
+          await supabase
+            .from('operator_documents')
+            .update({ file_url: signedData.signedUrl })
+            .eq('operator_id', operatorId)
+            .eq('document_type', 'truck_photos' as any)
+            .eq('file_name', `${currentSlot.label} — ${file.name}`);
+        }
+      } catch (signErr) {
+        console.warn('[TruckPhotoGuide] signed URL step failed (non-fatal):', signErr);
+      }
     } catch (err: unknown) {
+      console.error('[TruckPhotoGuide] upload failed:', err);
       toast({
         title: 'Upload failed',
         description: err instanceof Error ? err.message : 'Unknown error',
@@ -229,12 +264,12 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
     onComplete();
     onClose();
     // Reset for next time
-    setTimeout(() => { setStep(0); setUploaded({}); }, 300);
+    setTimeout(() => { setStep(0); setUploaded({}); hasSeededRef.current = false; }, 300);
   };
 
   const handleClose = () => {
     onClose();
-    setTimeout(() => { setStep(0); setUploaded({}); }, 300);
+    setTimeout(() => { setStep(0); setUploaded({}); hasSeededRef.current = false; }, 300);
   };
 
   return (
@@ -344,7 +379,7 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
                   <CheckCircle2 className="h-4 w-4 text-status-complete" />
                   <p className="text-sm font-medium text-status-complete">Photo uploaded!</p>
                 </div>
-                {uploaded[currentSlot.key].fileUrl && (
+                {uploaded[currentSlot.key].fileUrl?.startsWith('http') && (
                   <button
                     type="button"
                     onClick={() => setPreviewing({
@@ -362,7 +397,7 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
                   </button>
                 )}
                 <p className="text-xs text-muted-foreground truncate">{uploaded[currentSlot.key].fileName}</p>
-                {uploaded[currentSlot.key].fileUrl && (
+                {uploaded[currentSlot.key].fileUrl?.startsWith('http') && (
                   <button
                     type="button"
                     onClick={() => setPreviewing({
