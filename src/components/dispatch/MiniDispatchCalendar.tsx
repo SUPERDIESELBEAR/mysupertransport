@@ -493,14 +493,18 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
           const log = logMap[dateStr];
           const isToday = isCurrentMonth && day === today.getDate();
           const statusCfg = log ? STATUS_COLORS[log.status] : null;
+          const isUnloggedPast = !log && unloggedPastDates.includes(dateStr);
 
           return (
             <Popover key={day}>
               <PopoverTrigger asChild>
                 <button
+                  ref={el => { cellRefs.current[dateStr] = el; }}
                   title={
                     isToday
                       ? 'Setting status here also updates the live Dispatch Hub'
+                      : isUnloggedPast
+                      ? 'No status logged for this day — click to set one.'
                       : undefined
                   }
                   className={`h-6 w-full flex items-center justify-center rounded-sm text-[10px] transition-colors relative ${
@@ -512,6 +516,9 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
                   <span className={statusCfg ? statusCfg.text + ' font-semibold' : 'text-foreground/70'}>{day}</span>
                   {statusCfg && (
                     <span className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full ${statusCfg.dot}`} />
+                  )}
+                  {isUnloggedPast && (
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[8px] font-bold leading-none text-gold">?</span>
                   )}
                 </button>
               </PopoverTrigger>
