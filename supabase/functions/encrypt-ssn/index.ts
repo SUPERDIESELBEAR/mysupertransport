@@ -31,6 +31,10 @@ function strToBytes(str: string): Uint8Array {
   return new TextEncoder().encode(str.slice(0, 32).padEnd(32, '0'));
 }
 
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return Uint8Array.from(bytes).buffer as ArrayBuffer;
+}
+
 function bytesToBase64(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes));
 }
@@ -58,11 +62,15 @@ serve(async (req) => {
     // Convert string key to 32-byte (256-bit) key material via raw bytes
     const keyBytes = strToBytes(rawKey);
     const cryptoKey = await crypto.subtle.importKey(
-      'raw', keyBytes, { name: 'AES-GCM' }, false, ['encrypt']
+      'raw', toArrayBuffer(keyBytes), { name: 'AES-GCM' }, false, ['encrypt']
     );
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const encoded = new TextEncoder().encode(ssn.replace(/\D/g, ''));
-    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, encoded);
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: toArrayBuffer(iv) },
+      cryptoKey,
+      toArrayBuffer(encoded),
+    );
 
     const encrypted = `${bytesToBase64(iv)}:${bytesToBase64(new Uint8Array(ciphertext))}`;
 
