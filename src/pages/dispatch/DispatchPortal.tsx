@@ -969,6 +969,12 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
     { key: 'dispatched', label: 'Dispatched', count: counts.dispatched },
   ];
 
+  // Roster-wide total of unlogged days across all included drivers (last 7 days).
+  const totalUnlogged = useMemo(
+    () => Object.values(unloggedCountMap).reduce((a, b) => a + b, 0),
+    [unloggedCountMap]
+  );
+
   const board = (
     <div className="space-y-5 animate-fade-in">
       {/* Header — stacks on mobile */}
