@@ -1,29 +1,23 @@
 project_id = "qgxpkcudwjmacrdcyvhj"
 
-[functions.encrypt-ssn]
-verify_jwt = false
-
-[functions.decrypt-ssn]
-verify_jwt = false
-
-[functions.check-cert-expiry]
-verify_jwt = false
-
-[functions.check-inspection-expiry]
-verify_jwt = false
-
-[functions.notify-onboarding-update]
-verify_jwt = false
-
-[functions.invite-applicant]
-verify_jwt = false
-
-[functions.send-resource-email]
-verify_jwt = false
-
-[functions.request-application-resume]
-verify_jwt = false
-
-[functions.consume-application-resume]
-verify_jwt = false
-
+[functions]
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.check-cert-expiry]
+    verify_jwt = false
+  [functions.check-inspection-expiry]
+    verify_jwt = false
+  [functions.consume-application-resume]
+    verify_jwt = false
+  [functions.decrypt-ssn]
+    verify_jwt = false
+  [functions.encrypt-ssn]
+    verify_jwt = false
+  [functions.invite-applicant]
+    verify_jwt = false
+  [functions.notify-onboarding-update]
+    verify_jwt = false
+  [functions.request-application-resume]
+    verify_jwt = false
+  [functions.send-resource-email]
+    verify_jwt = false
