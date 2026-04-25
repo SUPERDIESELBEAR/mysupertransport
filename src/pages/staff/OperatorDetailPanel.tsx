@@ -1059,6 +1059,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       // Resolve email: from application if present, otherwise fetch from auth via profiles email or leave editable
       const resolvedEmail = app?.email ?? '';
       setOperatorEmail(resolvedEmail);
+      setIsPreExistingOperator(app?.reviewer_notes === 'Pre-existing operator added directly');
       if (app) {
         setApplicationData(app);
       } else {
