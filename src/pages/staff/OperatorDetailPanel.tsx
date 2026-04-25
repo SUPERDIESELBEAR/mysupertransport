@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn, DollarSign, PauseCircle, Pencil, Cake, PartyPopper, Phone, MapPin, Eye, Smartphone, FileSignature } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn, DollarSign, PauseCircle, Pencil, Cake, PartyPopper, Phone, MapPin, Eye, Smartphone, FileSignature, Rocket } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { Calendar } from '@/components/ui/calendar';
@@ -433,6 +433,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [resendingInvite, setResendingInvite] = useState(false);
   const [inviteResent, setInviteResent] = useState(false);
   const [sendingInstallInstructions, setSendingInstallInstructions] = useState(false);
+  // SUPERDRIVE launch invite state
+  const [sendingSuperdriveInvite, setSendingSuperdriveInvite] = useState(false);
+  const [superdriveInviteSent, setSuperdriveInviteSent] = useState(false);
+  const [isPreExistingOperator, setIsPreExistingOperator] = useState(false);
   // Last renewal per doc type: key = 'CDL' | 'Medical Cert' → ISO timestamp
   const [lastRenewed, setLastRenewed] = useState<Record<string, string>>({});
   // Last renewed by name per doc type
@@ -866,6 +870,48 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       toast({ title: 'Failed to resend invite', description: err.message, variant: 'destructive' });
     } finally {
       setResendingInvite(false);
+    }
+  };
+
+  const handleSendSuperdriveInvite = async () => {
+    if (!operatorId || sendingSuperdriveInvite) return;
+    setSendingSuperdriveInvite(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('launch-superdrive-invite', {
+        body: { operator_ids: [operatorId] },
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error(error?.message ?? (data as any)?.error ?? 'Failed to send SUPERDRIVE invite');
+      }
+      const result = ((data as any).results ?? [])[0];
+      if (result?.status === 'sent') {
+        setSuperdriveInviteSent(true);
+        toast({
+          title: 'SUPERDRIVE invite sent',
+          description: `Welcome email sent to ${result.email}.`,
+        });
+        setTimeout(() => setSuperdriveInviteSent(false), 8000);
+      } else if (result?.status === 'recently_invited') {
+        toast({
+          title: 'Recently invited',
+          description: 'This operator was invited within the last 30 days. Skipped to avoid duplicate sends.',
+        });
+      } else {
+        toast({
+          title: 'Could not send invite',
+          description: result?.message ?? `Status: ${result?.status ?? 'unknown'}`,
+          variant: 'destructive',
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Failed to send SUPERDRIVE invite',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingSuperdriveInvite(false);
     }
   };
 
