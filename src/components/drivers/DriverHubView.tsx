@@ -5,6 +5,7 @@ import ArchivedDriversView from './ArchivedDriversView';
 import AddDriverModal from './AddDriverModal';
 import OperatorDetailPanel from '@/pages/staff/OperatorDetailPanel';
 import BulkMessageModal from '@/components/staff/BulkMessageModal';
+import LaunchSuperdriveDialog from '@/components/management/LaunchSuperdriveDialog';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import ComplianceAlertsPanel from '@/components/inspection/ComplianceAlertsPanel';
 import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
@@ -24,7 +25,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useBulkReminderCooldown } from '@/hooks/useBulkReminderCooldown';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
-import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX, Info, Bell, Loader2, ChevronDown, ChevronUp, ShieldAlert, Archive } from 'lucide-react';
+import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX, Info, Bell, Loader2, ChevronDown, ChevronUp, ShieldAlert, Archive, Rocket } from 'lucide-react';
 import type { ComplianceFilter, ComplianceCounts } from './DriverRoster';
 
 interface DriverHubViewProps {
@@ -54,6 +55,7 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
   const [pendingFocusField, setPendingFocusField] = useState<'cdl' | 'medcert' | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [launchDialogOpen, setLaunchDialogOpen] = useState(false);
   const [rosterKey, setRosterKey] = useState(0);
   const [selectedOperatorIds, setSelectedOperatorIds] = useState<string[]>([]);
   const [alertsPanelOpen, setAlertsPanelOpen] = useState(true);
@@ -456,6 +458,18 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
               Add Driver
             </Button>
           )}
+
+          {canAddDriver && (
+            <Button
+              onClick={() => setLaunchDialogOpen(true)}
+              className="gap-2 bg-gold text-surface-dark hover:bg-gold-light"
+              size="sm"
+            >
+              <Rocket className="h-4 w-4" />
+              <span className="hidden sm:inline">Launch SUPERDRIVE</span>
+              <span className="sm:hidden">Launch</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -575,6 +589,12 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
         open={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         onAdded={() => setRosterKey(k => k + 1)}
+      />
+
+      {/* Launch SUPERDRIVE bulk-invite Dialog */}
+      <LaunchSuperdriveDialog
+        open={launchDialogOpen}
+        onClose={() => setLaunchDialogOpen(false)}
       />
 
       {/* Bulk Message Modal */}

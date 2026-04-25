@@ -1,61 +1,152 @@
-# Final Consolidation & UI Cleanup Plan
+## Launch SUPERDRIVE Invite — Implementation Plan
 
-## What I Confirmed in the Database
-- **Only ONE auth user exists** for you: `marcsmueller@gmail.com` → `7e356f94...`
-- That auth user is already linked to operator `ee993ec0...` — the one with all 10 truck photos, 15 documents, and a fully-executed ICA. ✅
-- The "duplicate" operator (`ec79e22f...`) is an **orphan** — its `user_id` (`5cca4f77...`) does not exist in `auth.users`. It was likely created by an earlier abandoned application flow.
-- That orphan only has 2 stray documents and a draft ICA — nothing important.
+A one-time onboarding launch email for the **35 active pre-existing operators** who were added directly into the dashboard (no application), with **three independent ways to send it**: one-at-a-time, hand-picked batch, or send-to-all.
 
-## Step 1 — Database Cleanup (via insert tool)
-1. **Delete the orphan operator** `ec79e22f...` and its application `566e9b11...` (cascades will clean up the 2 stray docs, draft ICA, onboarding_status row).
-2. **Rename your real account** — update application `a364e0e6...`:
-   - `email` → `marcsmueller@gmail.com` (currently `marcsmueller+test@gmail.com`)
-   - `last_name` → `Mueller` (strip the "(Test)" suffix)
-3. **Mark Stage 2 complete** — set `onboarding_status.truck_photos = 'received'` for operator `ee993ec0...`. This also triggers the existing `notify_operator_on_status_change` flow.
+---
 
-## Step 2 — UI Banner Logic (`src/pages/operator/OperatorPortal.tsx`)
-Update the "Documents Requested — Upload Required" banner so it ignores any document type that has already met its upload threshold:
+### 1. New Email Template — `welcome-superdrive.tsx`
 
-```typescript
-const DOC_THRESHOLDS: Record<string, number> = {
-  truck_photos: 10,
-  // others default to 1
-};
+**Location:** `supabase/functions/_shared/email-templates/welcome-superdrive.tsx`
 
-const requestedButMissing = REQUESTABLE_DOC_TYPES.filter(key => {
-  if (onboardingStatus[key] !== 'requested') return false;
-  const have = uploadedDocs.filter(d => d.document_type === key).length;
-  const need = DOC_THRESHOLDS[key] ?? 1;
-  return have < need;
-});
+A branded React Email template matching the existing six auth templates (gold `#C9A84C` accent bar, SUPERTRANSPORT wordmark, Inter font, white background).
 
-// Hide entire banner if list is empty
+**Content sections:**
+1. **Hero**: "Welcome to SUPERDRIVE" + personalized greeting (`Hi {firstName}`)
+2. **Intro paragraph**: Briefly explains SUPERTRANSPORT built a dedicated app for its operators
+3. **Feature highlight cards** (icon + title + 1-line description) for:
+   - 🔍 **Inspection Binder** — Carry your DOT binder in your pocket
+   - 💰 **Settlement Forecast** — Track your settlements before they post
+   - 🚛 **My Truck** — All your truck info, photos, and registrations
+   - 📍 **Dispatch Status** — Update your status and current load lane
+   - 💬 **Direct Messages** — Talk to dispatch and onboarding staff
+   - 📅 **Payroll Calendar** — Wed–Tue work week + pay dates
+4. **Primary CTA button**: "Set Up Your Password" → recovery link
+5. **Install-as-app callout**: Brief instructions to add SUPERDRIVE to home screen (PWA)
+6. **Footer**: Help line / contact
+
+---
+
+### 2. New Edge Function — `launch-superdrive-invite`
+
+**Location:** `supabase/functions/launch-superdrive-invite/index.ts`
+**Config:** `verify_jwt = false` is **NOT** needed — this MUST require auth so only management/owner can invoke it.
+
+**Authorization:** Validate JWT via `getClaims()`, then check the caller has the `owner` or `management` role (using the `.limit(1)` multi-role pattern from existing edge functions).
+
+**Request body:**
+```ts
+{ operator_ids: string[] }   // 1 to N operator UUIDs
 ```
 
-## Step 3 — Status Badge Polish (`src/components/operator/OperatorDocumentUpload.tsx`)
-Replace the generic "Pending Review" badge for truck photos once 10/10 are uploaded:
-- `0/10` → "Not Started" (gray)
-- `1–9/10` → "X of 10 uploaded" (gold)
-- `10/10` and status = `requested` → "Awaiting coordinator review ✓" (gold)
-- status = `received` → "Reviewed" (green)
+**Per-operator logic:**
+1. Look up the operator's email (from `applications` if linked, otherwise from `auth.users` via the `user_id`)
+2. **Idempotency**: Skip if `email_send_log` shows `template_name = 'welcome-superdrive'` for this address sent in the last **30 days** (returned in response so UI can flag it)
+3. Generate a `recovery` link via `supabase.auth.admin.generateLink({ type: 'recovery', email, options: { redirectTo: `${APP_URL}/reset-password` } })`
+4. Enqueue the email through the existing `enqueue_email` RPC into `transactional_emails` queue with `templateName: 'welcome-superdrive'` + `templateData: { firstName, recoveryUrl }`
+5. Insert an `audit_log` entry (`action: 'superdrive_invite_sent'`, entity = operator)
 
-## Step 4 — Update Test-Operator Edge Function (`supabase/functions/create-test-operator/index.ts`)
-Change `testEmail` constant from `marcsmueller+test@gmail.com` back to `marcsmueller@gmail.com` so future test re-provisioning targets your single real account.
+**Response:**
+```ts
+{
+  sent: [{ operator_id, email }],
+  skipped: [{ operator_id, email, reason: 'recently_invited' | 'no_email' | 'no_user_account' }],
+  failed: [{ operator_id, error }]
+}
+```
 
-## Step 5 — Verification
-After applying:
-- Reload the Management Portal → only **one** Marcus Mueller card remains, labeled `marcsmueller@gmail.com`.
-- Reload the Operator Portal on your phone → blue "Documents Requested" banner is gone, Stage 2 shows **Reviewed** in green, "Truck Photos" row says **Reviewed**.
+---
 
-## Files Changed
-- `src/pages/operator/OperatorPortal.tsx` (banner filter)
-- `src/components/operator/OperatorDocumentUpload.tsx` (badge logic)
-- `supabase/functions/create-test-operator/index.ts` (test email)
-- Database operations via insert tool (no migration needed — data only)
+### 3. New UI — `LaunchSuperdriveDialog.tsx`
 
-## Risk Notes
-- Deleting the orphan operator is safe: it has no auth user, no executed contracts, no real photos.
-- Flipping `truck_photos` to `received` will fire the milestone trigger and send you the "Stage 2 reviewed" notification — expected behavior.
-- All UI changes are additive/refining; no breaking changes to other operators.
+**Location:** `src/components/management/LaunchSuperdriveDialog.tsx`
 
-**Approve to execute all five steps.**
+A modal that lists all eligible pre-existing operators (`is_active = true`, `skip_invite = true`) with:
+
+- **Search bar** (filter by name)
+- **Filter pills**: "Never invited" / "Invited 30+ days ago" / "All eligible"
+- **Per-row checkbox** + name + email + last-invited badge ("Invited 12 days ago" if applicable, with cooldown lock)
+- **Select All / Deselect All / Select Never-Invited** buttons (top of list)
+- **Selection counter**: "3 of 35 selected"
+- **Send button** (disabled when 0 selected) → calls `launch-superdrive-invite` with `operator_ids`
+- **Live progress** during send (sent / skipped / failed counts)
+- **Result summary** with collapsible sections per outcome
+
+Mobile-responsive following the established `max-h-[90dvh]` pattern.
+
+---
+
+### 4. Entry Points (Three Send Modes)
+
+| Mode | Where | Trigger |
+|---|---|---|
+| **One-at-a-time** | `src/pages/staff/OperatorDetailPanel.tsx` | New "Send SUPERDRIVE Invite" button (gold, secondary) in the operator's action area. Visible only to management/owner, only when operator is pre-existing (`skip_invite = true`). Calls the same edge function with `operator_ids: [operator.id]`. Shows last-invited timestamp. |
+| **Hand-picked batch** | `src/components/drivers/DriverHubView.tsx` | New "Launch SUPERDRIVE" button in the header (visible to management/owner only) → opens `LaunchSuperdriveDialog` with checkboxes for hand-picking |
+| **Send to all** | Same dialog | "Select All" → "Send" |
+
+---
+
+### 5. Email Catalog Preview
+
+**File:** `src/components/management/EmailCatalog.tsx`
+
+Add a new entry "Welcome to SUPERDRIVE (Launch Invite)" in the existing catalog with:
+- Description, trigger ("Manually sent by management"), recipient ("Pre-existing operators")
+- Live HTML preview (rendered the same way the other six auth templates are previewed)
+
+---
+
+### 6. Audit Trail
+
+Each send writes to `audit_log`:
+- `action`: `superdrive_invite_sent`
+- `entity_type`: `operator`
+- `entity_label`: operator's name
+- `metadata`: `{ template: 'welcome-superdrive', email, recovery_link_generated: true }`
+
+This shows up in the existing Activity Log UI automatically.
+
+---
+
+### 7. Files Created / Modified
+
+**New files (4):**
+- `supabase/functions/_shared/email-templates/welcome-superdrive.tsx`
+- `supabase/functions/launch-superdrive-invite/index.ts`
+- `src/components/management/LaunchSuperdriveDialog.tsx`
+- (No new pages — entry points hook into existing views)
+
+**Modified files (3):**
+- `src/components/drivers/DriverHubView.tsx` — Add "Launch SUPERDRIVE" header button + dialog
+- `src/pages/staff/OperatorDetailPanel.tsx` — Add per-operator "Send SUPERDRIVE Invite" button
+- `src/components/management/EmailCatalog.tsx` — Add catalog entry + preview
+
+**No DB migration needed** — uses existing `transactional_emails` queue, `email_send_log`, `audit_log`, and `auth.users`.
+
+---
+
+### 8. DNS / Sender Address
+
+DNS for `notify.mysupertransport.com` is still verifying. The launch button will be **fully functional immediately** — emails will queue and send the moment you click. Until DNS goes green, they'll send from the default Lovable sender; once verified, they'll automatically switch to `welcome@notify.mysupertransport.com` with no code change.
+
+You can:
+- **Build now, send now** — emails go out from the default sender (still branded, just default From address)
+- **Build now, send after DNS verifies** — recommended; everything ready to fire as soon as DNS is green
+
+---
+
+### 9. Safety Rails
+
+- **Authorization**: Only management/owner can invoke
+- **30-day idempotency**: Prevents accidental double-sends
+- **Per-row badges**: Operators recently invited show a lock icon with cooldown countdown
+- **Send-to-self test**: You can send to your own management email first by selecting yourself if you appear in the eligible list — recommended as the first send
+- **No bulk loop in client code**: The client passes an array; the edge function loops server-side (clean, auditable, idempotent)
+
+---
+
+### Recommended First Use Sequence
+1. Open **Launch SUPERDRIVE** dialog → select **2–3 trusted operators** → Send
+2. Confirm they receive the email, click the button, set their password, and land in SUPERDRIVE
+3. Return to the dialog → **Select All** (remaining ones, the already-sent will be locked) → Send
+
+Ready to build on approval.

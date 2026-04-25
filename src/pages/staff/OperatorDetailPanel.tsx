@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn, DollarSign, PauseCircle, Pencil, Cake, PartyPopper, Phone, MapPin, Eye, Smartphone, FileSignature } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck, FileText, Truck, Shield, CheckCircle2, AlertTriangle, Clock, FilePen, Trash2, Bell, Paperclip, ExternalLink, ChevronDown, ChevronUp, Copy, Check, MessageSquare, CheckCheck, RotateCcw, Send, History, RefreshCw, Mail, CalendarClock, CalendarIcon, Upload, Loader2, X, UserX, UserCheck, CreditCard, BookOpen, Download, ZoomIn, DollarSign, PauseCircle, Pencil, Cake, PartyPopper, Phone, MapPin, Eye, Smartphone, FileSignature, Rocket } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { Calendar } from '@/components/ui/calendar';
@@ -433,6 +433,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [resendingInvite, setResendingInvite] = useState(false);
   const [inviteResent, setInviteResent] = useState(false);
   const [sendingInstallInstructions, setSendingInstallInstructions] = useState(false);
+  // SUPERDRIVE launch invite state
+  const [sendingSuperdriveInvite, setSendingSuperdriveInvite] = useState(false);
+  const [superdriveInviteSent, setSuperdriveInviteSent] = useState(false);
+  const [isPreExistingOperator, setIsPreExistingOperator] = useState(false);
   // Last renewal per doc type: key = 'CDL' | 'Medical Cert' → ISO timestamp
   const [lastRenewed, setLastRenewed] = useState<Record<string, string>>({});
   // Last renewed by name per doc type
@@ -869,6 +873,48 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
   };
 
+  const handleSendSuperdriveInvite = async () => {
+    if (!operatorId || sendingSuperdriveInvite) return;
+    setSendingSuperdriveInvite(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('launch-superdrive-invite', {
+        body: { operator_ids: [operatorId] },
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error(error?.message ?? (data as any)?.error ?? 'Failed to send SUPERDRIVE invite');
+      }
+      const result = ((data as any).results ?? [])[0];
+      if (result?.status === 'sent') {
+        setSuperdriveInviteSent(true);
+        toast({
+          title: 'SUPERDRIVE invite sent',
+          description: `Welcome email sent to ${result.email}.`,
+        });
+        setTimeout(() => setSuperdriveInviteSent(false), 8000);
+      } else if (result?.status === 'recently_invited') {
+        toast({
+          title: 'Recently invited',
+          description: 'This operator was invited within the last 30 days. Skipped to avoid duplicate sends.',
+        });
+      } else {
+        toast({
+          title: 'Could not send invite',
+          description: result?.message ?? `Status: ${result?.status ?? 'unknown'}`,
+          variant: 'destructive',
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Failed to send SUPERDRIVE invite',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingSuperdriveInvite(false);
+    }
+  };
+
   const fetchCertHistory = async () => {
     setCertHistoryLoading(true);
     try {
@@ -969,7 +1015,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const [{ data: op }, { data: opDocs }] = await Promise.all([
       supabase
         .from('operators')
-        .select(`id, user_id, notes, anticipated_start_date, is_active, on_hold, on_hold_reason, on_hold_date, pwa_installed_at, onboarding_status (*), applications (id, email, first_name, last_name, phone, address_street, address_city, address_state, address_zip, cdl_expiration, medical_cert_expiration, dob, dl_front_url, dl_rear_url, medical_cert_url)`)
+        .select(`id, user_id, notes, anticipated_start_date, is_active, on_hold, on_hold_reason, on_hold_date, pwa_installed_at, onboarding_status (*), applications (id, email, first_name, last_name, phone, address_street, address_city, address_state, address_zip, cdl_expiration, medical_cert_expiration, dob, dl_front_url, dl_rear_url, medical_cert_url, reviewer_notes)`)
         .eq('id', operatorId)
         .single(),
       supabase
@@ -1013,6 +1059,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       // Resolve email: from application if present, otherwise fetch from auth via profiles email or leave editable
       const resolvedEmail = app?.email ?? '';
       setOperatorEmail(resolvedEmail);
+      setIsPreExistingOperator(app?.reviewer_notes === 'Pre-existing operator added directly');
       if (app) {
         setApplicationData(app);
       } else {
@@ -2070,6 +2117,32 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs">
                   {inviteResent ? '✓ Invitation sent to ' + operatorEmail : 'Resend invitation email to ' + operatorEmail}
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {isPreExistingOperator && operatorEmail && isManagement && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSendSuperdriveInvite}
+                    disabled={sendingSuperdriveInvite}
+                    className="gap-2 border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold"
+                  >
+                    {sendingSuperdriveInvite
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : superdriveInviteSent
+                      ? <Check className="h-3.5 w-3.5 text-status-complete" />
+                      : <Rocket className="h-3.5 w-3.5" />
+                    }
+                    <span className="hidden sm:inline">{superdriveInviteSent ? 'SUPERDRIVE Invite Sent' : 'Send SUPERDRIVE Invite'}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {superdriveInviteSent
+                    ? `✓ Welcome to SUPERDRIVE email sent to ${operatorEmail}`
+                    : `Send branded "Welcome to SUPERDRIVE" launch email with password setup link`}
                 </TooltipContent>
               </Tooltip>
             )}
