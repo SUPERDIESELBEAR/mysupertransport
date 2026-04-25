@@ -2120,6 +2120,32 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </TooltipContent>
               </Tooltip>
             )}
+            {isPreExistingOperator && operatorEmail && isManagement && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSendSuperdriveInvite}
+                    disabled={sendingSuperdriveInvite}
+                    className="gap-2 border-gold/40 text-gold-muted hover:bg-gold/10 hover:text-gold"
+                  >
+                    {sendingSuperdriveInvite
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : superdriveInviteSent
+                      ? <Check className="h-3.5 w-3.5 text-status-complete" />
+                      : <Rocket className="h-3.5 w-3.5" />
+                    }
+                    <span className="hidden sm:inline">{superdriveInviteSent ? 'SUPERDRIVE Invite Sent' : 'Send SUPERDRIVE Invite'}</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {superdriveInviteSent
+                    ? `✓ Welcome to SUPERDRIVE email sent to ${operatorEmail}`
+                    : `Send branded "Welcome to SUPERDRIVE" launch email with password setup link`}
+                </TooltipContent>
+              </Tooltip>
+            )}
             {/* Collapse/Expand All Stages */}
             {(() => {
               const allKeys = ['stage1','stage2','stage3','stage4','stage5','stage6','stage7'];
