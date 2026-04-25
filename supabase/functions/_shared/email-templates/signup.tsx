@@ -32,6 +32,8 @@ export const SignupEmail = ({
     <Preview>Confirm your email for {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
+                <Heading style={brand}>SUPERTRANSPORT</Heading>
+        <div style={accentBar} />
         <Heading style={h1}>Confirm your email</Heading>
         <Text style={text}>
           Thanks for signing up for{' '}
@@ -60,27 +62,50 @@ export const SignupEmail = ({
 
 export default SignupEmail
 
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
-const h1 = {
-  fontSize: '22px',
+const brand = {
+  fontSize: '14px',
   fontWeight: 'bold' as const,
-  color: '#000000',
-  margin: '0 0 20px',
+  color: '#0F0F0F',
+  letterSpacing: '0.18em',
+  margin: '0 0 12px',
+}
+const accentBar = {
+  width: '48px',
+  height: '3px',
+  backgroundColor: '#C9A84C',
+  margin: '0 0 28px',
+}
+const main = { backgroundColor: '#ffffff', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif' }
+const container = { padding: '32px 28px', maxWidth: '600px' }
+const h1 = {
+  fontSize: '24px',
+  fontWeight: 'bold' as const,
+  color: '#0F0F0F',
+  margin: '0 0 16px',
+  lineHeight: '1.25',
 }
 const text = {
-  fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
+  fontSize: '15px',
+  color: '#3F3F3F',
+  lineHeight: '1.6',
+  margin: '0 0 20px',
 }
-const link = { color: 'inherit', textDecoration: 'underline' }
+const link = { color: '#C9A84C', textDecoration: 'underline' }
 const button = {
-  backgroundColor: '#000000',
-  color: '#ffffff',
-  fontSize: '14px',
-  borderRadius: '8px',
-  padding: '12px 20px',
+  backgroundColor: '#C9A84C',
+  color: '#0F0F0F',
+  fontSize: '15px',
+  fontWeight: 'bold' as const,
+  borderRadius: '6px',
+  padding: '14px 26px',
   textDecoration: 'none',
+  display: 'inline-block',
 }
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
+const footer = {
+  fontSize: '12px',
+  color: '#7A7A7A',
+  lineHeight: '1.6',
+  margin: '36px 0 0',
+  borderTop: '1px solid #EAEAEA',
+  paddingTop: '20px',
+}
