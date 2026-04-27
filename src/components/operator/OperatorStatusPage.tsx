@@ -801,7 +801,7 @@ export default function OperatorStatusPage({
                   Show this at any DOT roadside inspection. Tap below to open instantly.
                 </p>
                 <div className="flex items-center gap-1.5 mt-2">
-                  {(cdlLevel === 'red' || cdlLevel === 'amber' || medLevel === 'red' || medLevel === 'amber') ? (
+                  {(cdlLevel === 'expired' || cdlLevel === 'yellow' || medLevel === 'expired' || medLevel === 'yellow') ? (
                     <>
                       <span className="h-2 w-2 rounded-full bg-destructive shrink-0" />
                       <span className="text-xs font-semibold text-destructive">Document expiring soon — renew now</span>
