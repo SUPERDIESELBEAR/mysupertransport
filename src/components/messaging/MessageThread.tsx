@@ -6,7 +6,6 @@ import { MessageBubble } from './MessageBubble';
 import { MessageComposer } from './MessageComposer';
 import { PinnedMessagesSheet } from './PinnedMessagesSheet';
 import { ChatMessage } from './types';
-import { cn } from '@/lib/utils';
 
 interface MessageThreadProps {
   myUserId: string | null;
