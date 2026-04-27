@@ -826,6 +826,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                     )}
                   </span>
                   {item.label}
+                  {'pillBadge' in item && item.pillBadge && (
+                    <span className="ml-1 px-1.5 py-0.5 rounded bg-gold/20 text-gold text-[9px] font-bold uppercase tracking-wider border border-gold/30">
+                      {item.pillBadge as string}
+                    </span>
+                  )}
                 </button>
               );
               if (showExpiry) {
