@@ -1,82 +1,38 @@
-# Welcome Email Preview + Messaging Upgrades
+# Pinned-message banner polish
 
-## Phase 1 — Email Catalog Entry (quick, ~1 file)
+## What you'll see
 
-Add the **SUPERDRIVE Launch Invite** to the Email Catalog so management can preview the exact email operators receive.
+The pinned banner above each conversation becomes more compact and adds a proper way to browse all pinned messages when a thread accumulates several.
 
-**File:** `src/components/management/EmailCatalog.tsx`
+**Compact banner (always visible when ≥1 pin)**
+- Single-line header showing a pin icon, the count (e.g. "3 Pinned"), and a "View all" link on the right.
+- Below it, a one-line preview of the most recent pin only (truncated with "…").
+- Clicking the preview jumps to that message in the thread (existing behavior).
+- Staff still see a small "X" to unpin the most recent pin inline.
 
-- New entry under the **Invitations** category, id `welcome_superdrive`.
-- Subject: `Welcome to SUPERDRIVE — Your Operator App Is Ready`
-- `renderHtml()` mirrors the edge function's `buildWelcomeEmailHtml()` exactly: greeting, intro, gold CTA button, six feature cards (Inspection Binder, Settlement Forecast, My Truck, Dispatch Status, Direct Messages, Payroll Calendar), dark "Install on your phone" callout with iOS/Android steps, and signoff. Uses the existing local `buildEmail()` helper for header/footer/branding consistency. Sample recovery URL `#preview` is used in the CTA.
+**"View all pinned" sheet (opens from the banner)**
+- A side sheet (right-side on desktop, bottom on mobile) listing every pinned message in the thread, newest first.
+- Each row shows: sender name, sent date, message body (or attachment name with paperclip icon), and the time it was pinned.
+- Click a row → sheet closes, thread jumps to that message and briefly highlights it (uses the existing `jumpToMessage` highlight).
+- Staff get an "Unpin" button on each row.
+- Empty state isn't needed (sheet only opens when pins exist).
 
----
+## Why this is better than today
 
-## Phase 2 — Messaging Upgrades
+Today's banner shows up to 3 pins inline with a "+ N more" line that isn't clickable, so anything beyond the third pin is invisible. The new design keeps the header out of the way (1–2 lines) and gives a dedicated, scrollable surface for the full list.
 
-Note: **Read receipts ("Seen" indicator) are already live** in both staff and operator messaging views — no work needed there. Below are the new upgrades you selected.
+## Technical notes
 
-### Schema changes (one migration)
+- New component: `src/components/messaging/PinnedMessagesSheet.tsx` using the existing shadcn `Sheet` primitive (`side="right"` on `md+`, `side="bottom"` on mobile via the same `Sheet` with responsive class on `SheetContent`).
+- Update `src/components/messaging/MessageThread.tsx`:
+  - Replace the current 3-pin list with the compact single-line preview + "View all" trigger.
+  - Add local `pinnedSheetOpen` state and render `<PinnedMessagesSheet>`.
+  - Pass `pinned`, `isStaff`, `togglePin`, and a `jumpToMessage` wrapper that closes the sheet first.
+- Sender display name: re-use the same lookup pattern as `MessageBubble` (the bubble already resolves names via the parent — we'll fetch a small `profiles` map keyed on sender_id inside the sheet, or pass an existing `nameForUserId(id)` helper if `MessageThread` already has one). If no helper exists, the sheet will do its own one-shot `profiles` query for the unique sender IDs in the pin list.
+- No DB, RLS, or edge-function changes — purely UI on top of existing `messages.pinned_at` + `pinned_by` data.
+- Highlight reuse: `jumpToMessage` already scrolls + flashes the bubble; the sheet just calls it after closing.
 
-Add columns to `public.messages`:
-- `edited_at timestamptz` — set when sender edits; UI shows "(edited)"
-- `deleted_at timestamptz` — soft-delete; UI replaces body with "Message deleted"
-- `reply_to_id uuid REFERENCES messages(id)` — for quoted replies
-- `attachment_url text`, `attachment_type text`, `attachment_name text` — single attachment per message
-- `pinned_at timestamptz`, `pinned_by uuid` — only staff/management can pin
+## Files
 
-New table `public.message_reactions`:
-- `id, message_id (FK), user_id, emoji text, created_at`
-- Unique on `(message_id, user_id, emoji)` so each user can only apply each emoji once
-- Realtime enabled
-- RLS: any thread participant can SELECT; users can INSERT/DELETE their own reactions
-
-New storage bucket `message-attachments` (private):
-- RLS: only sender + recipient of the parent message can read; sender can upload
-- 20 MB limit; allow images and PDFs
-
-Update `messages` RLS:
-- UPDATE policy expanded so sender can edit/delete their own message (within 5 min for edits, anytime for soft-delete)
-- Staff/management can pin/unpin any message in threads they participate in
-
-### Realtime channel for typing indicators
-
-Use a Supabase Realtime **presence/broadcast channel** keyed by `thread_id`. No DB write — purely ephemeral. Each client broadcasts `typing: true` while the user types (debounced) and `typing: false` after 3s idle.
-
-### UI work
-
-**`OperatorMessagesView.tsx` and `MessagesView.tsx`** (mirror changes to both):
-
-1. **Typing indicator** — subscribe to the thread's broadcast channel; show "Jane is typing…" with animated dots beneath the message list.
-2. **Reactions** — long-press (mobile) / hover-and-click (desktop) opens a small emoji picker (👍 ❤️ ✅ 😂 🔥 🙏). Reactions render as chips below each message with counts. Tap an existing chip to toggle your own.
-3. **Reply / quote** — swipe-right on mobile or hover "Reply" button on desktop sets `replyTo` state; composer shows the quoted message with an "x" to cancel. Sent reply renders the quoted snippet above the body and tapping it scrolls to the original.
-4. **Attachments** — paperclip button in composer opens file picker. Image previews render inline; PDFs render as a card with filename and "Open" button using the existing in-app `FilePreviewModal` / `PDFModal` pattern (per `mem://features/in-app-document-viewer`).
-5. **Edit / delete own messages** — three-dot menu on own messages: "Edit" (within 5 min, opens inline editor), "Delete" (soft-delete with confirm). Edited messages show "(edited)" next to the timestamp; deleted messages show "Message deleted" in muted text.
-6. **Pin messages** — staff-only three-dot option "Pin to top". Pinned message renders as a sticky banner at the top of the thread with "Unpin" button. Only one pinned message per thread (newest pin replaces previous).
-
-### Push / email notifications for new DMs
-
-New edge function `notify-new-message`:
-- Triggered by a database trigger on `messages` INSERT
-- Resolves recipient's notification preferences (existing `notification_preferences` table, new event_type `'direct_message'`)
-- If recipient is online (presence channel active in last 60s) → skip email, in-app only
-- If offline → insert in-app notification AND send a branded "New message from [sender]" email via the existing `_shared/email-layout.ts` `buildEmail()` helper, with a deep link to `/operator?tab=messages` or `/staff?messages=[user_id]`
-- Throttled: at most one email per sender→recipient pair per 15 minutes (avoid spam during active threads)
-
-Add `direct_message` toggle to:
-- `OperatorNotificationPreferencesModal.tsx`
-- `StaffNotificationPreferencesModal.tsx`
-
-Add a matching preview entry in the Email Catalog under **Notifications** category.
-
----
-
-## Suggested rollout order
-
-1. Phase 1 (Email Catalog entry) — ship immediately, low risk.
-2. Phase 2a (schema migration + storage bucket + RLS).
-3. Phase 2b (typing indicators + reactions + reply/quote + edit/delete + pin) — UI-only, both views in parallel.
-4. Phase 2c (attachments) — slightly more involved due to upload + preview wiring.
-5. Phase 2d (DM notifications: trigger + edge function + preferences toggle + catalog preview).
-
-Each phase is independently shippable. Ready to start with Phase 1 and Phase 2a together if you approve.
+- `src/components/messaging/MessageThread.tsx` — slim down banner, add sheet trigger.
+- `src/components/messaging/PinnedMessagesSheet.tsx` — new component.

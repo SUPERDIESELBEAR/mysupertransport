@@ -4,8 +4,8 @@ import { ArrowLeft, MessageSquare, Pin, X } from 'lucide-react';
 import { useMessageThread } from './useMessageThread';
 import { MessageBubble } from './MessageBubble';
 import { MessageComposer } from './MessageComposer';
+import { PinnedMessagesSheet } from './PinnedMessagesSheet';
 import { ChatMessage } from './types';
-import { cn } from '@/lib/utils';
 
 interface MessageThreadProps {
   myUserId: string | null;
@@ -39,6 +39,7 @@ export function MessageThread({
   isStaff, onBack, placeholder, onIncomingMessage, onMessagesChanged, onMessageSent,
 }: MessageThreadProps) {
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const [pinnedSheetOpen, setPinnedSheetOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -67,7 +68,13 @@ export function MessageThread({
   // Reset reply-target when switching threads
   useEffect(() => { setReplyTo(null); }, [otherUserId]);
 
-  const pinned = useMemo(() => messages.filter(m => m.pinned_at && !m.deleted_at), [messages]);
+  const pinned = useMemo(
+    () => messages
+      .filter(m => m.pinned_at && !m.deleted_at)
+      .sort((a, b) => new Date(b.pinned_at ?? 0).getTime() - new Date(a.pinned_at ?? 0).getTime()),
+    [messages],
+  );
+  const latestPin = pinned[0];
   const reactionsByMsg = useMemo(() => {
     const map = new Map<string, typeof reactions>();
     for (const r of reactions) {
@@ -123,43 +130,52 @@ export function MessageThread({
       </div>
 
       {/* Pinned banner */}
-      {pinned.length > 0 && (
+      {pinned.length > 0 && latestPin && (
         <div className="px-5 py-2 border-b border-border bg-primary/5 shrink-0">
           <div className="flex items-center gap-2">
             <Pin className="h-3 w-3 text-primary fill-primary shrink-0" />
             <span className="text-[10px] font-semibold text-primary uppercase tracking-wide">
               {pinned.length} Pinned
             </span>
+            <button
+              type="button"
+              onClick={() => setPinnedSheetOpen(true)}
+              className="ml-auto text-[10px] font-semibold text-primary hover:underline uppercase tracking-wide"
+            >
+              View all
+            </button>
           </div>
-          <div className="mt-1 space-y-1 max-h-24 overflow-y-auto">
-            {pinned.slice(0, 3).map(p => (
+          <div className="mt-1 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => jumpToMessage(latestPin.id)}
+              className="text-[11px] text-foreground/80 truncate flex-1 text-left hover:text-foreground"
+            >
+              {latestPin.body?.trim() || (latestPin.attachment_name ?? 'Attachment')}
+            </button>
+            {isStaff && (
               <button
-                key={p.id}
                 type="button"
-                onClick={() => jumpToMessage(p.id)}
-                className="w-full text-left flex items-start gap-2 group"
+                onClick={e => { e.stopPropagation(); void togglePin(latestPin); }}
+                className="opacity-50 hover:opacity-100 shrink-0"
+                aria-label="Unpin most recent"
               >
-                <span className="text-[11px] text-foreground/80 truncate flex-1 group-hover:text-foreground">
-                  {p.body || (p.attachment_name ?? 'Attachment')}
-                </span>
-                {isStaff && (
-                  <button
-                    type="button"
-                    onClick={e => { e.stopPropagation(); void togglePin(p); }}
-                    className="opacity-50 hover:opacity-100"
-                    aria-label="Unpin"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
+                <X className="h-3 w-3" />
               </button>
-            ))}
-            {pinned.length > 3 && (
-              <p className="text-[10px] text-muted-foreground italic">+ {pinned.length - 3} more</p>
             )}
           </div>
         </div>
       )}
+
+      <PinnedMessagesSheet
+        open={pinnedSheetOpen}
+        onOpenChange={setPinnedSheetOpen}
+        pinned={pinned}
+        myUserId={myUserId}
+        isStaff={isStaff}
+        onJumpToMessage={jumpToMessage}
+        onUnpin={togglePin}
+      />
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3 min-h-0">
