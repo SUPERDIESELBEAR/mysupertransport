@@ -1,7 +1,8 @@
-import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText, Truck, ArrowRight, Upload, Mail, Phone, Hash, User, CalendarClock, ShieldAlert, X, CreditCard, Download, Eye } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, AlertTriangle, Shield, FileCheck, FileText, Truck, ArrowRight, Upload, Mail, Phone, Hash, User, CalendarClock, ShieldAlert, X, CreditCard, Download, Eye, BookOpen, ChevronDown } from 'lucide-react';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useState } from 'react';
 import OnboardingChecklist from '@/components/operator/OnboardingChecklist';
 import SmartProgressWidget from '@/components/operator/SmartProgressWidget';
@@ -45,6 +46,7 @@ interface OperatorStatusPageProps {
   unackedRequiredDocs?: number;
   assignedCoordinator?: { name: string; phone: string | null; userId?: string | null; avatarUrl?: string | null } | null;
   onMessageCoordinator?: () => void;
+  onOpenBinder?: (mode?: 'list' | 'pages') => void;
 }
 
 const STAGE_ICONS: Record<number, React.ReactNode> = {
