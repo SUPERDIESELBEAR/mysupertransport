@@ -800,19 +800,45 @@ export default function OperatorStatusPage({
                 <p className="text-surface-dark-muted text-xs mt-1 leading-snug">
                   Show this at any DOT roadside inspection. Tap below to open instantly.
                 </p>
-                <div className="flex items-center gap-1.5 mt-2">
-                  {(cdlLevel === 'expired' || cdlLevel === 'yellow' || medLevel === 'expired' || medLevel === 'yellow') ? (
-                    <>
-                      <span className="h-2 w-2 rounded-full bg-destructive shrink-0" />
-                      <span className="text-xs font-semibold text-destructive">Document expiring soon — renew now</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="h-2 w-2 rounded-full bg-status-complete shrink-0" />
-                      <span className="text-xs font-semibold text-status-complete">All documents current</span>
-                    </>
-                  )}
-                </div>
+                {(() => {
+                  const expiring = [
+                    { label: 'CDL License', days: cdlDays, level: cdlLevel, date: cdlExpiration },
+                    { label: 'Medical Certificate', days: medDays, level: medLevel, date: medicalCertExpiration },
+                  ].filter(d => d.level !== null && d.level !== 'green');
+
+                  if (expiring.length === 0) {
+                    return (
+                      <div className="flex items-center gap-1.5 mt-2">
+                        <span className="h-2 w-2 rounded-full bg-status-complete shrink-0" />
+                        <span className="text-xs font-semibold text-status-complete">All documents current</span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="mt-2.5 rounded-lg border border-destructive/30 bg-destructive/10 divide-y divide-destructive/20 overflow-hidden">
+                      <div className="px-2.5 py-1 flex items-center gap-1.5">
+                        <AlertTriangle className="h-3 w-3 text-destructive" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-destructive">Expiring Soon</span>
+                      </div>
+                      {expiring.map(doc => {
+                        const isExpired = doc.level === 'expired';
+                        return (
+                          <div key={doc.label} className="px-2.5 py-1.5 flex items-center justify-between gap-2">
+                            <div className="min-w-0 flex items-center gap-1.5">
+                              <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${isExpired ? 'bg-destructive' : doc.level === 'yellow' ? 'bg-warning' : 'bg-warning'}`} />
+                              <span className="text-xs font-semibold text-white truncate">{doc.label}</span>
+                              <span className="text-[11px] text-surface-dark-muted truncate">· {formatExpiry(doc.date)}</span>
+                            </div>
+                            <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded ${isExpired ? 'bg-destructive/20 text-destructive border border-destructive/40' : 'bg-warning/20 text-warning border border-warning/40'}`}>
+                              {daysLabel(doc.days)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
