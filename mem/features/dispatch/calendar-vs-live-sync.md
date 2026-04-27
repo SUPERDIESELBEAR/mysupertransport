@@ -18,3 +18,5 @@ The Dispatch Hub uses two related tables:
 **Excluded operators** (`operators.excluded_from_dispatch = true`) — MiniDispatchCalendar shows an empty-state notice instead of the grid; calendar writes never happen. The reconciliation/backfill SQL also filters them out.
 
 **Today-cell visual cue:** gold ring (`ring-1 ring-gold/60`) + `title="Setting status here also updates the live Dispatch Hub"` on hover.
+
+**Daily rollover (automated):** Edge function `rollover-dispatch-status` runs twice every morning via pg_cron (`5 5 * * *` and `5 6 * * *` UTC = 00:05 + 01:05 America/Chicago, covering CST/CDT) and promotes today's `dispatch_daily_log` row into `active_dispatch` for each non-excluded operator. Skip-if-equal makes the second run a no-op and prevents duplicate history rows. Operators with no today-row in `dispatch_daily_log` are left untouched. This closes the gap where statuses pre-filled for future dates would never reach the live cards after midnight.
