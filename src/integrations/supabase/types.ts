@@ -1575,6 +1575,27 @@ export type Database = {
           },
         ]
       }
+      message_notification_throttle: {
+        Row: {
+          last_notified_at: string
+          recipient_id: string
+          sender_id: string
+          unread_count: number
+        }
+        Insert: {
+          last_notified_at?: string
+          recipient_id: string
+          sender_id: string
+          unread_count?: number
+        }
+        Update: {
+          last_notified_at?: string
+          recipient_id?: string
+          sender_id?: string
+          unread_count?: number
+        }
+        Relationships: []
+      }
       message_reactions: {
         Row: {
           created_at: string
