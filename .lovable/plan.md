@@ -1,152 +1,82 @@
-## Launch SUPERDRIVE Invite — Implementation Plan
+# Welcome Email Preview + Messaging Upgrades
 
-A one-time onboarding launch email for the **35 active pre-existing operators** who were added directly into the dashboard (no application), with **three independent ways to send it**: one-at-a-time, hand-picked batch, or send-to-all.
+## Phase 1 — Email Catalog Entry (quick, ~1 file)
 
----
-
-### 1. New Email Template — `welcome-superdrive.tsx`
-
-**Location:** `supabase/functions/_shared/email-templates/welcome-superdrive.tsx`
-
-A branded React Email template matching the existing six auth templates (gold `#C9A84C` accent bar, SUPERTRANSPORT wordmark, Inter font, white background).
-
-**Content sections:**
-1. **Hero**: "Welcome to SUPERDRIVE" + personalized greeting (`Hi {firstName}`)
-2. **Intro paragraph**: Briefly explains SUPERTRANSPORT built a dedicated app for its operators
-3. **Feature highlight cards** (icon + title + 1-line description) for:
-   - 🔍 **Inspection Binder** — Carry your DOT binder in your pocket
-   - 💰 **Settlement Forecast** — Track your settlements before they post
-   - 🚛 **My Truck** — All your truck info, photos, and registrations
-   - 📍 **Dispatch Status** — Update your status and current load lane
-   - 💬 **Direct Messages** — Talk to dispatch and onboarding staff
-   - 📅 **Payroll Calendar** — Wed–Tue work week + pay dates
-4. **Primary CTA button**: "Set Up Your Password" → recovery link
-5. **Install-as-app callout**: Brief instructions to add SUPERDRIVE to home screen (PWA)
-6. **Footer**: Help line / contact
-
----
-
-### 2. New Edge Function — `launch-superdrive-invite`
-
-**Location:** `supabase/functions/launch-superdrive-invite/index.ts`
-**Config:** `verify_jwt = false` is **NOT** needed — this MUST require auth so only management/owner can invoke it.
-
-**Authorization:** Validate JWT via `getClaims()`, then check the caller has the `owner` or `management` role (using the `.limit(1)` multi-role pattern from existing edge functions).
-
-**Request body:**
-```ts
-{ operator_ids: string[] }   // 1 to N operator UUIDs
-```
-
-**Per-operator logic:**
-1. Look up the operator's email (from `applications` if linked, otherwise from `auth.users` via the `user_id`)
-2. **Idempotency**: Skip if `email_send_log` shows `template_name = 'welcome-superdrive'` for this address sent in the last **30 days** (returned in response so UI can flag it)
-3. Generate a `recovery` link via `supabase.auth.admin.generateLink({ type: 'recovery', email, options: { redirectTo: `${APP_URL}/reset-password` } })`
-4. Enqueue the email through the existing `enqueue_email` RPC into `transactional_emails` queue with `templateName: 'welcome-superdrive'` + `templateData: { firstName, recoveryUrl }`
-5. Insert an `audit_log` entry (`action: 'superdrive_invite_sent'`, entity = operator)
-
-**Response:**
-```ts
-{
-  sent: [{ operator_id, email }],
-  skipped: [{ operator_id, email, reason: 'recently_invited' | 'no_email' | 'no_user_account' }],
-  failed: [{ operator_id, error }]
-}
-```
-
----
-
-### 3. New UI — `LaunchSuperdriveDialog.tsx`
-
-**Location:** `src/components/management/LaunchSuperdriveDialog.tsx`
-
-A modal that lists all eligible pre-existing operators (`is_active = true`, `skip_invite = true`) with:
-
-- **Search bar** (filter by name)
-- **Filter pills**: "Never invited" / "Invited 30+ days ago" / "All eligible"
-- **Per-row checkbox** + name + email + last-invited badge ("Invited 12 days ago" if applicable, with cooldown lock)
-- **Select All / Deselect All / Select Never-Invited** buttons (top of list)
-- **Selection counter**: "3 of 35 selected"
-- **Send button** (disabled when 0 selected) → calls `launch-superdrive-invite` with `operator_ids`
-- **Live progress** during send (sent / skipped / failed counts)
-- **Result summary** with collapsible sections per outcome
-
-Mobile-responsive following the established `max-h-[90dvh]` pattern.
-
----
-
-### 4. Entry Points (Three Send Modes)
-
-| Mode | Where | Trigger |
-|---|---|---|
-| **One-at-a-time** | `src/pages/staff/OperatorDetailPanel.tsx` | New "Send SUPERDRIVE Invite" button (gold, secondary) in the operator's action area. Visible only to management/owner, only when operator is pre-existing (`skip_invite = true`). Calls the same edge function with `operator_ids: [operator.id]`. Shows last-invited timestamp. |
-| **Hand-picked batch** | `src/components/drivers/DriverHubView.tsx` | New "Launch SUPERDRIVE" button in the header (visible to management/owner only) → opens `LaunchSuperdriveDialog` with checkboxes for hand-picking |
-| **Send to all** | Same dialog | "Select All" → "Send" |
-
----
-
-### 5. Email Catalog Preview
+Add the **SUPERDRIVE Launch Invite** to the Email Catalog so management can preview the exact email operators receive.
 
 **File:** `src/components/management/EmailCatalog.tsx`
 
-Add a new entry "Welcome to SUPERDRIVE (Launch Invite)" in the existing catalog with:
-- Description, trigger ("Manually sent by management"), recipient ("Pre-existing operators")
-- Live HTML preview (rendered the same way the other six auth templates are previewed)
+- New entry under the **Invitations** category, id `welcome_superdrive`.
+- Subject: `Welcome to SUPERDRIVE — Your Operator App Is Ready`
+- `renderHtml()` mirrors the edge function's `buildWelcomeEmailHtml()` exactly: greeting, intro, gold CTA button, six feature cards (Inspection Binder, Settlement Forecast, My Truck, Dispatch Status, Direct Messages, Payroll Calendar), dark "Install on your phone" callout with iOS/Android steps, and signoff. Uses the existing local `buildEmail()` helper for header/footer/branding consistency. Sample recovery URL `#preview` is used in the CTA.
 
 ---
 
-### 6. Audit Trail
+## Phase 2 — Messaging Upgrades
 
-Each send writes to `audit_log`:
-- `action`: `superdrive_invite_sent`
-- `entity_type`: `operator`
-- `entity_label`: operator's name
-- `metadata`: `{ template: 'welcome-superdrive', email, recovery_link_generated: true }`
+Note: **Read receipts ("Seen" indicator) are already live** in both staff and operator messaging views — no work needed there. Below are the new upgrades you selected.
 
-This shows up in the existing Activity Log UI automatically.
+### Schema changes (one migration)
+
+Add columns to `public.messages`:
+- `edited_at timestamptz` — set when sender edits; UI shows "(edited)"
+- `deleted_at timestamptz` — soft-delete; UI replaces body with "Message deleted"
+- `reply_to_id uuid REFERENCES messages(id)` — for quoted replies
+- `attachment_url text`, `attachment_type text`, `attachment_name text` — single attachment per message
+- `pinned_at timestamptz`, `pinned_by uuid` — only staff/management can pin
+
+New table `public.message_reactions`:
+- `id, message_id (FK), user_id, emoji text, created_at`
+- Unique on `(message_id, user_id, emoji)` so each user can only apply each emoji once
+- Realtime enabled
+- RLS: any thread participant can SELECT; users can INSERT/DELETE their own reactions
+
+New storage bucket `message-attachments` (private):
+- RLS: only sender + recipient of the parent message can read; sender can upload
+- 20 MB limit; allow images and PDFs
+
+Update `messages` RLS:
+- UPDATE policy expanded so sender can edit/delete their own message (within 5 min for edits, anytime for soft-delete)
+- Staff/management can pin/unpin any message in threads they participate in
+
+### Realtime channel for typing indicators
+
+Use a Supabase Realtime **presence/broadcast channel** keyed by `thread_id`. No DB write — purely ephemeral. Each client broadcasts `typing: true` while the user types (debounced) and `typing: false` after 3s idle.
+
+### UI work
+
+**`OperatorMessagesView.tsx` and `MessagesView.tsx`** (mirror changes to both):
+
+1. **Typing indicator** — subscribe to the thread's broadcast channel; show "Jane is typing…" with animated dots beneath the message list.
+2. **Reactions** — long-press (mobile) / hover-and-click (desktop) opens a small emoji picker (👍 ❤️ ✅ 😂 🔥 🙏). Reactions render as chips below each message with counts. Tap an existing chip to toggle your own.
+3. **Reply / quote** — swipe-right on mobile or hover "Reply" button on desktop sets `replyTo` state; composer shows the quoted message with an "x" to cancel. Sent reply renders the quoted snippet above the body and tapping it scrolls to the original.
+4. **Attachments** — paperclip button in composer opens file picker. Image previews render inline; PDFs render as a card with filename and "Open" button using the existing in-app `FilePreviewModal` / `PDFModal` pattern (per `mem://features/in-app-document-viewer`).
+5. **Edit / delete own messages** — three-dot menu on own messages: "Edit" (within 5 min, opens inline editor), "Delete" (soft-delete with confirm). Edited messages show "(edited)" next to the timestamp; deleted messages show "Message deleted" in muted text.
+6. **Pin messages** — staff-only three-dot option "Pin to top". Pinned message renders as a sticky banner at the top of the thread with "Unpin" button. Only one pinned message per thread (newest pin replaces previous).
+
+### Push / email notifications for new DMs
+
+New edge function `notify-new-message`:
+- Triggered by a database trigger on `messages` INSERT
+- Resolves recipient's notification preferences (existing `notification_preferences` table, new event_type `'direct_message'`)
+- If recipient is online (presence channel active in last 60s) → skip email, in-app only
+- If offline → insert in-app notification AND send a branded "New message from [sender]" email via the existing `_shared/email-layout.ts` `buildEmail()` helper, with a deep link to `/operator?tab=messages` or `/staff?messages=[user_id]`
+- Throttled: at most one email per sender→recipient pair per 15 minutes (avoid spam during active threads)
+
+Add `direct_message` toggle to:
+- `OperatorNotificationPreferencesModal.tsx`
+- `StaffNotificationPreferencesModal.tsx`
+
+Add a matching preview entry in the Email Catalog under **Notifications** category.
 
 ---
 
-### 7. Files Created / Modified
+## Suggested rollout order
 
-**New files (4):**
-- `supabase/functions/_shared/email-templates/welcome-superdrive.tsx`
-- `supabase/functions/launch-superdrive-invite/index.ts`
-- `src/components/management/LaunchSuperdriveDialog.tsx`
-- (No new pages — entry points hook into existing views)
+1. Phase 1 (Email Catalog entry) — ship immediately, low risk.
+2. Phase 2a (schema migration + storage bucket + RLS).
+3. Phase 2b (typing indicators + reactions + reply/quote + edit/delete + pin) — UI-only, both views in parallel.
+4. Phase 2c (attachments) — slightly more involved due to upload + preview wiring.
+5. Phase 2d (DM notifications: trigger + edge function + preferences toggle + catalog preview).
 
-**Modified files (3):**
-- `src/components/drivers/DriverHubView.tsx` — Add "Launch SUPERDRIVE" header button + dialog
-- `src/pages/staff/OperatorDetailPanel.tsx` — Add per-operator "Send SUPERDRIVE Invite" button
-- `src/components/management/EmailCatalog.tsx` — Add catalog entry + preview
-
-**No DB migration needed** — uses existing `transactional_emails` queue, `email_send_log`, `audit_log`, and `auth.users`.
-
----
-
-### 8. DNS / Sender Address
-
-DNS for `notify.mysupertransport.com` is still verifying. The launch button will be **fully functional immediately** — emails will queue and send the moment you click. Until DNS goes green, they'll send from the default Lovable sender; once verified, they'll automatically switch to `welcome@notify.mysupertransport.com` with no code change.
-
-You can:
-- **Build now, send now** — emails go out from the default sender (still branded, just default From address)
-- **Build now, send after DNS verifies** — recommended; everything ready to fire as soon as DNS is green
-
----
-
-### 9. Safety Rails
-
-- **Authorization**: Only management/owner can invoke
-- **30-day idempotency**: Prevents accidental double-sends
-- **Per-row badges**: Operators recently invited show a lock icon with cooldown countdown
-- **Send-to-self test**: You can send to your own management email first by selecting yourself if you appear in the eligible list — recommended as the first send
-- **No bulk loop in client code**: The client passes an array; the edge function loops server-side (clean, auditable, idempotent)
-
----
-
-### Recommended First Use Sequence
-1. Open **Launch SUPERDRIVE** dialog → select **2–3 trusted operators** → Send
-2. Confirm they receive the email, click the button, set their password, and land in SUPERDRIVE
-3. Return to the dialog → **Select All** (remaining ones, the already-sent will be locked) → Send
-
-Ready to build on approval.
+Each phase is independently shippable. Ready to start with Phase 1 and Phase 2a together if you approve.

@@ -406,6 +406,66 @@ const TEMPLATES: EmailTemplate[] = [
     ),
   },
 
+  {
+    id: 'welcome_superdrive',
+    category: 'invitations',
+    title: 'SUPERDRIVE Launch Invite (Pre-existing Operators)',
+    subject: 'Welcome to SUPERDRIVE — Your Operator App Is Ready',
+    recipient: 'operator',
+    sender: `${BRAND_NAME} <${ONBOARDING_EMAIL}>`,
+    renderHtml: () => {
+      const recoveryUrl = '#preview';
+      const featureCard = (icon: string, title: string, desc: string) => `
+        <div style="background:#FAF8F2;border:1px solid #EDE6CF;border-radius:10px;padding:18px;margin:0 0 12px;">
+          <p style="margin:0 0 6px;color:${BRAND_DARK};font-size:15px;font-weight:700;">${icon} ${title}</p>
+          <p style="margin:0;color:#444;font-size:14px;line-height:1.6;">${desc}</p>
+        </div>`;
+
+      const features = [
+        featureCard('🔍', 'Inspection Binder', 'Carry your DOT binder in your pocket. CDL, medical card, truck title, inspection report — all one tap away at the scale house.'),
+        featureCard('💰', 'Settlement Forecast', "Track projected take-home before settlement day. Add expected loads, log expenses, see your weekly net in real time."),
+        featureCard('🚛', 'My Truck', 'Truck specs, photos, plate, VIN, ELD, BestPass, dash cam — logged and ready when dispatch or DOT asks.'),
+        featureCard('📍', 'Dispatch Status', 'Update your status (available, on-load, truck-down) and see where your next load is going the moment it\'s assigned.'),
+        featureCard('💬', 'Direct Messages', 'Talk one-on-one to dispatch and onboarding without group-text noise.'),
+        featureCard('📅', 'Payroll Calendar', 'Wednesday-to-Tuesday work weeks, pay dates, and settlement PDFs always in reach.'),
+      ].join('');
+
+      const installCallout = `
+        <div style="background:#0f1117;border-radius:10px;padding:20px;margin:24px 0 0;">
+          <p style="margin:0 0 10px;color:${BRAND_COLOR};font-size:14px;font-weight:700;letter-spacing:1px;">📱 INSTALL ON YOUR PHONE</p>
+          <p style="margin:0 0 14px;color:#cfcfcf;font-size:13px;line-height:1.6;">After setting your password, install SUPERDRIVE to your home screen for one-tap access:</p>
+          <p style="margin:0 0 6px;color:#fff;font-size:13px;line-height:1.5;"><strong>iPhone (Safari):</strong> Tap Share → "Add to Home Screen"</p>
+          <p style="margin:0;color:#fff;font-size:13px;line-height:1.5;"><strong>Android (Chrome):</strong> Tap menu (⋮) → "Install app"</p>
+        </div>`;
+
+      const body = `
+        <p style="margin:0 0 14px;">Hi ${SAMPLE_NAME},</p>
+        <p>You've been driving with SUPERTRANSPORT for a while — and we built something for you. <strong>SUPERDRIVE</strong> is your new operator app. Your truck, your settlements, your documents — all in one place, always with you.</p>
+        <p style="margin:0 0 22px;">Click the button below to set your password and open SUPERDRIVE for the first time.</p>
+
+        <div style="text-align:center;margin:28px 0;">
+          <a href="${recoveryUrl}" style="background:${BRAND_COLOR};color:${BRAND_DARK};padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">
+            Set Your Password &amp; Open SUPERDRIVE
+          </a>
+        </div>
+
+        <p style="margin:30px 0 14px;color:${BRAND_DARK};font-size:16px;font-weight:700;">Here's what's waiting for you:</p>
+        ${features}
+        ${installCallout}
+
+        <p style="margin:28px 0 0;color:#777;font-size:13px;line-height:1.6;">Questions? Just reply to this email — we're here.<br/>— The SUPERTRANSPORT team</p>
+      `;
+
+      return buildEmail(
+        'Welcome to SUPERDRIVE — Your Operator App Is Ready',
+        `Welcome to SUPERDRIVE, ${SAMPLE_NAME}`,
+        body,
+        undefined,
+        ONBOARDING_EMAIL
+      );
+    },
+  },
+
   // ── Compliance Reminders ───────────────────────────────────────────────────
   {
     id: 'cert_expiry_60d_operator',
