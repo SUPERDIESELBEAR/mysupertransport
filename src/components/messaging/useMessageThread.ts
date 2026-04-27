@@ -246,6 +246,12 @@ export function useMessageThread({
     const msg = inserted as ChatMessage;
     setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
     notifyStoppedTyping();
+
+    // Fire-and-forget: notify the recipient (in-app + throttled email if offline)
+    supabase.functions
+      .invoke('notify-new-message', { body: { message_id: msg.id } })
+      .catch(e => console.warn('[notify-new-message] invoke error:', e));
+
     return msg;
   }, [myUserId, otherUserId, notifyStoppedTyping]);
 
