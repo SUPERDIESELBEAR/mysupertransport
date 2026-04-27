@@ -74,6 +74,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     if (tab && ['progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'].includes(tab)) return tab;
     return 'progress';
   });
+  // Sub-view for the inspection binder (list vs flipbook pages); driven via ?binderView=pages
+  const [binderView, setBinderView] = useState<'list' | 'pages' | undefined>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const bv = params.get('binderView');
+    return bv === 'pages' ? 'pages' : undefined;
+  });
   const [paySetupData, setPaySetupData] = useState<{ submitted_at: string | null; terms_accepted: boolean } | null>(null);
 
   // Desktop push notifications for high-priority events
@@ -86,6 +92,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab') as OperatorView | null;
     if (tab && ['progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'].includes(tab)) setView(tab);
+    const bv = params.get('binderView');
+    setBinderView(bv === 'pages' ? 'pages' : undefined);
   }, [location.search]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [operatorId, setOperatorId] = useState<string | null>(null);
@@ -696,7 +704,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     { view: 'progress' as OperatorView, label: 'My Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
     { view: 'documents' as OperatorView, label: 'Documents', icon: <Upload className="h-5 w-5" /> },
     { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
-    { view: 'inspection-binder' as OperatorView, label: 'Inspection Binder', icon: <Shield className="h-5 w-5" /> },
+    { view: 'inspection-binder' as OperatorView, label: 'Inspection Binder', icon: <Shield className="h-5 w-5" />, pillBadge: isFullyOnboarded ? 'DOT' : undefined },
     { view: 'my-docs' as OperatorView, label: 'My Documents', icon: <FolderOpen className="h-5 w-5" /> },
     { view: 'my-truck' as OperatorView, label: 'My Truck', icon: <Truck className="h-5 w-5" /> },
     { view: 'resource-center' as OperatorView, label: 'Resource Center', icon: <BookOpen className="h-5 w-5" /> },
@@ -818,6 +826,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                     )}
                   </span>
                   {item.label}
+                  {'pillBadge' in item && item.pillBadge && (
+                    <span className="ml-1 px-1.5 py-0.5 rounded bg-gold/20 text-gold text-[9px] font-bold uppercase tracking-wider border border-gold/30">
+                      {item.pillBadge as string}
+                    </span>
+                  )}
                 </button>
               );
               if (showExpiry) {
@@ -1153,6 +1166,16 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 }
                 setView('messages');
               }}
+              onOpenBinder={(mode) => {
+                setView('inspection-binder');
+                setBinderView(mode === 'pages' ? 'pages' : undefined);
+                if (!isPreview) {
+                  const next = mode === 'pages'
+                    ? '/operator?tab=inspection-binder&binderView=pages'
+                    : '/operator?tab=inspection-binder';
+                  navigate(next, { replace: false });
+                }
+              }}
             />
 
             {/* ── TRUCK & EQUIPMENT CARD ── */}
@@ -1208,7 +1231,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
         {/* ── INSPECTION BINDER VIEW ── */}
         {view === 'inspection-binder' && effectiveUserId && (
-          <OperatorInspectionBinder userId={effectiveUserId} operatorId={operatorId} />
+          <OperatorInspectionBinder userId={effectiveUserId} operatorId={operatorId} initialViewMode={binderView} />
         )}
 
         {/* ── MY DOCUMENTS VIEW (read-only vault) ── */}
