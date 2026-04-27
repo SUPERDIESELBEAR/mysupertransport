@@ -1575,6 +1575,38 @@ export type Database = {
           },
         ]
       }
+      message_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_templates: {
         Row: {
           body: string
@@ -1604,33 +1636,68 @@ export type Database = {
       }
       messages: {
         Row: {
+          attachment_mime: string | null
+          attachment_name: string | null
+          attachment_size_bytes: number | null
+          attachment_url: string | null
           body: string
+          deleted_at: string | null
+          edited_at: string | null
           id: string
+          pinned_at: string | null
+          pinned_by: string | null
           read_at: string | null
           recipient_id: string
+          reply_to_id: string | null
           sender_id: string
           sent_at: string
           thread_id: string
         }
         Insert: {
+          attachment_mime?: string | null
+          attachment_name?: string | null
+          attachment_size_bytes?: number | null
+          attachment_url?: string | null
           body: string
+          deleted_at?: string | null
+          edited_at?: string | null
           id?: string
+          pinned_at?: string | null
+          pinned_by?: string | null
           read_at?: string | null
           recipient_id: string
+          reply_to_id?: string | null
           sender_id: string
           sent_at?: string
           thread_id?: string
         }
         Update: {
+          attachment_mime?: string | null
+          attachment_name?: string | null
+          attachment_size_bytes?: number | null
+          attachment_url?: string | null
           body?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           id?: string
+          pinned_at?: string | null
+          pinned_by?: string | null
           read_at?: string | null
           recipient_id?: string
+          reply_to_id?: string | null
           sender_id?: string
           sent_at?: string
           thread_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mo_plate_assignments: {
         Row: {
