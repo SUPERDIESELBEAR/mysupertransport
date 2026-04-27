@@ -19,14 +19,21 @@ Deno.serve(async (req) => {
 
     // Verify caller is management
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+    if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user: callerUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    // Validate the caller's JWT using an anon client that carries their token.
+    // Calling getUser() on the service-role admin client does not reliably
+    // validate user JWTs under the new signing-keys system.
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: { user: callerUser }, error: authError } = await userClient.auth.getUser();
     if (authError || !callerUser) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
