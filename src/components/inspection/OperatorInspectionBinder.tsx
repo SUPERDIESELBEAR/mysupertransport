@@ -21,6 +21,7 @@ import BinderFlipbook, { FlipbookPage } from './BinderFlipbook';
 interface Props {
   userId: string;
   operatorId: string | null;
+  initialViewMode?: 'list' | 'pages';
 }
 
 type UploadCategory = 'roadside_inspection_report' | 'repairs_maintenance_receipt' | 'miscellaneous';
@@ -62,7 +63,7 @@ function DriverUploadRow({ upload, onPreview }: { upload: DriverUpload; onPrevie
   );
 }
 
-export default function OperatorInspectionBinder({ userId, operatorId }: Props) {
+export default function OperatorInspectionBinder({ userId, operatorId, initialViewMode }: Props) {
   const { profile, user } = useAuth();
   const { toast } = useToast();
   const { companyOrder, driverOrder } = useBinderOrder();
@@ -77,8 +78,16 @@ export default function OperatorInspectionBinder({ userId, operatorId }: Props) 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const [viewMode, setViewMode] = useState<'list' | 'pages'>('list');
-  const [flipbookOpen, setFlipbookOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'pages'>(initialViewMode ?? 'list');
+  const [flipbookOpen, setFlipbookOpen] = useState(initialViewMode === 'pages');
+
+  // Respond to deep-link changes after mount
+  useEffect(() => {
+    if (initialViewMode === 'pages') {
+      setViewMode('pages');
+      setFlipbookOpen(true);
+    }
+  }, [initialViewMode]);
 
   // In-app file preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
