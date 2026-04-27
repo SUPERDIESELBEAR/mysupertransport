@@ -1166,6 +1166,16 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 }
                 setView('messages');
               }}
+              onOpenBinder={(mode) => {
+                setView('inspection-binder');
+                setBinderView(mode === 'pages' ? 'pages' : undefined);
+                if (!isPreview) {
+                  const next = mode === 'pages'
+                    ? '/operator?tab=inspection-binder&binderView=pages'
+                    : '/operator?tab=inspection-binder';
+                  navigate(next, { replace: false });
+                }
+              }}
             />
 
             {/* ── TRUCK & EQUIPMENT CARD ── */}
