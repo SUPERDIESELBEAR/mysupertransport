@@ -784,57 +784,108 @@ export default function OperatorStatusPage({
         </div>
       )}
 
-      <div className="bg-surface-dark rounded-2xl p-5 shadow-xl">
-        {isFullyOnboarded ? (
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-full bg-status-complete/20 border-2 border-status-complete flex items-center justify-center shrink-0">
-              <CheckCircle2 className="h-7 w-7 text-status-complete" />
+      {isFullyOnboarded ? (
+        <>
+          {/* ── INSPECTION BINDER HERO (post-onboarding primary feature) ── */}
+          <div className="bg-surface-dark rounded-2xl p-5 shadow-xl border border-gold/20">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="h-12 w-12 rounded-xl bg-gold/15 border border-gold/30 flex items-center justify-center shrink-0">
+                <Shield className="h-6 w-6 text-gold" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-lg font-bold text-white leading-tight">Inspection Binder</p>
+                  <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-gold/20 text-gold border border-gold/30">DOT Ready</span>
+                </div>
+                <p className="text-surface-dark-muted text-xs mt-1 leading-snug">
+                  Show this at any DOT roadside inspection. Tap below to open instantly.
+                </p>
+                <div className="flex items-center gap-1.5 mt-2">
+                  {(cdlLevel === 'red' || cdlLevel === 'amber' || medLevel === 'red' || medLevel === 'amber') ? (
+                    <>
+                      <span className="h-2 w-2 rounded-full bg-destructive shrink-0" />
+                      <span className="text-xs font-semibold text-destructive">Document expiring soon — renew now</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="h-2 w-2 rounded-full bg-status-complete shrink-0" />
+                      <span className="text-xs font-semibold text-status-complete">All documents current</span>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
-          <div>
-              <p className="text-lg font-bold text-white">Fully Onboarded!</p>
-              <p className="text-surface-dark-muted text-sm mt-0.5">
-                You're ready to dispatch. Welcome to SUPERTRANSPORT.
-              </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <Button
+                onClick={() => (onOpenBinder ? onOpenBinder('list') : onNavigateTo('inspection-binder'))}
+                className="bg-gold text-surface-dark hover:bg-gold-light h-12 font-bold text-sm gap-2"
+              >
+                <Shield className="h-4 w-4" />
+                Open Binder
+              </Button>
+              <Button
+                onClick={() => (onOpenBinder ? onOpenBinder('pages') : onNavigateTo('inspection-binder'))}
+                variant="outline"
+                className="h-12 font-bold text-sm gap-2 border-gold/40 bg-gold/10 text-gold hover:bg-gold/20 hover:text-gold"
+              >
+                <BookOpen className="h-4 w-4" />
+                Open Flipbook
+              </Button>
             </div>
           </div>
-        ) : (
-          <>
-            <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
-              <div>
-                <p className="text-surface-dark-muted text-xs font-medium uppercase tracking-widest mb-1">Overall Progress</p>
-                <p className="text-4xl font-bold text-gold leading-none">{progressPct}%</p>
-              </div>
-              <div className="text-right">
-                <div className="flex gap-1.5 justify-end mb-1 flex-wrap">
-                  {stages.map(s => (
-                    <div
-                      key={s.number}
-                      className={`h-2 w-5 rounded-full transition-all ${
-                        s.status === 'complete'
-                          ? 'bg-status-complete'
-                          : s.status === 'action_required'
-                          ? 'bg-destructive'
-                          : s.status === 'in_progress'
-                          ? 'bg-gold'
-                          : 'bg-surface-dark-border'
-                      }`}
-                    />
-                  ))}
-                </div>
-                <p className="text-surface-dark-muted text-xs">{completedStages} of {stages.length} complete</p>
-              </div>
-            </div>
 
-            {/* Full progress bar */}
-            <div className="h-2.5 bg-surface-dark-border rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gold rounded-full transition-all duration-700"
-                style={{ width: `${progressPct}%` }}
-              />
+          {/* ── Compact "Fully Onboarded" confirmation ── */}
+          <div className="bg-surface-dark rounded-2xl p-4 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-status-complete/20 border-2 border-status-complete flex items-center justify-center shrink-0">
+                <CheckCircle2 className="h-5 w-5 text-status-complete" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-white">Fully Onboarded</p>
+                <p className="text-surface-dark-muted text-xs mt-0.5">
+                  You're ready to dispatch. Welcome to SUPERTRANSPORT.
+                </p>
+              </div>
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      ) : (
+        <div className="bg-surface-dark rounded-2xl p-5 shadow-xl">
+          <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
+            <div>
+              <p className="text-surface-dark-muted text-xs font-medium uppercase tracking-widest mb-1">Overall Progress</p>
+              <p className="text-4xl font-bold text-gold leading-none">{progressPct}%</p>
+            </div>
+            <div className="text-right">
+              <div className="flex gap-1.5 justify-end mb-1 flex-wrap">
+                {stages.map(s => (
+                  <div
+                    key={s.number}
+                    className={`h-2 w-5 rounded-full transition-all ${
+                      s.status === 'complete'
+                        ? 'bg-status-complete'
+                        : s.status === 'action_required'
+                        ? 'bg-destructive'
+                        : s.status === 'in_progress'
+                        ? 'bg-gold'
+                        : 'bg-surface-dark-border'
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="text-surface-dark-muted text-xs">{completedStages} of {stages.length} complete</p>
+            </div>
+          </div>
+
+          {/* Full progress bar */}
+          <div className="h-2.5 bg-surface-dark-border rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gold rounded-full transition-all duration-700"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── SMART PROGRESS WIDGET ── */}
       {!isFullyOnboarded && (
@@ -849,7 +900,8 @@ export default function OperatorStatusPage({
         />
       )}
 
-      {/* Quick-stats row */}
+      {/* Quick-stats row (hidden post-onboarding to reduce clutter) */}
+      {!isFullyOnboarded && (
       <div className="grid grid-cols-3 gap-2">
         {[
           {
@@ -881,16 +933,43 @@ export default function OperatorStatusPage({
           </div>
         ))}
       </div>
+      )}
 
-      {/* Milestone timeline */}
-      <div>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">Onboarding Stages</h2>
+      {/* Milestone timeline — collapsed into "Onboarding History" once fully onboarded */}
+      {isFullyOnboarded ? (
+        <Collapsible>
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <CollapsibleTrigger className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/40 transition-colors group">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-9 w-9 rounded-lg bg-status-complete/10 border border-status-complete/25 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="h-4 w-4 text-status-complete" />
+                </div>
+                <div className="text-left min-w-0">
+                  <p className="text-sm font-semibold text-foreground leading-tight">Onboarding History</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">All {stages.length} stages complete · tap to review</p>
+                </div>
+              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="px-4 pt-2 pb-4 border-t border-border">
+              <div className="pt-3">
+                {stages.map((stage, idx) => (
+                  <MilestoneNode key={stage.number} stage={stage} isLast={idx === stages.length - 1} onNavigateTo={onNavigateTo} />
+                ))}
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+      ) : (
         <div>
-          {stages.map((stage, idx) => (
-            <MilestoneNode key={stage.number} stage={stage} isLast={idx === stages.length - 1} onNavigateTo={onNavigateTo} />
-          ))}
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">Onboarding Stages</h2>
+          <div>
+            {stages.map((stage, idx) => (
+              <MilestoneNode key={stage.number} stage={stage} isLast={idx === stages.length - 1} onNavigateTo={onNavigateTo} />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Contact footer */}
       <div className="bg-white border border-border rounded-2xl p-5">
