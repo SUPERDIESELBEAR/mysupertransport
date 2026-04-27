@@ -19,5 +19,7 @@ project_id = "qgxpkcudwjmacrdcyvhj"
     verify_jwt = false
   [functions.request-application-resume]
     verify_jwt = false
+  [functions.rollover-dispatch-status]
+    verify_jwt = false
   [functions.send-resource-email]
     verify_jwt = false
