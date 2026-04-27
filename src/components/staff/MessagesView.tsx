@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns';
-import { Send, MessageSquare, Search, User, Circle, CheckCheck, ArrowLeft } from 'lucide-react';
-import { sanitizeText } from '@/lib/sanitize';
+import { format, isToday, isYesterday } from 'date-fns';
+import { MessageSquare, Search, User } from 'lucide-react';
+import { MessageThread } from '@/components/messaging/MessageThread';
+import type { ChatMessage } from '@/components/messaging/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
