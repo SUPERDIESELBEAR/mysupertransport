@@ -5727,9 +5727,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         {/* Stage 7 — Go Live & Dispatch Readiness */}
         {(() => {
           const s7Complete = !!status.go_live_date;
-          const s7Partial = !s7Complete && (status.dispatch_ready_orientation || status.dispatch_ready_consortium || status.dispatch_ready_first_assigned);
           const s7Collapsed = collapsedStages.has('stage7');
-          const checkedCount = [status.dispatch_ready_orientation, status.dispatch_ready_consortium, status.dispatch_ready_first_assigned].filter(Boolean).length;
           return (
             <div ref={el => { stageRefs.current['stage7'] = el; }} className={`bg-white border rounded-xl shadow-sm transition-colors ${s7Complete ? 'border-status-complete' : 'border-border'}`}>
               <button onClick={() => toggleStage('stage7')} className="w-full flex items-center justify-between px-5 py-4 text-left">
@@ -5738,42 +5736,21 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <h3 className="font-semibold text-foreground text-sm">Stage 7 — Go Live & Dispatch Readiness</h3>
                 </div>
                 <div className="flex items-center gap-2">
-                  {s7Complete
-                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Go Live Set</span>
-                    : s7Partial
-                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gold/10 text-gold-muted border border-gold/30"><Clock className="h-3 w-3" />{checkedCount}/3 ready</span>
-                    : null
-                  }
+                  {s7Complete && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-status-complete/10 text-status-complete border border-status-complete/30"><CheckCircle2 className="h-3 w-3" />Go Live Set</span>
+                  )}
                   {s7Collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
                 </div>
               </button>
               {!s7Collapsed && (
                 <div className="px-5 pb-5 space-y-4">
 
-                  {/* Dispatch Readiness Checklist */}
-                  <div className="space-y-3">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Dispatch Readiness Checklist</p>
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input type="checkbox" checked={status.dispatch_ready_orientation ?? false} onChange={e => updateStatus('dispatch_ready_orientation', e.target.checked as any)} className="rounded border-border h-4 w-4" />
-                      <span className="text-xs font-medium text-foreground">Onboarding orientation call completed</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input type="checkbox" checked={status.dispatch_ready_consortium ?? false} onChange={e => updateStatus('dispatch_ready_consortium', e.target.checked as any)} className="rounded border-border h-4 w-4" />
-                      <span className="text-xs font-medium text-foreground">Drug & alcohol consortium enrolled</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input type="checkbox" checked={status.dispatch_ready_first_assigned ?? false} onChange={e => updateStatus('dispatch_ready_first_assigned', e.target.checked as any)} className="rounded border-border h-4 w-4" />
-                      <span className="text-xs font-medium text-foreground">First dispatch assigned</span>
-                    </label>
-                  </div>
-
-                  {/* Go-Live Date & Operator Type */}
+                  {/* Operator Type & Go-Live Date */}
                   <div className="space-y-3">
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1">Go-Live</p>
-                    <StageDatePicker label="Go-Live Date" value={status.go_live_date ?? null} onChange={v => { updateStatus('go_live_date', v); if (v) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage7'); return next; }); } }} />
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Operator Type</Label>
-                      <Select value={status.operator_type ?? ''} onValueChange={v => updateStatus('operator_type', v || null)}>
+                      <Select value={status.operator_type ?? 'solo'} onValueChange={v => updateStatus('operator_type', v || 'solo')}>
                         <SelectTrigger className="h-9 text-sm">
                           <SelectValue placeholder="—" />
                         </SelectTrigger>
@@ -5783,6 +5760,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         </SelectContent>
                       </Select>
                     </div>
+                    <StageDatePicker label="Go-Live Date" value={status.go_live_date ?? null} onChange={v => { updateStatus('go_live_date', v); if (v) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage7'); return next; }); } }} />
                   </div>
 
                   {s7Complete && (
