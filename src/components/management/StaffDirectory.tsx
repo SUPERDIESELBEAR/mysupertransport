@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   UserPlus, RefreshCcw, Mail, Shield, Truck, Users,
   Search, X, ChevronDown, Clock, Settings2, Plus, Minus,
-  AlertTriangle, CheckCircle2, Phone, Trash2, Camera, Loader2
+  AlertTriangle, CheckCircle2, Phone, Trash2, Camera, Loader2, KeyRound
 } from 'lucide-react';
 import DemoLockIcon from '@/components/DemoLockIcon';
 import { formatPhoneInput } from '@/lib/utils';
