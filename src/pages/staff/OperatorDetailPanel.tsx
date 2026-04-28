@@ -1087,6 +1087,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         setStatus(os);
         setStatusId(os.id);
         setChSameAsAI(os.insurance_ch_same_as_ai ?? false);
+        // Default Operator Type to Solo Driver if unset, and persist the default
+        if (!os.operator_type) {
+          os.operator_type = 'solo';
+          setStatus((prev: any) => ({ ...prev, operator_type: 'solo' }));
+          if (os.id) {
+            supabase
+              .from('onboarding_status' as any)
+              .update({ operator_type: 'solo' })
+              .eq('id', os.id)
+              .then(({ error }) => { if (error) console.error('default operator_type backfill failed', error); });
+          }
+        }
         savedSnapshot.current = { status: os, notes: (op as any).notes ?? '' };
         savedMilestones.current = {
           ica_status: os.ica_status ?? '',
