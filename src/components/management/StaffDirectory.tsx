@@ -688,7 +688,7 @@ export default function StaffDirectory() {
       {/* ── Manage Access Modal ── */}
       {managingMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); }} />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); setResetConfirmPending(false); }} />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md animate-scale-in max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-border sticky top-0 bg-white z-10 rounded-t-2xl">
@@ -709,7 +709,7 @@ export default function StaffDirectory() {
                   <p className="text-xs text-muted-foreground">{managingMember.email ?? 'No email'}</p>
                 </div>
               </div>
-              <button onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); }} className="text-muted-foreground hover:text-foreground transition-colors">
+              <button onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); setResetConfirmPending(false); }} className="text-muted-foreground hover:text-foreground transition-colors">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -1280,7 +1280,7 @@ export default function StaffDirectory() {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); setTogglingStatus(false); }}
+                onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); setResetConfirmPending(false); setTogglingStatus(false); }}
               >
                 Done
               </Button>
