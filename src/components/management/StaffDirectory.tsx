@@ -397,6 +397,41 @@ export default function StaffDirectory() {
     }
   };
 
+  const handleSendPasswordReset = async () => {
+    if (!managingMember) return;
+    if (guardDemo()) return;
+    setSendingReset(true);
+    try {
+      const memberName = [managingMember.first_name, managingMember.last_name]
+        .filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
+      const { data, error } = await supabase.functions.invoke('get-staff-list', {
+        method: 'POST',
+        body: {
+          action: 'send_password_reset',
+          user_id: managingMember.user_id,
+          target_name: memberName,
+        },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({
+        title: '✅ Reset link sent',
+        description: `${memberName} will receive a password reset email at ${managingMember.email}. The link expires in 1 hour.`,
+      });
+      setResetConfirmPending(false);
+    } catch (err) {
+      toast({
+        title: 'Failed to send reset link',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingReset(false);
+    }
+  };
+
   const filteredStaff = staff.filter(s => {
     const matchesRole = roleFilter === 'all' || s.roles.includes(roleFilter as AppRole);
     if (!matchesRole) return false;
