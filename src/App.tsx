@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { DemoModeProvider } from "@/hooks/useDemoMode";
 import IdleWarningModal from "@/components/IdleWarningModal";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
+import PWAInstallBannerBoundary from "@/components/PWAInstallBannerBoundary";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 
 // Pages
@@ -120,7 +121,9 @@ const App = () => (
             <AppRoutes />
             <IdleWarningModal />
           </BrowserRouter>
-          <PWAInstallBanner />
+          <PWAInstallBannerBoundary>
+            <PWAInstallBanner />
+          </PWAInstallBannerBoundary>
         </TooltipProvider>
       </DemoModeProvider>
     </AuthProvider>
