@@ -1,46 +1,44 @@
-# Send Password Reset Link from Staff Directory
+## Problem
 
-Give management/owner the ability to email a fresh password recovery link to any staff member directly from the Staff Directory — solving the case where a staff member (e.g. Leo Wallace) cannot get the self-serve "Forgot Password" flow to work.
+Omar opened his invite from Gmail, which launches the link inside Gmail's in-app browser (visible in his screenshot — "◀ Gmail" top-left). He sees the "Install SUPERDRIVE" banner at the bottom of the screen and tries to tap it, but nothing happens.
 
-## What the user will see
+Two root causes:
 
-1. In **Management → Staff Directory**, clicking a staff row opens the existing manage-member modal.
-2. A new **"Send Password Reset Link"** button appears in that modal (next to the existing Deactivate / Delete actions).
-3. Clicking it shows a confirmation dialog: *"Email a password reset link to leo@mysupertransport.com?"*
-4. On confirm:
-   - A toast confirms: *"✅ Reset link sent to Leo Wallace"*
-   - The action is recorded in the audit log
-   - Leo receives the standard branded SUPERTRANSPORT recovery email (1-hour link → `/reset-password`)
-5. Only users with `management` or `owner` role can see/use the button. The button is hidden for the `owner` row (Marcus Mueller) per existing owner-authority rules.
+1. **The banner has no tappable Install button on iOS.** Looking at `PWAInstallBanner.tsx`, on iOS the banner only renders instruction text ("Tap Share then Add to Home Screen") plus an X to dismiss. The download icon on the left looks like a button but isn't clickable. Android/desktop users get an actual "Install" button; iOS users get only text.
 
-## Backend changes
+2. **iOS "Add to Home Screen" only works in Safari.** The Gmail in-app browser (and Facebook, Instagram, etc.) cannot install PWAs at all — there is no Share → Add to Home Screen option there. Omar would need to open the link in Safari first. Today the app does not detect this and gives no guidance.
 
-### Extend `get-staff-list` edge function
-Add a new `action: 'send_password_reset'` branch that:
-- Verifies the caller has `management` or `owner` role (existing pattern in the function)
-- Refuses the action if the target user is the `owner`
-- Looks up the target user's email via `supabaseAdmin.auth.admin.getUserById(user_id)`
-- Calls `supabaseAdmin.auth.admin.generateLink({ type: 'recovery', email, options: { redirectTo: `${APP_URL}/reset-password` } })` — same pattern already used in `resend-invite` and `bootstrap-admin`
-- Supabase auto-sends the recovery email through the existing `auth-email-hook` (uses the branded `recovery.tsx` template — no new template needed)
-- Inserts an `audit_log` row with `action: 'password_reset_sent'`, target user, and actor
-- Returns `{ ok: true }`
+## Proposed Fix
 
-No new edge function, no new template, no DB migration required — everything reuses existing infrastructure.
+### 1. Make the iOS banner tappable
 
-## Frontend changes
+Convert the entire iOS banner into a button that, when tapped, opens a full-screen instructional modal showing the Share → Add to Home Screen steps (visual icons, larger text). This matches what `InstallStep.tsx` already renders on `/install-app` — we can reuse that component or a trimmed variant.
 
-### `src/components/management/StaffDirectory.tsx`
-- Add `handleSendPasswordReset()` handler that invokes `get-staff-list` with `action: 'send_password_reset'`
-- Add a confirmation `AlertDialog` for the action
-- Add the **"Send Password Reset Link"** button inside the existing `managingMember` modal, styled as a secondary action (not destructive)
-- Add a loading state while the request is in flight
-- Hide the button when `managingMember.roles.includes('owner')`
+### 2. Detect in-app browsers and show a "Open in Safari" prompt
 
-## Out of scope
-- Bulk password resets (one-at-a-time only — keeps audit trail clean)
-- Resetting passwords for operators/drivers (this plan covers staff only; can be added later in the operator profile if needed)
-- Setting a manual temp password (the recovery email is more secure)
+Add a UA-based check for common in-app webviews (Gmail, Facebook, Instagram, LinkedIn, Twitter/X, TikTok). When detected on iOS:
+- Replace the install banner content with: "To install SUPERDRIVE, open this page in Safari. Tap the ⋯ menu and choose 'Open in Safari'."
+- Include a copy-link button as a fallback.
 
-## Files touched
-- `supabase/functions/get-staff-list/index.ts` — add `send_password_reset` action
-- `src/components/management/StaffDirectory.tsx` — add UI button, handler, and confirmation dialog
+### 3. Apply the same upgrades to `/install-app` page
+
+The `InstallStep` component used on `/install-app` (which Omar will land on after tapping the resend-invite link) should also detect in-app browsers and show the "open in Safari" guidance up front, before showing the regular instructions.
+
+## Files to Change
+
+- `src/components/PWAInstallBanner.tsx` — make iOS banner tappable, open guidance modal, detect in-app browsers
+- `src/components/InstallStep.tsx` — add in-app browser detection and "Open in Safari" guidance
+- (Optional) `src/lib/pwa.ts` — extract shared helpers `isInAppBrowser()`, `isIOS()`, `isStandalone()` so both components share one source of truth
+
+## Out of Scope
+
+- No backend / email changes — the resend-invite link itself works, this is purely a client-side UX issue
+- No service worker changes
+- Android in-app browsers (Gmail on Android handles installs differently and is less commonly broken; can add later if needed)
+
+## Communication to Omar
+
+Once shipped, suggest he:
+1. Open his Gmail invite
+2. Tap the ⋯ menu in Gmail's browser bar → "Open in Safari" (or long-press the link → "Open in Safari")
+3. Then tap Share → Add to Home Screen
