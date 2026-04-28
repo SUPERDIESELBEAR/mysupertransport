@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   UserPlus, RefreshCcw, Mail, Shield, Truck, Users,
   Search, X, ChevronDown, Clock, Settings2, Plus, Minus,
-  AlertTriangle, CheckCircle2, Phone, Trash2, Camera, Loader2
+  AlertTriangle, CheckCircle2, Phone, Trash2, Camera, Loader2, KeyRound
 } from 'lucide-react';
 import DemoLockIcon from '@/components/DemoLockIcon';
 import { formatPhoneInput } from '@/lib/utils';
@@ -100,6 +100,8 @@ export default function StaffDirectory() {
   const [deleteConfirmPending, setDeleteConfirmPending] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
+  const [resetConfirmPending, setResetConfirmPending] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
   // Avatar upload for managed staff member
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
@@ -395,6 +397,41 @@ export default function StaffDirectory() {
     }
   };
 
+  const handleSendPasswordReset = async () => {
+    if (!managingMember) return;
+    if (guardDemo()) return;
+    setSendingReset(true);
+    try {
+      const memberName = [managingMember.first_name, managingMember.last_name]
+        .filter(Boolean).join(' ') || managingMember.email || managingMember.user_id;
+      const { data, error } = await supabase.functions.invoke('get-staff-list', {
+        method: 'POST',
+        body: {
+          action: 'send_password_reset',
+          user_id: managingMember.user_id,
+          target_name: memberName,
+        },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({
+        title: '✅ Reset link sent',
+        description: `${memberName} will receive a password reset email at ${managingMember.email}. The link expires in 1 hour.`,
+      });
+      setResetConfirmPending(false);
+    } catch (err) {
+      toast({
+        title: 'Failed to send reset link',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingReset(false);
+    }
+  };
+
   const filteredStaff = staff.filter(s => {
     const matchesRole = roleFilter === 'all' || s.roles.includes(roleFilter as AppRole);
     if (!matchesRole) return false;
@@ -651,7 +688,7 @@ export default function StaffDirectory() {
       {/* ── Manage Access Modal ── */}
       {managingMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); }} />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); setResetConfirmPending(false); }} />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md animate-scale-in max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-border sticky top-0 bg-white z-10 rounded-t-2xl">
@@ -672,7 +709,7 @@ export default function StaffDirectory() {
                   <p className="text-xs text-muted-foreground">{managingMember.email ?? 'No email'}</p>
                 </div>
               </div>
-              <button onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); }} className="text-muted-foreground hover:text-foreground transition-colors">
+              <button onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); setResetConfirmPending(false); }} className="text-muted-foreground hover:text-foreground transition-colors">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -1079,6 +1116,65 @@ export default function StaffDirectory() {
                 )}
               </div>
 
+              {/* ── Account Recovery: Send Password Reset Link ── */}
+              {managingMember.user_id !== user?.id && !managingMember.roles.includes('owner') && managingMember.email && (
+                <div className="pt-1 border-t border-border/60 space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Account Recovery</p>
+                  {!resetConfirmPending ? (
+                    <button
+                      type="button"
+                      onClick={() => setResetConfirmPending(true)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 text-foreground hover:bg-primary/10 transition-colors group"
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <KeyRound className="h-4 w-4 shrink-0 text-primary" />
+                        Send Password Reset Link
+                      </div>
+                      <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">1-hour link via email</span>
+                    </button>
+                  ) : (
+                    <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-3 space-y-3">
+                      <div className="flex items-start gap-2">
+                        <KeyRound className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                        <div className="text-xs text-foreground leading-relaxed">
+                          <p className="font-semibold mb-0.5">Email a password reset link?</p>
+                          <p className="text-muted-foreground">
+                            <span className="font-medium text-foreground">
+                              {[managingMember.first_name, managingMember.last_name].filter(Boolean).join(' ') || managingMember.email}
+                            </span>
+                            {' '}will receive a recovery email at{' '}
+                            <span className="font-medium text-foreground">{managingMember.email}</span>.
+                            The link expires in 1 hour.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={sendingReset}
+                          onClick={() => setResetConfirmPending(false)}
+                          className="flex-1 h-8 text-xs"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={sendingReset}
+                          onClick={handleSendPasswordReset}
+                          className="flex-1 h-8 text-xs gap-1"
+                        >
+                          {sendingReset
+                            ? <RefreshCcw className="h-3 w-3 animate-spin" />
+                            : <Mail className="h-3 w-3" />}
+                          {sendingReset ? 'Sending…' : 'Yes, Send Link'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ── Danger Zone: Deactivate + Delete ── */}
               {managingMember.user_id !== user?.id && !managingMember.roles.includes('owner') && (
                 <div className="pt-1 border-t border-destructive/20 space-y-2">
@@ -1184,7 +1280,7 @@ export default function StaffDirectory() {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); setTogglingStatus(false); }}
+                onClick={() => { setManagingMember(null); setDeleteConfirmPending(false); setResetConfirmPending(false); setTogglingStatus(false); }}
               >
                 Done
               </Button>

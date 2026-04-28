@@ -290,6 +290,65 @@ Deno.serve(async (req) => {
         });
       }
 
+      // ── Send password reset link ─────────────────────────────────────
+      if (action === 'send_password_reset') {
+        // Look up target email
+        const { data: targetUserData, error: targetUserErr } =
+          await supabaseAdmin.auth.admin.getUserById(user_id);
+        if (targetUserErr || !targetUserData?.user?.email) {
+          return new Response(JSON.stringify({ error: 'Target user not found' }), {
+            status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const targetEmail = targetUserData.user.email;
+
+        // Block reset for owner accounts (owner authority rule)
+        const { data: targetRoles } = await supabaseAdmin
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user_id)
+          .eq('role', 'owner')
+          .limit(1);
+        if (targetRoles?.length) {
+          return new Response(JSON.stringify({ error: 'Cannot reset password for owner account' }), {
+            status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Trigger the standard recovery email via the auth-email-hook
+        // (uses the branded SUPERTRANSPORT recovery template, 1-hour TTL).
+        const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
+        const anonClient = createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_ANON_KEY')!,
+          { auth: { autoRefreshToken: false, persistSession: false } }
+        );
+        const { error: resetErr } = await anonClient.auth.resetPasswordForEmail(targetEmail, {
+          redirectTo: `${appUrl}/reset-password`,
+        });
+        if (resetErr) {
+          console.error('resetPasswordForEmail error:', resetErr);
+          return new Response(JSON.stringify({ error: resetErr.message }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const actorName = await getActorName();
+        supabaseAdmin.from('audit_log').insert({
+          actor_id: callerUser.id,
+          actor_name: actorName,
+          action: 'password_reset_sent',
+          entity_type: 'staff',
+          entity_id: user_id,
+          entity_label: target_name ?? targetEmail,
+          metadata: { target_user_id: user_id, target_email: targetEmail },
+        }).then(() => {}).catch(e => console.error('Audit log error:', e));
+
+        return new Response(JSON.stringify({ success: true, email: targetEmail }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       // ── Role add / remove ─────────────────────────────────────────────
       if (!role) {
         return new Response(JSON.stringify({ error: 'role is required' }), {
