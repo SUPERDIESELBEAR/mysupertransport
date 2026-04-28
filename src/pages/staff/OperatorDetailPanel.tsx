@@ -5707,7 +5707,22 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Added to Insurance Date</Label>
                       <DateInput
                         value={status.insurance_added_date ?? ''}
-                        onChange={v => { updateStatus('insurance_added_date', v || null); if (v) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage6'); return next; }); } }}
+                        onChange={v => {
+                          updateStatus('insurance_added_date', v || null);
+                          if (v) {
+                            const goLiveWasEmpty = !status.go_live_date;
+                            if (goLiveWasEmpty) {
+                              updateStatus('go_live_date', v);
+                              toast({ title: 'Go-Live Date set', description: 'Auto-filled from Insurance Date.' });
+                            }
+                            setCollapsedStages(prev => {
+                              const next = new Set(prev);
+                              next.add('stage6');
+                              if (goLiveWasEmpty || status.go_live_date === v) next.add('stage7');
+                              return next;
+                            });
+                          }
+                        }}
                         className="h-9 text-sm"
                       />
                     </div>
