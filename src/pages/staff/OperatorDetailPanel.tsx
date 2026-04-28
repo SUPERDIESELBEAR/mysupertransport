@@ -3448,7 +3448,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         },
                         {
                           key: 'stage7', shortLabel: 'Go Live',
-                          state: status.go_live_date ? 'complete' : ([status.dispatch_ready_orientation, status.dispatch_ready_consortium, status.dispatch_ready_first_assigned].some(Boolean)) ? 'progress' : 'none',
+                          state: status.go_live_date ? 'complete' : 'none',
                           tooltip: status.go_live_date ? `Go Live: ${format(new Date(status.go_live_date + 'T12:00:00'), 'MMM d, yyyy')}` : 'Not started',
                           items: stages.find(s => s.key === 'stage7')?.items ?? [],
                         },
