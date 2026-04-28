@@ -50,6 +50,14 @@ export const InviteEmail = ({
           documents, dispatch status, settlements, and messages.
         </Text>
 
+        <Text style={helperText}>
+          Stuck or using Gmail? Tap the install guide below for step-by-step
+          help — it works whether or not you're signed in.
+        </Text>
+        <Button style={secondaryButton} href={`${siteUrl.replace(/\/$/, '')}/install`}>
+          View the install guide →
+        </Button>
+
         <table cellPadding={0} cellSpacing={0} role="presentation" style={cardTable}>
           <tbody>
             <tr>
@@ -136,6 +144,25 @@ const button = {
   padding: '14px 26px',
   textDecoration: 'none',
   display: 'inline-block',
+}
+const secondaryButton = {
+  backgroundColor: '#FAF8F2',
+  color: '#0F0F0F',
+  fontSize: '14px',
+  fontWeight: 'bold' as const,
+  borderRadius: '6px',
+  padding: '11px 22px',
+  textDecoration: 'none',
+  display: 'inline-block',
+  border: '1px solid #C9A84C',
+  margin: '0 0 20px',
+}
+const helperText = {
+  fontSize: '13px',
+  color: '#7A7A7A',
+  lineHeight: '1.5',
+  margin: '0 0 12px',
+  fontStyle: 'italic' as const,
 }
 const cardTable = {
   width: '100%',

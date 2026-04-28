@@ -1,44 +1,63 @@
-## Problem
+## Goal
 
-Omar opened his invite from Gmail, which launches the link inside Gmail's in-app browser (visible in his screenshot — "◀ Gmail" top-left). He sees the "Install SUPERDRIVE" banner at the bottom of the screen and tries to tap it, but nothing happens.
+Turn the existing `/install` route into a polished, shareable install guide that support can text or email to anyone (operator, applicant, or stuck Gmail-webview user) — and link to it from the invite email and the install banner so it becomes the single source of truth.
 
-Two root causes:
+## Why
 
-1. **The banner has no tappable Install button on iOS.** Looking at `PWAInstallBanner.tsx`, on iOS the banner only renders instruction text ("Tap Share then Add to Home Screen") plus an X to dismiss. The download icon on the left looks like a button but isn't clickable. Android/desktop users get an actual "Install" button; iOS users get only text.
+- `/install` already exists and is public, but nothing links to it externally.
+- The invite email hardcodes install steps inline — when those steps change, every previously-sent email is stale.
+- The PWA banner currently opens an inline modal, duplicating the same content with no shareable URL for support.
+- Users stuck in Gmail/Facebook webviews need a top-of-page "Open in Safari" prompt before any other instruction is useful.
 
-2. **iOS "Add to Home Screen" only works in Safari.** The Gmail in-app browser (and Facebook, Instagram, etc.) cannot install PWAs at all — there is no Share → Add to Home Screen option there. Omar would need to open the link in Safari first. Today the app does not detect this and gives no guidance.
+## Scope
 
-## Proposed Fix
+### 1. Harden `/install` for external visitors
+File: `src/pages/InstallApp.tsx`
 
-### 1. Make the iOS banner tappable
+- Replace the "Back" button (which calls `navigate(-1)` and breaks for cold visitors with no history) with a "Go to login" link.
+- Replace the `onContinue` → `/dashboard` handler with logic that goes to `/dashboard` if signed in, otherwise `/login`.
+- Add an in-app-browser warning block ABOVE the steps (using `isInAppBrowser()` from `src/lib/pwa.ts`) with:
+  - Plain-language explanation: "You're viewing this inside the Gmail app. To install SUPERDRIVE you need Safari."
+  - A "Copy install link" button (uses existing `copyToClipboard` helper) prefilled with the canonical `https://mysupertransport.lovable.app/install` URL.
+  - Step: "Tap the ⋯ menu in Gmail → Open in Safari → return to this page."
+- Show a subtle success state when already installed (uses existing `isStandalone()`).
 
-Convert the entire iOS banner into a button that, when tapped, opens a full-screen instructional modal showing the Share → Add to Home Screen steps (visual icons, larger text). This matches what `InstallStep.tsx` already renders on `/install-app` — we can reuse that component or a trimmed variant.
+### 2. Link to the guide from the invite email
+File: `supabase/functions/_shared/email-templates/invite.tsx`
 
-### 2. Detect in-app browsers and show a "Open in Safari" prompt
+- Add a secondary CTA button under the existing "Set Your Password" button: **"View the install guide →"** linking to `https://mysupertransport.lovable.app/install`.
+- Keep the inline iPhone/Android cards (they're useful at-a-glance), but add a one-line note above them: "Stuck? Tap the install guide for step-by-step help and screenshots."
+- Redeploy the email layer (templates are baked into the auth-email-hook).
 
-Add a UA-based check for common in-app webviews (Gmail, Facebook, Instagram, LinkedIn, Twitter/X, TikTok). When detected on iOS:
-- Replace the install banner content with: "To install SUPERDRIVE, open this page in Safari. Tap the ⋯ menu and choose 'Open in Safari'."
-- Include a copy-link button as a fallback.
+### 3. Point the PWA banner at the route instead of the modal
+File: `src/components/PWAInstallBanner.tsx`
 
-### 3. Apply the same upgrades to `/install-app` page
+- On iOS, the banner tap currently opens an inline modal. Change it to navigate to `/install` instead — single source of truth, easier to iterate, and works the same whether the user is signed in or not.
+- Keep the Android `beforeinstallprompt` flow unchanged (native prompt is still preferred there).
 
-The `InstallStep` component used on `/install-app` (which Omar will land on after tapping the resend-invite link) should also detect in-app browsers and show the "open in Safari" guidance up front, before showing the regular instructions.
+### 4. Memory
+Add a short `mem://features/install-guide-route.md` entry so future sessions know:
+- `/install` is the canonical public install guide,
+- the invite email links to it,
+- the PWA banner routes there on iOS.
 
-## Files to Change
+## Out of scope
 
-- `src/components/PWAInstallBanner.tsx` — make iOS banner tappable, open guidance modal, detect in-app browsers
-- `src/components/InstallStep.tsx` — add in-app browser detection and "Open in Safari" guidance
-- (Optional) `src/lib/pwa.ts` — extract shared helpers `isInAppBrowser()`, `isIOS()`, `isStandalone()` so both components share one source of truth
+- No service worker / vite-plugin-pwa changes (manifest stays as-is).
+- No changes to the Android install flow.
+- No new translations or marketing copy beyond what's needed for clarity.
 
-## Out of Scope
+## Technical notes
 
-- No backend / email changes — the resend-invite link itself works, this is purely a client-side UX issue
-- No service worker changes
-- Android in-app browsers (Gmail on Android handles installs differently and is less commonly broken; can add later if needed)
+- `/install` is already in the public routes block of `src/App.tsx` — no router change needed.
+- All in-app-browser detection reuses `src/lib/pwa.ts` (already added in the previous round).
+- The canonical URL is the published domain (`https://mysupertransport.lovable.app`), not the preview URL — emails go to real users.
+- Email template change requires redeploying `auth-email-hook` so the new HTML is served.
 
-## Communication to Omar
+## Files to change
 
-Once shipped, suggest he:
-1. Open his Gmail invite
-2. Tap the ⋯ menu in Gmail's browser bar → "Open in Safari" (or long-press the link → "Open in Safari")
-3. Then tap Share → Add to Home Screen
+- `src/pages/InstallApp.tsx` (rewrite for cold-visit + in-app-browser warning)
+- `src/components/PWAInstallBanner.tsx` (iOS tap → `/install` route instead of modal)
+- `supabase/functions/_shared/email-templates/invite.tsx` (add guide link + helper note)
+- `mem://features/install-guide-route.md` (new memory)
+- Redeploy `auth-email-hook` after email template edit
