@@ -1,21 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { Download, Share, Smartphone, CheckCircle2, ArrowRight } from "lucide-react";
+import { Download, Share, Smartphone, CheckCircle2, ArrowRight, AlertTriangle, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { isIOS, isAndroid, isStandalone, isInAppBrowser, copyToClipboard } from "@/lib/pwa";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
-
-function isIOS() {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-}
-function isAndroid() {
-  return /Android/i.test(navigator.userAgent);
-}
-function isStandalone() {
-  return window.matchMedia("(display-mode: standalone)").matches ||
-    (navigator as any).standalone === true;
 }
 
 interface InstallStepProps {
@@ -33,8 +23,10 @@ interface InstallStepProps {
 export default function InstallStep({ onContinue, continueLabel = "Continue to Portal" }: InstallStepProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(isStandalone());
+  const [copied, setCopied] = useState(false);
   const ios = isIOS();
   const android = isAndroid();
+  const inAppBrowser = isInAppBrowser();
 
   useEffect(() => {
     if (installed) return;
@@ -58,6 +50,14 @@ export default function InstallStep({ onContinue, continueLabel = "Continue to P
     if (outcome === "accepted") setInstalled(true);
     setDeferredPrompt(null);
   }, [deferredPrompt]);
+
+  const handleCopyLink = useCallback(async () => {
+    const ok = await copyToClipboard(window.location.href);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }, []);
 
   if (installed) {
     return (
@@ -91,7 +91,59 @@ export default function InstallStep({ onContinue, continueLabel = "Continue to P
         </div>
       </div>
 
-      {ios ? (
+      {inAppBrowser && ios ? (
+        <>
+          <div className="rounded-xl bg-status-warning/10 border border-status-warning/30 p-4 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-status-warning shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-status-warning">Open in Safari to install</p>
+              <p className="text-xs text-surface-dark-muted leading-relaxed">
+                You're viewing this inside an in-app browser (Gmail, Facebook, etc.).
+                These browsers can't add apps to the home screen — only Safari can.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-3">
+            <p className="text-xs font-semibold text-gold uppercase tracking-wide">Step 1 — Open in Safari</p>
+            <ol className="space-y-3">
+              <Step num={1}>
+                Tap the <span className="font-semibold text-white">⋯ menu</span> at the top-right of this browser
+              </Step>
+              <Step num={2}>
+                Tap <span className="font-semibold text-gold">"Open in Safari"</span> (or "Open in Browser")
+              </Step>
+            </ol>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            className="w-full flex items-center justify-center gap-2 h-11 rounded-lg bg-white/5 border border-white/10 text-sm font-semibold text-white hover:bg-white/10 transition-colors"
+          >
+            {copied ? (
+              <><Check className="w-4 h-4 text-status-complete" /> Link copied — paste in Safari</>
+            ) : (
+              <><Copy className="w-4 h-4" /> Copy this link to paste in Safari</>
+            )}
+          </button>
+
+          <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-3">
+            <p className="text-xs font-semibold text-gold uppercase tracking-wide">Step 2 — In Safari, Add to Home Screen</p>
+            <ol className="space-y-3">
+              <Step num={1}>
+                Tap the <Share className="inline h-4 w-4 text-gold -mt-0.5 mx-0.5" /> <span className="font-semibold text-gold">Share</span> button at the bottom
+              </Step>
+              <Step num={2}>
+                Scroll down and tap <span className="font-semibold text-gold">"Add to Home Screen"</span>
+              </Step>
+              <Step num={3}>
+                Tap <span className="font-semibold text-white">"Add"</span> — done!
+              </Step>
+            </ol>
+          </div>
+        </>
+      ) : ios ? (
         <div className="rounded-xl bg-white/5 border border-white/10 p-4 space-y-3">
           <p className="text-xs font-semibold text-gold uppercase tracking-wide">iPhone / iPad — Safari</p>
           <ol className="space-y-3">
