@@ -1229,6 +1229,9 @@ export default function ManagementPortal() {
               );
             })()}
 
+            {/* Pending Invite Acceptance — recovery panel for stuck applicants */}
+            <PendingInviteAcceptance onResent={fetchInstallStats} />
+
             {/* Pending queue preview */}
             <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
               <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-border flex items-center justify-between gap-2 flex-wrap">
