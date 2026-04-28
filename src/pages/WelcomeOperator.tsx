@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, Eye, EyeOff, CheckCircle2, Truck, FileText, MessageSquare, Star, Mail, Loader2 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
+import InstallStep from '@/components/InstallStep';
 
 const FEATURES = [
   { icon: <Truck className="h-4 w-4" />, text: 'Real-time dispatch status updates' },
@@ -95,7 +96,7 @@ export default function WelcomeOperator() {
       setLoading(false);
     } else {
       setSuccess(true);
-      setTimeout(() => navigate('/dashboard'), 3000);
+      // Do NOT auto-navigate. Let the user install the PWA first, then continue.
     }
   };
 
