@@ -100,6 +100,8 @@ export default function StaffDirectory() {
   const [deleteConfirmPending, setDeleteConfirmPending] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
+  const [resetConfirmPending, setResetConfirmPending] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
   // Avatar upload for managed staff member
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
