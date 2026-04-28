@@ -1,45 +1,46 @@
-## Sync Added to Insurance Date → Go-Live Date (one-way)
+# Send Password Reset Link from Staff Directory
 
-When staff sets the **Added to Insurance Date** in Stage 6, the **Go-Live Date** in Stage 7 will auto-fill with the same date if Go-Live is currently empty. Setting/changing Go-Live by itself does not affect the insurance date. If Go-Live already has a value, the insurance date will not overwrite it (no surprises for staff who deliberately picked a different go-live).
+Give management/owner the ability to email a fresh password recovery link to any staff member directly from the Staff Directory — solving the case where a staff member (e.g. Leo Wallace) cannot get the self-serve "Forgot Password" flow to work.
 
-### File
-`src/pages/staff/OperatorDetailPanel.tsx`
+## What the user will see
 
-### Changes
+1. In **Management → Staff Directory**, clicking a staff row opens the existing manage-member modal.
+2. A new **"Send Password Reset Link"** button appears in that modal (next to the existing Deactivate / Delete actions).
+3. Clicking it shows a confirmation dialog: *"Email a password reset link to leo@mysupertransport.com?"*
+4. On confirm:
+   - A toast confirms: *"✅ Reset link sent to Leo Wallace"*
+   - The action is recorded in the audit log
+   - Leo receives the standard branded SUPERTRANSPORT recovery email (1-hour link → `/reset-password`)
+5. Only users with `management` or `owner` role can see/use the button. The button is hidden for the `owner` row (Marcus Mueller) per existing owner-authority rules.
 
-1. **Stage 6 insurance date `onChange` (line ~5710):**
-   Update the handler so that, when a value is set:
-   - Always write `insurance_added_date` (existing behavior).
-   - Additionally, if `status.go_live_date` is null/empty, also write `go_live_date = v` via `updateStatus('go_live_date', v)`.
-   - Auto-collapse Stage 6 (existing behavior); also auto-collapse Stage 7 since it will now be complete.
+## Backend changes
 
-2. **Toast feedback:**
-   When Go-Live is auto-filled, show a small toast: "Go-Live Date set to match Insurance Date" so staff understand what happened. They can still edit Go-Live manually in Stage 7 afterward.
+### Extend `get-staff-list` edge function
+Add a new `action: 'send_password_reset'` branch that:
+- Verifies the caller has `management` or `owner` role (existing pattern in the function)
+- Refuses the action if the target user is the `owner`
+- Looks up the target user's email via `supabaseAdmin.auth.admin.getUserById(user_id)`
+- Calls `supabaseAdmin.auth.admin.generateLink({ type: 'recovery', email, options: { redirectTo: `${APP_URL}/reset-password` } })` — same pattern already used in `resend-invite` and `bootstrap-admin`
+- Supabase auto-sends the recovery email through the existing `auth-email-hook` (uses the branded `recovery.tsx` template — no new template needed)
+- Inserts an `audit_log` row with `action: 'password_reset_sent'`, target user, and actor
+- Returns `{ ok: true }`
 
-3. **No backfill of existing rows.**
-   This only applies going forward when staff edits the insurance date. Operators already onboarded keep whatever values they have.
+No new edge function, no new template, no DB migration required — everything reuses existing infrastructure.
 
-### Pseudocode (Stage 6 DateInput)
-```tsx
-onChange={v => {
-  updateStatus('insurance_added_date', v || null);
-  if (v) {
-    // Auto-fill Go-Live only if empty
-    if (!status.go_live_date) {
-      updateStatus('go_live_date', v);
-      toast({ title: 'Go-Live Date set', description: 'Auto-filled from Insurance Date.' });
-    }
-    setCollapsedStages(prev => {
-      const next = new Set(prev);
-      next.add('stage6');
-      if (!status.go_live_date || status.go_live_date === v) next.add('stage7');
-      return next;
-    });
-  }
-}}
-```
+## Frontend changes
 
-### Out of scope
-- No DB schema changes.
-- No changes to Stage 7's manual Go-Live editor — it remains fully independent.
-- No changes to audit/email logic; both fields already log via existing diff capture (lines 1285–1294, 1602).
+### `src/components/management/StaffDirectory.tsx`
+- Add `handleSendPasswordReset()` handler that invokes `get-staff-list` with `action: 'send_password_reset'`
+- Add a confirmation `AlertDialog` for the action
+- Add the **"Send Password Reset Link"** button inside the existing `managingMember` modal, styled as a secondary action (not destructive)
+- Add a loading state while the request is in flight
+- Hide the button when `managingMember.roles.includes('owner')`
+
+## Out of scope
+- Bulk password resets (one-at-a-time only — keeps audit trail clean)
+- Resetting passwords for operators/drivers (this plan covers staff only; can be added later in the operator profile if needed)
+- Setting a manual temp password (the recovery email is more secure)
+
+## Files touched
+- `supabase/functions/get-staff-list/index.ts` — add `send_password_reset` action
+- `src/components/management/StaffDirectory.tsx` — add UI button, handler, and confirmation dialog
