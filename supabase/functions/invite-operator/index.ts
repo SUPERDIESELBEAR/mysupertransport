@@ -360,16 +360,12 @@ Deno.serve(async (req) => {
         }),
       }).catch(e => console.error('Notification fire-and-forget error:', e));
 
-      // Fire PWA install email + in-app notification (fire-and-forget).
-      // notify-pwa-install accepts an optional operator_id to target a single operator.
-      if (operatorId) {
-        const installUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/notify-pwa-install`;
-        fetch(installUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
-          body: JSON.stringify({ operator_id: operatorId }),
-        }).catch(e => console.error('PWA install notify fire-and-forget error:', e));
-      }
+      // NOTE: We intentionally do NOT fire `notify-pwa-install` on first invite anymore.
+      // The invite email itself includes install instructions, and the /welcome page
+      // walks the new operator through installation right after they set their password.
+      // Sending two emails caused applicants to install before authenticating, leading
+      // to blank-page / no-session confusion. `notify-pwa-install` remains available for
+      // bulk re-engagement of existing operators (called from staff tools).
     }
 
     return new Response(JSON.stringify({ success: true, user_id: invitedUserId }), {
