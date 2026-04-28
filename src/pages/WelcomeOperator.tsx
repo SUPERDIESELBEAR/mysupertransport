@@ -241,25 +241,22 @@ export default function WelcomeOperator() {
         {background}
         <div className="w-full max-w-md relative text-center">
           <img src={logo} alt="SUPERTRANSPORT" className="h-28 w-auto max-w-[400px] object-contain mx-auto mb-8" />
-          <div className="bg-surface-dark-card border border-surface-dark-border rounded-xl p-10 shadow-2xl">
-            <div className="relative mb-6">
-              <div className="h-20 w-20 rounded-full bg-status-complete/15 border-2 border-status-complete/40 flex items-center justify-center mx-auto">
-                <CheckCircle2 className="h-10 w-10 text-status-complete" />
+          <div className="bg-surface-dark-card border border-surface-dark-border rounded-xl p-8 shadow-2xl text-left">
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="h-16 w-16 rounded-full bg-status-complete/15 border-2 border-status-complete/40 flex items-center justify-center mb-4">
+                <CheckCircle2 className="h-8 w-8 text-status-complete" />
               </div>
+              <h2 className="text-xl font-bold text-surface-dark-foreground mb-1">
+                You're all set{firstName ? `, ${firstName}` : ''}!
+              </h2>
+              <p className="text-surface-dark-muted text-sm leading-relaxed">
+                One last step — install SUPERDRIVE on your phone for the best experience.
+              </p>
             </div>
-            <h2 className="text-2xl font-bold text-surface-dark-foreground mb-2">You're all set!</h2>
-            <p className="text-surface-dark-muted text-sm leading-relaxed">
-              Welcome to the SUPERTRANSPORT team{firstName ? `, ${firstName}` : ''}. Taking you to your portal…
-            </p>
-            <div className="mt-6 flex justify-center gap-1">
-              {[0, 1, 2].map(i => (
-                <div
-                  key={i}
-                  className="h-1.5 rounded-full bg-gold animate-pulse"
-                  style={{ width: i === 1 ? 24 : 8, animationDelay: `${i * 0.2}s` }}
-                />
-              ))}
-            </div>
+            <InstallStep
+              onContinue={() => navigate('/dashboard')}
+              continueLabel="Open My Portal"
+            />
           </div>
         </div>
       </div>
