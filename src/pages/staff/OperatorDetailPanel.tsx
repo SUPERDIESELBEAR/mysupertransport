@@ -3337,9 +3337,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               { label: 'Insurance Added', done: !!status.insurance_added_date },
             ]},
           { label: 'Go Live',    key: 'stage7', complete: !!status.go_live_date, fullName: 'Go Live & Dispatch Readiness', items: [
-              { label: 'Orientation Call',       done: status.dispatch_ready_orientation },
-              { label: 'Consortium Enrolled',    done: status.dispatch_ready_consortium },
-              { label: 'First Dispatch Assigned',done: status.dispatch_ready_first_assigned },
               { label: 'Go-Live Date Set',       done: !!status.go_live_date },
             ]},
           { label: 'Pay',        key: 'stage8', complete: !!(paySetupRecord?.submitted_at && paySetupRecord?.terms_accepted), fullName: 'Contractor Pay Setup', items: [
