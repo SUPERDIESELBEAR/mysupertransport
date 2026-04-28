@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, Download, Share, ChevronRight } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import {
   isIOS,
   isStandalone as isInStandaloneMode,
@@ -28,7 +27,6 @@ export default function PWAInstallBanner() {
   const [showIOSBanner, setShowIOSBanner] = useState(false);
   const [dismissed, setDismissed] = useState(true);
   const [inAppBrowser, setInAppBrowser] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (isInIframe() || isPreviewHost() || isInStandaloneMode()) return;
@@ -79,7 +77,7 @@ export default function PWAInstallBanner() {
                 if (deferredPrompt) {
                   void install();
                 } else {
-                  navigate("/install");
+                  window.location.assign("/install");
                 }
               }}
               className="flex-1 flex items-center gap-3 p-4 text-left hover:bg-white/5 active:bg-white/10 transition-colors rounded-l-xl"
