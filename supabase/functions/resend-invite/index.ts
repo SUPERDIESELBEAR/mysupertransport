@@ -181,6 +181,8 @@ Deno.serve(async (req) => {
           'Your Invitation to SUPERTRANSPORT — Action Required',
           `Welcome aboard, ${firstName}!`,
           `<p>You've been invited to join the <strong>SUPERTRANSPORT</strong> operator portal.</p>
+           <p>If you tried a previous link and ran into trouble — we've upgraded the install experience.
+           Please use this fresh link to set your password and install the app. Any earlier links can be discarded.</p>
            <p>Click the button below to set your password and get started:</p>`,
           { label: 'Accept Invitation', url: inviteLink },
           'onboarding@mysupertransport.com'

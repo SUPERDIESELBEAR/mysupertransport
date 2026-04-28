@@ -44,6 +44,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import TerminationsView from './TerminationsView';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
 import DriverHubView from '@/components/drivers/DriverHubView';
+import PendingInviteAcceptance from '@/components/management/PendingInviteAcceptance';
 import type { ComplianceCounts, ComplianceFilter } from '@/components/drivers/DriverRoster';
 import { differenceInDays, formatDistanceToNowStrict, parseISO, startOfDay } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -1227,6 +1228,9 @@ export default function ManagementPortal() {
                 </div>
               );
             })()}
+
+            {/* Pending Invite Acceptance — recovery panel for stuck applicants */}
+            <PendingInviteAcceptance onResent={fetchInstallStats} />
 
             {/* Pending queue preview */}
             <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
