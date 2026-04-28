@@ -1,93 +1,71 @@
-# Streamline the "Approved & Invited" → Installed → Onboarding Flow
+# Recover Stuck Applicants
 
-## What's happening today (current flow)
+Goal: get the recently-invited applicants who hit the blank white page back into the onboarding flow using the new streamlined install process — without requiring any action from them other than clicking a fresh email link.
 
-1. Staff clicks **Approve & Invite** in the Application Review drawer.
-2. `invite-operator` edge function fires:
-   - Sends Supabase auth invite email → link goes to **`/welcome`** with an access token in the URL hash.
-   - Fires a **second** email (`notify-pwa-install`) telling them how to install the PWA.
-3. Applicant gets two emails back-to-back, often opens the install email first, lands on the marketing site, taps "Install" before logging in, ends up in a broken state.
-4. `WelcomeOperator` requires the access token from the invite email hash — if they tap the install email link first or the token expires, they get a token error.
-5. After installing, the PWA opens at `/` (`start_url` in `manifest.json`) which routes to the splash page, not the user's portal.
+## Why they got stuck
 
-## Why people are seeing a blank white page
+The previous build sent applicants to `/dashboard` after install with a manifest `start_url` of `/`. When their original invite link was consumed (or expired) and the PWA opened to the splash route without a session, the app rendered a blank screen instead of falling back to login. That is now fixed in code (manifest → `/dashboard?source=pwa`, `/welcome` has a token-error UI, install step is integrated). But the *already-sent* invite emails still point at the old flow and several have expired or already been clicked once.
 
-After auditing `WelcomeOperator.tsx`, `InstallApp.tsx`, `manifest.json`, `main.tsx`, and the two edge functions, the blank page is caused by a combination of three real issues:
+The cleanest recovery is to **re-issue invitations** so each affected applicant gets a brand-new link that lands them in the new flow.
 
-1. **`manifest.json` has `"start_url": "/"`** — when an applicant installs the PWA from the invite link page, the installed app launches at `/` (splash), losing their auth context. The install banner and `/install` page both inherit this. If the installer was on `/welcome` with a hash token, the token is dropped on launch and they land on splash with no session — appears blank if their browser was mid-redirect.
-2. **Two separate emails compete.** The "Install SUPERDRIVE" email goes out *at the same time* as the invite email and links to `APP_URL` (root). Applicants click it first, install the app, but never consume the auth invite token → they're stuck logged-out with no obvious next step.
-3. **Service worker is force-unregistered in `main.tsx`** for any host containing `lovableproject.com` — the published domain `mysupertransport.lovable.app` is **not** matched, so that's fine, but the install banner only shows on non-iframe non-preview hosts. There's no install path inside the welcome flow itself.
+## Recovery Plan
 
-## Proposed streamlined flow
+### 1. Identify the affected applicants
 
-```text
-Approve & Invite (staff)
-        │
-        ▼
-ONE email: "Welcome to SUPERTRANSPORT — Get Started"
-   ├─ Big CTA: "Set Up Your Account" → /welcome?token=...
-   └─ Below CTA: "📱 Install the SUPERDRIVE app" with platform-specific 1-line tip
-        │
-        ▼
-/welcome  (mobile-optimized, single-screen)
-   1. Verify invite token → set password
-   2. After password set: "Add SUPERDRIVE to your home screen" step
-        ├─ Android: native install button (beforeinstallprompt)
-        └─ iOS: animated Share → Add to Home Screen instructions
-   3. "Open SUPERDRIVE" → routes to /dashboard
-        │
-        ▼
-PWA installed, launches directly at /dashboard (or /login if session expired)
-```
+Run a read-only query against `applications` + `auth.users` to list approved applicants who:
+- have `review_status = 'approved'`
+- have a `user_id` (invite was sent)
+- have `last_sign_in_at IS NULL` (never successfully signed in)
 
-## Concrete changes
+I'll surface the list (name, email, days since invite) so you can confirm who to re-invite before any emails go out.
 
-### 1. Fix the blank-page root cause
-- **`public/manifest.json`**: change `"start_url": "/"` → `"start_url": "/dashboard"` so the installed app opens the operator portal (which redirects to `/login` if no session — never blank).
-- Add `"scope": "/"` and a `?source=pwa` query param to start_url for analytics.
+### 2. Bulk resend via the existing edge function
 
-### 2. Consolidate to a single invitation email
-- **Remove** the fire-and-forget `notify-pwa-install` call from `invite-operator/index.ts` (lines 363–372).
-- **Update** the existing Supabase auth invite email template (or `auth-email-hook` if scaffolded) to include:
-  - Primary CTA: **"Set Up Your Account"** (the existing `/welcome` magic link)
-  - Secondary section: **"After signing in, we'll help you install the app on your phone"** — keep install instructions inside the app, not the email.
-- Keep `notify-pwa-install` for the bulk re-engagement use case (existing operators), but stop firing it on first invite.
+`resend-invite` already supports staff-triggered resends with `staff_override: true`. It:
+- generates a fresh recovery (set-password) link
+- routes to `/welcome` (which now has the install step + token-error fallback)
+- writes an `audit_log` entry per send
+- bypasses the 5-minute rate limit for staff
 
-### 3. Bake the install step into `/welcome`
-After password creation succeeds in `WelcomeOperator.tsx`, instead of jumping straight to `/dashboard` after 3s, show a new **Step 2: Install the App** card:
-- Detect platform (iOS / Android / desktop) using existing helpers from `InstallApp.tsx`.
-- **Android/Desktop**: capture `beforeinstallprompt` and show a single big **"Install SUPERDRIVE"** button.
-- **iOS Safari**: show 3-step animated visual (Share icon → "Add to Home Screen" → Add).
-- Below the install card: **"Skip for now → Continue to Portal"** so it's never a hard block.
-- Detect `display-mode: standalone` and auto-skip the install step if already installed.
+Two options for triggering it — pick one:
 
-### 4. Make `/welcome` link more resilient to "blank page"
-- Token-error fallback already exists (resend invite form) — verify it renders before any blank state.
-- Add a top-level error boundary on the `/welcome` route so a JS error during hash processing shows a "Resend invite" UI instead of a white screen.
-- Add `console.log` breadcrumbs at each step (`hash detected`, `session ready`, `password updated`) so future blank-page reports surface in the console logs we can inspect.
+**Option A — One-click "Resend to all stuck applicants" button** (recommended)
+- Add a small admin action in the Management Portal → Pipeline view that lists the stuck applicants and lets you resend to all (or per-row) with one click.
+- Each click calls `resend-invite` with `staff_override: true`.
+- Shows per-applicant success/failure and the new audit entries.
 
-### 5. Add a recovery path for already-installed users
-- If `/welcome` loads inside an installed PWA but the hash token was dropped during launch (Android quirk), show: **"Open the invite link in your browser, not the installed app"** with a tap-to-copy URL.
+**Option B — Manual one-shot script**
+- I run a one-off script that loops the identified list and invokes `resend-invite` for each, then reports results in chat. No UI changes. Faster, but no repeatable tool for next time.
 
-## Technical notes
+### 3. Update the email copy for resends (small polish)
 
-- Files touched (build phase, after approval):
-  - `public/manifest.json` — start_url
-  - `supabase/functions/invite-operator/index.ts` — remove `notify-pwa-install` fire
-  - `supabase/functions/_shared/email-templates/invite.tsx` (if auth email templates exist) or the auth invite flow — append install section
-  - `src/pages/WelcomeOperator.tsx` — add post-password install step + error boundary
-  - `src/pages/InstallApp.tsx` — extract reusable `<InstallStep />` component shared with `/welcome`
-- No DB migration required.
-- No new edge functions; we are *removing* one redundant call.
+The current resend email subject is *"Your Invitation to SUPERTRANSPORT — Action Required"*. For re-sends specifically, tweak the body to acknowledge the prior issue, e.g.:
 
-## What this fixes
+> "We've upgraded the install experience — please use this fresh link to set your password and install the app. The previous link is no longer needed."
 
-| Problem today | After change |
-|---|---|
-| Two emails, applicants click the wrong one | One email with one CTA |
-| Install email links to root → not logged in → blank/splash | Install happens *inside* the authenticated welcome flow |
-| `start_url: "/"` drops auth context on PWA launch | `start_url: "/dashboard"` lands them in their portal |
-| White screen on token error | Error boundary + resend form always renders |
-| No visible install affordance after login | Built into welcome step 2, plus existing `/install` page kept as backup |
+This avoids confusion for anyone who saw the blank page and assumed something was broken on their end.
 
-Approve and I'll implement.
+### 4. Verify in production
+
+After resends go out:
+- Watch `audit_log` for `invite_resent` entries (already written by the function).
+- Watch `auth.users.last_sign_in_at` to confirm each applicant signs in.
+- Spot-check edge function logs for any Resend API failures.
+
+## What I'll build (Option A)
+
+- **New section in Management → Pipeline**: "Pending Invite Acceptance" panel listing approved applicants who have not yet signed in, with columns for name, email, invite age, and a per-row **Resend** button plus a **Resend All** action.
+- **Reuse**: calls existing `resend-invite` edge function with `staff_override: true` — no new backend code.
+- **Polish**: updated email body for the re-send case (one-line copy change in `resend-invite/index.ts`).
+- **Toast feedback**: success/failure per applicant.
+
+## What I won't change
+
+- Manifest, `/welcome`, and `InstallStep` — already fixed last round.
+- The applicant-facing self-service "Resend Invite" form on `/welcome` — unchanged; still works for anyone who finds their way there.
+- Auth/RLS rules — no schema changes needed.
+
+## Confirm before I proceed
+
+1. **Option A or B?** (Admin panel vs. one-shot script.)
+2. **Should I run the read-only query first** so you can review the list before any resends go out? (Strongly recommended.)
