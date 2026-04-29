@@ -7,7 +7,7 @@ import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound,
-  ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye, Calculator,
+  ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye, Calculator, Home, ChevronRight,
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
 import DriverServiceLibrary from '@/components/service-library/DriverServiceLibrary';
@@ -35,7 +35,7 @@ import { BuildInfo } from '@/components/BuildInfo';
 import SettlementForecast from '@/components/operator/SettlementForecast';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'progress' | 'documents' | 'messages' | 'resource-center' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'pay-setup' | 'my-docs' | 'my-truck' | 'forecast';
+type OperatorView = 'home' | 'progress' | 'documents' | 'messages' | 'resource-center' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'pay-setup' | 'my-docs' | 'my-truck' | 'forecast';
 
 interface Stage {
   number: number;
