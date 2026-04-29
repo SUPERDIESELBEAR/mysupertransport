@@ -708,7 +708,7 @@ export default function DriverRoster({
       </div>
 
       {/* Compliance filter chips */}
-      {!dispatchMode && (complianceCounts.expired + complianceCounts.critical + complianceCounts.warning + complianceCounts.neverRenewed + complianceCounts.notYetReminded + complianceCounts.appNotInstalled) > 0 && (
+      {!dispatchMode && (complianceCounts.expired + complianceCounts.critical + complianceCounts.warning + complianceCounts.neverRenewed + complianceCounts.notYetReminded + complianceCounts.webOnly + complianceCounts.neverSignedIn) > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setComplianceFilter('all')}
@@ -797,18 +797,35 @@ export default function DriverRoster({
             </button>
           )}
 
-          {complianceCounts.appNotInstalled > 0 && (
+          {complianceCounts.webOnly > 0 && (
             <button
-              onClick={() => setComplianceFilter(complianceFilter === 'app_not_installed' ? 'all' : 'app_not_installed')}
+              onClick={() => setComplianceFilter(complianceFilter === 'web_only' ? 'all' : 'web_only')}
               className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
-                complianceFilter === 'app_not_installed'
+                complianceFilter === 'web_only'
+                  ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400'
+                  : 'border-amber-500/30 text-amber-600/80 dark:text-amber-400/80 hover:bg-amber-500/10 hover:border-amber-500/50'
+              }`}
+              title="Signed in via web but never installed the app"
+            >
+              <Globe className="h-3 w-3" />
+              Web Only
+              <span className="font-semibold">{complianceCounts.webOnly}</span>
+            </button>
+          )}
+
+          {complianceCounts.neverSignedIn > 0 && (
+            <button
+              onClick={() => setComplianceFilter(complianceFilter === 'never_signed_in' ? 'all' : 'never_signed_in')}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                complianceFilter === 'never_signed_in'
                   ? 'bg-muted border-border text-foreground'
                   : 'border-border/50 text-muted-foreground hover:border-border hover:text-foreground'
               }`}
+              title="Operator has never opened the portal"
             >
-              <Smartphone className="h-3 w-3" />
-              App Not Installed
-              <span className="font-semibold">{complianceCounts.appNotInstalled}</span>
+              <UserX className="h-3 w-3" />
+              Never Signed In
+              <span className="font-semibold">{complianceCounts.neverSignedIn}</span>
             </button>
           )}
         </div>
