@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, ChevronLeft, ChevronRight, MoreVertical, Mail, MessageSquare,
-  QrCode, Loader2, FileText, AlertTriangle, CheckSquare, Square, ImageOff,
+  QrCode, Loader2, FileText, AlertTriangle, CheckSquare, Square, ImageOff, List,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -346,10 +346,11 @@ export default function BinderFlipbook({
       <div className="shrink-0 flex items-center gap-2 px-3 py-2.5 border-b border-border bg-card/95 backdrop-blur">
         <button
           onClick={onClose}
-          className="h-9 w-9 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground"
-          aria-label="Close"
+          className="h-9 px-2.5 rounded-full hover:bg-muted flex items-center gap-1 text-foreground text-xs font-medium"
+          aria-label="Close binder and return to list view"
         >
-          <X className="h-5 w-5" />
+          <ChevronLeft className="h-4 w-4" />
+          List View
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -385,6 +386,10 @@ export default function BinderFlipbook({
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => { setSelectMode(true); setSelected(new Set()); }}>
                   <CheckSquare className="h-4 w-4 mr-2" /> Select multiple
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onClose}>
+                  <List className="h-4 w-4 mr-2" /> Switch to List View
                 </DropdownMenuItem>
               </>
             ) : (
