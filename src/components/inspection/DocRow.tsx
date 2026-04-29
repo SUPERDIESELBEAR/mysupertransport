@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { pdfToImage } from '@/lib/pdfToImage';
-import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut, Pencil, ArrowLeft } from 'lucide-react';
+import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut, Pencil, ArrowLeft, RefreshCw } from 'lucide-react';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -97,6 +97,38 @@ export function InspectedBadge({ inspectionDate }: { inspectionDate: string | nu
     <span className="inline-flex items-center gap-1 text-[10px] bg-info/10 text-info border border-info/30 rounded-full px-2 py-0.5 font-semibold shrink-0">
       <CheckCircle2 className="h-3 w-3" /> Inspected {parseLocalDate(inspectionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
     </span>
+  );
+}
+
+/**
+ * Indicator shown next to the InspectedBadge when the binder's inspection date
+ * was auto-populated from the latest Vehicle Hub record. Hover/long-press shows
+ * the last sync timestamp.
+ */
+export function AutoSyncedBadge({ syncedAt }: { syncedAt: string | null }) {
+  if (!syncedAt) return null;
+  const d = new Date(syncedAt);
+  const tooltip = `Last synced ${d.toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  })}`;
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className="inline-flex items-center gap-1 text-[10px] bg-status-complete/10 text-status-complete border border-status-complete/30 rounded-full px-2 py-0.5 font-semibold shrink-0 cursor-default"
+            aria-label={tooltip}
+          >
+            <RefreshCw className="h-3 w-3" /> Auto-synced
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          <p className="font-semibold text-foreground">Synced from Vehicle Hub</p>
+          <p className="text-muted-foreground">{tooltip}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 

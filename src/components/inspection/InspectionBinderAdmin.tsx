@@ -38,7 +38,7 @@ import {
   OPTIONAL_COMPANY_DOCS, isOptionalCompanyDoc, filterOptionalDocs,
 } from './InspectionBinderTypes';
 import { useDriverOptionalDocs } from '@/hooks/useDriverOptionalDocs';
-import { ExpiryBadge, OnFileBadge, FilePreviewModal, bucketForBinderDoc, InspectedBadge, isInspectionDateDoc } from './DocRow';
+import { ExpiryBadge, OnFileBadge, FilePreviewModal, bucketForBinderDoc, InspectedBadge, isInspectionDateDoc, AutoSyncedBadge } from './DocRow';
 import { syncInspectionBinderDateFromVehicleHub } from '@/lib/syncInspectionBinderDate';
 
 /** Returns true if a reminder was sent within the last 24 hours */
@@ -328,16 +328,23 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   // Auto-populate "Periodic DOT Inspections" inspection date from latest
   // Vehicle Hub record when a driver is selected. Vehicle Hub wins.
   const inspectionSyncedRef = useRef<string | null>(null);
+  const [inspectionSyncAt, setInspectionSyncAt] = useState<string | null>(null);
   useEffect(() => {
     if (loading) return;
-    if (!selectedDriverId) return;
+    if (!selectedDriverId) { setInspectionSyncAt(null); return; }
     if (inspectionSyncedRef.current === selectedDriverId) return;
     inspectionSyncedRef.current = selectedDriverId;
     (async () => {
-      const changed = await syncInspectionBinderDateFromVehicleHub(selectedDriverId);
-      if (changed) fetchDocs();
+      const result = await syncInspectionBinderDateFromVehicleHub(selectedDriverId);
+      setInspectionSyncAt(result.matched ? result.syncedAt : null);
+      if (result.changed) fetchDocs();
     })();
   }, [loading, selectedDriverId, fetchDocs]);
+
+  // Reset cached sync ref when driver changes so next selection re-runs sync
+  useEffect(() => {
+    inspectionSyncedRef.current = null;
+  }, [selectedDriverId]);
 
   // Fetch unit number for the Flipbook cover whenever the selected driver changes
   useEffect(() => {
@@ -895,6 +902,9 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                   isInspectionDateDoc(docName)
                     ? <InspectedBadge inspectionDate={doc.expires_at} />
                     : <ExpiryBadge expiresAt={doc.expires_at} />
+                )}
+                {doc?.file_url && hasExpiry && isInspectionDateDoc(docName) && doc.expires_at && (
+                  <AutoSyncedBadge syncedAt={inspectionSyncAt} />
                 )}
                 {doc?.file_url && !hasExpiry && <OnFileBadge />}
                 {doc?.shared_with_fleet && (
