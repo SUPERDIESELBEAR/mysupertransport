@@ -326,6 +326,19 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
               <p className="text-xs text-muted-foreground mt-1">Original welcome email covering every feature.</p>
             </button>
           </div>
+
+          <label className="mt-3 flex items-start gap-2.5 p-2.5 rounded-lg border border-amber-300/60 bg-amber-50 cursor-pointer hover:bg-amber-100/60 transition">
+            <Checkbox
+              checked={forceResend}
+              onCheckedChange={(v) => setForceResend(v === true)}
+              disabled={sending}
+              className="mt-0.5"
+            />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-900">Force resend (bypass 30-day cooldown)</p>
+              <p className="text-xs text-amber-800/80 mt-0.5">Lets you re-send to operators who were already invited. Use sparingly — recipients may receive a duplicate email.</p>
+            </div>
+          </label>
         </div>
 
         {/* Filters */}
