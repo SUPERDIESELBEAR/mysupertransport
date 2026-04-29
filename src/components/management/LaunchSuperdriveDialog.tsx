@@ -47,6 +47,7 @@ interface LaunchSuperdriveDialogProps {
 }
 
 type FilterMode = 'all' | 'never_invited' | 'invited_recently';
+type EmailTemplate = 'binder' | 'full';
 
 const COOLDOWN_DAYS = 30;
 
@@ -63,6 +64,7 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
   const [sending, setSending] = useState(false);
   const [resultMap, setResultMap] = useState<Record<string, SendResult>>({});
   const [summary, setSummary] = useState<SendSummary | null>(null);
+  const [template, setTemplate] = useState<EmailTemplate>('binder');
 
   // Load eligible pre-existing operators
   const loadOperators = useCallback(async () => {
@@ -128,6 +130,7 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
       setFilterMode('never_invited');
       setResultMap({});
       setSummary(null);
+      setTemplate('binder');
       loadOperators();
     }
   }, [open, loadOperators]);
@@ -201,7 +204,7 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
 
     try {
       const { data, error } = await supabase.functions.invoke('launch-superdrive-invite', {
-        body: { operator_ids: ids },
+        body: { operator_ids: ids, template },
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
 
@@ -283,6 +286,45 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
             Send the branded "Welcome to SUPERDRIVE" email to pre-existing operators with a one-click password setup link.
           </p>
         </DialogHeader>
+
+        {/* Template picker */}
+        <div className="px-6 py-3 border-b bg-background">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Email template</p>
+          <div className="grid sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setTemplate('binder')}
+              disabled={sending}
+              className={`text-left p-3 rounded-lg border transition ${
+                template === 'binder'
+                  ? 'border-gold bg-gold/10'
+                  : 'border-border hover:bg-muted/50'
+              }`}
+            >
+              <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                {template === 'binder' && <CheckCircle2 className="h-4 w-4 text-gold" />}
+                Inspection Binder intro
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Focused on the new binder app. Recommended for initial rollout.</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTemplate('full')}
+              disabled={sending}
+              className={`text-left p-3 rounded-lg border transition ${
+                template === 'full'
+                  ? 'border-gold bg-gold/10'
+                  : 'border-border hover:bg-muted/50'
+              }`}
+            >
+              <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                {template === 'full' && <CheckCircle2 className="h-4 w-4 text-gold" />}
+                Full feature tour
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Original welcome email covering every feature.</p>
+            </button>
+          </div>
+        </div>
 
         {/* Filters */}
         <div className="px-6 py-3 border-b bg-muted/30 flex flex-col sm:flex-row gap-2 sm:items-center">

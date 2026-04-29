@@ -71,6 +71,68 @@ function buildWelcomeEmailHtml(firstName: string, recoveryUrl: string): string {
   );
 }
 
+function buildBinderEmailHtml(firstName: string, recoveryUrl: string): string {
+  const greeting = firstName ? `Hi ${firstName},` : 'Hi there,';
+
+  const binderCard = `
+    <div style="background:#FAF8F2;border:1px solid #EDE6CF;border-radius:10px;padding:20px;margin:0 0 12px;">
+      <p style="margin:0 0 10px;color:${BRAND_DARK};font-size:16px;font-weight:700;">🔍 Your DOT Inspection Binder</p>
+      <p style="margin:0 0 12px;color:#444;font-size:14px;line-height:1.6;">Carry your binder in your pocket. At the scale house, every document is one tap away:</p>
+      <ul style="margin:0;padding:0 0 0 18px;color:#444;font-size:14px;line-height:1.7;">
+        <li>CDL &amp; Medical Card</li>
+        <li>Truck Title &amp; Registration</li>
+        <li>Periodic DOT Inspection</li>
+        <li>IRS Form 2290</li>
+        <li>Insurance &amp; more</li>
+      </ul>
+      <p style="margin:14px 0 0;color:#444;font-size:14px;line-height:1.6;">We keep it synced — when something is renewed, your binder updates automatically. You can even share a clean link with an officer if they prefer.</p>
+    </div>`;
+
+  const installCallout = `
+    <div style="background:#0f1117;border-radius:10px;padding:20px;margin:24px 0 0;">
+      <p style="margin:0 0 10px;color:${BRAND_COLOR};font-size:14px;font-weight:700;letter-spacing:1px;">📱 INSTALL ON YOUR PHONE</p>
+      <p style="margin:0 0 14px;color:#cfcfcf;font-size:13px;line-height:1.6;">Install SUPERDRIVE to your home screen so your binder is one tap away — even before the scale.</p>
+      <p style="margin:0 0 6px;color:#fff;font-size:13px;line-height:1.5;"><strong>iPhone (Safari):</strong> Tap Share → "Add to Home Screen"</p>
+      <p style="margin:0;color:#fff;font-size:13px;line-height:1.5;"><strong>Android (Chrome):</strong> Tap menu (⋮) → "Install app"</p>
+    </div>`;
+
+  const body = `
+    <p style="margin:0 0 14px;">${greeting}</p>
+    <p>We just rolled out a new tool to make your life at the scale house easier. <strong>SUPERDRIVE</strong> puts your full DOT inspection binder in your pocket — no more shuffling through papers in the cab.</p>
+    <p style="margin:0 0 22px;">Click the button below to set your password and open your binder for the first time.</p>
+
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${recoveryUrl}" style="background:${BRAND_COLOR};color:${BRAND_DARK};padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">
+        Set Your Password &amp; Open SUPERDRIVE
+      </a>
+    </div>
+
+    ${binderCard}
+    ${installCallout}
+
+    <p style="margin:28px 0 0;color:#555;font-size:13px;line-height:1.6;">More tools — settlement forecasts, dispatch status, direct messages, payroll calendar — are coming. We'll let you know in-app as each one goes live.</p>
+    <p style="margin:18px 0 0;color:#777;font-size:13px;line-height:1.6;">Questions? Just reply to this email — we're here.<br/>— The SUPERTRANSPORT team</p>
+  `;
+
+  return buildEmail(
+    'Your DOT Inspection Binder is now in your pocket',
+    `Your DOT Inspection Binder is here${firstName ? `, ${firstName}` : ''}`,
+    body,
+    undefined,
+    ONBOARDING_EMAIL
+  );
+}
+
+type EmailTemplate = 'binder' | 'full';
+const SUBJECTS: Record<EmailTemplate, string> = {
+  binder: 'Your DOT Inspection Binder is now in your pocket',
+  full: 'Welcome to SUPERDRIVE — Your Operator App Is Ready',
+};
+const TEMPLATE_LABELS: Record<EmailTemplate, string> = {
+  binder: 'binder-rollout',
+  full: 'welcome-superdrive',
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -120,7 +182,8 @@ Deno.serve(async (req) => {
     }
 
     // ── Input ───────────────────────────────────────────────────────────────
-    const { operator_ids } = await req.json();
+    const { operator_ids, template: rawTemplate } = await req.json();
+    const template: EmailTemplate = rawTemplate === 'full' ? 'full' : 'binder';
     if (!Array.isArray(operator_ids) || operator_ids.length === 0) {
       return new Response(JSON.stringify({ error: 'operator_ids must be a non-empty array' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -232,12 +295,15 @@ Deno.serve(async (req) => {
         }
 
         const recoveryUrl = linkData.properties.action_link;
-        const html = buildWelcomeEmailHtml(firstName, recoveryUrl);
+        const html = template === 'full'
+          ? buildWelcomeEmailHtml(firstName, recoveryUrl)
+          : buildBinderEmailHtml(firstName, recoveryUrl);
+        const subject = SUBJECTS[template];
 
         try {
           await sendEmail(
             email,
-            'Welcome to SUPERDRIVE — Your Operator App Is Ready',
+            subject,
             html,
             resendKey
           );
@@ -260,7 +326,7 @@ Deno.serve(async (req) => {
           entity_id: operatorId,
           entity_label: operatorName,
           metadata: {
-            template: 'welcome-superdrive',
+            template: TEMPLATE_LABELS[template],
             email,
             recovery_link_generated: true,
           },

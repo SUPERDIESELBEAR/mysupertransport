@@ -1,53 +1,70 @@
-# Plan: Test Launch SUPERDRIVE before bulk send
+## Goal
 
-You have **35 pre-existing operators** queued (all active, all have emails, all have user accounts, **none invited yet** — audit log is empty for `superdrive_invite_sent`). Before you mass-send, here's a safe verification approach.
+Refocus the initial SUPERDRIVE rollout email around **the Inspection Binder** (the one feature drivers need on day one) and hide the rest of the app's features. Other features will be introduced later via push notifications.
 
-## What I already verified (read-only checks)
+To preserve the existing email (so we can still use it for new operators who haven't been driving with us yet), we'll add a **second template** and let staff pick which one to send.
 
-- **Eligibility query works**: 35 operators match `reviewer_notes = 'Pre-existing operator added directly'`, all active, all have user accounts and emails.
-- **No prior sends**: `audit_log` has zero `superdrive_invite_sent` entries → no one is in the 30-day cooldown.
-- **Edge function looks correct**: auth gate (management/owner), per-operator processing, idempotent via audit log, generates a Supabase recovery link, sends branded HTML, writes audit row.
-- **Dialog wiring correct**: `DriverHubView` → `LaunchSuperdriveDialog` → invokes `launch-superdrive-invite` with the user's bearer token.
+## What gets built
 
-## Recommended live test (3 steps)
+### 1. New email variant in `launch-superdrive-invite/index.ts`
 
-**1. Add a test recipient I control** (you'll do this in the UI)
-- In Driver Hub, add a single "pre-existing operator" pointing at an email **you own** (e.g. your own Gmail or a `+test` alias). This guarantees we can read the actual email without spamming a real driver.
-- Tell me the email you used.
+Add a second HTML builder alongside the existing `buildWelcomeEmailHtml`:
 
-**2. I'll trigger the send via the Launch SUPERDRIVE flow against just that test row**
-- I'll call the deployed `launch-superdrive-invite` edge function with that single operator_id, using your auth token.
-- I'll verify the response shape: `{ success, summary: { sent: 1, ... }, results: [{ status: 'sent', email }] }`.
-- I'll check the edge function logs for any warnings.
-- I'll confirm an `audit_log` row was written so the 30-day cooldown takes effect.
+- **`buildBinderEmailHtml(firstName, recoveryUrl)`** — Inspection Binder focused.
+  - Subject: `Your DOT Inspection Binder is now in your pocket`
+  - Hero line: "We just rolled out a new tool to make your life at the scale house easier."
+  - Single feature card explaining the Inspection Binder:
+    - CDL, medical card, truck title, periodic inspection, registration — one tap away
+    - Always current (we keep your docs synced)
+    - Works offline once installed
+    - Share-link option for officers
+  - Same gold CTA button: "Set Your Password & Open SUPERDRIVE"
+  - Same iPhone/Android install callout (critical — binder must be on the home screen to be useful at a scale)
+  - Soft teaser at the bottom: *"More tools — settlement forecasts, dispatch status, direct messages, payroll calendar — are coming. We'll let you know in-app as each one goes live."*
+  - Sign-off: "— The SUPERTRANSPORT team"
 
-**3. You confirm the email + link**
-- Open the email in your inbox.
-- Click "Set Your Password & Open SUPERDRIVE" → should land on `/reset-password` with a valid recovery token.
-- Set a password → should drop you into `/dashboard` as that operator.
-- Confirm the install callout (iOS Safari / Android Chrome) reads correctly.
+The existing `buildWelcomeEmailHtml` (full feature tour) stays untouched.
 
-## What I'll watch for
+### 2. Template selector in the edge function
 
-- **Cooldown enforcement**: re-running the same send should return `recently_invited` (not a duplicate email).
-- **Email source-of-truth**: function prefers `auth.users.email` over `applications.email` — fine, but worth confirming the test row's auth email matches what you typed.
-- **Recovery link redirect**: must hit `https://mysupertransport.lovable.app/reset-password` (the `APP_URL` env var). If your `/reset-password` page expects the recovery token in the URL hash, we'll see it work in step 3.
-- **Rate limits**: function caps at 100 per request — your 35 fits in one batch.
-- **Audit log writes**: needed so the dialog's "Last sent" badge populates and the cooldown holds.
+- Accept a new optional field in the request body: `template: 'binder' | 'full'` (default `'binder'` going forward, since that's the new rollout default).
+- Branch to the matching builder when assembling each operator's email.
+- Pass the template name into the `audit_log` metadata so we can see which variant was sent to whom.
 
-## After the test passes
+### 3. UI toggle in `LaunchSuperdriveDialog.tsx`
 
-- Open Launch SUPERDRIVE dialog → "Select all never-invited (35)" → Send.
-- Expected result: `35 sent · 0 cooldown · 0 errors`.
-- Watch the summary banner; any errors will list per-operator with reasons.
+Add a small radio group above the operator list:
+- ◉ **Inspection Binder intro** (default) — "Focused on the new binder app. Recommended for the initial rollout."
+- ○ **Full feature tour** — "Original welcome email covering every feature."
 
-## Technical notes
+Pass the chosen value through to `supabase.functions.invoke('launch-superdrive-invite', { body: { operator_ids, template } })`.
 
-- Function: `supabase/functions/launch-superdrive-invite/index.ts`
-- Trigger UI: `LaunchSuperdriveDialog` (opened from `DriverHubView`, management/owner only)
-- Cooldown: 30 days, enforced both client-side (UI disables checkbox) and server-side (audit log lookup)
-- Email template: inline HTML in the function, uses shared `buildEmail` from `_shared/email-layout.ts`
+### 4. Test send to King Kong
+
+After deploy, I'll invoke the function with `operator_ids: ['d0e1ba38-2755-4baa-8634-e12ee40d72fe']` and `template: 'binder'`. Because King Kong already has a `superdrive_invite_sent` audit row from yesterday, the 30-day cooldown will block it.
+
+**Two options for the test resend** — pick one:
+
+- **A. One-time cooldown bypass for King Kong only.** I'll delete his existing `audit_log` row for `superdrive_invite_sent` before triggering, so the cooldown check passes. Clean, no code change.
+- **B. Add a `force: true` flag** to the edge function (management-only) that skips the cooldown check. Useful long-term for re-sending to anyone who didn't receive the first email. Slightly more work but keeps the audit trail intact.
+
+I recommend **A** for this test (simplest), and we can add **B** later if you want a permanent "resend" capability in the dialog.
+
+## What I'll verify after the test
+
+- Email lands in `marcsmueller+sdtest@gmail.com`.
+- Subject line and hero copy match the binder focus.
+- Recovery link still drops you onto `/reset-password` with a valid token.
+- Install callout reads correctly on mobile.
+- `audit_log` shows a fresh `superdrive_invite_sent` row with `metadata.template = 'binder'`.
+
+## Files touched
+
+- `supabase/functions/launch-superdrive-invite/index.ts` — new builder, template branching, audit metadata.
+- `src/components/management/LaunchSuperdriveDialog.tsx` — radio toggle + pass `template` in invoke body.
+
+No DB migration needed.
 
 ---
 
-**Approve this plan and tell me the test email address you used**, and I'll run the live single-recipient test.
+**Approve this plan and tell me whether to use option A (delete King Kong's audit row for the test) or option B (add a `force` bypass flag).**
