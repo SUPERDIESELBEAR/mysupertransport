@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +55,8 @@ interface FleetDetailDrawerProps {
   operatorId: string;
   onBack: () => void;
   readOnly?: boolean;
+  /** Fired exactly once after the first data fetch resolves. */
+  onReady?: () => void;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -73,7 +75,8 @@ function categoryBadge(cat: string) {
   return <Badge key={cat} className={`text-[10px] px-1.5 py-0 ${colors[cat] ?? ''}`}>{label}</Badge>;
 }
 
-export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false }: FleetDetailDrawerProps) {
+export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false, onReady }: FleetDetailDrawerProps) {
+  const readyFiredRef = useRef(false);
   const { session } = useAuth();
   const [truckInfo, setTruckInfo] = useState<any>(null);
   const [driverName, setDriverName] = useState('');
@@ -187,7 +190,8 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
     setMaintenance((maintenanceResult.data as MaintenanceRecord[]) ?? []);
     setDotInspections((dotResult.data as DOTInspection[]) ?? []);
     setLoading(false);
-  }, [operatorId]);
+    if (!readyFiredRef.current) { readyFiredRef.current = true; onReady?.(); }
+  }, [operatorId, onReady]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
