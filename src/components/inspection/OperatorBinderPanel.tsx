@@ -31,7 +31,7 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS, parseLocalDate, filterOptionalDocs } from './InspectionBinderTypes';
-import { ExpiryBadge, FilePreviewModal, bucketForBinderDoc } from './DocRow';
+import { ExpiryBadge, FilePreviewModal, bucketForBinderDoc, InspectedBadge, isInspectionDateDoc } from './DocRow';
 
 type DriverUploadCategory = 'roadside_inspection_report' | 'repairs_maintenance_receipt' | 'miscellaneous';
 
@@ -223,7 +223,11 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-sm font-medium text-foreground">{docName}</span>
                 {!doc?.file_url && <Badge variant="secondary" className="text-[10px]">No file</Badge>}
-                {doc?.file_url && hasExpiry && <ExpiryBadge expiresAt={doc.expires_at} />}
+                {doc?.file_url && hasExpiry && (
+                  isInspectionDateDoc(docName)
+                    ? <InspectedBadge inspectionDate={doc.expires_at} />
+                    : <ExpiryBadge expiresAt={doc.expires_at} />
+                )}
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {doc?.file_url && (
