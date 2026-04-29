@@ -1232,32 +1232,21 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                         }, 60);
                       }}
                       style={{ animationDelay: `${idx * 60}ms`, animationFillMode: 'both' }}
-                      className={`group relative flex items-center gap-4 rounded-2xl border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 ease-out hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 min-h-[112px] animate-fade-in ${isDimmed ? 'opacity-50' : ''} ${isLoading ? 'border-primary/60 shadow-md' : ''}`}
+                      className={`group relative ${isLoading ? 'flex flex-col gap-3 p-4' : 'flex items-center gap-4 p-5'} rounded-2xl border border-border bg-card text-left shadow-sm transition-all duration-200 ease-out hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 min-h-[112px] animate-fade-in ${isDimmed ? 'opacity-50' : ''} ${isLoading ? 'border-primary/60 shadow-md' : ''}`}
                     >
                       {isLoading ? (
-                        <Skeleton className="h-14 w-14 shrink-0 rounded-xl bg-primary/15" />
+                        <DestinationSkeleton view={t.view} />
                       ) : (
-                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
-                          {t.icon}
-                        </span>
-                      )}
-                      <span className="flex-1 min-w-0">
-                        {isLoading ? (
-                          <span className="block space-y-2">
-                            <Skeleton className="block h-4 w-3/5 rounded" />
-                            <Skeleton className="block h-3 w-4/5 rounded" />
+                        <>
+                          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+                            {t.icon}
                           </span>
-                        ) : (
-                          <>
+                          <span className="flex-1 min-w-0">
                             <span className="block text-base font-semibold text-foreground">{t.label}</span>
                             <span className="block text-xs text-muted-foreground mt-0.5 leading-snug">{t.sublabel}</span>
-                          </>
-                        )}
-                      </span>
-                      {isLoading ? (
-                        <Clock className="h-5 w-5 text-primary animate-spin shrink-0" />
-                      ) : (
-                        <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform shrink-0 group-hover:text-primary group-hover:translate-x-0.5" />
+                          </span>
+                          <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform shrink-0 group-hover:text-primary group-hover:translate-x-0.5" />
+                        </>
                       )}
                     </button>
                   );
