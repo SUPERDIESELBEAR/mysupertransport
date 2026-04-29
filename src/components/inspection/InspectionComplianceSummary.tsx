@@ -429,6 +429,10 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           </span>
         </button>
 
+        <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+          <ComplianceWindowPicker />
+        </div>
+
         <button onClick={() => setExpanded(v => !v)} className="shrink-0 hover:opacity-80 transition-opacity">
           {expanded
             ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
