@@ -1437,6 +1437,22 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {/* ── NOTIFICATIONS VIEW ── */}
         {view === 'notifications' && <NotificationHistory />}
 
+        {/* ── MESSAGES VIEW ── */}
+        {view === 'messages' && <OperatorMessagesView />}
+
+        {/* ── DISPATCH VIEW ── */}
+        {view === 'dispatch' && operatorId && (
+          <OperatorDispatchStatus
+            operatorId={operatorId}
+            onMessageDispatcher={() => setView('messages')}
+          />
+        )}
+        {view === 'dispatch' && !operatorId && (
+          <div className="text-center text-sm text-muted-foreground py-12">
+            Your dispatch status will appear here once onboarding is complete.
+          </div>
+        )}
+
         {/* ── DOC HUB VIEW ── */}
         {view === 'docs-hub' && (
           <DocumentHub onAcknowledged={fetchData} />
