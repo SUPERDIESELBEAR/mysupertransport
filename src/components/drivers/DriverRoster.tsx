@@ -57,6 +57,16 @@ export function isNeverRenewed(cdl: string | null, med: string | null): boolean 
 }
 
 export function getComplianceTier(cdl: string | null, med: string | null): Exclude<ComplianceFilter, 'never_renewed' | 'all'> | 'all' {
+  // Backwards-compatible signature; warning bound is configurable via the
+  // optional `warningWindowDays` argument (defaults to 30).
+  return getComplianceTierWithin(cdl, med, 30);
+}
+
+export function getComplianceTierWithin(
+  cdl: string | null,
+  med: string | null,
+  warningWindowDays: number,
+): Exclude<ComplianceFilter, 'never_renewed' | 'all'> | 'all' {
   const getDays = (d: string | null) =>
     d ? differenceInDays(startOfDay(parseISO(d)), startOfDay(new Date())) : null;
   const days = [getDays(cdl), getDays(med)].filter((d): d is number => d !== null);
@@ -64,7 +74,7 @@ export function getComplianceTier(cdl: string | null, med: string | null): Exclu
   const min = Math.min(...days);
   if (min < 0) return 'expired';
   if (min <= 7) return 'critical';
-  if (min <= 30) return 'warning';
+  if (min <= warningWindowDays) return 'warning';
   return 'all';
 }
 
