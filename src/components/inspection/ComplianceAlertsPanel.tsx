@@ -10,6 +10,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { differenceInDays, format } from 'date-fns';
 import { parseLocalDate, formatDaysHuman } from './InspectionBinderTypes'; 
 import { useToast } from '@/hooks/use-toast';
+import { useComplianceWindow } from '@/hooks/useComplianceWindow';
+import { ComplianceWindowPicker } from '@/components/shared/ComplianceWindowPicker';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 export interface ComplianceAlert {
@@ -31,6 +33,7 @@ interface Props {
 export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWithFocus, defaultNoActionOnly = false }: Props) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
+  const { windowDays } = useComplianceWindow();
 
   const [alerts, setAlerts] = useState<ComplianceAlert[]>([]);
   const [expanded, setExpanded] = useState(true);
@@ -140,7 +143,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
         const dateStr: string | null = binderDate ?? app[field];
         if (!dateStr) return;
         const days = differenceInDays(parseLocalDate(dateStr), today);
-        if (days <= 90) {
+        if (days <= windowDays) {
           newAlerts.push({
             operator_id: op.id,
             operator_name: name,
@@ -165,7 +168,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
     setNoActionOnly(false);
     setSort('urgency');
     setNoActionBulkSentCount(null);
-  }, []);
+  }, [windowDays]);
 
   useEffect(() => {
     fetchData();
@@ -460,7 +463,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
           })()}
           <span className="text-xs text-muted-foreground hidden sm:inline truncate">
             {alerts.filter(a => a.days_until < 0).length > 0 ? `${alerts.filter(a => a.days_until < 0).length} expired · ` : ''}
-            CDL or medical cert expiring within 90 days
+            CDL or medical cert expiring within {windowDays} days
           </span>
           {/* Doc-type filter chips */}
           <div className="hidden sm:flex items-center gap-1 ml-1 shrink-0" onClick={e => e.stopPropagation()}>
