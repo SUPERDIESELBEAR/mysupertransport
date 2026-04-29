@@ -136,7 +136,9 @@ function StageCard({
   );
 
   const showSubsteps = stage.substeps.length > 0 && (!isNotStarted || isStage8NotStarted);
-  const canToggle = showSubsteps;
+  // Stage 8 header acts as a deep link to the Pay Setup form instead of toggling.
+  const isStage8DeepLink = stage.number === 8 && (stage.status === 'not_started' || stage.status === 'in_progress');
+  const canToggle = showSubsteps && !isStage8DeepLink;
   const cardOpacity = isStage8NotStarted ? '' : colors.opacity;
 
   // CTA logic
@@ -153,12 +155,19 @@ function StageCard({
     >
       {/* Stage header */}
       <button
-        onClick={() => canToggle && setExpanded(e => !e)}
+        onClick={() => {
+          if (isStage8DeepLink) {
+            onNavigateTo('pay-setup');
+          } else if (canToggle) {
+            setExpanded(e => !e);
+          }
+        }}
         className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors ${
-          canToggle ? 'cursor-pointer hover:bg-muted/30 active:bg-muted/40' : 'cursor-default'
+          canToggle || isStage8DeepLink ? 'cursor-pointer hover:bg-muted/30 active:bg-muted/40' : 'cursor-default'
         } ${colors.headerBg}`}
-        disabled={!canToggle}
+        disabled={!canToggle && !isStage8DeepLink}
         aria-expanded={canToggle ? expanded : undefined}
+        aria-label={isStage8DeepLink ? `Open ${stage.title}` : undefined}
       >
         {/* Stage number + icon */}
         <span className={`shrink-0 ${colors.icon}`}>
@@ -179,11 +188,15 @@ function StageCard({
         </span>
 
         {/* Expand/collapse chevron */}
-        {canToggle && (
+        {canToggle ? (
           <span className="shrink-0 text-muted-foreground/40">
             {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </span>
-        )}
+        ) : isStage8DeepLink ? (
+          <span className="shrink-0 text-gold">
+            <ArrowRight className="h-3.5 w-3.5" />
+          </span>
+        ) : null}
       </button>
 
       {/* Not-started hint */}
