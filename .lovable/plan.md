@@ -1,49 +1,31 @@
-## Goal
+# Improve Exit Navigation from 3-Ring Binder
 
-Operators don't intuitively know the "Pages" toggle gives them a familiar 3-ring binder experience. The fix is to **rename "Pages" to "3-Ring Binder"** and **promote it from a tiny segmented toggle into a prominent, hard-to-miss call-to-action card** at the top of the Inspection Binder. The List view stays available, but as a secondary option.
+Make it obvious how to return to the List view while inside the flipbook, so an operator under roadside pressure never has to hunt for it.
 
-## Changes
+## Changes to `src/components/inspection/BinderFlipbook.tsx`
 
-### 1. Rename "Pages" view to "3-Ring Binder" everywhere it's user-facing
+### 1. Replace the unlabeled "X" with a labeled close control
+Swap the icon-only close button (top-left of the top bar) for a compact button that reads **"List View"** with a left-chevron icon (`ChevronLeft`). This makes the destination explicit instead of relying on the ambiguous "X" metaphor.
 
-In `src/components/inspection/OperatorInspectionBinder.tsx`:
-- The segmented toggle button currently labeled "Pages" becomes "3-Ring Binder".
-- Internal state values (`'list' | 'pages'`) stay the same to avoid touching `BinderFlipbook`, deep-link logic, and the `initialViewMode` prop contract used by `OperatorPortal`.
+- Keep the same `onClose` handler — no behavioral change, just clearer affordance.
+- Use a small ghost-style button so it stays visually quiet but readable.
+- Keep `aria-label="Close binder and return to list view"` for accessibility.
 
-### 2. Add a prominent "Open 3-Ring Binder" hero CTA
+### 2. Add a redundant menu entry
+In the meatball (⋮) dropdown, append a final item at the bottom of the **non-select-mode** branch:
 
-Directly under the dark cover-page card (around line 240, before the existing view-mode/select controls), add a new full-width gold-accented card:
+- Divider, then **"Switch to List View"** with a `List` icon, calling `onClose`.
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│  [BookOpen icon]  Flip Through Your Binder              │
-│                   View your documents like a real        │
-│                   3-ring binder — page by page.          │
-│                                  [ Open 3-Ring Binder ▸ ]│
-└─────────────────────────────────────────────────────────┘
-```
+This gives operators a second discoverable path even if they have the menu open mid-share.
 
-- Uses the existing `gold` brand color and `surface-dark` palette so it stands out against the page.
-- Tapping anywhere on the card (or the button) calls `setViewMode('pages'); setFlipbookOpen(true);` — the same handler the existing toggle uses.
-- Includes a short helper sentence ("View your documents like a real 3-ring binder — page by page.") so the metaphor is obvious.
+### 3. No changes to share flow
+Email / SMS / QR sharing already lives inside the binder, so nothing about the share UX changes. The new label simply reassures users that leaving the binder is one tap away if they ever want the classic list.
 
-### 3. Demote the List/Binder segmented control
-
-Keep the existing inline segmented toggle but:
-- Move it inline with the "Select Documents" row (it's already there) and shrink its visual weight slightly so it reads as a secondary "view switcher".
-- Update the second pill label from "Pages" to "Binder" with the `BookOpen` icon for consistency with the hero CTA.
-
-### 4. First-run nudge (lightweight, optional polish)
-
-Add a tiny one-time hint dot/pulse on the hero CTA until the operator has opened the 3-Ring Binder at least once. Tracked in `localStorage` with the key `binder_opened_v1` — no DB changes. Once they tap it, the pulse disappears forever on that device.
-
-## Files touched
-
-- `src/components/inspection/OperatorInspectionBinder.tsx` — only file requiring edits.
-
-No DB migrations, no edge functions, no changes to `BinderFlipbook`, and no changes to the staff/admin binder views.
+## Technical notes
+- Import `List` from `lucide-react` alongside the existing icons (`ChevronLeft` is already imported).
+- Keep the button compact (`h-9 px-2.5`, `text-xs font-medium`) so the top bar still fits the page title and expiry badge on narrow phone widths (≤375px).
+- No state, props, or parent contract changes.
 
 ## Out of scope
-
-- The staff-side `InspectionBinderAdmin` view is unchanged — staff already understand the toggle.
-- The deep-link `?tab=inspection-binder&view=pages` contract from `OperatorPortal.tsx` keeps working unchanged.
+- No changes to `OperatorInspectionBinder.tsx` (the parent already renders the List view when the flipbook closes).
+- No changes to keyboard shortcuts (Escape still closes).
