@@ -494,6 +494,11 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
           </div>
         </button>
 
+        {/* Visibility window picker */}
+        <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+          <ComplianceWindowPicker />
+        </div>
+
         {/* Bulk Send Reminders */}
         {(() => {
           const filteredTargets = alerts.filter(a => { if (docFilter !== 'all' && a.doc_type !== docFilter) return false; return a.days_until <= 30; });
