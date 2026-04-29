@@ -397,28 +397,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     return () => { supabase.removeChannel(channel); };
   }, [operatorId, fetchDispatcherInfo]);
 
-  // Auto-report PWA installation when running in standalone mode
-  useEffect(() => {
-    if (isPreview || !operatorId) return;
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (navigator as any).standalone === true;
-    if (!isStandalone) return;
-    // Fire-and-forget: check if already recorded, if not, stamp it
-    (async () => {
-      const { data } = await supabase
-        .from('operators')
-        .select('pwa_installed_at')
-        .eq('id', operatorId)
-        .maybeSingle();
-      if (data && !(data as any).pwa_installed_at) {
-        await supabase
-          .from('operators')
-          .update({ pwa_installed_at: new Date().toISOString() } as any)
-          .eq('id', operatorId);
-      }
-    })();
-  }, [operatorId, isPreview]);
+  // PWA install + presence tracking handled globally by <TrackOperatorPresence />
 
   // Clear unread count when messages tab is opened
   useEffect(() => {
