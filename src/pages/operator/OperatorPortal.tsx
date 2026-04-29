@@ -71,7 +71,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const [view, setView] = useState<OperatorView>(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'].includes(tab)) return tab;
+    if (tab && ['home','progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'].includes(tab)) return tab;
     return 'progress';
   });
   // Sub-view for the inspection binder (list vs flipbook pages); driven via ?binderView=pages
@@ -91,7 +91,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'].includes(tab)) setView(tab);
+    if (tab && ['home','progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'].includes(tab)) setView(tab);
     const bv = params.get('binderView');
     setBinderView(bv === 'pages' ? 'pages' : undefined);
   }, [location.search]);
