@@ -1320,6 +1320,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
         {/* ── NOTIFICATIONS VIEW ── */}
         {view === 'notifications' && <NotificationHistory />}
+
+        {/* ── DOC HUB VIEW ── */}
+        {view === 'docs-hub' && (
+          <DocumentHub onAcknowledged={fetchData} />
+        )}
       </div>
 
       {/* ── Floating Next-Step CTA (mobile only, above bottom nav) ────── */}
