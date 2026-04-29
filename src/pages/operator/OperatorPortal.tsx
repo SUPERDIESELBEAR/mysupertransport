@@ -1038,7 +1038,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
       </header>
 
-      <div className="max-w-4xl mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6">
+      <div className="relative max-w-4xl mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6">
 
         {/* ── TRUCK DOWN ALERT BANNER ── */}
         {dispatchStatus === 'truck_down' && (
@@ -1368,7 +1368,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
         {/* ── INSPECTION BINDER VIEW ── */}
         {view === 'inspection-binder' && effectiveUserId && (
-          <OperatorInspectionBinder userId={effectiveUserId} operatorId={operatorId} initialViewMode={binderView} />
+          <OperatorInspectionBinder userId={effectiveUserId} operatorId={operatorId} initialViewMode={binderView} onReady={() => handleDestinationReady('inspection-binder')} />
         )}
 
         {/* ── MY DOCUMENTS VIEW (read-only vault) ── */}
@@ -1387,12 +1387,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
         {/* ── MY TRUCK VIEW (read-only fleet detail) ── */}
         {view === 'my-truck' && operatorId && (
-          <FleetDetailDrawer operatorId={operatorId} onBack={() => setView('progress')} readOnly />
+          <FleetDetailDrawer operatorId={operatorId} onBack={() => setView('progress')} readOnly onReady={() => handleDestinationReady('my-truck')} />
         )}
 
         {/* ── SETTLEMENT FORECAST VIEW ── */}
         {view === 'forecast' && operatorId && (
-          <SettlementForecast operatorId={operatorId} />
+          <SettlementForecast operatorId={operatorId} onReady={() => handleDestinationReady('forecast')} />
         )}
         {view === 'forecast' && !operatorId && (
           <div className="py-16 text-center text-muted-foreground text-sm">Loading your operator profile…</div>
@@ -1430,7 +1430,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 <DriverServiceLibrary />
               </TabsContent>
               <TabsContent value="documents">
-                <OperatorResourceLibrary />
+                <OperatorResourceLibrary onReady={() => handleDestinationReady('resource-center')} />
               </TabsContent>
             </Tabs>
           </div>
