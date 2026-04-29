@@ -120,6 +120,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   useEffect(() => { viewRef.current = view; }, [view]);
   // Track whether we've already auto-redirected to Home so we don't fight the user
   const homeAutoRedirected = useRef(false);
+  // Tile that was tapped on the Home view — drives press/loading state.
+  const [pendingTile, setPendingTile] = useState<OperatorView | null>(null);
+  // Clear the pending state once the view actually changes away from 'home'.
+  useEffect(() => {
+    if (view !== 'home' && pendingTile !== null) setPendingTile(null);
+  }, [view, pendingTile]);
 
   const handleTruckDownAck = useCallback(async () => {
     if (isPreview || !operatorId || !dispatchUpdatedAt || !user) return;
@@ -1168,32 +1174,45 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             { view: 'resource-center', label: 'Resource Center', sublabel: 'Guides, how-tos & references', icon: <BookOpen className="h-8 w-8" /> },
           ];
           return (
-            <div className="space-y-5">
+            <div className="space-y-5 animate-fade-in">
               <div className="space-y-1">
                 <h1 className="text-2xl font-bold text-foreground">{greeting}, {displayName}</h1>
                 <p className="text-sm text-muted-foreground">Pick where you want to go.</p>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                {tiles.map((t) => (
-                  <button
-                    key={t.view}
-                    onClick={() => {
-                      if (t.extraAction) t.extraAction();
-                      setView(t.view);
-                    }}
-                    className="group relative flex items-center gap-4 rounded-2xl border border-border bg-card p-5 text-left shadow-sm transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 min-h-[112px]"
-                  >
-                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary/15">
-                      {t.icon}
-                    </span>
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-base font-semibold text-foreground">{t.label}</span>
-                      <span className="block text-xs text-muted-foreground mt-0.5 leading-snug">{t.sublabel}</span>
-                    </span>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary shrink-0" />
-                  </button>
-                ))}
+                {tiles.map((t, idx) => {
+                  const isLoading = pendingTile === t.view;
+                  const isDimmed = pendingTile !== null && !isLoading;
+                  return (
+                    <button
+                      key={t.view}
+                      disabled={pendingTile !== null}
+                      onClick={() => {
+                        setPendingTile(t.view);
+                        // Defer the (potentially heavy) view switch a tick so the
+                        // spinner + press state paint first — feels much smoother on mobile.
+                        setTimeout(() => {
+                          if (t.extraAction) t.extraAction();
+                          setView(t.view);
+                        }, 60);
+                      }}
+                      style={{ animationDelay: `${idx * 60}ms`, animationFillMode: 'both' }}
+                      className={`group relative flex items-center gap-4 rounded-2xl border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 ease-out hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 min-h-[112px] animate-fade-in ${isDimmed ? 'opacity-50' : ''} ${isLoading ? 'border-primary/60 shadow-md' : ''}`}
+                    >
+                      <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15 ${isLoading ? 'bg-primary/20' : ''}`}>
+                        {isLoading ? <Clock className="h-7 w-7 animate-spin" /> : t.icon}
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-base font-semibold text-foreground">{t.label}</span>
+                        <span className="block text-xs text-muted-foreground mt-0.5 leading-snug">
+                          {isLoading ? 'Opening…' : t.sublabel}
+                        </span>
+                      </span>
+                      <ChevronRight className={`h-5 w-5 text-muted-foreground transition-transform shrink-0 group-hover:text-primary group-hover:translate-x-0.5 ${isLoading ? 'opacity-0' : ''}`} />
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Secondary link back to onboarding status */}
