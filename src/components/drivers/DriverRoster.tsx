@@ -775,7 +775,7 @@ export default function DriverRoster({
               }`}
             >
               <Clock className="h-3 w-3" />
-              Warning ≤ 30d
+              Warning ≤ {windowDays}d
               <span className="font-semibold">{complianceCounts.warning}</span>
             </button>
           )}
