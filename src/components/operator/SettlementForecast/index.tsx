@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Calculator, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -17,10 +17,13 @@ interface Props {
   operatorId: string;
   /** When true, hides all add/edit/delete affordances and modals. Used by Staff/Management views. */
   readOnly?: boolean;
+  /** Fired exactly once after the first data fetch resolves. */
+  onReady?: () => void;
 }
 
-export default function SettlementForecast({ operatorId, readOnly = false }: Props) {
+export default function SettlementForecast({ operatorId, readOnly = false, onReady }: Props) {
   const [loading, setLoading] = useState(true);
+  const readyFiredRef = useRef(false);
   const [payPercentage, setPayPercentage] = useState<number>(PAY_PERCENTAGE_DEFAULT);
   const [loads, setLoads] = useState<LoadRow[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
