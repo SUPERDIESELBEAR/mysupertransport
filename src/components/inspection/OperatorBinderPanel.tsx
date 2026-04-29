@@ -31,7 +31,7 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS, parseLocalDate, filterOptionalDocs } from './InspectionBinderTypes';
-import { ExpiryBadge, FilePreviewModal, bucketForBinderDoc } from './DocRow';
+import { ExpiryBadge, FilePreviewModal, bucketForBinderDoc, InspectedBadge, isInspectionDateDoc } from './DocRow';
 
 type DriverUploadCategory = 'roadside_inspection_report' | 'repairs_maintenance_receipt' | 'miscellaneous';
 
@@ -223,7 +223,11 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-sm font-medium text-foreground">{docName}</span>
                 {!doc?.file_url && <Badge variant="secondary" className="text-[10px]">No file</Badge>}
-                {doc?.file_url && hasExpiry && <ExpiryBadge expiresAt={doc.expires_at} />}
+                {doc?.file_url && hasExpiry && (
+                  isInspectionDateDoc(docName)
+                    ? <InspectedBadge inspectionDate={doc.expires_at} />
+                    : <ExpiryBadge expiresAt={doc.expires_at} />
+                )}
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {doc?.file_url && (
@@ -272,7 +276,9 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
                     onClick={() => { if (doc) { setExpiryEditing(doc.id); setExpiryValue(doc.expires_at ?? ''); } }}
                   >
                     <Calendar className="h-3.5 w-3.5" />
-                    {doc?.expires_at ? `Expires ${parseLocalDate(doc.expires_at).toLocaleDateString()}` : 'Set expiry date'}
+                    {doc?.expires_at
+                      ? `${isInspectionDateDoc(docName) ? 'Inspection Date' : 'Expires'} ${parseLocalDate(doc.expires_at).toLocaleDateString()}`
+                      : (isInspectionDateDoc(docName) ? 'Set inspection date' : 'Set expiry date')}
                   </button>
                 )}
               </div>

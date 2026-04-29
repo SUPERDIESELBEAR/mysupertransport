@@ -86,6 +86,20 @@ export function OnFileBadge() {
   );
 }
 
+/** Doc names whose date field represents the inspection date, not an expiry */
+export const INSPECTION_DATE_DOCS = new Set<string>(['Periodic DOT Inspections']);
+export const isInspectionDateDoc = (name: string) => INSPECTION_DATE_DOCS.has(name);
+
+/** Neutral badge shown for docs whose stored date is the inspection date */
+export function InspectedBadge({ inspectionDate }: { inspectionDate: string | null }) {
+  if (!inspectionDate) return null;
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] bg-info/10 text-info border border-info/30 rounded-full px-2 py-0.5 font-semibold shrink-0">
+      <CheckCircle2 className="h-3 w-3" /> Inspected {parseLocalDate(inspectionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+    </span>
+  );
+}
+
 function ShareModal({ doc, onClose }: { doc: InspectionDocument; onClose: () => void }) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
@@ -881,18 +895,27 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
               <span className="text-[10px] bg-muted text-muted-foreground rounded-full px-2 py-0.5 border border-border font-medium shrink-0">Awaiting Upload</span>
             )}
             {hasFile && hasExpiry && doc?.expires_at && (
-              <ExpiryBadge expiresAt={doc.expires_at} />
+              isInspectionDateDoc(name)
+                ? <InspectedBadge inspectionDate={doc.expires_at} />
+                : <ExpiryBadge expiresAt={doc.expires_at} />
             )}
             {hasFile && hasExpiry && !doc?.expires_at && (
-              <span className="text-[10px] bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-medium shrink-0">No expiry set</span>
+              <span className="text-[10px] bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-medium shrink-0">
+                {isInspectionDateDoc(name) ? 'No inspection date set' : 'No expiry set'}
+              </span>
             )}
             {hasFile && !hasExpiry && (
               <OnFileBadge />
             )}
           </div>
-          {hasFile && doc?.expires_at && (
+          {hasFile && doc?.expires_at && !isInspectionDateDoc(name) && (
             <p className="text-xs text-muted-foreground mt-0.5">
               Expires {parseLocalDate(doc.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </p>
+          )}
+          {hasFile && doc?.expires_at && isInspectionDateDoc(name) && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Inspection Date {parseLocalDate(doc.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </p>
           )}
         </div>

@@ -1,67 +1,45 @@
-## Goal
+# Switch DOT Inspection Binder to Inspection Date + computed Next DOT Due
 
-Right now, compliance "warning" alerts start showing as soon as a CDL or Medical Cert is within 90 days of expiry, which creates noise. We'll add a **staff-configurable visibility threshold** (30, 60, or 90 days) that controls when items first appear in the compliance UIs. Default will be **30 days**.
+## What changes
 
-Backend cron emails (the automated 60-day and 30-day operator reminder emails in `check-cert-expiry`) are **not** changed — drivers still get their existing email cadence.
+### 1. Inspection Binder ("Periodic DOT Inspections" row only)
+- Relabel the date field from **"Expires"** / **"Set expiry date"** to **"Inspection Date"** / **"Set inspection date"**.
+- The badge text changes from `Expires Jun 17, 2026` → `Inspected Jun 17, 2025`.
+- Replace the colored expiry badge (Expired / Expiring Soon / Valid) with a neutral "Inspected" badge for this row only — expiry is no longer derived here. All other binder docs (CDL, Med Cert, IFTA, etc.) keep their existing expiry behavior unchanged.
+- The underlying column stays `expires_at` (no schema change), but for this single doc name it now stores the **inspection date**.
 
-## What changes for users
+### 2. Vehicle Hub (Fleet Detail Drawer)
+- The DOT Inspection card already shows `Next DOT Due` using `truck_dot_inspections.next_due_date`. We will additionally:
+  - Show the **Inspection Date** prominently next to Next DOT Due.
+  - When no `truck_dot_inspections` record exists for an operator but a `Periodic DOT Inspections` binder doc does, fall back to that binder date and compute Next DOT Due as `inspection_date + fleet default reminder interval`.
+- Allowed intervals stay 90 / 180 / 270 / 360 days (the modal already exposes these). No interval logic changes.
 
-A new "Show alerts within ___ days" selector appears in:
+### 3. One-time data rollback for existing records
+Every current `inspection_documents` row with `name = 'Periodic DOT Inspections'` was entered as `inspection_date + 365 days`. We will run a one-time data update:
 
-1. **Compliance Alerts panel** (Inspection menu) — header dropdown.
-2. **Driver Hub** compliance chip row — same dropdown next to the chips.
-3. **Inspection Compliance Summary** — the "Expiring within X days" tier label and filter respect the chosen window.
-
-The selected value is shared across these surfaces (one setting, applied everywhere) and persists per staff user.
-
-Behavior at each setting:
-
-```text
-Setting   Expired chip   Critical (≤7d)   Warning tier visibility
-30 days   shown          shown            8–30 days only  ← default
-60 days   shown          shown            8–60 days
-90 days   shown          shown            8–90 days   (today's behavior)
+```
+UPDATE inspection_documents
+SET expires_at = expires_at - INTERVAL '365 days'
+WHERE name = 'Periodic DOT Inspections'
+  AND expires_at IS NOT NULL;
 ```
 
-"Expired" and "Critical (≤7d)" alerts are **always shown** regardless of setting — only the upper bound of the Warning tier moves.
+So `Expires 6/17/2026` becomes `Inspection Date 6/17/2025`, exactly as in your example. ~34 rows affected.
 
-## Technical details
+### 4. Compliance alerts
+The "Periodic DOT Inspections" binder doc will be **excluded** from the Compliance Alerts panel and Driver Hub expiry chips, since the date no longer represents an expiry. DOT-due alerts continue to come from `truck_dot_inspections.next_due_date` in the Vehicle Hub (existing behavior).
 
-### Storage
-- Persist in `localStorage` under `compliance_alert_window_days` (values: `30 | 60 | 90`).
-- Read via a new tiny hook `src/hooks/useComplianceWindow.ts` that returns `{ windowDays, setWindowDays }` and broadcasts changes through a `storage` event so all open surfaces stay in sync.
-- No DB migration needed — this is a per-user UI preference, mirroring the `staff_sidebar_open` pattern already in the project.
+## Technical notes
 
-### Files touched
+**Files touched**
+- `src/components/inspection/InspectionBinderAdmin.tsx` — conditional label/badge for `name === 'Periodic DOT Inspections'`; skip expiry-tier coloring for this row.
+- `src/components/inspection/OperatorBinderPanel.tsx` — same conditional relabel on operator-facing view.
+- `src/components/inspection/DocRow.tsx` — accept an `isInspectionDate` flag (or branch on doc name) to swap badge text/color.
+- `src/components/inspection/ComplianceAlertsPanel.tsx` & `src/components/drivers/DriverRoster.tsx` — exclude `Periodic DOT Inspections` from expiry tier calculations.
+- `src/components/fleet/FleetDetailDrawer.tsx` — render Inspection Date alongside Next DOT Due; add fallback that reads the binder doc + fleet default interval when no `truck_dot_inspections` record exists.
+- One-time `UPDATE` migration (data only) to subtract 365 days from existing `Periodic DOT Inspections` rows.
 
-- `src/hooks/useComplianceWindow.ts` *(new)* — hook + constant `DEFAULT_WINDOW = 30`.
-- `src/components/shared/ComplianceWindowPicker.tsx` *(new)* — small `<Select>` rendering "30 / 60 / 90 days".
-- `src/components/inspection/ComplianceAlertsPanel.tsx`
-  - Replace hard-coded `if (days <= 90)` (line 143) with `if (days <= windowDays)`.
-  - Mount `<ComplianceWindowPicker />` in the panel header.
-- `src/components/drivers/DriverRoster.tsx`
-  - `getTier()` (lines 60–67): keep `expired` and `critical` (≤7) unchanged; only return `'warning'` when `min <= windowDays`.
-  - Filter logic (lines 588–595) and warning chip render (lines 755+) read from the hook.
-  - Render `<ComplianceWindowPicker />` in the chip row.
-- `src/components/drivers/DriverHubView.tsx`
-  - Update the `'warning'` guidance banner copy (line 138) to use the dynamic value.
-- `src/components/inspection/InspectionComplianceSummary.tsx`
-  - `getStatus()` (lines 30–35): replace hard-coded `<= 90` with `<= windowDays`.
-  - Update tier label "Expiring within 90 days" (line 287) and badge copy to use the dynamic value.
+**No schema changes.** We are reinterpreting the existing `expires_at` value for this single doc name. The Vehicle Hub remains the source of truth for the actual "next due" calculation via `truck_dot_inspections`.
 
-### Not changing
-
-- `supabase/functions/check-cert-expiry/index.ts` — keeps its `[30, 60]` email cadence.
-- `supabase/functions/check-inspection-expiry/index.ts` — its own internal `THRESHOLD` for fleet-doc reminders is independent and stays as-is.
-- `send-cert-reminder` payload (`days_until`, `expiration_date`) is unchanged.
-- DB schema, RLS, or migrations — none needed.
-
-### Edge cases
-
-- If a driver's doc is at, say, 45 days and the user lowers the window to 30, the row simply disappears from the Warning chip count and filter results; it reappears when the window goes back up. No data is mutated.
-- The "Send reminders" bulk action in Driver Hub already only targets `expired` + `critical (≤7)`, so it is unaffected.
-
-## Out of scope
-
-- Per-doc-type thresholds (e.g. different windows for CDL vs Med Cert).
-- Server-side enforcement / org-wide admin setting — this is a per-staff-user UI preference. Easy to upgrade later to a `staff_preferences` table if needed.
+## Open question (non-blocking)
+When both a `truck_dot_inspections` record and a binder `Periodic DOT Inspections` doc exist for the same operator and they disagree on the inspection date, the **Vehicle Hub record wins** (it has explicit interval, inspector, certificate, etc.). Confirm this priority or tell me to flip it.
