@@ -441,6 +441,8 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
           {COMPANY_DOCS.map(doc => {
             const acked = docAcknowledged[doc.key];
             const url = docUrls[doc.key];
+            const toggle = () =>
+              setDocAcknowledged(prev => ({ ...prev, [doc.key]: !prev[doc.key] }));
             return (
               <div
                 key={doc.key}
@@ -455,29 +457,44 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
                     <p className="text-[11px] text-muted-foreground mt-0.5">{doc.description}</p>
                   </div>
                   <Button
+                    type="button"
                     variant="outline"
                     size="sm"
                     disabled={!url}
-                    onClick={() => url && setPreviewDoc({ title: doc.title, url })}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (url) setPreviewDoc({ title: doc.title, url });
+                    }}
                     className="shrink-0 text-xs h-8 px-3"
                   >
                     View
                   </Button>
                 </div>
-                <div className="border-t border-border/60 px-4 py-3 flex items-center gap-3">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={toggle}
+                  onKeyDown={(e) => {
+                    if (e.key === ' ' || e.key === 'Enter') {
+                      e.preventDefault();
+                      toggle();
+                    }
+                  }}
+                  className="border-t border-border/60 px-4 py-3 flex items-center gap-3 cursor-pointer select-none hover:bg-muted/30 transition-colors"
+                >
                   <Switch
-                    id={`ack-${doc.key}`}
                     checked={acked}
-                    onCheckedChange={val =>
+                    onCheckedChange={(val) =>
                       setDocAcknowledged(prev => ({ ...prev, [doc.key]: val }))
                     }
+                    onClick={(e) => e.stopPropagation()}
                     className="shrink-0"
                   />
-                  <label htmlFor={`ack-${doc.key}`} className="flex-1 cursor-pointer">
+                  <span className="flex-1">
                     <p className={`text-xs font-semibold ${acked ? 'text-status-complete' : 'text-foreground'}`}>
                       I have read and acknowledged this document
                     </p>
-                  </label>
+                  </span>
                   {acked && <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />}
                 </div>
               </div>
