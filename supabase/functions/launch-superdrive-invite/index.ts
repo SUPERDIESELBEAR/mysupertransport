@@ -254,7 +254,7 @@ Deno.serve(async (req) => {
         // Audit log entry
         await supabaseAdmin.from('audit_log').insert({
           action: 'superdrive_invite_sent',
-          actor_id: callerUser.id,
+          actor_id: callerId,
           actor_name: callerName,
           entity_type: 'operator',
           entity_id: operatorId,
