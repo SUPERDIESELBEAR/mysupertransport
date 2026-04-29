@@ -47,6 +47,7 @@ interface LaunchSuperdriveDialogProps {
 }
 
 type FilterMode = 'all' | 'never_invited' | 'invited_recently';
+type EmailTemplate = 'binder' | 'full';
 
 const COOLDOWN_DAYS = 30;
 
@@ -63,6 +64,7 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
   const [sending, setSending] = useState(false);
   const [resultMap, setResultMap] = useState<Record<string, SendResult>>({});
   const [summary, setSummary] = useState<SendSummary | null>(null);
+  const [template, setTemplate] = useState<EmailTemplate>('binder');
 
   // Load eligible pre-existing operators
   const loadOperators = useCallback(async () => {
@@ -128,6 +130,7 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
       setFilterMode('never_invited');
       setResultMap({});
       setSummary(null);
+      setTemplate('binder');
       loadOperators();
     }
   }, [open, loadOperators]);
@@ -201,7 +204,7 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
 
     try {
       const { data, error } = await supabase.functions.invoke('launch-superdrive-invite', {
-        body: { operator_ids: ids },
+        body: { operator_ids: ids, template },
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
 
