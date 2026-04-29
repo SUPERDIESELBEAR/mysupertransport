@@ -82,6 +82,7 @@ type FilterDoc   = 'all' | DocKey;
 export default function InspectionComplianceSummary({ onOpenOperator, onOpenOperatorAtBinder, onOpenInspectionBinder, defaultExpanded = false }: Props) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
+  const { windowDays } = useComplianceWindow();
   const [entries, setEntries] = useState<DocEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -160,7 +161,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         operatorName: 'Fleet (all drivers)',
         expiresAt: info?.expiresAt ?? null,
         daysUntil: info?.daysUntil ?? null,
-        status: getStatus(info?.daysUntil ?? null),
+        status: getStatus(info?.daysUntil ?? null, windowDays),
         inspectionDocId: info?.id,
       });
     });
@@ -182,7 +183,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         operatorName: name,
         expiresAt: cdlDate,
         daysUntil: cdlDays,
-        status: getStatus(cdlDays),
+        status: getStatus(cdlDays, windowDays),
       });
       result.push({
         docKey: 'Medical Certificate',
@@ -190,7 +191,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         operatorName: name,
         expiresAt: medDate,
         daysUntil: medDays,
-        status: getStatus(medDays),
+        status: getStatus(medDays, windowDays),
       });
     });
 
@@ -232,7 +233,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
     setEntries(result);
     setLoading(false);
-  }, []);
+  }, [windowDays]);
 
   useEffect(() => {
     fetchData();
@@ -284,9 +285,9 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       setTimeout(() => setSaved(prev => ({ ...prev, [inspectionDocId]: false })), 2000);
 
       const daysUntil = differenceInDays(date, new Date());
-      const urgency = getStatus(daysUntil);
+      const urgency = getStatus(daysUntil, windowDays);
       const toastVariant = urgency === 'expired' || urgency === 'critical' ? 'destructive' : 'default';
-      const urgencyLabel = urgency === 'expired' ? 'Expired' : urgency === 'critical' ? 'Critical — expiring soon' : urgency === 'warning' ? 'Expiring within 90 days' : 'On track';
+      const urgencyLabel = urgency === 'expired' ? 'Expired' : urgency === 'critical' ? 'Critical — expiring soon' : urgency === 'warning' ? `Expiring within ${windowDays} days` : 'On track';
       toast({
         variant: toastVariant,
         title: `${DOC_DISPLAY[docKey]} expiry updated`,
