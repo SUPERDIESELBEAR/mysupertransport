@@ -22,6 +22,8 @@ interface Props {
   userId: string;
   operatorId: string | null;
   initialViewMode?: 'list' | 'pages';
+  /** Fired exactly once after the first data fetch resolves. */
+  onReady?: () => void;
 }
 
 type UploadCategory = 'roadside_inspection_report' | 'repairs_maintenance_receipt' | 'miscellaneous';
@@ -63,7 +65,7 @@ function DriverUploadRow({ upload, onPreview }: { upload: DriverUpload; onPrevie
   );
 }
 
-export default function OperatorInspectionBinder({ userId, operatorId, initialViewMode }: Props) {
+export default function OperatorInspectionBinder({ userId, operatorId, initialViewMode, onReady }: Props) {
   const { profile, user } = useAuth();
   const { toast } = useToast();
   const { companyOrder, driverOrder } = useBinderOrder();
@@ -73,6 +75,7 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
   const [perDriverDocs, setPerDriverDocs] = useState<InspectionDocument[]>([]);
   const [driverUploads, setDriverUploads] = useState<DriverUpload[]>([]);
   const [loading, setLoading] = useState(true);
+  const readyFiredRef = useRef(false);
   const [unitNumber, setUnitNumber] = useState<string | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -133,7 +136,8 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
     setPerDriverDocs((perDriverRes.data ?? []) as InspectionDocument[]);
     setDriverUploads((uploadsRes.data ?? []) as DriverUpload[]);
     setLoading(false);
-  }, [userId]);
+    if (!readyFiredRef.current) { readyFiredRef.current = true; onReady?.(); }
+  }, [userId, onReady]);
 
   useEffect(() => {
     fetchDocs();
