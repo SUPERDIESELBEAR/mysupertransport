@@ -609,6 +609,18 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const progressPct = Math.round((completedStages / stages.length) * 100);
   const isFullyOnboarded = onboardingStatus.insurance_added_date != null;
 
+  // Auto-redirect onboarded operators to the Home dashboard on first load,
+  // unless they came in via an explicit ?tab= deep-link.
+  useEffect(() => {
+    if (homeAutoRedirected.current) return;
+    if (!isFullyOnboarded) return;
+    if (Object.keys(onboardingStatus).length === 0) return; // not loaded yet
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab')) { homeAutoRedirected.current = true; return; }
+    if (view === 'progress') setView('home');
+    homeAutoRedirected.current = true;
+  }, [isFullyOnboarded, onboardingStatus, view]);
+
   const currentStageIndex = stages.findIndex(s => s.status === 'action_required' || s.status === 'in_progress' || s.status === 'not_started');
   const currentStage = currentStageIndex >= 0 ? stages[currentStageIndex] : null;
 
