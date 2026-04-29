@@ -1218,6 +1218,9 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                     <button
                       key={t.view}
                       disabled={pendingTile !== null}
+                      onPointerEnter={() => prefetchTile(t.view)}
+                      onTouchStart={() => prefetchTile(t.view)}
+                      onFocus={() => prefetchTile(t.view)}
                       onClick={() => {
                         setPendingTile(t.view);
                         // Defer the (potentially heavy) view switch a tick so the
