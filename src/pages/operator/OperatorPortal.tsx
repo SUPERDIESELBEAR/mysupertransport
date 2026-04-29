@@ -120,6 +120,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   useEffect(() => { viewRef.current = view; }, [view]);
   // Track whether we've already auto-redirected to Home so we don't fight the user
   const homeAutoRedirected = useRef(false);
+  // Tile that was tapped on the Home view — drives press/loading state.
+  const [pendingTile, setPendingTile] = useState<OperatorView | null>(null);
+  // Clear the pending state once the view actually changes away from 'home'.
+  useEffect(() => {
+    if (view !== 'home' && pendingTile !== null) setPendingTile(null);
+  }, [view, pendingTile]);
 
   const handleTruckDownAck = useCallback(async () => {
     if (isPreview || !operatorId || !dispatchUpdatedAt || !user) return;
