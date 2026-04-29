@@ -841,6 +841,10 @@ export default function DriverRoster({
               <span className="font-semibold">{complianceCounts.neverSignedIn}</span>
             </button>
           )}
+
+          <div className="ml-auto">
+            <ComplianceWindowPicker />
+          </div>
         </div>
       )}
 
