@@ -7,7 +7,7 @@ import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound,
-  ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye, Calculator,
+  ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye, Calculator, Home, ChevronRight,
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
 import DriverServiceLibrary from '@/components/service-library/DriverServiceLibrary';
@@ -35,7 +35,7 @@ import { BuildInfo } from '@/components/BuildInfo';
 import SettlementForecast from '@/components/operator/SettlementForecast';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
-type OperatorView = 'progress' | 'documents' | 'messages' | 'resource-center' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'pay-setup' | 'my-docs' | 'my-truck' | 'forecast';
+type OperatorView = 'home' | 'progress' | 'documents' | 'messages' | 'resource-center' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'pay-setup' | 'my-docs' | 'my-truck' | 'forecast';
 
 interface Stage {
   number: number;
@@ -71,7 +71,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const [view, setView] = useState<OperatorView>(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'].includes(tab)) return tab;
+    if (tab && ['home','progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'].includes(tab)) return tab;
     return 'progress';
   });
   // Sub-view for the inspection binder (list vs flipbook pages); driven via ?binderView=pages
@@ -91,7 +91,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'].includes(tab)) setView(tab);
+    if (tab && ['home','progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'].includes(tab)) setView(tab);
     const bv = params.get('binderView');
     setBinderView(bv === 'pages' ? 'pages' : undefined);
   }, [location.search]);
@@ -118,6 +118,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const [equipmentShipping, setEquipmentShipping] = useState<EquipmentShippingInfo[]>([]);
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
+  // Track whether we've already auto-redirected to Home so we don't fight the user
+  const homeAutoRedirected = useRef(false);
 
   const handleTruckDownAck = useCallback(async () => {
     if (isPreview || !operatorId || !dispatchUpdatedAt || !user) return;
@@ -607,6 +609,18 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const progressPct = Math.round((completedStages / stages.length) * 100);
   const isFullyOnboarded = onboardingStatus.insurance_added_date != null;
 
+  // Auto-redirect onboarded operators to the Home dashboard on first load,
+  // unless they came in via an explicit ?tab= deep-link.
+  useEffect(() => {
+    if (homeAutoRedirected.current) return;
+    if (!isFullyOnboarded) return;
+    if (Object.keys(onboardingStatus).length === 0) return; // not loaded yet
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab')) { homeAutoRedirected.current = true; return; }
+    if (view === 'progress') setView('home');
+    homeAutoRedirected.current = true;
+  }, [isFullyOnboarded, onboardingStatus, view]);
+
   const currentStageIndex = stages.findIndex(s => s.status === 'action_required' || s.status === 'in_progress' || s.status === 'not_started');
   const currentStage = currentStageIndex >= 0 ? stages[currentStageIndex] : null;
 
@@ -701,7 +715,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const icaActionDot = onboardingStatus.ica_status === 'sent_for_signature';
 
   const navItems = [
-    { view: 'progress' as OperatorView, label: 'My Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
+    { view: 'home' as OperatorView, label: 'Home', icon: <Home className="h-5 w-5" />, showIf: isFullyOnboarded },
+    { view: 'progress' as OperatorView, label: isFullyOnboarded ? 'Onboarding Status' : 'My Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
     { view: 'documents' as OperatorView, label: 'Documents', icon: <Upload className="h-5 w-5" /> },
     { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
     { view: 'inspection-binder' as OperatorView, label: 'Inspection Binder', icon: <Shield className="h-5 w-5" />, pillBadge: isFullyOnboarded ? 'DOT' : undefined },
@@ -731,8 +746,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         : isFullyOnboarded
         ? { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" /> }
         : { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> };
+    const firstSlot = isFullyOnboarded
+      ? { view: 'home' as OperatorView, label: 'Home', icon: <Home className="h-5 w-5" /> }
+      : { view: 'progress' as OperatorView, label: 'Status', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry };
     return [
-      { view: 'progress' as OperatorView, label: 'Status', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
+      firstSlot,
       { view: 'inspection-binder' as OperatorView, label: 'Binder', icon: <Shield className="h-5 w-5" /> },
       { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" />, badge: unreadCount },
       { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
@@ -1127,6 +1145,65 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 >
                   <Upload className="h-3.5 w-3.5" />
                   Upload Documents
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── HOME VIEW (post-onboarding dashboard) ── */}
+        {view === 'home' && (() => {
+          const hour = new Date().getHours();
+          const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+          const tiles: Array<{
+            view: OperatorView;
+            label: string;
+            sublabel: string;
+            icon: React.ReactNode;
+            extraAction?: () => void;
+          }> = [
+            { view: 'inspection-binder', label: '3-Ring Binder', sublabel: 'DOT inspection-ready documents', icon: <Shield className="h-8 w-8" />, extraAction: () => setBinderView('pages') },
+            { view: 'forecast', label: 'Settlement Forecast', sublabel: "This week's projected pay", icon: <Calculator className="h-8 w-8" /> },
+            { view: 'my-truck', label: 'My Truck', sublabel: 'Equipment, specs & maintenance', icon: <Truck className="h-8 w-8" /> },
+            { view: 'resource-center', label: 'Resource Center', sublabel: 'Guides, how-tos & references', icon: <BookOpen className="h-8 w-8" /> },
+          ];
+          return (
+            <div className="space-y-5">
+              <div className="space-y-1">
+                <h1 className="text-2xl font-bold text-foreground">{greeting}, {displayName}</h1>
+                <p className="text-sm text-muted-foreground">Pick where you want to go.</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {tiles.map((t) => (
+                  <button
+                    key={t.view}
+                    onClick={() => {
+                      if (t.extraAction) t.extraAction();
+                      setView(t.view);
+                    }}
+                    className="group relative flex items-center gap-4 rounded-2xl border border-border bg-card p-5 text-left shadow-sm transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 min-h-[112px]"
+                  >
+                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary/15">
+                      {t.icon}
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-base font-semibold text-foreground">{t.label}</span>
+                      <span className="block text-xs text-muted-foreground mt-0.5 leading-snug">{t.sublabel}</span>
+                    </span>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary shrink-0" />
+                  </button>
+                ))}
+              </div>
+
+              {/* Secondary link back to onboarding status */}
+              <div className="flex justify-center pt-1">
+                <button
+                  onClick={() => setView('progress')}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  View onboarding status
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </button>
               </div>
             </div>
