@@ -9,6 +9,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useComplianceWindow } from '@/hooks/useComplianceWindow';
+import { ComplianceWindowPicker } from '@/components/shared/ComplianceWindowPicker';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type DocKey = 'IRP Registration (cab card)' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate';
@@ -27,11 +29,11 @@ interface DocEntry {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-function getStatus(daysUntil: number | null): Status {
+function getStatus(daysUntil: number | null, warningWindowDays: number): Status {
   if (daysUntil === null) return 'missing';
   if (daysUntil < 0) return 'expired';
   if (daysUntil <= 30) return 'critical';
-  if (daysUntil <= 90) return 'warning';
+  if (daysUntil <= warningWindowDays) return 'warning';
   return 'valid';
 }
 
