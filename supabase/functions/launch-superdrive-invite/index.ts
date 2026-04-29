@@ -182,8 +182,9 @@ Deno.serve(async (req) => {
     }
 
     // ── Input ───────────────────────────────────────────────────────────────
-    const { operator_ids, template: rawTemplate } = await req.json();
+    const { operator_ids, template: rawTemplate, force } = await req.json();
     const template: EmailTemplate = rawTemplate === 'full' ? 'full' : 'binder';
+    const forceResend = force === true;
     if (!Array.isArray(operator_ids) || operator_ids.length === 0) {
       return new Response(JSON.stringify({ error: 'operator_ids must be a non-empty array' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -261,16 +262,20 @@ Deno.serve(async (req) => {
         const lastName = app?.last_name ?? '';
         const operatorName = `${firstName} ${lastName}`.trim() || email;
 
-        // Idempotency check (30-day cooldown via audit_log)
-        const { data: recentSends } = await supabaseAdmin
-          .from('audit_log')
-          .select('created_at')
-          .eq('action', 'superdrive_invite_sent')
-          .eq('entity_type', 'operator')
-          .eq('entity_id', operatorId)
-          .gte('created_at', cooldownCutoff)
-          .order('created_at', { ascending: false })
-          .limit(1);
+        // Idempotency check (30-day cooldown via audit_log) — bypassed when force=true
+        let recentSends: { created_at: string }[] | null = null;
+        if (!forceResend) {
+          const { data } = await supabaseAdmin
+            .from('audit_log')
+            .select('created_at')
+            .eq('action', 'superdrive_invite_sent')
+            .eq('entity_type', 'operator')
+            .eq('entity_id', operatorId)
+            .gte('created_at', cooldownCutoff)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          recentSends = data;
+        }
 
         if (recentSends && recentSends.length > 0) {
           results.push({
@@ -329,6 +334,7 @@ Deno.serve(async (req) => {
             template: TEMPLATE_LABELS[template],
             email,
             recovery_link_generated: true,
+            forced: forceResend,
           },
         });
 
