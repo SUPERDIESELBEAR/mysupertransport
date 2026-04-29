@@ -272,7 +272,9 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
                     onClick={() => { if (doc) { setExpiryEditing(doc.id); setExpiryValue(doc.expires_at ?? ''); } }}
                   >
                     <Calendar className="h-3.5 w-3.5" />
-                    {doc?.expires_at ? `Expires ${parseLocalDate(doc.expires_at).toLocaleDateString()}` : 'Set expiry date'}
+                    {doc?.expires_at
+                      ? `${isInspectionDateDoc(docName) ? 'Inspection Date' : 'Expires'} ${parseLocalDate(doc.expires_at).toLocaleDateString()}`
+                      : (isInspectionDateDoc(docName) ? 'Set inspection date' : 'Set expiry date')}
                   </button>
                 )}
               </div>
