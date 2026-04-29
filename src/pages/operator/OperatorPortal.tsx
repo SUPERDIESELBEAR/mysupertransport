@@ -118,6 +118,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const [equipmentShipping, setEquipmentShipping] = useState<EquipmentShippingInfo[]>([]);
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
+  // Track whether we've already auto-redirected to Home so we don't fight the user
+  const homeAutoRedirected = useRef(false);
 
   const handleTruckDownAck = useCallback(async () => {
     if (isPreview || !operatorId || !dispatchUpdatedAt || !user) return;
