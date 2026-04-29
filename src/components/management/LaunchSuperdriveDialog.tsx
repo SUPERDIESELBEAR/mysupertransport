@@ -278,7 +278,7 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !sending && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90dvh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-3xl max-h-[90dvh] flex flex-col p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Rocket className="h-5 w-5 text-gold" />
