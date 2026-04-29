@@ -1462,6 +1462,28 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {view === 'docs-hub' && (
           <DocumentHub onAcknowledged={fetchData} />
         )}
+
+        {/* ── CROSSFADE OVERLAY ──────────────────────────────────────────
+             Sits over the just-mounted destination view and shows a
+             destination-shaped skeleton until that view fires onReady.
+             Then fades out (300ms) and unmounts on transition end. */}
+        {transitionOverlay && (
+          <div
+            aria-hidden="true"
+            onTransitionEnd={(e) => {
+              if (e.propertyName === 'opacity' && transitionOverlay.phase === 'fading') {
+                setTransitionOverlay(null);
+              }
+            }}
+            className={`absolute inset-0 z-20 px-4 py-6 bg-secondary transition-opacity duration-300 ease-out ${
+              transitionOverlay.phase === 'fading' ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            }`}
+          >
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <DestinationSkeleton view={transitionOverlay.tile} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Floating Next-Step CTA (mobile only, above bottom nav) ────── */}
