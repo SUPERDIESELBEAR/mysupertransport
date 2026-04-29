@@ -9,6 +9,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useComplianceWindow } from '@/hooks/useComplianceWindow';
+import { ComplianceWindowPicker } from '@/components/shared/ComplianceWindowPicker';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type DocKey = 'IRP Registration (cab card)' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate';
@@ -27,11 +29,11 @@ interface DocEntry {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-function getStatus(daysUntil: number | null): Status {
+function getStatus(daysUntil: number | null, warningWindowDays: number): Status {
   if (daysUntil === null) return 'missing';
   if (daysUntil < 0) return 'expired';
   if (daysUntil <= 30) return 'critical';
-  if (daysUntil <= 90) return 'warning';
+  if (daysUntil <= warningWindowDays) return 'warning';
   return 'valid';
 }
 
@@ -80,6 +82,7 @@ type FilterDoc   = 'all' | DocKey;
 export default function InspectionComplianceSummary({ onOpenOperator, onOpenOperatorAtBinder, onOpenInspectionBinder, defaultExpanded = false }: Props) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
+  const { windowDays } = useComplianceWindow();
   const [entries, setEntries] = useState<DocEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -158,7 +161,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         operatorName: 'Fleet (all drivers)',
         expiresAt: info?.expiresAt ?? null,
         daysUntil: info?.daysUntil ?? null,
-        status: getStatus(info?.daysUntil ?? null),
+        status: getStatus(info?.daysUntil ?? null, windowDays),
         inspectionDocId: info?.id,
       });
     });
@@ -180,7 +183,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         operatorName: name,
         expiresAt: cdlDate,
         daysUntil: cdlDays,
-        status: getStatus(cdlDays),
+        status: getStatus(cdlDays, windowDays),
       });
       result.push({
         docKey: 'Medical Certificate',
@@ -188,7 +191,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         operatorName: name,
         expiresAt: medDate,
         daysUntil: medDays,
-        status: getStatus(medDays),
+        status: getStatus(medDays, windowDays),
       });
     });
 
@@ -230,7 +233,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
     setEntries(result);
     setLoading(false);
-  }, []);
+  }, [windowDays]);
 
   useEffect(() => {
     fetchData();
@@ -282,9 +285,9 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       setTimeout(() => setSaved(prev => ({ ...prev, [inspectionDocId]: false })), 2000);
 
       const daysUntil = differenceInDays(date, new Date());
-      const urgency = getStatus(daysUntil);
+      const urgency = getStatus(daysUntil, windowDays);
       const toastVariant = urgency === 'expired' || urgency === 'critical' ? 'destructive' : 'default';
-      const urgencyLabel = urgency === 'expired' ? 'Expired' : urgency === 'critical' ? 'Critical — expiring soon' : urgency === 'warning' ? 'Expiring within 90 days' : 'On track';
+      const urgencyLabel = urgency === 'expired' ? 'Expired' : urgency === 'critical' ? 'Critical — expiring soon' : urgency === 'warning' ? `Expiring within ${windowDays} days` : 'On track';
       toast({
         variant: toastVariant,
         title: `${DOC_DISPLAY[docKey]} expiry updated`,
@@ -425,6 +428,10 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
             Insurance · IFTA · IRP (cab card) · CDL · Med Cert
           </span>
         </button>
+
+        <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+          <ComplianceWindowPicker />
+        </div>
 
         <button onClick={() => setExpanded(v => !v)} className="shrink-0 hover:opacity-80 transition-opacity">
           {expanded
