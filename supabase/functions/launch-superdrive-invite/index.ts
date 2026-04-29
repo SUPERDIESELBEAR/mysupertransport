@@ -182,7 +182,8 @@ Deno.serve(async (req) => {
     }
 
     // ── Input ───────────────────────────────────────────────────────────────
-    const { operator_ids } = await req.json();
+    const { operator_ids, template: rawTemplate } = await req.json();
+    const template: EmailTemplate = rawTemplate === 'full' ? 'full' : 'binder';
     if (!Array.isArray(operator_ids) || operator_ids.length === 0) {
       return new Response(JSON.stringify({ error: 'operator_ids must be a non-empty array' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -294,12 +295,15 @@ Deno.serve(async (req) => {
         }
 
         const recoveryUrl = linkData.properties.action_link;
-        const html = buildWelcomeEmailHtml(firstName, recoveryUrl);
+        const html = template === 'full'
+          ? buildWelcomeEmailHtml(firstName, recoveryUrl)
+          : buildBinderEmailHtml(firstName, recoveryUrl);
+        const subject = SUBJECTS[template];
 
         try {
           await sendEmail(
             email,
-            'Welcome to SUPERDRIVE — Your Operator App Is Ready',
+            subject,
             html,
             resendKey
           );
@@ -322,7 +326,7 @@ Deno.serve(async (req) => {
           entity_id: operatorId,
           entity_label: operatorName,
           metadata: {
-            template: 'welcome-superdrive',
+            template: TEMPLATE_LABELS[template],
             email,
             recovery_link_generated: true,
           },
