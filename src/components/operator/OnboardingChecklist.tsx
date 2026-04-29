@@ -127,11 +127,17 @@ function StageCard({
   const colors = STAGE_COLORS[stage.status];
   const isNotStarted = stage.status === 'not_started';
   const isComplete = stage.status === 'complete';
+  // Stage 8 (Pay Setup) is operator-actionable from day one — treat it as live
+  // even when not_started so the CTA doesn't read as disabled.
+  const isStage8NotStarted = stage.number === 8 && isNotStarted;
   // Complete stages start collapsed, others start expanded
-  const [expanded, setExpanded] = useState(!isComplete && !isNotStarted);
+  const [expanded, setExpanded] = useState(
+    isStage8NotStarted ? true : !isComplete && !isNotStarted
+  );
 
-  const showSubsteps = stage.substeps.length > 0 && !isNotStarted;
+  const showSubsteps = stage.substeps.length > 0 && (!isNotStarted || isStage8NotStarted);
   const canToggle = showSubsteps;
+  const cardOpacity = isStage8NotStarted ? '' : colors.opacity;
 
   // CTA logic
   const showDocsCTA = stage.number === 2 && (stage.status === 'in_progress' || stage.status === 'not_started');
@@ -143,7 +149,7 @@ function StageCard({
 
   return (
     <div
-      className={`rounded-xl border border-border border-l-4 overflow-hidden ${colors.border} ${colors.opacity}`}
+      className={`rounded-xl border border-border border-l-4 overflow-hidden ${colors.border} ${cardOpacity}`}
     >
       {/* Stage header */}
       <button
