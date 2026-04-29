@@ -377,11 +377,19 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                 : 'bg-emerald-50 border-emerald-200'
             }`}>
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Next DOT Due</p>
-                  <p className="text-lg font-bold">
-                    {latestDot.next_due_date ? format(parseISO(latestDot.next_due_date), 'MMM d, yyyy') : '—'}
-                  </p>
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Inspection Date</p>
+                    <p className="text-sm font-semibold">
+                      {format(parseISO(latestDot.inspection_date), 'MMM d, yyyy')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Next DOT Due</p>
+                    <p className="text-lg font-bold">
+                      {latestDot.next_due_date ? format(parseISO(latestDot.next_due_date), 'MMM d, yyyy') : '—'}
+                    </p>
+                  </div>
                 </div>
                 <div className="text-right">
                   {dotDaysLeft !== null && (
