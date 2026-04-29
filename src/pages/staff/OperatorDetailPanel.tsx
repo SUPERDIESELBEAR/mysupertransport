@@ -346,6 +346,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [operatorEmail, setOperatorEmail] = useState('');
   const [operatorUserId, setOperatorUserId] = useState<string | null>(null);
   const [pwaInstalledAt, setPwaInstalledAt] = useState<string | null>(null);
+  const [lastWebSeenAt, setLastWebSeenAt] = useState<string | null>(null);
   const [showICABuilder, setShowICABuilder] = useState(false);
   const [showICAView, setShowICAView] = useState(false);
   const [showTerminationBuilder, setShowTerminationBuilder] = useState(false);
@@ -1015,7 +1016,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const [{ data: op }, { data: opDocs }] = await Promise.all([
       supabase
         .from('operators')
-        .select(`id, user_id, notes, anticipated_start_date, is_active, on_hold, on_hold_reason, on_hold_date, pwa_installed_at, onboarding_status (*), applications (id, email, first_name, last_name, phone, address_street, address_city, address_state, address_zip, cdl_expiration, medical_cert_expiration, dob, dl_front_url, dl_rear_url, medical_cert_url, reviewer_notes)`)
+        .select(`id, user_id, notes, anticipated_start_date, is_active, on_hold, on_hold_reason, on_hold_date, pwa_installed_at, last_web_seen_at, onboarding_status (*), applications (id, email, first_name, last_name, phone, address_street, address_city, address_state, address_zip, cdl_expiration, medical_cert_expiration, dob, dl_front_url, dl_rear_url, medical_cert_url, reviewer_notes)`)
         .eq('id', operatorId)
         .single(),
       supabase
@@ -1055,6 +1056,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       );
       setOperatorUserId((op as any).user_id ?? null);
       setPwaInstalledAt((op as any).pwa_installed_at ?? null);
+      setLastWebSeenAt((op as any).last_web_seen_at ?? null);
       const app = (op as any).applications;
       // Resolve email: from application if present, otherwise fetch from auth via profiles email or leave editable
       const resolvedEmail = app?.email ?? '';
@@ -2223,16 +2225,28 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             {/* Send Install Instructions + App Installed Badge */}
             {operatorUserId && (
               <>
-                <Badge variant="outline" className={cn("gap-1 text-[11px] py-0.5", pwaInstalledAt ? "text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400" : "text-muted-foreground border-muted bg-muted/30")}>
+                <Badge variant="outline" className={cn(
+                  "gap-1 text-[11px] py-0.5",
+                  pwaInstalledAt
+                    ? "text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400"
+                    : lastWebSeenAt
+                    ? "text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-400"
+                    : "text-muted-foreground border-muted bg-muted/30"
+                )}>
                   {pwaInstalledAt ? (
                     <>
                       <CheckCircle2 className="h-3 w-3" />
                       App Installed {format(parseISO(pwaInstalledAt), 'M/d/yy')}
                     </>
+                  ) : lastWebSeenAt ? (
+                    <>
+                      <Smartphone className="h-3 w-3" />
+                      Web only · seen {format(parseISO(lastWebSeenAt), 'M/d/yy')}
+                    </>
                   ) : (
                     <>
                       <Smartphone className="h-3 w-3" />
-                      App Not Installed
+                      Never signed in
                     </>
                   )}
                 </Badge>

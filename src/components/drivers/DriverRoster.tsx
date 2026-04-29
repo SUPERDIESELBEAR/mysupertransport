@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2, Copy, ArrowUpDown, ArrowUp, ArrowDown, Smartphone } from 'lucide-react';
+import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2, Copy, ArrowUpDown, ArrowUp, ArrowDown, Smartphone, Globe, UserX } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface DriverRow {
@@ -27,6 +27,7 @@ interface DriverRow {
   medical_cert_expiration: string | null;
   is_active: boolean;
   pwa_installed_at: string | null;
+  last_web_seen_at: string | null;
   excluded_from_dispatch: boolean;
 }
 
@@ -39,7 +40,7 @@ interface ReminderEntry {
 }
 
 export type DispatchFilter = 'all' | 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
-export type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed' | 'not_yet_reminded' | 'app_not_installed';
+export type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed' | 'not_yet_reminded' | 'web_only' | 'never_signed_in';
 
 export interface ComplianceCounts {
   expired: number;
@@ -47,7 +48,8 @@ export interface ComplianceCounts {
   warning: number;
   neverRenewed: number;
   notYetReminded: number;
-  appNotInstalled: number;
+  webOnly: number;
+  neverSignedIn: number;
 }
 
 export function isNeverRenewed(cdl: string | null, med: string | null): boolean {
@@ -423,16 +425,17 @@ export default function DriverRoster({
 
     // Fetch is_active and pwa_installed_at separately to avoid deep TS inference issues
     const operatorIds = (rawData as any[] ?? []).map((op: any) => op.id);
-    let activeMap: Record<string, { is_active: boolean; pwa_installed_at: string | null; excluded_from_dispatch: boolean }> = {};
+    let activeMap: Record<string, { is_active: boolean; pwa_installed_at: string | null; last_web_seen_at: string | null; excluded_from_dispatch: boolean }> = {};
     if (operatorIds.length > 0) {
       const { data: activeData } = await supabase
         .from('operators')
-        .select('id, is_active, pwa_installed_at, excluded_from_dispatch')
+        .select('id, is_active, pwa_installed_at, last_web_seen_at, excluded_from_dispatch')
         .in('id', operatorIds) as any;
       for (const row of (activeData ?? []) as any[]) {
         activeMap[row.id] = {
           is_active: row.is_active ?? true,
           pwa_installed_at: row.pwa_installed_at ?? null,
+          last_web_seen_at: row.last_web_seen_at ?? null,
           excluded_from_dispatch: row.excluded_from_dispatch === true,
         };
       }
@@ -501,6 +504,7 @@ export default function DriverRoster({
           medical_cert_expiration: binderDates[op.user_id]?.med ?? app?.medical_cert_expiration ?? null,
           is_active: activeSet.has(op.id),
           pwa_installed_at: activeMap[op.id]?.pwa_installed_at ?? null,
+          last_web_seen_at: activeMap[op.id]?.last_web_seen_at ?? null,
           excluded_from_dispatch: activeMap[op.id]?.excluded_from_dispatch ?? false,
         };
       }).sort((a, b) => {
@@ -551,7 +555,7 @@ export default function DriverRoster({
 
   // Compliance tier counts (over all drivers, before any filter)
   const complianceCounts = useMemo(() => {
-    let expired = 0, critical = 0, warning = 0, neverRenewed = 0, notYetReminded = 0, appNotInstalled = 0;
+    let expired = 0, critical = 0, warning = 0, neverRenewed = 0, notYetReminded = 0, webOnly = 0, neverSignedIn = 0;
     for (const d of drivers) {
       if (isNeverRenewed(d.cdl_expiration, d.medical_cert_expiration)) neverRenewed++;
       const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
@@ -559,9 +563,10 @@ export default function DriverRoster({
       else if (tier === 'critical') critical++;
       else if (tier === 'warning') warning++;
       if (!lastReminderMap[d.operator_id]) notYetReminded++;
-      if (!d.pwa_installed_at) appNotInstalled++;
+      if (!d.pwa_installed_at && d.last_web_seen_at) webOnly++;
+      else if (!d.pwa_installed_at && !d.last_web_seen_at) neverSignedIn++;
     }
-    return { expired, critical, warning, neverRenewed, notYetReminded, appNotInstalled };
+    return { expired, critical, warning, neverRenewed, notYetReminded, webOnly, neverSignedIn };
   }, [drivers, lastReminderMap]);
 
   // Notify parent when counts change (e.g. after data fetch)
@@ -586,7 +591,8 @@ export default function DriverRoster({
         (complianceFilter === 'warning' && (tier === 'expired' || tier === 'critical' || tier === 'warning')) ||
         (complianceFilter === 'never_renewed' && never) ||
         (complianceFilter === 'not_yet_reminded' && notYetReminded) ||
-        (complianceFilter === 'app_not_installed' && !d.pwa_installed_at);
+        (complianceFilter === 'web_only' && !d.pwa_installed_at && !!d.last_web_seen_at) ||
+        (complianceFilter === 'never_signed_in' && !d.pwa_installed_at && !d.last_web_seen_at);
       return matchesStatus && matchesSearch && matchesCompliance;
     });
 
@@ -702,7 +708,7 @@ export default function DriverRoster({
       </div>
 
       {/* Compliance filter chips */}
-      {!dispatchMode && (complianceCounts.expired + complianceCounts.critical + complianceCounts.warning + complianceCounts.neverRenewed + complianceCounts.notYetReminded + complianceCounts.appNotInstalled) > 0 && (
+      {!dispatchMode && (complianceCounts.expired + complianceCounts.critical + complianceCounts.warning + complianceCounts.neverRenewed + complianceCounts.notYetReminded + complianceCounts.webOnly + complianceCounts.neverSignedIn) > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setComplianceFilter('all')}
@@ -791,18 +797,35 @@ export default function DriverRoster({
             </button>
           )}
 
-          {complianceCounts.appNotInstalled > 0 && (
+          {complianceCounts.webOnly > 0 && (
             <button
-              onClick={() => setComplianceFilter(complianceFilter === 'app_not_installed' ? 'all' : 'app_not_installed')}
+              onClick={() => setComplianceFilter(complianceFilter === 'web_only' ? 'all' : 'web_only')}
               className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
-                complianceFilter === 'app_not_installed'
+                complianceFilter === 'web_only'
+                  ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400'
+                  : 'border-amber-500/30 text-amber-600/80 dark:text-amber-400/80 hover:bg-amber-500/10 hover:border-amber-500/50'
+              }`}
+              title="Signed in via web but never installed the app"
+            >
+              <Globe className="h-3 w-3" />
+              Web Only
+              <span className="font-semibold">{complianceCounts.webOnly}</span>
+            </button>
+          )}
+
+          {complianceCounts.neverSignedIn > 0 && (
+            <button
+              onClick={() => setComplianceFilter(complianceFilter === 'never_signed_in' ? 'all' : 'never_signed_in')}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                complianceFilter === 'never_signed_in'
                   ? 'bg-muted border-border text-foreground'
                   : 'border-border/50 text-muted-foreground hover:border-border hover:text-foreground'
               }`}
+              title="Operator has never opened the portal"
             >
-              <Smartphone className="h-3 w-3" />
-              App Not Installed
-              <span className="font-semibold">{complianceCounts.appNotInstalled}</span>
+              <UserX className="h-3 w-3" />
+              Never Signed In
+              <span className="font-semibold">{complianceCounts.neverSignedIn}</span>
             </button>
           )}
         </div>
@@ -968,12 +991,20 @@ export default function DriverRoster({
                         <TooltipProvider delayDuration={100}>
                           <Tooltip>
                             <TooltipTrigger>
-                              <Smartphone className={`h-3.5 w-3.5 shrink-0 ${driver.pwa_installed_at ? 'text-emerald-500' : 'text-muted-foreground/30'}`} />
+                              {driver.pwa_installed_at ? (
+                                <Smartphone className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                              ) : driver.last_web_seen_at ? (
+                                <Globe className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                              ) : (
+                                <UserX className="h-3.5 w-3.5 shrink-0 text-muted-foreground/30" />
+                              )}
                             </TooltipTrigger>
                             <TooltipContent>
                               {driver.pwa_installed_at
-                                ? `Installed ${format(parseISO(driver.pwa_installed_at), 'MMM d, yyyy')}`
-                                : 'Not installed yet'}
+                                ? `App installed ${format(parseISO(driver.pwa_installed_at), 'MMM d, yyyy')}`
+                                : driver.last_web_seen_at
+                                ? `Web only — last seen ${format(parseISO(driver.last_web_seen_at), 'MMM d, yyyy')}`
+                                : 'Never signed in'}
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>

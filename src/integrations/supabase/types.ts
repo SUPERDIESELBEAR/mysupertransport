@@ -2297,6 +2297,7 @@ export type Database = {
           excluded_from_dispatch_reason: string | null
           id: string
           is_active: boolean
+          last_web_seen_at: string | null
           notes: string | null
           on_hold: boolean
           on_hold_date: string | null
@@ -2318,6 +2319,7 @@ export type Database = {
           excluded_from_dispatch_reason?: string | null
           id?: string
           is_active?: boolean
+          last_web_seen_at?: string | null
           notes?: string | null
           on_hold?: boolean
           on_hold_date?: string | null
@@ -2339,6 +2341,7 @@ export type Database = {
           excluded_from_dispatch_reason?: string | null
           id?: string
           is_active?: boolean
+          last_web_seen_at?: string | null
           notes?: string | null
           on_hold?: boolean
           on_hold_date?: string | null
@@ -3134,6 +3137,7 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      mark_operator_seen: { Args: { _standalone: boolean }; Returns: undefined }
       move_to_dlq: {
         Args: {
           dlq_name: string
