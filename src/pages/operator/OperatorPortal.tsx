@@ -1480,7 +1480,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             }`}
           >
             <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-              <DestinationSkeleton view={transitionOverlay.tile} />
+              <DestinationSkeleton view={transitionOverlay.tile as 'inspection-binder' | 'forecast' | 'my-truck' | 'resource-center'} />
             </div>
           </div>
         )}
