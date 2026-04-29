@@ -1228,45 +1228,32 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                {tiles.map((t, idx) => {
-                  const isLoading = pendingTile === t.view;
-                  const isDimmed = pendingTile !== null && !isLoading;
-                  return (
-                    <button
-                      key={t.view}
-                      disabled={pendingTile !== null}
-                      onPointerEnter={() => prefetchTile(t.view)}
-                      onTouchStart={() => prefetchTile(t.view)}
-                      onFocus={() => prefetchTile(t.view)}
-                      onClick={() => {
-                        setPendingTile(t.view);
-                        // Defer the (potentially heavy) view switch a tick so the
-                        // spinner + press state paint first — feels much smoother on mobile.
-                        setTimeout(() => {
-                          if (t.extraAction) t.extraAction();
-                          setView(t.view);
-                        }, 60);
-                      }}
-                      style={{ animationDelay: `${idx * 60}ms`, animationFillMode: 'both' }}
-                      className={`group relative ${isLoading ? 'flex flex-col gap-3 p-4' : 'flex items-center gap-4 p-5'} rounded-2xl border border-border bg-card text-left shadow-sm transition-all duration-200 ease-out hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 min-h-[112px] animate-fade-in ${isDimmed ? 'opacity-50' : ''} ${isLoading ? 'border-primary/60 shadow-md' : ''}`}
-                    >
-                      {isLoading ? (
-                        <DestinationSkeleton view={t.view} />
-                      ) : (
-                        <>
-                          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
-                            {t.icon}
-                          </span>
-                          <span className="flex-1 min-w-0">
-                            <span className="block text-base font-semibold text-foreground">{t.label}</span>
-                            <span className="block text-xs text-muted-foreground mt-0.5 leading-snug">{t.sublabel}</span>
-                          </span>
-                          <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform shrink-0 group-hover:text-primary group-hover:translate-x-0.5" />
-                        </>
-                      )}
-                    </button>
-                  );
-                })}
+                {tiles.map((t, idx) => (
+                  <button
+                    key={t.view}
+                    onPointerEnter={() => prefetchTile(t.view)}
+                    onTouchStart={() => prefetchTile(t.view)}
+                    onFocus={() => prefetchTile(t.view)}
+                    onClick={() => {
+                      // Start crossfade: skeleton overlay covers the destination
+                      // until it fires onReady (or the 6s safety net trips).
+                      setTransitionOverlay({ tile: t.view, phase: 'visible' });
+                      if (t.extraAction) t.extraAction();
+                      setView(t.view);
+                    }}
+                    style={{ animationDelay: `${idx * 60}ms`, animationFillMode: 'both' }}
+                    className="group relative flex items-center gap-4 p-5 rounded-2xl border border-border bg-card text-left shadow-sm transition-all duration-200 ease-out hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 min-h-[112px] animate-fade-in"
+                  >
+                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+                      {t.icon}
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-base font-semibold text-foreground">{t.label}</span>
+                      <span className="block text-xs text-muted-foreground mt-0.5 leading-snug">{t.sublabel}</span>
+                    </span>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform shrink-0 group-hover:text-primary group-hover:translate-x-0.5" />
+                  </button>
+                ))}
               </div>
 
               {/* Secondary link back to onboarding status */}
