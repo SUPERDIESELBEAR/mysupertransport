@@ -122,12 +122,27 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   useEffect(() => { viewRef.current = view; }, [view]);
   // Track whether we've already auto-redirected to Home so we don't fight the user
   const homeAutoRedirected = useRef(false);
-  // Tile that was tapped on the Home view — drives press/loading state.
-  const [pendingTile, setPendingTile] = useState<OperatorView | null>(null);
-  // Clear the pending state once the view actually changes away from 'home'.
+  // Crossfade overlay shown while a destination view loads its first data.
+  // `phase: 'visible'` = skeleton fully shown over the mounting destination.
+  // `phase: 'fading'`  = destination fired onReady; skeleton fades out, then unmounts.
+  const [transitionOverlay, setTransitionOverlay] = useState<{ tile: OperatorView; phase: 'visible' | 'fading' } | null>(null);
+  // Clear overlay if the user navigates away from the destination (e.g. via bottom nav)
+  // before it ever fires onReady.
   useEffect(() => {
-    if (view !== 'home' && pendingTile !== null) setPendingTile(null);
-  }, [view, pendingTile]);
+    if (transitionOverlay && view !== transitionOverlay.tile) setTransitionOverlay(null);
+  }, [view, transitionOverlay]);
+  // Safety net: if a destination never fires onReady (network failure, no data path),
+  // force-fade after 6s so the user is never stuck behind the skeleton.
+  useEffect(() => {
+    if (!transitionOverlay || transitionOverlay.phase !== 'visible') return;
+    const t = setTimeout(() => {
+      setTransitionOverlay((o) => (o && o.phase === 'visible' ? { ...o, phase: 'fading' } : o));
+    }, 6000);
+    return () => clearTimeout(t);
+  }, [transitionOverlay]);
+  const handleDestinationReady = useCallback((tile: OperatorView) => {
+    setTransitionOverlay((o) => (o && o.tile === tile && o.phase === 'visible' ? { ...o, phase: 'fading' } : o));
+  }, []);
   // Track which tiles we've already prefetched data for so we don't refire on every pointer event.
   const prefetchedTiles = useRef<Set<OperatorView>>(new Set());
   // Reset prefetch cache whenever we leave Home so a return visit re-warms (data may have changed).
