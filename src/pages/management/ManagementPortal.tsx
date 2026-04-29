@@ -144,7 +144,7 @@ export default function ManagementPortal() {
   const [drawerFocusField, setDrawerFocusField] = useState<'cdl' | 'medcert' | undefined>(undefined);
   type ComplianceRow = { operatorId: string; name: string; daysUntil: number; docType: 'CDL' | 'Med Cert'; expiryDate: string };
   const [complianceSummary, setComplianceSummary] = useState<ComplianceRow[]>([]);
-  const [driverComplianceCounts, setDriverComplianceCounts] = useState<ComplianceCounts>({ expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0, appNotInstalled: 0 });
+  const [driverComplianceCounts, setDriverComplianceCounts] = useState<ComplianceCounts>({ expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0, webOnly: 0, neverSignedIn: 0 });
   const [driverComplianceFilter, setDriverComplianceFilter] = useState<ComplianceFilter>('all');
   const [staffWorkload, setStaffWorkload] = useState<StaffWorkload[]>([]);
   const [unassignedCount, setUnassignedCount] = useState(0);
@@ -286,7 +286,7 @@ export default function ManagementPortal() {
     const remindedKeys = new Set<string>();
     (reminders ?? []).forEach((r: any) => remindedKeys.add(`${r.operator_id}|${r.doc_type}`));
     const rows: ComplianceRow[] = [];
-    const driverCounts: ComplianceCounts = { expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0, appNotInstalled: 0 };
+    const driverCounts: ComplianceCounts = { expired: 0, critical: 0, warning: 0, neverRenewed: 0, notYetReminded: 0, webOnly: 0, neverSignedIn: 0 };
 
     (data as any[]).forEach((op: any) => {
       const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
