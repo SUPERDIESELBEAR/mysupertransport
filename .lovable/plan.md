@@ -1,25 +1,40 @@
-# Make Stage 8 actionable when not started
+## Goal
+Let any authenticated operator view the two Stage 8 reference PDFs (Payroll Deposit Overview, Payroll Calendar) so they can preview them and toggle the acknowledgment switches.
 
-## Problem
+## Root cause (recap)
+- Files live at `operator-documents/company-docs/payroll-deposit-overview.pdf` and `.../payroll-calendar.pdf`.
+- The `operator-documents` bucket is private.
+- Existing SELECT policies on `storage.objects` only allow operators to read paths whose first folder segment is their own `operator_id` or `pay-setup`. There is no policy covering `company-docs/`, so `createSignedUrl` returns null for operator accounts (staff bypass via the `is_staff` policy, which is why this slipped past in staff testing).
 
-Stage 8 (Contractor Pay Setup) is the only stage that is operator-actionable from day one with no staff prerequisite. But it shares the same `not_started` styling as staff-gated stages (5, 6, 7), so the entire card renders at `opacity-60` and the "Complete Pay Setup" CTA reads as disabled — even though it's clickable.
+## Fix — Option A: add a SELECT RLS policy
 
-## Fix
+Migration:
 
-Single-file change in `src/components/operator/OnboardingChecklist.tsx`:
+```sql
+CREATE POLICY "Authenticated can view company-docs"
+ON storage.objects
+FOR SELECT
+TO authenticated
+USING (
+  bucket_id = 'operator-documents'
+  AND (storage.foldername(name))[1] = 'company-docs'
+);
+```
 
-1. **Skip the dim opacity for Stage 8.** Replace the wrapper's `${colors.opacity}` with a computed value that returns `''` when `stage.number === 8 && isNotStarted`, otherwise uses `colors.opacity` as today.
-2. **Show substeps for Stage 8 even when `not_started`.** Update `showSubsteps` to `stage.substeps.length > 0 && (!isNotStarted || stage.number === 8)` so the "Pay Setup — Pending" row is visible inside the card.
-3. **Auto-expand Stage 8 when `not_started`.** Change the `expanded` initial state to start expanded for Stage 8 in this state, so the operator immediately sees the substep + CTA without tapping the header.
+Scope is narrow:
+- Bucket-scoped to `operator-documents`.
+- Restricted to objects under the `company-docs/` folder only.
+- Read-only (SELECT).
+- Authenticated users only — not anonymous.
 
-The existing `showPaySetupCTA` already includes `not_started`, so the gold CTA button stays where it is — it just stops looking dimmed.
+These PDFs are general policy/reference documents identical for every driver and are also already linked publicly elsewhere in the project (e.g. `/public/payroll-calendar.pdf`), so no sensitive data is exposed.
 
-No changes to other stages, the database, or any flow.
+## Verification after migration
+1. Log in as Marcus (operator), open Stage 8 → Pay Setup.
+2. Click each "View" button → the PDF opens in `FilePreviewModal`.
+3. Toggle each acknowledgment switch → state persists.
+4. Submit Pay Setup → row written to `contractor_pay_setup` with `deposit_overview_acknowledged_at` and `payroll_calendar_acknowledged_at` timestamps.
+5. Confirm staff/owner reads still work (covered by existing `Staff can manage all operator documents` policy).
 
-## Verification
-
-Log in as Marcus and confirm:
-- Stage 8 card renders at full opacity (not dimmed).
-- "Pay Setup — Pending" substep is visible.
-- "Complete Pay Setup" CTA is bright gold and tapping it opens the pay setup view.
-- Other `not_started` stages (1, 5, 7) still appear dimmed exactly as before.
+## No code changes required
+`ContractorPaySetup.tsx` already correctly fetches signed URLs and writes per-doc acknowledgment timestamps; only the storage RLS gap needs patching.
