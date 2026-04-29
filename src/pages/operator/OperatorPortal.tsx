@@ -1151,6 +1151,65 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           );
         })()}
 
+        {/* ── HOME VIEW (post-onboarding dashboard) ── */}
+        {view === 'home' && (() => {
+          const hour = new Date().getHours();
+          const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+          const tiles: Array<{
+            view: OperatorView;
+            label: string;
+            sublabel: string;
+            icon: React.ReactNode;
+            extraAction?: () => void;
+          }> = [
+            { view: 'inspection-binder', label: '3-Ring Binder', sublabel: 'DOT inspection-ready documents', icon: <Shield className="h-8 w-8" />, extraAction: () => setBinderView('pages') },
+            { view: 'forecast', label: 'Settlement Forecast', sublabel: "This week's projected pay", icon: <Calculator className="h-8 w-8" /> },
+            { view: 'my-truck', label: 'My Truck', sublabel: 'Equipment, specs & maintenance', icon: <Truck className="h-8 w-8" /> },
+            { view: 'resource-center', label: 'Resource Center', sublabel: 'Guides, how-tos & references', icon: <BookOpen className="h-8 w-8" /> },
+          ];
+          return (
+            <div className="space-y-5">
+              <div className="space-y-1">
+                <h1 className="text-2xl font-bold text-foreground">{greeting}, {displayName}</h1>
+                <p className="text-sm text-muted-foreground">Pick where you want to go.</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {tiles.map((t) => (
+                  <button
+                    key={t.view}
+                    onClick={() => {
+                      if (t.extraAction) t.extraAction();
+                      setView(t.view);
+                    }}
+                    className="group relative flex items-center gap-4 rounded-2xl border border-border bg-card p-5 text-left shadow-sm transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 min-h-[112px]"
+                  >
+                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary/15">
+                      {t.icon}
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-base font-semibold text-foreground">{t.label}</span>
+                      <span className="block text-xs text-muted-foreground mt-0.5 leading-snug">{t.sublabel}</span>
+                    </span>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary shrink-0" />
+                  </button>
+                ))}
+              </div>
+
+              {/* Secondary link back to onboarding status */}
+              <div className="flex justify-center pt-1">
+                <button
+                  onClick={() => setView('progress')}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  View onboarding status
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── PROGRESS VIEW ── */}
         {view === 'progress' && (
           <>
