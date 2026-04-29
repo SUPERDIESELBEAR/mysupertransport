@@ -171,7 +171,7 @@ export default function ManagementPortal() {
   const [noReminderCount, setNoReminderCount] = useState(0);
 
   // App install tracking (operator PWA installs)
-  const [installStats, setInstallStats] = useState<{ installed: number; total: number }>({ installed: 0, total: 0 });
+  const [installStats, setInstallStats] = useState<{ installed: number; webOnly: number; neverSignedIn: number; total: number }>({ installed: 0, webOnly: 0, neverSignedIn: 0, total: 0 });
   const [installSendOpen, setInstallSendOpen] = useState(false);
   const [installSending, setInstallSending] = useState(false);
 
@@ -549,11 +549,13 @@ export default function ManagementPortal() {
   const fetchInstallStats = useCallback(async () => {
     const { data } = await supabase
       .from('operators')
-      .select('id, pwa_installed_at')
+      .select('id, pwa_installed_at, last_web_seen_at')
       .eq('is_active', true);
-    const rows = (data as Array<{ id: string; pwa_installed_at: string | null }> | null) ?? [];
+    const rows = (data as Array<{ id: string; pwa_installed_at: string | null; last_web_seen_at: string | null }> | null) ?? [];
     const installed = rows.filter(r => !!r.pwa_installed_at).length;
-    setInstallStats({ installed, total: rows.length });
+    const webOnly = rows.filter(r => !r.pwa_installed_at && !!r.last_web_seen_at).length;
+    const neverSignedIn = rows.filter(r => !r.pwa_installed_at && !r.last_web_seen_at).length;
+    setInstallStats({ installed, webOnly, neverSignedIn, total: rows.length });
   }, []);
 
   useEffect(() => {
@@ -1178,7 +1180,7 @@ export default function ManagementPortal() {
 
             {/* App Install Status */}
             {(() => {
-              const { installed, total } = installStats;
+              const { installed, webOnly, neverSignedIn, total } = installStats;
               const remaining = Math.max(0, total - installed);
               const pct = total > 0 ? Math.round((installed / total) * 100) : 0;
               return (
@@ -1224,6 +1226,22 @@ export default function ManagementPortal() {
                         </span>
                       )}
                     </div>
+                    {total > 0 && (
+                      <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-border">
+                        <div className="text-center">
+                          <div className="text-base font-semibold text-emerald-600">{installed}</div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">Installed</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-base font-semibold text-amber-600">{webOnly}</div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">Web only</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-base font-semibold text-muted-foreground">{neverSignedIn}</div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">Never signed in</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
