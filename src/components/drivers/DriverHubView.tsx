@@ -27,6 +27,7 @@ import { useBulkReminderCooldown } from '@/hooks/useBulkReminderCooldown';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import { Users2, UserPlus, MessageSquare, AlertCircle, AlertTriangle, Clock, FileX, Info, Bell, Loader2, ChevronDown, ChevronUp, ShieldAlert, Archive, Rocket } from 'lucide-react';
 import type { ComplianceFilter, ComplianceCounts } from './DriverRoster';
+import { useComplianceWindow } from '@/hooks/useComplianceWindow';
 
 interface DriverHubViewProps {
   /** If true, show the "Add Driver" button (management only) */
@@ -135,10 +136,10 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
     const driver = count === 1 ? 'driver' : 'drivers';
     if (complianceFilter === 'expired') return { text: `Showing ${count} ${driver} with an expired CDL or Med Cert. Click Update on any row to fix their expiration date.`, variant: 'destructive' as const };
     if (complianceFilter === 'critical') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 7 days. Click Update on any row to fix their expiration date.`, variant: 'destructive' as const };
-    if (complianceFilter === 'warning') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within 90 days. Click Update on any row to review their documents.`, variant: 'warning' as const };
+    if (complianceFilter === 'warning') return { text: `Showing ${count} ${driver} with CDL or Med Cert expiring within ${windowDays} days. Click Update on any row to review their documents.`, variant: 'warning' as const };
     if (complianceFilter === 'not_yet_reminded') return { text: `Showing ${count} ${driver} who have never received a cert reminder. Use the Send Reminders button or individual rows to start their outreach history.`, variant: 'warning' as const };
     return { text: `Showing ${count} ${driver} with no CDL or Med Cert expiration date on file. Click Update on any row to add their dates.`, variant: 'destructive' as const };
-  }, [complianceFilter, complianceCounts]);
+  }, [complianceFilter, complianceCounts, windowDays]);
 
   // Called when the inline "Update" link is clicked on a roster row
   const handleUpdateCompliance = useCallback(async (operatorId: string, focusField: 'cdl' | 'medcert') => {
