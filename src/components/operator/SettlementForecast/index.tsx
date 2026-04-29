@@ -69,6 +69,7 @@ export default function SettlementForecast({ operatorId, readOnly = false, onRea
     ]);
 
     setLoading(false);
+    if (!readyFiredRef.current) { readyFiredRef.current = true; onReady?.(); }
 
     if (opRes.error) {
       toast({ title: 'Could not load settings', description: opRes.error.message, variant: 'destructive' });
