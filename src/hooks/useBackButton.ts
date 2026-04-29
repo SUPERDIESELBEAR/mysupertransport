@@ -39,6 +39,14 @@ export function useBackButton(isOpen: boolean, onClose: () => void) {
 
     return () => {
       window.removeEventListener("popstate", handlePopState);
+      // If the modal unmounted while still "open" (e.g., parent set
+      // previewDoc=null without first toggling isOpen=false), pop the
+      // virtual history entry we pushed so the back stack stays clean
+      // and no lingering popstate handlers can interfere with the page.
+      if (pushedRef.current) {
+        pushedRef.current = false;
+        window.history.back();
+      }
     };
   }, [isOpen]);
 }
