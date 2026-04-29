@@ -126,6 +126,36 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   useEffect(() => {
     if (view !== 'home' && pendingTile !== null) setPendingTile(null);
   }, [view, pendingTile]);
+  // Track which tiles we've already prefetched data for so we don't refire on every pointer event.
+  const prefetchedTiles = useRef<Set<OperatorView>>(new Set());
+  // Reset prefetch cache whenever we leave Home so a return visit re-warms (data may have changed).
+  useEffect(() => {
+    if (view === 'home') prefetchedTiles.current.clear();
+  }, [view]);
+  // Fire a small read against the same tables the destination view will hit.
+  // Browser/PostgREST caches the response so the in-view query lands warm and tap feels instant.
+  const prefetchTile = useCallback((target: OperatorView) => {
+    if (!operatorId) return;
+    if (prefetchedTiles.current.has(target)) return;
+    prefetchedTiles.current.add(target);
+    const sb = supabase as any;
+    // Fire-and-forget; we don't need the result here.
+    try {
+      if (target === 'inspection-binder') {
+        void sb.from('inspection_documents').select('id, document_type, file_url').limit(1);
+        void sb.from('driver_uploads').select('id, document_type, file_url').eq('operator_id', operatorId).limit(50);
+      } else if (target === 'forecast') {
+        void sb.from('operators').select('pay_percentage').eq('id', operatorId).maybeSingle();
+      } else if (target === 'my-truck') {
+        void sb.from('operators').select('id, truck_year, truck_make, truck_vin, truck_plate').eq('id', operatorId).maybeSingle();
+        void sb.from('truck_maintenance_records').select('id, service_date, service_type').eq('operator_id', operatorId).limit(10);
+      } else if (target === 'resource-center') {
+        void sb.from('resource_documents').select('id, title').limit(20);
+      }
+    } catch {
+      // Prefetch failures are silent — the destination view will fetch normally.
+    }
+  }, [operatorId]);
 
   const handleTruckDownAck = useCallback(async () => {
     if (isPreview || !operatorId || !dispatchUpdatedAt || !user) return;
@@ -1188,6 +1218,9 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                     <button
                       key={t.view}
                       disabled={pendingTile !== null}
+                      onPointerEnter={() => prefetchTile(t.view)}
+                      onTouchStart={() => prefetchTile(t.view)}
+                      onFocus={() => prefetchTile(t.view)}
                       onClick={() => {
                         setPendingTile(t.view);
                         // Defer the (potentially heavy) view switch a tick so the
