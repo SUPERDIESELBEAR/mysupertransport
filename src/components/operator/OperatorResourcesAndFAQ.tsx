@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { BookOpen, Download, FileText, HelpCircle, ChevronDown, ChevronUp, ExternalLink, Search, Eye, Share2, Mail } from 'lucide-react';
 import { downloadBlob } from '@/lib/downloadBlob';
@@ -43,13 +43,14 @@ interface ResourceDoc {
   file_name: string | null;
 }
 
-export function OperatorResourceLibrary() {
+export function OperatorResourceLibrary({ onReady }: { onReady?: () => void } = {}) {
   const [resources, setResources] = useState<ResourceDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [previewDoc, setPreviewDoc] = useState<ResourceDoc | null>(null);
   const isMobile = useIsMobile();
   const { toast } = useToast();
+  const readyFiredRef = useRef(false);
 
   useEffect(() => {
     supabase
@@ -60,8 +61,9 @@ export function OperatorResourceLibrary() {
       .then(({ data }) => {
         setResources((data as ResourceDoc[]) ?? []);
         setLoading(false);
+        if (!readyFiredRef.current) { readyFiredRef.current = true; onReady?.(); }
       });
-  }, []);
+  }, [onReady]);
 
   const filtered = resources.filter(r =>
     !search || r.title.toLowerCase().includes(search.toLowerCase()) || (r.description ?? '').toLowerCase().includes(search.toLowerCase())

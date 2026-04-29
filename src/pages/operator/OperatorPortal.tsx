@@ -122,12 +122,27 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   useEffect(() => { viewRef.current = view; }, [view]);
   // Track whether we've already auto-redirected to Home so we don't fight the user
   const homeAutoRedirected = useRef(false);
-  // Tile that was tapped on the Home view — drives press/loading state.
-  const [pendingTile, setPendingTile] = useState<OperatorView | null>(null);
-  // Clear the pending state once the view actually changes away from 'home'.
+  // Crossfade overlay shown while a destination view loads its first data.
+  // `phase: 'visible'` = skeleton fully shown over the mounting destination.
+  // `phase: 'fading'`  = destination fired onReady; skeleton fades out, then unmounts.
+  const [transitionOverlay, setTransitionOverlay] = useState<{ tile: OperatorView; phase: 'visible' | 'fading' } | null>(null);
+  // Clear overlay if the user navigates away from the destination (e.g. via bottom nav)
+  // before it ever fires onReady.
   useEffect(() => {
-    if (view !== 'home' && pendingTile !== null) setPendingTile(null);
-  }, [view, pendingTile]);
+    if (transitionOverlay && view !== transitionOverlay.tile) setTransitionOverlay(null);
+  }, [view, transitionOverlay]);
+  // Safety net: if a destination never fires onReady (network failure, no data path),
+  // force-fade after 6s so the user is never stuck behind the skeleton.
+  useEffect(() => {
+    if (!transitionOverlay || transitionOverlay.phase !== 'visible') return;
+    const t = setTimeout(() => {
+      setTransitionOverlay((o) => (o && o.phase === 'visible' ? { ...o, phase: 'fading' } : o));
+    }, 6000);
+    return () => clearTimeout(t);
+  }, [transitionOverlay]);
+  const handleDestinationReady = useCallback((tile: OperatorView) => {
+    setTransitionOverlay((o) => (o && o.tile === tile && o.phase === 'visible' ? { ...o, phase: 'fading' } : o));
+  }, []);
   // Track which tiles we've already prefetched data for so we don't refire on every pointer event.
   const prefetchedTiles = useRef<Set<OperatorView>>(new Set());
   // Reset prefetch cache whenever we leave Home so a return visit re-warms (data may have changed).
@@ -1023,7 +1038,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
       </header>
 
-      <div className="max-w-4xl mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6">
+      <div className="relative max-w-4xl mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6">
 
         {/* ── TRUCK DOWN ALERT BANNER ── */}
         {dispatchStatus === 'truck_down' && (
@@ -1213,45 +1228,32 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                {tiles.map((t, idx) => {
-                  const isLoading = pendingTile === t.view;
-                  const isDimmed = pendingTile !== null && !isLoading;
-                  return (
-                    <button
-                      key={t.view}
-                      disabled={pendingTile !== null}
-                      onPointerEnter={() => prefetchTile(t.view)}
-                      onTouchStart={() => prefetchTile(t.view)}
-                      onFocus={() => prefetchTile(t.view)}
-                      onClick={() => {
-                        setPendingTile(t.view);
-                        // Defer the (potentially heavy) view switch a tick so the
-                        // spinner + press state paint first — feels much smoother on mobile.
-                        setTimeout(() => {
-                          if (t.extraAction) t.extraAction();
-                          setView(t.view);
-                        }, 60);
-                      }}
-                      style={{ animationDelay: `${idx * 60}ms`, animationFillMode: 'both' }}
-                      className={`group relative ${isLoading ? 'flex flex-col gap-3 p-4' : 'flex items-center gap-4 p-5'} rounded-2xl border border-border bg-card text-left shadow-sm transition-all duration-200 ease-out hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 min-h-[112px] animate-fade-in ${isDimmed ? 'opacity-50' : ''} ${isLoading ? 'border-primary/60 shadow-md' : ''}`}
-                    >
-                      {isLoading ? (
-                        <DestinationSkeleton view={t.view} />
-                      ) : (
-                        <>
-                          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
-                            {t.icon}
-                          </span>
-                          <span className="flex-1 min-w-0">
-                            <span className="block text-base font-semibold text-foreground">{t.label}</span>
-                            <span className="block text-xs text-muted-foreground mt-0.5 leading-snug">{t.sublabel}</span>
-                          </span>
-                          <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform shrink-0 group-hover:text-primary group-hover:translate-x-0.5" />
-                        </>
-                      )}
-                    </button>
-                  );
-                })}
+                {tiles.map((t, idx) => (
+                  <button
+                    key={t.view}
+                    onPointerEnter={() => prefetchTile(t.view)}
+                    onTouchStart={() => prefetchTile(t.view)}
+                    onFocus={() => prefetchTile(t.view)}
+                    onClick={() => {
+                      // Start crossfade: skeleton overlay covers the destination
+                      // until it fires onReady (or the 6s safety net trips).
+                      setTransitionOverlay({ tile: t.view, phase: 'visible' });
+                      if (t.extraAction) t.extraAction();
+                      setView(t.view);
+                    }}
+                    style={{ animationDelay: `${idx * 60}ms`, animationFillMode: 'both' }}
+                    className="group relative flex items-center gap-4 p-5 rounded-2xl border border-border bg-card text-left shadow-sm transition-all duration-200 ease-out hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 min-h-[112px] animate-fade-in"
+                  >
+                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+                      {t.icon}
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-base font-semibold text-foreground">{t.label}</span>
+                      <span className="block text-xs text-muted-foreground mt-0.5 leading-snug">{t.sublabel}</span>
+                    </span>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform shrink-0 group-hover:text-primary group-hover:translate-x-0.5" />
+                  </button>
+                ))}
               </div>
 
               {/* Secondary link back to onboarding status */}
@@ -1366,7 +1368,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
         {/* ── INSPECTION BINDER VIEW ── */}
         {view === 'inspection-binder' && effectiveUserId && (
-          <OperatorInspectionBinder userId={effectiveUserId} operatorId={operatorId} initialViewMode={binderView} />
+          <OperatorInspectionBinder userId={effectiveUserId} operatorId={operatorId} initialViewMode={binderView} onReady={() => handleDestinationReady('inspection-binder')} />
         )}
 
         {/* ── MY DOCUMENTS VIEW (read-only vault) ── */}
@@ -1385,12 +1387,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
         {/* ── MY TRUCK VIEW (read-only fleet detail) ── */}
         {view === 'my-truck' && operatorId && (
-          <FleetDetailDrawer operatorId={operatorId} onBack={() => setView('progress')} readOnly />
+          <FleetDetailDrawer operatorId={operatorId} onBack={() => setView('progress')} readOnly onReady={() => handleDestinationReady('my-truck')} />
         )}
 
         {/* ── SETTLEMENT FORECAST VIEW ── */}
         {view === 'forecast' && operatorId && (
-          <SettlementForecast operatorId={operatorId} />
+          <SettlementForecast operatorId={operatorId} onReady={() => handleDestinationReady('forecast')} />
         )}
         {view === 'forecast' && !operatorId && (
           <div className="py-16 text-center text-muted-foreground text-sm">Loading your operator profile…</div>
@@ -1428,7 +1430,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 <DriverServiceLibrary />
               </TabsContent>
               <TabsContent value="documents">
-                <OperatorResourceLibrary />
+                <OperatorResourceLibrary onReady={() => handleDestinationReady('resource-center')} />
               </TabsContent>
             </Tabs>
           </div>
@@ -1459,6 +1461,28 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {/* ── DOC HUB VIEW ── */}
         {view === 'docs-hub' && (
           <DocumentHub onAcknowledged={fetchData} />
+        )}
+
+        {/* ── CROSSFADE OVERLAY ──────────────────────────────────────────
+             Sits over the just-mounted destination view and shows a
+             destination-shaped skeleton until that view fires onReady.
+             Then fades out (300ms) and unmounts on transition end. */}
+        {transitionOverlay && (
+          <div
+            aria-hidden="true"
+            onTransitionEnd={(e) => {
+              if (e.propertyName === 'opacity' && transitionOverlay.phase === 'fading') {
+                setTransitionOverlay(null);
+              }
+            }}
+            className={`absolute inset-0 z-20 px-4 py-6 bg-secondary transition-opacity duration-300 ease-out ${
+              transitionOverlay.phase === 'fading' ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            }`}
+          >
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <DestinationSkeleton view={transitionOverlay.tile as 'inspection-binder' | 'forecast' | 'my-truck' | 'resource-center'} />
+            </div>
+          </div>
         )}
       </div>
 
