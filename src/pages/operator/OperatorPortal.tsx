@@ -33,6 +33,7 @@ import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
 import { BuildInfo } from '@/components/BuildInfo';
 import SettlementForecast from '@/components/operator/SettlementForecast';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 type OperatorView = 'home' | 'progress' | 'documents' | 'messages' | 'resource-center' | 'faq' | 'dispatch' | 'ica' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'pay-setup' | 'my-docs' | 'my-truck' | 'forecast';
