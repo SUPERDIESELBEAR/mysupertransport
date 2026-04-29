@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2, Copy, ArrowUpDown, ArrowUp, ArrowDown, Smartphone } from 'lucide-react';
+import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2, Copy, ArrowUpDown, ArrowUp, ArrowDown, Smartphone, Globe, UserX } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface DriverRow {
@@ -27,6 +27,7 @@ interface DriverRow {
   medical_cert_expiration: string | null;
   is_active: boolean;
   pwa_installed_at: string | null;
+  last_web_seen_at: string | null;
   excluded_from_dispatch: boolean;
 }
 
@@ -39,7 +40,7 @@ interface ReminderEntry {
 }
 
 export type DispatchFilter = 'all' | 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
-export type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed' | 'not_yet_reminded' | 'app_not_installed';
+export type ComplianceFilter = 'all' | 'expired' | 'critical' | 'warning' | 'never_renewed' | 'not_yet_reminded' | 'web_only' | 'never_signed_in';
 
 export interface ComplianceCounts {
   expired: number;
@@ -47,7 +48,8 @@ export interface ComplianceCounts {
   warning: number;
   neverRenewed: number;
   notYetReminded: number;
-  appNotInstalled: number;
+  webOnly: number;
+  neverSignedIn: number;
 }
 
 export function isNeverRenewed(cdl: string | null, med: string | null): boolean {
