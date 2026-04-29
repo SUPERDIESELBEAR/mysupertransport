@@ -65,6 +65,7 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
   const [resultMap, setResultMap] = useState<Record<string, SendResult>>({});
   const [summary, setSummary] = useState<SendSummary | null>(null);
   const [template, setTemplate] = useState<EmailTemplate>('binder');
+  const [forceResend, setForceResend] = useState(false);
 
   // Load eligible pre-existing operators
   const loadOperators = useCallback(async () => {
@@ -131,6 +132,7 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
       setResultMap({});
       setSummary(null);
       setTemplate('binder');
+      setForceResend(false);
       loadOperators();
     }
   }, [open, loadOperators]);
@@ -159,15 +161,15 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
   }, [operators, searchQuery, filterMode, isInCooldown]);
 
   const visibleSelectableIds = useMemo(
-    () => filteredOperators.filter(op => !isInCooldown(op)).map(op => op.operator_id),
-    [filteredOperators, isInCooldown]
+    () => filteredOperators.filter(op => forceResend || !isInCooldown(op)).map(op => op.operator_id),
+    [filteredOperators, isInCooldown, forceResend]
   );
 
   const allVisibleSelected =
     visibleSelectableIds.length > 0 && visibleSelectableIds.every(id => selectedIds.has(id));
 
   const toggleSelect = (operatorId: string, op: EligibleOperator) => {
-    if (isInCooldown(op)) return;
+    if (isInCooldown(op) && !forceResend) return;
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(operatorId)) next.delete(operatorId);
@@ -204,7 +206,7 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
 
     try {
       const { data, error } = await supabase.functions.invoke('launch-superdrive-invite', {
-        body: { operator_ids: ids, template },
+        body: { operator_ids: ids, template, force: forceResend },
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
 
@@ -409,11 +411,11 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
                   return (
                     <li
                       key={op.operator_id}
-                      className={`flex items-center gap-3 py-2.5 ${cooldown ? 'opacity-60' : ''}`}
+                      className={`flex items-center gap-3 py-2.5 ${cooldown && !forceResend ? 'opacity-60' : ''}`}
                     >
                       <Checkbox
                         checked={checked}
-                        disabled={cooldown || sending}
+                        disabled={(cooldown && !forceResend) || sending}
                         onCheckedChange={() => toggleSelect(op.operator_id, op)}
                         aria-label={`Select ${op.first_name} ${op.last_name}`}
                       />
