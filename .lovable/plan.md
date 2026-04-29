@@ -1,76 +1,114 @@
-## Goal
+# Fix "App Not Installed" false negatives & add real engagement tracking
 
-Give fully-onboarded operators a proper **Home** screen as the app's default view, with large, glove-friendly tiles for the four most-used destinations. Demote the **Status** (onboarding) screen out of the bottom nav once onboarding is complete — it becomes a secondary screen reachable from Home and the side menu, not the always-visible default.
+## Problem recap
 
-## How it should feel
+`operators.pwa_installed_at` is only stamped when the user opens `/dashboard` **as an installed PWA** (`display-mode: standalone`) **after** they have an `operators` row. That means:
+- Users who completed onboarding in a browser tab show "Not installed" forever (they never installed).
+- Users who installed but always tap email/SMS links (which open in browser, not the installed app) show "Not installed."
+- Users who installed before being approved (still applicants) get missed because the effect bails when `operatorId` is null.
+- We have no signal at all for *"never logged in"* vs *"logs in via web but didn't install."*
 
-When an operator opens the app:
+## What we're building
 
-- **During onboarding** → behavior is unchanged. Default view stays **Status / My Progress** so they keep working through the stages. Bottom nav looks the same.
-- **After full onboarding** (insurance added) → default view becomes **Home**. Status is no longer in the bottom nav. The four big tiles below are the operator's everyday hub.
+Three improvements bundled together:
 
-### Home screen layout
+**A. Broaden the install detector** so it fires from every authenticated page, not just `/dashboard`.
 
-A header greeting ("Good morning, Marcus") plus a 2×2 tile grid (1 column on small phones, 2 columns from `sm:` up):
+**B. Listen for the PWA `appinstalled` event** (Android Chrome) so we capture installs the moment they happen, even before reopen.
 
-```text
-┌─────────────────────────┬─────────────────────────┐
-│   3-Ring Binder         │   Settlement Forecast   │
-│   (Shield icon)         │   (Calculator icon)     │
-│   "DOT inspection-ready"│   "This week's pay"     │
-├─────────────────────────┼─────────────────────────┤
-│   My Truck              │   Resource Center       │
-│   (Truck icon)          │   (BookOpen icon)       │
-│   "Equipment & docs"    │   "Guides & how-tos"    │
-└─────────────────────────┴─────────────────────────┘
+**C. Add web-session tracking** so the roster can distinguish *Never seen* / *Web only* / *Installed* instead of one blunt "Not installed" stamp.
+
+---
+
+## Database change
+
+One migration adds a single column to `operators`:
+
+```sql
+ALTER TABLE public.operators
+  ADD COLUMN last_web_seen_at timestamptz;
 ```
 
-Below the tiles, keep the existing **Next-Step CTA** banner (compliance expiries, etc.) and a small **"View onboarding status →"** link so the Status page is still discoverable.
+We keep `pwa_installed_at` exactly as-is (first time we see them in standalone mode = "installed"). The new column tracks any portal visit (browser or standalone). No RLS change needed — existing operator policies cover it.
 
-Tiles use the existing dark surface + gold accent treatment, large icon (28–32px), bold label, one-line subtitle, and a subtle right chevron. Tapping a tile sets the corresponding `view` (`inspection-binder`, `forecast`, `my-truck`, `resource-center`).
+Also add a tiny SECURITY DEFINER RPC so the client can update its own row without an extra RLS policy permutation:
 
-### Bottom nav changes (mobile, fully-onboarded only)
-
-Current bottom nav (5 slots): Status · Binder · Messages · Doc Hub · context-slot
-
-New bottom nav for onboarded operators (5 slots):
-
-```text
-[ Home ] [ Binder ] [ Messages ] [ Doc Hub ] [ Dispatch / ICA / FAQ ]
+```sql
+CREATE OR REPLACE FUNCTION public.mark_operator_seen(_standalone boolean)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE _op_id uuid;
+BEGIN
+  SELECT id INTO _op_id FROM operators WHERE user_id = auth.uid() LIMIT 1;
+  IF _op_id IS NULL THEN RETURN; END IF;
+  UPDATE operators SET
+    last_web_seen_at = now(),
+    pwa_installed_at = CASE WHEN _standalone AND pwa_installed_at IS NULL THEN now() ELSE pwa_installed_at END
+  WHERE id = _op_id;
+END $$;
 ```
 
-- **Home** (new) replaces **Status** as the leftmost slot.
-- Status remains accessible via:
-  1. The "View onboarding status" link on the Home screen
-  2. The hamburger menu (where the full `navItems` list already lives)
-  3. The desktop top nav (unchanged — Status still listed)
+This makes the client side a single call: `supabase.rpc('mark_operator_seen', { _standalone: isStandalone() })`.
 
-For operators **still in onboarding**, the bottom nav and default view are unchanged (Status stays as slot 1 and as the default).
+---
 
-## Technical implementation
+## Code changes
 
-All changes are in **`src/pages/operator/OperatorPortal.tsx`** (one file).
+### 1. New hook: `src/hooks/useTrackOperatorPresence.ts`
+- On mount (and when auth user is present), call `mark_operator_seen` once per session.
+- Detect standalone via existing `isStandalone()` helper in `src/lib/pwa.ts`.
+- Listen for `window.appinstalled` event → call `mark_operator_seen(true)` immediately.
+- Listen for `display-mode: standalone` media query change (rare but happens on Android after install).
+- Skip in iframe/preview contexts (`isPreview` check, same as today).
 
-1. **New view type**: extend `OperatorView` union with `'home'`. Add `'home'` to both `useState` initializer and the `useEffect` whitelist that validates `?tab=` deep links.
+### 2. Mount the hook globally
+In `src/App.tsx`, mount `<TrackOperatorPresence />` (a tiny wrapper that just calls the hook) inside the authenticated layout so it fires on **every** operator page — Welcome, dashboard, settlement, binder, ICA sign, anywhere.
 
-2. **Default view logic**: in the `useState(() => …)` initializer for `view`, when there is no `?tab=` param, default to `'home'` if onboarded, else `'progress'`. Since `isFullyOnboarded` isn't known at mount, do the redirect inside an effect: once `onboardingStatus` loads and `view === 'progress'` *and* the URL has no explicit `?tab=`, switch to `'home'` if `isFullyOnboarded`. (Guard with a "did we already auto-redirect" ref so we don't fight the user.)
+### 3. Remove the old narrow effect
+Delete the `useEffect` block at `src/pages/operator/OperatorPortal.tsx:400–421`. The new global hook supersedes it.
 
-3. **Home view component**: render inline under the existing `view === '...'` blocks (around line 1137). Uses existing `Card` / button styles; no new shadcn components needed. Each tile is a `<button>` calling `setView(...)`.
+### 4. Roster: 3-state install signal
+In `src/components/drivers/DriverRoster.tsx`:
+- Fetch `last_web_seen_at` alongside `pwa_installed_at`.
+- Replace the single Smartphone icon with a 3-state indicator:
+  - **Green phone** → `pwa_installed_at` set → tooltip: "Installed {date}"
+  - **Amber globe** → `last_web_seen_at` set, `pwa_installed_at` null → tooltip: "Uses web only — last seen {date}"
+  - **Grey phone** → both null → tooltip: "Never signed in"
+- Update the compliance filter chip "App not installed" to split into two filters: **"Web only"** and **"Never signed in"** so management can target the right re-engagement message.
+- Update the count tile in `ManagementPortal.tsx` overview to show the same three buckets.
 
-4. **Nav arrays**:
-   - `navItems`: insert a `'home'` entry at the top with `Home` icon from lucide. Keep `'progress'` entry (label it "Onboarding Status" once `isFullyOnboarded`, else "My Progress").
-   - `mobileNavItems`: when `isFullyOnboarded`, replace the first slot (`progress`) with `home`. When not onboarded, leave as-is.
+### 5. OperatorDetailPanel
+In `src/pages/staff/OperatorDetailPanel.tsx`, also fetch and display `last_web_seen_at` next to the existing install date so staff can see the full picture on a single profile.
 
-5. **Greeting**: simple time-of-day function (`new Date().getHours()` → Morning/Afternoon/Evening), uses `displayName` already computed in the file.
+### 6. PendingInviteAcceptance cross-check
+Already cross-references `pwa_installed_at`. Extend it to also treat `last_web_seen_at` as "accepted" — if they've signed in via web, they're not really a pending invite anymore.
 
-6. **No DB / RLS / edge function changes.** No new dependencies. No changes to `BinderFlipbook` or other components.
+---
 
-## Out of scope
+## What stays the same
+- The `/install` page, install banner, invite email — all unchanged.
+- `pwa_installed_at` semantics — unchanged (still "first seen in standalone mode").
+- All existing RLS policies — unchanged.
+- No service worker, no `vite-plugin-pwa` — we're a manifest-only PWA and that's fine.
 
-- Changing the desktop top-nav order beyond adding "Home" at the front.
-- Removing Status entirely (still needed for compliance expiry visibility and the `next-step CTA` deep link `setView('progress')`).
-- Reworking the hamburger menu or notifications.
+---
 
-## Open question for you
+## Files touched
 
-Should the **Status** entry stay visible on the desktop top nav for onboarded operators, or also be moved to the overflow there? I'd recommend **keep it visible on desktop** (plenty of room) and only demote it on mobile where space is tight — but happy to hide it on desktop too if you prefer a cleaner top bar.
+```text
+NEW   supabase migration (add column + RPC)
+NEW   src/hooks/useTrackOperatorPresence.ts
+NEW   src/components/TrackOperatorPresence.tsx (1-liner wrapper)
+EDIT  src/App.tsx                                  (mount tracker)
+EDIT  src/pages/operator/OperatorPortal.tsx       (remove old effect)
+EDIT  src/components/drivers/DriverRoster.tsx     (3-state icon + split filter)
+EDIT  src/pages/management/ManagementPortal.tsx   (3-bucket overview tile)
+EDIT  src/pages/staff/OperatorDetailPanel.tsx     (show last_web_seen_at)
+EDIT  src/components/management/PendingInviteAcceptance.tsx
+```
+
+---
+
+## Backfill note
+
+Existing operators with no install record will start populating `last_web_seen_at` the next time they log in. There's no historical data to backfill — `auth.users.last_sign_in_at` exists but isn't queryable from RLS-protected client code. The roster will show accurate state for any operator who returns to the portal once after this ships. Staff can also manually mark someone as installed from the detail panel if needed (small "Mark as installed" button — included in the OperatorDetailPanel edit).
