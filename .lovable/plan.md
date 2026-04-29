@@ -1,63 +1,53 @@
-## Goal
+# Plan: Test Launch SUPERDRIVE before bulk send
 
-Turn the existing `/install` route into a polished, shareable install guide that support can text or email to anyone (operator, applicant, or stuck Gmail-webview user) — and link to it from the invite email and the install banner so it becomes the single source of truth.
+You have **35 pre-existing operators** queued (all active, all have emails, all have user accounts, **none invited yet** — audit log is empty for `superdrive_invite_sent`). Before you mass-send, here's a safe verification approach.
 
-## Why
+## What I already verified (read-only checks)
 
-- `/install` already exists and is public, but nothing links to it externally.
-- The invite email hardcodes install steps inline — when those steps change, every previously-sent email is stale.
-- The PWA banner currently opens an inline modal, duplicating the same content with no shareable URL for support.
-- Users stuck in Gmail/Facebook webviews need a top-of-page "Open in Safari" prompt before any other instruction is useful.
+- **Eligibility query works**: 35 operators match `reviewer_notes = 'Pre-existing operator added directly'`, all active, all have user accounts and emails.
+- **No prior sends**: `audit_log` has zero `superdrive_invite_sent` entries → no one is in the 30-day cooldown.
+- **Edge function looks correct**: auth gate (management/owner), per-operator processing, idempotent via audit log, generates a Supabase recovery link, sends branded HTML, writes audit row.
+- **Dialog wiring correct**: `DriverHubView` → `LaunchSuperdriveDialog` → invokes `launch-superdrive-invite` with the user's bearer token.
 
-## Scope
+## Recommended live test (3 steps)
 
-### 1. Harden `/install` for external visitors
-File: `src/pages/InstallApp.tsx`
+**1. Add a test recipient I control** (you'll do this in the UI)
+- In Driver Hub, add a single "pre-existing operator" pointing at an email **you own** (e.g. your own Gmail or a `+test` alias). This guarantees we can read the actual email without spamming a real driver.
+- Tell me the email you used.
 
-- Replace the "Back" button (which calls `navigate(-1)` and breaks for cold visitors with no history) with a "Go to login" link.
-- Replace the `onContinue` → `/dashboard` handler with logic that goes to `/dashboard` if signed in, otherwise `/login`.
-- Add an in-app-browser warning block ABOVE the steps (using `isInAppBrowser()` from `src/lib/pwa.ts`) with:
-  - Plain-language explanation: "You're viewing this inside the Gmail app. To install SUPERDRIVE you need Safari."
-  - A "Copy install link" button (uses existing `copyToClipboard` helper) prefilled with the canonical `https://mysupertransport.lovable.app/install` URL.
-  - Step: "Tap the ⋯ menu in Gmail → Open in Safari → return to this page."
-- Show a subtle success state when already installed (uses existing `isStandalone()`).
+**2. I'll trigger the send via the Launch SUPERDRIVE flow against just that test row**
+- I'll call the deployed `launch-superdrive-invite` edge function with that single operator_id, using your auth token.
+- I'll verify the response shape: `{ success, summary: { sent: 1, ... }, results: [{ status: 'sent', email }] }`.
+- I'll check the edge function logs for any warnings.
+- I'll confirm an `audit_log` row was written so the 30-day cooldown takes effect.
 
-### 2. Link to the guide from the invite email
-File: `supabase/functions/_shared/email-templates/invite.tsx`
+**3. You confirm the email + link**
+- Open the email in your inbox.
+- Click "Set Your Password & Open SUPERDRIVE" → should land on `/reset-password` with a valid recovery token.
+- Set a password → should drop you into `/dashboard` as that operator.
+- Confirm the install callout (iOS Safari / Android Chrome) reads correctly.
 
-- Add a secondary CTA button under the existing "Set Your Password" button: **"View the install guide →"** linking to `https://mysupertransport.lovable.app/install`.
-- Keep the inline iPhone/Android cards (they're useful at-a-glance), but add a one-line note above them: "Stuck? Tap the install guide for step-by-step help and screenshots."
-- Redeploy the email layer (templates are baked into the auth-email-hook).
+## What I'll watch for
 
-### 3. Point the PWA banner at the route instead of the modal
-File: `src/components/PWAInstallBanner.tsx`
+- **Cooldown enforcement**: re-running the same send should return `recently_invited` (not a duplicate email).
+- **Email source-of-truth**: function prefers `auth.users.email` over `applications.email` — fine, but worth confirming the test row's auth email matches what you typed.
+- **Recovery link redirect**: must hit `https://mysupertransport.lovable.app/reset-password` (the `APP_URL` env var). If your `/reset-password` page expects the recovery token in the URL hash, we'll see it work in step 3.
+- **Rate limits**: function caps at 100 per request — your 35 fits in one batch.
+- **Audit log writes**: needed so the dialog's "Last sent" badge populates and the cooldown holds.
 
-- On iOS, the banner tap currently opens an inline modal. Change it to navigate to `/install` instead — single source of truth, easier to iterate, and works the same whether the user is signed in or not.
-- Keep the Android `beforeinstallprompt` flow unchanged (native prompt is still preferred there).
+## After the test passes
 
-### 4. Memory
-Add a short `mem://features/install-guide-route.md` entry so future sessions know:
-- `/install` is the canonical public install guide,
-- the invite email links to it,
-- the PWA banner routes there on iOS.
-
-## Out of scope
-
-- No service worker / vite-plugin-pwa changes (manifest stays as-is).
-- No changes to the Android install flow.
-- No new translations or marketing copy beyond what's needed for clarity.
+- Open Launch SUPERDRIVE dialog → "Select all never-invited (35)" → Send.
+- Expected result: `35 sent · 0 cooldown · 0 errors`.
+- Watch the summary banner; any errors will list per-operator with reasons.
 
 ## Technical notes
 
-- `/install` is already in the public routes block of `src/App.tsx` — no router change needed.
-- All in-app-browser detection reuses `src/lib/pwa.ts` (already added in the previous round).
-- The canonical URL is the published domain (`https://mysupertransport.lovable.app`), not the preview URL — emails go to real users.
-- Email template change requires redeploying `auth-email-hook` so the new HTML is served.
+- Function: `supabase/functions/launch-superdrive-invite/index.ts`
+- Trigger UI: `LaunchSuperdriveDialog` (opened from `DriverHubView`, management/owner only)
+- Cooldown: 30 days, enforced both client-side (UI disables checkbox) and server-side (audit log lookup)
+- Email template: inline HTML in the function, uses shared `buildEmail` from `_shared/email-layout.ts`
 
-## Files to change
+---
 
-- `src/pages/InstallApp.tsx` (rewrite for cold-visit + in-app-browser warning)
-- `src/components/PWAInstallBanner.tsx` (iOS tap → `/install` route instead of modal)
-- `supabase/functions/_shared/email-templates/invite.tsx` (add guide link + helper note)
-- `mem://features/install-guide-route.md` (new memory)
-- Redeploy `auth-email-hook` after email template edit
+**Approve this plan and tell me the test email address you used**, and I'll run the live single-recipient test.
