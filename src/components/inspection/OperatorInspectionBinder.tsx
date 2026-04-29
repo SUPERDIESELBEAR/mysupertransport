@@ -80,6 +80,19 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [viewMode, setViewMode] = useState<'list' | 'pages'>(initialViewMode ?? 'list');
   const [flipbookOpen, setFlipbookOpen] = useState(initialViewMode === 'pages');
+  const [binderOpenedOnce, setBinderOpenedOnce] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('binder_opened_v1') === '1';
+  });
+
+  const openBinder = useCallback(() => {
+    setViewMode('pages');
+    setFlipbookOpen(true);
+    if (!binderOpenedOnce) {
+      try { localStorage.setItem('binder_opened_v1', '1'); } catch { /* noop */ }
+      setBinderOpenedOnce(true);
+    }
+  }, [binderOpenedOnce]);
 
   // Respond to deep-link changes after mount
   useEffect(() => {
@@ -240,6 +253,37 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
       </div>
 
       {/* ─── VIEW MODE + SELECT CONTROLS ─── */}
+      {/* Hero CTA — promote the 3-Ring Binder experience */}
+      <button
+        type="button"
+        onClick={openBinder}
+        className="group relative w-full overflow-hidden rounded-2xl border border-gold/40 bg-gradient-to-br from-gold/15 via-gold/5 to-transparent p-4 text-left shadow-sm transition-all hover:border-gold hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+      >
+        {!binderOpenedOnce && (
+          <span className="absolute top-3 right-3 flex h-3 w-3">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-gold opacity-75" />
+            <span className="relative inline-flex h-3 w-3 rounded-full bg-gold" />
+          </span>
+        )}
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 shrink-0 rounded-xl bg-gold/20 flex items-center justify-center border border-gold/30">
+            <BookOpen className="h-6 w-6 text-gold" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold tracking-widest uppercase text-gold">Recommended View</p>
+            <p className="text-base font-bold text-foreground leading-tight">Flip Through Your 3-Ring Binder</p>
+            <p className="text-xs text-muted-foreground mt-0.5">View your documents like a real binder — page by page.</p>
+          </div>
+          <div className="hidden sm:flex shrink-0">
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-gold px-3 py-2 text-xs font-bold text-surface-dark group-hover:bg-gold-light transition-colors">
+              Open Binder
+              <ChevronRight className="h-3.5 w-3.5" />
+            </span>
+          </div>
+          <ChevronRight className="sm:hidden h-5 w-5 text-gold shrink-0" />
+        </div>
+      </button>
+
       <div className="flex items-center gap-2 flex-wrap">
         <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
           <button
@@ -251,12 +295,12 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
             <List className="h-3.5 w-3.5" /> List
           </button>
           <button
-            onClick={() => { setViewMode('pages'); setFlipbookOpen(true); }}
+            onClick={openBinder}
             className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
               viewMode === 'pages' ? 'bg-gold text-surface-dark' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            <BookOpen className="h-3.5 w-3.5" /> Pages
+            <BookOpen className="h-3.5 w-3.5" /> Binder
           </button>
         </div>
         <Button
