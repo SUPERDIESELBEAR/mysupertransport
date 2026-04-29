@@ -85,24 +85,31 @@ Deno.serve(async (req) => {
 
     // ── Authorization ───────────────────────────────────────────────────────
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+    if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user: callerUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    if (authError || !callerUser) {
+    const { data: claimsData, error: authError } = await userClient.auth.getClaims(token);
+    if (authError || !claimsData?.claims?.sub) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    const callerId = claimsData.claims.sub as string;
+    const callerEmail = (claimsData.claims.email as string | undefined) ?? 'Staff';
 
     const { data: roleCheck } = await supabaseAdmin
       .from('user_roles')
       .select('role')
-      .eq('user_id', callerUser.id)
+      .eq('user_id', callerId)
       .in('role', ['management', 'owner'])
       .limit(1);
 
@@ -136,11 +143,11 @@ Deno.serve(async (req) => {
     const callerProfile = await supabaseAdmin
       .from('profiles')
       .select('first_name, last_name')
-      .eq('user_id', callerUser.id)
+      .eq('user_id', callerId)
       .maybeSingle();
     const callerName = callerProfile.data
-      ? `${callerProfile.data.first_name ?? ''} ${callerProfile.data.last_name ?? ''}`.trim() || (callerUser.email ?? 'Staff')
-      : (callerUser.email ?? 'Staff');
+      ? `${callerProfile.data.first_name ?? ''} ${callerProfile.data.last_name ?? ''}`.trim() || callerEmail
+      : callerEmail;
 
     // ── Per-operator processing ────────────────────────────────────────────
     const results: SendResult[] = [];
@@ -247,7 +254,7 @@ Deno.serve(async (req) => {
         // Audit log entry
         await supabaseAdmin.from('audit_log').insert({
           action: 'superdrive_invite_sent',
-          actor_id: callerUser.id,
+          actor_id: callerId,
           actor_name: callerName,
           entity_type: 'operator',
           entity_id: operatorId,
