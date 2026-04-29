@@ -12,6 +12,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2, Copy, ArrowUpDown, ArrowUp, ArrowDown, Smartphone, Globe, UserX } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useComplianceWindow } from '@/hooks/useComplianceWindow';
+import { ComplianceWindowPicker } from '@/components/shared/ComplianceWindowPicker';
 
 interface DriverRow {
   operator_id: string;
@@ -564,11 +566,12 @@ export default function DriverRoster({
   }, [externalComplianceFilter]);
 
   // Compliance tier counts (over all drivers, before any filter)
+  const { windowDays } = useComplianceWindow();
   const complianceCounts = useMemo(() => {
     let expired = 0, critical = 0, warning = 0, neverRenewed = 0, notYetReminded = 0, webOnly = 0, neverSignedIn = 0;
     for (const d of drivers) {
       if (isNeverRenewed(d.cdl_expiration, d.medical_cert_expiration)) neverRenewed++;
-      const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
+      const tier = getComplianceTierWithin(d.cdl_expiration, d.medical_cert_expiration, windowDays);
       if (tier === 'expired') expired++;
       else if (tier === 'critical') critical++;
       else if (tier === 'warning') warning++;
@@ -577,7 +580,7 @@ export default function DriverRoster({
       else if (!d.pwa_installed_at && !d.last_web_seen_at) neverSignedIn++;
     }
     return { expired, critical, warning, neverRenewed, notYetReminded, webOnly, neverSignedIn };
-  }, [drivers, lastReminderMap]);
+  }, [drivers, lastReminderMap, windowDays]);
 
   // Notify parent when counts change (e.g. after data fetch)
   useEffect(() => {
@@ -591,7 +594,7 @@ export default function DriverRoster({
       const matchesSearch = !q || `${d.first_name ?? ''} ${d.last_name ?? ''}`.toLowerCase().includes(q) ||
         (d.unit_number ?? '').toLowerCase().includes(q) ||
         (d.phone ?? '').includes(q);
-      const tier = getComplianceTier(d.cdl_expiration, d.medical_cert_expiration);
+      const tier = getComplianceTierWithin(d.cdl_expiration, d.medical_cert_expiration, windowDays);
       const never = isNeverRenewed(d.cdl_expiration, d.medical_cert_expiration);
       const notYetReminded = !lastReminderMap[d.operator_id];
       const matchesCompliance =
