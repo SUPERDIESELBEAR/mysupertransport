@@ -6,7 +6,7 @@ import { useBinderOrder } from '@/hooks/useBinderOrder';
 import { useDriverOptionalDocs } from '@/hooks/useDriverOptionalDocs';
 import {
   FileText, Truck, Shield, CheckSquare, Square, Send, Mail, MessageSquare,
-  Upload, Loader2, AlertTriangle, Clock, X, QrCode, List, BookOpen,
+  Upload, Loader2, AlertTriangle, Clock, X, QrCode, List, BookOpen, ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
