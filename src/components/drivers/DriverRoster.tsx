@@ -991,12 +991,20 @@ export default function DriverRoster({
                         <TooltipProvider delayDuration={100}>
                           <Tooltip>
                             <TooltipTrigger>
-                              <Smartphone className={`h-3.5 w-3.5 shrink-0 ${driver.pwa_installed_at ? 'text-emerald-500' : 'text-muted-foreground/30'}`} />
+                              {driver.pwa_installed_at ? (
+                                <Smartphone className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                              ) : driver.last_web_seen_at ? (
+                                <Globe className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                              ) : (
+                                <UserX className="h-3.5 w-3.5 shrink-0 text-muted-foreground/30" />
+                              )}
                             </TooltipTrigger>
                             <TooltipContent>
                               {driver.pwa_installed_at
-                                ? `Installed ${format(parseISO(driver.pwa_installed_at), 'MMM d, yyyy')}`
-                                : 'Not installed yet'}
+                                ? `App installed ${format(parseISO(driver.pwa_installed_at), 'MMM d, yyyy')}`
+                                : driver.last_web_seen_at
+                                ? `Web only — last seen ${format(parseISO(driver.last_web_seen_at), 'MMM d, yyyy')}`
+                                : 'Never signed in'}
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
