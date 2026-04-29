@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS, parseLocalDate, filterOptionalDocs } from './InspectionBinderTypes';
 import { ExpiryBadge, FilePreviewModal, bucketForBinderDoc, InspectedBadge, isInspectionDateDoc } from './DocRow';
+import { syncInspectionBinderDateFromVehicleHub } from '@/lib/syncInspectionBinderDate';
 
 type DriverUploadCategory = 'roadside_inspection_report' | 'repairs_maintenance_receipt' | 'miscellaneous';
 
@@ -121,6 +122,19 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
   }, [driverUserId]);
 
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
+
+  // Auto-populate "Periodic DOT Inspections" inspection date from the latest
+  // Vehicle Hub record. Vehicle Hub is the source of truth.
+  const syncedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (loading) return;
+    if (syncedRef.current === driverUserId) return;
+    syncedRef.current = driverUserId;
+    (async () => {
+      const changed = await syncInspectionBinderDateFromVehicleHub(driverUserId);
+      if (changed) fetchDocs();
+    })();
+  }, [loading, driverUserId, fetchDocs]);
 
   // Pending upload count for badge
   const pendingCount = driverUploads.filter(u => u.status === 'pending_review').length;

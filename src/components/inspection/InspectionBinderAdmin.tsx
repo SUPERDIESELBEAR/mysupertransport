@@ -39,6 +39,7 @@ import {
 } from './InspectionBinderTypes';
 import { useDriverOptionalDocs } from '@/hooks/useDriverOptionalDocs';
 import { ExpiryBadge, OnFileBadge, FilePreviewModal, bucketForBinderDoc, InspectedBadge, isInspectionDateDoc } from './DocRow';
+import { syncInspectionBinderDateFromVehicleHub } from '@/lib/syncInspectionBinderDate';
 
 /** Returns true if a reminder was sent within the last 24 hours */
 function isOnCooldown(sentAt: string | undefined): boolean {
@@ -323,6 +324,20 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   }, [selectedDriverId]);
 
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
+
+  // Auto-populate "Periodic DOT Inspections" inspection date from latest
+  // Vehicle Hub record when a driver is selected. Vehicle Hub wins.
+  const inspectionSyncedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (loading) return;
+    if (!selectedDriverId) return;
+    if (inspectionSyncedRef.current === selectedDriverId) return;
+    inspectionSyncedRef.current = selectedDriverId;
+    (async () => {
+      const changed = await syncInspectionBinderDateFromVehicleHub(selectedDriverId);
+      if (changed) fetchDocs();
+    })();
+  }, [loading, selectedDriverId, fetchDocs]);
 
   // Fetch unit number for the Flipbook cover whenever the selected driver changes
   useEffect(() => {
