@@ -649,7 +649,7 @@ export default function DriverRoster({
     }
 
     return sorted;
-  }, [drivers, search, statusFilter, complianceFilter, lastReminderMap, sortColumn, sortDir]);
+  }, [drivers, search, statusFilter, complianceFilter, lastReminderMap, sortColumn, sortDir, windowDays]);
 
   const allFilteredSelected = filtered.length > 0 && filtered.every(d => selected.has(d.operator_id));
   const someFilteredSelected = filtered.some(d => selected.has(d.operator_id));
