@@ -328,7 +328,7 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !sending && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90dvh] flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-3xl h-[90dvh] flex flex-col p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 pt-5 pb-3 border-b">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Rocket className="h-5 w-5 text-gold" />
@@ -507,7 +507,7 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
         </div>
 
         {/* Operator list */}
-        <ScrollArea className="flex-1 min-h-[320px]">
+        <ScrollArea className="flex-1 min-h-0">
           <div className="px-6 py-2 pr-4">
             {loading ? (
               <div className="flex items-center justify-center py-12 text-muted-foreground">
