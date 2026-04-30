@@ -327,7 +327,7 @@ export default function ICADocumentView({
             <tbody>
               <AppRow label="Linehaul Split" value={`Contractor receives ${data.linehaul_split_pct}% of adjusted gross linehaul revenue.`} highlight />
               <AppRow label="Settlement" value="Weekly, within 15 days after all required paperwork." />
-              <AppRow label="Deductions" value="Insurance, fuel, maintenance, trailer rental, permits, and operating expenses itemized per settlement." />
+              <AppRow label="Deductions" value="Fuel, maintenance, trailer rental, permits, tolls, and operating expenses itemized per settlement." />
               <AppRow label="Disputes" value="Contractor has 30 days from receipt to dispute any settlement." />
               <AppRow label="Final Settlement" value="Within 45 days after termination and return of equipment." />
             </tbody>
@@ -369,7 +369,7 @@ export default function ICADocumentView({
               ['Optional Insurance', 'Physical Damage via Carrier (if elected)', 'Contractor'],
               ['Compliance Fees', 'Registration, Plates, 2290, setup costs', 'Contractor'],
               ['Equipment or Trailer Lease', 'Weekly deduction if applicable', 'Contractor'],
-              ['Other Authorized Deductions', 'ELD, BestPass, Transponder', 'Contractor'],
+              ['Other Authorized Deductions', 'BestPass', 'Contractor'],
             ].map(([cat, desc, resp]) => (
               <div key={cat} className="border border-border rounded sm:rounded-none sm:border-t-0 sm:grid sm:grid-cols-3 text-xs">
                 {/* Mobile: stacked card; Desktop: row */}
