@@ -444,6 +444,41 @@ export default function ICADocumentView({
             <p><strong>Registration in Contractor's Name or Home State.</strong> Contractor may elect to obtain and maintain their own vehicle registration in their home state rather than through Carrier's MODOT account. If Contractor elects this option, Contractor must provide Carrier with a copy of the current registration before operating under Carrier's authority. Contractor should be aware that regardless of which state issues the registration or who obtains it, the registration certificate will identify SUPERTRANSPORT as the Motor Carrier Responsible for Safety and will display Carrier's name, address, and USDOT number, as required by federal regulation. Any amounts previously collected by Carrier toward Contractor's pro-rated Missouri registration will be reimbursed for the unused portion upon receipt of Contractor's own valid registration.</p>
           </div>
         </section>
+
+        <Divider />
+
+        {/* Appendix F */}
+        <section>
+          <AppendixHeader letter="F" title="Contractor Acknowledgment & Financial Readiness Declaration" />
+          <div className="mt-4 text-xs text-muted-foreground leading-relaxed space-y-3">
+            <p>This Declaration is incorporated by reference into and made a part of the Independent Contractor Agreement between SUPERTRANSPORT, LLC ("Carrier") and the undersigned Contractor. Contractor's execution of this Declaration is a condition precedent to dispatch under Carrier's authority.</p>
+            <p>By signing below, Contractor acknowledges, confirms, and declares the following:</p>
+
+            <p><strong>Settlement Cycle.</strong> I understand that SUPERTRANSPORT processes settlements on a weekly basis every Tuesday. I understand that I am paid every Tuesday for the Work Week that ended two Tuesdays prior. I understand that at any given time, one to two weeks of my earned revenue will be actively moving through the settlement pipeline and that this revenue is being processed, not withheld.</p>
+
+            <p><strong>Fuel Reconciliation.</strong> I understand that fuel purchases are reconciled after the Work Week closes and deducted on the corresponding settlement. I understand that fuel is not estimated — it is reconciled against actual fuel card transactions. I understand that large fuel purchases made near the end of a Work Week may compress my net settlement for that period and that I am responsible for managing my fuel purchasing timing accordingly.</p>
+
+            <p><strong>Payment Posting.</strong> I understand that SUPERTRANSPORT processes payroll through Everee every Tuesday and that standard bank deposits typically post the following business day. I understand that viewing a settlement in Alvys does not mean the bank deposit has already posted. I understand that the Everee Payroll Visa card option is available to me if I require faster access to my settlement funds.</p>
+
+            <p><strong>Compliance Fees — Registration & 2290.</strong> I understand that vehicle registration and IRS Form 2290 costs are my responsibility as an independent contractor and are passed through to me by Carrier at no markup. I understand that registrations follow a fixed annual cycle expiring June 30 and that if I join Carrier's authority mid-cycle, my initial registration will be pro-rated for the remaining period only. I understand that annual renewals will be collected in installments spread across multiple settlement periods. I understand that these deductions will be clearly labeled on each settlement statement.</p>
+
+            <p><strong>Repair & Maintenance Deposit.</strong> I understand the terms of the Repair & Maintenance Deposit as set forth in Section 4 of my Independent Contractor Agreement, including the voluntary election option, the requirement upon advance request, the $600 termination withhold, and the refund timeline following termination.</p>
+
+            <p><strong>Independent Business Responsibility.</strong> I understand that I am an independent contractor operating my own business under lease to SUPERTRANSPORT. I acknowledge that I am solely responsible for maintaining my own financial records, tracking my own revenue and expenses, and managing my own cash flow as an independent business owner. I acknowledge that SUPERTRANSPORT provides detailed settlement statements itemizing all revenue and deductions, and that it is my responsibility to review those statements and raise any disputes within 30 days of receipt. I acknowledge that SUPERTRANSPORT is not responsible for my personal financial management or cash flow planning.</p>
+
+            <p><strong>Professional Conduct.</strong> I have read and understand Section 6B of my Independent Contractor Agreement regarding professional conduct. I agree to conduct myself and direct my drivers, agents, and representatives to conduct themselves in a professional and respectful manner in all communications with Carrier's staff and representatives at all times.</p>
+
+            <p><strong>Acknowledgment.</strong> I confirm that I have received, read, and fully understood all of the following documents prior to my first dispatch under SUPERTRANSPORT's authority:</p>
+            <ul className="list-disc pl-6 space-y-1">
+              <li>SUPERTRANSPORT Weekly Settlement Overview</li>
+              <li>SUPERTRANSPORT Settlement Cycle Calendar</li>
+              <li>SUPERTRANSPORT Payroll Deposit & Payroll Visa Card Overview</li>
+              <li>Appendix E — Settlement Cycle, Financial Expectations & Compliance Fee Policy</li>
+            </ul>
+
+            <p>I declare that I am entering into this Agreement with a clear understanding of how and when I will be compensated, what deductions will be applied to my settlements, and what my responsibilities are as an independent business owner operating under SUPERTRANSPORT's authority.</p>
+          </div>
+        </section>
       </div>
     </div>
   );
