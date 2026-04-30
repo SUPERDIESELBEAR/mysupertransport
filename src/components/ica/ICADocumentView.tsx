@@ -230,7 +230,8 @@ export default function ICADocumentView({
         </ClauseSection>
 
         <ClauseSection num="10" title="Termination">
-          Either party may terminate upon 15 days' written notice. Carrier may terminate immediately for safety violations, fraud, or disqualification. Contractor has five business days to cure minor breaches. Upon termination, Contractor must promptly return all Carrier property and identification.
+          <p>Either party may terminate upon 15 days' written notice. Carrier may terminate immediately for safety violations, fraud, or disqualification. Contractor has five business days to cure minor breaches. Upon termination, Contractor must promptly return all Carrier property and identification.</p>
+          <p className="mt-3"><strong>Equipment Return & Identification Removal.</strong> Upon termination or expiration of this Agreement for any reason, Contractor shall immediately return all Carrier-issued equipment and property, including but not limited to ELD devices, license plates, transponders, fuel cards, and any other items issued by Carrier during the term of this Agreement. Contractor shall also immediately remove all Carrier identification from its power units and trailers, including Carrier's name, address, and USDOT number. Contractor shall provide photographic evidence of removal to Carrier within 30 days of termination. Carrier's obligation to release the termination withhold described in Section 4 is conditioned upon satisfaction of both requirements. Contractor's failure to remove Carrier identification from any commercial motor vehicle operated on public roads following termination may expose Contractor to regulatory and legal liability independent of this Agreement.</p>
         </ClauseSection>
 
         <ClauseSection num="11" title="Electronic Communication & Signatures">
