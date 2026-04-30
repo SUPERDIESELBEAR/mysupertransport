@@ -205,6 +205,18 @@ export default function ICADocumentView({
           Contractor and its drivers may not transport passengers while operating under this Agreement without prior written authorization from Carrier per 49 C.F.R. § 392.60. Authorized passengers must execute a Passenger Authorization and Liability Waiver before any trip. Contractor assumes all risk for any injury or loss involving unauthorized passengers.
         </ClauseSection>
 
+        <ClauseSection num="6B" title="Professional Conduct & Staff Relations">
+          <p>Contractor and its drivers, agents, and representatives shall conduct themselves in a professional, courteous, and respectful manner in all communications with Carrier's staff, dispatchers, safety personnel, administrative representatives, and agents at all times. This obligation applies to all forms of communication, including but not limited to telephone, text message, electronic message, email, and in-person interaction.</p>
+          <p className="mt-3">The following conduct constitutes a material breach of this Agreement and may result in immediate termination without the opportunity to cure:</p>
+          <ol className="list-[lower-alpha] pl-6 mt-2 space-y-1">
+            <li>Verbal abuse, profanity, or threatening language directed at any Carrier representative;</li>
+            <li>Conduct that a reasonable person would consider harassing, intimidating, or hostile toward any Carrier representative;</li>
+            <li>Public statements, social media posts, or communications to third parties that are false, defamatory, or damaging to Carrier's reputation or business relationships.</li>
+          </ol>
+          <p className="mt-3">Carrier holds itself to the same standard of professional conduct in all interactions with Contractor. Contractor who believes they have been treated unprofessionally by any Carrier representative may submit a written complaint to Carrier's management for review and resolution.</p>
+          <p className="mt-3">Nothing in this section shall be construed to limit Contractor's right to dispute settlement amounts or raise legitimate operational concerns through the dispute resolution process set forth in Section 12 of this Agreement.</p>
+        </ClauseSection>
+
         <ClauseSection num="7" title="Operational Independence">
           Contractor may accept or reject load offers from Carrier and is free to determine its own methods, routes, and schedules consistent with federal and state safety regulations. While the leased equipment is under the authority and control of SUPERTRANSPORT, LLC, Contractor shall not haul freight for any other carrier unless prior written authorization is granted by Carrier.
         </ClauseSection>
