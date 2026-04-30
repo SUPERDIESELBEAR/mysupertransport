@@ -329,130 +329,119 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !sending && onClose()}>
       <DialogContent className="max-w-3xl max-h-[90dvh] flex flex-col p-0 gap-0 overflow-hidden">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b">
+        <DialogHeader className="px-6 pt-5 pb-3 border-b">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <Rocket className="h-5 w-5 text-gold" />
             Launch SUPERDRIVE Invite
           </DialogTitle>
-          <p className="text-sm text-muted-foreground mt-1.5">
-            Send branded SUPERDRIVE emails to your drivers. Each audience receives copy tuned to their account state — only pre-existing drivers receive a password-setup link.
+          <p className="text-xs text-muted-foreground mt-1">
+            Branded emails tuned per audience — only pre-existing drivers get a password-setup link.
           </p>
         </DialogHeader>
 
         {/* Audience picker */}
-        <div className="px-6 py-3 border-b bg-background">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Audience</p>
+        <div className="px-6 py-2 border-b bg-background">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Audience</p>
           <div className="grid sm:grid-cols-3 gap-2">
             <button
               type="button"
               onClick={() => setAudienceMode('pre_existing')}
               disabled={sending}
-              className={`text-left p-3 rounded-lg border transition ${
+              className={`text-left px-2.5 py-1.5 rounded-md border transition ${
                 audienceMode === 'pre_existing' ? 'border-gold bg-gold/10' : 'border-border hover:bg-muted/50'
               }`}
             >
-              <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                {audienceMode === 'pre_existing' && <CheckCircle2 className="h-4 w-4 text-gold" />}
-                Pre-existing only
+              <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                {audienceMode === 'pre_existing' && <CheckCircle2 className="h-3.5 w-3.5 text-gold" />}
+                Pre-existing ({audienceCounts.pre})
               </p>
-              <p className="text-xs text-muted-foreground mt-1">{audienceCounts.pre} driver{audienceCounts.pre === 1 ? '' : 's'} — need to set a password.</p>
             </button>
             <button
               type="button"
               onClick={() => setAudienceMode('app_onboarded')}
               disabled={sending}
-              className={`text-left p-3 rounded-lg border transition ${
+              className={`text-left px-2.5 py-1.5 rounded-md border transition ${
                 audienceMode === 'app_onboarded' ? 'border-gold bg-gold/10' : 'border-border hover:bg-muted/50'
               }`}
             >
-              <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                {audienceMode === 'app_onboarded' && <CheckCircle2 className="h-4 w-4 text-gold" />}
-                App-onboarded only
+              <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                {audienceMode === 'app_onboarded' && <CheckCircle2 className="h-3.5 w-3.5 text-gold" />}
+                App-onboarded ({audienceCounts.app})
               </p>
-              <p className="text-xs text-muted-foreground mt-1">{audienceCounts.app} driver{audienceCounts.app === 1 ? '' : 's'} — already have accounts.</p>
             </button>
             <button
               type="button"
               onClick={() => setAudienceMode('all')}
               disabled={sending}
-              className={`text-left p-3 rounded-lg border transition ${
+              className={`text-left px-2.5 py-1.5 rounded-md border transition ${
                 audienceMode === 'all' ? 'border-gold bg-gold/10' : 'border-border hover:bg-muted/50'
               }`}
             >
-              <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                {audienceMode === 'all' && <CheckCircle2 className="h-4 w-4 text-gold" />}
-                All onboarded drivers
+              <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                {audienceMode === 'all' && <CheckCircle2 className="h-3.5 w-3.5 text-gold" />}
+                All onboarded ({audienceCounts.all})
               </p>
-              <p className="text-xs text-muted-foreground mt-1">{audienceCounts.all} total — auto-routes per driver.</p>
             </button>
           </div>
 
           {showAppAnnouncementNote && (
-            <div className="mt-3 p-2.5 rounded-lg border border-primary/30 bg-primary/5 text-xs text-foreground/80 leading-relaxed">
-              These drivers already have working accounts and passwords. They'll receive a feature-announcement email pointing them at the new Inspection Binder — <span className="font-semibold">no password reset is generated</span> and their existing login is untouched.
+            <div className="mt-2 px-2 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-[11px] text-foreground/80 leading-snug">
+              Feature-announcement email only — <span className="font-semibold">no password reset</span>, existing logins untouched.
             </div>
           )}
           {showAudienceRoutingNote && (
-            <div className="mt-3 p-2.5 rounded-lg border border-primary/30 bg-primary/5 text-xs text-foreground/80 leading-relaxed">
-              Each driver gets the email that matches their account type: pre-existing drivers receive your selected template with a password-setup link, app-onboarded drivers receive a feature-announcement email with no password reset.
+            <div className="mt-2 px-2 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-[11px] text-foreground/80 leading-snug">
+              Auto-routes per driver: pre-existing get your selected template + password-setup link; app-onboarded get the announcement email only.
             </div>
           )}
         </div>
 
         {/* Template picker — only meaningful when sending to pre-existing drivers */}
         {showTemplatePicker && (
-        <div className="px-6 py-3 border-b bg-background">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Email template</p>
+        <div className="px-6 py-2 border-b bg-background">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Email template</p>
           <div className="grid sm:grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => setTemplate('binder')}
               disabled={sending}
-              className={`text-left p-3 rounded-lg border transition ${
-                template === 'binder'
-                  ? 'border-gold bg-gold/10'
-                  : 'border-border hover:bg-muted/50'
+              className={`text-left px-2.5 py-1.5 rounded-md border transition ${
+                template === 'binder' ? 'border-gold bg-gold/10' : 'border-border hover:bg-muted/50'
               }`}
             >
-              <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                {template === 'binder' && <CheckCircle2 className="h-4 w-4 text-gold" />}
-                Inspection Binder intro
+              <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                {template === 'binder' && <CheckCircle2 className="h-3.5 w-3.5 text-gold" />}
+                Inspection Binder intro <span className="text-muted-foreground font-normal">· recommended</span>
               </p>
-              <p className="text-xs text-muted-foreground mt-1">Focused on the new binder app. Recommended for initial rollout.</p>
             </button>
             <button
               type="button"
               onClick={() => setTemplate('full')}
               disabled={sending}
-              className={`text-left p-3 rounded-lg border transition ${
-                template === 'full'
-                  ? 'border-gold bg-gold/10'
-                  : 'border-border hover:bg-muted/50'
+              className={`text-left px-2.5 py-1.5 rounded-md border transition ${
+                template === 'full' ? 'border-gold bg-gold/10' : 'border-border hover:bg-muted/50'
               }`}
             >
-              <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                {template === 'full' && <CheckCircle2 className="h-4 w-4 text-gold" />}
+              <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                {template === 'full' && <CheckCircle2 className="h-3.5 w-3.5 text-gold" />}
                 Full feature tour
               </p>
-              <p className="text-xs text-muted-foreground mt-1">Original welcome email covering every feature.</p>
             </button>
           </div>
         </div>
         )}
 
         {/* Force resend (always visible) */}
-        <div className="px-6 py-3 border-b bg-background">
-          <label className="mt-3 flex items-start gap-2.5 p-2.5 rounded-lg border border-amber-300/60 bg-amber-50 cursor-pointer hover:bg-amber-100/60 transition">
+        <div className="px-6 py-2 border-b bg-background">
+          <label className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md border border-amber-300/60 bg-amber-50 cursor-pointer hover:bg-amber-100/60 transition">
             <Checkbox
               checked={forceResend}
               onCheckedChange={(v) => setForceResend(v === true)}
               disabled={sending}
-              className="mt-0.5"
             />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-900">Force resend (bypass 30-day cooldown)</p>
-              <p className="text-xs text-amber-800/80 mt-0.5">Lets you re-send to operators who were already invited. Use sparingly — recipients may receive a duplicate email.</p>
-            </div>
+            <p className="text-xs text-amber-900">
+              <span className="font-semibold">Force resend</span> — bypass 30-day cooldown (recipients may get a duplicate).
+            </p>
           </label>
         </div>
 
@@ -518,8 +507,8 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
         </div>
 
         {/* Operator list */}
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="px-6 py-2">
+        <ScrollArea className="flex-1 min-h-[320px]">
+          <div className="px-6 py-2 pr-4">
             {loading ? (
               <div className="flex items-center justify-center py-12 text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin mr-2" />
