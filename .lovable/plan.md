@@ -1,114 +1,58 @@
-# Expand Launch SUPERDRIVE to All Drivers
+## Diagnosis
 
-## Goal
+Reproduced live on `https://mysupertransport.lovable.app/`:
+- The "Staff Sign In" link in the header registers a click (gold hover state appears) but the URL remains `/` and the page never loads `/login`.
+- No JavaScript errors in the console.
+- The `<Link to="/login">` and the `/login` route in `App.tsx` are both correctly configured.
+- Auth backend is healthy (recent `/admin/users` and `/user` requests returned 200).
 
-Make the Launch SUPERDRIVE Invite dialog able to reach all fully-onboarded active drivers (currently 48), not just the 36 flagged "Pre-existing operator added directly". The 12 app-onboarded drivers must receive copy that fits their context (they already have working accounts), and the existing 36 pre-existing flow must keep working unchanged.
+This is **not an authentication problem** — it's a navigation problem. The click is silently swallowed before React Router can process it. The most likely culprits, in order of probability:
 
-## Audience model
+1. **The PWA Install banner** (visible at the bottom of the page) or another fixed/absolutely-positioned overlay is intercepting pointer events somewhere in the layout tree, preventing the `<Link>`'s click handler from firing properly on the published build.
+2. **`ResumeApplicationDialog`** is mounted on the SplashPage and may be rendering an invisible Radix overlay (`pointer-events: auto`) over the entire viewport even when `open={false}` — a known Radix bug pattern when a dialog is conditionally controlled.
+3. **A stale service worker** from a previous PWA version is serving cached JS that has the bug, even after recent deploys.
 
-Three audience groups, derived at query time:
+```text
+SplashPage
+ ├── header (z-10)
+ │    └── <Link to="/login"> Staff Sign In  ← click registers, navigation does not happen
+ ├── hero / sections
+ ├── PWA Install Banner  (fixed, bottom)    ← suspect overlay
+ └── ResumeApplicationDialog (open=false)   ← suspect Radix portal
+```
 
-1. **Pre-existing** — `applications.reviewer_notes = 'Pre-existing operator added directly'`. Need full intro + password setup. (Current behavior.)
-2. **App-onboarded** — fully onboarded through the app, no pre-existing flag. Already have a password and have signed in. Should get a feature-announcement email, **not** a "set your password" email.
-3. **All eligible** — union of the two above, restricted to `operators.is_active = true` AND `onboarding_status.fully_onboarded = true`.
+## Fix Plan
 
-Drivers still mid-pipeline (not fully onboarded) and inactive operators stay excluded — same as today.
+### Step 1 — Make the "Staff Sign In" link bulletproof
 
-## UI changes — `LaunchSuperdriveDialog.tsx`
+In `src/pages/SplashPage.tsx` (both the header link, line 74-79, and the footer link, line 182-184):
+- Add explicit `relative z-20` and `pointer-events-auto` classes to guarantee the link sits above any sibling overlay.
+- As a safety net, attach an `onClick` that calls `useNavigate()` programmatically, so even if the default `<Link>` behavior is blocked, navigation still occurs.
 
-- Add an **Audience** segmented control above the existing template picker:
-  - "Pre-existing only (36)" — current default, current query
-  - "App-onboarded only (12)"
-  - "All onboarded drivers (48)"
-- Show a contextual info banner under the audience picker explaining what each group is and why the email copy will differ.
-- Filter chips ("Never invited / All eligible / In cooldown") and search continue to work, scoped to the chosen audience.
-- Template picker behavior:
-  - Pre-existing audience: both templates available, default = "Inspection Binder intro" (unchanged).
-  - App-onboarded audience: template picker is replaced by a single fixed "App-onboarded announcement" template (no password-setup language). No template choice — keeps it idiot-proof.
-  - All-onboarded audience: dialog auto-routes each recipient to the correct template based on their group; picker is hidden, replaced by a one-line note: "Each driver gets the email that matches their account type."
-- "Force resend" checkbox stays as-is.
-- Selection counters and the "Select all never-invited" shortcut update to reflect the active audience.
+### Step 2 — Audit overlay culprits on SplashPage
 
-## Query changes — `loadOperators`
+- Inspect `ResumeApplicationDialog` to confirm it does not leave an invisible Radix overlay mounted when closed. If it does, gate the entire component behind `{resumeOpen && <ResumeApplicationDialog … />}` so it never renders an overlay until needed.
+- Verify the PWA Install banner uses `pointer-events-none` on its outer wrapper (with `pointer-events-auto` only on its actual buttons), so it can't block clicks on links above it.
 
-Replace the single `.eq('applications.reviewer_notes', ...)` query with a query that fetches all fully-onboarded active operators, then tags each row with `audience: 'pre_existing' | 'app_onboarded'`:
+### Step 3 — Force a clean reload to bust the stale cache
 
-- Join `operators` → `onboarding_status!inner(fully_onboarded)` → `applications`.
-- Filter: `is_active = true`, `fully_onboarded = true`, has email.
-- Derive audience from `applications.reviewer_notes`.
-- Apply the dialog's audience filter client-side after fetch.
-- Audit-log lookup for `superdrive_invite_sent` stays the same.
+- Bump `public/version.json` so the existing `useVersionCheck` hook prompts a refresh for any user already on the broken cached version.
 
-## New email template — app-onboarded announcement
+### Step 4 — Verify in the live preview
 
-New HTML builder in `launch-superdrive-invite/index.ts`: `buildAppOnboardedAnnouncementHtml(firstName, appUrl)`.
+- Reload the published site and confirm clicking "Staff Sign In" navigates to `/login`.
+- Confirm clicking the same link in the footer also works.
+- Confirm the page still works with the Install banner visible AND dismissed.
 
-Tone and content:
-- "Your SUPERDRIVE app just got a major upgrade" (no "welcome" / no "set your password").
-- Highlight the new Inspection Binder feature specifically (matches current rollout).
-- CTA button → `${APP_URL}/dashboard` (deep link into the app, not a recovery link).
-- Optional secondary line: "Already signed in on this device? Just open SUPERDRIVE — your binder is in the side menu."
-- No password-setup instructions, no "Add to Home Screen" block (they already installed it during onboarding; we can keep a small "Don't have it on your phone yet?" link to `/install`).
+## Out of Scope
 
-## Edge function changes — `launch-superdrive-invite/index.ts`
+- No changes to authentication, roles, or session handling — those are confirmed healthy.
+- No changes to the `LoginPage` itself; the page renders correctly once you reach it.
 
-- Extend `EmailTemplate` type to `'binder' | 'full' | 'app_announcement'`.
-- Add the new builder and register it in `SUBJECTS` and `TEMPLATE_LABELS`.
-- For `app_announcement`: **skip** the `auth.admin.generateLink({ type: 'recovery' })` call entirely. The email links directly to `${APP_URL}/dashboard`. This is the key safety property — no password reset is generated for active accounts.
-- Accept a new optional body field `audience_routing: boolean`. When true, the function looks up each operator's `applications.reviewer_notes` and chooses the template per-recipient: pre-existing → caller's chosen template (`binder`/`full`); app-onboarded → `app_announcement`. When false, the function uses the single template for everyone (back-compat with current callers).
-- The 30-day cooldown via `audit_log` continues to apply to all templates uniformly. `forceResend` still bypasses it.
-- Per-recipient `metadata.template` in the audit log records the actual template sent, so future analytics can distinguish the three streams.
+## Workaround for You Right Now
 
-## Safety guarantees
+While I implement the fix, you can log in immediately by going **directly** to:
 
-- App-onboarded drivers never get a password-recovery link — their email contains only a plain dashboard URL. Their existing password is untouched. (This is the main concern from the previous discussion.)
-- Pre-existing flow is byte-for-byte unchanged when the audience picker stays on its default.
-- The 30-day cooldown plus the explicit "Force resend" toggle remain the only way to re-mail anyone.
-- Mid-pipeline applicants are still excluded (we only pull `fully_onboarded = true`).
+`https://mysupertransport.lovable.app/login`
 
-## Out of scope
-
-- No new database columns or migrations.
-- No changes to `LaunchSuperdriveDialog`'s result-summary panel layout (just new counts flow through).
-- No changes to who can open the dialog (still management/owner via existing role check).
-
-## Files touched
-
-- `src/components/management/LaunchSuperdriveDialog.tsx` — audience picker, query, template-routing UI, counters.
-- `supabase/functions/launch-superdrive-invite/index.ts` — new template, new audience-routing branch, no recovery link for app-onboarded.
-- `public/version.json` — bump.
-
-## Technical details
-
-- The query that drives the dialog will look like:
-  ```ts
-  .from('operators')
-  .select(`
-    id, user_id, is_active,
-    onboarding_status!inner(fully_onboarded),
-    applications(first_name, last_name, email, reviewer_notes)
-  `)
-  .eq('is_active', true)
-  .eq('onboarding_status.fully_onboarded', true)
-  ```
-  Audience is derived in JS:
-  ```ts
-  const audience = app?.reviewer_notes === 'Pre-existing operator added directly'
-    ? 'pre_existing' : 'app_onboarded';
-  ```
-- Edge function audience-routing pseudocode inside the per-operator loop:
-  ```ts
-  let chosenTemplate = template;
-  if (audience_routing) {
-    chosenTemplate = (app?.reviewer_notes === 'Pre-existing operator added directly')
-      ? template            // 'binder' | 'full' from caller
-      : 'app_announcement';
-  }
-  const recoveryUrl = chosenTemplate === 'app_announcement'
-    ? `${APP_URL}/dashboard`
-    : (await supabaseAdmin.auth.admin.generateLink({ type: 'recovery', email, options: { redirectTo: `${APP_URL}/reset-password` }})).data.properties.action_link;
-  ```
-
-## Approval
-
-Reply to approve and I'll implement.
+That bypasses the broken splash-page link entirely.
