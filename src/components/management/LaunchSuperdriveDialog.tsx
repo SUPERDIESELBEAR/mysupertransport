@@ -335,11 +335,72 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
             Launch SUPERDRIVE Invite
           </DialogTitle>
           <p className="text-sm text-muted-foreground mt-1.5">
-            Send the branded "Welcome to SUPERDRIVE" email to pre-existing operators with a one-click password setup link.
+            Send branded SUPERDRIVE emails to your drivers. Each audience receives copy tuned to their account state — only pre-existing drivers receive a password-setup link.
           </p>
         </DialogHeader>
 
-        {/* Template picker */}
+        {/* Audience picker */}
+        <div className="px-6 py-3 border-b bg-background">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Audience</p>
+          <div className="grid sm:grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => setAudienceMode('pre_existing')}
+              disabled={sending}
+              className={`text-left p-3 rounded-lg border transition ${
+                audienceMode === 'pre_existing' ? 'border-gold bg-gold/10' : 'border-border hover:bg-muted/50'
+              }`}
+            >
+              <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                {audienceMode === 'pre_existing' && <CheckCircle2 className="h-4 w-4 text-gold" />}
+                Pre-existing only
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">{audienceCounts.pre} driver{audienceCounts.pre === 1 ? '' : 's'} — need to set a password.</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAudienceMode('app_onboarded')}
+              disabled={sending}
+              className={`text-left p-3 rounded-lg border transition ${
+                audienceMode === 'app_onboarded' ? 'border-gold bg-gold/10' : 'border-border hover:bg-muted/50'
+              }`}
+            >
+              <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                {audienceMode === 'app_onboarded' && <CheckCircle2 className="h-4 w-4 text-gold" />}
+                App-onboarded only
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">{audienceCounts.app} driver{audienceCounts.app === 1 ? '' : 's'} — already have accounts.</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAudienceMode('all')}
+              disabled={sending}
+              className={`text-left p-3 rounded-lg border transition ${
+                audienceMode === 'all' ? 'border-gold bg-gold/10' : 'border-border hover:bg-muted/50'
+              }`}
+            >
+              <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                {audienceMode === 'all' && <CheckCircle2 className="h-4 w-4 text-gold" />}
+                All onboarded drivers
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">{audienceCounts.all} total — auto-routes per driver.</p>
+            </button>
+          </div>
+
+          {showAppAnnouncementNote && (
+            <div className="mt-3 p-2.5 rounded-lg border border-primary/30 bg-primary/5 text-xs text-foreground/80 leading-relaxed">
+              These drivers already have working accounts and passwords. They'll receive a feature-announcement email pointing them at the new Inspection Binder — <span className="font-semibold">no password reset is generated</span> and their existing login is untouched.
+            </div>
+          )}
+          {showAudienceRoutingNote && (
+            <div className="mt-3 p-2.5 rounded-lg border border-primary/30 bg-primary/5 text-xs text-foreground/80 leading-relaxed">
+              Each driver gets the email that matches their account type: pre-existing drivers receive your selected template with a password-setup link, app-onboarded drivers receive a feature-announcement email with no password reset.
+            </div>
+          )}
+        </div>
+
+        {/* Template picker — only meaningful when sending to pre-existing drivers */}
+        {showTemplatePicker && (
         <div className="px-6 py-3 border-b bg-background">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Email template</p>
           <div className="grid sm:grid-cols-2 gap-2">
