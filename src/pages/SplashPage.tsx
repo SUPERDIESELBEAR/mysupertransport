@@ -177,18 +177,28 @@ export default function SplashPage() {
       <footer className="relative z-10 border-t border-surface-dark-border py-6 px-6 mt-auto">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-surface-dark-muted">
           <p>&copy; {new Date().getFullYear()} SUPERTRANSPORT. All rights reserved.</p>
-          <div className="flex items-center gap-5">
-            <Link to="/status" className="hover:text-gold transition-colors">
+          <div className="flex items-center gap-5 relative z-20 pointer-events-auto">
+            <Link
+              to="/status"
+              onClick={(e) => { e.preventDefault(); navigate('/status'); }}
+              className="hover:text-gold transition-colors"
+            >
               Check Application Status
             </Link>
-            <Link to="/login" className="hover:text-gold transition-colors">
+            <Link
+              to="/login"
+              onClick={(e) => { e.preventDefault(); navigate('/login'); }}
+              className="hover:text-gold transition-colors"
+            >
               Staff Sign In
             </Link>
           </div>
         </div>
       </footer>
 
-      <ResumeApplicationDialog open={resumeOpen} onOpenChange={setResumeOpen} />
+      {resumeOpen && (
+        <ResumeApplicationDialog open={resumeOpen} onOpenChange={setResumeOpen} />
+      )}
     </div>
   );
 }
