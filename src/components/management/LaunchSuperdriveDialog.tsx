@@ -302,8 +302,29 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
     return <Badge className="bg-gold/15 text-gold-muted border-gold/30">Never invited</Badge>;
   };
 
-  const totalNeverInvited = operators.filter(op => !op.last_invited_at).length;
-  const totalEligible = operators.length;
+  // Counts for the audience picker — based on the FULL operator list, not the
+  // currently filtered view, so the picker labels stay stable.
+  const audienceCounts = useMemo(() => {
+    const pre = operators.filter(o => o.audience === 'pre_existing').length;
+    const app = operators.filter(o => o.audience === 'app_onboarded').length;
+    return { pre, app, all: pre + app };
+  }, [operators]);
+
+  // Counts for the filter chips — scoped to the current audience.
+  const audienceScoped = useMemo(
+    () => operators.filter(op => {
+      if (audienceMode === 'pre_existing') return op.audience === 'pre_existing';
+      if (audienceMode === 'app_onboarded') return op.audience === 'app_onboarded';
+      return true;
+    }),
+    [operators, audienceMode]
+  );
+  const totalNeverInvited = audienceScoped.filter(op => !op.last_invited_at).length;
+  const totalEligible = audienceScoped.length;
+
+  const showTemplatePicker = audienceMode === 'pre_existing';
+  const showAudienceRoutingNote = audienceMode === 'all';
+  const showAppAnnouncementNote = audienceMode === 'app_onboarded';
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !sending && onClose()}>
