@@ -13,6 +13,8 @@ project_id = "qgxpkcudwjmacrdcyvhj"
     verify_jwt = false
   [functions.encrypt-ssn]
     verify_jwt = false
+  [functions.get-staff-list]
+    verify_jwt = false
   [functions.invite-applicant]
     verify_jwt = false
   [functions.notify-onboarding-update]
