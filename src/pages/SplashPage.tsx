@@ -77,7 +77,7 @@ export default function SplashPage() {
             onClick={(e) => { e.preventDefault(); navigate('/login'); }}
             className="text-sm text-surface-dark-muted hover:text-gold transition-colors"
           >
-            Staff Sign In
+            Sign In
           </Link>
         </div>
       </header>
@@ -190,7 +190,7 @@ export default function SplashPage() {
               onClick={(e) => { e.preventDefault(); navigate('/login'); }}
               className="hover:text-gold transition-colors"
             >
-              Staff Sign In
+              Sign In
             </Link>
           </div>
         </div>
