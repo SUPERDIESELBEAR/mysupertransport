@@ -133,6 +133,63 @@ const TEMPLATE_LABELS: Record<EmailTemplate, string> = {
   full: 'welcome-superdrive',
 };
 
+function buildAppAnnouncementHtml(firstName: string, dashboardUrl: string): string {
+  const greeting = firstName ? `Hi ${firstName},` : 'Hi there,';
+
+  const binderCard = `
+    <div style="background:#FAF8F2;border:1px solid #EDE6CF;border-radius:10px;padding:20px;margin:0 0 12px;">
+      <p style="margin:0 0 10px;color:${BRAND_DARK};font-size:16px;font-weight:700;">🔍 New: Your DOT Inspection Binder</p>
+      <p style="margin:0 0 12px;color:#444;font-size:14px;line-height:1.6;">Your full DOT binder now lives inside SUPERDRIVE. At the scale house, every document is one tap away:</p>
+      <ul style="margin:0;padding:0 0 0 18px;color:#444;font-size:14px;line-height:1.7;">
+        <li>CDL &amp; Medical Card</li>
+        <li>Truck Title &amp; Registration</li>
+        <li>Periodic DOT Inspection</li>
+        <li>IRS Form 2290</li>
+        <li>Insurance &amp; more</li>
+      </ul>
+      <p style="margin:14px 0 0;color:#444;font-size:14px;line-height:1.6;">It stays synced — when something is renewed, your binder updates automatically. You can even share a clean link with an officer.</p>
+    </div>`;
+
+  const installNote = `
+    <p style="margin:18px 0 0;color:#777;font-size:13px;line-height:1.6;">Don't have SUPERDRIVE on your phone yet? <a href="${APP_URL}/install" style="color:${BRAND_DARK};font-weight:600;">Install it from here</a> to keep your binder one tap away.</p>`;
+
+  const body = `
+    <p style="margin:0 0 14px;">${greeting}</p>
+    <p>Your SUPERDRIVE app just got a major upgrade. Your full <strong>DOT Inspection Binder</strong> now lives inside the app — no more shuffling through papers in the cab.</p>
+    <p style="margin:0 0 22px;">Already signed in on your phone? Just open SUPERDRIVE — your binder is in the side menu. Or tap the button below to jump in.</p>
+
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${dashboardUrl}" style="background:${BRAND_COLOR};color:${BRAND_DARK};padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">
+        Open My Inspection Binder
+      </a>
+    </div>
+
+    ${binderCard}
+    ${installNote}
+
+    <p style="margin:28px 0 0;color:#777;font-size:13px;line-height:1.6;">Questions? Just reply to this email — we're here.<br/>— The SUPERTRANSPORT team</p>
+  `;
+
+  return buildEmail(
+    'Your DOT Inspection Binder just landed in SUPERDRIVE',
+    `Your DOT Inspection Binder is here${firstName ? `, ${firstName}` : ''}`,
+    body,
+    undefined,
+    ONBOARDING_EMAIL
+  );
+}
+
+type SendTemplate = EmailTemplate | 'app_announcement';
+const ALL_SUBJECTS: Record<SendTemplate, string> = {
+  ...SUBJECTS,
+  app_announcement: 'Your DOT Inspection Binder just landed in SUPERDRIVE',
+};
+const ALL_TEMPLATE_LABELS: Record<SendTemplate, string> = {
+  ...TEMPLATE_LABELS,
+  app_announcement: 'app-onboarded-announcement',
+};
+const PRE_EXISTING_NOTE = 'Pre-existing operator added directly';
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -182,9 +239,10 @@ Deno.serve(async (req) => {
     }
 
     // ── Input ───────────────────────────────────────────────────────────────
-    const { operator_ids, template: rawTemplate, force } = await req.json();
+    const { operator_ids, template: rawTemplate, force, audience_routing } = await req.json();
     const template: EmailTemplate = rawTemplate === 'full' ? 'full' : 'binder';
     const forceResend = force === true;
+    const routeByAudience = audience_routing === true;
     if (!Array.isArray(operator_ids) || operator_ids.length === 0) {
       return new Response(JSON.stringify({ error: 'operator_ids must be a non-empty array' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -222,7 +280,7 @@ Deno.serve(async (req) => {
         // Fetch operator + linked application
         const { data: op, error: opErr } = await supabaseAdmin
           .from('operators')
-          .select('id, user_id, application_id, is_active, applications(first_name, last_name, email)')
+          .select('id, user_id, application_id, is_active, applications(first_name, last_name, email, reviewer_notes)')
           .eq('id', operatorId)
           .maybeSingle();
 
@@ -262,6 +320,14 @@ Deno.serve(async (req) => {
         const lastName = app?.last_name ?? '';
         const operatorName = `${firstName} ${lastName}`.trim() || email;
 
+        // Per-recipient template selection. When audience routing is on, the caller's
+        // template applies only to pre-existing operators; everyone else gets the
+        // app-onboarded announcement (no password recovery link).
+        const isPreExisting = app?.reviewer_notes === PRE_EXISTING_NOTE;
+        const chosenTemplate: SendTemplate = routeByAudience
+          ? (isPreExisting ? template : 'app_announcement')
+          : template;
+
         // Idempotency check (30-day cooldown via audit_log) — bypassed when force=true
         let recentSends: { created_at: string }[] | null = null;
         if (!forceResend) {
@@ -287,23 +353,30 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Generate recovery link (works whether or not user has set a password yet)
-        const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
-          type: 'recovery',
-          email,
-          options: { redirectTo: `${APP_URL}/reset-password` },
-        });
-
-        if (linkErr || !linkData?.properties?.action_link) {
-          results.push({ operator_id: operatorId, email, status: 'error', message: linkErr?.message ?? 'Failed to generate link' });
-          continue;
+        // The app-onboarded announcement does NOT generate a password recovery link.
+        // It uses a plain dashboard URL so existing accounts/passwords are untouched.
+        let actionUrl: string;
+        if (chosenTemplate === 'app_announcement') {
+          actionUrl = `${APP_URL}/dashboard`;
+        } else {
+          const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
+            type: 'recovery',
+            email,
+            options: { redirectTo: `${APP_URL}/reset-password` },
+          });
+          if (linkErr || !linkData?.properties?.action_link) {
+            results.push({ operator_id: operatorId, email, status: 'error', message: linkErr?.message ?? 'Failed to generate link' });
+            continue;
+          }
+          actionUrl = linkData.properties.action_link;
         }
 
-        const recoveryUrl = linkData.properties.action_link;
-        const html = template === 'full'
-          ? buildWelcomeEmailHtml(firstName, recoveryUrl)
-          : buildBinderEmailHtml(firstName, recoveryUrl);
-        const subject = SUBJECTS[template];
+        const html = chosenTemplate === 'full'
+          ? buildWelcomeEmailHtml(firstName, actionUrl)
+          : chosenTemplate === 'app_announcement'
+          ? buildAppAnnouncementHtml(firstName, actionUrl)
+          : buildBinderEmailHtml(firstName, actionUrl);
+        const subject = ALL_SUBJECTS[chosenTemplate];
 
         try {
           await sendEmail(
@@ -331,10 +404,11 @@ Deno.serve(async (req) => {
           entity_id: operatorId,
           entity_label: operatorName,
           metadata: {
-            template: TEMPLATE_LABELS[template],
+            template: ALL_TEMPLATE_LABELS[chosenTemplate],
             email,
-            recovery_link_generated: true,
+            recovery_link_generated: chosenTemplate !== 'app_announcement',
             forced: forceResend,
+            audience_routed: routeByAudience,
           },
         });
 

@@ -1,45 +1,114 @@
-# Switch DOT Inspection Binder to Inspection Date + computed Next DOT Due
+# Expand Launch SUPERDRIVE to All Drivers
 
-## What changes
+## Goal
 
-### 1. Inspection Binder ("Periodic DOT Inspections" row only)
-- Relabel the date field from **"Expires"** / **"Set expiry date"** to **"Inspection Date"** / **"Set inspection date"**.
-- The badge text changes from `Expires Jun 17, 2026` → `Inspected Jun 17, 2025`.
-- Replace the colored expiry badge (Expired / Expiring Soon / Valid) with a neutral "Inspected" badge for this row only — expiry is no longer derived here. All other binder docs (CDL, Med Cert, IFTA, etc.) keep their existing expiry behavior unchanged.
-- The underlying column stays `expires_at` (no schema change), but for this single doc name it now stores the **inspection date**.
+Make the Launch SUPERDRIVE Invite dialog able to reach all fully-onboarded active drivers (currently 48), not just the 36 flagged "Pre-existing operator added directly". The 12 app-onboarded drivers must receive copy that fits their context (they already have working accounts), and the existing 36 pre-existing flow must keep working unchanged.
 
-### 2. Vehicle Hub (Fleet Detail Drawer)
-- The DOT Inspection card already shows `Next DOT Due` using `truck_dot_inspections.next_due_date`. We will additionally:
-  - Show the **Inspection Date** prominently next to Next DOT Due.
-  - When no `truck_dot_inspections` record exists for an operator but a `Periodic DOT Inspections` binder doc does, fall back to that binder date and compute Next DOT Due as `inspection_date + fleet default reminder interval`.
-- Allowed intervals stay 90 / 180 / 270 / 360 days (the modal already exposes these). No interval logic changes.
+## Audience model
 
-### 3. One-time data rollback for existing records
-Every current `inspection_documents` row with `name = 'Periodic DOT Inspections'` was entered as `inspection_date + 365 days`. We will run a one-time data update:
+Three audience groups, derived at query time:
 
-```
-UPDATE inspection_documents
-SET expires_at = expires_at - INTERVAL '365 days'
-WHERE name = 'Periodic DOT Inspections'
-  AND expires_at IS NOT NULL;
-```
+1. **Pre-existing** — `applications.reviewer_notes = 'Pre-existing operator added directly'`. Need full intro + password setup. (Current behavior.)
+2. **App-onboarded** — fully onboarded through the app, no pre-existing flag. Already have a password and have signed in. Should get a feature-announcement email, **not** a "set your password" email.
+3. **All eligible** — union of the two above, restricted to `operators.is_active = true` AND `onboarding_status.fully_onboarded = true`.
 
-So `Expires 6/17/2026` becomes `Inspection Date 6/17/2025`, exactly as in your example. ~34 rows affected.
+Drivers still mid-pipeline (not fully onboarded) and inactive operators stay excluded — same as today.
 
-### 4. Compliance alerts
-The "Periodic DOT Inspections" binder doc will be **excluded** from the Compliance Alerts panel and Driver Hub expiry chips, since the date no longer represents an expiry. DOT-due alerts continue to come from `truck_dot_inspections.next_due_date` in the Vehicle Hub (existing behavior).
+## UI changes — `LaunchSuperdriveDialog.tsx`
 
-## Technical notes
+- Add an **Audience** segmented control above the existing template picker:
+  - "Pre-existing only (36)" — current default, current query
+  - "App-onboarded only (12)"
+  - "All onboarded drivers (48)"
+- Show a contextual info banner under the audience picker explaining what each group is and why the email copy will differ.
+- Filter chips ("Never invited / All eligible / In cooldown") and search continue to work, scoped to the chosen audience.
+- Template picker behavior:
+  - Pre-existing audience: both templates available, default = "Inspection Binder intro" (unchanged).
+  - App-onboarded audience: template picker is replaced by a single fixed "App-onboarded announcement" template (no password-setup language). No template choice — keeps it idiot-proof.
+  - All-onboarded audience: dialog auto-routes each recipient to the correct template based on their group; picker is hidden, replaced by a one-line note: "Each driver gets the email that matches their account type."
+- "Force resend" checkbox stays as-is.
+- Selection counters and the "Select all never-invited" shortcut update to reflect the active audience.
 
-**Files touched**
-- `src/components/inspection/InspectionBinderAdmin.tsx` — conditional label/badge for `name === 'Periodic DOT Inspections'`; skip expiry-tier coloring for this row.
-- `src/components/inspection/OperatorBinderPanel.tsx` — same conditional relabel on operator-facing view.
-- `src/components/inspection/DocRow.tsx` — accept an `isInspectionDate` flag (or branch on doc name) to swap badge text/color.
-- `src/components/inspection/ComplianceAlertsPanel.tsx` & `src/components/drivers/DriverRoster.tsx` — exclude `Periodic DOT Inspections` from expiry tier calculations.
-- `src/components/fleet/FleetDetailDrawer.tsx` — render Inspection Date alongside Next DOT Due; add fallback that reads the binder doc + fleet default interval when no `truck_dot_inspections` record exists.
-- One-time `UPDATE` migration (data only) to subtract 365 days from existing `Periodic DOT Inspections` rows.
+## Query changes — `loadOperators`
 
-**No schema changes.** We are reinterpreting the existing `expires_at` value for this single doc name. The Vehicle Hub remains the source of truth for the actual "next due" calculation via `truck_dot_inspections`.
+Replace the single `.eq('applications.reviewer_notes', ...)` query with a query that fetches all fully-onboarded active operators, then tags each row with `audience: 'pre_existing' | 'app_onboarded'`:
 
-## Open question (non-blocking)
-When both a `truck_dot_inspections` record and a binder `Periodic DOT Inspections` doc exist for the same operator and they disagree on the inspection date, the **Vehicle Hub record wins** (it has explicit interval, inspector, certificate, etc.). Confirm this priority or tell me to flip it.
+- Join `operators` → `onboarding_status!inner(fully_onboarded)` → `applications`.
+- Filter: `is_active = true`, `fully_onboarded = true`, has email.
+- Derive audience from `applications.reviewer_notes`.
+- Apply the dialog's audience filter client-side after fetch.
+- Audit-log lookup for `superdrive_invite_sent` stays the same.
+
+## New email template — app-onboarded announcement
+
+New HTML builder in `launch-superdrive-invite/index.ts`: `buildAppOnboardedAnnouncementHtml(firstName, appUrl)`.
+
+Tone and content:
+- "Your SUPERDRIVE app just got a major upgrade" (no "welcome" / no "set your password").
+- Highlight the new Inspection Binder feature specifically (matches current rollout).
+- CTA button → `${APP_URL}/dashboard` (deep link into the app, not a recovery link).
+- Optional secondary line: "Already signed in on this device? Just open SUPERDRIVE — your binder is in the side menu."
+- No password-setup instructions, no "Add to Home Screen" block (they already installed it during onboarding; we can keep a small "Don't have it on your phone yet?" link to `/install`).
+
+## Edge function changes — `launch-superdrive-invite/index.ts`
+
+- Extend `EmailTemplate` type to `'binder' | 'full' | 'app_announcement'`.
+- Add the new builder and register it in `SUBJECTS` and `TEMPLATE_LABELS`.
+- For `app_announcement`: **skip** the `auth.admin.generateLink({ type: 'recovery' })` call entirely. The email links directly to `${APP_URL}/dashboard`. This is the key safety property — no password reset is generated for active accounts.
+- Accept a new optional body field `audience_routing: boolean`. When true, the function looks up each operator's `applications.reviewer_notes` and chooses the template per-recipient: pre-existing → caller's chosen template (`binder`/`full`); app-onboarded → `app_announcement`. When false, the function uses the single template for everyone (back-compat with current callers).
+- The 30-day cooldown via `audit_log` continues to apply to all templates uniformly. `forceResend` still bypasses it.
+- Per-recipient `metadata.template` in the audit log records the actual template sent, so future analytics can distinguish the three streams.
+
+## Safety guarantees
+
+- App-onboarded drivers never get a password-recovery link — their email contains only a plain dashboard URL. Their existing password is untouched. (This is the main concern from the previous discussion.)
+- Pre-existing flow is byte-for-byte unchanged when the audience picker stays on its default.
+- The 30-day cooldown plus the explicit "Force resend" toggle remain the only way to re-mail anyone.
+- Mid-pipeline applicants are still excluded (we only pull `fully_onboarded = true`).
+
+## Out of scope
+
+- No new database columns or migrations.
+- No changes to `LaunchSuperdriveDialog`'s result-summary panel layout (just new counts flow through).
+- No changes to who can open the dialog (still management/owner via existing role check).
+
+## Files touched
+
+- `src/components/management/LaunchSuperdriveDialog.tsx` — audience picker, query, template-routing UI, counters.
+- `supabase/functions/launch-superdrive-invite/index.ts` — new template, new audience-routing branch, no recovery link for app-onboarded.
+- `public/version.json` — bump.
+
+## Technical details
+
+- The query that drives the dialog will look like:
+  ```ts
+  .from('operators')
+  .select(`
+    id, user_id, is_active,
+    onboarding_status!inner(fully_onboarded),
+    applications(first_name, last_name, email, reviewer_notes)
+  `)
+  .eq('is_active', true)
+  .eq('onboarding_status.fully_onboarded', true)
+  ```
+  Audience is derived in JS:
+  ```ts
+  const audience = app?.reviewer_notes === 'Pre-existing operator added directly'
+    ? 'pre_existing' : 'app_onboarded';
+  ```
+- Edge function audience-routing pseudocode inside the per-operator loop:
+  ```ts
+  let chosenTemplate = template;
+  if (audience_routing) {
+    chosenTemplate = (app?.reviewer_notes === 'Pre-existing operator added directly')
+      ? template            // 'binder' | 'full' from caller
+      : 'app_announcement';
+  }
+  const recoveryUrl = chosenTemplate === 'app_announcement'
+    ? `${APP_URL}/dashboard`
+    : (await supabaseAdmin.auth.admin.generateLink({ type: 'recovery', email, options: { redirectTo: `${APP_URL}/reset-password` }})).data.properties.action_link;
+  ```
+
+## Approval
+
+Reply to approve and I'll implement.
