@@ -239,9 +239,10 @@ Deno.serve(async (req) => {
     }
 
     // ── Input ───────────────────────────────────────────────────────────────
-    const { operator_ids, template: rawTemplate, force } = await req.json();
+    const { operator_ids, template: rawTemplate, force, audience_routing } = await req.json();
     const template: EmailTemplate = rawTemplate === 'full' ? 'full' : 'binder';
     const forceResend = force === true;
+    const routeByAudience = audience_routing === true;
     if (!Array.isArray(operator_ids) || operator_ids.length === 0) {
       return new Response(JSON.stringify({ error: 'operator_ids must be a non-empty array' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -279,7 +280,7 @@ Deno.serve(async (req) => {
         // Fetch operator + linked application
         const { data: op, error: opErr } = await supabaseAdmin
           .from('operators')
-          .select('id, user_id, application_id, is_active, applications(first_name, last_name, email)')
+          .select('id, user_id, application_id, is_active, applications(first_name, last_name, email, reviewer_notes)')
           .eq('id', operatorId)
           .maybeSingle();
 
@@ -319,6 +320,14 @@ Deno.serve(async (req) => {
         const lastName = app?.last_name ?? '';
         const operatorName = `${firstName} ${lastName}`.trim() || email;
 
+        // Per-recipient template selection. When audience routing is on, the caller's
+        // template applies only to pre-existing operators; everyone else gets the
+        // app-onboarded announcement (no password recovery link).
+        const isPreExisting = app?.reviewer_notes === PRE_EXISTING_NOTE;
+        const chosenTemplate: SendTemplate = routeByAudience
+          ? (isPreExisting ? template : 'app_announcement')
+          : template;
+
         // Idempotency check (30-day cooldown via audit_log) — bypassed when force=true
         let recentSends: { created_at: string }[] | null = null;
         if (!forceResend) {
@@ -344,23 +353,30 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Generate recovery link (works whether or not user has set a password yet)
-        const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
-          type: 'recovery',
-          email,
-          options: { redirectTo: `${APP_URL}/reset-password` },
-        });
-
-        if (linkErr || !linkData?.properties?.action_link) {
-          results.push({ operator_id: operatorId, email, status: 'error', message: linkErr?.message ?? 'Failed to generate link' });
-          continue;
+        // The app-onboarded announcement does NOT generate a password recovery link.
+        // It uses a plain dashboard URL so existing accounts/passwords are untouched.
+        let actionUrl: string;
+        if (chosenTemplate === 'app_announcement') {
+          actionUrl = `${APP_URL}/dashboard`;
+        } else {
+          const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
+            type: 'recovery',
+            email,
+            options: { redirectTo: `${APP_URL}/reset-password` },
+          });
+          if (linkErr || !linkData?.properties?.action_link) {
+            results.push({ operator_id: operatorId, email, status: 'error', message: linkErr?.message ?? 'Failed to generate link' });
+            continue;
+          }
+          actionUrl = linkData.properties.action_link;
         }
 
-        const recoveryUrl = linkData.properties.action_link;
-        const html = template === 'full'
-          ? buildWelcomeEmailHtml(firstName, recoveryUrl)
-          : buildBinderEmailHtml(firstName, recoveryUrl);
-        const subject = SUBJECTS[template];
+        const html = chosenTemplate === 'full'
+          ? buildWelcomeEmailHtml(firstName, actionUrl)
+          : chosenTemplate === 'app_announcement'
+          ? buildAppAnnouncementHtml(firstName, actionUrl)
+          : buildBinderEmailHtml(firstName, actionUrl);
+        const subject = ALL_SUBJECTS[chosenTemplate];
 
         try {
           await sendEmail(
@@ -388,10 +404,11 @@ Deno.serve(async (req) => {
           entity_id: operatorId,
           entity_label: operatorName,
           metadata: {
-            template: TEMPLATE_LABELS[template],
+            template: ALL_TEMPLATE_LABELS[chosenTemplate],
             email,
-            recovery_link_generated: true,
+            recovery_link_generated: chosenTemplate !== 'app_announcement',
             forced: forceResend,
+            audience_routed: routeByAudience,
           },
         });
 
