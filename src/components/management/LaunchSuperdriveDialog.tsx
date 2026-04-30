@@ -437,7 +437,11 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
               <p className="text-xs text-muted-foreground mt-1">Original welcome email covering every feature.</p>
             </button>
           </div>
+        </div>
+        )}
 
+        {/* Force resend (always visible) */}
+        <div className="px-6 py-3 border-b bg-background">
           <label className="mt-3 flex items-start gap-2.5 p-2.5 rounded-lg border border-amber-300/60 bg-amber-50 cursor-pointer hover:bg-amber-100/60 transition">
             <Checkbox
               checked={forceResend}
