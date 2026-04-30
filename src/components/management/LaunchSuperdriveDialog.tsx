@@ -19,6 +19,7 @@ interface EligibleOperator {
   last_name: string;
   email: string;
   last_invited_at: string | null;
+  audience: 'pre_existing' | 'app_onboarded';
 }
 
 type SendStatus = 'sent' | 'recently_invited' | 'no_email' | 'no_user_account' | 'not_eligible' | 'error';
@@ -48,8 +49,10 @@ interface LaunchSuperdriveDialogProps {
 
 type FilterMode = 'all' | 'never_invited' | 'invited_recently';
 type EmailTemplate = 'binder' | 'full';
+type AudienceMode = 'pre_existing' | 'app_onboarded' | 'all';
 
 const COOLDOWN_DAYS = 30;
+const PRE_EXISTING_NOTE = 'Pre-existing operator added directly';
 
 export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdriveDialogProps) {
   const { session } = useAuth();
@@ -66,17 +69,25 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
   const [summary, setSummary] = useState<SendSummary | null>(null);
   const [template, setTemplate] = useState<EmailTemplate>('binder');
   const [forceResend, setForceResend] = useState(false);
+  const [audienceMode, setAudienceMode] = useState<AudienceMode>('pre_existing');
 
   // Load eligible pre-existing operators
   const loadOperators = useCallback(async () => {
     setLoading(true);
     try {
-      // Pre-existing operators are flagged via the application's reviewer_notes
+      // Fetch all fully-onboarded active operators. Audience (pre-existing vs
+      // app-onboarded) is derived client-side from applications.reviewer_notes.
       const { data: rows, error } = await supabase
         .from('operators')
-        .select('id, user_id, is_active, applications!inner(first_name, last_name, email, reviewer_notes)')
+        .select(`
+          id,
+          user_id,
+          is_active,
+          onboarding_status!inner(fully_onboarded),
+          applications(first_name, last_name, email, reviewer_notes)
+        `)
         .eq('is_active', true)
-        .eq('applications.reviewer_notes', 'Pre-existing operator added directly');
+        .eq('onboarding_status.fully_onboarded', true);
 
       if (error) throw error;
 
@@ -107,6 +118,9 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
           last_name: r.applications?.last_name ?? '',
           email: r.applications?.email ?? '',
           last_invited_at: lastInvitedMap[r.id] ?? null,
+          audience: (r.applications?.reviewer_notes === PRE_EXISTING_NOTE
+            ? 'pre_existing'
+            : 'app_onboarded') as 'pre_existing' | 'app_onboarded',
         }))
         .filter(op => !!op.email)
         .sort((a, b) => `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`));
@@ -133,6 +147,7 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
       setSummary(null);
       setTemplate('binder');
       setForceResend(false);
+      setAudienceMode('pre_existing');
       loadOperators();
     }
   }, [open, loadOperators]);
@@ -148,6 +163,9 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
   const filteredOperators = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return operators.filter(op => {
+      // Audience scope
+      if (audienceMode === 'pre_existing' && op.audience !== 'pre_existing') return false;
+      if (audienceMode === 'app_onboarded' && op.audience !== 'app_onboarded') return false;
       // Filter mode
       if (filterMode === 'never_invited' && op.last_invited_at) return false;
       if (filterMode === 'invited_recently' && !isInCooldown(op)) return false;
@@ -158,7 +176,13 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
       }
       return true;
     });
-  }, [operators, searchQuery, filterMode, isInCooldown]);
+  }, [operators, searchQuery, filterMode, isInCooldown, audienceMode]);
+
+  // Reset selection whenever audience changes — selecting a row in one audience
+  // and then switching could send the wrong template, so make it explicit.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [audienceMode]);
 
   const visibleSelectableIds = useMemo(
     () => filteredOperators.filter(op => forceResend || !isInCooldown(op)).map(op => op.operator_id),
@@ -191,7 +215,7 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
   };
 
   const selectNeverInvited = () => {
-    const ids = operators.filter(op => !op.last_invited_at).map(op => op.operator_id);
+    const ids = filteredOperators.filter(op => !op.last_invited_at).map(op => op.operator_id);
     setSelectedIds(new Set(ids));
   };
 
@@ -206,7 +230,12 @@ export default function LaunchSuperdriveDialog({ open, onClose }: LaunchSuperdri
 
     try {
       const { data, error } = await supabase.functions.invoke('launch-superdrive-invite', {
-        body: { operator_ids: ids, template, force: forceResend },
+        body: {
+          operator_ids: ids,
+          template,
+          force: forceResend,
+          audience_routing: audienceMode !== 'pre_existing',
+        },
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
 
