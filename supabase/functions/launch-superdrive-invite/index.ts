@@ -133,6 +133,63 @@ const TEMPLATE_LABELS: Record<EmailTemplate, string> = {
   full: 'welcome-superdrive',
 };
 
+function buildAppAnnouncementHtml(firstName: string, dashboardUrl: string): string {
+  const greeting = firstName ? `Hi ${firstName},` : 'Hi there,';
+
+  const binderCard = `
+    <div style="background:#FAF8F2;border:1px solid #EDE6CF;border-radius:10px;padding:20px;margin:0 0 12px;">
+      <p style="margin:0 0 10px;color:${BRAND_DARK};font-size:16px;font-weight:700;">🔍 New: Your DOT Inspection Binder</p>
+      <p style="margin:0 0 12px;color:#444;font-size:14px;line-height:1.6;">Your full DOT binder now lives inside SUPERDRIVE. At the scale house, every document is one tap away:</p>
+      <ul style="margin:0;padding:0 0 0 18px;color:#444;font-size:14px;line-height:1.7;">
+        <li>CDL &amp; Medical Card</li>
+        <li>Truck Title &amp; Registration</li>
+        <li>Periodic DOT Inspection</li>
+        <li>IRS Form 2290</li>
+        <li>Insurance &amp; more</li>
+      </ul>
+      <p style="margin:14px 0 0;color:#444;font-size:14px;line-height:1.6;">It stays synced — when something is renewed, your binder updates automatically. You can even share a clean link with an officer.</p>
+    </div>`;
+
+  const installNote = `
+    <p style="margin:18px 0 0;color:#777;font-size:13px;line-height:1.6;">Don't have SUPERDRIVE on your phone yet? <a href="${APP_URL}/install" style="color:${BRAND_DARK};font-weight:600;">Install it from here</a> to keep your binder one tap away.</p>`;
+
+  const body = `
+    <p style="margin:0 0 14px;">${greeting}</p>
+    <p>Your SUPERDRIVE app just got a major upgrade. Your full <strong>DOT Inspection Binder</strong> now lives inside the app — no more shuffling through papers in the cab.</p>
+    <p style="margin:0 0 22px;">Already signed in on your phone? Just open SUPERDRIVE — your binder is in the side menu. Or tap the button below to jump in.</p>
+
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${dashboardUrl}" style="background:${BRAND_COLOR};color:${BRAND_DARK};padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">
+        Open My Inspection Binder
+      </a>
+    </div>
+
+    ${binderCard}
+    ${installNote}
+
+    <p style="margin:28px 0 0;color:#777;font-size:13px;line-height:1.6;">Questions? Just reply to this email — we're here.<br/>— The SUPERTRANSPORT team</p>
+  `;
+
+  return buildEmail(
+    'Your DOT Inspection Binder just landed in SUPERDRIVE',
+    `Your DOT Inspection Binder is here${firstName ? `, ${firstName}` : ''}`,
+    body,
+    undefined,
+    ONBOARDING_EMAIL
+  );
+}
+
+type SendTemplate = EmailTemplate | 'app_announcement';
+const ALL_SUBJECTS: Record<SendTemplate, string> = {
+  ...SUBJECTS,
+  app_announcement: 'Your DOT Inspection Binder just landed in SUPERDRIVE',
+};
+const ALL_TEMPLATE_LABELS: Record<SendTemplate, string> = {
+  ...TEMPLATE_LABELS,
+  app_announcement: 'app-onboarded-announcement',
+};
+const PRE_EXISTING_NOTE = 'Pre-existing operator added directly';
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
