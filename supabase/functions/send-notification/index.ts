@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
       return user?.email ?? null;
     };
 
-    const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
+    const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app';
 
     // ── Route by notification type ───────────────────────────────────────
     switch (type) {

@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
+    const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app';
     const inviteeName = [first_name, last_name].filter(Boolean).join(' ') || email;
 
     // Get caller's name for the email / audit log

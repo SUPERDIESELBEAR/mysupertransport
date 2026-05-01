@@ -317,7 +317,7 @@ Deno.serve(async (req) => {
 
         // Trigger the standard recovery email via the auth-email-hook
         // (uses the branded SUPERTRANSPORT recovery template, 1-hour TTL).
-        const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
+        const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app';
         const anonClient = createClient(
           Deno.env.get('SUPABASE_URL')!,
           Deno.env.get('SUPABASE_ANON_KEY')!,

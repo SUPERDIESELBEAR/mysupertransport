@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const appUrl = (Deno.env.get('APP_URL') ?? 'https://mysupertransport.com').replace(/\/$/, '');
+    const appUrl = (Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app').replace(/\/$/, '');
 
     // Generate short-lived signed URLs for both documents
     const [overviewResult, calendarResult] = await Promise.all([

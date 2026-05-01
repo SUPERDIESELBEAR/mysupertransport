@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const appUrl = (Deno.env.get('APP_URL') ?? 'https://mysupertransport.com').replace(/\/$/, '');
+    const appUrl = (Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app').replace(/\/$/, '');
 
     // ── Helper: check if user has email enabled for a specific event type ──
     // 30-day threshold → event_type: 'cert_expiry'

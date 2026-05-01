@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
       ? `${callerProfile.first_name ?? ''} ${callerProfile.last_name ?? ''}`.trim() || callerEmail
       : callerEmail;
 
-    const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
+    const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app';
     const html = buildInviteEmail(first_name, note ?? null, appUrl);
     const subject = `${first_name}, you're invited to apply at SUPERTRANSPORT`;
 

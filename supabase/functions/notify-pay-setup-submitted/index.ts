@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
+    const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app';
     const operatorLink = `${appUrl}/management?operator=${operator_id}`;
     const submittedDisplay = setup.submitted_at
       ? new Date(setup.submitted_at).toLocaleString('en-US', {
