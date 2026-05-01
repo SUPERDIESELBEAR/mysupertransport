@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
     // For already-registered users (who haven't set a password yet),
     // generateLink(recovery) produces a "set password" link — functionally
     // identical to the original invite for the operator.
-    const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
+    const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app';
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email: targetEmail,

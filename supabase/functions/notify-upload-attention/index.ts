@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Build email copy ──────────────────────────────────────────────────────
-    const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
+    const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app';
     const binderUrl = `${appUrl}/operator?tab=inspection-binder`;
 
     const categoryLabel = category

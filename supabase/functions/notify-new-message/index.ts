@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const appUrl  = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
+    const appUrl  = Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app';
     const ctaUrl  = `${appUrl}${portalLink}`;
     const subject = `New message from ${senderName}`;
     const heading = `💬 ${senderName} sent you a message`;
