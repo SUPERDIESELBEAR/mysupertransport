@@ -103,7 +103,7 @@ export default function ManagementPortal() {
   const { toast } = useToast();
   const { session } = useAuth();
   const { isDemo, enterDemo, exitDemo, guardDemo } = useDemoMode();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const v = searchParams.get('view') as ManagementView | null;
     return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations'].includes(v)) ? v : 'overview';
@@ -185,7 +185,20 @@ export default function ManagementPortal() {
     if (s && ['pending','approved','denied','all'].includes(s)) {
       setStatusFilter(s);
     }
+    const op = searchParams.get('op');
+    if (op) setSelectedOperatorId(op);
   }, [searchParams]);
+
+  // Persist current view/operator to the URL so browser refresh restores the section
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (view && view !== 'overview') next.set('view', view); else next.delete('view');
+    if (view === 'operator-detail' && selectedOperatorId) next.set('op', selectedOperatorId); else next.delete('op');
+    if (view === 'applications' && statusFilter && statusFilter !== 'pending') next.set('status', statusFilter); else if (view !== 'applications') next.delete('status');
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [view, selectedOperatorId, statusFilter, searchParams, setSearchParams]);
 
 
   const fetchTruckDownCount = useCallback(async () => {

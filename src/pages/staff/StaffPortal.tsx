@@ -40,8 +40,12 @@ type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resource
 export default function StaffPortal() {
   const { user } = useAuth();
   const { isDemo, enterDemo, exitDemo, guardDemo } = useDemoMode();
-  const [searchParams] = useSearchParams();
-  const [currentView, setCurrentView] = useState<StaffView>('pipeline');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [currentView, setCurrentView] = useState<StaffView>(() => {
+    const v = searchParams.get('view') as StaffView | null;
+    if (v && ['pipeline','messages','faq','resource-center','notifications','docs-hub','inspection-binder','drivers','compliance','equipment','vehicle-hub','operator-preview','operator-detail'].includes(v)) return v;
+    return 'pipeline';
+  });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -123,6 +127,16 @@ export default function StaffPortal() {
       setCurrentView(view);
     }
   }, [searchParams]);
+
+  // Persist current view/operator to the URL so browser refresh restores the section
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (currentView && currentView !== 'pipeline') next.set('view', currentView); else next.delete('view');
+    if (currentView === 'operator-detail' && selectedOperatorId) next.set('operator', selectedOperatorId); else next.delete('operator');
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [currentView, selectedOperatorId, searchParams, setSearchParams]);
 
   // Fetch initial unread message count
   useEffect(() => {

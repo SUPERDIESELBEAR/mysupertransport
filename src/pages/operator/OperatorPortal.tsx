@@ -97,6 +97,20 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     const bv = params.get('binderView');
     setBinderView(bv === 'pages' ? 'pages' : undefined);
   }, [location.search]);
+
+  // Persist current view/binderView to the URL so browser refresh restores the section
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const desiredTab = view && view !== 'progress' ? view : '';
+    const desiredBinder = binderView === 'pages' ? 'pages' : '';
+    const currentTab = params.get('tab') ?? '';
+    const currentBinder = params.get('binderView') ?? '';
+    if (desiredTab === currentTab && desiredBinder === currentBinder) return;
+    if (desiredTab) params.set('tab', desiredTab); else params.delete('tab');
+    if (desiredBinder) params.set('binderView', desiredBinder); else params.delete('binderView');
+    const qs = params.toString();
+    navigate({ pathname: location.pathname, search: qs ? `?${qs}` : '' }, { replace: true });
+  }, [view, binderView, location.pathname, location.search, navigate]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);

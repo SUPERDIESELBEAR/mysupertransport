@@ -125,21 +125,30 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
   const { toast } = useToast();
   const { session } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Desktop push notifications for high-priority events (truck_down, new_message)
   const { fireNotification } = useDesktopNotifications({
     onNavigate: (link) => navigate(link),
   });
   const [prefOpen, setPrefOpen] = useState(false);
-  const [activePage, setActivePage] = useState<'dispatch' | 'dispatch-messages' | 'dispatch-notifications' | 'dispatch-drivers'>('dispatch');
+  const [activePage, setActivePage] = useState<'dispatch' | 'dispatch-messages' | 'dispatch-notifications' | 'dispatch-drivers'>(() => {
+    const p = searchParams.get('page');
+    if (p === 'dispatch-messages' || p === 'dispatch-notifications' || p === 'dispatch-drivers') return p;
+    if (searchParams.get('tab') === 'notifications') return 'dispatch-notifications';
+    return 'dispatch';
+  });
   const [rows, setRows] = useState<DispatchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [editRow, setEditRow] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<DispatchRow>>({});
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<FilterTab>(defaultFilter ?? 'all');
+  const [activeTab, setActiveTab] = useState<FilterTab>(() => {
+    const t = searchParams.get('filter') as FilterTab | null;
+    if (t && ['all','dispatched','not_dispatched','home','truck_down'].includes(t)) return t;
+    return defaultFilter ?? 'all';
+  });
   const [search, setSearch] = useState('');
   const [liveIndicator, setLiveIndicator] = useState(false);
   const [chimeMuted, setChimeMuted] = useState(() => localStorage.getItem('dispatch_chime_muted') === 'true');
@@ -149,7 +158,10 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
   const [unreadPerOperator, setUnreadPerOperator] = useState<Record<string, number>>({});
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
   const [historyMap, setHistoryMap] = useState<Record<string, StatusHistoryEntry[]>>({});
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => {
+    const m = searchParams.get('mode');
+    return m === 'table' ? 'table' : 'cards';
+  });
   const [messageInitialUserId, setMessageInitialUserId] = useState<string | null>(null);
   const [highlightedCard, setHighlightedCard] = useState<string | null>(null);
   // Quick-compose modal state
@@ -380,6 +392,19 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
       setActivePage('dispatch-notifications');
     }
   }, [searchParams]);
+
+  // Persist current page/filter/mode to the URL so browser refresh restores the section
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (activePage && activePage !== 'dispatch') next.set('page', activePage); else next.delete('page');
+    if (activeTab && activeTab !== 'all') next.set('filter', activeTab); else next.delete('filter');
+    if (viewMode && viewMode !== 'cards') next.set('mode', viewMode); else next.delete('mode');
+    // Clean up legacy ?tab=notifications once we've adopted ?page=
+    if (next.get('tab') === 'notifications') next.delete('tab');
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [activePage, activeTab, viewMode, searchParams, setSearchParams]);
 
   // Clear badges when navigating to the respective tab
   const handleNavigate = (path: string) => {
