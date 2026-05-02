@@ -1,71 +1,22 @@
-## What's actually happening
+## Goal
+In Stage 5 (Equipment Setup) of the Onboarding Pipeline, swap the order of the two Fuel Card fields so the **Fuel Card Number** input appears **before** the **Fuel Card Issued** Yes/No select. This avoids the auto-collapse problem: today, choosing "Yes" on Fuel Card Issued can trigger the auto-collapse logic before the user has a chance to enter the card number, forcing them to re-open Stage 5.
 
-Two separate problems combined into the symptom Craig is experiencing.
+## Where
+Single file: `src/pages/staff/OperatorDetailPanel.tsx`, in the "Fuel Card" subsection of Stage 5 (around lines 5297–5318).
 
-### Problem 1 — The "Welcome" email points to the wrong domain
+## Change
+Within the `{/* Fuel Card */}` block, render the **Fuel Card Number** input first, then the **Fuel Card Issued** select. No logic changes — just the visual/DOM order of the two `<div className="space-y-1.5">` blocks is flipped.
 
-When Stage 1 was completed today (5/1) for Craig, the database trigger fired `notify-onboarding-update` with `milestone_key = 'background_check_cleared'`. That function builds the email's CTA from:
-
-```ts
-const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.com';
-// CTA → `${appUrl}/dashboard`
+```text
+Before:                          After:
+Fuel Card                        Fuel Card
+  ├─ Fuel Card Issued [Select]     ├─ Fuel Card Number [Input]
+  └─ Fuel Card Number [Input]      └─ Fuel Card Issued [Select]
 ```
 
-`mysupertransport.com` is a separate marketing/PHP site (just confirmed: it returns HTTP 404 on `/dashboard`). The actual app is at `https://mysupertransport.lovable.app`. So the link in his email lands on a non-app domain that returns 404 / blank.
+## Why this fixes the collapse problem
+The auto-collapse on the "Fuel Card Issued" select fires only when **all** Stage 5 fields (decal, ELD, device serials, BestPass, **and fuel_card_number**) are already populated. By forcing the user to fill the Fuel Card Number first, when they then select "Yes" the stage will legitimately be complete and the collapse becomes the desired behavior rather than a premature one.
 
-Other edge functions (`launch-superdrive-invite`) already default to the right URL:
-```ts
-const APP_URL = Deno.env.get('APP_URL') || 'https://mysupertransport.lovable.app';
-```
-
-This affects **every operator** who completes a milestone (not just Craig). Anyone clicking the email CTA hits the wrong domain.
-
-### Problem 2 — Craig never received an invite, so he has no password
-
-Checked `email_send_log` for `cepate60@gmail.com` — zero rows. There is no `invite` email or `recovery` email on file for him. His application was approved 2026-04-27 by `invite-operator`, which calls `supabase.auth.admin.inviteUserByEmail(...)`. The auth user exists (`d21ccd0b-…`) with role `operator`, but the invite email apparently never made it into the queue/log. He has no way to set a password, so he can't sign in.
-
-The "Welcome email" he describes is almost certainly the milestone email from Problem 1, not a true invite.
-
----
-
-## The fix
-
-### Step 1 — Default `APP_URL` to the correct host in `notify-onboarding-update`
-
-Change the fallback so the link works even if the secret is missing/misconfigured:
-
-```ts
-// supabase/functions/notify-onboarding-update/index.ts (line 234)
-const appUrl = Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app';
-```
-
-Also audit the `APP_URL` secret in Lovable Cloud — if it's set to `https://mysupertransport.com` it should be updated to `https://mysupertransport.lovable.app` (or whatever the published URL is). I'll surface a button so you can check.
-
-### Step 2 — Send Craig a password reset link
-
-Trigger a Supabase password recovery for `cepate60@gmail.com` so he gets a fresh email with a working link to `/reset-password` on the app domain. Two options:
-
-- **A.** Run a one-shot from the staff side (you click "Resend Invite" in the operator drawer — uses existing `resend-invite` function).
-- **B.** I run an admin recovery directly via the Cloud DB/edge call.
-
-I recommend **A** — you push a button, audit log captures it, and Craig gets the standard branded recovery email pointing at the app.
-
-### Step 3 — Verify
-
-After the fix:
-1. Trigger a test milestone for any test operator and confirm the email CTA opens `https://mysupertransport.lovable.app/dashboard` (not the marketing site).
-2. Confirm Craig receives the resend, can set a password at `/reset-password`, and lands on `/dashboard` (operator portal).
-
----
-
-## Files to change
-
-- `supabase/functions/notify-onboarding-update/index.ts` — change one line (the fallback URL).
-
-No DB migration, no other code changes required.
-
-## Open question for you
-
-Question for you before I implement:
-
-- Should the `APP_URL` env secret in Lovable Cloud also be updated, or is the code-level fallback enough? (If the secret is currently wrong, the fallback alone won't help — the secret will keep overriding it.)
+## Out of scope
+- No changes to the operator-side display order (`OperatorPortal.tsx`) unless you want it to match — say the word and I'll mirror it there too.
+- No changes to validation, save logic, or the auto-collapse conditions themselves.
