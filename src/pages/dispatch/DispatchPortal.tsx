@@ -393,6 +393,19 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
     }
   }, [searchParams]);
 
+  // Persist current page/filter/mode to the URL so browser refresh restores the section
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (activePage && activePage !== 'dispatch') next.set('page', activePage); else next.delete('page');
+    if (activeTab && activeTab !== 'all') next.set('filter', activeTab); else next.delete('filter');
+    if (viewMode && viewMode !== 'cards') next.set('mode', viewMode); else next.delete('mode');
+    // Clean up legacy ?tab=notifications once we've adopted ?page=
+    if (next.get('tab') === 'notifications') next.delete('tab');
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [activePage, activeTab, viewMode, searchParams, setSearchParams]);
+
   // Clear badges when navigating to the respective tab
   const handleNavigate = (path: string) => {
     const p = path as 'dispatch' | 'dispatch-messages' | 'dispatch-notifications' | 'dispatch-drivers';
