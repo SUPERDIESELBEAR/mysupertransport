@@ -386,25 +386,32 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
     return () => { supabase.removeChannel(channel); };
   }, [session?.user?.id, fireNotification]);
 
-  // Deep-link: ?tab=notifications
+  // One-shot deep-link migration on mount: translate legacy
+  // ?tab=notifications into the canonical ?page=dispatch-notifications.
+  // The lazy useState above already handled initial state from the URL.
   useEffect(() => {
-    if (searchParams.get('tab') === 'notifications') {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'notifications') {
       setActivePage('dispatch-notifications');
     }
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Persist current page/filter/mode to the URL so browser refresh restores the section
+  // Writer: persist current page/filter/mode to the URL so browser refresh
+  // restores the section. Reads the URL imperatively and does NOT depend on
+  // searchParams, so it can never feed back into itself.
   useEffect(() => {
-    const next = new URLSearchParams(searchParams);
+    const next = new URLSearchParams(window.location.search);
     if (activePage && activePage !== 'dispatch') next.set('page', activePage); else next.delete('page');
     if (activeTab && activeTab !== 'all') next.set('filter', activeTab); else next.delete('filter');
     if (viewMode && viewMode !== 'cards') next.set('mode', viewMode); else next.delete('mode');
     // Clean up legacy ?tab=notifications once we've adopted ?page=
     if (next.get('tab') === 'notifications') next.delete('tab');
-    if (next.toString() !== searchParams.toString()) {
+    const current = window.location.search.replace(/^\?/, '');
+    if (next.toString() !== current) {
       setSearchParams(next, { replace: true });
     }
-  }, [activePage, activeTab, viewMode, searchParams, setSearchParams]);
+  }, [activePage, activeTab, viewMode, setSearchParams]);
 
   // Clear badges when navigating to the respective tab
   const handleNavigate = (path: string) => {

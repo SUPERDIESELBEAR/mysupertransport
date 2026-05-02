@@ -175,30 +175,31 @@ export default function ManagementPortal() {
   const [installSendOpen, setInstallSendOpen] = useState(false);
   const [installSending, setInstallSending] = useState(false);
 
-  // Sync view/statusFilter when URL params change (e.g. notification deep-links)
+  // One-shot deep-link migration on mount (e.g. notification ?op=... links).
+  // Initial state was already seeded from the URL by the lazy useState above.
   useEffect(() => {
-    const v = searchParams.get('view') as ManagementView | null;
-    const s = searchParams.get('status') as StatusFilter | null;
-    if (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations'].includes(v)) {
-      setView(v);
+    const params = new URLSearchParams(window.location.search);
+    const op = params.get('op');
+    if (op) {
+      setSelectedOperatorId(op);
+      setView('operator-detail');
     }
-    if (s && ['pending','approved','denied','all'].includes(s)) {
-      setStatusFilter(s);
-    }
-    const op = searchParams.get('op');
-    if (op) setSelectedOperatorId(op);
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Persist current view/operator to the URL so browser refresh restores the section
+  // Writer: persist current view/operator/status to the URL so browser refresh
+  // restores the section. Reads the URL imperatively and does NOT depend on
+  // searchParams, so it can never feed back into itself.
   useEffect(() => {
-    const next = new URLSearchParams(searchParams);
+    const next = new URLSearchParams(window.location.search);
     if (view && view !== 'overview') next.set('view', view); else next.delete('view');
     if (view === 'operator-detail' && selectedOperatorId) next.set('op', selectedOperatorId); else next.delete('op');
     if (view === 'applications' && statusFilter && statusFilter !== 'pending') next.set('status', statusFilter); else if (view !== 'applications') next.delete('status');
-    if (next.toString() !== searchParams.toString()) {
+    const current = window.location.search.replace(/^\?/, '');
+    if (next.toString() !== current) {
       setSearchParams(next, { replace: true });
     }
-  }, [view, selectedOperatorId, statusFilter, searchParams, setSearchParams]);
+  }, [view, selectedOperatorId, statusFilter, setSearchParams]);
 
 
   const fetchTruckDownCount = useCallback(async () => {

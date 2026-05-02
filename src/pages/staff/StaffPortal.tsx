@@ -113,30 +113,43 @@ export default function StaffPortal() {
     setReviewFocusField(focusField);
   }, []);
 
-  // Deep-link: ?tab=notifications or ?operator=... or ?view=inspection-binder
+  // One-shot legacy deep-link migration on mount only.
+  // Translates old ?tab=notifications and bare ?operator=... links into
+  // the canonical ?view=... format so the writer effect below has nothing
+  // to fight over.
   useEffect(() => {
-    const tab = searchParams.get('tab');
-    const operatorId = searchParams.get('operator');
-    const view = searchParams.get('view') as StaffView | null;
-    if (tab === 'notifications') {
+    const params = new URLSearchParams(window.location.search);
+    let changed = false;
+    if (params.get('tab') === 'notifications') {
+      params.delete('tab');
+      params.set('view', 'notifications');
       setCurrentView('notifications');
-    } else if (operatorId) {
-      setSelectedOperatorId(operatorId);
-      setCurrentView('operator-detail');
-    } else if (view && ['pipeline','messages','faq','resource-center','notifications','docs-hub','inspection-binder','drivers','compliance','equipment','vehicle-hub','operator-preview'].includes(view)) {
-      setCurrentView(view);
+      changed = true;
     }
-  }, [searchParams]);
+    const legacyOperator = params.get('operator');
+    const hasView = params.get('view');
+    if (legacyOperator && !hasView) {
+      params.set('view', 'operator-detail');
+      setSelectedOperatorId(legacyOperator);
+      setCurrentView('operator-detail');
+      changed = true;
+    }
+    if (changed) setSearchParams(params, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Persist current view/operator to the URL so browser refresh restores the section
+  // Writer: persist current view/operator to the URL so browser refresh
+  // restores the section. Reads the URL imperatively and does NOT depend on
+  // searchParams, so it can never feed back into itself.
   useEffect(() => {
-    const next = new URLSearchParams(searchParams);
+    const next = new URLSearchParams(window.location.search);
     if (currentView && currentView !== 'pipeline') next.set('view', currentView); else next.delete('view');
     if (currentView === 'operator-detail' && selectedOperatorId) next.set('operator', selectedOperatorId); else next.delete('operator');
-    if (next.toString() !== searchParams.toString()) {
+    const current = window.location.search.replace(/^\?/, '');
+    if (next.toString() !== current) {
       setSearchParams(next, { replace: true });
     }
-  }, [currentView, selectedOperatorId, searchParams, setSearchParams]);
+  }, [currentView, selectedOperatorId, setSearchParams]);
 
   // Fetch initial unread message count
   useEffect(() => {

@@ -89,18 +89,25 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     onNavigate: (link) => navigate(link),
   });
 
-  // React to in-app notification deep-links when navigate() is called while portal is already mounted
+  // React to in-app notification deep-links: when navigate() is called with a
+  // new ?tab=... while the portal is already mounted, adopt that tab once. We
+  // gate this on the tab actually being present in the URL so it never fights
+  // the writer effect below (which clears the param when on the default view).
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab') as OperatorView | null;
-    if (tab && ['home','progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'].includes(tab)) setView(tab);
+    if (tab && ['home','progress','documents','messages','resource-center','faq','dispatch','ica','notifications','docs-hub','inspection-binder','pay-setup','my-docs','my-truck','forecast'].includes(tab)) {
+      setView(tab);
+    }
     const bv = params.get('binderView');
-    setBinderView(bv === 'pages' ? 'pages' : undefined);
+    if (bv === 'pages') setBinderView('pages');
   }, [location.search]);
 
-  // Persist current view/binderView to the URL so browser refresh restores the section
+  // Writer: persist current view/binderView to the URL so browser refresh
+  // restores the section. Reads the URL imperatively and does NOT depend on
+  // location.search, so it can never feed back into itself.
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
+    const params = new URLSearchParams(window.location.search);
     const desiredTab = view && view !== 'progress' ? view : '';
     const desiredBinder = binderView === 'pages' ? 'pages' : '';
     const currentTab = params.get('tab') ?? '';
@@ -109,8 +116,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     if (desiredTab) params.set('tab', desiredTab); else params.delete('tab');
     if (desiredBinder) params.set('binderView', desiredBinder); else params.delete('binderView');
     const qs = params.toString();
-    navigate({ pathname: location.pathname, search: qs ? `?${qs}` : '' }, { replace: true });
-  }, [view, binderView, location.pathname, location.search, navigate]);
+    navigate({ pathname: window.location.pathname, search: qs ? `?${qs}` : '' }, { replace: true });
+  }, [view, binderView, navigate]);
   const [onboardingStatus, setOnboardingStatus] = useState<Record<string, string | null>>({});
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
