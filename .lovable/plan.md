@@ -1,56 +1,33 @@
 ## Goal
+Surface the **Payroll Deposit Overview** and **Payroll Calendar** PDFs in the Operator Resource Library so drivers can view/download them outside of Stage 8 (Pay Setup) at any time.
 
-Allow daily SUPERDRIVE install reminders to be sent to active drivers who have not yet installed the app (no `pwa_installed_at`). Combine an automatic daily job with a per-driver manual "Send install reminder" button in the Driver Hub.
+## Where they live today
+- Files: `operator-documents` bucket (private), at `company-docs/payroll-deposit-overview.pdf` and `company-docs/payroll-calendar.pdf`.
+- Only surfaced inside `ContractorPaySetup.tsx` via signed URLs.
 
-## Changes
+## Approach
+Add a new **Payroll** category to the existing Resource Library (already used by `OperatorResourceLibrary` for User Manuals, Decal Files, Forms & Compliance, DOT General). The two PDFs become first‑class library entries — searchable, viewable, downloadable, and shareable — and stay in sync with the same source files used in Stage 8.
 
-### 1. `notify-pwa-install` edge function — make daily-safe
+### Steps
 
-Currently the function skips any operator who has *ever* received a `pwa_install` notification (one-shot). Update behavior:
+1. **DB migration**
+   - Add `'payroll'` value to the `resource_category` enum.
+   - Insert two rows into `resource_documents`:
+     - "Payroll Deposit Overview" — category `payroll`, sort_order 0
+     - "Payroll Calendar" — category `payroll`, sort_order 1
+   - `file_url` will point to `resource-library` bucket (public) — see step 2.
 
-- Always filter to operators where `pwa_installed_at IS NULL` (skip already-installed).
-- Replace the "ever notified" check with a **24-hour cooldown**: skip if a `pwa_install` notification was sent to that user in the last 24 hours (covers both bulk and per-driver targeted sends).
-- Accept a new optional `mode` field: `"manual"` (default) or `"cron"` — used only for logging.
-- Keep existing per-`operator_id` targeting and email-with-install-instructions behavior.
+2. **Storage**
+   - Copy the two PDFs from `operator-documents/company-docs/*.pdf` into the public `resource-library` bucket (one‑time copy via a small script in the migration using `storage.objects` insert from existing object). If direct copy isn't viable, we re-upload via an edge function task or have the existing PDFs in `public/payroll-calendar.pdf` (already in repo) seeded — we'll use the canonical files from `operator-documents`.
 
-### 2. New daily cron job
+3. **UI**
+   - Update `CATEGORY_LABELS` in `src/components/operator/OperatorResourcesAndFAQ.tsx` and `RESOURCE_CATEGORIES` in `src/components/management/ResourceLibraryManager.tsx` to include:
+     - `payroll: '💰 Payroll'`
+   - No other component changes needed — the library already renders any category dynamically.
 
-Add a `pg_cron` job (via the Supabase insert tool, per scheduled-jobs rules) that runs `notify-pwa-install` once per day at 14:00 UTC (≈ 9:00 AM US Central) with `body: { mode: "cron" }`. The 24h cooldown inside the function prevents duplicate sends if a manual push already happened that day.
+4. **Keep Stage 8 unchanged**
+   - `ContractorPaySetup.tsx` continues to read from `operator-documents/company-docs/*` (preserves acknowledgement flow + signed URLs).
+   - Library entries are independent reference copies; staff can manage/replace them via the existing Resource Library Manager in Management Portal.
 
-### 3. Driver Hub — per-row "Send install reminder" action
-
-In `src/components/drivers/DriverRoster.tsx`:
-
-- For each driver row where `pwa_installed_at` is null, add a small icon button (Bell/Send icon) next to the existing phone-status icon, with tooltip "Send SUPERDRIVE install reminder".
-- On click: `supabase.functions.invoke('notify-pwa-install', { body: { operator_id: driver.id } })`, show toast on success/cooldown-skip, and disable the button briefly.
-- Hidden when `pwa_installed_at` is set (already installed).
-- Respect demo-mode guard (`useDemoMode().guardDemo()`).
-
-### 4. Management Overview — keep existing bulk button
-
-The existing "Install Status" bulk send button in `ManagementPortal.tsx` keeps working as-is — it now benefits from the 24h cooldown logic instead of the permanent block, so it can be re-pushed daily. Update its toast wording slightly (`"... skipped (sent within last 24h or already installed)"`).
-
-### 5. Memory
-
-Add a short memory note under `mem://features/pwa-install-reminders` describing: daily cron + manual button, 24h cooldown via `notifications.pwa_install` lookup, target = active operators with `pwa_installed_at IS NULL`.
-
-## Technical notes
-
-- Cooldown query (in edge function):
-  ```ts
-  const { data: recent } = await supabase
-    .from('notifications')
-    .select('id')
-    .eq('user_id', op.user_id)
-    .eq('type', 'pwa_install')
-    .gte('sent_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-    .limit(1);
-  if (recent?.length) { skipped++; continue; }
-  ```
-- Operator filter adds `.is('pwa_installed_at', null)`.
-- Cron SQL uses the existing project URL + anon key pattern already used by other cron jobs in this project.
-
-## Out of scope
-
-- No changes to PWA install detection, manifest, or install banner.
-- No SMS/push channel — email + in-app only (matches current function).
+## Result
+Drivers will see a new **💰 Payroll** section in their Resource Library (Operator Portal → Resources tab) containing both PDFs with View / Download / Share actions, accessible at any time before, during, or after onboarding.
