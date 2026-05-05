@@ -585,7 +585,7 @@ export default function ManagementPortal() {
       const skipped = (data as any)?.skipped ?? 0;
       toast({
         title: 'Install instructions sent',
-        description: `Notified ${notified} operator${notified === 1 ? '' : 's'}${skipped ? ` · ${skipped} skipped (already installed or notified)` : ''}.`,
+        description: `Notified ${notified} operator${notified === 1 ? '' : 's'}${skipped ? ` · ${skipped} skipped (sent within last 24h)` : ''}.`,
       });
       fetchInstallStats();
     } catch (e: any) {
