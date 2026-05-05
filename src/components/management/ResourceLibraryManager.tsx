@@ -66,6 +66,7 @@ const CATEGORY_OPTIONS: { value: ResourceCategory; label: string; emoji: string 
   { value: 'decal_files', label: 'Decal Files', emoji: '🏷️' },
   { value: 'forms_compliance', label: 'Forms & Compliance', emoji: '📋' },
   { value: 'dot_general', label: 'DOT General', emoji: '🚛' },
+  { value: 'payroll', label: 'Payroll', emoji: '💰' },
 ];
 
 const CATEGORY_LABEL: Record<ResourceCategory, string> = Object.fromEntries(
