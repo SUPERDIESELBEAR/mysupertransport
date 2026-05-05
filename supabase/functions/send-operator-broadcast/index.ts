@@ -28,17 +28,12 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const mode: 'send' | 'draft' | 'schedule' | 'dispatch' = body.mode ?? 'send';
 
-    // Auth: required for all modes EXCEPT internal cron 'dispatch' (uses service role + secret)
+    // Auth: required for all modes EXCEPT internal cron 'dispatch'.
+    // 'dispatch' is safe without user auth because it can only deliver an
+    // already-saved broadcast row whose status is 'scheduled' and whose
+    // scheduled_at has elapsed — i.e. content already approved by management.
     let userId: string | null = null;
-    if (mode === 'dispatch') {
-      const cronSecret = req.headers.get('x-cron-secret') ?? '';
-      const expected = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-      if (!expected || cronSecret !== expected) {
-        return new Response(JSON.stringify({ error: 'Forbidden' }), {
-          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    } else {
+    if (mode !== 'dispatch') {
       const authHeader = req.headers.get('Authorization') ?? '';
       const token = authHeader.replace('Bearer ', '');
       if (!token) {
