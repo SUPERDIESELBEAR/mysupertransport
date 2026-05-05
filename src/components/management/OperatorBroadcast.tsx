@@ -345,23 +345,25 @@ export function OperatorBroadcast() {
 
               <div className="space-y-2">
                 <Label>Recipients</Label>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant={scope === 'all' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setScope('all')}
-                  >
-                    <Users className="h-4 w-4" /> All active operators ({operators.length})
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={scope === 'selected' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => { setScope('selected'); setPickerOpen(true); }}
-                  >
-                    Select operators… {scope === 'selected' && `(${selectedIds.size})`}
-                  </Button>
+                <div className="rounded-md border p-3 space-y-2 bg-muted/20">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span>
+                        Sending to <span className="font-semibold text-foreground">{eligibleCount}</span> of{' '}
+                        <span className="font-semibold text-foreground">{operators.length}</span> active operators
+                      </span>
+                      {excludedIds.size > 0 && (
+                        <Badge variant="outline" className="text-xs">{excludedIds.size} excluded</Badge>
+                      )}
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
+                      Manage recipients…
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    All active operators are included by default. Open the picker to exclude anyone.
+                  </p>
                 </div>
               </div>
 
