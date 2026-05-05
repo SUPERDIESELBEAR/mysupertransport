@@ -79,8 +79,7 @@ export function OperatorBroadcast() {
   const [body, setBody] = useState('');
   const [ctaLabel, setCtaLabel] = useState('');
   const [ctaUrl, setCtaUrl] = useState('');
-  const [scope, setScope] = useState<'all' | 'selected'>('all');
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -135,7 +134,7 @@ export function OperatorBroadcast() {
   const resetCompose = () => {
     setEditingId(null);
     setSubject(''); setBody(''); setCtaLabel(''); setCtaUrl('');
-    setSelectedIds(new Set()); setScope('all');
+    setExcludedIds(new Set());
     setScheduleDate(''); setScheduleTime('');
     setPreviewApproved(false);
     setFinalPreviewHtml(null);
@@ -148,11 +147,12 @@ export function OperatorBroadcast() {
     setCtaLabel(b.cta_label ?? '');
     setCtaUrl(b.cta_url ?? '');
     if (b.recipient_scope === 'selected' && Array.isArray(b.selected_operator_ids)) {
-      setScope('selected');
-      setSelectedIds(new Set(b.selected_operator_ids));
+      const includeSet = new Set(b.selected_operator_ids);
+      // Exclude = all current operators not in the saved include list.
+      // New operators added since the draft was created default to included.
+      setExcludedIds(new Set(operators.filter((o) => !includeSet.has(o.id)).map((o) => o.id)));
     } else {
-      setScope('all');
-      setSelectedIds(new Set());
+      setExcludedIds(new Set());
     }
     if (b.scheduled_at) {
       const d = new Date(b.scheduled_at);
@@ -174,13 +174,15 @@ export function OperatorBroadcast() {
     loadAll();
   };
 
+  // Picker checkbox semantics: checked = included = NOT excluded.
   const toggleId = (id: string) => {
-    const next = new Set(selectedIds);
+    const next = new Set(excludedIds);
     next.has(id) ? next.delete(id) : next.add(id);
-    setSelectedIds(next);
+    setExcludedIds(next);
   };
 
-  const eligibleCount = scope === 'all' ? operators.length : selectedIds.size;
+  const eligibleCount = Math.max(0, operators.length - excludedIds.size);
+  const includedIds = () => operators.filter((o) => !excludedIds.has(o.id)).map((o) => o.id);
 
   const invokeBroadcast = async (mode: 'send' | 'draft' | 'schedule', scheduledAtIso?: string) => {
     setSending(true);
@@ -193,7 +195,7 @@ export function OperatorBroadcast() {
           body: body.trim(),
           ctaLabel: ctaLabel.trim() || undefined,
           ctaUrl: ctaUrl.trim() || undefined,
-          operatorIds: scope === 'selected' ? Array.from(selectedIds) : undefined,
+          operatorIds: excludedIds.size > 0 ? includedIds() : undefined,
           scheduledAt: scheduledAtIso,
         },
       });
