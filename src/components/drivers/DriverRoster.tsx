@@ -388,6 +388,52 @@ export default function DriverRoster({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sortColumn, setSortColumn] = useState<'unit' | 'driver' | null>('driver');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  // Tracks operators currently receiving a SUPERDRIVE install reminder
+  const [installSending, setInstallSending] = useState<Set<string>>(new Set());
+
+  const handleSendInstallReminder = useCallback(async (operatorId: string, driverName: string) => {
+    setInstallSending(prev => {
+      const next = new Set(prev);
+      next.add(operatorId);
+      return next;
+    });
+    try {
+      const { data, error } = await supabase.functions.invoke('notify-pwa-install', {
+        body: { operator_id: operatorId, mode: 'manual' },
+      });
+      if (error) throw error;
+      const notified = (data as any)?.notified ?? 0;
+      const skipped = (data as any)?.skipped ?? 0;
+      if (notified > 0) {
+        toast({
+          title: 'Install reminder sent',
+          description: `SUPERDRIVE install instructions sent to ${driverName}.`,
+        });
+      } else if (skipped > 0) {
+        toast({
+          title: 'Reminder skipped',
+          description: `${driverName} was already reminded in the last 24 hours.`,
+        });
+      } else {
+        toast({
+          title: 'No reminder sent',
+          description: `${driverName} may already have the app installed.`,
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Failed to send reminder',
+        description: err?.message ?? 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setInstallSending(prev => {
+        const next = new Set(prev);
+        next.delete(operatorId);
+        return next;
+      });
+    }
+  }, []);
 
   const toggleSort = (col: 'unit' | 'driver') => {
     if (sortColumn === col) {
