@@ -529,7 +529,10 @@ export function OperatorBroadcast() {
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Select operators</DialogTitle>
+            <DialogTitle>Manage recipients</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {eligibleCount} of {operators.length} included · uncheck anyone you want to skip
+            </p>
           </DialogHeader>
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -541,9 +544,18 @@ export function OperatorBroadcast() {
             />
           </div>
           <div className="flex gap-2 text-xs">
-            <button className="text-primary hover:underline" onClick={() => setSelectedIds(new Set(filteredOps.map((o) => o.id)))}>Select all visible</button>
+            <button className="text-primary hover:underline" onClick={() => setExcludedIds(new Set())}>Include all</button>
             <span className="text-muted-foreground">·</span>
-            <button className="text-primary hover:underline" onClick={() => setSelectedIds(new Set())}>Clear</button>
+            <button
+              className="text-primary hover:underline"
+              onClick={() => {
+                if (confirm('Exclude every operator? This will leave the broadcast with no recipients.')) {
+                  setExcludedIds(new Set(operators.map((o) => o.id)));
+                }
+              }}
+            >
+              Exclude all
+            </button>
           </div>
           <ScrollArea className="h-[360px] border rounded-md">
             <div className="p-1">
@@ -552,7 +564,7 @@ export function OperatorBroadcast() {
                   key={o.id}
                   className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer"
                 >
-                  <Checkbox checked={selectedIds.has(o.id)} onCheckedChange={() => toggleId(o.id)} />
+                  <Checkbox checked={!excludedIds.has(o.id)} onCheckedChange={() => toggleId(o.id)} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{o.name}</p>
                     <p className="text-xs text-muted-foreground">Unit {o.unit_number ?? '—'}</p>
@@ -563,7 +575,7 @@ export function OperatorBroadcast() {
           </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPickerOpen(false)}>Cancel</Button>
-            <Button onClick={() => setPickerOpen(false)}>Done ({selectedIds.size})</Button>
+            <Button onClick={() => setPickerOpen(false)}>Done ({eligibleCount} included)</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
