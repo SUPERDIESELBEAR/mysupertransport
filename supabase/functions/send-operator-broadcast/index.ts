@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
 
     // ── Input ──────────────────────────────────────────────────────────────
     const body = await req.json();
-    const mode: 'send' | 'draft' | 'schedule' | 'dispatch' = body.mode ?? 'send';
+    const mode: 'send' | 'draft' | 'schedule' | 'dispatch' | 'render' = body.mode ?? 'send';
 
     // Auth: required for all modes EXCEPT internal cron 'dispatch'.
     // 'dispatch' is safe without user auth because it can only deliver an
@@ -95,6 +95,27 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    // ── Render-only: return final HTML exactly as it will be sent ──────────
+    if (mode === 'render') {
+      if (!subject || !messageBody) {
+        return new Response(JSON.stringify({ error: 'Subject and body required to render' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const safeBodyR = escapeHtml(messageBody).replace(/\n/g, '<br/>');
+      const htmlR = buildEmail(
+        subject,
+        escapeHtml(subject),
+        `<div style="color:#444;font-size:15px;line-height:1.7;">${safeBodyR}</div>`,
+        ctaLabel && ctaUrl ? { label: ctaLabel, url: ctaUrl } : undefined,
+        SUPPORT_EMAIL
+      );
+      return new Response(JSON.stringify({ html: htmlR, subject }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (mode === 'schedule') {
       if (!scheduledAt || isNaN(Date.parse(scheduledAt))) {
         return new Response(JSON.stringify({ error: 'scheduledAt required (ISO datetime)' }), {
