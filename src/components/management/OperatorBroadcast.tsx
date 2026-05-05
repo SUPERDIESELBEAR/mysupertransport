@@ -617,6 +617,60 @@ export function OperatorBroadcast() {
         </DialogContent>
       </Dialog>
 
+      {/* Final render preview */}
+      <Dialog open={finalPreviewOpen} onOpenChange={(o) => { if (!o) { setFinalPreviewOpen(false); setPendingAction(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-gold" /> Final email preview
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            This is the exact branded email recipients will receive, rendered server-side using the production template.
+          </p>
+          {finalPreviewLoading || !finalPreviewHtml ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Rendering…
+            </div>
+          ) : (
+            <div
+              className="border rounded-md overflow-hidden"
+              dangerouslySetInnerHTML={{ __html: finalPreviewHtml }}
+            />
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setFinalPreviewOpen(false); setPendingAction(null); }}>
+              Back to edit
+            </Button>
+            {pendingAction === 'schedule' ? (
+              <Button
+                onClick={() => approveAndProceed('schedule')}
+                disabled={!finalPreviewHtml || finalPreviewLoading}
+                className="gap-2"
+              >
+                <CalendarClock className="h-4 w-4" /> Looks good — Schedule…
+              </Button>
+            ) : pendingAction === 'send' ? (
+              <Button
+                onClick={() => approveAndProceed('send')}
+                disabled={!finalPreviewHtml || finalPreviewLoading}
+                className="gap-2"
+              >
+                <Send className="h-4 w-4" /> Looks good — Send Now
+              </Button>
+            ) : (
+              <Button
+                onClick={() => { setPreviewApproved(true); setFinalPreviewOpen(false); }}
+                disabled={!finalPreviewHtml || finalPreviewLoading}
+                className="gap-2"
+              >
+                <CheckCircle2 className="h-4 w-4" /> Approve preview
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Archive viewer */}
       <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
         <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
