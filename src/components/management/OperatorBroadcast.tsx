@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Mail, Users, Eye, Search, Save, Clock, Pencil, Trash2, CalendarClock } from 'lucide-react';
+import { Send, Mail, Users, Eye, Search, Save, Clock, Pencil, Trash2, CalendarClock, CheckCircle2, Loader2 } from 'lucide-react';
 
 interface OperatorRow {
   id: string;
@@ -89,6 +89,11 @@ export function OperatorBroadcast() {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
+  const [finalPreviewOpen, setFinalPreviewOpen] = useState(false);
+  const [finalPreviewHtml, setFinalPreviewHtml] = useState<string | null>(null);
+  const [finalPreviewLoading, setFinalPreviewLoading] = useState(false);
+  const [previewApproved, setPreviewApproved] = useState(false);
+  const [pendingAction, setPendingAction] = useState<null | 'send' | 'schedule'>(null);
 
   const loadAll = async () => {
     setLoading(true);
@@ -132,6 +137,8 @@ export function OperatorBroadcast() {
     setSubject(''); setBody(''); setCtaLabel(''); setCtaUrl('');
     setSelectedIds(new Set()); setScope('all');
     setScheduleDate(''); setScheduleTime('');
+    setPreviewApproved(false);
+    setFinalPreviewHtml(null);
   };
 
   const loadIntoComposer = (b: BroadcastRow) => {
@@ -235,6 +242,42 @@ export function OperatorBroadcast() {
 
   const previewHtml = buildPreviewHtml(subject, body, ctaLabel, ctaUrl);
 
+  // Invalidate the "approved" stamp whenever the content changes.
+  useEffect(() => {
+    setPreviewApproved(false);
+    setFinalPreviewHtml(null);
+  }, [subject, body, ctaLabel, ctaUrl]);
+
+  const fetchFinalPreview = async () => {
+    setFinalPreviewLoading(true);
+    setFinalPreviewOpen(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-operator-broadcast', {
+        body: {
+          mode: 'render',
+          subject: subject.trim(),
+          body: body.trim(),
+          ctaLabel: ctaLabel.trim() || undefined,
+          ctaUrl: ctaUrl.trim() || undefined,
+        },
+      });
+      if (error) throw error;
+      setFinalPreviewHtml(data?.html ?? null);
+    } catch (e: any) {
+      toast({ title: 'Preview failed', description: e?.message ?? String(e), variant: 'destructive' });
+      setFinalPreviewOpen(false);
+    } finally {
+      setFinalPreviewLoading(false);
+    }
+  };
+
+  const approveAndProceed = (action: 'send' | 'schedule') => {
+    setPreviewApproved(true);
+    setFinalPreviewOpen(false);
+    if (action === 'send') setConfirmOpen(true);
+    else setScheduleOpen(true);
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -335,20 +378,31 @@ export function OperatorBroadcast() {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => setScheduleOpen(true)}
+                    onClick={() => {
+                      if (previewApproved) setScheduleOpen(true);
+                      else { setPendingAction('schedule'); fetchFinalPreview(); }
+                    }}
                     disabled={!subject.trim() || !body.trim() || eligibleCount === 0 || sending}
                     className="gap-2"
                   >
                     <CalendarClock className="h-4 w-4" /> Schedule…
                   </Button>
                   <Button
-                    onClick={() => setConfirmOpen(true)}
+                    onClick={() => {
+                      if (previewApproved) setConfirmOpen(true);
+                      else { setPendingAction('send'); fetchFinalPreview(); }
+                    }}
                     disabled={!subject.trim() || !body.trim() || eligibleCount === 0 || sending}
                     className="gap-2"
                   >
                     <Send className="h-4 w-4" /> Send Now
                   </Button>
                 </div>
+                {previewApproved && (
+                  <p className="text-xs text-green-600 flex items-center gap-1 justify-end">
+                    <CheckCircle2 className="h-3 w-3" /> Final preview approved
+                  </p>
+                )}
               </div>
             </Card>
 
@@ -356,11 +410,22 @@ export function OperatorBroadcast() {
               <div className="flex items-center gap-2 mb-3">
                 <Eye className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Live preview</span>
+                <span className="text-xs text-muted-foreground ml-auto">Approximate — confirm with final preview before sending</span>
               </div>
               <div
                 className="border rounded-md overflow-hidden"
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
               />
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full gap-2"
+                onClick={fetchFinalPreview}
+                disabled={!subject.trim() || !body.trim() || finalPreviewLoading}
+              >
+                {finalPreviewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+                Render final email
+              </Button>
             </Card>
           </div>
         </TabsContent>
@@ -548,6 +613,60 @@ export function OperatorBroadcast() {
             <Button onClick={handleSchedule} disabled={sending} className="gap-2">
               <CalendarClock className="h-4 w-4" /> {sending ? 'Scheduling…' : 'Schedule'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Final render preview */}
+      <Dialog open={finalPreviewOpen} onOpenChange={(o) => { if (!o) { setFinalPreviewOpen(false); setPendingAction(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-gold" /> Final email preview
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            This is the exact branded email recipients will receive, rendered server-side using the production template.
+          </p>
+          {finalPreviewLoading || !finalPreviewHtml ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Rendering…
+            </div>
+          ) : (
+            <div
+              className="border rounded-md overflow-hidden"
+              dangerouslySetInnerHTML={{ __html: finalPreviewHtml }}
+            />
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setFinalPreviewOpen(false); setPendingAction(null); }}>
+              Back to edit
+            </Button>
+            {pendingAction === 'schedule' ? (
+              <Button
+                onClick={() => approveAndProceed('schedule')}
+                disabled={!finalPreviewHtml || finalPreviewLoading}
+                className="gap-2"
+              >
+                <CalendarClock className="h-4 w-4" /> Looks good — Schedule…
+              </Button>
+            ) : pendingAction === 'send' ? (
+              <Button
+                onClick={() => approveAndProceed('send')}
+                disabled={!finalPreviewHtml || finalPreviewLoading}
+                className="gap-2"
+              >
+                <Send className="h-4 w-4" /> Looks good — Send Now
+              </Button>
+            ) : (
+              <Button
+                onClick={() => { setPreviewApproved(true); setFinalPreviewOpen(false); }}
+                disabled={!finalPreviewHtml || finalPreviewLoading}
+                className="gap-2"
+              >
+                <CheckCircle2 className="h-4 w-4" /> Approve preview
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
