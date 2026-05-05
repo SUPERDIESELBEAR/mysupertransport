@@ -32,6 +32,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   decal_files: '🏷️ Decal Files',
   forms_compliance: '📋 Forms & Compliance',
   dot_general: '🚛 DOT General',
+  payroll: '💰 Payroll',
 };
 
 interface ResourceDoc {
