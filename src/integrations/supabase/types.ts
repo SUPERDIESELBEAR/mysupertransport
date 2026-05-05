@@ -2310,8 +2310,11 @@ export type Database = {
           id: string
           recipient_count: number
           recipient_scope: string
+          scheduled_at: string | null
+          selected_operator_ids: Json | null
           sent_by: string | null
           skipped_count: number
+          status: string
           subject: string
         }
         Insert: {
@@ -2325,8 +2328,11 @@ export type Database = {
           id?: string
           recipient_count?: number
           recipient_scope: string
+          scheduled_at?: string | null
+          selected_operator_ids?: Json | null
           sent_by?: string | null
           skipped_count?: number
+          status?: string
           subject: string
         }
         Update: {
@@ -2340,8 +2346,11 @@ export type Database = {
           id?: string
           recipient_count?: number
           recipient_scope?: string
+          scheduled_at?: string | null
+          selected_operator_ids?: Json | null
           sent_by?: string | null
           skipped_count?: number
+          status?: string
           subject?: string
         }
         Relationships: []
