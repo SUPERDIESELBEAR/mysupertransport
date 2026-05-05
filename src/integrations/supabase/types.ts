@@ -2250,6 +2250,102 @@ export type Database = {
           },
         ]
       }
+      operator_broadcast_recipients: {
+        Row: {
+          broadcast_id: string
+          created_at: string
+          email: string
+          error: string | null
+          id: string
+          operator_id: string | null
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          broadcast_id: string
+          created_at?: string
+          email: string
+          error?: string | null
+          id?: string
+          operator_id?: string | null
+          sent_at?: string | null
+          status: string
+        }
+        Update: {
+          broadcast_id?: string
+          created_at?: string
+          email?: string
+          error?: string | null
+          id?: string
+          operator_id?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_broadcast_recipients_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "operator_broadcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operator_broadcast_recipients_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operator_broadcasts: {
+        Row: {
+          body: string
+          completed_at: string | null
+          created_at: string
+          cta_label: string | null
+          cta_url: string | null
+          delivered_count: number
+          failed_count: number
+          id: string
+          recipient_count: number
+          recipient_scope: string
+          sent_by: string | null
+          skipped_count: number
+          subject: string
+        }
+        Insert: {
+          body: string
+          completed_at?: string | null
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          delivered_count?: number
+          failed_count?: number
+          id?: string
+          recipient_count?: number
+          recipient_scope: string
+          sent_by?: string | null
+          skipped_count?: number
+          subject: string
+        }
+        Update: {
+          body?: string
+          completed_at?: string | null
+          created_at?: string
+          cta_label?: string | null
+          cta_url?: string | null
+          delivered_count?: number
+          failed_count?: number
+          id?: string
+          recipient_count?: number
+          recipient_scope?: string
+          sent_by?: string | null
+          skipped_count?: number
+          subject?: string
+        }
+        Relationships: []
+      }
       operator_documents: {
         Row: {
           document_type: Database["public"]["Enums"]["operator_doc_type"]

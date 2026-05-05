@@ -39,6 +39,7 @@ import EmailCatalog from '@/components/management/EmailCatalog';
 import FormsCatalog from '@/components/management/FormsCatalog';
 import ServiceLibraryManager from '@/components/service-library/ServiceLibraryManager';
 import ReleaseNotesManager from '@/components/management/ReleaseNotesManager';
+import OperatorBroadcast from '@/components/management/OperatorBroadcast';
 import CarrierSignatureSettings from '@/components/ica/CarrierSignatureSettings';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import TerminationsView from './TerminationsView';
@@ -75,7 +76,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'email-catalog' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'email-catalog' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast';
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -106,7 +107,7 @@ export default function ManagementPortal() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const v = searchParams.get('view') as ManagementView | null;
-    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations'].includes(v)) ? v : 'overview';
+    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast'].includes(v)) ? v : 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [scrollToStageKeyMgmt, setScrollToStageKeyMgmt] = useState<string | undefined>(undefined);
@@ -763,6 +764,7 @@ export default function ManagementPortal() {
     { label: 'Content Manager',   icon: <LayoutTemplate className="h-4 w-4" />,  path: 'content-manager' },
     { label: 'Forms Catalog',     icon: <FileText className="h-4 w-4" />,         path: 'forms-catalog' },
     { label: "What's New",        icon: <Megaphone className="h-4 w-4" />,        path: 'whats-new' },
+    { label: 'Broadcast Email',   icon: <Mail className="h-4 w-4" />,             path: 'broadcast' },
     { label: 'Carrier Signature', icon: <Pen className="h-4 w-4" />,             path: 'carrier-signature' },
     { label: 'Terminations',      icon: <FileSignature className="h-4 w-4" />,   path: 'terminations' },
     { label: 'Demo Mode',         icon: <GraduationCap className="h-4 w-4" />,   path: '__demo__' },
@@ -1709,6 +1711,10 @@ export default function ManagementPortal() {
 
         {view === 'whats-new' && (
           <ReleaseNotesManager />
+        )}
+
+        {view === 'broadcast' && (
+          <OperatorBroadcast />
         )}
 
         {view === 'carrier-signature' && (
