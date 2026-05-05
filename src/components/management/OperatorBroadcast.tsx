@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Mail, Users, Eye, Search } from 'lucide-react';
+import { Send, Mail, Users, Eye, Search, Save, Clock, Pencil, Trash2, CalendarClock } from 'lucide-react';
 
 interface OperatorRow {
   id: string;
@@ -33,6 +33,9 @@ interface BroadcastRow {
   skipped_count: number;
   created_at: string;
   completed_at: string | null;
+  status: string;
+  scheduled_at: string | null;
+  selected_operator_ids: string[] | null;
 }
 
 function escapeHtml(s: string): string {
@@ -66,9 +69,12 @@ export function OperatorBroadcast() {
   const { toast } = useToast();
   const [operators, setOperators] = useState<OperatorRow[]>([]);
   const [history, setHistory] = useState<BroadcastRow[]>([]);
+  const [drafts, setDrafts] = useState<BroadcastRow[]>([]);
+  const [scheduled, setScheduled] = useState<BroadcastRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Compose state
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [ctaLabel, setCtaLabel] = useState('');
@@ -80,6 +86,9 @@ export function OperatorBroadcast() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [viewing, setViewing] = useState<BroadcastRow | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('');
 
   const loadAll = async () => {
     setLoading(true);
@@ -93,7 +102,7 @@ export function OperatorBroadcast() {
         .from('operator_broadcasts')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(50),
+        .limit(100),
     ]);
     if (opRes.data) {
       setOperators(
@@ -107,11 +116,56 @@ export function OperatorBroadcast() {
         }))
       );
     }
-    if (histRes.data) setHistory(histRes.data as any);
+    if (histRes.data) {
+      const all = histRes.data as any[];
+      setDrafts(all.filter((b) => b.status === 'draft'));
+      setScheduled(all.filter((b) => b.status === 'scheduled'));
+      setHistory(all.filter((b) => !['draft', 'scheduled'].includes(b.status)));
+    }
     setLoading(false);
   };
 
   useEffect(() => { loadAll(); }, []);
+
+  const resetCompose = () => {
+    setEditingId(null);
+    setSubject(''); setBody(''); setCtaLabel(''); setCtaUrl('');
+    setSelectedIds(new Set()); setScope('all');
+    setScheduleDate(''); setScheduleTime('');
+  };
+
+  const loadIntoComposer = (b: BroadcastRow) => {
+    setEditingId(b.id);
+    setSubject(b.subject ?? '');
+    setBody(b.body ?? '');
+    setCtaLabel(b.cta_label ?? '');
+    setCtaUrl(b.cta_url ?? '');
+    if (b.recipient_scope === 'selected' && Array.isArray(b.selected_operator_ids)) {
+      setScope('selected');
+      setSelectedIds(new Set(b.selected_operator_ids));
+    } else {
+      setScope('all');
+      setSelectedIds(new Set());
+    }
+    if (b.scheduled_at) {
+      const d = new Date(b.scheduled_at);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      setScheduleDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+      setScheduleTime(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
+    } else {
+      setScheduleDate(''); setScheduleTime('');
+    }
+    toast({ title: b.status === 'draft' ? 'Draft loaded' : 'Scheduled broadcast loaded' });
+  };
+
+  const deleteBroadcast = async (id: string) => {
+    if (!confirm('Delete this broadcast?')) return;
+    const { error } = await supabase.from('operator_broadcasts').delete().eq('id', id);
+    if (error) { toast({ title: 'Delete failed', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Deleted' });
+    if (editingId === id) resetCompose();
+    loadAll();
+  };
 
   const toggleId = (id: string) => {
     const next = new Set(selectedIds);
@@ -121,32 +175,56 @@ export function OperatorBroadcast() {
 
   const eligibleCount = scope === 'all' ? operators.length : selectedIds.size;
 
-  const handleSend = async () => {
+  const invokeBroadcast = async (mode: 'send' | 'draft' | 'schedule', scheduledAtIso?: string) => {
     setSending(true);
     try {
       const { data, error } = await supabase.functions.invoke('send-operator-broadcast', {
         body: {
+          mode,
+          broadcastId: editingId ?? undefined,
           subject: subject.trim(),
           body: body.trim(),
           ctaLabel: ctaLabel.trim() || undefined,
           ctaUrl: ctaUrl.trim() || undefined,
           operatorIds: scope === 'selected' ? Array.from(selectedIds) : undefined,
+          scheduledAt: scheduledAtIso,
         },
       });
       if (error) throw error;
-      toast({
-        title: 'Broadcast sent',
-        description: `${data?.sent ?? 0} delivered · ${data?.failed ?? 0} failed · ${data?.skipped ?? 0} skipped`,
-      });
-      setSubject(''); setBody(''); setCtaLabel(''); setCtaUrl('');
-      setSelectedIds(new Set()); setScope('all');
+      if (mode === 'send') {
+        toast({
+          title: 'Broadcast sent',
+          description: `${data?.sent ?? 0} delivered · ${data?.failed ?? 0} failed · ${data?.skipped ?? 0} skipped`,
+        });
+      } else if (mode === 'draft') {
+        toast({ title: 'Draft saved' });
+      } else {
+        toast({ title: 'Broadcast scheduled', description: new Date(scheduledAtIso!).toLocaleString() });
+      }
+      resetCompose();
       setConfirmOpen(false);
+      setScheduleOpen(false);
       loadAll();
     } catch (e: any) {
-      toast({ title: 'Failed to send', description: e?.message ?? String(e), variant: 'destructive' });
+      toast({ title: 'Failed', description: e?.message ?? String(e), variant: 'destructive' });
     } finally {
       setSending(false);
     }
+  };
+
+  const handleSend = () => invokeBroadcast('send');
+  const handleSaveDraft = () => invokeBroadcast('draft');
+  const handleSchedule = () => {
+    if (!scheduleDate || !scheduleTime) {
+      toast({ title: 'Pick a date and time', variant: 'destructive' });
+      return;
+    }
+    const local = new Date(`${scheduleDate}T${scheduleTime}:00`);
+    if (isNaN(local.getTime()) || local.getTime() <= Date.now() + 30_000) {
+      toast({ title: 'Schedule must be at least 1 minute in the future', variant: 'destructive' });
+      return;
+    }
+    invokeBroadcast('schedule', local.toISOString());
   };
 
   const filteredOps = operators.filter((o) => {
@@ -164,17 +242,28 @@ export function OperatorBroadcast() {
           <Mail className="h-6 w-6 text-gold" /> Operator Broadcast
         </h2>
         <p className="text-sm text-muted-foreground">
-          Send a branded email to all or selected active owner-operators. All sends are archived.
+          Send a branded email now, save it as a draft, or schedule it for a future date and time.
         </p>
       </div>
 
       <Tabs defaultValue="compose">
         <TabsList>
-          <TabsTrigger value="compose">Compose</TabsTrigger>
+          <TabsTrigger value="compose">{editingId ? 'Edit' : 'Compose'}</TabsTrigger>
+          <TabsTrigger value="drafts">Drafts ({drafts.length})</TabsTrigger>
+          <TabsTrigger value="scheduled">Scheduled ({scheduled.length})</TabsTrigger>
           <TabsTrigger value="archive">Archive ({history.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="compose" className="space-y-4">
+          {editingId && (
+            <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2 text-sm">
+              <span className="flex items-center gap-2">
+                <Pencil className="h-4 w-4 text-muted-foreground" />
+                Editing existing broadcast
+              </span>
+              <Button variant="ghost" size="sm" onClick={resetCompose}>Start new</Button>
+            </div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card className="p-4 space-y-4">
               <div>
@@ -231,17 +320,35 @@ export function OperatorBroadcast() {
                 </div>
               </div>
 
-              <div className="pt-2 border-t flex items-center justify-between">
+              <div className="pt-2 border-t space-y-3">
                 <p className="text-sm text-muted-foreground">
                   Will send to <span className="font-semibold text-foreground">{eligibleCount}</span> operator(s)
                 </p>
-                <Button
-                  onClick={() => setConfirmOpen(true)}
-                  disabled={!subject.trim() || !body.trim() || eligibleCount === 0 || sending}
-                  className="gap-2"
-                >
-                  <Send className="h-4 w-4" /> Send Broadcast
-                </Button>
+                <div className="flex flex-wrap gap-2 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={handleSaveDraft}
+                    disabled={sending || (!subject.trim() && !body.trim())}
+                    className="gap-2"
+                  >
+                    <Save className="h-4 w-4" /> Save Draft
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setScheduleOpen(true)}
+                    disabled={!subject.trim() || !body.trim() || eligibleCount === 0 || sending}
+                    className="gap-2"
+                  >
+                    <CalendarClock className="h-4 w-4" /> Schedule…
+                  </Button>
+                  <Button
+                    onClick={() => setConfirmOpen(true)}
+                    disabled={!subject.trim() || !body.trim() || eligibleCount === 0 || sending}
+                    className="gap-2"
+                  >
+                    <Send className="h-4 w-4" /> Send Now
+                  </Button>
+                </div>
               </div>
             </Card>
 
@@ -256,6 +363,63 @@ export function OperatorBroadcast() {
               />
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="drafts">
+          <Card className="p-4">
+            {drafts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No drafts saved.</p>
+            ) : (
+              <div className="space-y-2">
+                {drafts.map((d) => (
+                  <div key={d.id} className="flex items-center justify-between gap-3 border rounded-md px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{d.subject || '(untitled draft)'}</p>
+                      <p className="text-xs text-muted-foreground">Updated {new Date(d.created_at).toLocaleString()}</p>
+                    </div>
+                    <div className="flex gap-1.5 shrink-0">
+                      <Button size="sm" variant="outline" onClick={() => loadIntoComposer(d)} className="gap-1">
+                        <Pencil className="h-3.5 w-3.5" /> Edit
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => deleteBroadcast(d.id)} className="gap-1 text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="scheduled">
+          <Card className="p-4">
+            {scheduled.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No scheduled broadcasts.</p>
+            ) : (
+              <div className="space-y-2">
+                {scheduled.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between gap-3 border rounded-md px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{s.subject}</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        Sends {s.scheduled_at ? new Date(s.scheduled_at).toLocaleString() : '—'} · {s.recipient_scope === 'all' ? 'All active' : 'Selected'}
+                      </p>
+                    </div>
+                    <div className="flex gap-1.5 shrink-0">
+                      <Button size="sm" variant="outline" onClick={() => loadIntoComposer(s)} className="gap-1">
+                        <Pencil className="h-3.5 w-3.5" /> Edit
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => deleteBroadcast(s.id)} className="gap-1 text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         </TabsContent>
 
         <TabsContent value="archive">
@@ -352,6 +516,37 @@ export function OperatorBroadcast() {
             <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={sending}>Cancel</Button>
             <Button onClick={handleSend} disabled={sending} className="gap-2">
               <Send className="h-4 w-4" /> {sending ? 'Sending…' : 'Confirm & Send'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule dialog */}
+      <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule broadcast</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Pick a date and time (your local time zone). The system will send the email automatically.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Date</Label>
+              <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} />
+            </div>
+            <div>
+              <Label>Time</Label>
+              <Input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Will send to <span className="font-semibold">{eligibleCount}</span> operator(s).
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScheduleOpen(false)} disabled={sending}>Cancel</Button>
+            <Button onClick={handleSchedule} disabled={sending} className="gap-2">
+              <CalendarClock className="h-4 w-4" /> {sending ? 'Scheduling…' : 'Schedule'}
             </Button>
           </DialogFooter>
         </DialogContent>
