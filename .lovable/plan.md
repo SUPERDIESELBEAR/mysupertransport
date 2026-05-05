@@ -1,66 +1,60 @@
-# Operator Broadcast Emails
+# Broadcast Recipients: Select-All-Then-Deselect + CTA Explainer
 
-Add a way for management staff to compose a subject + body email and send it to all (or selected) active owner-operators, using the existing SUPERTRANSPORT-branded template. Every send is archived for later review.
+## Answering your questions first
 
-## What gets built
+**What is the CTA button label?**
+It's the text shown on the gold action button at the bottom of the email — e.g. `View in Portal`, `Open Onboarding`, `Read the Update`. It's optional. If left blank, no button appears.
 
-### 1. New "Broadcast Email" view in Management Portal
-A new tab/section (next to existing tools like Release Notes / Resource Library) with two panels:
+**What is a CTA URL?**
+It's the link that button opens when an operator taps it — e.g. `https://mysupertransport.lovable.app/dashboard` or a deep link to a specific page. Both fields must be filled in together for the button to render; otherwise the email sends without a CTA.
 
-- **Compose panel**
-  - Subject input (required)
-  - Body textarea (required, supports line breaks; rendered as `<br/>` like Release Notes already does)
-  - Optional CTA: button label + URL (so emails can deep-link into the portal)
-  - Recipient selector:
-    - "All active operators" (default)
-    - "Select operators…" — searchable multi-select listing active operators (name + unit number)
-  - Live preview using the same `buildEmail` branded layout
-  - Respects each operator's `notification_preferences` (new `broadcast` event type, opt-out only)
-  - "Send" button shows count of eligible recipients before confirming
+---
 
-- **Archive panel**
-  - Table of past broadcasts: sent date, subject, sender, recipient count, delivered count
-  - Click a row → drawer showing full subject/body, CTA, recipient list with per-recipient delivery status, and a "Resend to failed" action
+## Recipient selection change
 
-### 2. New edge function `send-operator-broadcast`
-Mirrors `send-release-note` but:
-- Targets `operators` table (`is_active = true`) instead of staff roles
-- Accepts `{ subject, body, ctaLabel?, ctaUrl?, operatorIds?: uuid[] }` — if `operatorIds` is omitted, sends to all active operators
-- Authenticates the caller via `getClaims(token)` and verifies `management` or `owner` role (`.limit(1)` pattern)
-- Uses `buildEmail()` with existing brand constants (gold #C9A84C, dark #0F1117, SUPERTRANSPORT header)
-- Writes one archive row + one row per recipient with delivery status
-- Rate-limited 600ms between sends (same as release notes)
+Today the composer has two modes: "All active" or "Selected operators". You want a single combined flow: start with everyone selected, then uncheck the few you want to skip.
 
-### 3. Database (new migration)
-- `operator_broadcasts` — id, subject, body, cta_label, cta_url, sent_by (uuid), recipient_scope ('all' | 'selected'), recipient_count, delivered_count, failed_count, created_at
-- `operator_broadcast_recipients` — id, broadcast_id (fk), operator_id (fk), email, status ('sent' | 'failed' | 'skipped_optout'), error, created_at
-- RLS: only management/owner can SELECT/INSERT (via existing `has_role` SECURITY DEFINER)
-- Add `'broadcast'` to the notification event type list so operators can opt out from their preferences modal
+### Composer behavior
 
-### 4. Operator-side opt-out (small addition)
-- Add "Broadcast announcements" toggle to the operator's notification preferences modal so the opt-out is honored
+- Replace the two-button scope toggle with a single **Recipients** card showing:
+  - Headline count: `Sending to X of Y active operators`
+  - Button: **Manage recipients** (opens the picker)
+  - Small helper text: "All active operators are included by default. Open the picker to exclude anyone."
+- On first load (new broadcast), every active operator is included automatically.
+- The internal model flips from an *include list* to an *exclude list*: we track `excludedIds: Set<string>` instead of `selectedIds`.
+- Eligible recipient count = `operators.length - excludedIds.size`.
 
-## Technical notes
+### Picker dialog
 
-- Reuses `supabase/functions/_shared/email-layout.ts` (`buildEmail`, `sendEmail`, `SUPPORT_EMAIL`) — visual identity stays identical to existing notifications.
-- Operator emails are pulled via `supabaseAdmin.auth.admin.listUsers()` and matched to `operators.user_id` (same pattern as `send-release-note`).
-- Sender name on the From header uses the existing `${BRAND_NAME} <${ONBOARDING_EMAIL}>` default.
-- Archive write happens before sends start; per-recipient rows are upserted as the loop progresses so partial sends are still recorded if the function times out.
-- Body input is plain text (newline → `<br/>`) — no raw HTML accepted, preventing injection. Subject limited to 200 chars, body to 10,000.
-- New tab gated behind `management` / `owner` role in `ManagementPortal.tsx`.
+- Title: **Manage recipients** with subtitle `X of Y included`.
+- Top action row:
+  - **Include all** (clears the exclude set)
+  - **Exclude all** (adds every operator to the exclude set — guards against accidental empty sends with a confirm)
+  - Search box (existing)
+- Each row shows a checkbox that is **checked = included**. Unchecking adds the id to `excludedIds`.
+- Footer: `Done (X included)`. Disabled save if 0 included.
 
-## Files to create / edit
+### Persistence / API
 
-- `supabase/migrations/<ts>_operator_broadcasts.sql` (new tables, RLS, enum addition)
-- `supabase/functions/send-operator-broadcast/index.ts` (new)
-- `supabase/config.toml` — add `verify_jwt = false` block for the new function (matches sibling functions)
-- `src/components/management/OperatorBroadcastComposer.tsx` (new)
-- `src/components/management/OperatorBroadcastArchive.tsx` (new)
-- `src/pages/management/ManagementPortal.tsx` (add tab + route entry)
-- `src/components/operator/` notification preferences modal — add `broadcast` toggle
+To stay backward compatible with the existing `operator_broadcasts` table:
 
-## Out of scope (can add later if desired)
-- Scheduling sends for a future time
-- File attachments (Lovable email infra doesn't support these)
-- Rich-text/HTML editor for the body (kept to plain text for safety + simplicity)
-- Sending to drivers (non-operator); this is operators-only per the request
+- When **everyone** is included → save as `recipient_scope = 'all'`, `selected_operator_ids = null` (unchanged behavior).
+- When **some are excluded** → save as `recipient_scope = 'selected'`, `selected_operator_ids = <resolved include list at save time>`.
+- The edge function (`send-operator-broadcast`) already handles both shapes, so no function changes are required for sending.
+
+### Loading drafts / scheduled items
+
+- If a loaded broadcast has `recipient_scope = 'all'` → `excludedIds = new Set()`.
+- If `recipient_scope = 'selected'` → compute `excludedIds = allOperatorIds - selected_operator_ids` so the UI reflects "all minus a few" rather than "a tiny custom list".
+- Edge case: if a selected draft references operators that no longer exist or new operators have joined since, those new operators show as **included by default** (matches the new mental model). A small banner inside the picker notes: `N new operator(s) added since this draft was created — included by default.`
+
+### Validation
+
+- Block send/schedule when included count = 0 with a toast: "Select at least one operator."
+- Final preview dialog footer shows: `Will send to X operator(s).`
+
+## Files to change
+
+- `src/components/management/OperatorBroadcast.tsx` — replace scope toggle, rework picker, swap state from `selectedIds` to `excludedIds`, adjust save payload, adjust draft-load mapping.
+
+No database migration, no edge function change.

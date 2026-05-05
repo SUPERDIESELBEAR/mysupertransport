@@ -79,8 +79,7 @@ export function OperatorBroadcast() {
   const [body, setBody] = useState('');
   const [ctaLabel, setCtaLabel] = useState('');
   const [ctaUrl, setCtaUrl] = useState('');
-  const [scope, setScope] = useState<'all' | 'selected'>('all');
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -135,7 +134,7 @@ export function OperatorBroadcast() {
   const resetCompose = () => {
     setEditingId(null);
     setSubject(''); setBody(''); setCtaLabel(''); setCtaUrl('');
-    setSelectedIds(new Set()); setScope('all');
+    setExcludedIds(new Set());
     setScheduleDate(''); setScheduleTime('');
     setPreviewApproved(false);
     setFinalPreviewHtml(null);
@@ -148,11 +147,12 @@ export function OperatorBroadcast() {
     setCtaLabel(b.cta_label ?? '');
     setCtaUrl(b.cta_url ?? '');
     if (b.recipient_scope === 'selected' && Array.isArray(b.selected_operator_ids)) {
-      setScope('selected');
-      setSelectedIds(new Set(b.selected_operator_ids));
+      const includeSet = new Set(b.selected_operator_ids);
+      // Exclude = all current operators not in the saved include list.
+      // New operators added since the draft was created default to included.
+      setExcludedIds(new Set(operators.filter((o) => !includeSet.has(o.id)).map((o) => o.id)));
     } else {
-      setScope('all');
-      setSelectedIds(new Set());
+      setExcludedIds(new Set());
     }
     if (b.scheduled_at) {
       const d = new Date(b.scheduled_at);
@@ -174,13 +174,15 @@ export function OperatorBroadcast() {
     loadAll();
   };
 
+  // Picker checkbox semantics: checked = included = NOT excluded.
   const toggleId = (id: string) => {
-    const next = new Set(selectedIds);
+    const next = new Set(excludedIds);
     next.has(id) ? next.delete(id) : next.add(id);
-    setSelectedIds(next);
+    setExcludedIds(next);
   };
 
-  const eligibleCount = scope === 'all' ? operators.length : selectedIds.size;
+  const eligibleCount = Math.max(0, operators.length - excludedIds.size);
+  const includedIds = () => operators.filter((o) => !excludedIds.has(o.id)).map((o) => o.id);
 
   const invokeBroadcast = async (mode: 'send' | 'draft' | 'schedule', scheduledAtIso?: string) => {
     setSending(true);
@@ -193,7 +195,7 @@ export function OperatorBroadcast() {
           body: body.trim(),
           ctaLabel: ctaLabel.trim() || undefined,
           ctaUrl: ctaUrl.trim() || undefined,
-          operatorIds: scope === 'selected' ? Array.from(selectedIds) : undefined,
+          operatorIds: excludedIds.size > 0 ? includedIds() : undefined,
           scheduledAt: scheduledAtIso,
         },
       });
@@ -343,23 +345,25 @@ export function OperatorBroadcast() {
 
               <div className="space-y-2">
                 <Label>Recipients</Label>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant={scope === 'all' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setScope('all')}
-                  >
-                    <Users className="h-4 w-4" /> All active operators ({operators.length})
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={scope === 'selected' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => { setScope('selected'); setPickerOpen(true); }}
-                  >
-                    Select operators… {scope === 'selected' && `(${selectedIds.size})`}
-                  </Button>
+                <div className="rounded-md border p-3 space-y-2 bg-muted/20">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span>
+                        Sending to <span className="font-semibold text-foreground">{eligibleCount}</span> of{' '}
+                        <span className="font-semibold text-foreground">{operators.length}</span> active operators
+                      </span>
+                      {excludedIds.size > 0 && (
+                        <Badge variant="outline" className="text-xs">{excludedIds.size} excluded</Badge>
+                      )}
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
+                      Manage recipients…
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    All active operators are included by default. Open the picker to exclude anyone.
+                  </p>
                 </div>
               </div>
 
@@ -525,7 +529,10 @@ export function OperatorBroadcast() {
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Select operators</DialogTitle>
+            <DialogTitle>Manage recipients</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {eligibleCount} of {operators.length} included · uncheck anyone you want to skip
+            </p>
           </DialogHeader>
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -537,9 +544,18 @@ export function OperatorBroadcast() {
             />
           </div>
           <div className="flex gap-2 text-xs">
-            <button className="text-primary hover:underline" onClick={() => setSelectedIds(new Set(filteredOps.map((o) => o.id)))}>Select all visible</button>
+            <button className="text-primary hover:underline" onClick={() => setExcludedIds(new Set())}>Include all</button>
             <span className="text-muted-foreground">·</span>
-            <button className="text-primary hover:underline" onClick={() => setSelectedIds(new Set())}>Clear</button>
+            <button
+              className="text-primary hover:underline"
+              onClick={() => {
+                if (confirm('Exclude every operator? This will leave the broadcast with no recipients.')) {
+                  setExcludedIds(new Set(operators.map((o) => o.id)));
+                }
+              }}
+            >
+              Exclude all
+            </button>
           </div>
           <ScrollArea className="h-[360px] border rounded-md">
             <div className="p-1">
@@ -548,7 +564,7 @@ export function OperatorBroadcast() {
                   key={o.id}
                   className="flex items-center gap-3 p-2 rounded hover:bg-muted cursor-pointer"
                 >
-                  <Checkbox checked={selectedIds.has(o.id)} onCheckedChange={() => toggleId(o.id)} />
+                  <Checkbox checked={!excludedIds.has(o.id)} onCheckedChange={() => toggleId(o.id)} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{o.name}</p>
                     <p className="text-xs text-muted-foreground">Unit {o.unit_number ?? '—'}</p>
@@ -559,7 +575,7 @@ export function OperatorBroadcast() {
           </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPickerOpen(false)}>Cancel</Button>
-            <Button onClick={() => setPickerOpen(false)}>Done ({selectedIds.size})</Button>
+            <Button onClick={() => setPickerOpen(false)}>Done ({eligibleCount} included)</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
