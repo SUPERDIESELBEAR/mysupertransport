@@ -22,12 +22,15 @@ Deno.serve(async (req) => {
     // Accept optional operator_id to target a single operator
     const body = await req.json().catch(() => ({}))
     const targetOperatorId: string | null = body?.operator_id || null
+    const mode: string = body?.mode || (targetOperatorId ? 'manual' : 'manual')
+    console.log('notify-pwa-install invoked', { targetOperatorId, mode })
 
-    // Get operators
+    // Get operators that have NOT installed the PWA yet
     let query = supabase
       .from('operators')
       .select('id, user_id, application_id')
       .eq('is_active', true)
+      .is('pwa_installed_at', null)
 
     if (targetOperatorId) {
       query = query.eq('id', targetOperatorId)
@@ -43,17 +46,18 @@ Deno.serve(async (req) => {
     for (const op of operators || []) {
       if (!op.user_id) { skipped++; continue }
 
-      // Idempotency: skip if already notified (only for bulk sends)
-      if (!targetOperatorId) {
-        const { data: existing } = await supabase
-          .from('notifications')
-          .select('id')
-          .eq('user_id', op.user_id)
-          .eq('type', 'pwa_install')
-          .limit(1)
+      // 24-hour cooldown: skip if a pwa_install notification was already
+      // sent to this user in the past 24 hours (applies to bulk + targeted).
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      const { data: recent } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('user_id', op.user_id)
+        .eq('type', 'pwa_install')
+        .gte('sent_at', cutoff)
+        .limit(1)
 
-        if (existing && existing.length > 0) { skipped++; continue }
-      }
+      if (recent && recent.length > 0) { skipped++; continue }
 
       // Check notification preferences
       const { data: pref } = await supabase
