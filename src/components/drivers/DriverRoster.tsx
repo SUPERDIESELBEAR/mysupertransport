@@ -1083,6 +1083,29 @@ export default function DriverRoster({
                             </Tooltip>
                           </TooltipProvider>
                         )}
+                        {!driver.pwa_installed_at && (
+                          <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSendInstallReminder(driver.operator_id, name);
+                                  }}
+                                  disabled={installSending.has(driver.operator_id)}
+                                  className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 shrink-0"
+                                  aria-label="Send SUPERDRIVE install reminder"
+                                >
+                                  {installSending.has(driver.operator_id)
+                                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                                    : <Send className="h-3 w-3" />}
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>Send SUPERDRIVE install reminder (24h cooldown)</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                       </div>
                     </TableCell>
 
