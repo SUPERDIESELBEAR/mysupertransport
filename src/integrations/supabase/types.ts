@@ -3255,6 +3255,7 @@ export type Database = {
         | "decal_files"
         | "forms_compliance"
         | "dot_general"
+        | "payroll"
       review_status: "pending" | "approved" | "denied"
       screening_result: "pending" | "clear" | "non_clear"
       screening_status: "not_started" | "scheduled" | "results_in"
@@ -3457,6 +3458,7 @@ export const Constants = {
         "decal_files",
         "forms_compliance",
         "dot_general",
+        "payroll",
       ],
       review_status: ["pending", "approved", "denied"],
       screening_result: ["pending", "clear", "non_clear"],
