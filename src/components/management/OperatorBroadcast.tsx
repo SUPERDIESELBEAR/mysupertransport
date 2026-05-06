@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Mail, Users, Eye, Search, Save, Clock, Pencil, Trash2, CalendarClock, CheckCircle2, Loader2 } from 'lucide-react';
+import { Send, Mail, Users, Eye, Search, Save, Clock, Pencil, Trash2, CalendarClock, CheckCircle2, Loader2, Cloud, CloudOff } from 'lucide-react';
 
 interface OperatorRow {
   id: string;
@@ -94,6 +94,10 @@ export function OperatorBroadcast() {
   const [previewApproved, setPreviewApproved] = useState(false);
   const [pendingAction, setPendingAction] = useState<null | 'send' | 'schedule'>(null);
   const [activeTab, setActiveTab] = useState('compose');
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'dirty' | 'saving' | 'saved' | 'error'>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipDirtyRef = useRef(false);
 
   const loadAll = async () => {
     setLoading(true);
@@ -139,11 +143,17 @@ export function OperatorBroadcast() {
     setScheduleDate(''); setScheduleTime('');
     setPreviewApproved(false);
     setFinalPreviewHtml(null);
+    skipDirtyRef.current = true;
+    setAutoSaveStatus('idle');
+    setLastSavedAt(null);
   };
 
   const loadIntoComposer = (b: BroadcastRow) => {
     setEditingId(b.id);
     setActiveTab('compose');
+    skipDirtyRef.current = true;
+    setAutoSaveStatus('idle');
+    setLastSavedAt(b.created_at ? new Date(b.created_at) : null);
     setSubject(b.subject ?? '');
     setBody(b.body ?? '');
     setCtaLabel(b.cta_label ?? '');
@@ -251,6 +261,55 @@ export function OperatorBroadcast() {
     setPreviewApproved(false);
     setFinalPreviewHtml(null);
   }, [subject, body, ctaLabel, ctaUrl]);
+
+  // Auto-save draft on changes (debounced). Only runs when there is content
+  // and we're not currently sending. Schedules don't auto-overwrite to draft.
+  useEffect(() => {
+    if (skipDirtyRef.current) {
+      skipDirtyRef.current = false;
+      return;
+    }
+    const hasContent = subject.trim() || body.trim();
+    if (!hasContent) return;
+    // Don't auto-save while editing a scheduled broadcast — would silently
+    // convert it to a draft.
+    const isEditingScheduled = !!scheduled.find((s) => s.id === editingId);
+    if (isEditingScheduled) return;
+
+    setAutoSaveStatus('dirty');
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(async () => {
+      setAutoSaveStatus('saving');
+      try {
+        const { data, error } = await supabase.functions.invoke('send-operator-broadcast', {
+          body: {
+            mode: 'draft',
+            broadcastId: editingId ?? undefined,
+            subject: subject.trim(),
+            body: body.trim(),
+            ctaLabel: ctaLabel.trim() || undefined,
+            ctaUrl: ctaUrl.trim() || undefined,
+            operatorIds: excludedIds.size > 0 ? includedIds() : undefined,
+          },
+        });
+        if (error) throw error;
+        const newId = (data as any)?.broadcastId ?? (data as any)?.id;
+        if (!editingId && newId) setEditingId(newId);
+        setAutoSaveStatus('saved');
+        setLastSavedAt(new Date());
+        toast({ title: 'Draft saved', description: 'Your changes are safe.' });
+        // Refresh drafts list quietly so the picker stays accurate.
+        loadAll();
+      } catch (e: any) {
+        setAutoSaveStatus('error');
+        toast({ title: 'Auto-save failed', description: e?.message ?? String(e), variant: 'destructive' });
+      }
+    }, 1500);
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subject, body, ctaLabel, ctaUrl, excludedIds, editingId]);
 
   const fetchFinalPreview = async () => {
     setFinalPreviewLoading(true);
@@ -409,6 +468,14 @@ export function OperatorBroadcast() {
                     <CheckCircle2 className="h-3 w-3" /> Final preview approved
                   </p>
                 )}
+                <div className="flex items-center gap-1.5 justify-end text-xs text-muted-foreground">
+                  {autoSaveStatus === 'saving' && (<><Loader2 className="h-3 w-3 animate-spin" /> Auto-saving…</>)}
+                  {autoSaveStatus === 'dirty' && (<><Cloud className="h-3 w-3" /> Unsaved changes</>)}
+                  {autoSaveStatus === 'saved' && (
+                    <><CheckCircle2 className="h-3 w-3 text-green-600" /> Saved{lastSavedAt ? ` · ${lastSavedAt.toLocaleTimeString()}` : ''}</>
+                  )}
+                  {autoSaveStatus === 'error' && (<><CloudOff className="h-3 w-3 text-destructive" /> Auto-save failed</>)}
+                </div>
               </div>
             </Card>
 
