@@ -602,7 +602,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     setLoading(true);
     try {
       if (action === 'approve') {
-        await onApprove(app.id, notes);
+        const skipInvite = (app.pre_revision_status === 'approved');
+        await onApprove(app.id, notes, { skipInvite });
       } else {
         await onDeny(app.id, notes);
       }
