@@ -93,6 +93,7 @@ export interface FullApplication {
   revision_requested_at?: string | null;
   revision_request_message?: string | null;
   revision_count?: number | null;
+  pre_revision_status?: string | null;
 }
 
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
