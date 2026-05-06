@@ -246,7 +246,9 @@ Deno.serve(async (req) => {
       return { url: data.signedUrl, path: rawPath };
     }
 
-    if (operatorId && invitedUserId) {
+    // Only sync application docs to Inspection Binder on first approval.
+    // Re-approvals (existing operator) skip this to avoid duplicate rows.
+    if (operatorId && invitedUserId && !existingOp) {
       const docRows: Array<{
         name: string;
         scope: 'per_driver';
