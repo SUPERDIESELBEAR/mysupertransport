@@ -3361,7 +3361,7 @@ export type Database = {
         | "forms_compliance"
         | "dot_general"
         | "payroll"
-      review_status: "pending" | "approved" | "denied"
+      review_status: "pending" | "approved" | "denied" | "revisions_requested"
       screening_result: "pending" | "clear" | "non_clear"
       screening_status: "not_started" | "scheduled" | "results_in"
       yes_no: "no" | "yes"
@@ -3565,7 +3565,7 @@ export const Constants = {
         "dot_general",
         "payroll",
       ],
-      review_status: ["pending", "approved", "denied"],
+      review_status: ["pending", "approved", "denied", "revisions_requested"],
       screening_result: ["pending", "clear", "non_clear"],
       screening_status: ["not_started", "scheduled", "results_in"],
       yes_no: ["no", "yes"],
