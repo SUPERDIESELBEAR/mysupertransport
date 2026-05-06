@@ -229,7 +229,11 @@ export default function ApplicationForm() {
         ssnEncrypted = encData.encrypted ?? null;
       }
 
-      const payload = { ...buildPayload(formData, token, false, ssnEncrypted), submitted_at: new Date().toISOString() };
+      const payload = {
+        ...buildPayload(formData, token, false, ssnEncrypted),
+        submitted_at: new Date().toISOString(),
+        review_status: 'pending',
+      };
 
       if (applicationId) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
