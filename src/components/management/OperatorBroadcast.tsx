@@ -98,6 +98,31 @@ export function OperatorBroadcast() {
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipDirtyRef = useRef(false);
+  const [unsavedDialog, setUnsavedDialog] = useState<{ open: boolean; onConfirm: (() => void) | null }>({
+    open: false,
+    onConfirm: null,
+  });
+
+  const hasUnsavedChanges = autoSaveStatus === 'dirty' || autoSaveStatus === 'saving';
+
+  const guardThen = (action: () => void) => {
+    if (hasUnsavedChanges) {
+      setUnsavedDialog({ open: true, onConfirm: action });
+    } else {
+      action();
+    }
+  };
+
+  // Warn on full browser navigation / tab close while dirty.
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasUnsavedChanges]);
 
   const loadAll = async () => {
     setLoading(true);
@@ -389,7 +414,17 @@ export function OperatorBroadcast() {
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(next) => {
+          if (next === activeTab) return;
+          if (activeTab === 'compose' && hasUnsavedChanges) {
+            guardThen(() => setActiveTab(next));
+          } else {
+            setActiveTab(next);
+          }
+        }}
+      >
         <TabsList>
           <TabsTrigger value="compose">{editingId ? 'Edit' : 'Compose'}</TabsTrigger>
           <TabsTrigger value="drafts">Drafts ({drafts.length})</TabsTrigger>
@@ -404,7 +439,7 @@ export function OperatorBroadcast() {
                 <Pencil className="h-4 w-4 text-muted-foreground" />
                 Editing existing broadcast
               </span>
-              <Button variant="ghost" size="sm" onClick={resetCompose}>Start new</Button>
+              <Button variant="ghost" size="sm" onClick={() => guardThen(resetCompose)}>Start new</Button>
             </div>
           )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -553,7 +588,7 @@ export function OperatorBroadcast() {
                       <p className="text-xs text-muted-foreground">Updated {new Date(d.created_at).toLocaleString()}</p>
                     </div>
                     <div className="flex gap-1.5 shrink-0">
-                      <Button size="sm" variant="outline" onClick={() => loadIntoComposer(d)} className="gap-1">
+                      <Button size="sm" variant="outline" onClick={() => guardThen(() => loadIntoComposer(d))} className="gap-1">
                         <Pencil className="h-3.5 w-3.5" /> Edit
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => deleteBroadcast(d.id)} className="gap-1 text-destructive">
@@ -583,7 +618,7 @@ export function OperatorBroadcast() {
                       </p>
                     </div>
                     <div className="flex gap-1.5 shrink-0">
-                      <Button size="sm" variant="outline" onClick={() => loadIntoComposer(s)} className="gap-1">
+                      <Button size="sm" variant="outline" onClick={() => guardThen(() => loadIntoComposer(s))} className="gap-1">
                         <Pencil className="h-3.5 w-3.5" /> Edit
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => deleteBroadcast(s.id)} className="gap-1 text-destructive">
@@ -813,6 +848,48 @@ export function OperatorBroadcast() {
               />
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Unsaved changes confirmation */}
+      <Dialog
+        open={unsavedDialog.open}
+        onOpenChange={(o) => { if (!o) setUnsavedDialog({ open: false, onConfirm: null }); }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unsaved changes</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm">
+            Your draft has unsaved changes that haven't been auto-saved yet. If you continue, those changes may be lost.
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setUnsavedDialog({ open: false, onConfirm: null })}>
+              Stay here
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                const next = unsavedDialog.onConfirm;
+                setUnsavedDialog({ open: false, onConfirm: null });
+                await handleSaveDraft();
+                next?.();
+              }}
+              className="gap-2"
+            >
+              <Save className="h-4 w-4" /> Save & continue
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const next = unsavedDialog.onConfirm;
+                setUnsavedDialog({ open: false, onConfirm: null });
+                next?.();
+              }}
+            >
+              Discard & continue
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
