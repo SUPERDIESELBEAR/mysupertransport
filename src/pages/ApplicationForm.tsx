@@ -418,6 +418,30 @@ export default function ApplicationForm() {
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-6 pb-28 md:pb-8">
+        {/* Revision request banner — shown when staff sent the application back */}
+        {showRevisionBanner && revisionMessage && (
+          <div className="mb-5 flex items-start gap-3 p-4 bg-status-progress/10 border border-status-progress/40 rounded-xl animate-fade-in">
+            <AlertTriangle className="h-5 w-5 text-status-progress shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Our team asked you to update a few things</p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                Please review the message below, make the requested changes, then re-submit your application.
+              </p>
+              <div className="mt-2 p-3 bg-white border border-status-progress/30 rounded-lg text-sm text-foreground whitespace-pre-wrap">
+                {revisionMessage}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowRevisionBanner(false)}
+              className="text-muted-foreground hover:text-foreground transition-colors shrink-0 mt-0.5"
+              aria-label="Dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         {/* Draft recovery banner */}
         {showDraftBanner && (
           <div className="mb-5 flex items-start gap-3 p-4 bg-gold/10 border border-gold/40 rounded-xl animate-fade-in">
