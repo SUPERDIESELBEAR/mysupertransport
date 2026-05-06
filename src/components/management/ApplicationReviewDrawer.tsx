@@ -566,7 +566,38 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     }
   };
 
-  const handleAction = async (action: 'approve' | 'deny') => {
+  const handleRequestRevisions = async () => {
+    if (revisionMessage.trim().length < 10) {
+      toast.error('Please describe what the applicant needs to fix (10+ characters).');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'request-application-revisions',
+        { body: { applicationId: app.id, message: revisionMessage.trim() } }
+      );
+      if (error || (data as any)?.error) {
+        const code = (data as any)?.error || error?.message || 'unknown';
+        throw new Error(typeof code === 'string' ? code : 'Failed to send');
+      }
+      toast.success(`Revision request emailed to ${app.email}`);
+      setConfirmAction(null);
+      setRevisionMessage('');
+      onClose();
+      onExpiryUpdated?.();
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to send revision request');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAction = async (action: 'approve' | 'deny' | 'revise') => {
+    if (action === 'revise') {
+      await handleRequestRevisions();
+      return;
+    }
     setLoading(true);
     try {
       if (action === 'approve') {
