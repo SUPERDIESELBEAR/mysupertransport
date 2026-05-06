@@ -8,7 +8,7 @@ import { format, parseISO, differenceInDays, startOfDay } from 'date-fns';
 import {
   X, CheckCircle2, XCircle, User, MapPin, CalendarIcon,
   Briefcase, Car, FileText, ShieldAlert, AlertTriangle, Loader2, Printer,
-  Eye, EyeOff, Lock, Save, Download, ShieldCheck, Mail
+  Eye, EyeOff, Lock, Save, Download, ShieldCheck, Mail, RotateCcw
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -90,6 +90,9 @@ export interface FullApplication {
   mvr_status?: string;
   ch_status?: string;
   background_verification_notes?: string | null;
+  revision_requested_at?: string | null;
+  revision_request_message?: string | null;
+  revision_count?: number | null;
 }
 
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
@@ -210,6 +213,7 @@ const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-status-progress/15 text-status-progress',
   approved: 'bg-status-complete/15 text-status-complete',
   denied: 'bg-destructive/15 text-destructive',
+  revisions_requested: 'bg-status-progress/15 text-status-progress',
 };
 
 type DrawerTab = 'overview' | 'documents';
@@ -219,7 +223,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const isManagement = roles.includes('management');
   const [activeTab, setActiveTab] = useState<DrawerTab>('overview');
   const [notes, setNotes] = useState('');
-  const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | 'revise' | null>(null);
+  const [revisionMessage, setRevisionMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [ssnVisible, setSsnVisible] = useState(false);
   const [ssnValue, setSsnValue] = useState<string | null>(null);
