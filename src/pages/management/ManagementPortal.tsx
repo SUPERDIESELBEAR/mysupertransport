@@ -1376,7 +1376,7 @@ export default function ManagementPortal() {
               )}
               {/* Status tabs */}
               <div className="flex rounded-lg border border-border bg-white overflow-hidden shrink-0">
-                {(['pending', 'approved', 'denied', 'all', 'invited'] as StatusFilter[]).map(s => (
+                {(['pending', 'revisions_requested', 'approved', 'denied', 'all', 'invited'] as StatusFilter[]).map(s => (
                   <button
                     key={s}
                     onClick={() => setStatusFilter(s)}
@@ -1386,7 +1386,11 @@ export default function ManagementPortal() {
                         : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
                     }`}
                   >
-                    {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
+                    {s === 'all'
+                      ? 'All'
+                      : s === 'revisions_requested'
+                      ? 'Revisions'
+                      : s.charAt(0).toUpperCase() + s.slice(1)}
                     {s === 'pending' && metrics.pending > 0 && (
                       <span className="ml-1 bg-status-progress text-white text-[10px] px-1.5 py-0.5 rounded-full">{metrics.pending}</span>
                     )}
