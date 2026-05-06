@@ -98,6 +98,31 @@ export function OperatorBroadcast() {
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipDirtyRef = useRef(false);
+  const [unsavedDialog, setUnsavedDialog] = useState<{ open: boolean; onConfirm: (() => void) | null }>({
+    open: false,
+    onConfirm: null,
+  });
+
+  const hasUnsavedChanges = autoSaveStatus === 'dirty' || autoSaveStatus === 'saving';
+
+  const guardThen = (action: () => void) => {
+    if (hasUnsavedChanges) {
+      setUnsavedDialog({ open: true, onConfirm: action });
+    } else {
+      action();
+    }
+  };
+
+  // Warn on full browser navigation / tab close while dirty.
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasUnsavedChanges]);
 
   const loadAll = async () => {
     setLoading(true);
@@ -389,7 +414,17 @@ export function OperatorBroadcast() {
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(next) => {
+          if (next === activeTab) return;
+          if (activeTab === 'compose' && hasUnsavedChanges) {
+            guardThen(() => setActiveTab(next));
+          } else {
+            setActiveTab(next);
+          }
+        }}
+      >
         <TabsList>
           <TabsTrigger value="compose">{editingId ? 'Edit' : 'Compose'}</TabsTrigger>
           <TabsTrigger value="drafts">Drafts ({drafts.length})</TabsTrigger>
