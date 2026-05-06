@@ -1057,8 +1057,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           </div>
         )}
 
-        {/* Action Footer — only show for pending */}
-        {app.review_status === 'pending' && (
+        {/* Action Footer — pending (full actions) or approved (revisions only) */}
+        {(app.review_status === 'pending' || app.review_status === 'approved') && (
           <div className="border-t border-border p-5 bg-secondary/30 shrink-0 space-y-3">
             {!confirmAction ? (
               <>
@@ -1082,6 +1082,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   >
                     <RotateCcw className="h-4 w-4 mr-2" /> Request Revisions
                   </Button>
+                  {app.review_status === 'pending' && (
+                  <>
                   <Button
                     variant="outline"
                     onClick={() => setConfirmAction('deny')}
@@ -1098,7 +1100,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                             disabled={!bgVerificationComplete}
                             className="w-full bg-status-complete text-white hover:bg-status-complete/90 disabled:opacity-50"
                           >
-                            <CheckCircle2 className="h-4 w-4 mr-2" /> Approve & Invite
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                            {app.pre_revision_status === 'approved' ? 'Re-approve corrections' : 'Approve & Invite'}
                           </Button>
                         </span>
                       </TooltipTrigger>
@@ -1109,6 +1112,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                       )}
                     </Tooltip>
                   </TooltipProvider>
+                  </>
+                  )}
                 </div>
               </>
             ) : confirmAction === 'revise' ? (
