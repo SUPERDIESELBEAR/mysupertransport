@@ -850,6 +850,48 @@ export function OperatorBroadcast() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Unsaved changes confirmation */}
+      <Dialog
+        open={unsavedDialog.open}
+        onOpenChange={(o) => { if (!o) setUnsavedDialog({ open: false, onConfirm: null }); }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unsaved changes</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm">
+            Your draft has unsaved changes that haven't been auto-saved yet. If you continue, those changes may be lost.
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setUnsavedDialog({ open: false, onConfirm: null })}>
+              Stay here
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                const next = unsavedDialog.onConfirm;
+                setUnsavedDialog({ open: false, onConfirm: null });
+                await handleSaveDraft();
+                next?.();
+              }}
+              className="gap-2"
+            >
+              <Save className="h-4 w-4" /> Save & continue
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const next = unsavedDialog.onConfirm;
+                setUnsavedDialog({ open: false, onConfirm: null });
+                next?.();
+              }}
+            >
+              Discard & continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
