@@ -31,7 +31,7 @@ type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
 interface ApplicationReviewDrawerProps {
   app: FullApplication | null;
   onClose: () => void;
-  onApprove: (appId: string, notes: string) => Promise<void>;
+  onApprove: (appId: string, notes: string, options?: { skipInvite?: boolean }) => Promise<void>;
   onDeny: (appId: string, notes: string) => Promise<void>;
   onExpiryUpdated?: () => void;
   /** Auto-open and scroll to this expiry field when the drawer mounts */
