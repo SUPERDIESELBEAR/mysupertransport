@@ -439,7 +439,7 @@ export function OperatorBroadcast() {
                 <Pencil className="h-4 w-4 text-muted-foreground" />
                 Editing existing broadcast
               </span>
-              <Button variant="ghost" size="sm" onClick={resetCompose}>Start new</Button>
+              <Button variant="ghost" size="sm" onClick={() => guardThen(resetCompose)}>Start new</Button>
             </div>
           )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -588,7 +588,7 @@ export function OperatorBroadcast() {
                       <p className="text-xs text-muted-foreground">Updated {new Date(d.created_at).toLocaleString()}</p>
                     </div>
                     <div className="flex gap-1.5 shrink-0">
-                      <Button size="sm" variant="outline" onClick={() => loadIntoComposer(d)} className="gap-1">
+                      <Button size="sm" variant="outline" onClick={() => guardThen(() => loadIntoComposer(d))} className="gap-1">
                         <Pencil className="h-3.5 w-3.5" /> Edit
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => deleteBroadcast(d.id)} className="gap-1 text-destructive">
@@ -618,7 +618,7 @@ export function OperatorBroadcast() {
                       </p>
                     </div>
                     <div className="flex gap-1.5 shrink-0">
-                      <Button size="sm" variant="outline" onClick={() => loadIntoComposer(s)} className="gap-1">
+                      <Button size="sm" variant="outline" onClick={() => guardThen(() => loadIntoComposer(s))} className="gap-1">
                         <Pencil className="h-3.5 w-3.5" /> Edit
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => deleteBroadcast(s.id)} className="gap-1 text-destructive">
