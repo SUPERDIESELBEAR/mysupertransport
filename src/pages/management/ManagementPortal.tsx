@@ -664,10 +664,10 @@ export default function ManagementPortal() {
 
 
 
-  const handleApprove = async (appId: string, notes: string) => {
+  const handleApprove = async (appId: string, notes: string, options?: { skipInvite?: boolean }) => {
     try {
       const { data, error } = await supabase.functions.invoke('invite-operator', {
-        body: { application_id: appId, reviewer_notes: notes || null },
+        body: { application_id: appId, reviewer_notes: notes || null, skip_invite: options?.skipInvite ? true : undefined },
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
 
@@ -675,8 +675,10 @@ export default function ManagementPortal() {
       if (data?.error) throw new Error(data.error);
 
       toast({
-        title: '✅ Application Approved',
-        description: 'An invitation email has been sent. The operator record has been created.',
+        title: options?.skipInvite ? '✅ Corrections Re-approved' : '✅ Application Approved',
+        description: options?.skipInvite
+          ? 'The corrected application is approved. The operator continues onboarding — no new invite was sent.'
+          : 'An invitation email has been sent. The operator record has been created.',
       });
       setSelectedApp(null);
       await Promise.all([fetchApplications(), fetchMetrics()]);
