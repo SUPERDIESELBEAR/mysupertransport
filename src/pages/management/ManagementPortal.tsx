@@ -77,7 +77,7 @@ type StaffWorkload = {
 };
 
 type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'email-catalog' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast';
-type StatusFilter = 'pending' | 'approved' | 'denied' | 'all' | 'invited';
+type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
   id: string;
@@ -98,6 +98,7 @@ const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-status-progress/15 text-status-progress border-status-progress/30',
   approved: 'bg-status-complete/15 text-status-complete border-status-complete/30',
   denied: 'bg-destructive/15 text-destructive border-destructive/30',
+  revisions_requested: 'bg-status-progress/15 text-status-progress border-status-progress/30',
 };
 
 export default function ManagementPortal() {
@@ -116,7 +117,7 @@ export default function ManagementPortal() {
   const [applications, setApplications] = useState<FullApplication[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
     const s = searchParams.get('status') as StatusFilter | null;
-    return (s && ['pending','approved','denied','all','invited'].includes(s)) ? s : 'pending';
+    return (s && ['pending','revisions_requested','approved','denied','all','invited'].includes(s)) ? s : 'pending';
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingApps, setLoadingApps] = useState(false);
@@ -544,11 +545,15 @@ export default function ManagementPortal() {
     let query = supabase
       .from('applications')
       .select('*')
-      .eq('is_draft', false)
       .order('submitted_at', { ascending: false });
 
-    if (statusFilter !== 'all') {
-      query = query.eq('review_status', statusFilter as 'pending' | 'approved' | 'denied');
+    if (statusFilter === 'all') {
+      // Show submitted apps + any awaiting revisions
+      query = query.or('is_draft.eq.false,review_status.eq.revisions_requested');
+    } else if (statusFilter === 'revisions_requested') {
+      query = query.eq('review_status', 'revisions_requested');
+    } else {
+      query = query.eq('is_draft', false).eq('review_status', statusFilter as 'pending' | 'approved' | 'denied');
     }
 
     const { data } = await query;
