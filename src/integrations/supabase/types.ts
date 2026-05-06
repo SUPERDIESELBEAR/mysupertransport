@@ -191,6 +191,10 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           reviewer_notes: string | null
+          revision_count: number
+          revision_request_message: string | null
+          revision_requested_at: string | null
+          revision_requested_by: string | null
           sap_process: boolean | null
           signature_image_url: string | null
           signed_date: string | null
@@ -255,6 +259,10 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewer_notes?: string | null
+          revision_count?: number
+          revision_request_message?: string | null
+          revision_requested_at?: string | null
+          revision_requested_by?: string | null
           sap_process?: boolean | null
           signature_image_url?: string | null
           signed_date?: string | null
@@ -319,6 +327,10 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewer_notes?: string | null
+          revision_count?: number
+          revision_request_message?: string | null
+          revision_requested_at?: string | null
+          revision_requested_by?: string | null
           sap_process?: boolean | null
           signature_image_url?: string | null
           signed_date?: string | null
@@ -3186,6 +3198,10 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           reviewer_notes: string | null
+          revision_count: number
+          revision_request_message: string | null
+          revision_requested_at: string | null
+          revision_requested_by: string | null
           sap_process: boolean | null
           signature_image_url: string | null
           signed_date: string | null
