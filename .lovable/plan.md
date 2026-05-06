@@ -1,85 +1,60 @@
 ## Goal
 
-Give staff a way to push a submitted application back to the applicant for corrections (e.g. missing employers), with a clear audit trail and a secure one-time link emailed to the applicant.
+Allow staff to send an already-approved application back to the driver for corrections, even after onboarding has started. The driver keeps full access to all 8 onboarding stages while fixing the application in parallel. When they resubmit, staff must re-approve before the application is locked again.
 
-## What exists today
+## Current behavior
 
-- `applications.review_status` enum: `pending | approved | denied`.
-- `applications.is_draft` boolean — when true, the applicant can resume and edit.
-- `application_resume_tokens` table + `request-application-resume` / `consume-application-resume` edge functions already power the "resume my draft" flow from the splash page (24h, single-use token emailed to the applicant).
-- Review drawer (`ApplicationReviewDrawer.tsx`) only exposes **Approve** and **Deny** today.
+- "Request Revisions" only appears for applications in `pending` review status.
+- Once staff hits **Approve & Invite**, the application becomes `approved` and the action footer disappears.
+- The applicant becomes an operator and starts the 8 stages — there's no way back to the form.
 
-We can reuse the existing token + resume infrastructure — we just need a staff-initiated path that flips the application back to draft and emails the link with a "revisions requested" message.
+## What changes
 
-## Plan
+### 1. Staff UI — Application Review Drawer
+- Show a **Request Revisions** button for approved applications too (not just pending).
+- Reuse the existing confirmation modal + mandatory message field.
+- Add a small note in the confirm dialog: *"The driver will keep full access to their onboarding stages while making corrections."*
+- The existing "Revisions requested" banner already handles display — extend it to also render when the prior status was `approved`.
 
-### 1. Database (migration)
+### 2. Edge function — `request-application-revisions`
+- Remove the implicit assumption that the app is `pending`.
+- When the current status is `approved`:
+  - Set `is_draft = true`, `review_status = 'revisions_requested'`, clear `submitted_at`.
+  - Store the previous status (`approved`) in a new column `pre_revision_status` so we know whether to restore onboarding access on re-approval (it's already active — nothing to restore, but we use this to skip the "create operator/invite" step).
+  - Send the same revision email with the secure resume link.
+- Do **not** touch the `operators` row, ICA, or any onboarding data — onboarding stays fully active.
 
-- Add a new value `revisions_requested` to the `review_status` enum.
-- Add columns on `applications`:
-  - `revision_requested_at timestamptz`
-  - `revision_requested_by uuid` (staff user id)
-  - `revision_request_message text` (what needs to be fixed — shown to applicant)
-  - `revision_count int default 0`
-- No RLS changes needed; existing staff policies on `applications` already cover updates.
+### 3. Applicant flow
+- Resume link works the same: opens the form with the staff's revision message banner.
+- On resubmit, application returns to `review_status = 'pending'` (or a new `resubmitted` value) and `is_draft = false`.
 
-### 2. New edge function: `request-application-revisions`
+### 4. Re-approval — Application Review Drawer
+- For a resubmitted app where `pre_revision_status = 'approved'`:
+  - The Approve button label becomes **Re-approve corrections** instead of **Approve & Invite**.
+  - Clicking it sets `review_status = 'approved'`, clears `pre_revision_status`, and **skips** the operator-creation / invite-email side effects (operator already exists).
+  - Existing approval path runs unchanged for first-time approvals.
 
-Inputs: `{ applicationId: string, message: string }` (staff-authenticated).
+### 5. Pipeline visibility
+- The existing **Revisions** filter tab on the Management Portal already surfaces `revisions_requested` apps — no change needed beyond confirming approved-then-revising apps appear there.
+- On the operator/staff onboarding pipeline, add a small "Application revisions pending" pill next to the driver's name when their app is `revisions_requested` so staff can tell at a glance.
 
-Behavior:
-1. Verify caller is staff (recruiter/admin/owner) via `getClaims` + `has_role`.
-2. Load application; require current `review_status` to be `pending` (or allow re-request when already `revisions_requested`).
-3. Update the application:
-   - `is_draft = true`
-   - `review_status = 'revisions_requested'`
-   - `submitted_at = null` (so it leaves the pending queue)
-   - `revision_requested_at = now()`, `revision_requested_by = caller`, `revision_request_message = message`
-   - `revision_count = revision_count + 1`
-   - Append to `reviewer_notes` with timestamp + staff name + message.
-4. Generate a resume token (same shape as `request-application-resume`, 7-day expiry for revisions vs 24h for self-serve).
-5. Email the applicant via Resend using the existing `buildEmail` layout. Subject: "Action needed: please update your {BRAND_NAME} application." Body shows the staff message verbatim, plus the resume button.
-6. Return generic success.
+## Database changes
 
-### 3. Applicant resume flow
+```sql
+ALTER TABLE applications
+  ADD COLUMN pre_revision_status review_status;
+```
 
-- `consume-application-resume` already returns the `draft_token` and lets the applicant re-enter the form. No change required — the existing form will load all prior answers so they only fix what's needed.
-- On submit, the form already sets `is_draft = false`, `submitted_at = now()`, `review_status = 'pending'` — which naturally moves it back into the staff pending queue. Verify that path in `ApplicationForm.tsx` handles a record whose previous status was `revisions_requested` (just need to also clear `revision_request_message` is optional; we'll keep it for history).
+That's the only schema change. Re-uses existing `revision_*` columns and `application_resume_tokens` flow.
 
-### 4. Staff UI (`ApplicationReviewDrawer.tsx`)
+## Files touched
 
-- Add a third action button in the footer (visible when `review_status === 'pending'`): **Request Revisions** (outline, neutral color), alongside Deny and Approve.
-- Clicking it opens a confirm panel (same pattern as approve/deny) with a **required** textarea: "Tell the applicant what to fix (they will see this message)." Min 10 chars.
-- On confirm: call `request-application-revisions` edge function, toast success, close drawer, refresh list.
-- When the drawer is opened on an application with `review_status === 'revisions_requested'`:
-  - Show a banner at the top: "Revisions requested {date} by {staff}. Awaiting applicant updates." with the message shown.
-  - Hide the action footer (no actions until applicant resubmits).
-
-### 5. Pipeline / list views
-
-- `STATUS_COLORS` map: add `revisions_requested: 'bg-status-progress/15 text-status-progress'` (amber).
-- Wherever staff list applications (Pipeline dashboard, application lists), include the new status in filters and badges so these don't disappear from view. Show count of pending revisions as its own bucket.
-
-### 6. Applicant-side polish (optional, recommended)
-
-- On `ApplicationForm.tsx` resume load, if the loaded draft has `revision_request_message`, display a prominent banner at the top of the form: "Our team asked you to update the following before resubmitting: …" with a "Mark as updated" affordance that just dismisses the banner locally.
-
-## Technical details
-
-- Migration uses `ALTER TYPE review_status ADD VALUE 'revisions_requested'` (must be in its own transaction; migration tool handles this).
-- Edge function reuses `application_resume_tokens` table, no schema change there.
-- Email template lives inline in the new edge function (mirrors `request-application-resume`).
-- Audit trail comes from `revision_requested_at/by/count` + appended `reviewer_notes`.
-- Token expiry for staff-requested revisions: 7 days (configurable constant in the function).
-
-## Files to add / change
-
-- New: `supabase/functions/request-application-revisions/index.ts`
-- New migration: enum value + 4 columns on `applications`
-- Edit: `src/components/management/ApplicationReviewDrawer.tsx` (new action + confirm + revisions banner + hide footer when in revisions state)
-- Edit: any list view that maps `STATUS_COLORS` / filters by `review_status` (Pipeline dashboard + application list components)
-- Edit: `src/pages/ApplicationForm.tsx` (banner showing `revision_request_message` when resuming)
+- `supabase/functions/request-application-revisions/index.ts` — allow `approved` source status, set `pre_revision_status`.
+- `src/components/management/ApplicationReviewDrawer.tsx` — show Request Revisions for approved apps; differentiate Approve vs Re-approve button.
+- `src/pages/management/ManagementPortal.tsx` / `PipelineDashboard.tsx` — small pill indicator for in-onboarding drivers with pending revisions.
+- New migration adding `pre_revision_status`.
 
 ## Out of scope
 
-- In-line per-field comments (would require richer schema). We're using a single freeform message; sufficient for the "missing employers" use case and similar.
+- Pausing or locking onboarding stages (you chose to allow both in parallel).
+- Notifying the operator inside the PWA — the email with the resume link is the trigger.

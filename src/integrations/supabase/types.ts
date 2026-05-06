@@ -181,6 +181,9 @@ export type Database = {
           moving_violations_description: string | null
           mvr_status: Database["public"]["Enums"]["mvr_status"]
           phone: string | null
+          pre_revision_status:
+            | Database["public"]["Enums"]["review_status"]
+            | null
           prev_address_city: string | null
           prev_address_line2: string | null
           prev_address_state: string | null
@@ -249,6 +252,9 @@ export type Database = {
           moving_violations_description?: string | null
           mvr_status?: Database["public"]["Enums"]["mvr_status"]
           phone?: string | null
+          pre_revision_status?:
+            | Database["public"]["Enums"]["review_status"]
+            | null
           prev_address_city?: string | null
           prev_address_line2?: string | null
           prev_address_state?: string | null
@@ -317,6 +323,9 @@ export type Database = {
           moving_violations_description?: string | null
           mvr_status?: Database["public"]["Enums"]["mvr_status"]
           phone?: string | null
+          pre_revision_status?:
+            | Database["public"]["Enums"]["review_status"]
+            | null
           prev_address_city?: string | null
           prev_address_line2?: string | null
           prev_address_state?: string | null
@@ -3188,6 +3197,9 @@ export type Database = {
           moving_violations_description: string | null
           mvr_status: Database["public"]["Enums"]["mvr_status"]
           phone: string | null
+          pre_revision_status:
+            | Database["public"]["Enums"]["review_status"]
+            | null
           prev_address_city: string | null
           prev_address_line2: string | null
           prev_address_state: string | null
