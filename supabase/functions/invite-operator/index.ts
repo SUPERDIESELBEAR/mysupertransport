@@ -79,6 +79,8 @@ Deno.serve(async (req) => {
         reviewed_by: callerUser.id,
         reviewer_notes: reviewer_notes ?? null,
         is_draft: false,
+        pre_revision_status: null,
+        revision_request_message: null,
       })
       .eq('id', application_id);
 
@@ -244,7 +246,9 @@ Deno.serve(async (req) => {
       return { url: data.signedUrl, path: rawPath };
     }
 
-    if (operatorId && invitedUserId) {
+    // Only sync application docs to Inspection Binder on first approval.
+    // Re-approvals (existing operator) skip this to avoid duplicate rows.
+    if (operatorId && invitedUserId && !existingOp) {
       const docRows: Array<{
         name: string;
         scope: 'per_driver';

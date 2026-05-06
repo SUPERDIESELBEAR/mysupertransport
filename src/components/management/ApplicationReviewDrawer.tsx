@@ -31,7 +31,7 @@ type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
 interface ApplicationReviewDrawerProps {
   app: FullApplication | null;
   onClose: () => void;
-  onApprove: (appId: string, notes: string) => Promise<void>;
+  onApprove: (appId: string, notes: string, options?: { skipInvite?: boolean }) => Promise<void>;
   onDeny: (appId: string, notes: string) => Promise<void>;
   onExpiryUpdated?: () => void;
   /** Auto-open and scroll to this expiry field when the drawer mounts */
@@ -93,6 +93,7 @@ export interface FullApplication {
   revision_requested_at?: string | null;
   revision_request_message?: string | null;
   revision_count?: number | null;
+  pre_revision_status?: string | null;
 }
 
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
@@ -601,7 +602,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     setLoading(true);
     try {
       if (action === 'approve') {
-        await onApprove(app.id, notes);
+        const skipInvite = (app.pre_revision_status === 'approved');
+        await onApprove(app.id, notes, { skipInvite });
       } else {
         await onDeny(app.id, notes);
       }
@@ -1055,8 +1057,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           </div>
         )}
 
-        {/* Action Footer — only show for pending */}
-        {app.review_status === 'pending' && (
+        {/* Action Footer — pending (full actions) or approved (revisions only) */}
+        {(app.review_status === 'pending' || app.review_status === 'approved') && (
           <div className="border-t border-border p-5 bg-secondary/30 shrink-0 space-y-3">
             {!confirmAction ? (
               <>
@@ -1080,6 +1082,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   >
                     <RotateCcw className="h-4 w-4 mr-2" /> Request Revisions
                   </Button>
+                  {app.review_status === 'pending' && (
+                  <>
                   <Button
                     variant="outline"
                     onClick={() => setConfirmAction('deny')}
@@ -1096,7 +1100,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                             disabled={!bgVerificationComplete}
                             className="w-full bg-status-complete text-white hover:bg-status-complete/90 disabled:opacity-50"
                           >
-                            <CheckCircle2 className="h-4 w-4 mr-2" /> Approve & Invite
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                            {app.pre_revision_status === 'approved' ? 'Re-approve corrections' : 'Approve & Invite'}
                           </Button>
                         </span>
                       </TooltipTrigger>
@@ -1107,6 +1112,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                       )}
                     </Tooltip>
                   </TooltipProvider>
+                  </>
+                  )}
                 </div>
               </>
             ) : confirmAction === 'revise' ? (
@@ -1120,6 +1127,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         The applicant will receive an email with a secure 7-day link to reopen the application. Their existing answers are preserved.
+                        {app.review_status === 'approved' && (
+                          <> The driver will keep full access to their onboarding stages while making corrections.</>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -1162,14 +1172,18 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   <div className="flex items-start gap-3">
                     <AlertTriangle className={`h-5 w-5 mt-0.5 shrink-0 ${confirmAction === 'approve' ? 'text-status-complete' : 'text-destructive'}`} />
                     <div>
-                      <p className="text-sm font-semibold text-foreground">
+                       <p className="text-sm font-semibold text-foreground">
                         {confirmAction === 'approve'
-                          ? `Approve application and send invite to ${app.email}?`
+                          ? (app.pre_revision_status === 'approved'
+                              ? `Re-approve corrected application for ${fullName}?`
+                              : `Approve application and send invite to ${app.email}?`)
                           : `Deny application for ${fullName}?`}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {confirmAction === 'approve'
-                          ? 'This will send a SUPERTRANSPORT account invite email. An Operator record will be created automatically.'
+                          ? (app.pre_revision_status === 'approved'
+                              ? 'The application will return to Approved status. No new invite will be sent — the operator already exists and onboarding continues.'
+                              : 'This will send a SUPERTRANSPORT account invite email. An Operator record will be created automatically.')
                           : 'This action will mark the application as denied. It cannot be reversed without contacting support.'}
                       </p>
                     </div>
@@ -1187,7 +1201,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                     {loading ? (
                       <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
                     ) : (
-                      confirmAction === 'approve' ? 'Confirm Approve & Invite' : 'Confirm Deny'
+                      confirmAction === 'approve'
+                        ? (app.pre_revision_status === 'approved' ? 'Confirm Re-approve' : 'Confirm Approve & Invite')
+                        : 'Confirm Deny'
                     )}
                   </Button>
                 </div>

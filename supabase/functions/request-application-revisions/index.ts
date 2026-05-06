@@ -72,7 +72,7 @@ serve(async (req) => {
 
     const { data: app, error: appErr } = await admin
       .from('applications')
-      .select('id, first_name, email, review_status, reviewer_notes, revision_count')
+      .select('id, first_name, email, review_status, reviewer_notes, revision_count, pre_revision_status')
       .eq('id', applicationId)
       .maybeSingle();
 
@@ -82,7 +82,7 @@ serve(async (req) => {
       });
     }
 
-    if (!['pending', 'revisions_requested'].includes(app.review_status as string)) {
+    if (!['pending', 'revisions_requested', 'approved'].includes(app.review_status as string)) {
       return new Response(JSON.stringify({ error: 'invalid_status' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -100,6 +100,12 @@ serve(async (req) => {
     const auditLine = `[${stamp}] Revisions requested by ${staffName}: ${message}`;
     const newNotes = app.reviewer_notes ? `${app.reviewer_notes}\n\n${auditLine}` : auditLine;
 
+    // Remember the prior status so we can route re-approval correctly.
+    // If we're already in a revision cycle, preserve the original pre_revision_status.
+    const preRevisionStatus =
+      (app as any).pre_revision_status ??
+      (app.review_status === 'approved' ? 'approved' : null);
+
     const { error: updErr } = await admin
       .from('applications')
       .update({
@@ -111,6 +117,7 @@ serve(async (req) => {
         revision_request_message: message,
         revision_count: (app.revision_count ?? 0) + 1,
         reviewer_notes: newNotes,
+        pre_revision_status: preRevisionStatus,
       })
       .eq('id', applicationId);
 
