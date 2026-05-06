@@ -47,6 +47,8 @@ export default function ApplicationForm() {
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [duplicateEmailBlocked, setDuplicateEmailBlocked] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
+  const [revisionMessage, setRevisionMessage] = useState<string | null>(null);
+  const [showRevisionBanner, setShowRevisionBanner] = useState(false);
 
   // ── Load draft on mount ─────────────────────────────────────────────────
   useEffect(() => {
@@ -60,6 +62,10 @@ export default function ApplicationForm() {
         if (cancelled) return;
         if (data) {
           setApplicationId(data.id);
+          if ((data as any).review_status === 'revisions_requested' && (data as any).revision_request_message) {
+            setRevisionMessage((data as any).revision_request_message);
+            setShowRevisionBanner(true);
+          }
           const restored: ApplicationFormData = {
             ...defaultFormData,
             first_name: data.first_name ?? '',
