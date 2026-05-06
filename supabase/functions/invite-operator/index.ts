@@ -79,6 +79,8 @@ Deno.serve(async (req) => {
         reviewed_by: callerUser.id,
         reviewer_notes: reviewer_notes ?? null,
         is_draft: false,
+        pre_revision_status: null,
+        revision_request_message: null,
       })
       .eq('id', application_id);
 
