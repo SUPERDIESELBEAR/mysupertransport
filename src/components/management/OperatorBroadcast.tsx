@@ -93,6 +93,7 @@ export function OperatorBroadcast() {
   const [finalPreviewLoading, setFinalPreviewLoading] = useState(false);
   const [previewApproved, setPreviewApproved] = useState(false);
   const [pendingAction, setPendingAction] = useState<null | 'send' | 'schedule'>(null);
+  const [activeTab, setActiveTab] = useState('compose');
 
   const loadAll = async () => {
     setLoading(true);
@@ -142,6 +143,7 @@ export function OperatorBroadcast() {
 
   const loadIntoComposer = (b: BroadcastRow) => {
     setEditingId(b.id);
+    setActiveTab('compose');
     setSubject(b.subject ?? '');
     setBody(b.body ?? '');
     setCtaLabel(b.cta_label ?? '');
@@ -291,7 +293,7 @@ export function OperatorBroadcast() {
         </p>
       </div>
 
-      <Tabs defaultValue="compose">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="compose">{editingId ? 'Edit' : 'Compose'}</TabsTrigger>
           <TabsTrigger value="drafts">Drafts ({drafts.length})</TabsTrigger>
