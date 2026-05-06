@@ -191,6 +191,10 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           reviewer_notes: string | null
+          revision_count: number
+          revision_request_message: string | null
+          revision_requested_at: string | null
+          revision_requested_by: string | null
           sap_process: boolean | null
           signature_image_url: string | null
           signed_date: string | null
@@ -255,6 +259,10 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewer_notes?: string | null
+          revision_count?: number
+          revision_request_message?: string | null
+          revision_requested_at?: string | null
+          revision_requested_by?: string | null
           sap_process?: boolean | null
           signature_image_url?: string | null
           signed_date?: string | null
@@ -319,6 +327,10 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewer_notes?: string | null
+          revision_count?: number
+          revision_request_message?: string | null
+          revision_requested_at?: string | null
+          revision_requested_by?: string | null
           sap_process?: boolean | null
           signature_image_url?: string | null
           signed_date?: string | null
@@ -3186,6 +3198,10 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           reviewer_notes: string | null
+          revision_count: number
+          revision_request_message: string | null
+          revision_requested_at: string | null
+          revision_requested_by: string | null
           sap_process: boolean | null
           signature_image_url: string | null
           signed_date: string | null
@@ -3361,7 +3377,7 @@ export type Database = {
         | "forms_compliance"
         | "dot_general"
         | "payroll"
-      review_status: "pending" | "approved" | "denied"
+      review_status: "pending" | "approved" | "denied" | "revisions_requested"
       screening_result: "pending" | "clear" | "non_clear"
       screening_status: "not_started" | "scheduled" | "results_in"
       yes_no: "no" | "yes"
@@ -3565,7 +3581,7 @@ export const Constants = {
         "dot_general",
         "payroll",
       ],
-      review_status: ["pending", "approved", "denied"],
+      review_status: ["pending", "approved", "denied", "revisions_requested"],
       screening_result: ["pending", "clear", "non_clear"],
       screening_status: ["not_started", "scheduled", "results_in"],
       yes_no: ["no", "yes"],

@@ -8,7 +8,7 @@ import { format, parseISO, differenceInDays, startOfDay } from 'date-fns';
 import {
   X, CheckCircle2, XCircle, User, MapPin, CalendarIcon,
   Briefcase, Car, FileText, ShieldAlert, AlertTriangle, Loader2, Printer,
-  Eye, EyeOff, Lock, Save, Download, ShieldCheck, Mail
+  Eye, EyeOff, Lock, Save, Download, ShieldCheck, Mail, RotateCcw
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -90,6 +90,9 @@ export interface FullApplication {
   mvr_status?: string;
   ch_status?: string;
   background_verification_notes?: string | null;
+  revision_requested_at?: string | null;
+  revision_request_message?: string | null;
+  revision_count?: number | null;
 }
 
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
@@ -210,6 +213,7 @@ const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-status-progress/15 text-status-progress',
   approved: 'bg-status-complete/15 text-status-complete',
   denied: 'bg-destructive/15 text-destructive',
+  revisions_requested: 'bg-status-progress/15 text-status-progress',
 };
 
 type DrawerTab = 'overview' | 'documents';
@@ -219,7 +223,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const isManagement = roles.includes('management');
   const [activeTab, setActiveTab] = useState<DrawerTab>('overview');
   const [notes, setNotes] = useState('');
-  const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | 'revise' | null>(null);
+  const [revisionMessage, setRevisionMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [ssnVisible, setSsnVisible] = useState(false);
   const [ssnValue, setSsnValue] = useState<string | null>(null);
@@ -561,7 +566,38 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     }
   };
 
-  const handleAction = async (action: 'approve' | 'deny') => {
+  const handleRequestRevisions = async () => {
+    if (revisionMessage.trim().length < 10) {
+      toast.error('Please describe what the applicant needs to fix (10+ characters).');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'request-application-revisions',
+        { body: { applicationId: app.id, message: revisionMessage.trim() } }
+      );
+      if (error || (data as any)?.error) {
+        const code = (data as any)?.error || error?.message || 'unknown';
+        throw new Error(typeof code === 'string' ? code : 'Failed to send');
+      }
+      toast.success(`Revision request emailed to ${app.email}`);
+      setConfirmAction(null);
+      setRevisionMessage('');
+      onClose();
+      onExpiryUpdated?.();
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to send revision request');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAction = async (action: 'approve' | 'deny' | 'revise') => {
+    if (action === 'revise') {
+      await handleRequestRevisions();
+      return;
+    }
     setLoading(true);
     try {
       if (action === 'approve') {
@@ -997,6 +1033,28 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           )}
         </div>
 
+        {/* Revisions-requested status banner */}
+        {app.review_status === 'revisions_requested' && (
+          <div className="border-t border-border p-4 bg-status-progress/10 shrink-0">
+            <div className="flex items-start gap-3">
+              <RotateCcw className="h-5 w-5 text-status-progress shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">
+                  Revisions requested{app.revision_requested_at ? ` on ${new Date(app.revision_requested_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Awaiting applicant updates. The applicant received an email with a secure link to reopen and resubmit.
+                </p>
+                {app.revision_request_message && (
+                  <div className="mt-2 p-3 bg-white border border-status-progress/30 rounded-lg text-xs text-foreground whitespace-pre-wrap">
+                    {app.revision_request_message}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Action Footer — only show for pending */}
         {app.review_status === 'pending' && (
           <div className="border-t border-border p-5 bg-secondary/30 shrink-0 space-y-3">
@@ -1014,18 +1072,25 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                     className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-gold/30"
                   />
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setConfirmAction('revise')}
+                    className="flex-1 min-w-[140px] border-status-progress/40 text-status-progress hover:bg-status-progress/10"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" /> Request Revisions
+                  </Button>
                   <Button
                     variant="outline"
                     onClick={() => setConfirmAction('deny')}
-                    className="flex-1 border-destructive/40 text-destructive hover:bg-destructive/10"
+                    className="flex-1 min-w-[140px] border-destructive/40 text-destructive hover:bg-destructive/10"
                   >
-                    <XCircle className="h-4 w-4 mr-2" /> Deny Application
+                    <XCircle className="h-4 w-4 mr-2" /> Deny
                   </Button>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="flex-1">
+                        <span className="flex-1 min-w-[140px]">
                           <Button
                             onClick={() => setConfirmAction('approve')}
                             disabled={!bgVerificationComplete}
@@ -1044,6 +1109,53 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   </TooltipProvider>
                 </div>
               </>
+            ) : confirmAction === 'revise' ? (
+              <div className="space-y-3">
+                <div className="rounded-lg p-4 border bg-status-progress/10 border-status-progress/30">
+                  <div className="flex items-start gap-3">
+                    <RotateCcw className="h-5 w-5 mt-0.5 shrink-0 text-status-progress" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-foreground">
+                        Send {fullName} back to make corrections?
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        The applicant will receive an email with a secure 7-day link to reopen the application. Their existing answers are preserved.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-foreground mb-1.5 block">
+                    Tell the applicant what to fix <span className="text-destructive">*</span>
+                    <span className="font-normal text-muted-foreground"> (they will see this message)</span>
+                  </label>
+                  <textarea
+                    value={revisionMessage}
+                    onChange={e => setRevisionMessage(e.target.value)}
+                    placeholder="Example: Please add all previous employers from the past 3 years (we only see one listed)."
+                    rows={4}
+                    maxLength={2000}
+                    className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-gold/30"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">{revisionMessage.length}/2000</p>
+                </div>
+                <div className="flex gap-3">
+                  <Button variant="outline" onClick={() => { setConfirmAction(null); setRevisionMessage(''); }} className="flex-1" disabled={loading}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => handleAction('revise')}
+                    disabled={loading || revisionMessage.trim().length < 10}
+                    className="flex-1 bg-status-progress text-white hover:bg-status-progress/90"
+                  >
+                    {loading ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...</>
+                    ) : (
+                      <>Send to applicant</>
+                    )}
+                  </Button>
+                </div>
+              </div>
             ) : (
               <div className="space-y-3">
                 <div className={`rounded-lg p-4 border ${confirmAction === 'approve' ? 'bg-status-complete/10 border-status-complete/30' : 'bg-destructive/10 border-destructive/30'}`}>
