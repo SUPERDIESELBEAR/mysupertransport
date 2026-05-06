@@ -234,7 +234,44 @@ export function OperatorBroadcast() {
   };
 
   const handleSend = () => invokeBroadcast('send');
-  const handleSaveDraft = () => invokeBroadcast('draft');
+  const handleSaveDraft = async () => {
+    // Cancel any pending auto-save so we don't double-write.
+    if (autoSaveTimer.current) {
+      clearTimeout(autoSaveTimer.current);
+      autoSaveTimer.current = null;
+    }
+    if (!subject.trim() && !body.trim()) {
+      toast({ title: 'Nothing to save', description: 'Add a subject or message first.', variant: 'destructive' });
+      return;
+    }
+    setAutoSaveStatus('saving');
+    setSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-operator-broadcast', {
+        body: {
+          mode: 'draft',
+          broadcastId: editingId ?? undefined,
+          subject: subject.trim(),
+          body: body.trim(),
+          ctaLabel: ctaLabel.trim() || undefined,
+          ctaUrl: ctaUrl.trim() || undefined,
+          operatorIds: excludedIds.size > 0 ? includedIds() : undefined,
+        },
+      });
+      if (error) throw error;
+      const newId = (data as any)?.broadcastId ?? (data as any)?.id;
+      if (!editingId && newId) setEditingId(newId);
+      setAutoSaveStatus('saved');
+      setLastSavedAt(new Date());
+      toast({ title: 'Draft saved', description: 'Your changes are safe.' });
+      loadAll();
+    } catch (e: any) {
+      setAutoSaveStatus('error');
+      toast({ title: 'Save failed', description: e?.message ?? String(e), variant: 'destructive' });
+    } finally {
+      setSending(false);
+    }
+  };
   const handleSchedule = () => {
     if (!scheduleDate || !scheduleTime) {
       toast({ title: 'Pick a date and time', variant: 'destructive' });
