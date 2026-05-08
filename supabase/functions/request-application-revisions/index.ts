@@ -145,6 +145,26 @@ serve(async (req) => {
       console.error('request-application-revisions token insert error:', tokErr);
     }
 
+    // Audit log entry
+    const { error: auditErr } = await admin
+      .from('audit_log')
+      .insert({
+        actor_id: userId,
+        actor_name: staffName,
+        action: 'application_revisions_requested',
+        entity_type: 'application',
+        entity_id: applicationId,
+        entity_label: [app.first_name, app.email].filter(Boolean).join(' — '),
+        metadata: {
+          message,
+          revision_count: (app.revision_count ?? 0) + 1,
+          previous_status: app.review_status,
+        },
+      });
+    if (auditErr) {
+      console.error('request-application-revisions audit insert error:', auditErr);
+    }
+
     const resumeUrl = `${appUrl.replace(/\/$/, '')}/apply?resume=${encodeURIComponent(tok)}`;
 
     if (resendKey) {
