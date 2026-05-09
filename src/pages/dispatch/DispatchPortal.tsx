@@ -1099,42 +1099,124 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
         </div>
       </div>
 
-      {/* ── Truck Down Alert Banner ── */}
-      {counts.truck_down > 0 && !loading && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 animate-fade-in">
-          <div className="flex items-center gap-2 shrink-0">
-            <Siren className="h-4 w-4 text-destructive animate-pulse shrink-0" />
-            <span className="text-sm font-bold text-destructive">
-              {counts.truck_down === 1 ? '1 Truck Down' : `${counts.truck_down} Trucks Down`}
-            </span>
-            <span className="text-destructive/60 text-xs hidden sm:inline">—</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {rows
-              .filter(r => r.dispatch_status === 'truck_down')
-              .map(r => {
-                const name = `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || 'Unknown';
-                const unit = r.unit_number ? ` · ${r.unit_number}` : '';
-                return (
-                  <button
-                    key={r.operator_id}
-                    onClick={() => scrollToCard(r.operator_id)}
-                    className="flex items-center gap-1.5 bg-destructive/15 hover:bg-destructive/25 border border-destructive/30 rounded-lg px-2.5 py-1 text-xs font-semibold text-destructive transition-colors"
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
-                    {name}{unit}
-                  </button>
-                );
-              })}
-          </div>
-          <button
-            onClick={() => { setActiveTab('truck_down'); }}
-            className="text-xs text-destructive/70 hover:text-destructive underline underline-offset-2 shrink-0 ml-auto hidden sm:block"
-          >
-            View all
-          </button>
-        </div>
-      )}
+      {/* ── Status Alerts (Trucks Down / Home / Not Dispatched) ── */}
+      {!loading && (counts.truck_down + counts.home + counts.not_dispatched > 0) && (() => {
+        const ribbons: Array<{
+          key: DispatchStatusType;
+          label: string;
+          singularLabel: string;
+          pluralLabel: string;
+          icon: JSX.Element;
+          headerIcon: JSX.Element;
+          containerClass: string;
+          textClass: string;
+          chipClass: string;
+          dotClass: string;
+          linkClass: string;
+        }> = [
+          {
+            key: 'truck_down',
+            label: 'Trucks Down',
+            singularLabel: '1 Truck Down',
+            pluralLabel: `${counts.truck_down} Trucks Down`,
+            icon: <Siren className="h-4 w-4 text-destructive animate-pulse shrink-0" />,
+            headerIcon: <AlertTriangle className="h-3.5 w-3.5 text-destructive" />,
+            containerClass: 'bg-destructive/10 border-destructive/30',
+            textClass: 'text-destructive',
+            chipClass: 'bg-destructive/15 hover:bg-destructive/25 border-destructive/30 text-destructive',
+            dotClass: 'bg-destructive',
+            linkClass: 'text-destructive/70 hover:text-destructive',
+          },
+          {
+            key: 'home',
+            label: 'Home',
+            singularLabel: '1 Home',
+            pluralLabel: `${counts.home} Home`,
+            icon: <Home className="h-4 w-4 text-status-progress shrink-0" />,
+            headerIcon: <Home className="h-3.5 w-3.5 text-status-progress" />,
+            containerClass: 'bg-status-progress/10 border-status-progress/30',
+            textClass: 'text-status-progress',
+            chipClass: 'bg-status-progress/15 hover:bg-status-progress/25 border-status-progress/30 text-status-progress',
+            dotClass: 'bg-status-progress',
+            linkClass: 'text-status-progress/70 hover:text-status-progress',
+          },
+          {
+            key: 'not_dispatched',
+            label: 'Not Dispatched',
+            singularLabel: '1 Not Dispatched',
+            pluralLabel: `${counts.not_dispatched} Not Dispatched`,
+            icon: <Truck className="h-4 w-4 text-muted-foreground shrink-0" />,
+            headerIcon: <Truck className="h-3.5 w-3.5 text-muted-foreground" />,
+            containerClass: 'bg-muted/40 border-border',
+            textClass: 'text-foreground',
+            chipClass: 'bg-white hover:bg-muted/60 border-border text-foreground',
+            dotClass: 'bg-muted-foreground',
+            linkClass: 'text-muted-foreground hover:text-foreground',
+          },
+        ];
+        const visible = ribbons.filter(r => counts[r.key] > 0);
+        return (
+          <Collapsible open={statusAlertsOpen} onOpenChange={setStatusAlertsOpen}
+            className="bg-white border border-border rounded-xl shadow-sm animate-fade-in">
+            <CollapsibleTrigger className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors rounded-xl">
+              <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                <span className="text-sm font-semibold text-foreground">Status Alerts</span>
+                <span className="text-muted-foreground text-xs">·</span>
+                {visible.map((r, i) => (
+                  <span key={r.key} className="flex items-center gap-1.5 text-xs font-medium">
+                    {r.headerIcon}
+                    <span className={r.textClass}>{counts[r.key]} {r.label}</span>
+                    {i < visible.length - 1 && <span className="text-muted-foreground ml-1.5">·</span>}
+                  </span>
+                ))}
+              </div>
+              {statusAlertsOpen
+                ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="px-3 pb-3 pt-1 space-y-2">
+                {visible.map(ribbon => (
+                  <div key={ribbon.key}
+                    className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 border rounded-lg px-3 py-2.5 ${ribbon.containerClass}`}>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {ribbon.icon}
+                      <span className={`text-sm font-bold ${ribbon.textClass}`}>
+                        {counts[ribbon.key] === 1 ? ribbon.singularLabel : ribbon.pluralLabel}
+                      </span>
+                      <span className={`${ribbon.textClass} opacity-60 text-xs hidden sm:inline`}>—</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {rows
+                        .filter(r => r.dispatch_status === ribbon.key)
+                        .map(r => {
+                          const name = `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || 'Unknown';
+                          const unit = r.unit_number ? ` · ${r.unit_number}` : '';
+                          return (
+                            <button
+                              key={r.operator_id}
+                              onClick={() => scrollToCard(r.operator_id)}
+                              className={`flex items-center gap-1.5 border rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${ribbon.chipClass}`}
+                            >
+                              <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${ribbon.dotClass}`} />
+                              {name}{unit}
+                            </button>
+                          );
+                        })}
+                    </div>
+                    <button
+                      onClick={() => { setActiveTab(ribbon.key); }}
+                      className={`text-xs underline underline-offset-2 shrink-0 ml-auto hidden sm:block ${ribbon.linkClass}`}
+                    >
+                      View all
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        );
+      })()}
 
       {/* KPI cards — 2-col on mobile (5 items → 2+2+1 centred last row), 3-col sm, 5-col lg */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
