@@ -1,42 +1,55 @@
-## Add Home & Not Dispatched ribbons in a collapsible section
+## Add "days in status" to Trucks Down, Home, and Not Dispatched
 
 ### What changes
 
-In `src/pages/dispatch/DispatchPortal.tsx`, replace the standalone Truck Down banner (lines ~1088–1123) with a single collapsible "Status Alerts" section that stacks three ribbons in this order:
+In `src/pages/dispatch/DispatchPortal.tsx`, compute how long each driver has been in their current status, then surface that duration on the three ribbon chips and on the matching driver cards. Sort each ribbon and the card list (within those three statuses) by longest streak first.
 
-1. **Trucks Down** — destructive red (existing styling preserved)
-2. **Home** — `status-progress` color, `Home` icon
-3. **Not Dispatched** — muted neutral, `Truck` icon
+### Data source
 
-### Behavior
+- Use `dispatch_status_history` (already queried). For each operator, the streak start = the earliest `changed_at` in the most recent contiguous run where `dispatch_status` equals their current status.
+- Algorithm per operator: walk history rows newest → oldest; the streak start is the `changed_at` of the oldest row whose status matches the current status before the chain breaks.
+- Fallback when no history rows exist for the operator: use `active_dispatch.updated_at`. If that is also missing, show no duration (omit the badge).
+- Recompute whenever `rows` or the history dataset changes; the existing realtime subscriptions on `active_dispatch` and `dispatch_status_history` already trigger this.
 
-- **Section header** shows a summary like `Status Alerts · 2 down · 5 home · 8 not dispatched` and a chevron toggle.
-- **Default state:** expanded when `truck_down > 0`, otherwise collapsed. Persist user's choice in `localStorage` under `dispatch_status_ribbons_open` so it survives reloads/realtime updates.
-- **Each ribbon** keeps the existing Truck Down pattern: icon + count label on the left, wrap-flex of clickable name/unit chips that call `scrollToCard(operator_id)`, and a "View all" link on the right that switches `activeTab` to that status.
-- **Hide an individual ribbon** when its count is 0 (e.g. no Home drivers → no Home ribbon). Hide the entire section only when all three counts are 0.
-- Truck Down ribbon retains the pulsing siren and red theming; the others use calmer styling (no pulse) but the same row layout.
+### Display format (smart short)
+
+- Less than 24 hours since streak start: `Today` (with hover tooltip showing exact start timestamp in US Central time).
+- 1–6 days: `Xd` (e.g., `3d`).
+- 7+ days: `Xw Yd` (e.g., `2w 3d`); omit the day part when 0 (`2w`).
+- Tooltip on every badge shows the full streak start in US Central, e.g., `Since May 6, 2026 8:14 AM CT`.
+
+### Visual treatment
+
+- Ribbon chips: append the duration to the right of the existing name/unit text, separated by a thin divider dot, e.g. `Smith·12 · 3d`. Use the chip's existing tone (no new color), but render the duration in a slightly muted weight so the name stays primary.
+- Driver cards (only for cards whose status is `truck_down`, `home`, or `not_dispatched`): add a small inline badge next to the existing status badge, e.g., `Truck Down · 5d`. Use the same tone classes already applied to that status (destructive / status-progress / muted) so it reads as part of the status, not a new field.
+- Cards in `dispatched` status are unaffected.
+
+### Sorting
+
+- Within each of the three ribbons, sort chips by streak length descending; ties break by operator last name ascending.
+- In the main card grid, extend the existing priority sort: keep the status order (`truck_down → not_dispatched → home → dispatched`), but inside each of the three flagged statuses, sort by streak length descending (ties → last name). `dispatched` keeps its current ordering.
 
 ### Visual layout
 
 ```text
-┌────────────────────────────────────────────────────┐
-│ ▾ Status Alerts · 2 down · 5 home · 8 not dispatched│
-├────────────────────────────────────────────────────┤
-│ 🚨 2 Trucks Down — [Smith·12] [Jones·07]   View all│
-│ 🏠 5 Home          — [chip] [chip] …       View all│
-│ 🚚 8 Not Dispatched— [chip] [chip] …       View all│
-└────────────────────────────────────────────────────┘
+Status Alerts · 2 down · 5 home · 8 not dispatched          [v]
+  2 Trucks Down   [Smith·12 · 5d]  [Jones·07 · 2d]              View all
+  5 Home          [Lopez·22 · 1w 2d]  [Patel·18 · 4d]  ...      View all
+  8 Not Dispatched[Nguyen·05 · 9d]  [Khan·14 · 3d]  ...         View all
 ```
 
-### Implementation notes
+### Implementation notes (technical)
 
-- Extract a small `StatusRibbon` sub-component inside the same file (kept local — only used here) that takes `{ key, label, count, icon, tone, rows, onViewAll }` to avoid copy-pasting the chip row three times.
-- Tone map: `truck_down` → destructive, `home` → status-progress, `not_dispatched` → muted/border.
-- Use the existing shadcn `Collapsible` (`@/components/ui/collapsible`) for the wrapper, matching the rest of the app's pattern.
-- No changes to data fetching, KPI cards, filter tabs, realtime, chime, or row rendering.
+- Add a helper `computeStreaks(history, rows): Map<operatorId, { since: Date }>` that runs once per render of the derived data and is memoized with `useMemo` keyed on `history` length + `rows.map(r => r.id+r.dispatch_status).join()`.
+- Add a `formatStreak(since: Date): { short: string; tooltip: string }` util colocated in the file.
+- Extend the chip render in the existing ribbon loop to render `{name}·{unit} · {streak.short}` with a `title={streak.tooltip}` attribute (or `Tooltip` if already used nearby — use plain `title` to avoid new imports).
+- Add a `streakBadge` next to the card status badge in the existing card render block; only render when the card's status is one of the three flagged values and a streak exists.
+- Update the existing card sort comparator to break ties within the three flagged statuses by `streakSince` ascending (older = longer = first).
+- No changes to data fetching beyond what is already loaded; no schema changes; no edge function or DB changes.
 
 ### Out of scope
 
-- KPI cards row (lines ~1125+) stays as-is.
-- No changes to the per-card status badges, edit panel, or operator detail dialog.
-- No new statuses, no DB or edge-function changes.
+- "Days in status" for `dispatched` cards.
+- Persisting or displaying historical streaks (previous runs).
+- Alert thresholds, color escalation by age, or notifications based on streak length.
+- Changes to the collapsible header summary line, KPI cards, edit panel, or detail dialog.
