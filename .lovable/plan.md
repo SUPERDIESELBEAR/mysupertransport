@@ -1,34 +1,42 @@
-## Store deferred "Preview as Operator" feature in memory
+## Add Home & Not Dispatched ribbons in a collapsible section
 
-### 1. Create `mem://features/_backlog/preview-as-operator.md`
+### What changes
 
-Frontmatter:
-- `name`: Preview as Operator (deferred)
-- `description`: Deferred enhancement to PwaReminderPreviewModal — personalize in-app + email preview with operator name and binder link
-- `type`: feature
+In `src/pages/dispatch/DispatchPortal.tsx`, replace the standalone Truck Down banner (lines ~1088–1123) with a single collapsible "Status Alerts" section that stacks three ribbons in this order:
 
-Body covers:
-- **Status:** Deferred 2026-05-09 — not rejected, revisit later.
-- **Idea:** Add an operator picker / toggle to `src/components/management/PwaReminderPreviewModal.tsx` so staff can preview the personalized in-app notification and email for a specific operator instead of the generic version.
-- **Tokens considered:** `{{first_name}}`, `{{full_name}}`, `{{unit_number}}`, `{{binder_link}}` (`${APP_URL}/operator?tab=inspection-binder`), `{{coordinator_name}}`, `{{support_email}}`.
-- **Scope options:**
-  - *Light:* first_name + binder_link only.
-  - *Full:* first_name, full_name, unit_number, binder_link, coordinator_name, support_email.
-- **Architecture note:** Add `renderPwaReminder(operator?)` to `src/lib/pwaReminderContent.ts` returning `{ inAppTitle, inAppBody, emailSubject, emailHeading, emailHtml }`. Mirror the same merge logic in `supabase/functions/notify-pwa-install/index.ts` (no cross-import from `src/` in Deno) so preview = what is actually sent.
-- **Recommendation:** Apply personalization to both preview AND the real send (otherwise preview misleads).
-- **Out of scope:** SMS channel, cadence changes, hard Drive cutoff date.
+1. **Trucks Down** — destructive red (existing styling preserved)
+2. **Home** — `status-progress` color, `Home` icon
+3. **Not Dispatched** — muted neutral, `Truck` icon
 
-### 2. Update `mem://index.md`
+### Behavior
 
-Add a new section after `## Memories`:
+- **Section header** shows a summary like `Status Alerts · 2 down · 5 home · 8 not dispatched` and a chevron toggle.
+- **Default state:** expanded when `truck_down > 0`, otherwise collapsed. Persist user's choice in `localStorage` under `dispatch_status_ribbons_open` so it survives reloads/realtime updates.
+- **Each ribbon** keeps the existing Truck Down pattern: icon + count label on the left, wrap-flex of clickable name/unit chips that call `scrollToCard(operator_id)`, and a "View all" link on the right that switches `activeTab` to that status.
+- **Hide an individual ribbon** when its count is 0 (e.g. no Home drivers → no Home ribbon). Hide the entire section only when all three counts are 0.
+- Truck Down ribbon retains the pulsing siren and red theming; the others use calmer styling (no pulse) but the same row layout.
 
+### Visual layout
+
+```text
+┌────────────────────────────────────────────────────┐
+│ ▾ Status Alerts · 2 down · 5 home · 8 not dispatched│
+├────────────────────────────────────────────────────┤
+│ 🚨 2 Trucks Down — [Smith·12] [Jones·07]   View all│
+│ 🏠 5 Home          — [chip] [chip] …       View all│
+│ 🚚 8 Not Dispatched— [chip] [chip] …       View all│
+└────────────────────────────────────────────────────┘
 ```
-## Backlog / Deferred
-- [Preview as Operator](mem://features/_backlog/preview-as-operator) — Personalize PWA reminder preview (and send) per operator
-```
 
-Preserve all existing Core and Memories content verbatim (code--write replaces the whole file).
+### Implementation notes
+
+- Extract a small `StatusRibbon` sub-component inside the same file (kept local — only used here) that takes `{ key, label, count, icon, tone, rows, onViewAll }` to avoid copy-pasting the chip row three times.
+- Tone map: `truck_down` → destructive, `home` → status-progress, `not_dispatched` → muted/border.
+- Use the existing shadcn `Collapsible` (`@/components/ui/collapsible`) for the wrapper, matching the rest of the app's pattern.
+- No changes to data fetching, KPI cards, filter tabs, realtime, chime, or row rendering.
 
 ### Out of scope
-- No code changes to components, edge functions, or DB.
-- No changes to the active `mem://features/pwa-install-reminders.md` entry.
+
+- KPI cards row (lines ~1125+) stays as-is.
+- No changes to the per-card status badges, edit panel, or operator detail dialog.
+- No new statuses, no DB or edge-function changes.
