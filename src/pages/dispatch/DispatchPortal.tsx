@@ -311,9 +311,11 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // ── Streak fetch: for each flagged-status operator, find the earliest changed_at
-  // in the most recent contiguous run where the historical status equals the current one.
-  // Falls back to active_dispatch.updated_at when no history rows exist.
+  // ── Streak fetch: dispatch_daily_log is the source of truth (used by the
+  // calendar). For each flagged-status operator, walk daily rows newest →
+  // oldest from today (US Central) and count consecutive same-status days
+  // with no gaps. Falls back to dispatch_status_history / active_dispatch
+  // when no daily_log rows exist.
   useEffect(() => {
     const flagged = rows.filter(r =>
       r.dispatch_status === 'truck_down' ||
@@ -327,29 +329,89 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
     let cancelled = false;
     (async () => {
       const ids = flagged.map(r => r.operator_id);
-      const { data } = await supabase
-        .from('dispatch_status_history' as any)
-        .select('operator_id, dispatch_status, changed_at')
+
+      // Today in US Central as YYYY-MM-DD (sv-SE locale yields ISO date format).
+      const todayCT = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Chicago' });
+      const todayMs = new Date(`${todayCT}T12:00:00`).getTime();
+      // 365-day lookback floor.
+      const floorMs = todayMs - 365 * 86_400_000;
+      const floorStr = new Date(floorMs).toISOString().slice(0, 10);
+
+      // Primary source: dispatch_daily_log.
+      const { data: logRows } = await supabase
+        .from('dispatch_daily_log')
+        .select('operator_id, log_date, status')
         .in('operator_id', ids)
-        .order('changed_at', { ascending: false });
+        .gte('log_date', floorStr)
+        .lte('log_date', todayCT)
+        .order('log_date', { ascending: false });
       if (cancelled) return;
-      // Group history by operator (newest first)
-      const grouped: Record<string, Array<{ status: DispatchStatusType; changed_at: string }>> = {};
-      (data as any[] | null ?? []).forEach(e => {
-        (grouped[e.operator_id] ||= []).push({ status: e.dispatch_status, changed_at: e.changed_at });
+
+      const groupedLogs: Record<string, Array<{ log_date: string; status: DispatchStatusType }>> = {};
+      (logRows as any[] | null ?? []).forEach(e => {
+        (groupedLogs[e.operator_id] ||= []).push({ log_date: e.log_date, status: e.status });
       });
-      const next: Record<string, string> = {};
+
+      const next: Record<string, { days: number; since: string }> = {};
+      const needFallback: string[] = [];
+
       for (const r of flagged) {
-        const hist = grouped[r.operator_id] ?? [];
-        let streakStart: string | null = null;
-        // Walk newest → oldest while status matches current.
+        const hist = groupedLogs[r.operator_id] ?? [];
+        if (hist.length === 0) { needFallback.push(r.operator_id); continue; }
+
+        // Walk newest → oldest from today, counting unbroken matching days.
+        let cursorMs = todayMs;
+        let earliest: string | null = null;
+        let count = 0;
         for (const entry of hist) {
-          if (entry.status === r.dispatch_status) streakStart = entry.changed_at;
-          else break;
+          const entryMs = new Date(`${entry.log_date}T12:00:00`).getTime();
+          if (entryMs > cursorMs) continue; // future relative to cursor — skip
+          if (entryMs < cursorMs) {
+            // Gap: streak broken if we already started counting.
+            if (count > 0) break;
+            // No log yet for today — allow starting from the most recent past row.
+            cursorMs = entryMs;
+          }
+          if (entry.status !== r.dispatch_status) break;
+          earliest = entry.log_date;
+          count += 1;
+          cursorMs = entryMs - 86_400_000;
         }
-        if (!streakStart) streakStart = r.updated_at;
-        if (streakStart) next[r.operator_id] = streakStart;
+        if (earliest && count > 0) {
+          next[r.operator_id] = { days: count, since: earliest };
+        } else {
+          needFallback.push(r.operator_id);
+        }
       }
+
+      // Fallback: dispatch_status_history → active_dispatch.updated_at.
+      if (needFallback.length > 0) {
+        const { data: histRows } = await supabase
+          .from('dispatch_status_history' as any)
+          .select('operator_id, dispatch_status, changed_at')
+          .in('operator_id', needFallback)
+          .order('changed_at', { ascending: false });
+        if (cancelled) return;
+        const groupedHist: Record<string, Array<{ status: DispatchStatusType; changed_at: string }>> = {};
+        (histRows as any[] | null ?? []).forEach(e => {
+          (groupedHist[e.operator_id] ||= []).push({ status: e.dispatch_status, changed_at: e.changed_at });
+        });
+        for (const opId of needFallback) {
+          const r = flagged.find(x => x.operator_id === opId)!;
+          const h = groupedHist[opId] ?? [];
+          let startIso: string | null = null;
+          for (const entry of h) {
+            if (entry.status === r.dispatch_status) startIso = entry.changed_at;
+            else break;
+          }
+          if (!startIso) startIso = r.updated_at;
+          if (!startIso) continue;
+          const startMs = new Date(startIso).getTime();
+          const days = Math.max(1, Math.floor((todayMs - startMs) / 86_400_000) + 1);
+          next[opId] = { days, since: startIso.slice(0, 10) };
+        }
+      }
+
       setStreakMap(next);
     })();
     return () => { cancelled = true; };
