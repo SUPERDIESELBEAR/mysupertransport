@@ -117,6 +117,32 @@ const STATUS_CONFIG: Record<DispatchStatusType, {
   },
 };
 
+// Smart short formatter for status streak duration.
+// <24h → "Today" · 1–6 days → "Xd" · 7+ days → "Xw" or "Xw Yd".
+// Tooltip shows the exact streak start in US Central time.
+function formatStreak(sinceIso: string | null | undefined): { short: string; tooltip: string } | null {
+  if (!sinceIso) return null;
+  const since = new Date(sinceIso);
+  if (isNaN(since.getTime())) return null;
+  const ms = Date.now() - since.getTime();
+  if (ms < 0) return null;
+  const days = Math.floor(ms / 86_400_000);
+  let short: string;
+  if (days < 1) short = 'Today';
+  else if (days < 7) short = `${days}d`;
+  else {
+    const w = Math.floor(days / 7);
+    const d = days % 7;
+    short = d === 0 ? `${w}w` : `${w}w ${d}d`;
+  }
+  const tooltip = `Since ${since.toLocaleString('en-US', {
+    timeZone: 'America/Chicago',
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  })} CT`;
+  return { short, tooltip };
+}
+
 interface DispatchPortalProps {
   embedded?: boolean;
   defaultFilter?: FilterTab;
@@ -217,6 +243,16 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
     try { localStorage.setItem('dispatch_status_ribbons_open', String(statusAlertsOpen)); } catch {}
   }, [statusAlertsOpen]);
 
+  // ── Streak map: operator_id → ISO timestamp of when current status streak started ──
+  // Only computed for operators currently in truck_down / home / not_dispatched.
+  const [streakMap, setStreakMap] = useState<Record<string, string>>({});
+  // Re-render every minute so "Today" → "1d" etc. tick over without a refresh.
+  const [, setStreakTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setStreakTick(n => n + 1), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
   // Keep rowsRef in sync so realtime callbacks can access current operator info
   useEffect(() => { rowsRef.current = rows; }, [rows]);
 
@@ -274,6 +310,50 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  // ── Streak fetch: for each flagged-status operator, find the earliest changed_at
+  // in the most recent contiguous run where the historical status equals the current one.
+  // Falls back to active_dispatch.updated_at when no history rows exist.
+  useEffect(() => {
+    const flagged = rows.filter(r =>
+      r.dispatch_status === 'truck_down' ||
+      r.dispatch_status === 'home' ||
+      r.dispatch_status === 'not_dispatched'
+    );
+    if (flagged.length === 0) {
+      setStreakMap({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const ids = flagged.map(r => r.operator_id);
+      const { data } = await supabase
+        .from('dispatch_status_history' as any)
+        .select('operator_id, dispatch_status, changed_at')
+        .in('operator_id', ids)
+        .order('changed_at', { ascending: false });
+      if (cancelled) return;
+      // Group history by operator (newest first)
+      const grouped: Record<string, Array<{ status: DispatchStatusType; changed_at: string }>> = {};
+      (data as any[] | null ?? []).forEach(e => {
+        (grouped[e.operator_id] ||= []).push({ status: e.dispatch_status, changed_at: e.changed_at });
+      });
+      const next: Record<string, string> = {};
+      for (const r of flagged) {
+        const hist = grouped[r.operator_id] ?? [];
+        let streakStart: string | null = null;
+        // Walk newest → oldest while status matches current.
+        for (const entry of hist) {
+          if (entry.status === r.dispatch_status) streakStart = entry.changed_at;
+          else break;
+        }
+        if (!streakStart) streakStart = r.updated_at;
+        if (streakStart) next[r.operator_id] = streakStart;
+      }
+      setStreakMap(next);
+    })();
+    return () => { cancelled = true; };
+  }, [rows]);
 
 
   const scrollToCard = useCallback((operatorId: string) => {
@@ -822,10 +902,21 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
       const dNameB = b.assigned_dispatcher ? (dispatcherNames[b.assigned_dispatcher] ?? '') : '\uffff';
       const cmp = dNameA.localeCompare(dNameB);
       if (cmp !== 0) return cmp;
+      // For flagged statuses, longest streak first (older start = first); else last name.
+      const flagged = (s: DispatchStatusType) => s === 'truck_down' || s === 'home' || s === 'not_dispatched';
+      if (a.dispatch_status === b.dispatch_status && flagged(a.dispatch_status)) {
+        const sa = streakMap[a.operator_id];
+        const sb = streakMap[b.operator_id];
+        if (sa && sb) {
+          const c = new Date(sa).getTime() - new Date(sb).getTime();
+          if (c !== 0) return c;
+        } else if (sa) return -1;
+        else if (sb) return 1;
+      }
       return (a.last_name ?? '').localeCompare(b.last_name ?? '');
     });
     return result;
-  }, [rows, activeTab, search, dispatcherFilter, session?.user?.id, dispatcherNames]);
+  }, [rows, activeTab, search, dispatcherFilter, session?.user?.id, dispatcherNames, streakMap]);
 
   const startEdit = (row: DispatchRow) => {
     setEditRow(row.operator_id);
@@ -1189,17 +1280,37 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                     <div className="flex flex-wrap gap-2">
                       {rows
                         .filter(r => r.dispatch_status === ribbon.key)
+                        .slice()
+                        .sort((a, b) => {
+                          const sa = streakMap[a.operator_id];
+                          const sb = streakMap[b.operator_id];
+                          // Older start = longer streak = first
+                          if (sa && sb) {
+                            const cmp = new Date(sa).getTime() - new Date(sb).getTime();
+                            if (cmp !== 0) return cmp;
+                          } else if (sa) return -1;
+                          else if (sb) return 1;
+                          return (a.last_name ?? '').localeCompare(b.last_name ?? '');
+                        })
                         .map(r => {
                           const name = `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || 'Unknown';
                           const unit = r.unit_number ? ` · ${r.unit_number}` : '';
+                          const streak = formatStreak(streakMap[r.operator_id]);
                           return (
                             <button
                               key={r.operator_id}
                               onClick={() => scrollToCard(r.operator_id)}
                               className={`flex items-center gap-1.5 border rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${ribbon.chipClass}`}
+                              title={streak?.tooltip}
                             >
                               <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${ribbon.dotClass}`} />
                               {name}{unit}
+                              {streak && (
+                                <>
+                                  <span className="opacity-50 mx-0.5">·</span>
+                                  <span className="font-normal opacity-80">{streak.short}</span>
+                                </>
+                              )}
                             </button>
                           );
                         })}
@@ -1427,6 +1538,18 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                         <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
                         {cfg.label}
                       </Badge>
+                      {(row.dispatch_status === 'truck_down' || row.dispatch_status === 'home' || row.dispatch_status === 'not_dispatched') && (() => {
+                        const streak = formatStreak(streakMap[row.operator_id]);
+                        if (!streak) return null;
+                        return (
+                          <span
+                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border shrink-0 ${cfg.badgeClass}`}
+                            title={streak.tooltip}
+                          >
+                            {streak.short}
+                          </span>
+                        );
+                      })()}
                       {/* Unlogged-days rollup chip — last 7 days, hidden when 0 */}
                       {!!unloggedCountMap[row.operator_id] && (
                         <span
@@ -1868,6 +1991,18 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                               <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
                               {cfg.label}
                             </Badge>
+                            {(row.dispatch_status === 'truck_down' || row.dispatch_status === 'home' || row.dispatch_status === 'not_dispatched') && (() => {
+                              const streak = formatStreak(streakMap[row.operator_id]);
+                              if (!streak) return null;
+                              return (
+                                <span
+                                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border w-fit ${cfg.badgeClass}`}
+                                  title={streak.tooltip}
+                                >
+                                  {streak.short}
+                                </span>
+                              );
+                            })()}
                             {!!unloggedCountMap[row.operator_id] && (
                               <span
                                 className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-400 w-fit"
