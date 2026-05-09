@@ -1269,17 +1269,37 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                     <div className="flex flex-wrap gap-2">
                       {rows
                         .filter(r => r.dispatch_status === ribbon.key)
+                        .slice()
+                        .sort((a, b) => {
+                          const sa = streakMap[a.operator_id];
+                          const sb = streakMap[b.operator_id];
+                          // Older start = longer streak = first
+                          if (sa && sb) {
+                            const cmp = new Date(sa).getTime() - new Date(sb).getTime();
+                            if (cmp !== 0) return cmp;
+                          } else if (sa) return -1;
+                          else if (sb) return 1;
+                          return (a.last_name ?? '').localeCompare(b.last_name ?? '');
+                        })
                         .map(r => {
                           const name = `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || 'Unknown';
                           const unit = r.unit_number ? ` · ${r.unit_number}` : '';
+                          const streak = formatStreak(streakMap[r.operator_id]);
                           return (
                             <button
                               key={r.operator_id}
                               onClick={() => scrollToCard(r.operator_id)}
                               className={`flex items-center gap-1.5 border rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${ribbon.chipClass}`}
+                              title={streak?.tooltip}
                             >
                               <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${ribbon.dotClass}`} />
                               {name}{unit}
+                              {streak && (
+                                <>
+                                  <span className="opacity-50 mx-0.5">·</span>
+                                  <span className="font-normal opacity-80">{streak.short}</span>
+                                </>
+                              )}
                             </button>
                           );
                         })}
