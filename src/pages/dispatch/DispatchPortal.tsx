@@ -902,10 +902,21 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
       const dNameB = b.assigned_dispatcher ? (dispatcherNames[b.assigned_dispatcher] ?? '') : '\uffff';
       const cmp = dNameA.localeCompare(dNameB);
       if (cmp !== 0) return cmp;
+      // For flagged statuses, longest streak first (older start = first); else last name.
+      const flagged = (s: DispatchStatusType) => s === 'truck_down' || s === 'home' || s === 'not_dispatched';
+      if (a.dispatch_status === b.dispatch_status && flagged(a.dispatch_status)) {
+        const sa = streakMap[a.operator_id];
+        const sb = streakMap[b.operator_id];
+        if (sa && sb) {
+          const c = new Date(sa).getTime() - new Date(sb).getTime();
+          if (c !== 0) return c;
+        } else if (sa) return -1;
+        else if (sb) return 1;
+      }
       return (a.last_name ?? '').localeCompare(b.last_name ?? '');
     });
     return result;
-  }, [rows, activeTab, search, dispatcherFilter, session?.user?.id, dispatcherNames]);
+  }, [rows, activeTab, search, dispatcherFilter, session?.user?.id, dispatcherNames, streakMap]);
 
   const startEdit = (row: DispatchRow) => {
     setEditRow(row.operator_id);
