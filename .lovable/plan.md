@@ -1,26 +1,39 @@
-# Fix: "Request Revisions" returns red error toast
+# PWA Install Reminder — Messaging Update
 
-## Root cause
-The `request-application-revisions` edge function source exists in the repo and is registered in `supabase/config.toml`, but it was never deployed to Lovable Cloud. A direct call returns:
+## Goal
+Refresh the install reminder content so it leads with the Google Drive → SUPERDRIVE migration message, warning drivers that the old Roadside Inspection binder in Google Drive will no longer be accessible. Keep current cadence (daily until installed) and current channels (in-app + email). SMS is deferred.
 
-```
-404 NOT_FOUND — "Requested function was not found"
-```
+## Scope
+- Edge function: `supabase/functions/notify-pwa-install/index.ts`
+  - Rewrite the in-app notification body (title + message) used in the cron and manual flows.
+  - Rewrite the email subject + HTML body, keeping the existing iPhone (Safari) / Android (Chrome) install steps.
+  - Lead with the Drive deprecation warning; emphasize SUPERDRIVE as the new source for Roadside Inspection Binder docs.
+- No changes to:
+  - Cadence (daily cron + 24h cooldown remain as-is)
+  - Eligibility (active operators with `pwa_installed_at IS NULL`)
+  - SMS (not implemented in this round)
+  - Driver Hub manual reminder button (it already calls the same function and will pick up the new wording automatically)
 
-That's why staff see a red error the moment they click **Send to applicant** — the client invoke fails before any business logic runs. No code or schema change is needed; the function code itself is correct (auth via `getClaims`, multi-role check, status validation, audit notes, resume token, branded email).
+## Approved Wording
 
-## Fix
-Deploy the existing edge function:
+**In-app notification**
+- Title: `Action required: Install SUPERDRIVE`
+- Body: `The Roadside Inspection Binder is moving from Google Drive to SUPERDRIVE. Your existing Drive binder will no longer be updated or accessible. Install the SUPERDRIVE app now so you always have the latest inspection documents on hand. Tap for install instructions.`
 
-- `request-application-revisions`
+**Email**
+- Subject: `Install SUPERDRIVE — your Roadside Inspection Binder is moving`
+- Lead paragraph: `Your Roadside Inspection Binder is moving out of Google Drive and into SUPERDRIVE. The Drive copy will no longer be updated and will soon be inaccessible. To make sure you always have current inspection documents, install the SUPERDRIVE app today.`
+- Keep the existing iPhone (Safari → Share → Add to Home Screen) and Android (Chrome → menu → Install app / Add to Home screen) instruction blocks unchanged.
+- Closing line: `Once installed, SUPERDRIVE becomes your single, always-current source for Roadside Inspection Binder documents and other compliance items.`
 
-While we're at it, redeploy `invite-operator` too, since the recent re-approval/`skip_invite` changes rely on the latest version being live.
+## Out of Scope (deferred)
+- SMS channel (Twilio/Brevo)
+- Cadence changes / cap on total reminders
+- Hard cutoff date for Drive binder access (can be added later when finalized)
 
 ## Verification
-1. Re-call the function via the test tool — expect `401 unauthorized` (instead of `404`), confirming it's live.
-2. From Management Portal → Applications, open an applicant, click **Request Revisions**, enter a message, and click **Send to applicant** — expect the green "Revision request emailed to …" toast and the applicant's status to flip to `revisions_requested`.
-3. Confirm the email arrives with the secure 7-day resume link.
+- Trigger the manual "Send install reminder" button on a test operator from Driver Hub and confirm the new in-app notification text and email content.
+- Confirm 24h cooldown still blocks a second send within the window.
 
-## Notes
-- No DB migration needed — `pre_revision_status` column and enum values are already in place.
-- No frontend change needed.
+## Memory updates
+- Update `mem://features/pwa-install-reminders.md` to note the new messaging focus (Drive deprecation) and that SMS was considered and deferred.

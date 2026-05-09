@@ -73,8 +73,8 @@ Deno.serve(async (req) => {
       if (inAppEnabled) {
         await supabase.from('notifications').insert({
           user_id: op.user_id,
-          title: '📱 Install SUPERDRIVE on your phone',
-          body: 'SUPERDRIVE is now available as a standalone app! Install it on your phone for quick access to your portal, documents, and messages.',
+          title: 'Action required: Install SUPERDRIVE',
+          body: 'The Roadside Inspection Binder is moving from Google Drive to SUPERDRIVE. Your existing Drive binder will no longer be updated or accessible. Install the SUPERDRIVE app now so you always have the latest inspection documents on hand. Tap for install instructions.',
           type: 'pwa_install',
           channel: 'in_app',
           link: '/operator',
@@ -103,11 +103,11 @@ Deno.serve(async (req) => {
       }
 
       // Build and send email
-      const subject = '📱 Install SUPERDRIVE on Your Phone'
+      const subject = 'Install SUPERDRIVE — your Roadside Inspection Binder is moving'
       const body = `
-        <p>Great news! <strong>SUPERDRIVE</strong> is now available as a standalone app you can install directly on your phone — no app store needed.</p>
-        
-        <p>Once installed, SUPERDRIVE will appear on your home screen just like any other app, giving you instant access to your portal, documents, messages, and onboarding status.</p>
+        <p>Your <strong>Roadside Inspection Binder</strong> is moving out of <strong>Google Drive</strong> and into <strong>SUPERDRIVE</strong>. The Drive copy will no longer be updated and will soon be inaccessible.</p>
+
+        <p>To make sure you always have current inspection documents on hand, please install the <strong>SUPERDRIVE</strong> app today. It only takes a minute and works without an app store.</p>
 
         <div style="background:#f8f8f8;border-radius:10px;padding:24px;margin:24px 0;">
           <p style="margin:0 0 12px;font-weight:700;color:${BRAND_DARK};">📱 Android (Chrome)</p>
@@ -125,12 +125,13 @@ Deno.serve(async (req) => {
           </ol>
         </div>
 
+        <p>Once installed, <strong>SUPERDRIVE</strong> becomes your single, always-current source for Roadside Inspection Binder documents and other compliance items.</p>
         <p style="color:#666;font-size:14px;">After installing, you can open SUPERDRIVE from your home screen anytime — no need to open a browser first.</p>
       `
 
       const html = buildEmail(
         subject,
-        'Install SUPERDRIVE on Your Phone',
+        'Install SUPERDRIVE — Roadside Inspection Binder is moving',
         body,
         { label: 'Open SUPERDRIVE', url: APP_URL },
       )
