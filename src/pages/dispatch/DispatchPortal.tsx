@@ -204,6 +204,19 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
   // and respects each operator's go-live / legacy-cutoff anchor).
   const [unloggedCountMap, setUnloggedCountMap] = useState<Record<string, number>>({});
 
+  // Status Alerts collapsible (Trucks Down / Home / Not Dispatched ribbons)
+  const [statusAlertsOpen, setStatusAlertsOpen] = useState<boolean>(() => {
+    try {
+      const v = localStorage.getItem('dispatch_status_ribbons_open');
+      if (v === 'true') return true;
+      if (v === 'false') return false;
+    } catch {}
+    return true;
+  });
+  useEffect(() => {
+    try { localStorage.setItem('dispatch_status_ribbons_open', String(statusAlertsOpen)); } catch {}
+  }, [statusAlertsOpen]);
+
   // Keep rowsRef in sync so realtime callbacks can access current operator info
   useEffect(() => { rowsRef.current = rows; }, [rows]);
 
