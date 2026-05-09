@@ -10,10 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2, Copy, ArrowUpDown, ArrowUp, ArrowDown, Smartphone, Globe, UserX } from 'lucide-react';
+import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2, Copy, ArrowUpDown, ArrowUp, ArrowDown, Smartphone, Globe, UserX, Eye } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useComplianceWindow } from '@/hooks/useComplianceWindow';
 import { ComplianceWindowPicker } from '@/components/shared/ComplianceWindowPicker';
+import { PwaReminderPreviewModal } from '@/components/management/PwaReminderPreviewModal';
 
 interface DriverRow {
   operator_id: string;
@@ -390,6 +391,7 @@ export default function DriverRoster({
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   // Tracks operators currently receiving a SUPERDRIVE install reminder
   const [installSending, setInstallSending] = useState<Set<string>>(new Set());
+  const [installPreviewOpen, setInstallPreviewOpen] = useState(false);
 
   const handleSendInstallReminder = useCallback(async (operatorId: string, driverName: string) => {
     setInstallSending(prev => {
@@ -1084,6 +1086,7 @@ export default function DriverRoster({
                           </TooltipProvider>
                         )}
                         {!driver.pwa_installed_at && (
+                          <>
                           <TooltipProvider delayDuration={100}>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -1105,6 +1108,25 @@ export default function DriverRoster({
                               <TooltipContent>Send SUPERDRIVE install reminder (24h cooldown)</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
+                          <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setInstallPreviewOpen(true);
+                                  }}
+                                  className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                                  aria-label="Preview install reminder content"
+                                >
+                                  <Eye className="h-3 w-3" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>Preview the in-app + email reminder</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          </>
                         )}
                       </div>
                     </TableCell>
