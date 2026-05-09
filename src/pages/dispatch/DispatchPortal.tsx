@@ -241,9 +241,11 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
     try { localStorage.setItem('dispatch_status_ribbons_open', String(statusAlertsOpen)); } catch {}
   }, [statusAlertsOpen]);
 
-  // ── Streak map: operator_id → ISO timestamp of when current status streak started ──
-  // Only computed for operators currently in truck_down / home / not_dispatched.
-  const [streakMap, setStreakMap] = useState<Record<string, string>>({});
+  // ── Streak map: operator_id → { days, since } for current status ─────────
+  // Computed only for operators currently in truck_down / home / not_dispatched.
+  // `days` = consecutive calendar days in current status (sourced from
+  // dispatch_daily_log, the truth used by the calendar). `since` is YYYY-MM-DD.
+  const [streakMap, setStreakMap] = useState<Record<string, { days: number; since: string }>>({});
   // Re-render every minute so "Today" → "1d" etc. tick over without a refresh.
   const [, setStreakTick] = useState(0);
   useEffect(() => {
