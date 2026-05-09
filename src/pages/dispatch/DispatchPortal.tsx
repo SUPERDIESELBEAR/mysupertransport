@@ -970,7 +970,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
         const sa = streakMap[a.operator_id];
         const sb = streakMap[b.operator_id];
         if (sa && sb) {
-          const c = new Date(sa).getTime() - new Date(sb).getTime();
+          const c = sb.days - sa.days; // more days = first
           if (c !== 0) return c;
         } else if (sa) return -1;
         else if (sb) return 1;
