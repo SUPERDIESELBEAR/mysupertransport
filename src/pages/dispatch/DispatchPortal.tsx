@@ -1346,9 +1346,8 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                         .sort((a, b) => {
                           const sa = streakMap[a.operator_id];
                           const sb = streakMap[b.operator_id];
-                          // Older start = longer streak = first
                           if (sa && sb) {
-                            const cmp = new Date(sa).getTime() - new Date(sb).getTime();
+                            const cmp = sb.days - sa.days; // more days = first
                             if (cmp !== 0) return cmp;
                           } else if (sa) return -1;
                           else if (sb) return 1;
