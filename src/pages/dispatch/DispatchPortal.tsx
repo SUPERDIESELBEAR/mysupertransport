@@ -285,6 +285,50 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
     return () => { supabase.removeChannel(channel); };
   }, []);
 
+  // ── Streak fetch: for each flagged-status operator, find the earliest changed_at
+  // in the most recent contiguous run where the historical status equals the current one.
+  // Falls back to active_dispatch.updated_at when no history rows exist.
+  useEffect(() => {
+    const flagged = rows.filter(r =>
+      r.dispatch_status === 'truck_down' ||
+      r.dispatch_status === 'home' ||
+      r.dispatch_status === 'not_dispatched'
+    );
+    if (flagged.length === 0) {
+      setStreakMap({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const ids = flagged.map(r => r.operator_id);
+      const { data } = await supabase
+        .from('dispatch_status_history' as any)
+        .select('operator_id, dispatch_status, changed_at')
+        .in('operator_id', ids)
+        .order('changed_at', { ascending: false });
+      if (cancelled) return;
+      // Group history by operator (newest first)
+      const grouped: Record<string, Array<{ status: DispatchStatusType; changed_at: string }>> = {};
+      (data as any[] | null ?? []).forEach(e => {
+        (grouped[e.operator_id] ||= []).push({ status: e.dispatch_status, changed_at: e.changed_at });
+      });
+      const next: Record<string, string> = {};
+      for (const r of flagged) {
+        const hist = grouped[r.operator_id] ?? [];
+        let streakStart: string | null = null;
+        // Walk newest → oldest while status matches current.
+        for (const entry of hist) {
+          if (entry.status === r.dispatch_status) streakStart = entry.changed_at;
+          else break;
+        }
+        if (!streakStart) streakStart = r.updated_at;
+        if (streakStart) next[r.operator_id] = streakStart;
+      }
+      setStreakMap(next);
+    })();
+    return () => { cancelled = true; };
+  }, [rows]);
+
 
   const scrollToCard = useCallback((operatorId: string) => {
     // Switch to cards view if in table mode
