@@ -1279,6 +1279,7 @@ export default function DriverRoster({
           </Table>
         </div>
       )}
+      <PwaReminderPreviewModal open={installPreviewOpen} onOpenChange={setInstallPreviewOpen} />
     </div>
   );
 }
