@@ -117,29 +117,27 @@ const STATUS_CONFIG: Record<DispatchStatusType, {
   },
 };
 
-// Smart short formatter for status streak duration.
-// <24h → "Today" · 1–6 days → "Xd" · 7+ days → "Xw" or "Xw Yd".
-// Tooltip shows the exact streak start in US Central time.
-function formatStreak(sinceIso: string | null | undefined): { short: string; tooltip: string } | null {
-  if (!sinceIso) return null;
-  const since = new Date(sinceIso);
-  if (isNaN(since.getTime())) return null;
-  const ms = Date.now() - since.getTime();
-  if (ms < 0) return null;
-  const days = Math.floor(ms / 86_400_000);
+// Smart short formatter for a status streak length expressed in calendar days.
+// 1–6 days → "Xd" · 7+ days → "Xw" or "Xw Yd".
+// Tooltip shows the streak start date in US Central plus the total day count.
+function formatStreak(entry: { days: number; since: string } | null | undefined):
+  { short: string; tooltip: string } | null {
+  if (!entry || !Number.isFinite(entry.days) || entry.days < 1) return null;
+  const { days, since } = entry;
   let short: string;
-  if (days < 1) short = 'Today';
-  else if (days < 7) short = `${days}d`;
+  if (days < 7) short = `${days}d`;
   else {
     const w = Math.floor(days / 7);
     const d = days % 7;
     short = d === 0 ? `${w}w` : `${w}w ${d}d`;
   }
-  const tooltip = `Since ${since.toLocaleString('en-US', {
+  // Anchor YYYY-MM-DD at noon to avoid timezone drift, then format in US Central.
+  const sinceDate = since.length === 10 ? new Date(`${since}T12:00:00`) : new Date(since);
+  const dateStr = sinceDate.toLocaleDateString('en-US', {
     timeZone: 'America/Chicago',
     month: 'short', day: 'numeric', year: 'numeric',
-    hour: 'numeric', minute: '2-digit',
-  })} CT`;
+  });
+  const tooltip = `Since ${dateStr} (${days} day${days === 1 ? '' : 's'})`;
   return { short, tooltip };
 }
 
