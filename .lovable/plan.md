@@ -1,39 +1,34 @@
-# PWA Install Reminder — Messaging Update
+## Store deferred "Preview as Operator" feature in memory
 
-## Goal
-Refresh the install reminder content so it leads with the Google Drive → SUPERDRIVE migration message, warning drivers that the old Roadside Inspection binder in Google Drive will no longer be accessible. Keep current cadence (daily until installed) and current channels (in-app + email). SMS is deferred.
+### 1. Create `mem://features/_backlog/preview-as-operator.md`
 
-## Scope
-- Edge function: `supabase/functions/notify-pwa-install/index.ts`
-  - Rewrite the in-app notification body (title + message) used in the cron and manual flows.
-  - Rewrite the email subject + HTML body, keeping the existing iPhone (Safari) / Android (Chrome) install steps.
-  - Lead with the Drive deprecation warning; emphasize SUPERDRIVE as the new source for Roadside Inspection Binder docs.
-- No changes to:
-  - Cadence (daily cron + 24h cooldown remain as-is)
-  - Eligibility (active operators with `pwa_installed_at IS NULL`)
-  - SMS (not implemented in this round)
-  - Driver Hub manual reminder button (it already calls the same function and will pick up the new wording automatically)
+Frontmatter:
+- `name`: Preview as Operator (deferred)
+- `description`: Deferred enhancement to PwaReminderPreviewModal — personalize in-app + email preview with operator name and binder link
+- `type`: feature
 
-## Approved Wording
+Body covers:
+- **Status:** Deferred 2026-05-09 — not rejected, revisit later.
+- **Idea:** Add an operator picker / toggle to `src/components/management/PwaReminderPreviewModal.tsx` so staff can preview the personalized in-app notification and email for a specific operator instead of the generic version.
+- **Tokens considered:** `{{first_name}}`, `{{full_name}}`, `{{unit_number}}`, `{{binder_link}}` (`${APP_URL}/operator?tab=inspection-binder`), `{{coordinator_name}}`, `{{support_email}}`.
+- **Scope options:**
+  - *Light:* first_name + binder_link only.
+  - *Full:* first_name, full_name, unit_number, binder_link, coordinator_name, support_email.
+- **Architecture note:** Add `renderPwaReminder(operator?)` to `src/lib/pwaReminderContent.ts` returning `{ inAppTitle, inAppBody, emailSubject, emailHeading, emailHtml }`. Mirror the same merge logic in `supabase/functions/notify-pwa-install/index.ts` (no cross-import from `src/` in Deno) so preview = what is actually sent.
+- **Recommendation:** Apply personalization to both preview AND the real send (otherwise preview misleads).
+- **Out of scope:** SMS channel, cadence changes, hard Drive cutoff date.
 
-**In-app notification**
-- Title: `Action required: Install SUPERDRIVE`
-- Body: `The Roadside Inspection Binder is moving from Google Drive to SUPERDRIVE. Your existing Drive binder will no longer be updated or accessible. Install the SUPERDRIVE app now so you always have the latest inspection documents on hand. Tap for install instructions.`
+### 2. Update `mem://index.md`
 
-**Email**
-- Subject: `Install SUPERDRIVE — your Roadside Inspection Binder is moving`
-- Lead paragraph: `Your Roadside Inspection Binder is moving out of Google Drive and into SUPERDRIVE. The Drive copy will no longer be updated and will soon be inaccessible. To make sure you always have current inspection documents, install the SUPERDRIVE app today.`
-- Keep the existing iPhone (Safari → Share → Add to Home Screen) and Android (Chrome → menu → Install app / Add to Home screen) instruction blocks unchanged.
-- Closing line: `Once installed, SUPERDRIVE becomes your single, always-current source for Roadside Inspection Binder documents and other compliance items.`
+Add a new section after `## Memories`:
 
-## Out of Scope (deferred)
-- SMS channel (Twilio/Brevo)
-- Cadence changes / cap on total reminders
-- Hard cutoff date for Drive binder access (can be added later when finalized)
+```
+## Backlog / Deferred
+- [Preview as Operator](mem://features/_backlog/preview-as-operator) — Personalize PWA reminder preview (and send) per operator
+```
 
-## Verification
-- Trigger the manual "Send install reminder" button on a test operator from Driver Hub and confirm the new in-app notification text and email content.
-- Confirm 24h cooldown still blocks a second send within the window.
+Preserve all existing Core and Memories content verbatim (code--write replaces the whole file).
 
-## Memory updates
-- Update `mem://features/pwa-install-reminders.md` to note the new messaging focus (Drive deprecation) and that SMS was considered and deferred.
+### Out of scope
+- No code changes to components, edge functions, or DB.
+- No changes to the active `mem://features/pwa-install-reminders.md` entry.
