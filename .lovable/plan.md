@@ -1,55 +1,42 @@
-## Add "days in status" to Trucks Down, Home, and Not Dispatched
+## Fix streak source: use dispatch_daily_log as the truth
 
-### What changes
+### Problem
 
-In `src/pages/dispatch/DispatchPortal.tsx`, compute how long each driver has been in their current status, then surface that duration on the three ribbon chips and on the matching driver cards. Sort each ribbon and the card list (within those three statuses) by longest streak first.
+The "days in status" badge currently derives its streak start from `dispatch_status_history`. For drivers whose history was only partially backfilled (e.g., Makiethian James has just one backfill row dated 2026-04-23), the streak shows shorter than reality. The actual truth lives in `dispatch_daily_log`, which has continuous per-day rows. For Makiethian: `truck_down` daily rows go back to 2026-04-09, so today (2026-05-09) the streak should read `4w 2d`, not `2w 2d`.
 
-### Data source
+### Fix
 
-- Use `dispatch_status_history` (already queried). For each operator, the streak start = the earliest `changed_at` in the most recent contiguous run where `dispatch_status` equals their current status.
-- Algorithm per operator: walk history rows newest → oldest; the streak start is the `changed_at` of the oldest row whose status matches the current status before the chain breaks.
-- Fallback when no history rows exist for the operator: use `active_dispatch.updated_at`. If that is also missing, show no duration (omit the badge).
-- Recompute whenever `rows` or the history dataset changes; the existing realtime subscriptions on `active_dispatch` and `dispatch_status_history` already trigger this.
+Switch the streak computation in `src/pages/dispatch/DispatchPortal.tsx` to use `dispatch_daily_log` as the primary source, and only fall back to `dispatch_status_history` / `active_dispatch.updated_at` when daily log rows are missing.
 
-### Display format (smart short)
+### Algorithm
 
-- Less than 24 hours since streak start: `Today` (with hover tooltip showing exact start timestamp in US Central time).
-- 1–6 days: `Xd` (e.g., `3d`).
-- 7+ days: `Xw Yd` (e.g., `2w 3d`); omit the day part when 0 (`2w`).
-- Tooltip on every badge shows the full streak start in US Central, e.g., `Since May 6, 2026 8:14 AM CT`.
+For each operator currently in `truck_down`, `home`, or `not_dispatched`:
 
-### Visual treatment
+1. Query `dispatch_daily_log` for that operator, ordered by `log_date DESC`, limited to a reasonable window (e.g., 365 rows = up to a year).
+2. Walk newest → oldest. Skip any rows with `log_date > today` (US Central). Starting from today's row (or the most recent row ≤ today), include consecutive days where:
+   - `status === current dispatch_status`, AND
+   - the date is exactly one day before the previous included date (no gaps).
+3. The streak start = earliest `log_date` in that contiguous run (anchored at noon US Central using the project's standard `T12:00:00` parsing).
+4. Streak length in days = (today_local − streak_start_local) + 1, so a single same-day row reads `1d` and the badge shows `Today` only when the run hasn't begun (no log row yet today).
+5. Fallback (no daily_log rows at all for this operator): keep the existing behavior — earliest contiguous `dispatch_status_history` match, then `active_dispatch.updated_at`.
 
-- Ribbon chips: append the duration to the right of the existing name/unit text, separated by a thin divider dot, e.g. `Smith·12 · 3d`. Use the chip's existing tone (no new color), but render the duration in a slightly muted weight so the name stays primary.
-- Driver cards (only for cards whose status is `truck_down`, `home`, or `not_dispatched`): add a small inline badge next to the existing status badge, e.g., `Truck Down · 5d`. Use the same tone classes already applied to that status (destructive / status-progress / muted) so it reads as part of the status, not a new field.
-- Cards in `dispatched` status are unaffected.
+### Display change
 
-### Sorting
-
-- Within each of the three ribbons, sort chips by streak length descending; ties break by operator last name ascending.
-- In the main card grid, extend the existing priority sort: keep the status order (`truck_down → not_dispatched → home → dispatched`), but inside each of the three flagged statuses, sort by streak length descending (ties → last name). `dispatched` keeps its current ordering.
-
-### Visual layout
-
-```text
-Status Alerts · 2 down · 5 home · 8 not dispatched          [v]
-  2 Trucks Down   [Smith·12 · 5d]  [Jones·07 · 2d]              View all
-  5 Home          [Lopez·22 · 1w 2d]  [Patel·18 · 4d]  ...      View all
-  8 Not Dispatched[Nguyen·05 · 9d]  [Khan·14 · 3d]  ...         View all
-```
-
-### Implementation notes (technical)
-
-- Add a helper `computeStreaks(history, rows): Map<operatorId, { since: Date }>` that runs once per render of the derived data and is memoized with `useMemo` keyed on `history` length + `rows.map(r => r.id+r.dispatch_status).join()`.
-- Add a `formatStreak(since: Date): { short: string; tooltip: string }` util colocated in the file.
-- Extend the chip render in the existing ribbon loop to render `{name}·{unit} · {streak.short}` with a `title={streak.tooltip}` attribute (or `Tooltip` if already used nearby — use plain `title` to avoid new imports).
-- Add a `streakBadge` next to the card status badge in the existing card render block; only render when the card's status is one of the three flagged values and a streak exists.
-- Update the existing card sort comparator to break ties within the three flagged statuses by `streakSince` ascending (older = longer = first).
-- No changes to data fetching beyond what is already loaded; no schema changes; no edge function or DB changes.
+- Update `formatStreak` to take an integer `days` count instead of a timestamp, since daily_log is day-granular:
+  - `1d`, `2d`, …, `6d`
+  - `7+`: `Xw` or `Xw Yd`
+  - Keep tooltip: `Since Apr 9, 2026 (31 days)`.
+- Drop the `Today` label entirely — daily log rows make every flagged driver at least `1d`.
 
 ### Out of scope
 
-- "Days in status" for `dispatched` cards.
-- Persisting or displaying historical streaks (previous runs).
-- Alert thresholds, color escalation by age, or notifications based on streak length.
-- Changes to the collapsible header summary line, KPI cards, edit panel, or detail dialog.
+- Backfilling `dispatch_status_history` from `dispatch_daily_log`.
+- Changing the calendar, ribbons layout, or any other behavior.
+- Streaks for `dispatched` cards.
+
+### Technical notes
+
+- One batched query: `select operator_id, log_date, status from dispatch_daily_log where operator_id in (...) and log_date >= today - 365 order by operator_id, log_date desc`.
+- Group rows by operator_id in JS, then run the gap-walking algorithm per operator.
+- "Today" in US Central: format `now()` as YYYY-MM-DD via `toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })`.
+- Re-run the query whenever `rows` changes (same trigger as today). The per-minute tick stays for cosmetic refresh.
