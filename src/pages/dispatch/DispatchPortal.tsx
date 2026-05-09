@@ -1980,6 +1980,18 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
                               <span className={`h-1.5 w-1.5 rounded-full ${cfg.dotColor}`} />
                               {cfg.label}
                             </Badge>
+                            {(row.dispatch_status === 'truck_down' || row.dispatch_status === 'home' || row.dispatch_status === 'not_dispatched') && (() => {
+                              const streak = formatStreak(streakMap[row.operator_id]);
+                              if (!streak) return null;
+                              return (
+                                <span
+                                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border w-fit ${cfg.badgeClass}`}
+                                  title={streak.tooltip}
+                                >
+                                  {streak.short}
+                                </span>
+                              );
+                            })()}
                             {!!unloggedCountMap[row.operator_id] && (
                               <span
                                 className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-400 w-fit"
