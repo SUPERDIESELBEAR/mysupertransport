@@ -46,6 +46,7 @@ import TerminationsView from './TerminationsView';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
 import DriverHubView from '@/components/drivers/DriverHubView';
 import PendingInviteAcceptance from '@/components/management/PendingInviteAcceptance';
+import { PwaReminderPreviewModal } from '@/components/management/PwaReminderPreviewModal';
 import type { ComplianceCounts, ComplianceFilter } from '@/components/drivers/DriverRoster';
 import { differenceInDays, formatDistanceToNowStrict, parseISO, startOfDay } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -176,6 +177,7 @@ export default function ManagementPortal() {
   const [installStats, setInstallStats] = useState<{ installed: number; webOnly: number; neverSignedIn: number; total: number }>({ installed: 0, webOnly: 0, neverSignedIn: 0, total: 0 });
   const [installSendOpen, setInstallSendOpen] = useState(false);
   const [installSending, setInstallSending] = useState(false);
+  const [installPreviewOpen, setInstallPreviewOpen] = useState(false);
 
   // One-shot deep-link migration on mount (e.g. notification ?op=... links).
   // Initial state was already seeded from the URL by the lazy useState above.
@@ -1222,17 +1224,28 @@ export default function ManagementPortal() {
                         </p>
                       </div>
                     </div>
-                    {remaining > 0 && (
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
                       <Button
                         size="sm"
-                        variant="outline"
-                        onClick={() => { if (guardDemo()) return; setInstallSendOpen(true); }}
-                        className="text-xs gap-1.5 shrink-0"
+                        variant="ghost"
+                        onClick={() => setInstallPreviewOpen(true)}
+                        className="text-xs gap-1.5"
                       >
-                        <Send className="h-3.5 w-3.5" />
-                        Email install instructions to remaining {remaining}
+                        <Eye className="h-3.5 w-3.5" />
+                        Preview message
                       </Button>
-                    )}
+                      {remaining > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => { if (guardDemo()) return; setInstallSendOpen(true); }}
+                          className="text-xs gap-1.5"
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                          Email install instructions to remaining {remaining}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div className="px-4 sm:px-5 py-4">
                     <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
@@ -1947,6 +1960,19 @@ export default function ManagementPortal() {
               and hasn't already received this notification. Operators already notified will be skipped automatically.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="px-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setInstallPreviewOpen(true)}
+              className="text-xs gap-1.5 -ml-2"
+              disabled={installSending}
+            >
+              <Eye className="h-3.5 w-3.5" />
+              Preview the exact in-app + email content
+            </Button>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={installSending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -1961,6 +1987,7 @@ export default function ManagementPortal() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <PwaReminderPreviewModal open={installPreviewOpen} onOpenChange={setInstallPreviewOpen} />
       <ScrollJumpButton />
     </>
   );
