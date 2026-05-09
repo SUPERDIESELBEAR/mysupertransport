@@ -217,6 +217,16 @@ export default function DispatchPortal({ embedded = false, defaultFilter }: Disp
     try { localStorage.setItem('dispatch_status_ribbons_open', String(statusAlertsOpen)); } catch {}
   }, [statusAlertsOpen]);
 
+  // ── Streak map: operator_id → ISO timestamp of when current status streak started ──
+  // Only computed for operators currently in truck_down / home / not_dispatched.
+  const [streakMap, setStreakMap] = useState<Record<string, string>>({});
+  // Re-render every minute so "Today" → "1d" etc. tick over without a refresh.
+  const [, setStreakTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setStreakTick(n => n + 1), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
   // Keep rowsRef in sync so realtime callbacks can access current operator info
   useEffect(() => { rowsRef.current = rows; }, [rows]);
 
