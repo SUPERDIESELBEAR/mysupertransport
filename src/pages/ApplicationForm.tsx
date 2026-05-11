@@ -33,6 +33,34 @@ const DRAFT_TOKEN_KEY = 'supertransport_draft_token';
 
 import { validateStep, buildPayload } from '@/components/application/utils';
 
+// Fire-and-forget telemetry for submit failures
+async function logApplicationError(payload: {
+  stage: string;
+  email?: string | null;
+  error_code?: string | null;
+  error_message?: string | null;
+  application_id?: string | null;
+}) {
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    await fetch(`${supabaseUrl}/functions/v1/log-application-error`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${anonKey}`,
+        'apikey': anonKey,
+      },
+      body: JSON.stringify({
+        ...payload,
+        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      }),
+    });
+  } catch {
+    /* swallow */
+  }
+}
+
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function ApplicationForm() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -248,6 +276,13 @@ export default function ApplicationForm() {
           if (!ssnEncrypted) throw new Error('encrypt-ssn returned no value');
         } catch (err) {
           console.error('SSN encryption failed:', err);
+          logApplicationError({
+            stage: 'encrypt_ssn',
+            email: formData.email,
+            error_code: 'encrypt_ssn_failed',
+            error_message: err instanceof Error ? err.message : String(err),
+            application_id: applicationId,
+          });
           toast.error("Couldn't securely encrypt SSN — please try again in a moment");
           setSubmitting(false);
           return;
@@ -291,6 +326,13 @@ export default function ApplicationForm() {
       setSubmitted(true);
     } catch (err) {
       console.error('Application submit failed:', err);
+      logApplicationError({
+        stage: applicationId ? 'update_application' : 'insert_application',
+        email: formData.email,
+        error_code: (err as any)?.code ?? 'submit_failed',
+        error_message: err instanceof Error ? err.message : String(err),
+        application_id: applicationId,
+      });
       toast.error("We couldn't submit your application — please try again or contact us if it keeps failing.");
     } finally {
       setSubmitting(false);
