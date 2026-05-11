@@ -106,7 +106,8 @@ Deno.serve(async (req) => {
     // ── 1. Fetch all operators ────────────────────────────────────────────
     const { data: operators, error: opError } = await supabase
       .from("operators")
-      .select("id, user_id, assigned_onboarding_staff, applications ( first_name, last_name )");
+      .select("id, user_id, assigned_onboarding_staff, applications ( first_name, last_name )")
+      .eq("is_active", true);
 
     if (opError) throw opError;
     if (!operators?.length) {
