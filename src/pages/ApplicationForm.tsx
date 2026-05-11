@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { Truck, Save, ChevronLeft, ChevronRight, CheckCircle2, Loader2, AlertTriangle, FileText, X, Link2Off } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import FormProgress from '@/components/application/FormProgress';
@@ -191,13 +192,19 @@ export default function ApplicationForm() {
 
       if (applicationId) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from('applications') as any).update(payload).eq('id', applicationId);
+        const { error } = await (supabase.from('applications') as any).update(payload).eq('id', applicationId);
+        if (error) throw error;
       } else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data } = await (supabase.from('applications') as any).insert(payload).select('id').single();
+        const { data, error } = await (supabase.from('applications') as any).insert(payload).select('id').single();
+        if (error) throw error;
         if (data) setApplicationId(data.id);
       }
       localStorage.setItem(DRAFT_TOKEN_KEY, token);
+      toast.success('Draft saved');
+    } catch (err) {
+      console.error('saveDraft failed:', err);
+      toast.error("Couldn't save draft — please try again");
     } finally {
       setSaving(false);
     }
@@ -205,6 +212,15 @@ export default function ApplicationForm() {
 
   // ── Submit ──────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
+    // ── Validate Step 9 before doing anything else ──
+    const errs = validateStep(9, formData);
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      toast.error('Please complete all required fields before submitting');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const token = localStorage.getItem(DRAFT_TOKEN_KEY) || crypto.randomUUID();
@@ -212,21 +228,30 @@ export default function ApplicationForm() {
       // Encrypt SSN via secure backend function before storing
       let ssnEncrypted: string | null = null;
       if (formData.ssn) {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        const { data: { session } } = await supabase.auth.getSession();
-        const authToken = session?.access_token ?? anonKey;
-        const encRes = await fetch(`${supabaseUrl}/functions/v1/encrypt-ssn`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`,
-            'apikey': anonKey,
-          },
-          body: JSON.stringify({ ssn: formData.ssn }),
-        });
-        const encData = await encRes.json();
-        ssnEncrypted = encData.encrypted ?? null;
+        try {
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          const { data: { session } } = await supabase.auth.getSession();
+          const authToken = session?.access_token ?? anonKey;
+          const encRes = await fetch(`${supabaseUrl}/functions/v1/encrypt-ssn`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`,
+              'apikey': anonKey,
+            },
+            body: JSON.stringify({ ssn: formData.ssn }),
+          });
+          if (!encRes.ok) throw new Error(`encrypt-ssn HTTP ${encRes.status}`);
+          const encData = await encRes.json();
+          ssnEncrypted = encData.encrypted ?? null;
+          if (!ssnEncrypted) throw new Error('encrypt-ssn returned no value');
+        } catch (err) {
+          console.error('SSN encryption failed:', err);
+          toast.error("Couldn't securely encrypt SSN — please try again in a moment");
+          setSubmitting(false);
+          return;
+        }
       }
 
       const payload = {
@@ -237,10 +262,12 @@ export default function ApplicationForm() {
 
       if (applicationId) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from('applications') as any).update(payload).eq('id', applicationId);
+        const { error } = await (supabase.from('applications') as any).update(payload).eq('id', applicationId);
+        if (error) throw error;
       } else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from('applications') as any).insert(payload);
+        const { error } = await (supabase.from('applications') as any).insert(payload);
+        if (error) throw error;
       }
       localStorage.removeItem(DRAFT_TOKEN_KEY);
 
@@ -262,6 +289,9 @@ export default function ApplicationForm() {
       }).catch(() => {/* non-critical */});
 
       setSubmitted(true);
+    } catch (err) {
+      console.error('Application submit failed:', err);
+      toast.error("We couldn't submit your application — please try again or contact us if it keeps failing.");
     } finally {
       setSubmitting(false);
     }
