@@ -110,7 +110,7 @@ export default function ManagementPortal() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const v = searchParams.get('view') as ManagementView | null;
-    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast'].includes(v)) ? v : 'overview';
+    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors'].includes(v)) ? v : 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [scrollToStageKeyMgmt, setScrollToStageKeyMgmt] = useState<string | undefined>(undefined);
@@ -769,6 +769,7 @@ export default function ManagementPortal() {
     { label: 'FAQ Manager',       icon: <HelpCircle className="h-4 w-4" />,      path: 'faq' },
     { label: 'Pipeline Config',   icon: <Settings2 className="h-4 w-4" />,       path: 'pipeline-config' },
     { label: 'Activity',          icon: <ScrollText className="h-4 w-4" />,      path: 'activity' },
+    { label: 'Application Errors', icon: <AlertTriangle className="h-4 w-4" />, path: 'app-errors' },
     { label: 'Equipment',         icon: <HardDrive className="h-4 w-4" />,       path: 'equipment' },
     { label: 'MO Plate Registry', icon: <Car className="h-4 w-4" />,             path: 'mo-plates' },
     { label: 'Content Manager',   icon: <LayoutTemplate className="h-4 w-4" />,  path: 'content-manager' },
@@ -1657,6 +1658,10 @@ export default function ManagementPortal() {
               setView('staff');
             }
           }} />
+        )}
+
+        {view === 'app-errors' && (
+          <ApplicationErrorsPanel />
         )}
 
         {view === 'faq' && (
