@@ -226,6 +226,29 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Auto-send SUPERDRIVE install invite (best-effort, fire-and-forget) ──
+    // Only for newly-created operators going through the standard invite flow.
+    // Pre-existing operators (skip_invite) get the Launch SUPERDRIVE dialog instead.
+    if (operatorId && !existingOp && !skip_invite) {
+      try {
+        // Don't await long — fire and continue. We use the caller's auth header so
+        // the launch function can run its own role check.
+        supabaseAdmin.functions
+          .invoke('launch-superdrive-invite', {
+            body: {
+              operator_ids: [operatorId],
+              template: 'full',
+              cooldown_hours: 24,
+              source: 'pipeline_auto',
+            },
+            headers: { Authorization: authHeader },
+          })
+          .catch((e) => console.error('auto SUPERDRIVE invite failed:', e?.message ?? e));
+      } catch (e) {
+        console.error('auto SUPERDRIVE invite invoke threw:', e);
+      }
+    }
+
     // ── Auto-sync application docs to Inspection Binder ──
     // Resolve bare storage paths (from application-documents bucket) to long-lived
     // signed URLs so they actually load in the Flipbook / preview.
