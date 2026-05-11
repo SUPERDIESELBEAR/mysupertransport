@@ -1321,6 +1321,50 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     }
   };
 
+  const handleSendInstallInvite = async (op: OperatorRow) => {
+    if (!op.user_id) {
+      toast({ title: 'No user account', description: 'This operator does not have an account yet.', variant: 'destructive' });
+      return;
+    }
+    setInstallInviteSending(prev => ({ ...prev, [op.id]: true }));
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await supabase.functions.invoke('launch-superdrive-invite', {
+        body: {
+          operator_ids: [op.id],
+          template: 'full',
+          cooldown_hours: 24,
+          source: 'pipeline_manual',
+        },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (res.error || (res.data as any)?.error) {
+        const msg = (res.data as any)?.error ?? res.error?.message ?? 'Failed to send install invite';
+        toast({ title: 'Send failed', description: msg, variant: 'destructive' });
+        return;
+      }
+      const result = ((res.data as any)?.results ?? [])[0];
+      const status = result?.status;
+      if (status === 'sent') {
+        setInstallInviteSent(prev => ({ ...prev, [op.id]: true }));
+        toast({ title: 'App install invite sent', description: `Sent to ${result.email ?? op.email ?? 'operator'}` });
+        setTimeout(() => setInstallInviteSent(prev => ({ ...prev, [op.id]: false })), 8000);
+      } else if (status === 'recently_invited') {
+        const lastSent = result?.last_invited_at ? formatDistanceToNowStrict(parseISO(result.last_invited_at), { addSuffix: true }) : 'recently';
+        toast({ title: 'Cooldown active', description: `Already sent ${lastSent}. Try again in 24h.`, variant: 'destructive' });
+      } else if (status === 'no_user_account') {
+        toast({ title: 'No user account', description: 'This operator has not been invited yet.', variant: 'destructive' });
+      } else if (status === 'no_email') {
+        toast({ title: 'No email on file', variant: 'destructive' });
+      } else {
+        toast({ title: 'Send failed', description: result?.message ?? 'Unknown error', variant: 'destructive' });
+      }
+    } finally {
+      setInstallInviteSending(prev => ({ ...prev, [op.id]: false }));
+    }
+  };
+
   const handleAssignCoordinator = async (operatorId: string, staffUserId: string | null) => {
     setAssigningMap(prev => ({ ...prev, [operatorId]: true }));
 
