@@ -1,21 +1,20 @@
-## Goal
+## Problem
 
-Make the in-app "Action required: Install SUPERDRIVE" notification take operators directly to the `/install` how-to page (with platform-specific Add to Home Screen instructions) instead of dropping them on `/operator`, where nothing visibly happens.
+Larry Bazin was deactivated (`operators.is_active = false`), but staff/managers are still receiving expiry alert emails about his inspection binder documents.
 
-## Why
+Root cause: the two scheduled expiry-check edge functions fetch every row from `operators` with no `is_active` filter, so deactivated operators continue to generate alerts forever.
 
-Carlos Keys reported the install link "wasn't working." Investigation showed the link is fine, but the in-app notification points to `/operator`, which just opens the portal — there's no automatic install prompt on iOS Safari. Users tap expecting an install flow and see nothing happen. The `/install` page already exists and renders correct iOS / Android instructions.
+## Fix
 
-## Change
+Add `.eq('is_active', true)` to the operator query in both jobs:
 
-**File:** `supabase/functions/notify-pwa-install/index.ts`
+1. **`supabase/functions/check-inspection-expiry/index.ts`** (line ~108) — filter the operators select so the per-driver inspection binder loop skips deactivated drivers.
+2. **`supabase/functions/check-cert-expiry/index.ts`** (line ~42) — same filter so CDL / medical cert expiry alerts are also suppressed for deactivated drivers.
 
-- Line 80: change `link: '/operator'` to `link: '/install'`.
-
-That's the only code change. Existing notifications already in users' bells will keep their old link; only newly-generated reminders (daily cron + any future manual sends) pick up the new destination.
+No schema changes, no UI changes, no template changes. Existing already-queued/sent emails are not affected; from the next scheduled run forward, Larry (and any other deactivated operator) will be excluded.
 
 ## Out of scope
 
-- No change to the email CTA (it already lands on the splash and works).
-- No change to the daily cron schedule, cooldown, or template.
-- No new UI, no migration, no new edge function.
+- Cleaning up Larry's binder/doc rows (kept for historical record).
+- Any change to in-app notifications or the `notify-pwa-install` job (already scoped separately).
+- Any change to manual "Send reminder" buttons in staff UI (those are explicit staff actions).
