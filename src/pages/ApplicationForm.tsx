@@ -33,6 +33,34 @@ const DRAFT_TOKEN_KEY = 'supertransport_draft_token';
 
 import { validateStep, buildPayload } from '@/components/application/utils';
 
+// Fire-and-forget telemetry for submit failures
+async function logApplicationError(payload: {
+  stage: string;
+  email?: string | null;
+  error_code?: string | null;
+  error_message?: string | null;
+  application_id?: string | null;
+}) {
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    await fetch(`${supabaseUrl}/functions/v1/log-application-error`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${anonKey}`,
+        'apikey': anonKey,
+      },
+      body: JSON.stringify({
+        ...payload,
+        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      }),
+    });
+  } catch {
+    /* swallow */
+  }
+}
+
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function ApplicationForm() {
   const [searchParams, setSearchParams] = useSearchParams();
