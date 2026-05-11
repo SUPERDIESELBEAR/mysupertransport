@@ -19,32 +19,25 @@ export default function Step9Signature({ data, onChange, errors }: Props) {
   const [showSSN, setShowSSN] = useState(false);
 
   // ── DPR-aware canvas sizing ──────────────────────────────────────────────
+  // Size the canvas exactly ONCE on mount. Re-sizing the canvas element
+  // wipes its bitmap, which on iOS Safari fires every time the URL bar
+  // collapses — causing the user's signature to vanish and the submit
+  // to fail validation. Mirrors the ICA signing pad pattern.
   useEffect(() => {
     const wrap = sigWrapRef.current;
     if (!wrap) return;
+    const canvas = wrap.querySelector('canvas');
+    if (!canvas) return;
 
-    const resize = () => {
-      const canvas = wrap.querySelector('canvas');
-      if (!canvas) return;
-      const dpr = window.devicePixelRatio || 1;
-      const w = wrap.offsetWidth;
-      const h = 160;
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
-      const ctx = canvas.getContext('2d');
-      if (ctx) ctx.scale(dpr, dpr);
-      sigRef.current?.clear();
-      onChange('signature_image_url', '');
-      setSigSaved(false);
-    };
-
-    const ro = new ResizeObserver(resize);
-    ro.observe(wrap);
-    // Initial sizing after mount
-    setTimeout(resize, 50);
-    return () => ro.disconnect();
+    const dpr = window.devicePixelRatio || 1;
+    const w = wrap.offsetWidth;
+    const h = 160;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.scale(dpr, dpr);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
