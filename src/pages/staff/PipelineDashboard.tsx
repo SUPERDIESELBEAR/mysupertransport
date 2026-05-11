@@ -3266,6 +3266,33 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                              </TooltipProvider>
                            </div>
                          )}
+                          {op.user_id && (
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={e => { e.stopPropagation(); handleSendInstallInvite(op); }}
+                                    disabled={installInviteSending[op.id] || installInviteSent[op.id]}
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none border shrink-0 w-fit transition-colors disabled:opacity-60 disabled:cursor-not-allowed bg-gold/10 text-gold-muted border-gold/40 hover:bg-gold/20"
+                                  >
+                                    {installInviteSending[op.id] ? (
+                                      <Loader2 className="h-2.5 w-2.5 animate-spin shrink-0" />
+                                    ) : installInviteSent[op.id] ? (
+                                      <CheckCheck className="h-2.5 w-2.5 shrink-0 text-status-complete" />
+                                    ) : (
+                                      <Smartphone className="h-2.5 w-2.5 shrink-0" />
+                                    )}
+                                    {installInviteSent[op.id] ? 'Sent' : 'Send App Install'}
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs">
+                                  {installInviteSent[op.id]
+                                    ? 'SUPERDRIVE install email sent!'
+                                    : `Send SUPERDRIVE install + welcome email to ${op.email ?? 'this operator'} (24h cooldown)`}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
                        </div>
                      </td>
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{formatPhoneDisplay(op.phone) || '—'}</td>
