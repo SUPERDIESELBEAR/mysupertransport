@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw, FileClock, Check, PauseCircle, ArchiveX, CalendarDays, Paperclip, StickyNote } from 'lucide-react';
+import { Search, Users, AlertTriangle, CheckCircle2, Clock, Filter, X, Loader2, ArrowUpDown, ArrowUp, ArrowDown, MessageSquare, ShieldAlert, ChevronDown, ChevronUp, ShieldCheck, Send, CheckCheck, RotateCcw, FileClock, Check, PauseCircle, ArchiveX, CalendarDays, Paperclip, StickyNote, Smartphone } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
@@ -692,6 +692,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   // Resend invite state: key = operator id
   const [resendingSending, setResendingSending] = useState<Record<string, boolean>>({});
   const [resendSent, setResendSent] = useState<Record<string, boolean>>({});
+  // SUPERDRIVE install invite state: key = operator id
+  const [installInviteSending, setInstallInviteSending] = useState<Record<string, boolean>>({});
+  const [installInviteSent, setInstallInviteSent] = useState<Record<string, boolean>>({});
   // Per-row renew state: key = "operatorId|docType"
   const [rowRenewing, setRowRenewing] = useState<Record<string, boolean>>({});
   const [rowRenewed, setRowRenewed] = useState<Record<string, boolean>>({});
@@ -1315,6 +1318,50 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
       }
     } finally {
       setResendingSending(prev => ({ ...prev, [op.id]: false }));
+    }
+  };
+
+  const handleSendInstallInvite = async (op: OperatorRow) => {
+    if (!op.user_id) {
+      toast({ title: 'No user account', description: 'This operator does not have an account yet.', variant: 'destructive' });
+      return;
+    }
+    setInstallInviteSending(prev => ({ ...prev, [op.id]: true }));
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await supabase.functions.invoke('launch-superdrive-invite', {
+        body: {
+          operator_ids: [op.id],
+          template: 'full',
+          cooldown_hours: 24,
+          source: 'pipeline_manual',
+        },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (res.error || (res.data as any)?.error) {
+        const msg = (res.data as any)?.error ?? res.error?.message ?? 'Failed to send install invite';
+        toast({ title: 'Send failed', description: msg, variant: 'destructive' });
+        return;
+      }
+      const result = ((res.data as any)?.results ?? [])[0];
+      const status = result?.status;
+      if (status === 'sent') {
+        setInstallInviteSent(prev => ({ ...prev, [op.id]: true }));
+        toast({ title: 'App install invite sent', description: `Sent to ${result.email ?? op.email ?? 'operator'}` });
+        setTimeout(() => setInstallInviteSent(prev => ({ ...prev, [op.id]: false })), 8000);
+      } else if (status === 'recently_invited') {
+        const lastSent = result?.last_invited_at ? formatDistanceToNowStrict(parseISO(result.last_invited_at), { addSuffix: true }) : 'recently';
+        toast({ title: 'Cooldown active', description: `Already sent ${lastSent}. Try again in 24h.`, variant: 'destructive' });
+      } else if (status === 'no_user_account') {
+        toast({ title: 'No user account', description: 'This operator has not been invited yet.', variant: 'destructive' });
+      } else if (status === 'no_email') {
+        toast({ title: 'No email on file', variant: 'destructive' });
+      } else {
+        toast({ title: 'Send failed', description: result?.message ?? 'Unknown error', variant: 'destructive' });
+      }
+    } finally {
+      setInstallInviteSending(prev => ({ ...prev, [op.id]: false }));
     }
   };
 
@@ -3219,6 +3266,33 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                              </TooltipProvider>
                            </div>
                          )}
+                          {op.user_id && (
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={e => { e.stopPropagation(); handleSendInstallInvite(op); }}
+                                    disabled={installInviteSending[op.id] || installInviteSent[op.id]}
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none border shrink-0 w-fit transition-colors disabled:opacity-60 disabled:cursor-not-allowed bg-gold/10 text-gold-muted border-gold/40 hover:bg-gold/20"
+                                  >
+                                    {installInviteSending[op.id] ? (
+                                      <Loader2 className="h-2.5 w-2.5 animate-spin shrink-0" />
+                                    ) : installInviteSent[op.id] ? (
+                                      <CheckCheck className="h-2.5 w-2.5 shrink-0 text-status-complete" />
+                                    ) : (
+                                      <Smartphone className="h-2.5 w-2.5 shrink-0" />
+                                    )}
+                                    {installInviteSent[op.id] ? 'Sent' : 'Send App Install'}
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs">
+                                  {installInviteSent[op.id]
+                                    ? 'SUPERDRIVE install email sent!'
+                                    : `Send SUPERDRIVE install + welcome email to ${op.email ?? 'this operator'} (24h cooldown)`}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
                        </div>
                      </td>
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{formatPhoneDisplay(op.phone) || '—'}</td>

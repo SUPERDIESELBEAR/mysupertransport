@@ -1,42 +1,51 @@
-## Fix streak source: use dispatch_daily_log as the truth
+## Goal
 
-### Problem
+Send the **SUPERDRIVE install invite** ("full feature tour" email) to operators in the Applicant Pipeline:
+1. **Auto** — once when an operator account is first created (via `invite-operator`).
+2. **Manually** — from a per-row action on the Pipeline, available for any pipeline operator that already has a user account.
 
-The "days in status" badge currently derives its streak start from `dispatch_status_history`. For drivers whose history was only partially backfilled (e.g., Makiethian James has just one backfill row dated 2026-04-23), the streak shows shorter than reality. The actual truth lives in `dispatch_daily_log`, which has continuous per-day rows. For Makiethian: `truck_down` daily rows go back to 2026-04-09, so today (2026-05-09) the streak should read `4w 2d`, not `2w 2d`.
+Both flows reuse the existing `launch-superdrive-invite` edge function (the same one powering the Launch SUPERDRIVE dialog) so we don't fork email logic, audit, or send rules.
 
-### Fix
+---
 
-Switch the streak computation in `src/pages/dispatch/DispatchPortal.tsx` to use `dispatch_daily_log` as the primary source, and only fall back to `dispatch_status_history` / `active_dispatch.updated_at` when daily log rows are missing.
+## Behavior
 
-### Algorithm
+**Template:** Always `'full'` (the "Full feature tour" welcome email — features + install instructions + password-recovery CTA).
 
-For each operator currently in `truck_down`, `home`, or `not_dispatched`:
+**Cooldown:** **24 hours**, enforced server-side via the existing `audit_log` action `superdrive_invite_sent`. Below the existing 30-day Launch dialog cooldown, so we'll add an optional `cooldown_hours` request param (defaults to current `30 * 24`).
 
-1. Query `dispatch_daily_log` for that operator, ordered by `log_date DESC`, limited to a reasonable window (e.g., 365 rows = up to a year).
-2. Walk newest → oldest. Skip any rows with `log_date > today` (US Central). Starting from today's row (or the most recent row ≤ today), include consecutive days where:
-   - `status === current dispatch_status`, AND
-   - the date is exactly one day before the previous included date (no gaps).
-3. The streak start = earliest `log_date` in that contiguous run (anchored at noon US Central using the project's standard `T12:00:00` parsing).
-4. Streak length in days = (today_local − streak_start_local) + 1, so a single same-day row reads `1d` and the badge shows `Today` only when the run hasn't begun (no log row yet today).
-5. Fallback (no daily_log rows at all for this operator): keep the existing behavior — earliest contiguous `dispatch_status_history` match, then `active_dispatch.updated_at`.
+**Auto-trigger:** Fires once, immediately after a new operator row is inserted in `invite-operator`. Best-effort (fire-and-forget — does not block the invite response if the email send fails). The 24h cooldown protects against duplicate sends if invite-operator is replayed.
 
-### Display change
+**Manual action:** New chip/button on each Pipeline row (next to existing "Invite Pending" / "Resend Invite" chips), shown for any operator with `op.user_id`. Disabled while sending; tooltip shows last sent timestamp; toast confirms result. If 24h cooldown blocks the send, the toast surfaces "Sent <X> ago — try again later".
 
-- Update `formatStreak` to take an integer `days` count instead of a timestamp, since daily_log is day-granular:
-  - `1d`, `2d`, …, `6d`
-  - `7+`: `Xw` or `Xw Yd`
-  - Keep tooltip: `Since Apr 9, 2026 (31 days)`.
-- Drop the `Today` label entirely — daily log rows make every flagged driver at least `1d`.
+**Audit:** Reuses existing `audit_log` `superdrive_invite_sent` rows (with `metadata.source = 'pipeline_auto'` or `'pipeline_manual'` so we can distinguish them later from Launch dialog sends).
 
-### Out of scope
+---
 
-- Backfilling `dispatch_status_history` from `dispatch_daily_log`.
-- Changing the calendar, ribbons layout, or any other behavior.
-- Streaks for `dispatched` cards.
+## Files to change
 
-### Technical notes
+**`supabase/functions/launch-superdrive-invite/index.ts`**
+- Accept new optional body field `cooldown_hours` (number). Default = `30 * 24`. Validate 1–8760.
+- Compute `cooldownCutoff` from `cooldown_hours` instead of the hardcoded `COOLDOWN_DAYS`.
+- Accept new optional `source` field (string, e.g. `'pipeline_auto'` | `'pipeline_manual'` | `'launch_dialog'`); pass through into `audit_log.metadata.source`.
+- No other behavior changes — Launch dialog stays on the 30-day default.
 
-- One batched query: `select operator_id, log_date, status from dispatch_daily_log where operator_id in (...) and log_date >= today - 365 order by operator_id, log_date desc`.
-- Group rows by operator_id in JS, then run the gap-walking algorithm per operator.
-- "Today" in US Central: format `now()` as YYYY-MM-DD via `toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })`.
-- Re-run the query whenever `rows` changes (same trigger as today). The per-minute tick stays for cosmetic refresh.
+**`supabase/functions/invite-operator/index.ts`**
+- After the new `operators` row is inserted (around line 178, only when a brand-new operator is created — not when `existingOp` was found), fire `supabaseAdmin.functions.invoke('launch-superdrive-invite', { body: { operator_ids: [operatorId], template: 'full', cooldown_hours: 24, source: 'pipeline_auto' }, headers: { Authorization: <caller token> } })`.
+- Wrap in try/catch with `console.error` only — never block or fail the invite response on email errors.
+- Skip when `skip_invite === true` (pre-existing operators get the Launch dialog flow instead).
+
+**`src/pages/staff/PipelineDashboard.tsx`**
+- Add row-state map `installInviteSending: Record<string, boolean>` and `installInviteSent: Record<string, boolean>` mirroring the existing `resendingSending` / `resendSent` pattern.
+- Add `handleSendInstallInvite(op)` that calls `supabase.functions.invoke('launch-superdrive-invite', { body: { operator_ids: [op.id], template: 'full', cooldown_hours: 24, source: 'pipeline_manual' } })` with the session token, parses the per-operator result, and toasts success / cooldown / error.
+- Render a new chip-style button next to the existing "Invite Pending / Resend Invite" cluster (in the same `<td>` block around line 3177–3221), visible whenever `op.user_id` exists. Label: **"Send App Install"**, icon `Smartphone` from lucide-react. Spinner while sending, "Sent" + check on success.
+- Guard with `useDemoMode().guardDemo()` to match other staff actions.
+
+---
+
+## Out of scope
+
+- No new edge function — both flows reuse `launch-superdrive-invite`.
+- No changes to the existing Launch SUPERDRIVE dialog (still 30-day cooldown, still operates on fully-onboarded active operators).
+- No changes to the daily PWA install-reminder cron — that continues to target installed-but-not-launched drivers separately.
+- No new template variant — uses the existing `'full'` welcome email.
