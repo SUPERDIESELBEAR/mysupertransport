@@ -47,12 +47,12 @@ serve(async (req) => {
       });
     }
 
-    // Authorize: must be staff (recruiter / management / owner / admin)
+    // Authorize: must be staff (onboarding_staff / dispatcher / management / owner)
     const { data: roleRows } = await admin
       .from('user_roles')
       .select('role')
       .eq('user_id', userId)
-      .in('role', ['recruiter', 'management', 'owner', 'admin'])
+      .in('role', ['onboarding_staff', 'dispatcher', 'management', 'owner'])
       .limit(1);
     if (!roleRows || roleRows.length === 0) {
       return new Response(JSON.stringify({ error: 'forbidden' }), {
