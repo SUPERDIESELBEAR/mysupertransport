@@ -692,6 +692,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
   // Resend invite state: key = operator id
   const [resendingSending, setResendingSending] = useState<Record<string, boolean>>({});
   const [resendSent, setResendSent] = useState<Record<string, boolean>>({});
+  // SUPERDRIVE install invite state: key = operator id
+  const [installInviteSending, setInstallInviteSending] = useState<Record<string, boolean>>({});
+  const [installInviteSent, setInstallInviteSent] = useState<Record<string, boolean>>({});
   // Per-row renew state: key = "operatorId|docType"
   const [rowRenewing, setRowRenewing] = useState<Record<string, boolean>>({});
   const [rowRenewed, setRowRenewed] = useState<Record<string, boolean>>({});
