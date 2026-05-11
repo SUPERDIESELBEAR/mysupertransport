@@ -9,6 +9,7 @@ const corsHeaders = {
 
 const APP_URL = Deno.env.get('APP_URL') || 'https://mysupertransport.lovable.app';
 const COOLDOWN_DAYS = 30;
+const DEFAULT_COOLDOWN_HOURS = COOLDOWN_DAYS * 24;
 
 interface SendResult {
   operator_id: string;
@@ -229,20 +230,26 @@ Deno.serve(async (req) => {
       .from('user_roles')
       .select('role')
       .eq('user_id', callerId)
-      .in('role', ['management', 'owner'])
+      .in('role', ['management', 'owner', 'onboarding_staff', 'dispatcher'])
       .limit(1);
 
     if (!roleCheck || roleCheck.length === 0) {
-      return new Response(JSON.stringify({ error: 'Forbidden: management or owner role required' }), {
+      return new Response(JSON.stringify({ error: 'Forbidden: staff role required' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // ── Input ───────────────────────────────────────────────────────────────
-    const { operator_ids, template: rawTemplate, force, audience_routing } = await req.json();
+    const { operator_ids, template: rawTemplate, force, audience_routing, cooldown_hours, source } = await req.json();
     const template: EmailTemplate = rawTemplate === 'full' ? 'full' : 'binder';
     const forceResend = force === true;
     const routeByAudience = audience_routing === true;
+    const cooldownHours = (() => {
+      const n = Number(cooldown_hours);
+      if (!Number.isFinite(n) || n < 1 || n > 8760) return DEFAULT_COOLDOWN_HOURS;
+      return Math.floor(n);
+    })();
+    const sourceLabel = typeof source === 'string' && source.length <= 64 ? source : 'launch_dialog';
     if (!Array.isArray(operator_ids) || operator_ids.length === 0) {
       return new Response(JSON.stringify({ error: 'operator_ids must be a non-empty array' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -273,7 +280,7 @@ Deno.serve(async (req) => {
 
     // ── Per-operator processing ────────────────────────────────────────────
     const results: SendResult[] = [];
-    const cooldownCutoff = new Date(Date.now() - COOLDOWN_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const cooldownCutoff = new Date(Date.now() - cooldownHours * 60 * 60 * 1000).toISOString();
 
     for (const operatorId of operator_ids) {
       try {
@@ -409,6 +416,8 @@ Deno.serve(async (req) => {
             recovery_link_generated: chosenTemplate !== 'app_announcement',
             forced: forceResend,
             audience_routed: routeByAudience,
+            source: sourceLabel,
+            cooldown_hours: cooldownHours,
           },
         });
 
