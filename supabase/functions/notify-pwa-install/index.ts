@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
           body: 'The Roadside Inspection Binder is moving from Google Drive to SUPERDRIVE. Your existing Drive binder will no longer be updated or accessible. Install the SUPERDRIVE app now so you always have the latest inspection documents on hand. Tap for install instructions.',
           type: 'pwa_install',
           channel: 'in_app',
-          link: '/operator',
+          link: '/install',
           sent_at: new Date().toISOString(),
         })
       }
