@@ -50,7 +50,8 @@ Deno.serve(async (req) => {
           cdl_expiration,
           medical_cert_expiration
         )
-      `);
+      `)
+      .eq('is_active', true);
 
     if (opError) throw opError;
     if (!operators || operators.length === 0) {
