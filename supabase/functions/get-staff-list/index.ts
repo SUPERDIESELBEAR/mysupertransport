@@ -25,20 +25,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Validate the caller's JWT using an anon client that carries their token.
-    // Calling getUser() on the service-role admin client does not reliably
-    // validate user JWTs under the new signing-keys system.
-    const userClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    const { data: { user: callerUser }, error: authError } = await userClient.auth.getUser();
-    if (authError || !callerUser) {
+    // Validate the caller's JWT using getClaims() which works under the
+    // signing-keys system without requiring a gateway round-trip.
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: authError } = await supabaseAdmin.auth.getClaims(token);
+    if (authError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    const callerUser = {
+      id: claimsData.claims.sub as string,
+      email: (claimsData.claims.email as string | undefined) ?? null,
+    };
 
     const { data: roleCheck } = await supabaseAdmin
       .from('user_roles')
