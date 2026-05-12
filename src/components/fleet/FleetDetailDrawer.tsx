@@ -421,7 +421,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
                   <div>
-                    <p className="text-xs text-muted-foreground">Inspection Date</p>
+                    <p className="text-xs text-muted-foreground">Latest Inspection Date</p>
                     <p className="text-sm font-semibold">
                       {format(parseISO(latestDot.inspection_date), 'MMM d, yyyy')}
                     </p>
