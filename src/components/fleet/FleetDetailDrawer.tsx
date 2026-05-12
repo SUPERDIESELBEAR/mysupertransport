@@ -16,9 +16,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { saveTruckSpecs } from '@/lib/truckSync';
 import MaintenanceRecordModal from './MaintenanceRecordModal';
 import DOTInspectionModal from './DOTInspectionModal';
+import { syncInspectionBinderDateFromVehicleHub } from '@/lib/syncInspectionBinderDate';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   ArrowLeft, Plus, Truck, Wrench, ShieldCheck, Eye, Download,
-  Loader2, Search, AlertTriangle, CheckCircle2, Clock, FileText, Pencil, X, Save,
+  Loader2, Search, AlertTriangle, CheckCircle2, Clock, FileText, Pencil, X, Save, Trash2,
 } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 
@@ -83,9 +88,13 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
   const [unitNumber, setUnitNumber] = useState<string | null>(null);
   const [maintenance, setMaintenance] = useState<MaintenanceRecord[]>([]);
   const [dotInspections, setDotInspections] = useState<DOTInspection[]>([]);
+  const [driverUserId, setDriverUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
   const [dotModalOpen, setDotModalOpen] = useState(false);
+  const [editingDot, setEditingDot] = useState<DOTInspection | null>(null);
+  const [deletingDot, setDeletingDot] = useState<DOTInspection | null>(null);
+  const [deletingDotBusy, setDeletingDotBusy] = useState(false);
   const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string } | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [maintenanceSearch, setMaintenanceSearch] = useState('');
@@ -152,7 +161,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
       supabase
         .from('operators')
         .select(`
-          id, unit_number,
+          id, user_id, unit_number,
           applications(first_name, last_name),
       onboarding_status(unit_number, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state),
           ica_contracts(owner_name, truck_year, truck_make, truck_vin, truck_plate, truck_plate_state)
@@ -178,6 +187,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
       const ica = Array.isArray(op.ica_contracts) ? op.ica_contracts[0] : op.ica_contracts;
       setDriverName([app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown');
       setUnitNumber(os?.unit_number || op.unit_number || null);
+      setDriverUserId(op.user_id ?? null);
       setTruckInfo({
         year: os?.truck_year || ica?.truck_year,
         make: os?.truck_make || ica?.truck_make,
@@ -194,6 +204,38 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
   }, [operatorId, onReady]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // After save/delete of a DOT row, refresh data and re-sync the driver's binder
+  // doc so it reflects the new latest inspection date (or reverts on delete).
+  const handleDotMutated = useCallback(async () => {
+    await fetchData();
+    if (driverUserId) {
+      try {
+        await syncInspectionBinderDateFromVehicleHub(driverUserId);
+      } catch (err) {
+        console.warn('[FleetDetailDrawer] binder sync after DOT mutation failed', err);
+      }
+    }
+  }, [fetchData, driverUserId]);
+
+  const confirmDeleteDot = async () => {
+    if (!deletingDot) return;
+    setDeletingDotBusy(true);
+    try {
+      const { error } = await supabase
+        .from('truck_dot_inspections')
+        .delete()
+        .eq('id', deletingDot.id);
+      if (error) throw error;
+      toast({ title: 'Inspection deleted' });
+      setDeletingDot(null);
+      await handleDotMutated();
+    } catch (err: any) {
+      toast({ title: 'Delete failed', description: err?.message, variant: 'destructive' });
+    } finally {
+      setDeletingDotBusy(false);
+    }
+  };
 
   const totalCost = useMemo(() =>
     maintenance.reduce((sum, r) => sum + Number(r.amount ?? 0), 0),
@@ -379,7 +421,7 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
                   <div>
-                    <p className="text-xs text-muted-foreground">Inspection Date</p>
+                    <p className="text-xs text-muted-foreground">Latest Inspection Date</p>
                     <p className="text-sm font-semibold">
                       {format(parseISO(latestDot.inspection_date), 'MMM d, yyyy')}
                     </p>
@@ -428,6 +470,28 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handlePreviewFile(dot.certificate_file_path!, dot.certificate_file_name || 'Certificate')}>
                         <Eye className="h-3.5 w-3.5" />
                       </Button>
+                    )}
+                    {!readOnly && (
+                      <>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={() => setEditingDot(dot)}
+                          title="Edit inspection"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => setDeletingDot(dot)}
+                          title="Delete inspection"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -544,8 +608,42 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
             open={dotModalOpen}
             onClose={() => setDotModalOpen(false)}
             operatorId={operatorId}
-            onSaved={fetchData}
+            onSaved={handleDotMutated}
           />
+          <DOTInspectionModal
+            open={!!editingDot}
+            onClose={() => setEditingDot(null)}
+            operatorId={operatorId}
+            onSaved={handleDotMutated}
+            existingInspection={editingDot}
+          />
+          <AlertDialog open={!!deletingDot} onOpenChange={o => { if (!o && !deletingDotBusy) setDeletingDot(null); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this DOT inspection?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {deletingDot && (
+                    <>
+                      This will permanently remove the inspection dated{' '}
+                      <strong>{format(parseISO(deletingDot.inspection_date), 'MMM d, yyyy')}</strong>.
+                      The driver's binder will re-sync to the next most recent inspection on file.
+                    </>
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deletingDotBusy}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={(e) => { e.preventDefault(); confirmDeleteDot(); }}
+                  disabled={deletingDotBusy}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {deletingDotBusy && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </>
       )}
 

@@ -1,36 +1,58 @@
-## What's broken
+## What's happening today
 
-I tested `/apply` on the live site — it loads cleanly, no console errors, and one applicant did submit successfully today. But code review of the submit path on Step 9 (Signature) surfaced three real bugs that explain why mobile applicants would say "I can't submit":
+**Editing/deleting an inspection:** There is no UI for it. The `DOT Periodic Inspections` history list in the Vehicle Hub drawer (`FleetDetailDrawer.tsx`) only renders rows with a "view certificate" eye icon — no pencil, no trash. The `DOTInspectionModal.tsx` is add-only. So the accidental 5/20/2026 row for Unit 219 cannot be removed from the UI right now; it can only be deleted with a backend data fix.
 
-1. **Signature gets wiped on iOS Safari address-bar collapse.** `Step9Signature.tsx` attaches a `ResizeObserver` to the signature wrapper. Its callback re-sizes the canvas (which always clears the HTML5 buffer) AND explicitly calls `sigRef.current?.clear()` + sets `signature_image_url` to `''`. On mobile, the URL bar hides as the user scrolls, which fires a resize → the saved signature disappears silently. We already documented this exact pitfall in memory for the ICA flow (`ica-signing-reliability`) but the application form never got the same treatment.
-2. **`handleSubmit` skips `validateStep(9, ...)`.** Every other step runs validation in `goNext`, but the Submit button calls `handleSubmit` directly. So if SSN, typed name, or signature is missing, the form submits a partial payload instead of showing a field error.
-3. **`handleSubmit` ignores Supabase errors.** `.update()` / `.insert()` are awaited but the `{ error }` is never read, and there's no `try/catch` around the encrypt-ssn `fetch`. A failed insert (RLS, constraint, network) still flips `setSubmitted(true)` and the applicant sees the success screen with no record actually saved. Same hole exists in `saveDraft`.
+**How Vehicle Hub syncs to the driver's binder** (`src/lib/syncInspectionBinderDate.ts`):
 
-Combined, an iOS user who scrolls between signing and tapping Submit ends up with: signature cleared → submit fires → partial payload → silent DB rejection → "thank you" page → applicant later told "we never received it."
+```text
+truck_dot_inspections (Vehicle Hub)
+        │  latest row by inspection_date DESC LIMIT 1
+        ▼
+inspection_documents row
+  where scope = 'per_driver'
+    and driver_id = <operator user_id>
+    and name = 'Periodic DOT Inspections'
+        │  writes vhDate into expires_at
+        ▼
+Driver's "Periodic DOT Inspections" binder doc
+  (expires_at column stores the inspection date here)
+```
 
-## Fix
+Key points:
+- Vehicle Hub is the **source of truth**. The binder always mirrors the **latest** `inspection_date` for that operator's truck.
+- Sync runs whenever `syncInspectionBinderDateFromVehicleHub(driverUserId)` is called (binder open / inspection saved). It overwrites the binder if the dates differ.
+- That's why the binder still shows **3/15/2026**: this driver's binder hasn't been re-synced since the 5/20/2026 row was added. The next time it syncs, the binder will jump to **5/20/2026** — unless we delete the bad row first.
 
-### 1. `src/components/application/Step9Signature.tsx`
-- Size the canvas **once on mount** (or only when width actually changes — track previous width and skip re-init if equal). Drop the `ResizeObserver` clearing behavior entirely.
-- When the canvas legitimately needs re-init (orientation change), preserve the existing `signature_image_url` rather than blanking it.
-- Add a `hasDrawn` state mirror so the Saved ✓ indicator and parent validation reflect actual canvas state, matching the ICA pattern.
+## Plan
 
-### 2. `src/pages/ApplicationForm.tsx` — `handleSubmit`
-- Run `const errs = validateStep(9, formData);` first; if any errors, `setErrors(errs)`, scroll to top, show a `toast` ("Please complete all required fields"), and bail before encrypting SSN.
-- Wrap the `encrypt-ssn` `fetch` in `try/catch`; if it fails or returns no `encrypted`, surface a toast and abort (don't silently store NULL SSN).
-- Capture `{ error }` from the `applications` `.update()` / `.insert()`; on error, `throw` it, show a toast ("We couldn't submit your application — please try again or contact us"), and do **not** set `submitted=true`.
-- Same loud-failure treatment for `saveDraft`.
+### 1. Add Edit + Delete to each inspection history row
+In `src/components/fleet/FleetDetailDrawer.tsx`, in the history `.map(...)` block, add two icon buttons next to the existing eye icon (staff only, gated by `!readOnly`):
 
-### 3. Telemetry
-- Log submit failures to `audit_log` (action `application_submit_failed`, entity_type `application`, metadata `{ stage, error_code, email }`) so we can see future failures without waiting for applicants to call.
+- **Edit** (Pencil icon) → opens `DOTInspectionModal` in edit mode, pre-filled with the row's values.
+- **Delete** (Trash icon) → confirm dialog ("Delete this inspection record? This cannot be undone."), then `DELETE FROM truck_dot_inspections WHERE id = ?`.
 
-## Verification
+After save/delete:
+- Refresh `dotInspections` state.
+- Call `syncInspectionBinderDateFromVehicleHub(operator.user_id)` so the binder immediately reflects the new latest record (or the prior one, after a delete).
+- Toast confirmation.
 
-- Reload `/apply` on mobile viewport (390×844), fill all 9 steps, scroll the page after signing to trigger the iOS resize, then submit — signature must persist and submit must succeed.
-- Submit with empty signature/SSN — must show inline errors + toast, no DB write.
-- Force a DB error (e.g., temporarily violate a constraint in dev) — must show toast and stay on Step 9, not advance to "thank you."
-- Confirm Sanjay-style happy-path submit still records into `applications` with `review_status='pending'`.
+### 2. Extend `DOTInspectionModal` to support edit mode
+Accept an optional `existingInspection` prop. When present:
+- Pre-fill all fields (inspection date, inspector, location, result, interval, certificate).
+- On submit, run `UPDATE` instead of `INSERT`.
+- Title becomes "Edit DOT Inspection".
 
-## Out of scope
+### 3. Permissions / RLS
+Confirm `truck_dot_inspections` already has staff `UPDATE` and `DELETE` policies. If `DELETE` is missing, add a migration granting it to `is_staff(auth.uid())`. (I'll verify before writing code.)
 
-No schema changes, no edge function rewrites beyond keeping the existing encrypt-ssn contract, no UI redesign of Step 9 — just reliability fixes to the submit pipeline.
+### 4. Immediate one-off cleanup for Unit 219
+Separately from the feature, delete the 5/20/2026 row directly via the data tool so the user's current symptom is resolved without waiting on the new UI. After deletion, the green countdown card will revert to 3/15/2026, matching the binder. **I'll ask for confirmation before running the delete.**
+
+### 5. Optional polish (carry-over from prior plan)
+Relabel the green countdown card header "Latest inspection" so it's clear it reflects the most recent record, not a reminder date.
+
+## Technical notes
+
+- Files touched: `FleetDetailDrawer.tsx`, `DOTInspectionModal.tsx`, possibly one short migration for a DELETE RLS policy.
+- No schema changes beyond a possible RLS policy addition.
+- Sync helper is already idempotent and is the right hook to call after edit/delete.
