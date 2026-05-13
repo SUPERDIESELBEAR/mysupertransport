@@ -806,6 +806,12 @@ export default function StaffPortal() {
       {currentView === 'operator-preview' && (
         <OperatorPreviewPicker />
       )}
+      {currentView === 'pei-queue' && (
+        <PEIQueuePanel onOpenApplication={async (appId) => {
+          const { data } = await supabase.from('applications').select('*').eq('id', appId).single();
+          if (data) setReviewApp(data as FullApplication);
+        }} />
+      )}
     </StaffLayout>
 
     {reviewApp && (
