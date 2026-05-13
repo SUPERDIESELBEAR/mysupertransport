@@ -3648,6 +3648,23 @@ export type Database = {
           status: Database["public"]["Enums"]["pei_request_status"]
         }[]
       }
+      get_pei_request_for_response: {
+        Args: { p_token: string }
+        Returns: {
+          already_responded: boolean
+          applicant_first_name: string
+          applicant_last_name: string
+          application_id: string
+          deadline_date: string
+          employer_city: string
+          employer_name: string
+          employer_state: string
+          employment_end_date: string
+          employment_start_date: string
+          request_id: string
+          status: Database["public"]["Enums"]["pei_request_status"]
+        }[]
+      }
       get_pei_requests_needing_action: {
         Args: never
         Returns: {
@@ -3727,6 +3744,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      submit_pei_response: {
+        Args: { p_accidents?: Json; p_response: Json; p_token: string }
+        Returns: string
       }
     }
     Enums: {
