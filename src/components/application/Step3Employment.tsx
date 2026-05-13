@@ -69,10 +69,10 @@ function EmployerBlock({ index, total, value, onChange, onRemove }: EmployerBloc
         <FormField label="Employer Name" required>
           <AppInput value={value.name} onChange={e => set('name', e.target.value)} placeholder="Company name" />
         </FormField>
-        <FormField label="City">
+        <FormField label="City" required>
           <AppInput value={value.city} onChange={e => set('city', e.target.value)} placeholder="City" />
         </FormField>
-        <FormField label="State">
+        <FormField label="State" required>
           <AppSelect value={value.state} onChange={e => set('state', e.target.value)}>
             <option value="">State</option>
             {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
