@@ -15,7 +15,7 @@ import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff, HardDrive, GraduationCap, Container, Eye } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff, HardDrive, GraduationCap, Container, Eye, Briefcase } from 'lucide-react';
 import FleetRoster from '@/components/fleet/FleetRoster';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
@@ -28,6 +28,7 @@ import InspectionComplianceSummary from '@/components/inspection/InspectionCompl
 import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 import ComplianceAlertsPanel from '@/components/inspection/ComplianceAlertsPanel';
 import OperatorPreviewPicker from '@/components/operator/OperatorPreviewPicker';
+import PEIQueuePanel from '@/components/pei/PEIQueuePanel';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -35,7 +36,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resource-center' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'compliance' | 'equipment' | 'vehicle-hub' | 'vehicle-detail' | 'operator-preview';
+type StaffView = 'pipeline' | 'operator-detail' | 'messages' | 'faq' | 'resource-center' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'compliance' | 'equipment' | 'vehicle-hub' | 'vehicle-detail' | 'operator-preview' | 'pei-queue';
 
 export default function StaffPortal() {
   const { user } = useAuth();
@@ -43,7 +44,7 @@ export default function StaffPortal() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [currentView, setCurrentView] = useState<StaffView>(() => {
     const v = searchParams.get('view') as StaffView | null;
-    if (v && ['pipeline','messages','faq','resource-center','notifications','docs-hub','inspection-binder','drivers','compliance','equipment','vehicle-hub','operator-preview','operator-detail'].includes(v)) return v;
+    if (v && ['pipeline','messages','faq','resource-center','notifications','docs-hub','inspection-binder','drivers','compliance','equipment','vehicle-hub','operator-preview','operator-detail','pei-queue'].includes(v)) return v;
     return 'pipeline';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
@@ -233,6 +234,7 @@ export default function StaffPortal() {
     { label: 'Vehicle Hub', icon: <Truck className="h-4 w-4" />, path: 'vehicle-hub' },
     { label: 'Compliance', icon: <ShieldCheck className="h-4 w-4" />, path: 'compliance', badge: criticalExpiryCount || undefined },
     { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />, path: 'inspection-binder' },
+    { label: 'PEI Queue', icon: <Briefcase className="h-4 w-4" />, path: 'pei-queue' },
     { label: 'Document Hub', icon: <Library className="h-4 w-4" />, path: 'docs-hub' },
     { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'messages', badge: unreadCount, dividerBefore: 'Tools' },
     { label: 'Resource Center', icon: <BookOpen className="h-4 w-4" />, path: 'resource-center' },
@@ -803,6 +805,12 @@ export default function StaffPortal() {
       )}
       {currentView === 'operator-preview' && (
         <OperatorPreviewPicker />
+      )}
+      {currentView === 'pei-queue' && (
+        <PEIQueuePanel onOpenApplication={async (appId) => {
+          const { data } = await supabase.from('applications').select('*').eq('id', appId).single();
+          if (data) setReviewApp(data as FullApplication);
+        }} />
       )}
     </StaffLayout>
 

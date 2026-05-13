@@ -1,78 +1,67 @@
+# PEI Module — Phase 2 Wire-Up + Phase 3 Build
 
-# Previous Employment Investigation (PEI) Module
+## Goal
+Make the PEI system reachable in the Staff UI, then deliver the end-to-end response loop (tokenized public form, GFE fallback, response viewer). Email automation, cron, and pipeline gating stay deferred to Phase 4.
 
-The uploaded prompt sequence assumes a generic `applicants` table and `profiles.role` RLS, neither of which exist in this project. The plan below preserves the full PEI feature set but adapts it to SUPERDRIVE's actual schema (`applications`, `employers` jsonb, `is_staff()` / `has_role()`) and existing patterns (edge function `getClaims(token)` auth, Resend via `send-notification`, pg_cron at 15:00 UTC, gold/charcoal palette, no `src/services/` folder — inline supabase calls).
+## Scope
 
-Build is split into 4 phases. Each phase ends in a working, demoable slice.
+### Part A — Wire Phase 2 into the UI
+1. **Staff sidebar entry**
+   - Add a "PEI Queue" item to the staff sidebar (`src/components/staff/StaffSidebar.tsx` or equivalent) gated by `is_staff`.
+   - New route `/staff/pei` rendering `PEIQueuePanel`.
 
-## Adaptations from the spec
+2. **Application drawer "PEI" tab**
+   - Add a "PEI" tab to `ApplicationReviewDrawer.tsx`.
+   - Tab content: list of `pei_requests` for that application, "Auto-build from employment history" button calling `autoBuildPEIRequests`, per-row actions (Send email — stub, Open GFE modal, View response).
+   - Show roll-up `pei_status` badge in the drawer header.
 
-- `applicants` → `applications`. Foreign keys reference `applications(id)`. Applicant name = `first_name + ' ' + last_name`, DOB = `dob`, SSN last 4 derived from `ssn_encrypted` via existing `decrypt-ssn` edge function (server-side only — never expose to public token endpoint; show "***-**-XXXX" only after decryption inside the staff RPC).
-- Employment history lives in `applications.employers` jsonb. `autoBuildPEIRequests` reads that array, filters last 3 years, uses a new `is_dot_regulated` flag we'll add per employer entry (Phase 4 form change).
-- RLS rewritten to use `is_staff(auth.uid())` for staff and `has_role(auth.uid(), 'management')` / `'owner'` for destructive ops. No `profiles.role` references.
-- Edge functions authenticate via `supabaseAdmin.auth.getClaims(token)` (per project memory), not `getUser()`.
-- Cron runs at **13:00 UTC** (8 AM Central, DST-naive — matches existing daily jobs window).
-- New service helpers go in `src/lib/pei/` (project has no `src/services/`).
-- Public response page is unauthenticated; the edge function `get-pei-request-by-token` is the only data source so RLS stays locked down.
+### Part B — Phase 3 build (public response + viewer + GFE)
+3. **Edge function `get-pei-request-by-token`** (`verify_jwt = false`)
+   - Input: `{ token: uuid }`.
+   - Validates token against `pei_requests.response_token`, checks not expired / not used.
+   - Returns sanitized request payload: applicant name, DOB (masked), last 4 of SSN (server-side decrypt), employment dates claimed, prior employer name. Never returns full SSN to the client.
+   - CORS enabled, Zod-validated input, loud errors.
 
-## Phase 1 — Schema, RLS, Triggers, Storage
+4. **Public response page `PEIRespond.tsx`**
+   - Route: `/pei/respond/:token` (public, no auth).
+   - Loads request via the edge function.
+   - Form fields per 49 CFR §391.23(c): dates of employment, position, reason for leaving, eligible for rehire, accidents (dynamic list → `pei_accidents`), drug/alcohol violations, performance under DOT regs.
+   - Submits to `pei_responses` (insert RLS policy must allow anon insert keyed by valid token via SECURITY DEFINER RPC `submit_pei_response(token, payload)`).
+   - Trigger `complete_pei_request_on_response` already flips status to completed.
+   - Confirmation screen on success.
 
-Single migration creating:
+5. **GFE modal `GFEModal.tsx` finishing touches**
+   - Already created — wire to staff drawer row action.
+   - Required: GFE reason enum dropdown, free-text notes, optional file upload to `pei-documents` bucket, "Mark GFE" button writes to `pei_requests` (status = `good_faith_effort`, `gfe_reason`, `gfe_notes`, `gfe_evidence_url`).
 
-- Enums: `pei_request_status`, `pei_gfe_reason`, `pei_performance_rating`, `pei_leaving_reason`, `pei_applicant_status`.
-- Tables: `pei_requests` (FK → `applications.id`), `pei_responses` (1:1 FK → `pei_requests`), `pei_accidents` (N:1 FK → `pei_responses`).
-- Columns added to `applications`: `pei_status`, `pei_deadline`, `driver_rights_notice_acknowledged`, `driver_rights_notice_date`.
-- Indexes per spec, plus unique on `response_token`.
-- Triggers: `update_updated_at`, `set_pei_deadline` (date_sent → +30 days), `update_application_pei_status` (rolls request statuses up to applicant), `complete_pei_request_on_response`.
-- Helper RPCs: `get_pei_queue()`, `get_applicant_pei_summary(uuid)`, `get_pei_requests_needing_action()`. (`get_pei_request_by_token` lives in the edge function instead of the DB so we can decrypt SSN last-4 server-side.)
-- RLS — staff (read/insert/update via `is_staff`), management (delete), public/anon insert on `pei_responses` + `pei_accidents` only when the parent request token is unused and status is in `('sent','follow_up_sent','final_notice_sent')`.
-- Storage bucket `pei-documents` (private) with staff-only ALL policy.
+6. **Response viewer `PEIResponseViewer.tsx`**
+   - Read-only modal/panel opened from queue + drawer.
+   - Renders the full response, accidents list, attachments, GFE evidence if applicable.
+   - Print-friendly layout (driver qualification file).
 
-Deliverable: tables exist, RLS verified with linter.
+### Out of scope (Phase 4, next request)
+- Resend email templates + `send-pei-email` edge function.
+- pg_cron `pei-cron` daily job (auto-GFE at 30 days, reminder emails).
+- `Step3Employment.tsx` `is_dot_regulated` per-employer flag.
+- `Step8Disclosures.tsx` Driver Rights Notice acknowledgment.
+- Pipeline activation gate on `pei_status = 'complete'`.
 
-## Phase 2 — Staff Queue + Applicant Tab
+## Technical notes
 
-- `src/lib/pei/types.ts` — TS types matching enums and tables.
-- `src/lib/pei/api.ts` — inline supabase helpers: `fetchPEIQueue`, `fetchPEIRequestsByApplication`, `createPEIRequest`, `updatePEIRequest`, `createGoodFaithEffort`, `autoBuildPEIRequests`, `fetchPEIResponse`, `fetchPEIAccidents`.
-- New page `src/pages/staff/PEIQueue.tsx` at `/staff/pei-queue`, wrapped in `StaffLayout`. Header, 4 stat tiles, sortable table, color-coded badges using design tokens (no raw colors). Action buttons render but call placeholders.
-- New tab inside the existing applicant review drawer (`ApplicationReviewDrawer.tsx`): "PEI" tab with status header, Generate / Send All Pending buttons, request cards, View Response / View GFE actions, and a Document Vault list.
-- Sidebar entry "PEI Queue" under Compliance with badge count.
+- **Token security:** `response_token` is uuid v4, single-use, expires at `pei_requests.deadline_at`. Edge function returns 410 on expired, 409 on already-used.
+- **Anon submission:** Use a `SECURITY DEFINER` RPC `submit_pei_response(p_token, p_payload jsonb, p_accidents jsonb)` instead of opening RLS to anon — keeps `pei_responses` insert policy staff-only.
+- **SSN decryption:** Only inside the edge function with service role; client receives `ssn_last4` only.
+- **Storage:** `pei-documents` bucket (already created) — anon upload via signed URL issued by edge function for response attachments; staff upload directly for GFE evidence.
+- **Routing:** Add `/pei/respond/:token` to public routes in `App.tsx`, `/staff/pei` to staff routes.
+- **Sidebar:** Match existing pattern from `mem://ui/navigation-system` (localStorage `staff_sidebar_open`, NavLink active state).
 
-Deliverable: staff can see, generate, and view PEI rows (no email sending yet).
+## Deliverables
+- 1 migration: `submit_pei_response` RPC + any missing RLS tweaks.
+- 1 edge function: `get-pei-request-by-token`.
+- 5 new files: `PEIRespond.tsx`, `PEIResponseViewer.tsx`, route entries, sidebar entry, drawer tab.
+- Edits: `ApplicationReviewDrawer.tsx`, `StaffSidebar.tsx`, `App.tsx`, finish `GFEModal.tsx`.
 
-## Phase 3 — Public Response Form + GFE + Viewer
-
-- New edge function `get-pei-request-by-token` (verify_jwt = false): looks up by token, returns sanitized request + applicant name/DOB/SSN-last4 (decrypted server-side). Refuses if token used or status final.
-- Public page `src/pages/PEIRespond.tsx` at `/pei/respond/:token`. Standalone layout (no staff chrome), SUPERTRANSPORT branding, 2-page form per spec, signature pad reusing existing `SignaturePad` component, validation, submit via a second edge function `submit-pei-response` (verify_jwt = false) that inserts `pei_responses` + `pei_accidents` and flips `response_token_used = true` atomically. Shows confirmation / friendly errors for invalid/used tokens.
-- `PEIResponseViewer.tsx` — read-only modal used from staff tab and queue.
-- `DocumentGFEModal.tsx` — staff modal for `pei_gfe_reason` selection, calls `createGoodFaithEffort`.
-
-Deliverable: end-to-end loop minus email — staff generates → token URL works → response stored → viewer renders → GFE flow works.
-
-## Phase 4 — Email, Cron, App Integration, Pipeline Gate, Polish
-
-- Edge function `send-pei-email` (uses Resend secret already configured, `getClaims` auth, follows existing `send-notification` template structure). Three templates: initial / follow_up / final_notice. Updates the `pei_request` row on success only. Wires up Send PEI / Send Follow-Up / Send Final Notice / Send All Pending buttons with toasts and per-button spinners.
-- Edge function `pei-cron` (verify_jwt = false, called by pg_cron): iterates `get_pei_requests_needing_action`, sends follow-ups, sends final notices, auto-creates GFE (`reason = 'no_response'`) at 30 days. pg_cron schedule daily at 13:00 UTC. Banner on PEI Queue when auto-GFEs were created in last 7 days.
-- Application form changes (`Step3Employment.tsx`):
-  - Add `is_dot_regulated: boolean` field per employer with help tooltip; persist into `employers` jsonb.
-- Application form changes (`Step8Disclosures.tsx`):
-  - Add Driver Rights Notice block + required acknowledgment checkbox; sets `driver_rights_notice_acknowledged` and `driver_rights_notice_date` on submit.
-- Pipeline integration: when applicant advances to the configured trigger stage (default: post-screening), call `autoBuildPEIRequests`. Hard gate in activation flow: block "Activate" / "Ready for Dispatch" unless `pei_status = 'complete'`. PEI compliance pill on applicant header.
-- Final polish per Prompt 12: confirmation dialogs, empty states, breadcrumbs, mobile audit, dashboard widget on staff home.
-
-Deliverable: full module live, compliant with §391.23.
-
-## Technical details
-
-- Date math uses noon-anchoring per project memory (`T12:00:00`) when displaying day counts.
-- All status badges use existing design tokens (`bg-muted`, `bg-secondary`, `text-warning`, etc.), not raw Tailwind colors.
-- Edge functions log via `console.log` and return JSON `{ ok, ... }` consistent with `send-notification`.
-- Existing email layout (`supabase/functions/_shared/email-layout.ts`) wraps all PEI emails for branding consistency.
-- Storage uploads (response PDFs, GFE PDFs) deferred to "Future Enhancements" — bucket exists but PDF generation is out of scope.
-- Realtime not required; queue refreshes on focus + after mutations.
-
-## Out of scope (matches spec's "Future Enhancements")
-
-PDF generation, Clearinghouse logging, driver rebuttal workflow, FMCSA non-compliance reporting, audit export.
-
-After approval I'll start with the Phase 1 migration and ask for your go-ahead before running it.
+## Verification
+- Auto-build PEI rows from a test application's employers.
+- Open the tokenized link in incognito → submit response → confirm `pei_requests.status = 'completed'` and viewer renders the response.
+- Mark a separate request as GFE → confirm rollup `applications.pei_status` updates correctly.

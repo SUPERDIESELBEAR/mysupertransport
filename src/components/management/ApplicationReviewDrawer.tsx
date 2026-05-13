@@ -25,6 +25,7 @@ import FCRAAuthorizationDoc from '@/components/application/documents/FCRAAuthori
 import PreEmploymentAuthorizationsDoc from '@/components/application/documents/PreEmploymentAuthorizationsDoc';
 import DOTDrugAlcoholQuestionsDoc from '@/components/application/documents/DOTDrugAlcoholQuestionsDoc';
 import CompanyTestingPolicyCertDoc from '@/components/application/documents/CompanyTestingPolicyCertDoc';
+import { ApplicationPEITab } from '@/components/pei/ApplicationPEITab';
 
 type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
 
@@ -217,7 +218,7 @@ const STATUS_COLORS: Record<string, string> = {
   revisions_requested: 'bg-status-progress/15 text-status-progress',
 };
 
-type DrawerTab = 'overview' | 'documents';
+type DrawerTab = 'overview' | 'documents' | 'pei';
 
 export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated, focusField }: ApplicationReviewDrawerProps) {
   const { roles } = useAuth();
@@ -671,10 +672,25 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
             <FileText className="h-3.5 w-3.5" />
             Documents
           </button>
+          <button
+            onClick={() => setActiveTab('pei')}
+            className={`flex-1 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+              activeTab === 'pei'
+                ? 'text-gold border-b-2 border-gold bg-gold/5'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            PEI
+          </button>
         </div>
 
         {/* Scrollable content */}
         <div id="app-review-print-content" className="flex-1 overflow-y-auto">
+
+          {activeTab === 'pei' && (
+            <ApplicationPEITab applicationId={app.id} />
+          )}
 
           {/* ── OVERVIEW TAB ── */}
           {activeTab === 'overview' && (
