@@ -26,6 +26,7 @@ import SplashPage from "./pages/SplashPage";
 import InspectionSharePage from "./pages/InspectionSharePage";
 import SubmitSSN from "./pages/SubmitSSN";
 import InstallApp from "./pages/InstallApp";
+import PEIRespond from "./pages/PEIRespond";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +57,7 @@ function AppRoutes() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/welcome" element={<WelcomeOperator />} />
       <Route path="/inspect/:token" element={<InspectionSharePage />} />
+      <Route path="/pei/respond/:token" element={<PEIRespond />} />
       <Route path="/splash" element={<SplashPage />} />
       <Route path="/install" element={<InstallApp />} />
 
