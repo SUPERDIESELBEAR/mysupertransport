@@ -25,6 +25,7 @@ import FCRAAuthorizationDoc from '@/components/application/documents/FCRAAuthori
 import PreEmploymentAuthorizationsDoc from '@/components/application/documents/PreEmploymentAuthorizationsDoc';
 import DOTDrugAlcoholQuestionsDoc from '@/components/application/documents/DOTDrugAlcoholQuestionsDoc';
 import CompanyTestingPolicyCertDoc from '@/components/application/documents/CompanyTestingPolicyCertDoc';
+import { ApplicationPEITab } from '@/components/pei/ApplicationPEITab';
 
 type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
 
@@ -217,7 +218,7 @@ const STATUS_COLORS: Record<string, string> = {
   revisions_requested: 'bg-status-progress/15 text-status-progress',
 };
 
-type DrawerTab = 'overview' | 'documents';
+type DrawerTab = 'overview' | 'documents' | 'pei';
 
 export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated, focusField }: ApplicationReviewDrawerProps) {
   const { roles } = useAuth();
