@@ -165,6 +165,8 @@ export type Database = {
           dot_positive_test_past_2yr: boolean | null
           dot_return_to_duty_docs: boolean | null
           draft_token: string | null
+          driver_rights_notice_acknowledged: boolean
+          driver_rights_notice_date: string | null
           email: string
           employers: Json
           employment_gaps: boolean | null
@@ -180,6 +182,8 @@ export type Database = {
           moving_violations: boolean | null
           moving_violations_description: string | null
           mvr_status: Database["public"]["Enums"]["mvr_status"]
+          pei_deadline: string | null
+          pei_status: Database["public"]["Enums"]["pei_applicant_status"]
           phone: string | null
           pre_revision_status:
             | Database["public"]["Enums"]["review_status"]
@@ -236,6 +240,8 @@ export type Database = {
           dot_positive_test_past_2yr?: boolean | null
           dot_return_to_duty_docs?: boolean | null
           draft_token?: string | null
+          driver_rights_notice_acknowledged?: boolean
+          driver_rights_notice_date?: string | null
           email: string
           employers?: Json
           employment_gaps?: boolean | null
@@ -251,6 +257,8 @@ export type Database = {
           moving_violations?: boolean | null
           moving_violations_description?: string | null
           mvr_status?: Database["public"]["Enums"]["mvr_status"]
+          pei_deadline?: string | null
+          pei_status?: Database["public"]["Enums"]["pei_applicant_status"]
           phone?: string | null
           pre_revision_status?:
             | Database["public"]["Enums"]["review_status"]
@@ -307,6 +315,8 @@ export type Database = {
           dot_positive_test_past_2yr?: boolean | null
           dot_return_to_duty_docs?: boolean | null
           draft_token?: string | null
+          driver_rights_notice_acknowledged?: boolean
+          driver_rights_notice_date?: string | null
           email?: string
           employers?: Json
           employment_gaps?: boolean | null
@@ -322,6 +332,8 @@ export type Database = {
           moving_violations?: boolean | null
           moving_violations_description?: string | null
           mvr_status?: Database["public"]["Enums"]["mvr_status"]
+          pei_deadline?: string | null
+          pei_status?: Database["public"]["Enums"]["pei_applicant_status"]
           phone?: string | null
           pre_revision_status?:
             | Database["public"]["Enums"]["review_status"]
@@ -2529,6 +2541,345 @@ export type Database = {
           },
         ]
       }
+      pei_accidents: {
+        Row: {
+          accident_date: string | null
+          created_at: string
+          hazmat_spill: boolean | null
+          id: string
+          location_city_state: string | null
+          number_of_fatalities: number | null
+          number_of_injuries: number | null
+          pei_response_id: string
+        }
+        Insert: {
+          accident_date?: string | null
+          created_at?: string
+          hazmat_spill?: boolean | null
+          id?: string
+          location_city_state?: string | null
+          number_of_fatalities?: number | null
+          number_of_injuries?: number | null
+          pei_response_id: string
+        }
+        Update: {
+          accident_date?: string | null
+          created_at?: string
+          hazmat_spill?: boolean | null
+          id?: string
+          location_city_state?: string | null
+          number_of_fatalities?: number | null
+          number_of_injuries?: number | null
+          pei_response_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pei_accidents_pei_response_id_fkey"
+            columns: ["pei_response_id"]
+            isOneToOne: false
+            referencedRelation: "pei_responses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pei_requests: {
+        Row: {
+          application_id: string
+          created_at: string
+          date_final_notice_sent: string | null
+          date_follow_up_sent: string | null
+          date_gfe_created: string | null
+          date_response_received: string | null
+          date_sent: string | null
+          deadline_date: string | null
+          employer_address: string | null
+          employer_city: string | null
+          employer_contact_email: string | null
+          employer_contact_name: string | null
+          employer_country: string | null
+          employer_name: string
+          employer_phone: string | null
+          employer_postal_code: string | null
+          employer_state: string | null
+          employment_end_date: string | null
+          employment_start_date: string | null
+          gfe_document_url: string | null
+          gfe_other_reason: string | null
+          gfe_reason: Database["public"]["Enums"]["pei_gfe_reason"] | null
+          gfe_signed_by_name: string | null
+          gfe_signed_by_staff_id: string | null
+          id: string
+          is_dot_regulated: boolean
+          response_document_url: string | null
+          response_token: string
+          response_token_used: boolean
+          sent_by_staff_id: string | null
+          status: Database["public"]["Enums"]["pei_request_status"]
+          updated_at: string
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          date_final_notice_sent?: string | null
+          date_follow_up_sent?: string | null
+          date_gfe_created?: string | null
+          date_response_received?: string | null
+          date_sent?: string | null
+          deadline_date?: string | null
+          employer_address?: string | null
+          employer_city?: string | null
+          employer_contact_email?: string | null
+          employer_contact_name?: string | null
+          employer_country?: string | null
+          employer_name: string
+          employer_phone?: string | null
+          employer_postal_code?: string | null
+          employer_state?: string | null
+          employment_end_date?: string | null
+          employment_start_date?: string | null
+          gfe_document_url?: string | null
+          gfe_other_reason?: string | null
+          gfe_reason?: Database["public"]["Enums"]["pei_gfe_reason"] | null
+          gfe_signed_by_name?: string | null
+          gfe_signed_by_staff_id?: string | null
+          id?: string
+          is_dot_regulated?: boolean
+          response_document_url?: string | null
+          response_token?: string
+          response_token_used?: boolean
+          sent_by_staff_id?: string | null
+          status?: Database["public"]["Enums"]["pei_request_status"]
+          updated_at?: string
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          date_final_notice_sent?: string | null
+          date_follow_up_sent?: string | null
+          date_gfe_created?: string | null
+          date_response_received?: string | null
+          date_sent?: string | null
+          deadline_date?: string | null
+          employer_address?: string | null
+          employer_city?: string | null
+          employer_contact_email?: string | null
+          employer_contact_name?: string | null
+          employer_country?: string | null
+          employer_name?: string
+          employer_phone?: string | null
+          employer_postal_code?: string | null
+          employer_state?: string | null
+          employment_end_date?: string | null
+          employment_start_date?: string | null
+          gfe_document_url?: string | null
+          gfe_other_reason?: string | null
+          gfe_reason?: Database["public"]["Enums"]["pei_gfe_reason"] | null
+          gfe_signed_by_name?: string | null
+          gfe_signed_by_staff_id?: string | null
+          id?: string
+          is_dot_regulated?: boolean
+          response_document_url?: string | null
+          response_token?: string
+          response_token_used?: boolean
+          sent_by_staff_id?: string | null
+          status?: Database["public"]["Enums"]["pei_request_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pei_requests_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pei_responses: {
+        Row: {
+          actual_end_date: string | null
+          actual_start_date: string | null
+          created_at: string
+          date_signed: string | null
+          dates_accurate: boolean | null
+          drug_alcohol_notes: string | null
+          drug_alcohol_violation: boolean | null
+          equipment_bus: boolean | null
+          equipment_straight_truck: boolean | null
+          equipment_tractor_semi: boolean | null
+          failed_rehab: boolean | null
+          had_accidents: boolean | null
+          id: string
+          pei_request_id: string
+          post_rehab_violations: boolean | null
+          rating_attitude:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          rating_cooperation:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          rating_driving_skills:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          rating_personal_habits:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          rating_quality_of_work:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          rating_safety_habits:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          reason_detail: string | null
+          reason_for_leaving:
+            | Database["public"]["Enums"]["pei_leaving_reason"]
+            | null
+          responder_city: string | null
+          responder_company: string | null
+          responder_email: string | null
+          responder_name: string
+          responder_phone: string | null
+          responder_postal_code: string | null
+          responder_signature_data: string | null
+          responder_state: string | null
+          responder_title: string | null
+          safe_and_efficient: boolean | null
+          submission_method: string | null
+          trailer_cargo_tank: boolean | null
+          trailer_doubles: boolean | null
+          trailer_flatbed: boolean | null
+          trailer_na: boolean | null
+          trailer_reefer: boolean | null
+          trailer_triples: boolean | null
+          trailer_van: boolean | null
+          was_employed: boolean | null
+        }
+        Insert: {
+          actual_end_date?: string | null
+          actual_start_date?: string | null
+          created_at?: string
+          date_signed?: string | null
+          dates_accurate?: boolean | null
+          drug_alcohol_notes?: string | null
+          drug_alcohol_violation?: boolean | null
+          equipment_bus?: boolean | null
+          equipment_straight_truck?: boolean | null
+          equipment_tractor_semi?: boolean | null
+          failed_rehab?: boolean | null
+          had_accidents?: boolean | null
+          id?: string
+          pei_request_id: string
+          post_rehab_violations?: boolean | null
+          rating_attitude?:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          rating_cooperation?:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          rating_driving_skills?:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          rating_personal_habits?:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          rating_quality_of_work?:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          rating_safety_habits?:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          reason_detail?: string | null
+          reason_for_leaving?:
+            | Database["public"]["Enums"]["pei_leaving_reason"]
+            | null
+          responder_city?: string | null
+          responder_company?: string | null
+          responder_email?: string | null
+          responder_name: string
+          responder_phone?: string | null
+          responder_postal_code?: string | null
+          responder_signature_data?: string | null
+          responder_state?: string | null
+          responder_title?: string | null
+          safe_and_efficient?: boolean | null
+          submission_method?: string | null
+          trailer_cargo_tank?: boolean | null
+          trailer_doubles?: boolean | null
+          trailer_flatbed?: boolean | null
+          trailer_na?: boolean | null
+          trailer_reefer?: boolean | null
+          trailer_triples?: boolean | null
+          trailer_van?: boolean | null
+          was_employed?: boolean | null
+        }
+        Update: {
+          actual_end_date?: string | null
+          actual_start_date?: string | null
+          created_at?: string
+          date_signed?: string | null
+          dates_accurate?: boolean | null
+          drug_alcohol_notes?: string | null
+          drug_alcohol_violation?: boolean | null
+          equipment_bus?: boolean | null
+          equipment_straight_truck?: boolean | null
+          equipment_tractor_semi?: boolean | null
+          failed_rehab?: boolean | null
+          had_accidents?: boolean | null
+          id?: string
+          pei_request_id?: string
+          post_rehab_violations?: boolean | null
+          rating_attitude?:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          rating_cooperation?:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          rating_driving_skills?:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          rating_personal_habits?:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          rating_quality_of_work?:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          rating_safety_habits?:
+            | Database["public"]["Enums"]["pei_performance_rating"]
+            | null
+          reason_detail?: string | null
+          reason_for_leaving?:
+            | Database["public"]["Enums"]["pei_leaving_reason"]
+            | null
+          responder_city?: string | null
+          responder_company?: string | null
+          responder_email?: string | null
+          responder_name?: string
+          responder_phone?: string | null
+          responder_postal_code?: string | null
+          responder_signature_data?: string | null
+          responder_state?: string | null
+          responder_title?: string | null
+          safe_and_efficient?: boolean | null
+          submission_method?: string | null
+          trailer_cargo_tank?: boolean | null
+          trailer_doubles?: boolean | null
+          trailer_flatbed?: boolean | null
+          trailer_na?: boolean | null
+          trailer_reefer?: boolean | null
+          trailer_triples?: boolean | null
+          trailer_van?: boolean | null
+          was_employed?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pei_responses_pei_request_id_fkey"
+            columns: ["pei_request_id"]
+            isOneToOne: true
+            referencedRelation: "pei_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pipeline_config: {
         Row: {
           description: string | null
@@ -3181,6 +3532,8 @@ export type Database = {
           dot_positive_test_past_2yr: boolean | null
           dot_return_to_duty_docs: boolean | null
           draft_token: string | null
+          driver_rights_notice_acknowledged: boolean
+          driver_rights_notice_date: string | null
           email: string
           employers: Json
           employment_gaps: boolean | null
@@ -3196,6 +3549,8 @@ export type Database = {
           moving_violations: boolean | null
           moving_violations_description: string | null
           mvr_status: Database["public"]["Enums"]["mvr_status"]
+          pei_deadline: string | null
+          pei_status: Database["public"]["Enums"]["pei_applicant_status"]
           phone: string | null
           pre_revision_status:
             | Database["public"]["Enums"]["review_status"]
@@ -3233,6 +3588,24 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_application_pei_summary: {
+        Args: { p_application_id: string }
+        Returns: {
+          date_sent: string
+          days_remaining: number
+          deadline_date: string
+          employer_city: string
+          employer_name: string
+          employer_state: string
+          employment_end_date: string
+          employment_start_date: string
+          gfe_reason: Database["public"]["Enums"]["pei_gfe_reason"]
+          has_response: boolean
+          is_dot_regulated: boolean
+          request_id: string
+          status: Database["public"]["Enums"]["pei_request_status"]
+        }[]
+      }
       get_equipment_shipping_for_operator: {
         Args: { p_operator_id: string }
         Returns: {
@@ -3256,6 +3629,39 @@ export type Database = {
           file_url: string
           id: string
           name: string
+        }[]
+      }
+      get_pei_queue: {
+        Args: never
+        Returns: {
+          applicant_first_name: string
+          applicant_last_name: string
+          application_id: string
+          date_sent: string
+          days_remaining: number
+          deadline_date: string
+          employer_city: string
+          employer_name: string
+          employer_state: string
+          is_overdue: boolean
+          request_id: string
+          status: Database["public"]["Enums"]["pei_request_status"]
+        }[]
+      }
+      get_pei_requests_needing_action: {
+        Args: never
+        Returns: {
+          action_needed: string
+          applicant_first_name: string
+          applicant_last_name: string
+          application_id: string
+          date_sent: string
+          days_since_sent: number
+          deadline_date: string
+          employer_contact_email: string
+          employer_name: string
+          request_id: string
+          status: Database["public"]["Enums"]["pei_request_status"]
         }[]
       }
       get_user_roles: {
@@ -3382,6 +3788,24 @@ export type Database = {
         | "truck_inspection"
         | "pe_receipt"
       pandadoc_status: "sent" | "viewed" | "completed"
+      pei_applicant_status: "not_started" | "in_progress" | "complete"
+      pei_gfe_reason:
+        | "no_response"
+        | "refused"
+        | "not_located"
+        | "no_longer_in_business"
+        | "not_dot_regulated"
+        | "owner_of_company"
+        | "other"
+      pei_leaving_reason: "discharged" | "laid_off" | "resigned" | "other"
+      pei_performance_rating: "excellent" | "good" | "poor"
+      pei_request_status:
+        | "pending"
+        | "sent"
+        | "follow_up_sent"
+        | "final_notice_sent"
+        | "completed"
+        | "gfe_documented"
       registration_type: "own_registration" | "needs_mo_reg"
       resource_category:
         | "user_manuals"
@@ -3585,6 +4009,26 @@ export const Constants = {
         "pe_receipt",
       ],
       pandadoc_status: ["sent", "viewed", "completed"],
+      pei_applicant_status: ["not_started", "in_progress", "complete"],
+      pei_gfe_reason: [
+        "no_response",
+        "refused",
+        "not_located",
+        "no_longer_in_business",
+        "not_dot_regulated",
+        "owner_of_company",
+        "other",
+      ],
+      pei_leaving_reason: ["discharged", "laid_off", "resigned", "other"],
+      pei_performance_rating: ["excellent", "good", "poor"],
+      pei_request_status: [
+        "pending",
+        "sent",
+        "follow_up_sent",
+        "final_notice_sent",
+        "completed",
+        "gfe_documented",
+      ],
       registration_type: ["own_registration", "needs_mo_reg"],
       resource_category: [
         "user_manuals",
