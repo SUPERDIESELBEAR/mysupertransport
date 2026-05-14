@@ -1,13 +1,23 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, RefreshCw, Send, FileWarning, Eye, Copy, ShieldCheck, Plus, Pencil, X, Check } from 'lucide-react';
+import { Loader2, RefreshCw, Send, FileWarning, Eye, Copy, ShieldCheck, Plus, Pencil, X, Check, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { US_STATES } from '@/components/application/types';
 import { toTitleCase } from '@/components/application/utils';
-import { autoBuildPEIRequests, fetchPEIRequestsByApplication } from '@/lib/pei/api';
+import { autoBuildPEIRequests, deletePEIRequest, fetchPEIRequestsByApplication } from '@/lib/pei/api';
 import type { PEIRequest } from '@/lib/pei/types';
 import { PEIStatusBadge } from './StatusBadge';
 import { sendPEIEmail } from './sendPEIEmail';
@@ -34,6 +44,23 @@ export function ApplicationPEITab({ applicationId }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [edit, setEdit] = useState<{ email: string; city: string; state: string }>({ email: '', city: '', state: '' });
   const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingFor, setDeletingFor] = useState<PEIRequest | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  async function handleDelete() {
+    if (!deletingFor) return;
+    setDeleteBusy(true);
+    try {
+      await deletePEIRequest(deletingFor.id);
+      toast.success('PEI request deleted');
+      setDeletingFor(null);
+      await reload();
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to delete PEI request');
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
 
   async function reload() {
     setLoading(true);
