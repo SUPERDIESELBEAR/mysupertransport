@@ -57,7 +57,7 @@ export function SendTestPEIDialog({ open, onOpenChange }: Props) {
       const responseUrl = `${siteOrigin.replace(/\/$/, '')}/pei/respond/test-token-preview`;
 
       const templateData = {
-        applicantName: 'Test Applicant',
+        applicantName: '[TEST] Test Applicant',
         employerName: 'Sample Trucking Co.',
         contactName: 'Jane Doe',
         employmentStartDate: '01/2022',
@@ -65,7 +65,6 @@ export function SendTestPEIDialog({ open, onOpenChange }: Props) {
         responseUrl,
         deadlineDate: 'by December 1, 2026',
         daysRemaining: 14,
-        subjectPrefix: '[TEST] ',
       };
 
       const { error } = await supabase.functions.invoke('send-transactional-email', {
@@ -74,7 +73,6 @@ export function SendTestPEIDialog({ open, onOpenChange }: Props) {
           recipientEmail: recipient,
           idempotencyKey: `pei-test-${kind}-${recipient}-${Date.now()}`,
           templateData,
-          subjectOverride: `[TEST] PEI ${LABELS[kind]} — Sample Trucking Co.`,
         },
       });
       if (error) throw error;
