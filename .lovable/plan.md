@@ -1,40 +1,47 @@
-## Goal
+## Issue
 
-Implement reply suppression for the 3 PEI request emails so replies bounce harmlessly, and add a clear "this inbox is not monitored" notice directing recipients to the secure response button. No fallback contact address.
+`autoBuildPEIRequests` reports "No DOT-regulated employment in preceding 3 years" for Jose Guzman even though his application lists 3 employers, all marked as CMV positions.
 
-## Changes
+## Root cause
 
-### 1. Reply-To header
-In `supabase/functions/send-transactional-email/index.ts` (or wherever the PEI templates are dispatched), set `Reply-To: compliance@notify.mysupertransport.com` (same as the From sender). Replies will bounce back to the unmonitored sending address rather than landing in a non-existent inbox.
+The application form stores employer entries with these field names (confirmed against Jose's row in `applications.employers`):
 
-If Reply-To is currently template-agnostic and applied globally, scope this so it only applies to the 3 PEI templates (`pei-request-initial`, `pei-request-follow-up`, `pei-request-final-notice`) — or confirm the global default already matches the From address (in which case no code change is needed).
+- `name` (employer name)
+- `cmv_position`: `'yes'` / `'no'`
+- `start_date` / `end_date` as `MM/YYYY` or the literal string `Present`
 
-### 2. Unmonitored-inbox notice in all 3 PEI templates
+But `src/lib/pei/api.ts` → `autoBuildPEIRequests` filters with:
 
-Files:
-- `supabase/functions/_shared/transactional-email-templates/pei-request-initial.tsx`
-- `supabase/functions/_shared/transactional-email-templates/pei-request-follow-up.tsx`
-- `supabase/functions/_shared/transactional-email-templates/pei-request-final-notice.tsx`
+```ts
+if (!e || e.is_dot_regulated !== true) return false;
+```
 
-Add a small notice block directly under the "Submit Response Securely" / "Complete the investigation" button, styled as a muted callout (smaller text, gray, with a subtle icon or border). Wording:
+No employer record has an `is_dot_regulated` field, so every entry is filtered out and the function falls through to the auto-GFE branch. The same mismatch affects the row mapping (`company_name || employer_name` never matches the actual `name` field).
 
-> 📭 This inbox is not monitored. Please use the secure response button above to submit your verification.
+## Fix (single file: `src/lib/pei/api.ts`)
 
-No fallback email address. No "if you have questions, contact…" line.
+1. **DOT-regulated detection** — treat an employer as DOT-regulated when any of the following is true:
+   - `e.is_dot_regulated === true` (future-proof)
+   - `e.cmv_position === 'yes'` (current application form value)
 
-Add a shared style constant (`unmonitoredNotice`) to `_pei-shared.ts` so all 3 templates render identically.
+2. **Employer name fallback** — extend the name resolution to include `e.name`:
+   ```ts
+   String(e.company_name || e.employer_name || e.name || 'Previous Employer').trim()
+   ```
 
-### 3. Template viewer
-The notice will automatically appear in the existing PEI Template Viewer (`PEITemplateViewer.tsx`) since it renders the same templates via the `preview-transactional-email` Edge Function — no viewer changes needed.
+3. **Handle `end_date: 'Present'`** — `parseEmployerDate` already returns `null` for unrecognized strings, and the existing `if (!end) return true` keeps current employers in scope, so no change needed there. (Optional polish: explicitly recognize `present`/`current` and treat as today so the row's `employment_end_date` is left null instead of accidentally parsed.)
+
+4. **Address/contact field mapping** — application form stores `email` (not `contact_email`) and has no `contact_name`, `phone`, `address`, `zip` fields. Existing code already falls back to `e.email`, so contact email will populate. Other fields will simply be null, which is acceptable — staff can fill them in before sending.
 
 ## Out of scope
 
-- No changes to the response page (`PEIRespond.tsx`), token flow, queue, or suppression logic.
-- No changes to the GFE / day-30 logic.
-- No new Google Workspace mailbox required.
+- No schema changes, no migrations.
+- No UI changes to `ApplicationPEITab.tsx` or `PEIQueuePanel.tsx`.
+- No changes to the application form itself.
 
 ## Verification
 
-After deploy:
-1. Open PEI Template Viewer → render each of the 3 PEI templates → confirm notice appears under the CTA button on each.
-2. Send a test PEI request to a real address → confirm From and Reply-To both show `compliance@notify.mysupertransport.com` in the email headers.
+1. Open Jose Guzman's application → PEI tab → click "Auto-build from employment history".
+2. Expect 3 PEI request rows created (Haynes Company LLC, Pinch Intermodal, New England Motor Freight Inc), all with `status: pending`, not a single GFE row.
+3. Confirm employer names, cities, states, and start/end dates populate on the rows; `employer_contact_email` populates where the applicant supplied one.
+4. Re-test on an applicant whose employers are all `cmv_position: 'no'` — should still produce the auto-GFE "not_dot_regulated" row.
