@@ -226,6 +226,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
           onDone={() => { setGfeFor(null); reload(); }}
         />
       )}
+      <PEITemplateViewer open={templatesOpen} onOpenChange={setTemplatesOpen} />
     </div>
   );
 }
