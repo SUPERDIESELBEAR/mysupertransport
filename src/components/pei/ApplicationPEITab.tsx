@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, RefreshCw, Send, FileWarning, Eye, Copy, ShieldCheck, Plus } from 'lucide-react';
+import { Loader2, RefreshCw, Send, FileWarning, Eye, Copy, ShieldCheck, Plus, Pencil, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { supabase } from '@/integrations/supabase/client';
+import { US_STATES } from '@/components/application/types';
+import { toTitleCase } from '@/components/application/utils';
 import { autoBuildPEIRequests, fetchPEIRequestsByApplication } from '@/lib/pei/api';
 import type { PEIRequest } from '@/lib/pei/types';
 import { PEIStatusBadge } from './StatusBadge';
@@ -14,6 +18,12 @@ interface Props {
   applicationId: string;
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isReadyToSend(r: PEIRequest): boolean {
+  return !!(r.employer_contact_email && EMAIL_RE.test(r.employer_contact_email) && r.employer_city && r.employer_state);
+}
+
 export function ApplicationPEITab({ applicationId }: Props) {
   const [rows, setRows] = useState<PEIRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +31,9 @@ export function ApplicationPEITab({ applicationId }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [gfeFor, setGfeFor] = useState<{ id: string; employer: string } | null>(null);
   const [viewing, setViewing] = useState<PEIRequest | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [edit, setEdit] = useState<{ email: string; city: string; state: string }>({ email: '', city: '', state: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   async function reload() {
     setLoading(true);
@@ -68,6 +81,77 @@ export function ApplicationPEITab({ applicationId }: Props) {
     toast.success('Response link copied');
   }
 
+  function startEdit(r: PEIRequest) {
+    setEditingId(r.id);
+    setEdit({
+      email: r.employer_contact_email ?? '',
+      city: r.employer_city ?? '',
+      state: r.employer_state ?? '',
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEdit({ email: '', city: '', state: '' });
+  }
+
+  async function saveEdit(r: PEIRequest) {
+    const email = edit.email.trim().toLowerCase();
+    const city = toTitleCase(edit.city.trim());
+    const state = edit.state.trim().toUpperCase();
+    if (email && !EMAIL_RE.test(email)) {
+      toast.error('Enter a valid email address');
+      return;
+    }
+    if (!city || !state) {
+      toast.error('City and State are required');
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      // 1. Update the pei_request row
+      const { error: peiErr } = await supabase
+        .from('pei_requests')
+        .update({
+          employer_contact_email: email || null,
+          employer_city: city,
+          employer_state: state,
+        } as any)
+        .eq('id', r.id);
+      if (peiErr) throw peiErr;
+
+      // 2. Best-effort sync back to applications.employers JSONB
+      const { data: app, error: appErr } = await supabase
+        .from('applications')
+        .select('employers')
+        .eq('id', applicationId)
+        .single();
+      if (appErr) throw appErr;
+
+      const employers = ((app?.employers as any[]) ?? []).slice();
+      const idx = employers.findIndex(
+        (e) => String(e?.name ?? e?.company_name ?? e?.employer_name ?? '').trim().toLowerCase() ===
+               r.employer_name.trim().toLowerCase()
+      );
+      if (idx >= 0) {
+        employers[idx] = { ...employers[idx], email, city, state };
+        const { error: updErr } = await supabase
+          .from('applications')
+          .update({ employers } as any)
+          .eq('id', applicationId);
+        if (updErr) throw updErr;
+      }
+
+      toast.success('Employer contact updated');
+      cancelEdit();
+      await reload();
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to update employer');
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -94,47 +178,116 @@ export function ApplicationPEITab({ applicationId }: Props) {
         </Card>
       ) : (
         <div className="space-y-2">
-          {rows.map((r) => (
-            <Card key={r.id} className="p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium">{r.employer_name}</span>
-                    <PEIStatusBadge status={r.status} />
+          {rows.map((r) => {
+            const ready = isReadyToSend(r);
+            const isEditing = editingId === r.id;
+            const canEditContact = r.status === 'pending';
+            const missing: string[] = [];
+            if (!r.employer_contact_email) missing.push('email');
+            if (!r.employer_city) missing.push('city');
+            if (!r.employer_state) missing.push('state');
+
+            return (
+              <Card key={r.id} className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium">{r.employer_name}</span>
+                      <PEIStatusBadge status={r.status} />
+                      {!ready && r.status === 'pending' && !isEditing && (
+                        <span className="text-[10px] uppercase tracking-wide text-amber-700 bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 px-1.5 py-0.5 rounded">
+                          Missing {missing.join(', ')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1 space-x-3">
+                      {(r.employer_city || r.employer_state) && <span>{[r.employer_city, r.employer_state].filter(Boolean).join(', ')}</span>}
+                      {r.employment_start_date && <span>{r.employment_start_date} → {r.employment_end_date ?? 'present'}</span>}
+                      {r.deadline_date && <span>Deadline: {r.deadline_date}</span>}
+                      {r.employer_contact_email && <span>{r.employer_contact_email}</span>}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1 space-x-3">
-                    {(r.employer_city || r.employer_state) && <span>{[r.employer_city, r.employer_state].filter(Boolean).join(', ')}</span>}
-                    {r.employment_start_date && <span>{r.employment_start_date} → {r.employment_end_date ?? 'present'}</span>}
-                    {r.deadline_date && <span>Deadline: {r.deadline_date}</span>}
-                    {r.employer_contact_email && <span>{r.employer_contact_email}</span>}
+                  <div className="flex gap-1.5 shrink-0">
+                    {canEditContact && !isEditing && (
+                      <Button size="sm" variant="ghost" onClick={() => startEdit(r)}>
+                        <Pencil className="h-3 w-3 mr-1" />Edit contact
+                      </Button>
+                    )}
+                    {r.status === 'pending' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy === r.id || !ready}
+                        onClick={() => handleSend(r)}
+                        title={!ready ? 'Add email, city, and state to send' : undefined}
+                      >
+                        {busy === r.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Send className="h-3 w-3 mr-1" />}
+                        Send
+                      </Button>
+                    )}
+                    {(r.status === 'sent' || r.status === 'follow_up_sent' || r.status === 'final_notice_sent') && (
+                      <Button size="sm" variant="outline" onClick={() => copyLink(r.response_token)}>
+                        <Copy className="h-3 w-3 mr-1" />Link
+                      </Button>
+                    )}
+                    {r.status !== 'completed' && r.status !== 'gfe_documented' && (
+                      <Button size="sm" variant="ghost" onClick={() => setGfeFor({ id: r.id, employer: r.employer_name })}>
+                        <FileWarning className="h-3 w-3 mr-1" />GFE
+                      </Button>
+                    )}
+                    {(r.status === 'completed' || r.status === 'gfe_documented') && (
+                      <Button size="sm" variant="outline" onClick={() => setViewing(r)}>
+                        <Eye className="h-3 w-3 mr-1" />View
+                      </Button>
+                    )}
                   </div>
                 </div>
-                <div className="flex gap-1.5 shrink-0">
-                  {r.status === 'pending' && (
-                    <Button size="sm" variant="outline" disabled={busy === r.id} onClick={() => handleSend(r)}>
-                      {busy === r.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Send className="h-3 w-3 mr-1" />}
-                      Send
-                    </Button>
-                  )}
-                  {(r.status === 'sent' || r.status === 'follow_up_sent' || r.status === 'final_notice_sent') && (
-                    <Button size="sm" variant="outline" onClick={() => copyLink(r.response_token)}>
-                      <Copy className="h-3 w-3 mr-1" />Link
-                    </Button>
-                  )}
-                  {r.status !== 'completed' && r.status !== 'gfe_documented' && (
-                    <Button size="sm" variant="ghost" onClick={() => setGfeFor({ id: r.id, employer: r.employer_name })}>
-                      <FileWarning className="h-3 w-3 mr-1" />GFE
-                    </Button>
-                  )}
-                  {(r.status === 'completed' || r.status === 'gfe_documented') && (
-                    <Button size="sm" variant="outline" onClick={() => setViewing(r)}>
-                      <Eye className="h-3 w-3 mr-1" />View
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </Card>
-          ))}
+
+                {isEditing && (
+                  <div className="mt-3 pt-3 border-t grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                    <div className="sm:col-span-5">
+                      <label className="text-[11px] uppercase tracking-wide text-muted-foreground">Email</label>
+                      <Input
+                        type="email"
+                        value={edit.email}
+                        onChange={(e) => setEdit((s) => ({ ...s, email: e.target.value }))}
+                        placeholder="hr@company.com"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="sm:col-span-4">
+                      <label className="text-[11px] uppercase tracking-wide text-muted-foreground">City</label>
+                      <Input
+                        value={edit.city}
+                        onChange={(e) => setEdit((s) => ({ ...s, city: e.target.value }))}
+                        placeholder="City"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-[11px] uppercase tracking-wide text-muted-foreground">State</label>
+                      <select
+                        value={edit.state}
+                        onChange={(e) => setEdit((s) => ({ ...s, state: e.target.value }))}
+                        className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                      >
+                        <option value="">—</option>
+                        {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div className="sm:col-span-1 flex gap-1 justify-end">
+                      <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={savingEdit}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" onClick={() => saveEdit(r)} disabled={savingEdit}>
+                        {savingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
         </div>
       )}
 

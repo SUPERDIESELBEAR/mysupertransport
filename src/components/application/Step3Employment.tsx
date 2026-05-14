@@ -83,6 +83,15 @@ function EmployerBlock({ index, total, value, onChange, onRemove }: EmployerBloc
         </FormField>
       </div>
 
+      <FormField label="Employer Email (optional, helps speed up verification)">
+        <AppInput
+          type="email"
+          value={value.email ?? ''}
+          onChange={e => set('email', e.target.value)}
+          placeholder="hr@company.com"
+        />
+      </FormField>
+
       <FormField label="Reason for Leaving" required>
         <AppTextarea
           value={isCurrentlyEmployed ? 'Currently Employed' : value.reason_leaving}

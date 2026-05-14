@@ -7,6 +7,7 @@ export interface EmployerRecord {
   cmv_position: string; // 'yes' | 'no'
   start_date: string;
   end_date: string;
+  email?: string;
 }
 
 export interface ApplicationFormData {
@@ -84,6 +85,7 @@ export const defaultEmployer: EmployerRecord = {
   cmv_position: '',
   start_date: '',
   end_date: '',
+  email: '',
 };
 
 export const defaultFormData: ApplicationFormData = {

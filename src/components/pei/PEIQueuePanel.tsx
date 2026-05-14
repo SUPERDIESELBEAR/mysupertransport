@@ -18,6 +18,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [gfeFor, setGfeFor] = useState<{ id: string; employer: string } | null>(null);
+  const [filter, setFilter] = useState<'all' | 'pending' | 'sent' | 'overdue' | 'completed' | 'gfe'>('all');
 
   async function reload() {
     setLoading(true);
@@ -39,6 +40,16 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     const overdue = rows.filter(r => r.is_overdue).length;
     return { total, awaiting, followUp, overdue };
   }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    if (filter === 'all') return rows;
+    if (filter === 'overdue') return rows.filter(r => r.is_overdue);
+    if (filter === 'pending') return rows.filter(r => r.status === 'pending');
+    if (filter === 'sent') return rows.filter(r => r.status === 'sent' || r.status === 'follow_up_sent' || r.status === 'final_notice_sent');
+    if (filter === 'completed') return rows.filter(r => r.status === 'completed');
+    if (filter === 'gfe') return rows.filter(r => r.status === 'gfe_documented');
+    return rows;
+  }, [rows, filter]);
 
   async function handleSend(row: PEIQueueRow, kind: 'initial' | 'follow_up' | 'final_notice') {
     setBusy(row.request_id);
@@ -62,6 +73,22 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     return null;
   }
 
+  function deadlineLabel(r: PEIQueueRow): string {
+    if (r.days_remaining == null) return '—';
+    if (r.days_remaining < 0 || r.is_overdue) return `Overdue ${Math.abs(r.days_remaining)}d`;
+    if (r.days_remaining === 0) return 'Due today';
+    return `Due in ${r.days_remaining}d`;
+  }
+
+  const FILTERS: Array<{ key: typeof filter; label: string }> = [
+    { key: 'all', label: 'All' },
+    { key: 'pending', label: 'Pending' },
+    { key: 'sent', label: 'Sent' },
+    { key: 'overdue', label: 'Overdue' },
+    { key: 'completed', label: 'Completed' },
+    { key: 'gfe', label: 'GFE' },
+  ];
+
   return (
     <div className="space-y-6">
       <header>
@@ -80,13 +107,31 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
       </div>
 
       <Card className="overflow-hidden">
+        <div className="flex flex-wrap gap-1.5 p-3 border-b bg-muted/20">
+          {FILTERS.map((f) => {
+            const active = filter === f.key;
+            return (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                  active
+                    ? 'bg-foreground text-background border-foreground'
+                    : 'bg-background text-muted-foreground hover:text-foreground border-border'
+                }`}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
         {loading ? (
           <div className="p-8 text-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline mr-2" />Loading…</div>
-        ) : rows.length === 0 ? (
+        ) : filteredRows.length === 0 ? (
           <div className="p-12 text-center">
             <ShieldCheck className="h-10 w-10 mx-auto text-emerald-500 mb-3" />
-            <p className="font-medium">All Previous Employment Investigations are current.</p>
-            <p className="text-sm text-muted-foreground mt-1">No action needed.</p>
+            <p className="font-medium">{rows.length === 0 ? 'All Previous Employment Investigations are current.' : 'No requests match this filter.'}</p>
+            <p className="text-sm text-muted-foreground mt-1">{rows.length === 0 ? 'No action needed.' : 'Try a different filter.'}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -97,12 +142,12 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                   <th className="text-left px-4 py-3">Previous Employer</th>
                   <th className="text-left px-4 py-3">Status</th>
                   <th className="text-left px-4 py-3">Date Sent</th>
-                  <th className="text-left px-4 py-3">Days Remaining</th>
+                  <th className="text-left px-4 py-3">Deadline</th>
                   <th className="text-right px-4 py-3">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {rows.map((r) => {
+                {filteredRows.map((r) => {
                   const action = actionFor(r);
                   const fullName = [r.applicant_first_name, r.applicant_last_name].filter(Boolean).join(' ') || '—';
                   return (
@@ -127,26 +172,26 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                       </td>
                       <td className="px-4 py-3">
                         <span className={r.is_overdue ? 'text-destructive font-semibold' : ''}>
-                          {r.days_remaining == null ? '—' : `${r.days_remaining}`}
+                          {deadlineLabel(r)}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {action && action.kind !== 'gfe' && (
-                          <Button size="sm" disabled={busy === r.request_id} onClick={() => handleSend(r, action.kind)}>
-                            {busy === r.request_id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Send className="h-3 w-3 mr-1" />}
-                            {action.label}
-                          </Button>
-                        )}
-                        {action?.kind === 'gfe' && (
-                          <Button size="sm" variant="outline" onClick={() => setGfeFor({ id: r.request_id, employer: r.employer_name })}>
-                            <FileWarning className="h-3 w-3 mr-1" />{action.label}
-                          </Button>
-                        )}
-                        {!action && (
+                        <div className="flex justify-end gap-1.5 flex-wrap">
+                          {action && action.kind !== 'gfe' && (
+                            <Button size="sm" disabled={busy === r.request_id} onClick={() => handleSend(r, action.kind)}>
+                              {busy === r.request_id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Send className="h-3 w-3 mr-1" />}
+                              {action.label}
+                            </Button>
+                          )}
+                          {r.status !== 'completed' && r.status !== 'gfe_documented' && (
+                            <Button size="sm" variant="ghost" onClick={() => setGfeFor({ id: r.request_id, employer: r.employer_name })}>
+                              <FileWarning className="h-3 w-3 mr-1" />GFE
+                            </Button>
+                          )}
                           <Button size="sm" variant="ghost" onClick={() => onOpenApplication?.(r.application_id)}>
-                            <Eye className="h-3 w-3 mr-1" />View
+                            <Eye className="h-3 w-3 mr-1" />Open
                           </Button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   );
