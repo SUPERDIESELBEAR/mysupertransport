@@ -116,6 +116,28 @@ export default function PEIRespond() {
 
   useEffect(() => {
     if (!token) return;
+    // Preview mode: when the test PEI dialog generates a link with this
+    // sentinel token, render the form with mock data instead of hitting
+    // the database. Submission is short-circuited with a toast so no rows
+    // are written.
+    if (token === 'test-token-preview') {
+      setLookup({
+        request_id: 'preview',
+        application_id: 'preview',
+        applicant_first_name: 'Test',
+        applicant_last_name: 'Applicant',
+        employer_name: 'Sample Trucking Co.',
+        employer_city: null,
+        employer_state: null,
+        employment_start_date: '2022-01-01',
+        employment_end_date: '2024-06-30',
+        status: 'sent',
+        deadline_date: null,
+        already_responded: false,
+      });
+      setLoading(false);
+      return;
+    }
     (async () => {
       try {
         const { data, error } = await supabase.rpc('get_pei_request_for_response', { p_token: token });
@@ -144,6 +166,12 @@ export default function PEIRespond() {
 
   async function handleSubmit() {
     if (!lookup || !token) return;
+    if (token === 'test-token-preview') {
+      toast.success('Preview mode — response not submitted.');
+      setSubmitted(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     if (!wasEmployed) return toast.error('Please confirm whether the applicant was employed by your company.');
     if (wasEmployed === 'true' && !safeAndEfficient) return toast.error('Please answer whether the applicant operated safely and efficiently.');
     const responderResult = responderSchema.safeParse(responder);
@@ -247,6 +275,11 @@ export default function PEIRespond() {
   return (
     <div className="min-h-screen bg-muted/30 py-8 px-4">
       <div className="max-w-3xl mx-auto space-y-6">
+        {token === 'test-token-preview' && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-4 py-2 text-sm text-center">
+            Preview mode — this is what a previous employer sees. Submissions are not saved.
+          </div>
+        )}
         <header className="text-center space-y-2">
           <ShieldCheck className="h-9 w-9 text-gold mx-auto" />
           <h1 className="text-2xl font-semibold">Previous Employment Verification</h1>
