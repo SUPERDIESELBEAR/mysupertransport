@@ -33,6 +33,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   const [gfeFor, setGfeFor] = useState<{ id: string; employer: string } | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'sent' | 'overdue' | 'completed' | 'gfe'>('all');
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [testOpen, setTestOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
   async function reload() {
@@ -343,6 +344,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
         />
       )}
       <PEITemplateViewer open={templatesOpen} onOpenChange={setTemplatesOpen} />
+      <SendTestPEIDialog open={testOpen} onOpenChange={setTestOpen} />
     </div>
   );
 }
