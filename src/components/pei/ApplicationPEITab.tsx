@@ -267,6 +267,15 @@ export function ApplicationPEITab({ applicationId }: Props) {
                         <Eye className="h-3 w-3 mr-1" />View
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setDeletingFor(r)}
+                      className="text-destructive hover:text-destructive"
+                      title="Delete PEI request"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
 
@@ -328,6 +337,33 @@ export function ApplicationPEITab({ applicationId }: Props) {
         />
       )}
       <PEIResponseViewer open={!!viewing} request={viewing} onClose={() => setViewing(null)} />
+
+      <AlertDialog open={!!deletingFor} onOpenChange={(o) => { if (!o) setDeletingFor(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete PEI record?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the request for{' '}
+              <strong>{deletingFor?.employer_name}</strong>
+              {(deletingFor?.status === 'completed' || deletingFor?.status === 'gfe_documented')
+                ? ' and any submitted response or accident records.'
+                : '.'}{' '}
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={deleteBusy}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
