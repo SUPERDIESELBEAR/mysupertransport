@@ -1,72 +1,40 @@
-## Answer to your additional question
+## Goal
 
-**No** — the PEI workflow built so far does **not** actually email previous employers. The "Send" button in the PEI tab and queue is a stub: it flips the request status to `sent` and stamps a timestamp, but no email is delivered, and **no PEI email templates exist yet**. (The only email templates in the project today are the auth templates: signup, magic-link, recovery, invite, email-change, reauthentication.)
+Implement reply suppression for the 3 PEI request emails so replies bounce harmlessly, and add a clear "this inbox is not monitored" notice directing recipients to the secure response button. No fallback contact address.
 
-Your domain `notify.mysupertransport.com` is verified, so we can wire up real sending now.
+## Changes
 
----
+### 1. Reply-To header
+In `supabase/functions/send-transactional-email/index.ts` (or wherever the PEI templates are dispatched), set `Reply-To: compliance@notify.mysupertransport.com` (same as the From sender). Replies will bounce back to the unmonitored sending address rather than landing in a non-existent inbox.
 
-## Plan: Wire PEI sending to real email + add a template viewer
+If Reply-To is currently template-agnostic and applied globally, scope this so it only applies to the 3 PEI templates (`pei-request-initial`, `pei-request-follow-up`, `pei-request-final-notice`) — or confirm the global default already matches the From address (in which case no code change is needed).
 
-### 1. Stand up app-email infrastructure
-- Run the one-time setup so transactional emails can be sent from `notify.mysupertransport.com` through the durable queue (retries, suppression, unsubscribe handling).
-- Generic sender Edge Function `send-transactional-email` becomes available.
+### 2. Unmonitored-inbox notice in all 3 PEI templates
 
-### 2. Create the 3 PEI email templates
-React Email components in `supabase/functions/_shared/transactional-email-templates/`:
+Files:
+- `supabase/functions/_shared/transactional-email-templates/pei-request-initial.tsx`
+- `supabase/functions/_shared/transactional-email-templates/pei-request-follow-up.tsx`
+- `supabase/functions/_shared/transactional-email-templates/pei-request-final-notice.tsx`
 
-1. **`pei-request-initial`** — first request to the previous employer.
-2. **`pei-request-follow-up`** — sent on day ~15 if no response.
-3. **`pei-request-final-notice`** — sent on day ~25; explicitly states a Good Faith Effort will be filed at day 30 if no response (per your Q3 confirmation).
+Add a small notice block directly under the "Submit Response Securely" / "Complete the investigation" button, styled as a muted callout (smaller text, gray, with a subtle icon or border). Wording:
 
-Each template includes:
-- Carrier letterhead (SUPERTRANSPORT brand, gold `#C9A84C`, `#0D0D0D` text — matches existing email styling).
-- Applicant full name, DOB last 4, dates of employment claimed.
-- Plain-English §391.23 explanation of why the data is required.
-- Secure response button → `https://mysupertransport.lovable.app/pei/respond?token=…` (page already exists).
-- Deadline date (computed from `date_sent + 30d`).
-- Signed by carrier compliance team.
+> 📭 This inbox is not monitored. Please use the secure response button above to submit your verification.
 
-**Sender identity (Q1 / Q2):** From `SUPERTRANSPORT Compliance <compliance@notify.mysupertransport.com>`, Reply-To same address. Generic mailbox, not per-staff.
+No fallback email address. No "if you have questions, contact…" line.
 
-### 3. Replace the stub sender
-Rewrite `src/components/pei/sendPEIEmail.ts` to:
-1. Look up the request, applicant, and employer contact info.
-2. Invoke `send-transactional-email` with the matching template, `templateData`, and an idempotency key of `pei-${requestId}-${kind}`.
-3. On success, patch `pei_requests` with the appropriate status + date stamp (existing logic).
-4. Stamp `last_email_message_id` on the request for traceability.
-5. Loud failure on send error — do not advance the status if the email did not enqueue.
+Add a shared style constant (`unmonitoredNotice`) to `_pei-shared.ts` so all 3 templates render identically.
 
-### 4. PEI Email Template Viewer (new)
-A new staff-only view so you can read/preview the actual templates being sent.
+### 3. Template viewer
+The notice will automatically appear in the existing PEI Template Viewer (`PEITemplateViewer.tsx`) since it renders the same templates via the `preview-transactional-email` Edge Function — no viewer changes needed.
 
-**Location:** Management Portal → new "PEI Email Templates" sub-page (or a tab inside the existing PEI queue panel — confirm preference; default = sub-page under Management).
+## Out of scope
 
-**What it shows, per template:**
-- Template name + when it's used (initial / day 15 / day 25).
-- Live HTML preview rendered in an iframe using realistic sample data (applicant "Jane Doe", employer "Acme Trucking", deadline computed from today).
-- Plain-text fallback view toggle.
-- Read-only — editing templates still requires a code change (templates are versioned in the repo).
+- No changes to the response page (`PEIRespond.tsx`), token flow, queue, or suppression logic.
+- No changes to the GFE / day-30 logic.
+- No new Google Workspace mailbox required.
 
-Implementation: a small Edge Function `render-pei-email-preview` that takes a template name + sample data and returns the rendered HTML, called by the new React page.
+## Verification
 
-### 5. Out of scope (deferred, unchanged from prior)
-- Auto-cron escalation from initial → follow-up → final notice → GFE.
-- In-app WYSIWYG template editor (templates remain code-managed).
-- Per-staff sender identity.
-
----
-
-## Technical Summary
-
-| Area | Change |
-|---|---|
-| Infra | Set up app-email infrastructure on `notify.mysupertransport.com`. |
-| New Edge Functions | `send-transactional-email` (scaffolded), `handle-email-unsubscribe`, `handle-email-suppression`, `render-pei-email-preview` (custom, for viewer). |
-| New templates | `pei-request-initial.tsx`, `pei-request-follow-up.tsx`, `pei-request-final-notice.tsx` + registry update. |
-| Edited | `src/components/pei/sendPEIEmail.ts` (real send + message-id stamp). |
-| New UI | `src/pages/management/PEIEmailTemplatesView.tsx` + route entry in management nav. |
-| Schema | Add nullable `last_email_message_id text` to `pei_requests` (single migration). |
-| Unsubscribe | A `/unsubscribe` page is required by the email infra; will be added with neutral branded styling (employers won't typically unsubscribe, but compliance requires the link). |
-
-No changes to authentication, RLS on application tables, or the application form itself.
+After deploy:
+1. Open PEI Template Viewer → render each of the 3 PEI templates → confirm notice appears under the CTA button on each.
+2. Send a test PEI request to a real address → confirm From and Reply-To both show `compliance@notify.mysupertransport.com` in the email headers.
