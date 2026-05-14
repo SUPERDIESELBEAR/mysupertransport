@@ -2610,6 +2610,7 @@ export type Database = {
           gfe_signed_by_staff_id: string | null
           id: string
           is_dot_regulated: boolean
+          last_email_message_id: string | null
           response_document_url: string | null
           response_token: string
           response_token_used: boolean
@@ -2644,6 +2645,7 @@ export type Database = {
           gfe_signed_by_staff_id?: string | null
           id?: string
           is_dot_regulated?: boolean
+          last_email_message_id?: string | null
           response_document_url?: string | null
           response_token?: string
           response_token_used?: boolean
@@ -2678,6 +2680,7 @@ export type Database = {
           gfe_signed_by_staff_id?: string | null
           id?: string
           is_dot_regulated?: boolean
+          last_email_message_id?: string | null
           response_document_url?: string | null
           response_token?: string
           response_token_used?: boolean

@@ -1,0 +1,1 @@
+ALTER TABLE public.pei_requests ADD COLUMN IF NOT EXISTS last_email_message_id text;
