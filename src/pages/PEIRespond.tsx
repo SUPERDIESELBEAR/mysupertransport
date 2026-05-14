@@ -275,6 +275,11 @@ export default function PEIRespond() {
   return (
     <div className="min-h-screen bg-muted/30 py-8 px-4">
       <div className="max-w-3xl mx-auto space-y-6">
+        {token === 'test-token-preview' && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-4 py-2 text-sm text-center">
+            Preview mode — this is what a previous employer sees. Submissions are not saved.
+          </div>
+        )}
         <header className="text-center space-y-2">
           <ShieldCheck className="h-9 w-9 text-gold mx-auto" />
           <h1 className="text-2xl font-semibold">Previous Employment Verification</h1>
