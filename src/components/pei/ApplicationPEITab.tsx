@@ -216,6 +216,35 @@ export function ApplicationPEITab({ applicationId }: Props) {
     }
   }
 
+  // Trigger lookup from the row's main toolbar (opens edit mode first).
+  async function handleLookupFromRow(r: PEIRequest) {
+    if (editingId !== r.id) startEdit(r);
+    setLookingUpId(r.id);
+    setCandidates([]);
+    setCandidatesWebsite(undefined);
+    try {
+      const result = await lookupEmployerEmail({
+        employer_name: r.employer_name,
+        city: r.employer_city,
+        state: r.employer_state,
+      });
+      setCandidatesWebsite(result.website);
+      if (!result.candidates?.length) {
+        toast.info(result.reason ?? 'No email found — please enter manually.');
+        return;
+      }
+      setCandidates(result.candidates);
+      const top = result.candidates[0];
+      setEdit((s) => ({ ...s, email: s.email.trim() ? s.email : top.email }));
+      toast.success(`Found ${top.email}${result.website ? ' on ' + result.website.replace(/^https?:\/\//, '') : ''}`);
+      if (result.candidates.length > 1) setCandidatesOpen(true);
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Lookup failed');
+    } finally {
+      setLookingUpId(null);
+    }
+  }
+
   function pickCandidate(email: string) {
     setEdit((s) => ({ ...s, email }));
     setCandidatesOpen(false);
@@ -279,9 +308,24 @@ export function ApplicationPEITab({ applicationId }: Props) {
                   </div>
                   <div className="flex gap-1.5 shrink-0">
                     {canEditContact && !isEditing && (
-                      <Button size="sm" variant="ghost" onClick={() => startEdit(r)}>
-                        <Pencil className="h-3 w-3 mr-1" />Edit contact
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleLookupFromRow(r)}
+                          disabled={lookingUpId === r.id}
+                          className="text-gold hover:text-gold"
+                          title="Search the web for this employer's contact email"
+                        >
+                          {lookingUpId === r.id
+                            ? <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            : <Sparkles className="h-3 w-3 mr-1" />}
+                          Find with AI
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => startEdit(r)}>
+                          <Pencil className="h-3 w-3 mr-1" />Edit contact
+                        </Button>
+                      </>
                     )}
                     {r.status === 'pending' && (
                       <Button
