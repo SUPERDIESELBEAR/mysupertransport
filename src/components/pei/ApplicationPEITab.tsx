@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, RefreshCw, Send, FileWarning, Eye, Copy, ShieldCheck, Plus, Pencil, X, Check, Trash2 } from 'lucide-react';
+import { Loader2, RefreshCw, Send, FileWarning, Eye, Copy, ShieldCheck, Plus, Pencil, X, Check, Trash2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +20,7 @@ import { US_STATES } from '@/components/application/types';
 import { toTitleCase } from '@/components/application/utils';
 import { autoBuildPEIRequests, deletePEIRequest, fetchPEIRequestsByApplication } from '@/lib/pei/api';
 import type { PEIRequest } from '@/lib/pei/types';
+import { lookupEmployerEmail, type EmailCandidate } from '@/lib/pei/lookupEmail';
 import { PEIStatusBadge } from './StatusBadge';
 import { sendPEIEmail } from './sendPEIEmail';
 import { GFEModal } from './GFEModal';
@@ -46,6 +48,10 @@ export function ApplicationPEITab({ applicationId }: Props) {
   const [savingEdit, setSavingEdit] = useState(false);
   const [deletingFor, setDeletingFor] = useState<PEIRequest | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [lookingUpId, setLookingUpId] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<EmailCandidate[]>([]);
+  const [candidatesOpen, setCandidatesOpen] = useState(false);
+  const [candidatesWebsite, setCandidatesWebsite] = useState<string | undefined>(undefined);
 
   async function handleDelete() {
     if (!deletingFor) return;
@@ -179,6 +185,43 @@ export function ApplicationPEITab({ applicationId }: Props) {
     }
   }
 
+  async function handleLookup(r: PEIRequest) {
+    setLookingUpId(r.id);
+    setCandidates([]);
+    setCandidatesWebsite(undefined);
+    try {
+      const result = await lookupEmployerEmail({
+        employer_name: r.employer_name,
+        city: edit.city || r.employer_city,
+        state: edit.state || r.employer_state,
+      });
+      setCandidatesWebsite(result.website);
+      if (!result.candidates?.length) {
+        toast.info(result.reason ?? 'No email found — please enter manually.');
+        return;
+      }
+      setCandidates(result.candidates);
+      // Auto-fill if email field is empty; otherwise open popover for review.
+      if (!edit.email.trim()) {
+        setEdit((s) => ({ ...s, email: result.candidates[0].email }));
+        toast.success(`Found ${result.candidates[0].email}${result.website ? ' on ' + result.website.replace(/^https?:\/\//, '') : ''}`);
+        if (result.candidates.length > 1) setCandidatesOpen(true);
+      } else {
+        setCandidatesOpen(true);
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Lookup failed');
+    } finally {
+      setLookingUpId(null);
+    }
+  }
+
+  function pickCandidate(email: string) {
+    setEdit((s) => ({ ...s, email }));
+    setCandidatesOpen(false);
+    toast.success(`Set email to ${email}`);
+  }
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -282,7 +325,65 @@ export function ApplicationPEITab({ applicationId }: Props) {
                 {isEditing && (
                   <div className="mt-3 pt-3 border-t grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
                     <div className="sm:col-span-5">
-                      <label className="text-[11px] uppercase tracking-wide text-muted-foreground">Email</label>
+                      <label className="text-[11px] uppercase tracking-wide text-muted-foreground flex items-center justify-between">
+                        <span>Email</span>
+                        <Popover
+                          open={candidatesOpen && editingId === r.id}
+                          onOpenChange={(o) => setCandidatesOpen(o)}
+                        >
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.preventDefault(); handleLookup(r); }}
+                              disabled={lookingUpId === r.id}
+                              className="inline-flex items-center gap-1 text-[10px] font-medium text-gold hover:underline disabled:opacity-50 normal-case tracking-normal"
+                              title="Search the web for this employer's contact email"
+                            >
+                              {lookingUpId === r.id
+                                ? <Loader2 className="h-3 w-3 animate-spin" />
+                                : <Sparkles className="h-3 w-3" />}
+                              {lookingUpId === r.id ? 'Searching…' : 'Find with AI'}
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent align="end" className="w-80 p-2">
+                            {candidates.length === 0 ? (
+                              <p className="text-xs text-muted-foreground p-2">No candidates.</p>
+                            ) : (
+                              <div className="space-y-1">
+                                <p className="text-[11px] text-muted-foreground px-1 pb-1">
+                                  Found {candidates.length} on{' '}
+                                  <a
+                                    href={candidatesWebsite}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="underline"
+                                  >
+                                    {(candidatesWebsite ?? '').replace(/^https?:\/\//, '')}
+                                  </a>
+                                </p>
+                                {candidates.map((c) => (
+                                  <button
+                                    key={c.email}
+                                    type="button"
+                                    onClick={() => pickCandidate(c.email)}
+                                    className="w-full text-left px-2 py-1.5 rounded hover:bg-muted text-xs flex items-center justify-between gap-2"
+                                  >
+                                    <span className="truncate font-mono">{c.email}</span>
+                                    <span className={
+                                      'text-[9px] uppercase shrink-0 px-1 py-0.5 rounded ' +
+                                      (c.confidence === 'high' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' :
+                                       c.confidence === 'medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' :
+                                       'bg-muted text-muted-foreground')
+                                    }>
+                                      {c.label}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </PopoverContent>
+                        </Popover>
+                      </label>
                       <Input
                         type="email"
                         value={edit.email}
