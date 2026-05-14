@@ -6,7 +6,7 @@ import {
 import type { TemplateEntry } from './registry.ts'
 import {
   BRAND_NAME, accentBar, brand, button, container, factCell, factLabel,
-  factTable, footer, h1, h2, main, subBrand, text, warningCallout,
+  factTable, footer, h1, h2, main, subBrand, text, unmonitoredNotice, warningCallout,
   type PEIEmailProps,
 } from './_pei-shared.ts'
 
@@ -78,12 +78,16 @@ const PEIRequestFinalNoticeEmail = (props: PEIEmailProps) => {
           <Button style={button} href={url}>
             Complete the investigation →
           </Button>
+          <div style={unmonitoredNotice}>
+            📭 This inbox is not monitored. Please use the secure response
+            button above to submit your verification.
+          </div>
 
           <Text style={footer}>
             If you have already responded, please disregard this notice. If
             you cannot provide the information (records purged, no longer in
-            business, etc.), reply to this email and we will document
-            accordingly.
+            business, etc.), use the secure response button above and select
+            the appropriate option so we can document accordingly.
             <br />— {BRAND_NAME} Compliance
           </Text>
         </Container>
