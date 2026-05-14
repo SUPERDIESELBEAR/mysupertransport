@@ -52,66 +52,20 @@ function isBlockedDomain(host: string): boolean {
   return false;
 }
 
-async function ddgSearch(query: string): Promise<string[]> {
-  // DuckDuckGo HTML endpoint — no API key required.
-  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-  try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SuperdriveBot/1.0)' },
-    });
-    if (!res.ok) return [];
-    const html = await res.text();
-    // Result links are wrapped via /l/?uddg=<encoded url>&...
-    const out: string[] = [];
-    const re = /\/l\/\?(?:[^"']*&)?uddg=([^&"']+)/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(html)) && out.length < 25) {
-      try {
-        const decoded = decodeURIComponent(m[1]);
-        if (/^https?:\/\//i.test(decoded)) out.push(decoded);
-      } catch { /* ignore */ }
-    }
-    return out;
-  } catch (e) {
-    console.error('[lookup-employer-email] ddg search failed:', e);
-    return [];
-  }
-}
-
-function distinctDomains(urls: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const u of urls) {
-    try {
-      const host = new URL(u).hostname.toLowerCase().replace(/^www\./, '');
-      if (isBlockedDomain(host)) continue;
-      if (seen.has(host)) continue;
-      seen.add(host);
-      out.push(host);
-    } catch { /* ignore */ }
-  }
-  return out;
-}
-
-async function pickBestDomain(
+async function proposeDomains(
   apiKey: string,
   employer: string,
   city: string | null,
   state: string | null,
-  domains: string[],
-): Promise<string | null> {
-  if (domains.length === 0) return null;
-  if (domains.length === 1) return domains[0];
+): Promise<string[]> {
+  const prompt = `You are looking up the official website for a US trucking / transportation company so we can email them for a previous-employment verification.
 
-  const prompt = `You are matching a trucking company name to its official website domain.
+Company name: ${employer}
+Location: ${[city, state].filter(Boolean).join(', ') || 'unknown (US)'}
 
-Company: ${employer}
-Location: ${[city, state].filter(Boolean).join(', ') || 'unknown'}
+Return up to 5 likely candidate website domains (host only, no protocol, no path) for this company's own corporate site. Order from most to least likely. Skip directories, aggregators, job boards, social media, and FMCSA databases. If you genuinely don't know, return an empty list.
 
-Candidate domains (from a web search):
-${domains.map((d, i) => `${i + 1}. ${d}`).join('\n')}
-
-Pick the single domain that is most likely the company's own official website. Reject directories, aggregators, job boards, news, and unrelated companies. If none of the domains plausibly belong to this exact company, return null.`;
+Examples of good answers: pinchtransport.com, schneider.com, knightswift.com.`;
 
   try {
     const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -123,37 +77,62 @@ Pick the single domain that is most likely the company's own official website. R
         tools: [{
           type: 'function',
           function: {
-            name: 'pick_domain',
-            description: 'Return the chosen domain or null',
+            name: 'propose_domains',
+            description: 'Return likely company website domains',
             parameters: {
               type: 'object',
               properties: {
-                domain: { type: ['string', 'null'], description: 'Chosen domain (host only) or null' },
-                reason: { type: 'string' },
+                domains: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Host-only domains, ordered most-to-least likely.',
+                },
               },
-              required: ['domain'],
+              required: ['domains'],
               additionalProperties: false,
             },
           },
         }],
-        tool_choice: { type: 'function', function: { name: 'pick_domain' } },
+        tool_choice: { type: 'function', function: { name: 'propose_domains' } },
       }),
     });
     if (!res.ok) {
-      console.error('[lookup-employer-email] AI pick_domain failed:', res.status, await res.text().catch(() => ''));
-      return domains[0]; // fallback
+      console.error('[lookup-employer-email] AI propose failed:', res.status, await res.text().catch(() => ''));
+      return [];
     }
     const data = await res.json();
     const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-    if (!args) return domains[0];
+    if (!args) return [];
     const parsed = JSON.parse(args);
-    const picked = (parsed?.domain || '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
-    if (picked && domains.includes(picked)) return picked;
-    if (picked) return picked; // trust AI even if not in list
-    return null;
+    const list: string[] = Array.isArray(parsed?.domains) ? parsed.domains : [];
+    const cleaned: string[] = [];
+    for (const raw of list) {
+      if (typeof raw !== 'string') continue;
+      const d = raw.toLowerCase().trim()
+        .replace(/^https?:\/\//, '')
+        .replace(/^www\./, '')
+        .replace(/\/.*$/, '');
+      if (!d || !d.includes('.') || d.length > 100) continue;
+      if (isBlockedDomain(d)) continue;
+      if (!cleaned.includes(d)) cleaned.push(d);
+    }
+    return cleaned.slice(0, 5);
   } catch (e) {
-    console.error('[lookup-employer-email] AI pick_domain exception:', e);
-    return domains[0];
+    console.error('[lookup-employer-email] AI propose exception:', e);
+    return [];
+  }
+}
+
+async function domainResolves(domain: string): Promise<boolean> {
+  try {
+    const res = await fetch(`https://${domain}/`, {
+      method: 'GET',
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SuperdriveBot/1.0)' },
+      redirect: 'follow',
+    });
+    return res.status >= 200 && res.status < 500; // accept 4xx as "exists"
+  } catch {
+    return false;
   }
 }
 
@@ -275,23 +254,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 1. Web search for the company website.
-    const searchQuery = `"${employer_name}" trucking ${[city, state].filter(Boolean).join(' ')} contact`;
-    const urls = await ddgSearch(searchQuery);
-    const domains = distinctDomains(urls).slice(0, 8);
-    if (domains.length === 0) {
-      return new Response(JSON.stringify({ candidates: [], reason: 'No web results found.' }), {
+    // 1. Ask AI for likely candidate domains, then validate they resolve.
+    const proposed = await proposeDomains(apiKey, employer_name, city, state);
+    if (proposed.length === 0) {
+      return new Response(JSON.stringify({
+        candidates: [],
+        reason: "Couldn't identify a likely website for this employer.",
+      }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // 2. Ask AI to pick the most likely official domain.
-    const domain = await pickBestDomain(apiKey, employer_name, city, state, domains);
+    let domain: string | null = null;
+    for (const d of proposed) {
+      if (await domainResolves(d)) { domain = d; break; }
+    }
     if (!domain) {
       return new Response(JSON.stringify({
         candidates: [],
-        reason: 'Could not identify the company website.',
-        searched_domains: domains,
+        reason: 'Suggested websites did not resolve.',
+        suggested_domains: proposed,
       }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -325,6 +307,7 @@ Deno.serve(async (req) => {
       website: `https://${domain}`,
       domain,
       candidates: top,
+      suggested_domains: proposed,
     }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
