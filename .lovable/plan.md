@@ -1,47 +1,34 @@
 ## Issue
 
-`autoBuildPEIRequests` reports "No DOT-regulated employment in preceding 3 years" for Jose Guzman even though his application lists 3 employers, all marked as CMV positions.
+Stale auto-GFE rows (and any other PEI rows created in error) can't be removed from the PEI tab — there's no UI affordance, even though the database already has a "Management delete PEI requests" RLS policy in place.
 
-## Root cause
+## Fix
 
-The application form stores employer entries with these field names (confirmed against Jose's row in `applications.employers`):
+Add a Delete button to each PEI request row in `src/components/pei/ApplicationPEITab.tsx`, plus a matching `deletePEIRequest` helper in `src/lib/pei/api.ts`.
 
-- `name` (employer name)
-- `cmv_position`: `'yes'` / `'no'`
-- `start_date` / `end_date` as `MM/YYYY` or the literal string `Present`
+### Behavior
 
-But `src/lib/pei/api.ts` → `autoBuildPEIRequests` filters with:
+- Trash icon button at the end of each row's action group, available on **every** status (pending, sent, follow_up_sent, final_notice_sent, completed, gfe_documented).
+- Clicking opens a confirm dialog: *"Delete this PEI record? This permanently removes the request"* (plus *"and any submitted response"* when status is completed/gfe_documented). No undo.
+- On confirm: call `supabase.from('pei_requests').delete().eq('id', r.id)`. The `pei_responses` and `pei_accidents` rows cascade automatically (existing `ON DELETE CASCADE`).
+- After success: refresh the list and toast "PEI request deleted".
 
-```ts
-if (!e || e.is_dot_regulated !== true) return false;
-```
+### Permissions
 
-No employer record has an `is_dot_regulated` field, so every entry is filtered out and the function falls through to the auto-GFE branch. The same mismatch affects the row mapping (`company_name || employer_name` never matches the actual `name` field).
+The existing RLS policy `Management delete PEI requests` already restricts deletion to staff/management — no new policies, no migration.
 
-## Fix (single file: `src/lib/pei/api.ts`)
+### Files touched
 
-1. **DOT-regulated detection** — treat an employer as DOT-regulated when any of the following is true:
-   - `e.is_dot_regulated === true` (future-proof)
-   - `e.cmv_position === 'yes'` (current application form value)
+- `src/lib/pei/api.ts` — add `deletePEIRequest(id)`.
+- `src/components/pei/ApplicationPEITab.tsx` — add Trash2 icon button + AlertDialog confirm + handler.
 
-2. **Employer name fallback** — extend the name resolution to include `e.name`:
-   ```ts
-   String(e.company_name || e.employer_name || e.name || 'Previous Employer').trim()
-   ```
+### Out of scope
 
-3. **Handle `end_date: 'Present'`** — `parseEmployerDate` already returns `null` for unrecognized strings, and the existing `if (!end) return true` keeps current employers in scope, so no change needed there. (Optional polish: explicitly recognize `present`/`current` and treat as today so the row's `employment_end_date` is left null instead of accidentally parsed.)
-
-4. **Address/contact field mapping** — application form stores `email` (not `contact_email`) and has no `contact_name`, `phone`, `address`, `zip` fields. Existing code already falls back to `e.email`, so contact email will populate. Other fields will simply be null, which is acceptable — staff can fill them in before sending.
-
-## Out of scope
-
-- No schema changes, no migrations.
-- No UI changes to `ApplicationPEITab.tsx` or `PEIQueuePanel.tsx`.
-- No changes to the application form itself.
+- No changes to `PEIQueuePanel.tsx` (global queue) — separate ask if you want delete there too.
+- No bulk-delete, no "delete all GFE rows" shortcut.
 
 ## Verification
 
-1. Open Jose Guzman's application → PEI tab → click "Auto-build from employment history".
-2. Expect 3 PEI request rows created (Haynes Company LLC, Pinch Intermodal, New England Motor Freight Inc), all with `status: pending`, not a single GFE row.
-3. Confirm employer names, cities, states, and start/end dates populate on the rows; `employer_contact_email` populates where the applicant supplied one.
-4. Re-test on an applicant whose employers are all `cmv_position: 'no'` — should still produce the auto-GFE "not_dot_regulated" row.
+1. Navigate to Jose Guzman → PEI tab → click trash on the stale GFE row → confirm. Row disappears.
+2. Click Auto-build again → 3 pending rows appear (after the earlier `is_dot_regulated` fix).
+3. Delete a `completed` row from a different applicant → confirm response/accidents are gone (cascade).
