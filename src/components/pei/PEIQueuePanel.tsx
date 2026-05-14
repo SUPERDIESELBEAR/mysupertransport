@@ -1,10 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { ShieldCheck, AlertTriangle, Clock, Mail, Send, Loader2, FileWarning, Eye, FileText } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, Clock, Mail, Send, Loader2, FileWarning, Eye, FileText, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { Badge } from '@/components/ui/badge';
 import { fetchPEIQueue } from '@/lib/pei/api';
-import type { PEIQueueRow } from '@/lib/pei/types';
+import type { PEIQueueRow, PEIRequestStatus } from '@/lib/pei/types';
 import { PEIStatusBadge } from './StatusBadge';
 import { sendPEIEmail } from './sendPEIEmail';
 import { GFEModal } from './GFEModal';
@@ -14,6 +16,15 @@ interface Props {
   onOpenApplication?: (applicationId: string) => void;
 }
 
+const STATUS_ORDER: PEIRequestStatus[] = [
+  'pending',
+  'sent',
+  'follow_up_sent',
+  'final_notice_sent',
+  'completed',
+  'gfe_documented',
+];
+
 export default function PEIQueuePanel({ onOpenApplication }: Props) {
   const [rows, setRows] = useState<PEIQueueRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +32,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   const [gfeFor, setGfeFor] = useState<{ id: string; employer: string } | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'sent' | 'overdue' | 'completed' | 'gfe'>('all');
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
   async function reload() {
     setLoading(true);
@@ -53,6 +65,39 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     return rows;
   }, [rows, filter]);
 
+  const grouped = useMemo(() => {
+    const map = new Map<string, PEIQueueRow[]>();
+    for (const row of filteredRows) {
+      const list = map.get(row.application_id) ?? [];
+      list.push(row);
+      map.set(row.application_id, list);
+    }
+    return Array.from(map.entries())
+      .map(([applicationId, rows]) => ({
+        applicationId,
+        rows,
+        fullName: [rows[0].applicant_first_name, rows[0].applicant_last_name].filter(Boolean).join(' ') || '—',
+      }))
+      .sort((a, b) => a.fullName.localeCompare(b.fullName));
+  }, [filteredRows]);
+
+  function toggleGroup(id: string) {
+    setOpenGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function expandAll() {
+    setOpenGroups(new Set(grouped.map(g => g.applicationId)));
+  }
+
+  function collapseAll() {
+    setOpenGroups(new Set());
+  }
+
   async function handleSend(row: PEIQueueRow, kind: 'initial' | 'follow_up' | 'final_notice') {
     setBusy(row.request_id);
     try {
@@ -80,6 +125,15 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     if (r.days_remaining < 0 || r.is_overdue) return `Overdue ${Math.abs(r.days_remaining)}d`;
     if (r.days_remaining === 0) return 'Due today';
     return `Due in ${r.days_remaining}d`;
+  }
+
+  function groupSummary(groupRows: PEIQueueRow[]) {
+    const counts: Record<string, number> = {};
+    for (const r of groupRows) {
+      counts[r.status] = (counts[r.status] ?? 0) + 1;
+    }
+    const overdue = groupRows.filter(r => r.is_overdue).length;
+    return { counts, overdue };
   }
 
   const FILTERS: Array<{ key: typeof filter; label: string }> = [
@@ -122,7 +176,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
       </div>
 
       <Card className="overflow-hidden">
-        <div className="flex flex-wrap gap-1.5 p-3 border-b bg-muted/20">
+        <div className="flex flex-wrap items-center gap-1.5 p-3 border-b bg-muted/20">
           {FILTERS.map((f) => {
             const active = filter === f.key;
             return (
@@ -139,6 +193,20 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
               </button>
             );
           })}
+          <div className="ml-auto flex gap-2">
+            <button
+              onClick={expandAll}
+              className="text-xs text-muted-foreground hover:text-foreground underline"
+            >
+              Expand all
+            </button>
+            <button
+              onClick={collapseAll}
+              className="text-xs text-muted-foreground hover:text-foreground underline"
+            >
+              Collapse all
+            </button>
+          </div>
         </div>
         {loading ? (
           <div className="p-8 text-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline mr-2" />Loading…</div>
@@ -149,70 +217,106 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
             <p className="text-sm text-muted-foreground mt-1">{rows.length === 0 ? 'No action needed.' : 'Try a different filter.'}</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="text-left px-4 py-3">Applicant</th>
-                  <th className="text-left px-4 py-3">Previous Employer</th>
-                  <th className="text-left px-4 py-3">Status</th>
-                  <th className="text-left px-4 py-3">Date Sent</th>
-                  <th className="text-left px-4 py-3">Deadline</th>
-                  <th className="text-right px-4 py-3">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredRows.map((r) => {
-                  const action = actionFor(r);
-                  const fullName = [r.applicant_first_name, r.applicant_last_name].filter(Boolean).join(' ') || '—';
-                  return (
-                    <tr key={r.request_id} className="hover:bg-muted/30">
-                      <td className="px-4 py-3">
-                        <button
-                          className="text-left font-medium hover:underline"
-                          onClick={() => onOpenApplication?.(r.application_id)}
-                        >
-                          {fullName}
-                        </button>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div>{r.employer_name}</div>
-                        {(r.employer_city || r.employer_state) && (
-                          <div className="text-xs text-muted-foreground">{[r.employer_city, r.employer_state].filter(Boolean).join(', ')}</div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3"><PEIStatusBadge status={r.status} /></td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {r.date_sent ? new Date(r.date_sent).toLocaleDateString() : '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={r.is_overdue ? 'text-destructive font-semibold' : ''}>
-                          {deadlineLabel(r)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex justify-end gap-1.5 flex-wrap">
-                          {action && action.kind !== 'gfe' && (
-                            <Button size="sm" disabled={busy === r.request_id} onClick={() => handleSend(r, action.kind)}>
-                              {busy === r.request_id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Send className="h-3 w-3 mr-1" />}
-                              {action.label}
-                            </Button>
+          <div className="divide-y divide-border">
+            {grouped.map((group) => {
+              const isOpen = openGroups.has(group.applicationId);
+              const summary = groupSummary(group.rows);
+              const hasOverdue = summary.overdue > 0;
+              return (
+                <Collapsible
+                  key={group.applicationId}
+                  open={isOpen}
+                  onOpenChange={() => toggleGroup(group.applicationId)}
+                >
+                  <CollapsibleTrigger asChild>
+                    <button className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/30 transition-colors">
+                      {isOpen ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium">{group.fullName}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {group.rows.length} {group.rows.length === 1 ? 'employer' : 'employers'}
+                          </Badge>
+                          {hasOverdue && (
+                            <Badge variant="destructive" className="text-xs">
+                              {summary.overdue} overdue
+                            </Badge>
                           )}
-                          {r.status !== 'completed' && r.status !== 'gfe_documented' && (
-                            <Button size="sm" variant="ghost" onClick={() => setGfeFor({ id: r.request_id, employer: r.employer_name })}>
-                              <FileWarning className="h-3 w-3 mr-1" />GFE
-                            </Button>
-                          )}
-                          <Button size="sm" variant="ghost" onClick={() => onOpenApplication?.(r.application_id)}>
-                            <Eye className="h-3 w-3 mr-1" />Open
-                          </Button>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          {STATUS_ORDER.filter(s => summary.counts[s] > 0).map(s => (
+                            <span key={s} className="text-[11px] text-muted-foreground">
+                              {summary.counts[s]} {s.replace(/_/g, ' ')}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                          <tr>
+                            <th className="text-left px-4 py-2 pl-12">Previous Employer</th>
+                            <th className="text-left px-4 py-2">Status</th>
+                            <th className="text-left px-4 py-2">Date Sent</th>
+                            <th className="text-left px-4 py-2">Deadline</th>
+                            <th className="text-right px-4 py-2">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {group.rows.map((r) => {
+                            const action = actionFor(r);
+                            return (
+                              <tr key={r.request_id} className="hover:bg-muted/30">
+                                <td className="px-4 py-3 pl-12">
+                                  <div>{r.employer_name}</div>
+                                  {(r.employer_city || r.employer_state) && (
+                                    <div className="text-xs text-muted-foreground">{[r.employer_city, r.employer_state].filter(Boolean).join(', ')}</div>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3"><PEIStatusBadge status={r.status} /></td>
+                                <td className="px-4 py-3 text-muted-foreground">
+                                  {r.date_sent ? new Date(r.date_sent).toLocaleDateString() : '—'}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className={r.is_overdue ? 'text-destructive font-semibold' : ''}>
+                                    {deadlineLabel(r)}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <div className="flex justify-end gap-1.5 flex-wrap">
+                                    {action && action.kind !== 'gfe' && (
+                                      <Button size="sm" disabled={busy === r.request_id} onClick={() => handleSend(r, action.kind)}>
+                                        {busy === r.request_id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Send className="h-3 w-3 mr-1" />}
+                                        {action.label}
+                                      </Button>
+                                    )}
+                                    {r.status !== 'completed' && r.status !== 'gfe_documented' && (
+                                      <Button size="sm" variant="ghost" onClick={() => setGfeFor({ id: r.request_id, employer: r.employer_name })}>
+                                        <FileWarning className="h-3 w-3 mr-1" />GFE
+                                      </Button>
+                                    )}
+                                    <Button size="sm" variant="ghost" onClick={() => onOpenApplication?.(r.application_id)}>
+                                      <Eye className="h-3 w-3 mr-1" />Open
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              );
+            })}
           </div>
         )}
       </Card>
