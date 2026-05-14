@@ -50,11 +50,11 @@ export function SendTestPEIDialog({ open, onOpenChange }: Props) {
     }
     setSending(true);
     try {
-      const siteOrigin =
-        typeof window !== 'undefined' && window.location?.origin
-          ? window.location.origin
-          : 'https://mysupertransport.lovable.app';
-      const responseUrl = `${siteOrigin.replace(/\/$/, '')}/pei/respond/test-token-preview`;
+      // Always use the published site for test emails — preview/sandbox
+      // origins (lovableproject.com, id-preview--*.lovable.app) require a
+      // Lovable login and would block the recipient.
+      const responseUrl =
+        'https://mysupertransport.lovable.app/pei/respond/test-token-preview';
 
       const templateData = {
         applicantName: '[TEST] Test Applicant',

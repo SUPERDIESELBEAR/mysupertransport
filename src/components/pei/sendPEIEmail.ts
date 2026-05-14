@@ -79,11 +79,24 @@ export async function sendPEIEmail(
     daysRemaining = Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
   }
 
-  const siteOrigin =
+  // Never let preview/sandbox origins leak into outbound emails — those
+  // hosts (lovableproject.com, id-preview--*.lovable.app) require a Lovable
+  // login and would block the previous employer recipient.
+  const PUBLISHED_ORIGIN = 'https://mysupertransport.lovable.app';
+  const rawOrigin =
     typeof window !== 'undefined' && window.location?.origin
       ? window.location.origin
-      : 'https://mysupertransport.lovable.app';
-  const responseUrl = `${siteOrigin.replace(/\/$/, '')}/pei/respond/${req.response_token}`;
+      : PUBLISHED_ORIGIN;
+  const isPreviewOrigin =
+    /lovableproject\.com$/i.test(new URL(rawOrigin).hostname) ||
+    /\.lovable\.app$/i.test(new URL(rawOrigin).hostname) === false
+      ? false
+      : /^id-preview--/i.test(new URL(rawOrigin).hostname);
+  const safeOrigin =
+    /lovableproject\.com$/i.test(new URL(rawOrigin).hostname) || isPreviewOrigin
+      ? PUBLISHED_ORIGIN
+      : rawOrigin;
+  const responseUrl = `${safeOrigin.replace(/\/$/, '')}/pei/respond/${req.response_token}`;
 
   const templateData = {
     applicantName,
