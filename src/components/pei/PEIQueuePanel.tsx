@@ -1,8 +1,10 @@
 import { useEffect, useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { ShieldCheck, AlertTriangle, Clock, Mail, Send, Loader2, FileWarning, Eye, FileText } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, Clock, Mail, Send, Loader2, FileWarning, Eye, FileText, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { Badge } from '@/components/ui/badge';
 import { fetchPEIQueue } from '@/lib/pei/api';
 import type { PEIQueueRow } from '@/lib/pei/types';
 import { PEIStatusBadge } from './StatusBadge';
