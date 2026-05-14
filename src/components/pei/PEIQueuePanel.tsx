@@ -23,40 +23,6 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   const [gfeFor, setGfeFor] = useState<{ id: string; employer: string } | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'sent' | 'overdue' | 'completed' | 'gfe'>('all');
   const [templatesOpen, setTemplatesOpen] = useState(false);
-  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
-
-  const grouped = useMemo(() => {
-    const map = new Map<string, PEIQueueRow[]>();
-    for (const row of filteredRows) {
-      const list = map.get(row.application_id) ?? [];
-      list.push(row);
-      map.set(row.application_id, list);
-    }
-    return Array.from(map.entries())
-      .map(([applicationId, rows]) => ({
-        applicationId,
-        rows,
-        fullName: [rows[0].applicant_first_name, rows[0].applicant_last_name].filter(Boolean).join(' ') || '—',
-      }))
-      .sort((a, b) => a.fullName.localeCompare(b.fullName));
-  }, [filteredRows]);
-
-  function toggleGroup(id: string) {
-    setOpenGroups(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function expandAll() {
-    setOpenGroups(new Set(grouped.map(g => g.applicationId)));
-  }
-
-  function collapseAll() {
-    setOpenGroups(new Set());
-  }
 
   async function reload() {
     setLoading(true);
