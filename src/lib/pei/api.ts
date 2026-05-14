@@ -71,6 +71,11 @@ export async function updatePEIRequest(
   return data as PEIRequest;
 }
 
+export async function deletePEIRequest(id: string): Promise<void> {
+  const { error } = await supabase.from('pei_requests').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export async function createGoodFaithEffort(
   requestId: string,
   reason: PEIGFEReason,
