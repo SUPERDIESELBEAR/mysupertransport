@@ -43,16 +43,14 @@ export async function sendPEIEmail(
   kind: 'initial' | 'follow_up' | 'final_notice'
 ): Promise<void> {
   // 1. Load the request + applicant context.
-  const { data: req, error: loadError } = await supabase
+  const { data: reqRow, error: loadError } = await supabase
     .from('pei_requests')
-    .select(
-      'id, application_id, employer_name, employer_contact_name, employer_contact_email, ' +
-      'employment_start_date, employment_end_date, response_token, deadline_date'
-    )
+    .select('*')
     .eq('id', requestId)
     .single();
   if (loadError) throw loadError;
-  if (!req) throw new Error('PEI request not found');
+  if (!reqRow) throw new Error('PEI request not found');
+  const req = reqRow as any;
 
   const recipient = (req.employer_contact_email || '').trim().toLowerCase();
   if (!recipient || !EMAIL_RE.test(recipient)) {
