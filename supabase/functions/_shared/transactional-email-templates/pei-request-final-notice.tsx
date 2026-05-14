@@ -5,7 +5,7 @@ import {
 } from 'npm:@react-email/components@0.0.22'
 import type { TemplateEntry } from './registry.ts'
 import {
-  BRAND_NAME, accentBar, brand, button, container, factCell, factLabel,
+  BRAND_NAME, accentBar, brand, button, callout, container, factCell, factLabel,
   factTable, footer, h1, h2, main, subBrand, text, unmonitoredNotice, warningCallout,
   type PEIEmailProps,
 } from './_pei-shared.ts'
@@ -39,6 +39,13 @@ const PEIRequestFinalNoticeEmail = (props: PEIEmailProps) => {
             Investigation. We have attempted to reach you twice without a
             response.
           </Text>
+
+          <div style={callout}>
+            <strong>Wrong recipient?</strong> If PEI verifications are now
+            handled by someone else at {employer}, please forward this email
+            to the correct person in your office. The applicant may have
+            provided contact info that is several years old.
+          </div>
 
           <table style={factTable} cellPadding={0} cellSpacing={0}>
             <tbody>

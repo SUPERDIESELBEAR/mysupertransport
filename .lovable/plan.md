@@ -1,34 +1,45 @@
-## Issue
+# Plan
 
-Stale auto-GFE rows (and any other PEI rows created in error) can't be removed from the PEI tab — there's no UI affordance, even though the database already has a "Management delete PEI requests" RLS policy in place.
+## 1. Add forwarding-safeguard callout to PEI emails
 
-## Fix
+Insert a gold `callout` block near the top of each template (right after the intro paragraph, before the facts table) in:
 
-Add a Delete button to each PEI request row in `src/components/pei/ApplicationPEITab.tsx`, plus a matching `deletePEIRequest` helper in `src/lib/pei/api.ts`.
+- `supabase/functions/_shared/transactional-email-templates/pei-request-initial.tsx`
+- `supabase/functions/_shared/transactional-email-templates/pei-request-follow-up.tsx`
+- `supabase/functions/_shared/transactional-email-templates/pei-request-final-notice.tsx`
 
-### Behavior
+Wording (uses existing `callout` style from `_pei-shared.ts`):
 
-- Trash icon button at the end of each row's action group, available on **every** status (pending, sent, follow_up_sent, final_notice_sent, completed, gfe_documented).
-- Clicking opens a confirm dialog: *"Delete this PEI record? This permanently removes the request"* (plus *"and any submitted response"* when status is completed/gfe_documented). No undo.
-- On confirm: call `supabase.from('pei_requests').delete().eq('id', r.id)`. The `pei_responses` and `pei_accidents` rows cascade automatically (existing `ON DELETE CASCADE`).
-- After success: refresh the list and toast "PEI request deleted".
+> **Wrong recipient?** If PEI verifications are now handled by someone else at {employerName}, please forward this email to the correct person in your office. The applicant may have provided contact info that is several years old.
 
-### Permissions
+The follow-up template already has a similar one-liner in the footer ("If you're no longer the right contact…"); that footer line will be removed since the new callout supersedes it.
 
-The existing RLS policy `Management delete PEI requests` already restricts deletion to staff/management — no new policies, no migration.
+No logic, registry, or DB changes — text-only edits to three `.tsx` files.
 
-### Files touched
+## 2. Surface PEI Queue in Management Portal sidebar
 
-- `src/lib/pei/api.ts` — add `deletePEIRequest(id)`.
-- `src/components/pei/ApplicationPEITab.tsx` — add Trash2 icon button + AlertDialog confirm + handler.
+Currently `PEIQueuePanel` is only mounted in **Staff Portal**. The user is on **Management Portal** (`/dashboard?view=…`) and has no entry point.
 
-### Out of scope
+Edits to `src/pages/management/ManagementPortal.tsx`:
 
-- No changes to `PEIQueuePanel.tsx` (global queue) — separate ask if you want delete there too.
-- No bulk-delete, no "delete all GFE rows" shortcut.
+1. Add `'pei-queue'` to the `ManagementView` union and the runtime view-validator allow-list.
+2. Import `PEIQueuePanel` from `@/components/pei/PEIQueuePanel`.
+3. Add a nav item to `navItems` (placed under Applications, near Pipeline):
+   ```
+   { label: 'PEI Queue', icon: <Briefcase className="h-4 w-4" />, path: 'pei-queue' }
+   ```
+4. Add a render block:
+   ```
+   {view === 'pei-queue' && (
+     <PEIQueuePanel onOpenApplication={(appId) => { /* open ApplicationReviewDrawer for appId */ }} />
+   )}
+   ```
+   Reuse the existing application-drawer opener already used by the Applications view so clicking a row from the queue jumps straight into that applicant's PEI tab.
+
+No changes to `StaffPortal` — the queue stays available there as well.
 
 ## Verification
 
-1. Navigate to Jose Guzman → PEI tab → click trash on the stale GFE row → confirm. Row disappears.
-2. Click Auto-build again → 3 pending rows appear (after the earlier `is_dot_regulated` fix).
-3. Delete a `completed` row from a different applicant → confirm response/accidents are gone (cascade).
+- Open Management Portal → confirm new "PEI Queue" sidebar item → click → list of all pending/sent/follow-up/final-notice rows across every applicant renders.
+- Click a row → application drawer opens on the PEI tab.
+- Trigger preview of each of the 3 PEI templates from the queue's "Templates" button → confirm the forwarding callout shows at the top with the new copy and that the follow-up footer line is gone.
