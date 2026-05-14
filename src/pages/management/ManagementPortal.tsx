@@ -1757,6 +1757,12 @@ export default function ManagementPortal() {
           <TerminationsView />
         )}
 
+        {view === 'pei-queue' && (
+          <PEIQueuePanel onOpenApplication={async (appId) => {
+            const { data } = await supabase.from('applications').select('*').eq('id', appId).single();
+            if (data) setSelectedApp(data as FullApplication);
+          }} />
+        )}
 
         {view === 'messages' && (
           <div className="flex flex-col gap-0" style={{ height: 'calc(100vh - 160px - 64px)' }}>
