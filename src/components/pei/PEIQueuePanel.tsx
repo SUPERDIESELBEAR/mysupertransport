@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { ShieldCheck, AlertTriangle, Clock, Mail, Send, Loader2, FileWarning, Eye } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, Clock, Mail, Send, Loader2, FileWarning, Eye, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { fetchPEIQueue } from '@/lib/pei/api';
@@ -8,6 +8,7 @@ import type { PEIQueueRow } from '@/lib/pei/types';
 import { PEIStatusBadge } from './StatusBadge';
 import { sendPEIEmail } from './sendPEIEmail';
 import { GFEModal } from './GFEModal';
+import PEITemplateViewer from './PEITemplateViewer';
 
 interface Props {
   onOpenApplication?: (applicationId: string) => void;
@@ -19,6 +20,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [gfeFor, setGfeFor] = useState<{ id: string; employer: string } | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'sent' | 'overdue' | 'completed' | 'gfe'>('all');
+  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   async function reload() {
     setLoading(true);
@@ -92,11 +94,24 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-          <ShieldCheck className="h-6 w-6 text-gold" />
-          Previous Employment Investigations
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">49 CFR §391.23 Compliance Tracking</p>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+              <ShieldCheck className="h-6 w-6 text-gold" />
+              Previous Employment Investigations
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">49 CFR §391.23 Compliance Tracking</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setTemplatesOpen(true)}
+            className="gap-2"
+          >
+            <FileText className="h-4 w-4" />
+            View email templates
+          </Button>
+        </div>
       </header>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
