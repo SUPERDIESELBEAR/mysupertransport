@@ -41,6 +41,13 @@ const PEIRequestFollowUpEmail = (props: PEIEmailProps) => {
             is required by <strong>49 CFR §391.23</strong>.
           </Text>
 
+          <div style={callout}>
+            <strong>Wrong recipient?</strong> If PEI verifications are now
+            handled by someone else at {employer}, please forward this email
+            to the correct person in your office. The applicant may have
+            provided contact info that is several years old.
+          </div>
+
           <table style={factTable} cellPadding={0} cellSpacing={0}>
             <tbody>
               <tr>
@@ -81,9 +88,7 @@ const PEIRequestFollowUpEmail = (props: PEIEmailProps) => {
           </div>
 
           <Text style={footer}>
-            If you&rsquo;re no longer the right contact, please forward this
-            email to your safety or compliance department.
-            <br />— {BRAND_NAME} Compliance
+            — {BRAND_NAME} Compliance
           </Text>
         </Container>
       </Body>

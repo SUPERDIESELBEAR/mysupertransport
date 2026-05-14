@@ -46,6 +46,13 @@ const PEIRequestInitialEmail = (props: PEIEmailProps) => {
             each DOT-regulated employer over the past three years.
           </Text>
 
+          <div style={callout}>
+            <strong>Wrong recipient?</strong> If PEI verifications are now
+            handled by someone else at {employer}, please forward this email
+            to the correct person in your office. The applicant may have
+            provided contact info that is several years old.
+          </div>
+
           <Heading style={h2}>Employment claimed by applicant</Heading>
           <table style={factTable} cellPadding={0} cellSpacing={0}>
             <tbody>

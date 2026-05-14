@@ -29,7 +29,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Shield, Users2, AlertCircle, FileX,
   MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2, FileText,
-  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone,
+  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone, Briefcase,
 } from 'lucide-react';
 import FleetRoster from '@/components/fleet/FleetRoster';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
@@ -48,6 +48,7 @@ import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin
 import DriverHubView from '@/components/drivers/DriverHubView';
 import PendingInviteAcceptance from '@/components/management/PendingInviteAcceptance';
 import { PwaReminderPreviewModal } from '@/components/management/PwaReminderPreviewModal';
+import PEIQueuePanel from '@/components/pei/PEIQueuePanel';
 import type { ComplianceCounts, ComplianceFilter } from '@/components/drivers/DriverRoster';
 import { differenceInDays, formatDistanceToNowStrict, parseISO, startOfDay } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -78,7 +79,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'email-catalog' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'staff' | 'faq' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'email-catalog' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue';
 type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -110,7 +111,7 @@ export default function ManagementPortal() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     const v = searchParams.get('view') as ManagementView | null;
-    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors'].includes(v)) ? v : 'overview';
+    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue'].includes(v)) ? v : 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [scrollToStageKeyMgmt, setScrollToStageKeyMgmt] = useState<string | undefined>(undefined);
@@ -756,6 +757,7 @@ export default function ManagementPortal() {
     { label: 'Overview',          icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview',          dividerBefore: 'Dashboard' },
     { label: 'Applications',      icon: <ClipboardList className="h-4 w-4" />,   path: 'applications' },
     { label: 'Applicant Pipeline', icon: <Users className="h-4 w-4" />,          path: 'pipeline',          badge: criticalExpiryCount || undefined },
+    { label: 'PEI Queue',         icon: <Briefcase className="h-4 w-4" />,       path: 'pei-queue' },
     { label: 'Messages',          icon: <MessageSquare className="h-4 w-4" />,   path: 'messages',          badge: unreadMsgCount },
     { label: 'Notifications',     icon: <BellRing className="h-4 w-4" />,        path: 'notifications',     badge: unreadNotifCount },
     { label: 'Compliance',        icon: <ShieldCheck className="h-4 w-4" />,     path: 'compliance',        badge: criticalExpiryCount || undefined, dividerBefore: 'Operations' },
