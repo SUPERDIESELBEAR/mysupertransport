@@ -114,7 +114,12 @@ export async function autoBuildPEIRequests(applicationId: string): Promise<{
   cutoff.setFullYear(cutoff.getFullYear() - 3);
 
   const dotRegulated = employers.filter((e) => {
-    if (!e || e.is_dot_regulated !== true) return false;
+    if (!e) return false;
+    const isDot =
+      e.is_dot_regulated === true ||
+      e.cmv_position === 'yes' ||
+      e.cmv_position === true;
+    if (!isDot) return false;
     // employment dates may be MM/YYYY strings — try to parse end date
     const end = parseEmployerDate(e.end_date || e.employment_end_date);
     if (!end) return true; // include if we can't tell; staff can prune
@@ -140,7 +145,7 @@ export async function autoBuildPEIRequests(applicationId: string): Promise<{
 
   const rows = dotRegulated.map((e) => ({
     application_id: applicationId,
-    employer_name: String(e.company_name || e.employer_name || 'Previous Employer').trim(),
+    employer_name: String(e.company_name || e.employer_name || e.name || 'Previous Employer').trim(),
     employer_contact_name: e.contact_name || null,
     employer_contact_email: e.contact_email || e.email || null,
     employer_phone: e.phone || null,
