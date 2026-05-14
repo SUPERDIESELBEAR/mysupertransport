@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { ShieldCheck, AlertTriangle, Clock, Mail, Send, Loader2, FileWarning, Eye, FileText, ChevronDown, ChevronRight } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, Clock, Mail, Send, Loader2, FileWarning, Eye, FileText, ChevronDown, ChevronRight, Beaker } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
@@ -11,6 +11,7 @@ import { PEIStatusBadge } from './StatusBadge';
 import { sendPEIEmail } from './sendPEIEmail';
 import { GFEModal } from './GFEModal';
 import PEITemplateViewer from './PEITemplateViewer';
+import { SendTestPEIDialog } from './SendTestPEIDialog';
 
 interface Props {
   onOpenApplication?: (applicationId: string) => void;
@@ -32,6 +33,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   const [gfeFor, setGfeFor] = useState<{ id: string; employer: string } | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'sent' | 'overdue' | 'completed' | 'gfe'>('all');
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [testOpen, setTestOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
   async function reload() {
@@ -156,15 +158,26 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
             </h1>
             <p className="text-sm text-muted-foreground mt-1">49 CFR §391.23 Compliance Tracking</p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setTemplatesOpen(true)}
-            className="gap-2"
-          >
-            <FileText className="h-4 w-4" />
-            View email templates
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setTestOpen(true)}
+              className="gap-2"
+            >
+              <Beaker className="h-4 w-4" />
+              Send test PEI
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setTemplatesOpen(true)}
+              className="gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              View email templates
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -331,6 +344,7 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
         />
       )}
       <PEITemplateViewer open={templatesOpen} onOpenChange={setTemplatesOpen} />
+      <SendTestPEIDialog open={testOpen} onOpenChange={setTestOpen} />
     </div>
   );
 }

@@ -1,53 +1,48 @@
+# Send a test PEI to your personal email
+
 ## Goal
 
-Add a "Find email with AI" button next to each PEI employer's email field. Staff click it; the AI searches the web for the employer's company website and a likely PEI/HR/safety contact email, then auto-fills the field.
+Let staff send a sample copy of any PEI template (initial / follow-up / final notice) to a specified email address — without touching real `pei_requests` rows or advancing any statuses.
 
-## UX
+## Where it lives
 
-In `ApplicationPEITab.tsx` (and optionally inline in `PEIQueuePanel` row edit), beside the email input:
+A new "Send test PEI" button in the **PEI Queue** header (`src/components/pei/PEIQueuePanel.tsx`), next to the existing controls. Clicking it opens a small dialog with:
 
-- New ✨ "Find with AI" button (sparkles icon, ghost variant).
-- Click → button shows spinner + "Searching…".
-- On success: email auto-fills, toast shows: *"Found info@pinchtransport.com on pinchtransport.com"* with a "Use this" / "Try again" option if the field already has a value.
-- If multiple candidates returned, show a small popover with the top 2–3 (e.g., `safety@`, `hr@`, `info@`) so staff can pick the best fit.
-- If nothing found, toast: *"No email found — please enter manually."*
+- **Recipient email** (text input, defaults to the signed-in staff user's email)
+- **Template** (radio: Initial request / Follow-up / Final notice)
+- **Send test** button
 
-Only enabled for staff (already gated by the PEI tab).
+On submit it calls `send-transactional-email` directly with realistic sample data and shows a success/error toast. It does NOT write to `pei_requests`, does NOT advance any status, and does NOT use a real applicant's data.
 
-## Backend — new edge function `lookup-employer-email`
+## Sample data used
 
-Input: `{ employer_name, city?, state? }`
-Output: `{ website?: string, candidates: Array<{ email, source_url, confidence: 'high'|'medium'|'low', label?: string }>, reasoning?: string }`
+Hard-coded, clearly-fake values so the recipient can tell it's a test:
 
-Steps inside the function:
-1. **Find the company website** — use Lovable AI (Gemini with web grounding) OR a web search connector to resolve `"<employer> trucking <city> <state>"` → best matching official domain.
-2. **Scrape the contact/about pages** — fetch homepage + `/contact`, `/about`, `/contact-us` and extract `mailto:` links and plain-text emails matching the company domain.
-3. **Rank candidates** — prefer role-based addresses likely to handle PEI verifications: `safety@`, `compliance@`, `hr@`, `recruiting@`, `dispatch@`, then generic `info@`/`contact@`. Filter out `noreply@`, vendor/CDN domains, and addresses on domains that don't match the company domain.
-4. Return top 3 with confidence levels.
+- applicantName: "Test Applicant"
+- employerName: "Sample Trucking Co."
+- contactName: "Jane Doe"
+- employmentStartDate: "01/2022"
+- employmentEndDate: "06/2024"
+- deadlineDate: "by December 1, 2026"
+- daysRemaining: 14 (used by follow-up / final notice)
+- responseUrl: a non-functional sample link to `/pei/respond/test-token-preview` so the button renders but the token won't validate
 
-Implementation choice (recommend): **Lovable AI Gateway with `google/gemini-3-flash-preview`** using a tool-calling schema to enforce the JSON shape, plus a built-in `fetch` step in the edge function to scrape the chosen domain's contact page (HTML → regex `mailto:` + email regex). This keeps it free under existing Lovable AI credits — no new API key required.
+The email subject and body will look identical to a real send (same templates, same domain), with "[TEST]" prepended to the subject so it's obvious in the inbox.
 
-If web grounding via Gemini is insufficient for finding the right domain, fall back to **Firecrawl** (`/v2/search` then `/v2/scrape`). That requires connecting the Firecrawl connector — only suggest if the Gemini-only path proves unreliable in testing.
+## Files to change
 
-CORS + auth: standard pattern (verify staff JWT via `getClaims`, check role in `user_roles`).
+1. `src/components/pei/PEIQueuePanel.tsx` — add the "Send test PEI" button + dialog state.
+2. `src/components/pei/SendTestPEIDialog.tsx` (new) — small modal with the form + submit handler that invokes `send-transactional-email`.
 
-## Frontend wiring
-
-- New helper `src/lib/pei/lookupEmail.ts` → `supabase.functions.invoke('lookup-employer-email', { body: {...} })`.
-- `ApplicationPEITab.tsx`: add button beside email input in the edit row + (optionally) in the read-only row when email is missing. State per row: `lookingUpId`, `candidatesFor`.
-- Small `EmailCandidatesPopover` component shows ranked candidates with their source URL.
-
-## Auditing
-
-Log each lookup to a new `pei_email_lookups` table (employer, query, candidates, picked email, staff_id, created_at) so we can review accuracy over time and refine the ranking logic. Optional but recommended.
+No edge function or template changes — the existing `pei-request-initial`, `pei-request-follow-up`, and `pei-request-final-notice` templates are reused as-is.
 
 ## Out of scope
 
-- Bulk "find emails for all empty rows" — can be added later once single-lookup quality is verified.
-- Verifying the email is deliverable (would require an email-verification API).
+- Sending test copies to multiple recipients at once.
+- Persisting test sends in `pei_requests` or `email_send_log` reporting UI (the row will still appear in `email_send_log` automatically — that's fine for verification).
+- Adding a "[TEST]" watermark inside the email body (subject prefix is enough).
 
-## Open questions
+## Open question
 
-1. OK to default to **Lovable AI** (Gemini web grounding + edge-function scrape) and only add Firecrawl if accuracy is poor?
-2. Add the lookup button to **PEIQueuePanel** row inline-edit too, or only on the application's PEI tab?
-3. Want the audit table (`pei_email_lookups`) now, or skip until needed?
+Want the test dialog gated to admins/owners only, or available to any staff who can see the PEI Queue?
+
