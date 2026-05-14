@@ -6,7 +6,7 @@ import {
 import type { TemplateEntry } from './registry.ts'
 import {
   BRAND_NAME, accentBar, brand, button, callout, container, factCell,
-  factLabel, factTable, footer, h1, h2, main, muted, subBrand, text,
+  factLabel, factTable, footer, h1, h2, main, muted, subBrand, text, unmonitoredNotice,
   type PEIEmailProps,
 } from './_pei-shared.ts'
 
@@ -77,6 +77,10 @@ const PEIRequestInitialEmail = (props: PEIEmailProps) => {
           <Button style={button} href={url}>
             Complete the investigation →
           </Button>
+          <div style={unmonitoredNotice}>
+            📭 This inbox is not monitored. Please use the secure response
+            button above to submit your verification.
+          </div>
 
           <div style={callout}>
             <strong>Response requested:</strong> {deadline}.<br />
@@ -94,9 +98,7 @@ const PEIRequestInitialEmail = (props: PEIEmailProps) => {
           </Text>
 
           <Text style={footer}>
-            Questions? Reply to this email and our compliance team will
-            respond within one business day.
-            <br />— {BRAND_NAME} Compliance
+            — {BRAND_NAME} Compliance
           </Text>
         </Container>
       </Body>

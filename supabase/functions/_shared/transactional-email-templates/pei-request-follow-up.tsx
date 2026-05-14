@@ -6,7 +6,7 @@ import {
 import type { TemplateEntry } from './registry.ts'
 import {
   BRAND_NAME, accentBar, brand, button, callout, container, factCell,
-  factLabel, factTable, footer, h1, h2, main, subBrand, text,
+  factLabel, factTable, footer, h1, h2, main, subBrand, text, unmonitoredNotice,
   type PEIEmailProps,
 } from './_pei-shared.ts'
 
@@ -69,6 +69,10 @@ const PEIRequestFollowUpEmail = (props: PEIEmailProps) => {
           <Button style={button} href={url}>
             Complete the investigation →
           </Button>
+          <div style={unmonitoredNotice}>
+            📭 This inbox is not monitored. Please use the secure response
+            button above to submit your verification.
+          </div>
 
           <div style={callout}>
             Your prompt response keeps this driver&rsquo;s qualification on

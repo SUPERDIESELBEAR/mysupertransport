@@ -103,6 +103,16 @@ export const warningCallout = {
   borderColor: '#F5C6C2',
   borderLeftColor: '#C8341E',
 }
+export const unmonitoredNotice = {
+  fontSize: '12px',
+  color: '#7A7A7A',
+  lineHeight: '1.5',
+  margin: '10px 0 18px',
+  padding: '10px 14px',
+  backgroundColor: '#F7F7F5',
+  border: '1px solid #EAEAEA',
+  borderRadius: '4px',
+}
 export const footer = {
   fontSize: '12px',
   color: '#7A7A7A',
