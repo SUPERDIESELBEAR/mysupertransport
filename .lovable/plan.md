@@ -1,67 +1,67 @@
-# PEI Module — Phase 2 Wire-Up + Phase 3 Build
+## PEI Tab Enhancements — Inline Editing + GFE + Queue Polish
 
-## Goal
-Make the PEI system reachable in the Staff UI, then deliver the end-to-end response loop (tokenized public form, GFE fallback, response viewer). Email automation, cron, and pipeline gating stay deferred to Phase 4.
+### Goal
+Let staff fix missing employer contact info (City, State, **Email**) directly inside the per-application PEI tab without bouncing to Step 3, document Good Faith Efforts from anywhere a request lives, and make the global PEI Queue more useful for triage.
 
-## Scope
+### Architecture decision
+- **Per-application PEI tab** = workspace (build, edit, send, GFE, view responses).
+- **Global PEI Queue** (sidebar) = cross-applicant triage dashboard.
+- No separate top-level PEI module page — would duplicate the queue and break the application-context workflow.
 
-### Part A — Wire Phase 2 into the UI
-1. **Staff sidebar entry**
-   - Add a "PEI Queue" item to the staff sidebar (`src/components/staff/StaffSidebar.tsx` or equivalent) gated by `is_staff`.
-   - New route `/staff/pei` rendering `PEIQueuePanel`.
+---
 
-2. **Application drawer "PEI" tab**
-   - Add a "PEI" tab to `ApplicationReviewDrawer.tsx`.
-   - Tab content: list of `pei_requests` for that application, "Auto-build from employment history" button calling `autoBuildPEIRequests`, per-row actions (Send email — stub, Open GFE modal, View response).
-   - Show roll-up `pei_status` badge in the drawer header.
+### 1. Inline employer editing (PEI tab)
 
-### Part B — Phase 3 build (public response + viewer + GFE)
-3. **Edge function `get-pei-request-by-token`** (`verify_jwt = false`)
-   - Input: `{ token: uuid }`.
-   - Validates token against `pei_requests.response_token`, checks not expired / not used.
-   - Returns sanitized request payload: applicant name, DOB (masked), last 4 of SSN (server-side decrypt), employment dates claimed, prior employer name. Never returns full SSN to the client.
-   - CORS enabled, Zod-validated input, loud errors.
+In `src/components/pei/ApplicationPEITab.tsx`, each employer row gains an inline editable mini-form with three fields:
+- **Email** (required to send a request)
+- **City** (required)
+- **State** (required, US_STATES dropdown)
 
-4. **Public response page `PEIRespond.tsx`**
-   - Route: `/pei/respond/:token` (public, no auth).
-   - Loads request via the edge function.
-   - Form fields per 49 CFR §391.23(c): dates of employment, position, reason for leaving, eligible for rehire, accidents (dynamic list → `pei_accidents`), drug/alcohol violations, performance under DOT regs.
-   - Submits to `pei_responses` (insert RLS policy must allow anon insert keyed by valid token via SECURITY DEFINER RPC `submit_pei_response(token, payload)`).
-   - Trigger `complete_pei_request_on_response` already flips status to completed.
-   - Confirmation screen on success.
+Behavior:
+- Fields render as compact inputs directly in the row when missing or when user clicks an "Edit contact info" pencil.
+- "Save" writes back to `applications.employers` JSONB at the correct array index, then refetches.
+- A row cannot be sent (Send button disabled with tooltip) until Email + City + State are populated.
+- Email is validated with a basic regex before save; trimmed and lowercased.
+- Title Case applied to City on save (matches existing data normalization rule).
 
-5. **GFE modal `GFEModal.tsx` finishing touches**
-   - Already created — wire to staff drawer row action.
-   - Required: GFE reason enum dropdown, free-text notes, optional file upload to `pei-documents` bucket, "Mark GFE" button writes to `pei_requests` (status = `good_faith_effort`, `gfe_reason`, `gfe_notes`, `gfe_evidence_url`).
+### 2. Add `email` to employer schema
 
-6. **Response viewer `PEIResponseViewer.tsx`**
-   - Read-only modal/panel opened from queue + drawer.
-   - Renders the full response, accidents list, attachments, GFE evidence if applicable.
-   - Print-friendly layout (driver qualification file).
+`EmployerRecord` in `src/components/application/types.ts` gets an optional `email: string` field (default `''`). Step 3 employment form gets an optional Email input per employer (not required at submission, but encouraged) so future applicants can supply it up-front. `utils.ts` validation leaves Email optional in Step 3 — it only becomes required at the PEI send step.
 
-### Out of scope (Phase 4, next request)
-- Resend email templates + `send-pei-email` edge function.
-- pg_cron `pei-cron` daily job (auto-GFE at 30 days, reminder emails).
-- `Step3Employment.tsx` `is_dot_regulated` per-employer flag.
-- `Step8Disclosures.tsx` Driver Rights Notice acknowledgment.
-- Pipeline activation gate on `pei_status = 'complete'`.
+### 3. GFE access from both surfaces
 
-## Technical notes
+`GFEModal` already exists. Wire it so it's launchable from:
+- Each row in the per-application PEI tab (existing).
+- Each row in the global `PEIQueuePanel` via a row action menu (new) — useful when triaging the queue without opening the application drawer.
 
-- **Token security:** `response_token` is uuid v4, single-use, expires at `pei_requests.deadline_at`. Edge function returns 410 on expired, 409 on already-used.
-- **Anon submission:** Use a `SECURITY DEFINER` RPC `submit_pei_response(p_token, p_payload jsonb, p_accidents jsonb)` instead of opening RLS to anon — keeps `pei_responses` insert policy staff-only.
-- **SSN decryption:** Only inside the edge function with service role; client receives `ssn_last4` only.
-- **Storage:** `pei-documents` bucket (already created) — anon upload via signed URL issued by edge function for response attachments; staff upload directly for GFE evidence.
-- **Routing:** Add `/pei/respond/:token` to public routes in `App.tsx`, `/staff/pei` to staff routes.
-- **Sidebar:** Match existing pattern from `mem://ui/navigation-system` (localStorage `staff_sidebar_open`, NavLink active state).
+Submitting GFE flips that request's status to `gfe_documented` and stores notes/attempts (existing RPC).
 
-## Deliverables
-- 1 migration: `submit_pei_response` RPC + any missing RLS tweaks.
-- 1 edge function: `get-pei-request-by-token`.
-- 5 new files: `PEIRespond.tsx`, `PEIResponseViewer.tsx`, route entries, sidebar entry, drawer tab.
-- Edits: `ApplicationReviewDrawer.tsx`, `StaffSidebar.tsx`, `App.tsx`, finish `GFEModal.tsx`.
+### 4. Queue polish (`PEIQueuePanel`)
 
-## Verification
-- Auto-build PEI rows from a test application's employers.
-- Open the tokenized link in incognito → submit response → confirm `pei_requests.status = 'completed'` and viewer renders the response.
-- Mark a separate request as GFE → confirm rollup `applications.pei_status` updates correctly.
+Light additions only:
+- Status filter chips: All / Sent / Overdue / Completed / GFE.
+- Deadline column with relative countdown ("Due in 3 days", "Overdue 2 days") using the existing date helper (noon-anchored).
+- "Open Application" link on each row that opens the `ApplicationReviewDrawer` to the PEI tab.
+
+### 5. No backend schema changes
+All work uses existing tables/RPCs. The only data write outside PEI tables is updating the `employers` JSONB array on `applications`, which staff already have RLS permission to do.
+
+---
+
+### Technical notes
+
+- Employer JSONB update pattern: read current `employers` array → splice in the edited record at index → `update({ employers: newArray })` → throw on error (loud failure pattern from project memory).
+- Inline edit state lives in the row component; uses the edit-guard `useEffect` sync pattern so a refetch doesn't clobber unsaved input.
+- Email regex: simple `/^[^\s@]+@[^\s@]+\.[^\s@]+$/` — server-side RPC already validates token, not email format.
+- Deadline countdown uses `parseISO(date + 'T12:00:00')` per timezone policy.
+- All new buttons/inputs use existing shadcn components and design tokens — no new colors.
+
+### Files touched
+- `src/components/application/types.ts` — add `email` to `EmployerRecord` + `defaultEmployer`.
+- `src/components/application/Step3Employment.tsx` — optional Email input per employer.
+- `src/components/pei/ApplicationPEITab.tsx` — inline edit row, send-gating, save handler.
+- `src/components/pei/PEIQueuePanel.tsx` — filter chips, deadline countdown, GFE action, open-application link.
+- (No new files, no migrations.)
+
+### Out of scope (still deferred to Phase 4)
+Real Resend email integration, pg_cron auto-GFE escalations, Step 8 Driver Rights Notice, pipeline gating on `pei_status`.
