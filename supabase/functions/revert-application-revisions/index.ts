@@ -55,6 +55,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const applicationId = typeof body?.applicationId === 'string' ? body.applicationId.trim() : '';
     const sendCourtesyEmail = body?.sendCourtesyEmail === true;
+    const retryEmailOnly = body?.retryEmailOnly === true;
 
     if (!applicationId) {
       return new Response(JSON.stringify({ error: 'invalid_input' }), {
@@ -74,7 +75,9 @@ serve(async (req) => {
       });
     }
 
-    if (app.review_status !== 'revisions_requested') {
+    // For full revert, status must currently be revisions_requested.
+    // For retryEmailOnly, the status was already restored — skip this check.
+    if (!retryEmailOnly && app.review_status !== 'revisions_requested') {
       return new Response(JSON.stringify({ error: 'invalid_status' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -90,42 +93,46 @@ serve(async (req) => {
     const staffName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Staff';
 
     const stamp = new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' });
-    const auditLine = `[${stamp}] Revision request reverted by ${staffName} (sent in error).`;
-    const newNotes = app.reviewer_notes ? `${app.reviewer_notes}\n\n${auditLine}` : auditLine;
+    let invalidatedTokens = 0;
 
-    const { error: updErr } = await admin
-      .from('applications')
-      .update({
-        review_status: restoredStatus as any,
-        is_draft: restoredStatus === 'approved' ? false : true,
-        pre_revision_status: null,
-        revision_requested_at: null,
-        revision_requested_by: null,
-        revision_request_message: null,
-        revision_count: Math.max(0, (app.revision_count ?? 1) - 1),
-        reviewer_notes: newNotes,
-      })
-      .eq('id', applicationId);
+    if (!retryEmailOnly) {
+      const auditLine = `[${stamp}] Revision request reverted by ${staffName} (sent in error).`;
+      const newNotes = app.reviewer_notes ? `${app.reviewer_notes}\n\n${auditLine}` : auditLine;
 
-    if (updErr) {
-      console.error('revert-application-revisions update error:', updErr);
-      return new Response(JSON.stringify({ error: 'update_failed' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      const { error: updErr } = await admin
+        .from('applications')
+        .update({
+          review_status: restoredStatus as any,
+          is_draft: restoredStatus === 'approved' ? false : true,
+          pre_revision_status: null,
+          revision_requested_at: null,
+          revision_requested_by: null,
+          revision_request_message: null,
+          revision_count: Math.max(0, (app.revision_count ?? 1) - 1),
+          reviewer_notes: newNotes,
+        })
+        .eq('id', applicationId);
+
+      if (updErr) {
+        console.error('revert-application-revisions update error:', updErr);
+        return new Response(JSON.stringify({ error: 'update_failed' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Invalidate any unused resume tokens
+      const { data: invalidated, error: tokErr } = await admin
+        .from('application_resume_tokens')
+        .update({ used_at: new Date().toISOString() })
+        .eq('application_id', applicationId)
+        .is('used_at', null)
+        .select('token');
+
+      if (tokErr) {
+        console.error('revert-application-revisions token invalidate error:', tokErr);
+      }
+      invalidatedTokens = invalidated?.length ?? 0;
     }
-
-    // Invalidate any unused resume tokens
-    const { data: invalidated, error: tokErr } = await admin
-      .from('application_resume_tokens')
-      .update({ used_at: new Date().toISOString() })
-      .eq('application_id', applicationId)
-      .is('used_at', null)
-      .select('token');
-
-    if (tokErr) {
-      console.error('revert-application-revisions token invalidate error:', tokErr);
-    }
-    const invalidatedTokens = invalidated?.length ?? 0;
 
     let courtesyEmailSent = false;
     let courtesyEmailError: string | null = null;
@@ -187,9 +194,11 @@ serve(async (req) => {
         metadata: {
           restored_status: restoredStatus,
           invalidated_tokens: invalidatedTokens,
+          courtesy_email_requested: sendCourtesyEmail,
           courtesy_email_sent: courtesyEmailSent,
           courtesy_email_error: courtesyEmailError,
           previous_revision_count: app.revision_count ?? 0,
+          retry_email_only: retryEmailOnly,
         },
       });
     if (auditErr) {

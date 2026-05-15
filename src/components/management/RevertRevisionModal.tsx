@@ -22,9 +22,11 @@ interface RevertRevisionModalProps {
     pre_revision_status?: string | null;
   };
   onSuccess: () => void;
+  /** Called after a successful revert so the parent can refetch the application + banner without closing the drawer. */
+  onReverted?: () => void;
 }
 
-export function RevertRevisionModal({ open, onOpenChange, application, onSuccess }: RevertRevisionModalProps) {
+export function RevertRevisionModal({ open, onOpenChange, application, onSuccess, onReverted }: RevertRevisionModalProps) {
   const { roles } = useAuth();
   const [unusedTokens, setUnusedTokens] = useState<number | null>(null);
   const [sendCourtesyEmail, setSendCourtesyEmail] = useState(false);
@@ -97,6 +99,7 @@ export function RevertRevisionModal({ open, onOpenChange, application, onSuccess
         toast.success(`Reverted to ${restoredStatus}. The applicant's link is now invalid.`);
       }
       onOpenChange(false);
+      onReverted?.();
       onSuccess();
     } catch (err: any) {
       toast.error(err?.message ?? 'Failed to revert');
