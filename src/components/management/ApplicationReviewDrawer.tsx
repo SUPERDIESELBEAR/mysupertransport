@@ -28,6 +28,8 @@ import CompanyTestingPolicyCertDoc from '@/components/application/documents/Comp
 import { ApplicationPEITab } from '@/components/pei/ApplicationPEITab';
 import { RevertRevisionModal } from '@/components/management/RevertRevisionModal';
 import { RevertedBanner } from '@/components/management/RevertedBanner';
+import { SuggestCorrectionsModal } from '@/components/management/SuggestCorrectionsModal';
+import { CorrectionRequestStatusCard } from '@/components/management/CorrectionRequestStatusCard';
 
 type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
 
@@ -232,6 +234,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [revertOpen, setRevertOpen] = useState(false);
   const [revertBannerKey, setRevertBannerKey] = useState(0);
   const [justReverted, setJustReverted] = useState(false);
+  const [correctionsOpen, setCorrectionsOpen] = useState(false);
+  const [correctionRefreshKey, setCorrectionRefreshKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const [ssnVisible, setSsnVisible] = useState(false);
   const [ssnValue, setSsnValue] = useState<string | null>(null);
