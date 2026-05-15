@@ -163,7 +163,7 @@ export function SuggestCorrectionsModal({ open, onOpenChange, application, onSen
         p_application_id: application.id,
         p_reason: reason.trim(),
         p_courtesy_message: courtesy.trim() || null,
-        p_fields: payload,
+        p_fields: payload as unknown as never,
       });
       if (error) throw error;
       const requestId = (data as { request_id: string }[])?.[0]?.request_id;
