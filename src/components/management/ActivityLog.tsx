@@ -264,13 +264,23 @@ function EntryDetail({ entry, currentStatuses }: { entry: AuditEntry; currentSta
         </span>
       );
     }
-    case 'revision_request_reverted':
+    case 'revision_request_reverted': {
+      const currentStatus = entry.entity_id ? currentStatuses?.[entry.entity_id] : undefined;
       return (
         <span className="text-xs text-muted-foreground">
           Restored to <span className="font-medium text-foreground">{formatRole(meta.restored_status as string)}</span>
           {meta.invalidated_tokens ? ` · ${meta.invalidated_tokens} token(s) invalidated` : ''}
+          {currentStatus && (
+            <span className="inline-flex items-center gap-1.5 ml-2">
+              Now:
+              <Badge className={`text-[10px] px-1.5 py-0 border ${STATUS_COLORS[currentStatus] ?? 'bg-muted text-muted-foreground border-border'}`}>
+                {currentStatus}
+              </Badge>
+            </span>
+          )}
         </span>
       );
+    }
     default:
       return null;
   }
