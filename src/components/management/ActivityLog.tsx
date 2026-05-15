@@ -483,6 +483,12 @@ function buildDetailText(entry: AuditEntry): string {
       const fields = changes ? Object.keys(changes) : [];
       return fields.length ? `${fields.length} field${fields.length > 1 ? 's' : ''} updated: ${fields.join(', ')}` : 'Insurance fields updated';
     }
+    case 'revision_request_reverted': {
+      const parts = [`Restored to ${formatRole(meta.restored_status as string)}`];
+      if (meta.invalidated_tokens) parts.push(`${meta.invalidated_tokens} token(s) invalidated`);
+      if (meta.courtesy_email_sent) parts.push('courtesy email sent');
+      return parts.join(' · ');
+    }
     default:
       return '';
   }
