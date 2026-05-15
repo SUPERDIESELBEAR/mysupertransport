@@ -51,25 +51,21 @@ serve(async (req) => {
     }
 
     const greeting = app.first_name ? `Hi ${escapeHtml(String(app.first_name))},` : 'Hello,';
-    const bodyHtml = `
-      <p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.7;">${greeting}</p>
-      <p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.7;">
-        Good news — our team is reviewing your ${BRAND_NAME} driver application and has reopened it so we can take care of a few small corrections on your behalf.
-      </p>
-      <div style="margin:0 0 18px;padding:14px 16px;background:#f1f8ff;border-left:4px solid #2c7be5;border-radius:6px;color:#222;font-size:14px;line-height:1.6;">
-        <p style="margin:0 0 6px;font-weight:700;color:#1a4d8f;">What happens next</p>
-        <p style="margin:0;">If any changes need your approval, you'll receive a separate email with a secure link to review and e-sign them. You don't need to log back in or resubmit anything right now.</p>
-      </div>
-      <p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.7;">
-        Any earlier "please update your application" link we sent you has been retired and will no longer work — please disregard it.
-      </p>
-      <p style="margin:0 0 0;color:#666;font-size:13px;line-height:1.6;">
-        Questions? Just reply to this email and our recruiting team will get back to you.
-      </p>
-    `;
+    const nameDisplay = app.first_name ? escapeHtml(String(app.first_name)) : 'there';
 
-    const subject = `Update on your ${BRAND_NAME} driver application`;
-    const html = buildEmail(subject, 'Application Reopened', bodyHtml, undefined, RECRUITING_EMAIL);
+    const { data: tpl } = await admin
+      .from('email_templates')
+      .select('subject, heading, body_html, cta_label')
+      .eq('milestone_key', 'application_moved_to_pending')
+      .maybeSingle();
+
+    const subject = (tpl?.subject ?? `Update on your ${BRAND_NAME} driver application`).replace(/\{\{name\}\}/g, nameDisplay);
+    const heading = tpl?.heading ?? 'Application Reopened';
+    const bodyHtml = (tpl?.body_html ?? `<p>${greeting}</p><p>Good news — our team is reviewing your ${BRAND_NAME} driver application and has reopened it.</p>`)
+      .replace(/\{\{name\}\}/g, nameDisplay);
+    const ctaLabel = (tpl?.cta_label ?? '').trim();
+    const cta = ctaLabel ? { label: ctaLabel, url: 'https://mysupertransport.com' } : undefined;
+    const html = buildEmail(subject, heading, bodyHtml, cta, RECRUITING_EMAIL);
 
     if (!resendKey) {
       console.error('notify-application-moved-to-pending: RESEND_API_KEY not configured');

@@ -739,6 +739,50 @@ const TEMPLATES: EmailTemplate[] = [
       ONBOARDING_EMAIL
     ),
   },
+  {
+    id: 'application_moved_to_pending',
+    category: 'notifications',
+    title: 'Application Reopened (Moved to Pending)',
+    subject: 'Update on your SUPERTRANSPORT driver application',
+    recipient: 'applicant',
+    sender: `${BRAND_NAME} <${RECRUITING_EMAIL}>`,
+    renderHtml: () => buildEmail(
+      'Update on your SUPERTRANSPORT driver application',
+      'Application Reopened',
+      `<p>Hi ${SAMPLE_NAME},</p>
+       <p>Good news — our team is reviewing your SUPERTRANSPORT driver application and has reopened it so we can take care of a few small corrections on your behalf.</p>
+       <div style="margin:0 0 18px;padding:14px 16px;background:#f1f8ff;border-left:4px solid #2c7be5;border-radius:6px;color:#222;font-size:14px;line-height:1.6;">
+         <p style="margin:0 0 6px;font-weight:700;color:#1a4d8f;">What happens next</p>
+         <p style="margin:0;">If any changes need your approval, you'll receive a separate email with a secure link to review and e-sign them.</p>
+       </div>
+       <p>Any earlier "please update your application" link has been retired and will no longer work — please disregard it.</p>`,
+      undefined,
+      RECRUITING_EMAIL
+    ),
+  },
+  {
+    id: 'application_correction_request',
+    category: 'notifications',
+    title: 'Suggested Corrections — Approval Needed',
+    subject: 'Action needed: approve corrections to your SUPERTRANSPORT application',
+    recipient: 'applicant',
+    sender: `${BRAND_NAME} <${RECRUITING_EMAIL}>`,
+    renderHtml: () => buildEmail(
+      'Action needed: approve corrections to your SUPERTRANSPORT application',
+      'Corrections Awaiting Approval',
+      `<p>Hi ${SAMPLE_NAME},</p>
+       <p>Our team has prepared a few corrections to your SUPERTRANSPORT driver application and needs your approval before they take effect.</p>
+       <div style="margin:0 0 18px;padding:14px 16px;background:#fff7e0;border-left:4px solid #C9A84C;border-radius:6px;color:#222;font-size:14px;line-height:1.6;">
+         <p style="margin:0 0 6px;font-weight:700;color:#7a5b00;">Reason for these corrections:</p>
+         <p style="margin:0;">Date of birth was off by one day on your MVR.</p>
+       </div>
+       <p style="margin:18px 0 8px;font-weight:700;">Proposed changes</p>
+       <p style="color:#666;font-size:13px;">[Field-by-field comparison table is generated automatically]</p>
+       <p>Click below to review the changes side-by-side and either approve them with your e-signature or reject them.</p>`,
+      { label: 'Review & approve changes', url: `${SAMPLE_APP_URL}/application/approve/sample-token` },
+      RECRUITING_EMAIL
+    ),
+  },
 ];
 
 // ─── Category helpers ─────────────────────────────────────────────────────────
@@ -777,7 +821,7 @@ export default function EmailCatalog() {
   const [saving, setSaving] = useState(false);
 
   // Which template IDs are editable (have a DB record)
-  const EDITABLE_MILESTONE_KEYS = ['mo_reg_filed'];
+  const EDITABLE_MILESTONE_KEYS = ['mo_reg_filed', 'application_moved_to_pending', 'application_correction_request'];
 
   const fetchDbTemplates = useCallback(async () => {
     const { data } = await supabase
@@ -791,6 +835,29 @@ export default function EmailCatalog() {
   }, []);
 
   useEffect(() => { fetchDbTemplates(); }, [fetchDbTemplates]);
+
+  // Substitute all placeholders for preview rendering
+  const SAMPLE_CHANGES_TABLE = `<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #eee;border-radius:6px;overflow:hidden;margin:0 0 20px;">
+    <thead><tr style="background:#fafafa;">
+      <th align="left" style="padding:10px 12px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px;">Field</th>
+      <th align="left" style="padding:10px 12px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px;">Current</th>
+      <th align="left" style="padding:10px 12px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px;">Proposed</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;color:#444;font-size:13px;font-weight:600;width:36%;">Date of birth</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;color:#999;font-size:13px;text-decoration:line-through;">1985-04-12</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;color:#0a7c3a;font-size:13px;font-weight:600;">1985-04-13</td>
+      </tr>
+    </tbody>
+  </table>`;
+  const SAMPLE_COURTESY_BLOCK = `<p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.7;">No worries — these are minor edits and will only take a moment to approve.</p>`;
+  const substitutePreview = (s: string): string => s
+    .replace(/\{\{name\}\}/g, SAMPLE_NAME)
+    .replace(/\{\{extra\}\}/g, SAMPLE_DATE)
+    .replace(/\{\{reason\}\}/g, 'Date of birth was off by one day on your MVR.')
+    .replace(/\{\{courtesy_block\}\}/g, SAMPLE_COURTESY_BLOCK)
+    .replace(/\{\{changes_table\}\}/g, SAMPLE_CHANGES_TABLE);
 
   const handleOpenEdit = (templateId: string) => {
     const dbRow = dbTemplates[templateId];
@@ -838,6 +905,35 @@ export default function EmailCatalog() {
         body_html: '<p>Hi {{name}},</p><p>Your <strong>Missouri apportioned registration</strong> documents have been submitted to the state on your behalf.</p><p>State approval typically takes <strong>2–4 weeks</strong>. We\'ll notify you as soon as it\'s received.</p><p>In the meantime, you can check your onboarding status in your portal.</p>',
         cta_label: 'View My Onboarding Progress',
       },
+      application_moved_to_pending: {
+        subject: 'Update on your SUPERTRANSPORT driver application',
+        heading: 'Application Reopened',
+        body_html: `<p>Hi {{name}},</p>
+<p>Good news — our team is reviewing your SUPERTRANSPORT driver application and has reopened it so we can take care of a few small corrections on your behalf.</p>
+<div style="margin:0 0 18px;padding:14px 16px;background:#f1f8ff;border-left:4px solid #2c7be5;border-radius:6px;color:#222;font-size:14px;line-height:1.6;">
+  <p style="margin:0 0 6px;font-weight:700;color:#1a4d8f;">What happens next</p>
+  <p style="margin:0;">If any changes need your approval, you'll receive a separate email with a secure link to review and e-sign them. You don't need to log back in or resubmit anything right now.</p>
+</div>
+<p>Any earlier "please update your application" link we sent you has been retired and will no longer work — please disregard it.</p>
+<p style="color:#666;font-size:13px;">Questions? Just reply to this email and our recruiting team will get back to you.</p>`,
+        cta_label: '',
+      },
+      application_correction_request: {
+        subject: 'Action needed: approve corrections to your SUPERTRANSPORT application',
+        heading: 'Corrections Awaiting Approval',
+        body_html: `<p>Hi {{name}},</p>
+<p>Our team has prepared a few corrections to your SUPERTRANSPORT driver application and needs your approval before they take effect.</p>
+{{courtesy_block}}
+<div style="margin:0 0 18px;padding:14px 16px;background:#fff7e0;border-left:4px solid #C9A84C;border-radius:6px;color:#222;font-size:14px;line-height:1.6;">
+  <p style="margin:0 0 6px;font-weight:700;color:#7a5b00;">Reason for these corrections:</p>
+  <p style="margin:0;">{{reason}}</p>
+</div>
+<p style="margin:18px 0 8px;font-weight:700;">Proposed changes</p>
+{{changes_table}}
+<p>Click below to review the changes side-by-side and either approve them with your e-signature or reject them.</p>
+<p style="color:#666;font-size:13px;">This secure link is valid for <strong>14 days</strong>. If you have questions, reply to this email.</p>`,
+        cta_label: 'Review & approve changes',
+      },
     };
     const def = defaults[editingId];
     if (def) setEditForm(def);
@@ -847,13 +943,18 @@ export default function EmailCatalog() {
   const getPreviewHtml = (template: EmailTemplate): string => {
     const dbRow = dbTemplates[template.id];
     if (dbRow) {
-      const bodyWithName = dbRow.body_html.replace(/\{\{name\}\}/g, SAMPLE_NAME).replace(/\{\{extra\}\}/g, SAMPLE_DATE);
+      const bodyWithName = substitutePreview(dbRow.body_html);
+      const footerEmail = template.id === 'application_moved_to_pending' || template.id === 'application_correction_request'
+        ? RECRUITING_EMAIL
+        : ONBOARDING_EMAIL;
+      const ctaLabel = (dbRow.cta_label ?? '').trim();
+      const cta = ctaLabel ? { label: ctaLabel, url: `${SAMPLE_APP_URL}/dashboard` } : undefined;
       return buildEmail(
-        dbRow.subject,
+        substitutePreview(dbRow.subject),
         dbRow.heading,
         bodyWithName,
-        { label: dbRow.cta_label, url: `${SAMPLE_APP_URL}/dashboard` },
-        ONBOARDING_EMAIL
+        cta,
+        footerEmail
       );
     }
     return template.renderHtml();
@@ -1179,7 +1280,7 @@ export default function EmailCatalog() {
               <Label htmlFor="edit-body" className="text-sm font-medium">
                 Body HTML
                 <span className="text-muted-foreground font-normal ml-2 text-xs">
-                  Use {'{{name}}'} for the operator's name
+                  Placeholders: {'{{name}}'}{editingId === 'application_correction_request' ? `, {{reason}}, {{courtesy_block}}, {{changes_table}}` : ''}
                 </span>
               </Label>
               <Textarea
@@ -1205,11 +1306,11 @@ export default function EmailCatalog() {
               <Label className="text-sm font-medium">Live Preview</Label>
               <iframe
                 srcDoc={buildEmail(
-                  editForm.subject,
+                  substitutePreview(editForm.subject),
                   editForm.heading,
-                  editForm.body_html.replace(/\{\{name\}\}/g, SAMPLE_NAME).replace(/\{\{extra\}\}/g, SAMPLE_DATE),
-                  { label: editForm.cta_label, url: `${SAMPLE_APP_URL}/dashboard` },
-                  ONBOARDING_EMAIL
+                  substitutePreview(editForm.body_html),
+                  editForm.cta_label.trim() ? { label: editForm.cta_label, url: `${SAMPLE_APP_URL}/dashboard` } : undefined,
+                  (editingId === 'application_moved_to_pending' || editingId === 'application_correction_request') ? RECRUITING_EMAIL : ONBOARDING_EMAIL
                 )}
                 title="Edit Preview"
                 className="w-full rounded-lg border border-border bg-white"

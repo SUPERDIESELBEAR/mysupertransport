@@ -68,7 +68,7 @@ serve(async (req) => {
 
     const approveUrl = buildAppUrl(`/application/approve/${encodeURIComponent(reqRow.token)}`);
 
-    const greeting = app.first_name ? `Hi ${escapeHtml(String(app.first_name))},` : 'Hello,';
+    const nameDisplay = app.first_name ? escapeHtml(String(app.first_name)) : 'there';
     const reasonHtml = escapeHtml(reqRow.reason_for_changes || '').replace(/\n/g, '<br/>');
     const courtesyHtml = reqRow.courtesy_message
       ? `<p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.7;">${escapeHtml(reqRow.courtesy_message).replace(/\n/g,'<br/>')}</p>`
@@ -81,37 +81,32 @@ serve(async (req) => {
         <td style="padding:8px 12px;border-bottom:1px solid #eee;color:#0a7c3a;font-size:13px;font-weight:600;">${escapeHtml(fmt(f.new_value))}</td>
       </tr>
     `).join('');
+    const changesTable = `<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #eee;border-radius:6px;overflow:hidden;margin:0 0 20px;">
+      <thead><tr style="background:#fafafa;">
+        <th align="left" style="padding:10px 12px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px;">Field</th>
+        <th align="left" style="padding:10px 12px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px;">Current</th>
+        <th align="left" style="padding:10px 12px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px;">Proposed</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 
-    const bodyHtml = `
-      <p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.7;">${greeting}</p>
-      <p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.7;">
-        Our team has prepared a few corrections to your ${BRAND_NAME} driver application and needs your approval before they take effect.
-      </p>
-      ${courtesyHtml}
-      <div style="margin:0 0 18px;padding:14px 16px;background:#fff7e0;border-left:4px solid #C9A84C;border-radius:6px;color:#222;font-size:14px;line-height:1.6;">
-        <p style="margin:0 0 6px;font-weight:700;color:#7a5b00;">Reason for these corrections:</p>
-        <p style="margin:0;">${reasonHtml}</p>
-      </div>
-      <p style="margin:18px 0 8px;color:#222;font-size:14px;font-weight:700;">Proposed changes</p>
-      <table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #eee;border-radius:6px;overflow:hidden;margin:0 0 20px;">
-        <thead><tr style="background:#fafafa;">
-          <th align="left" style="padding:10px 12px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px;">Field</th>
-          <th align="left" style="padding:10px 12px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px;">Current</th>
-          <th align="left" style="padding:10px 12px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px;">Proposed</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      <p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.7;">
-        Click below to review the changes side-by-side and either approve them with your e-signature or reject them.
-      </p>
-      <p style="margin:0 0 16px;color:#666;font-size:13px;line-height:1.6;">
-        This secure link is valid for <strong>14 days</strong>. If you have questions, reply to this email.
-      </p>
-    `;
+    const { data: tpl } = await admin
+      .from('email_templates')
+      .select('subject, heading, body_html, cta_label')
+      .eq('milestone_key', 'application_correction_request')
+      .maybeSingle();
 
-    const subject = `Action needed: approve corrections to your ${BRAND_NAME} application`;
-    const html = buildEmail(subject, 'Corrections Awaiting Approval', bodyHtml,
-      { label: 'Review & approve changes', url: approveUrl }, RECRUITING_EMAIL);
+    const substitute = (s: string) => s
+      .replace(/\{\{name\}\}/g, nameDisplay)
+      .replace(/\{\{reason\}\}/g, reasonHtml)
+      .replace(/\{\{courtesy_block\}\}/g, courtesyHtml)
+      .replace(/\{\{changes_table\}\}/g, changesTable);
+
+    const subject = substitute(tpl?.subject ?? `Action needed: approve corrections to your ${BRAND_NAME} application`);
+    const heading = tpl?.heading ?? 'Corrections Awaiting Approval';
+    const bodyHtml = substitute(tpl?.body_html ?? `<p>Hi {{name}},</p><p>Our team has prepared corrections.</p>{{courtesy_block}}<p>Reason: {{reason}}</p>{{changes_table}}`);
+    const ctaLabel = (tpl?.cta_label ?? 'Review & approve changes').trim() || 'Review & approve changes';
+    const html = buildEmail(subject, heading, bodyHtml, { label: ctaLabel, url: approveUrl }, RECRUITING_EMAIL);
 
     if (!resendKey) {
       console.error('send-application-correction-email: RESEND_API_KEY not configured');
