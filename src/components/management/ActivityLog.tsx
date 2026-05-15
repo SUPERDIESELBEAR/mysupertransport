@@ -400,7 +400,7 @@ function EntryExpandedPanel({
   }
 
   // Remaining raw metadata keys not already shown
-  const shownKeys = new Set(['applicant_name', 'applicant_email', 'reviewer_notes', 'role', 'target_user', 'milestones', 'changed_fields', 'operator_name', 'document_type', 'old_expiry', 'new_expiry', 'urgency', 'changes']);
+  const shownKeys = new Set(['applicant_name', 'applicant_email', 'reviewer_notes', 'role', 'target_user', 'milestones', 'changed_fields', 'operator_name', 'document_type', 'old_expiry', 'new_expiry', 'urgency', 'changes', 'restored_status', 'invalidated_tokens', 'courtesy_email_sent', 'courtesy_email_error', 'previous_revision_count']);
   const rawExtras = Object.entries(meta).filter(([k]) => !shownKeys.has(k));
 
   return (
