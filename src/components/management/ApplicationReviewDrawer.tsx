@@ -236,6 +236,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [justReverted, setJustReverted] = useState(false);
   const [correctionsOpen, setCorrectionsOpen] = useState(false);
   const [correctionRefreshKey, setCorrectionRefreshKey] = useState(0);
+  const [movingToPending, setMovingToPending] = useState(false);
   const [loading, setLoading] = useState(false);
   const [ssnVisible, setSsnVisible] = useState(false);
   const [ssnValue, setSsnValue] = useState<string | null>(null);
@@ -1109,6 +1110,30 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                     {app.revision_request_message}
                   </div>
                 )}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={movingToPending}
+                    onClick={async () => {
+                      setMovingToPending(true);
+                      try {
+                        const { error } = await supabase.rpc('move_revisions_to_pending', { p_application_id: app.id });
+                        if (error) throw error;
+                        toast.success('Moved to pending. Old revision link disabled.');
+                        onExpiryUpdated?.();
+                        setCorrectionsOpen(true);
+                      } catch (err: any) {
+                        toast.error(err?.message ?? 'Failed to move to pending');
+                      } finally {
+                        setMovingToPending(false);
+                      }
+                    }}
+                  >
+                    {movingToPending ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : null}
+                    Move to pending & suggest corrections
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
