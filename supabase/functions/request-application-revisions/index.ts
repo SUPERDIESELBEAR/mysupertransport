@@ -1,7 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.95.0';
-import { buildEmail, sendEmail, BRAND_NAME, RECRUITING_EMAIL } from '../_shared/email-layout.ts';
+import { buildEmail, sendEmailStrict, BRAND_NAME, RECRUITING_EMAIL } from '../_shared/email-layout.ts';
 import { buildAppUrl } from '../_shared/app-url.ts';
+import { getLogClient, makeMessageId, withEmailLog } from '../_shared/email-log.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -195,11 +196,22 @@ serve(async (req) => {
         url: resumeUrl,
       }, RECRUITING_EMAIL);
 
-      try {
-        await sendEmail(app.email, subject, html, resendKey);
-      } catch (e) {
-        console.error('request-application-revisions sendEmail error:', e);
-      }
+      const messageId = makeMessageId(`revisions-${applicationId}`);
+      await withEmailLog(
+        getLogClient(),
+        {
+          messageId,
+          templateName: 'application-revisions-requested',
+          recipientEmail: app.email,
+          metadata: {
+            application_id: applicationId,
+            resume_url: resumeUrl,
+            revision_count: (app.revision_count ?? 0) + 1,
+            requested_by: userId,
+          },
+        },
+        () => sendEmailStrict(app.email, subject, html, resendKey)
+      );
     } else {
       console.error('request-application-revisions: RESEND_API_KEY not configured');
     }
