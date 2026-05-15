@@ -27,6 +27,7 @@ import DOTDrugAlcoholQuestionsDoc from '@/components/application/documents/DOTDr
 import CompanyTestingPolicyCertDoc from '@/components/application/documents/CompanyTestingPolicyCertDoc';
 import { ApplicationPEITab } from '@/components/pei/ApplicationPEITab';
 import { RevertRevisionModal } from '@/components/management/RevertRevisionModal';
+import { RevertedBanner } from '@/components/management/RevertedBanner';
 
 type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
 
