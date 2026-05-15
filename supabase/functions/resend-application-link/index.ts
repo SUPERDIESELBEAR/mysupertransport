@@ -66,11 +66,7 @@ serve(async (req) => {
       .eq('user_id', userId)
       .in('role', ['onboarding_staff', 'dispatcher', 'management', 'owner'])
       .limit(1);
-    if (!roleRows || roleRows.length === 0) {
-      return new Response(JSON.stringify({ error: 'forbidden' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const isStaff = !!(roleRows && roleRows.length > 0);
 
     const body = await req.json().catch(() => ({}));
     const applicationId = typeof body?.applicationId === 'string' ? body.applicationId.trim() : '';
@@ -82,7 +78,7 @@ serve(async (req) => {
 
     const { data: app, error: appErr } = await admin
       .from('applications')
-      .select('id, first_name, email, review_status, revision_request_message, is_draft')
+      .select('id, user_id, first_name, email, review_status, revision_request_message, is_draft')
       .eq('id', applicationId)
       .maybeSingle();
 
@@ -90,6 +86,32 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'not_found' }), {
         status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Authorization: staff can resend for anyone; otherwise caller must own the application
+    const isOwner = app.user_id === userId;
+    if (!isStaff && !isOwner) {
+      return new Response(JSON.stringify({ error: 'forbidden' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Self-serve cooldown: 2 minutes between applicant-initiated resends
+    if (!isStaff) {
+      const since = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+      const { data: recent } = await admin
+        .from('email_send_log')
+        .select('id, created_at, metadata')
+        .in('template_name', ['application-revisions-resent', 'application-resume-resent'])
+        .eq('recipient_email', app.email)
+        .gte('created_at', since)
+        .limit(5);
+      const hit = (recent ?? []).some((r: any) => r?.metadata?.application_id === applicationId);
+      if (hit) {
+        return new Response(JSON.stringify({ error: 'cooldown', message: 'Please wait a couple of minutes before requesting another link.' }), {
+          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     if (!app.email) {
