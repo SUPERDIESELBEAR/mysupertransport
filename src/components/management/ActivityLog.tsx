@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
   Milestone, RefreshCcw, Activity, ChevronDown, ChevronRight, Download, CalendarIcon, X,
-  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus, UserCheck, FilePen, RotateCcw, AlertTriangle
+  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus, Mail, UserCheck, FilePen, RotateCcw, AlertTriangle
 } from 'lucide-react';
 
 interface AuditEntry {
@@ -137,6 +137,12 @@ const ACTION_CONFIG: Record<string, {
     color: 'text-amber-600',
     bg: 'bg-amber-50 border-amber-200',
   },
+  revision_request_reverted: {
+    label: 'Revision Request Reverted',
+    icon: <RotateCcw className="h-4 w-4" />,
+    color: 'text-amber-700',
+    bg: 'bg-amber-100 border-amber-300',
+  },
 };
 
 const FILTER_OPTIONS = [
@@ -158,6 +164,7 @@ const FILTER_OPTIONS = [
   { value: 'insurance_fields_updated', label: 'Insurance Updates' },
   { value: 'go_live_updated', label: 'Go-Live Set' },
   { value: 'exception_approved', label: 'Exceptions Approved' },
+  { value: 'revision_request_reverted', label: 'Revision Reverted' },
 ];
 
 const DATE_PRESETS = [
@@ -249,6 +256,13 @@ function EntryDetail({ entry }: { entry: AuditEntry }) {
         </span>
       );
     }
+    case 'revision_request_reverted':
+      return (
+        <span className="text-xs text-muted-foreground">
+          Restored to <span className="font-medium text-foreground">{formatRole(meta.restored_status as string)}</span>
+          {meta.invalidated_tokens ? ` · ${meta.invalidated_tokens} token(s) invalidated` : ''}
+        </span>
+      );
     default:
       return null;
   }
@@ -383,10 +397,18 @@ function EntryExpandedPanel({
       }
       break;
     }
+    case 'revision_request_reverted': {
+      if (meta.restored_status) structuredRows.push({ icon: <RotateCcw className="h-3.5 w-3.5" />, label: 'Restored Status', value: formatRole(meta.restored_status as string) });
+      if (meta.invalidated_tokens != null) structuredRows.push({ icon: <Hash className="h-3.5 w-3.5" />, label: 'Tokens Invalidated', value: String(meta.invalidated_tokens) });
+      if (meta.courtesy_email_sent != null) structuredRows.push({ icon: <Mail className="h-3.5 w-3.5" />, label: 'Courtesy Email', value: meta.courtesy_email_sent ? 'Sent' : 'Not sent' });
+      if (meta.courtesy_email_error) structuredRows.push({ icon: <AlertTriangle className="h-3.5 w-3.5" />, label: 'Email Error', value: meta.courtesy_email_error as string });
+      if (meta.previous_revision_count != null) structuredRows.push({ icon: <Hash className="h-3.5 w-3.5" />, label: 'Previous Revision Count', value: String(meta.previous_revision_count) });
+      break;
+    }
   }
 
   // Remaining raw metadata keys not already shown
-  const shownKeys = new Set(['applicant_name', 'applicant_email', 'reviewer_notes', 'role', 'target_user', 'milestones', 'changed_fields', 'operator_name', 'document_type', 'old_expiry', 'new_expiry', 'urgency', 'changes']);
+  const shownKeys = new Set(['applicant_name', 'applicant_email', 'reviewer_notes', 'role', 'target_user', 'milestones', 'changed_fields', 'operator_name', 'document_type', 'old_expiry', 'new_expiry', 'urgency', 'changes', 'restored_status', 'invalidated_tokens', 'courtesy_email_sent', 'courtesy_email_error', 'previous_revision_count']);
   const rawExtras = Object.entries(meta).filter(([k]) => !shownKeys.has(k));
 
   return (
@@ -460,6 +482,12 @@ function buildDetailText(entry: AuditEntry): string {
       const changes = meta.changes as Record<string, unknown> | undefined;
       const fields = changes ? Object.keys(changes) : [];
       return fields.length ? `${fields.length} field${fields.length > 1 ? 's' : ''} updated: ${fields.join(', ')}` : 'Insurance fields updated';
+    }
+    case 'revision_request_reverted': {
+      const parts = [`Restored to ${formatRole(meta.restored_status as string)}`];
+      if (meta.invalidated_tokens) parts.push(`${meta.invalidated_tokens} token(s) invalidated`);
+      if (meta.courtesy_email_sent) parts.push('courtesy email sent');
+      return parts.join(' · ');
     }
     default:
       return '';
