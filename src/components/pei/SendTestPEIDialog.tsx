@@ -55,6 +55,10 @@ export function SendTestPEIDialog({ open, onOpenChange }: Props) {
       // Lovable login and would block the recipient.
       const responseUrl =
         'https://mysupertransport.lovable.app/pei/respond/test-token-preview';
+      // Sentinel: PEIRelease.tsx renders a watermarked sample doc for this token
+      // instead of calling the edge function (no real applicant exists).
+      const releaseUrl =
+        'https://mysupertransport.lovable.app/pei/release/sample';
 
       const templateData = {
         applicantName: '[TEST] Test Applicant',
@@ -63,6 +67,7 @@ export function SendTestPEIDialog({ open, onOpenChange }: Props) {
         employmentStartDate: '01/2022',
         employmentEndDate: '06/2024',
         responseUrl,
+        releaseUrl,
         deadlineDate: 'by December 1, 2026',
         daysRemaining: 14,
       };
@@ -91,8 +96,9 @@ export function SendTestPEIDialog({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle>Send test PEI email</DialogTitle>
           <DialogDescription>
-            Sends a sample PEI email using fake applicant and employer data. No real records are
-            modified.
+            Sends a sample PEI email using fake applicant and employer data. The "View signed
+            FCRA authorization" link in the test email opens a watermarked sample document.
+            No real records are modified.
           </DialogDescription>
         </DialogHeader>
 
