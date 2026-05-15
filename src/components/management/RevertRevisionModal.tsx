@@ -5,6 +5,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { Link } from 'react-router-dom';
 
 interface RevertRevisionModalProps {
   open: boolean;
@@ -23,23 +25,48 @@ interface RevertRevisionModalProps {
 }
 
 export function RevertRevisionModal({ open, onOpenChange, application, onSuccess }: RevertRevisionModalProps) {
+  const { roles } = useAuth();
   const [unusedTokens, setUnusedTokens] = useState<number | null>(null);
   const [sendCourtesyEmail, setSendCourtesyEmail] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [defaultLabel, setDefaultLabel] = useState<{ role: string; on: boolean } | null>(null);
+
+  const canEditDefaults = roles.includes('management') || roles.includes('owner');
+  // Pick highest-priority role for default lookup
+  const effectiveRole: 'owner' | 'management' | 'onboarding_staff' | 'dispatcher' =
+    roles.includes('owner') ? 'owner'
+    : roles.includes('management') ? 'management'
+    : roles.includes('onboarding_staff') ? 'onboarding_staff'
+    : roles.includes('dispatcher') ? 'dispatcher'
+    : 'onboarding_staff';
+  const roleLabel = ({
+    owner: 'Owner',
+    management: 'Management',
+    onboarding_staff: 'Onboarding Staff',
+    dispatcher: 'Dispatcher',
+  } as const)[effectiveRole];
 
   useEffect(() => {
     if (!open) return;
-    setSendCourtesyEmail(false);
     setUnusedTokens(null);
     (async () => {
-      const { count } = await supabase
+      const tokensP = supabase
         .from('application_resume_tokens')
         .select('token', { count: 'exact', head: true })
         .eq('application_id', application.id)
         .is('used_at', null);
+      const defaultP = supabase
+        .from('revert_courtesy_email_defaults')
+        .select('send_by_default')
+        .eq('role', effectiveRole)
+        .maybeSingle();
+      const [{ count }, { data: defRow }] = await Promise.all([tokensP, defaultP]);
       setUnusedTokens(count ?? 0);
+      const on = !!defRow?.send_by_default;
+      setSendCourtesyEmail(on);
+      setDefaultLabel({ role: roleLabel, on });
     })();
-  }, [open, application.id]);
+  }, [open, application.id, effectiveRole, roleLabel]);
 
   const fullName = [application.first_name, application.last_name].filter(Boolean).join(' ') || application.email;
   const restoredStatus = application.pre_revision_status || 'approved';
@@ -133,7 +160,27 @@ export function RevertRevisionModal({ open, onOpenChange, application, onSuccess
             />
             <div className="text-xs">
               <div className="font-medium text-foreground">Also email the applicant a "please disregard" note</div>
-              <div className="text-muted-foreground">Off by default — most teams prefer to text or call instead.</div>
+              <div className="text-muted-foreground">
+                {defaultLabel ? (
+                  <>
+                    Default for your role ({defaultLabel.role}): <span className="font-medium">{defaultLabel.on ? 'ON' : 'OFF'}</span>
+                    {canEditDefaults && (
+                      <>
+                        {' · '}
+                        <Link
+                          to="/management?view=carrier-signature"
+                          className="text-gold hover:underline"
+                          onClick={() => onOpenChange(false)}
+                        >
+                          Change default
+                        </Link>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  'Loading default…'
+                )}
+              </div>
             </div>
           </label>
 
