@@ -164,6 +164,7 @@ const FILTER_OPTIONS = [
   { value: 'insurance_fields_updated', label: 'Insurance Updates' },
   { value: 'go_live_updated', label: 'Go-Live Set' },
   { value: 'exception_approved', label: 'Exceptions Approved' },
+  { value: 'revision_request_reverted', label: 'Revision Reverted' },
 ];
 
 const DATE_PRESETS = [
