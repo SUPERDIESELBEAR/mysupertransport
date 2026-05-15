@@ -256,6 +256,13 @@ function EntryDetail({ entry }: { entry: AuditEntry }) {
         </span>
       );
     }
+    case 'revision_request_reverted':
+      return (
+        <span className="text-xs text-muted-foreground">
+          Restored to <span className="font-medium text-foreground">{formatRole(meta.restored_status as string)}</span>
+          {meta.invalidated_tokens ? ` · ${meta.invalidated_tokens} token(s) invalidated` : ''}
+        </span>
+      );
     default:
       return null;
   }
