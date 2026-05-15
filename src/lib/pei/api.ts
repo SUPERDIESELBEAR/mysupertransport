@@ -5,6 +5,8 @@ import type {
   PEIQueueRow,
   PEIRequest,
   PEIResponse,
+  PEIRequestEvent,
+  PEIRequestEventType,
 } from './types';
 
 export async function fetchPEIQueue(): Promise<PEIQueueRow[]> {
@@ -43,6 +45,36 @@ export async function fetchPEIAccidents(responseId: string): Promise<PEIAccident
     .order('accident_date', { ascending: false });
   if (error) throw error;
   return (data ?? []) as PEIAccident[];
+}
+
+export async function fetchPEIRequestEvents(
+  requestId: string
+): Promise<PEIRequestEvent[]> {
+  const { data, error } = await supabase
+    .from('pei_request_events' as any)
+    .select('*')
+    .eq('pei_request_id', requestId)
+    .order('occurred_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as PEIRequestEvent[];
+}
+
+/**
+ * Fire-and-forget interaction logger. Never throws — logging failures must
+ * not block the previous employer from completing the form.
+ */
+export async function logPEIEvent(
+  token: string,
+  eventType: PEIRequestEventType,
+  responseId?: string
+): Promise<void> {
+  try {
+    await supabase.functions.invoke('log-pei-event', {
+      body: { token, event_type: eventType, response_id: responseId },
+    });
+  } catch (err) {
+    console.warn('[logPEIEvent] non-fatal:', err);
+  }
 }
 
 export async function createPEIRequest(
