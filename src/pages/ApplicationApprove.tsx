@@ -41,7 +41,7 @@ export default function ApplicationApprove() {
       if (err || !rows || (rows as unknown[]).length === 0) {
         setError('This correction link is invalid or has been removed.');
       } else {
-        setData((rows as CorrectionData[])[0]);
+        setData((rows as unknown as CorrectionData[])[0]);
       }
       setLoading(false);
     })();
