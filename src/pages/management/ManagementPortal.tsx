@@ -1739,6 +1739,10 @@ export default function ManagementPortal() {
           <EmailCatalog />
         )}
 
+        {view === 'email-log' && (
+          <EmailLogPanel />
+        )}
+
         {view === 'forms-catalog' && (
           <FormsCatalog />
         )}
