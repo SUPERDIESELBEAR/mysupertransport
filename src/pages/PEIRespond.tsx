@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, Plus, Trash2, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { logPEIEvent } from '@/lib/pei/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -151,6 +152,7 @@ export default function PEIRespond() {
           setError('This investigation has been closed. No further response is needed.');
         } else {
           setLookup(row);
+          logPEIEvent(token, 'opened_response_link');
         }
       } catch (e: any) {
         setError(e?.message ?? 'Could not load this request.');
@@ -220,12 +222,21 @@ export default function PEIRespond() {
         number_of_fatalities: a.number_of_fatalities,
         hazmat_spill: a.hazmat_spill ? 'true' : 'false',
       }));
-      const { error: rpcErr } = await supabase.rpc('submit_pei_response', {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('submit_pei_response', {
         p_token: token,
         p_response: payload as any,
         p_accidents: accidentsPayload as any,
+        p_meta: {
+          signed_at: new Date().toISOString(),
+          signed_user_agent:
+            typeof navigator !== 'undefined' ? navigator.userAgent : null,
+        } as any,
       });
       if (rpcErr) throw rpcErr;
+      const newResponseId =
+        typeof rpcData === 'string' ? rpcData : undefined;
+      // Server-derived IP is captured here and stamped onto the response row.
+      logPEIEvent(token, 'submitted', newResponseId);
       setSubmitted(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e: any) {
