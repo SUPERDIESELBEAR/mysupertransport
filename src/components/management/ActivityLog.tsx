@@ -540,7 +540,17 @@ function metaColValue(entry: AuditEntry, key: string): string {
   return String(v);
 }
 
-function exportToCsv(rows: AuditEntry[], currentFilter: string, dateFrom?: Date, dateTo?: Date) {
+function slugify(v: string): string {
+  return v.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32);
+}
+
+function exportToCsv(
+  rows: AuditEntry[],
+  currentFilter: string,
+  dateFrom?: Date,
+  dateTo?: Date,
+  extra?: { applicantLabel?: string; actorLabel?: string },
+) {
   const metaLabels = META_EXPORT_KEYS.map(k =>
     `Meta: ${k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}`
   );
@@ -578,8 +588,10 @@ function exportToCsv(rows: AuditEntry[], currentFilter: string, dateFrom?: Date,
   const fromStr = dateFrom ? format(dateFrom, 'yyyy-MM-dd') : '';
   const toStr = dateTo ? format(dateTo, 'yyyy-MM-dd') : '';
   const datePart = fromStr && toStr ? `_${fromStr}_to_${toStr}` : fromStr ? `_from_${fromStr}` : toStr ? `_to_${toStr}` : '';
+  const applicantPart = extra?.applicantLabel ? `_applicant-${slugify(extra.applicantLabel)}` : '';
+  const actorPart = extra?.actorLabel ? `_staff-${slugify(extra.actorLabel)}` : '';
   a.href = url;
-  a.download = `audit-log-${filterLabel}${datePart}_exported-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `audit-log-${filterLabel}${datePart}${applicantPart}${actorPart}_exported-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
