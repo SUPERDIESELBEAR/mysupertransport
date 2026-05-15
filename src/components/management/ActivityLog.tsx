@@ -1026,7 +1026,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
                               {highlightMatch(entry.entity_label, search)}
                             </p>
                           )}
-                          <EntryDetail entry={entry} />
+                          <EntryDetail entry={entry} currentStatuses={currentAppStatuses} />
                         </div>
                         <div className="flex items-start gap-2 shrink-0">
                           <div className="text-right">
