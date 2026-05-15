@@ -112,6 +112,9 @@ export interface PEIResponse {
   date_signed: string | null;
   submission_method: string | null;
   created_at: string;
+  signed_at?: string | null;
+  signed_ip?: string | null;
+  signed_user_agent?: string | null;
 }
 
 export interface PEIAccident {
@@ -123,6 +126,21 @@ export interface PEIAccident {
   number_of_fatalities: number | null;
   hazmat_spill: boolean | null;
   created_at: string;
+}
+
+export type PEIRequestEventType =
+  | 'opened_response_link'
+  | 'opened_release_link'
+  | 'submitted';
+
+export interface PEIRequestEvent {
+  id: string;
+  pei_request_id: string;
+  event_type: PEIRequestEventType;
+  occurred_at: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  metadata: Record<string, unknown> | null;
 }
 
 export const STATUS_LABEL: Record<PEIRequestStatus, string> = {
