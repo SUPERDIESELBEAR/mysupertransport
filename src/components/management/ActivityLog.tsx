@@ -768,6 +768,51 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
   const [search, setSearch] = useState('');
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [currentAppStatuses, setCurrentAppStatuses] = useState<Record<string, string>>({});
+  const [applicantId, setApplicantId] = useState<string | null>(null);
+  const [actorId, setActorId] = useState<string | null>(null);
+  const [applicantOptions, setApplicantOptions] = useState<ComboboxOption[]>([]);
+  const [actorOptions, setActorOptions] = useState<ComboboxOption[]>([]);
+
+  // Load filter options once (applicants from applications table, staff from audit_log distinct actors)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [appsRes, actorsRes] = await Promise.all([
+        supabase
+          .from('applications')
+          .select('id, first_name, last_name, email')
+          .order('last_name', { ascending: true })
+          .limit(500),
+        (supabase as any)
+          .from('audit_log')
+          .select('actor_id, actor_name')
+          .not('actor_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(2000),
+      ]);
+      if (cancelled) return;
+      if (appsRes.data) {
+        setApplicantOptions(
+          (appsRes.data as any[]).map(a => ({
+            value: a.id as string,
+            label: [a.last_name, a.first_name].filter(Boolean).join(', ') || (a.email ?? 'Unknown'),
+            sublabel: a.email ?? undefined,
+          }))
+        );
+      }
+      if (actorsRes.data) {
+        const seen = new Map<string, string>();
+        (actorsRes.data as any[]).forEach(r => {
+          if (r.actor_id && !seen.has(r.actor_id)) seen.set(r.actor_id, r.actor_name ?? 'Unknown');
+        });
+        const opts = Array.from(seen.entries())
+          .map(([id, name]) => ({ value: id, label: name }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+        setActorOptions(opts);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSearchChange = (val: string) => {
     setSearchRaw(val);
@@ -782,6 +827,8 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
     from = dateFrom,
     to = dateTo,
     currentSearch = search,
+    currentApplicantId: string | null = applicantId,
+    currentActorId: string | null = actorId,
   ) => {
     setLoading(true);
     const { data, error } = await (supabase as any).rpc('search_audit_log', {
@@ -791,6 +838,8 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
       p_to:     to   ? endOfDay(to).toISOString()   : null,
       p_limit:  PAGE_SIZE + 1,
       p_offset: pageNum * PAGE_SIZE,
+      p_actor_id: currentActorId,
+      p_entity_id: currentApplicantId,
     });
     if (!error && data) {
       const typed = data as AuditEntry[];
@@ -800,14 +849,14 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
       setHasMore(hasNextPage);
     }
     setLoading(false);
-  }, [filter, dateFrom, dateTo, search]);
+  }, [filter, dateFrom, dateTo, search, applicantId, actorId]);
 
   // Re-fetch on filter, date, or debounced search change
   useEffect(() => {
     setPage(0);
     setEntries([]);
-    fetchLog(0, filter, dateFrom, dateTo, search);
-  }, [filter, dateFrom, dateTo, search]);
+    fetchLog(0, filter, dateFrom, dateTo, search, applicantId, actorId);
+  }, [filter, dateFrom, dateTo, search, applicantId, actorId]);
 
   // Fetch current review statuses for applications referenced in revision reverted entries
   useEffect(() => {
@@ -835,7 +884,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
   const handleLoadMore = () => {
     const next = page + 1;
     setPage(next);
-    fetchLog(next, filter, dateFrom, dateTo, search);
+    fetchLog(next, filter, dateFrom, dateTo, search, applicantId, actorId);
   };
 
   const handleExport = async () => {
@@ -847,9 +896,14 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
       p_to:     dateTo   ? endOfDay(dateTo).toISOString()     : null,
       p_limit:  5000,
       p_offset: 0,
+      p_actor_id: actorId,
+      p_entity_id: applicantId,
     });
     if (data && data.length > 0) {
-      exportToCsv(data as AuditEntry[], filter, dateFrom, dateTo);
+      exportToCsv(data as AuditEntry[], filter, dateFrom, dateTo, {
+        applicantLabel: applicantId ? applicantOptions.find(o => o.value === applicantId)?.label : undefined,
+        actorLabel: actorId ? actorOptions.find(o => o.value === actorId)?.label : undefined,
+      });
     }
     setExporting(false);
   };
