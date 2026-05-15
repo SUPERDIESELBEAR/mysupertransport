@@ -428,7 +428,7 @@ function EntryExpandedPanel({
             className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-gold/15 text-gold border border-gold/30 hover:bg-gold/25 transition-colors"
           >
             <ExternalLink className="h-2.5 w-2.5" />
-            {deepLink.type === 'operator' ? 'Go to Operator' : 'Go to Staff Directory'}
+            {deepLink.type === 'operator' ? 'Go to Operator' : deepLink.type === 'application' ? 'Go to Application' : 'Go to Staff Directory'}
           </button>
         )}
       </div>
