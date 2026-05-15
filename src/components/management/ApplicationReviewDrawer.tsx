@@ -1151,6 +1151,13 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   >
                     <RotateCcw className="h-4 w-4 mr-2" /> Request Revisions
                   </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setCorrectionsOpen(true)}
+                    className="flex-1 min-w-[140px] border-gold/40 text-foreground hover:bg-gold/10"
+                  >
+                    <Mail className="h-4 w-4 mr-2" /> Send Corrections
+                  </Button>
                   {app.review_status === 'pending' && (
                   <>
                   <Button
