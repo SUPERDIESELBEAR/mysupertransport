@@ -28,6 +28,7 @@ import SubmitSSN from "./pages/SubmitSSN";
 import InstallApp from "./pages/InstallApp";
 import PEIRespond from "./pages/PEIRespond";
 import PEIRelease from "./pages/PEIRelease";
+import ApplicationApprove from "./pages/ApplicationApprove";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ function AppRoutes() {
       <Route path="/inspect/:token" element={<InspectionSharePage />} />
       <Route path="/pei/respond/:token" element={<PEIRespond />} />
       <Route path="/pei/release/:token" element={<PEIRelease />} />
+      <Route path="/application/approve/:token" element={<ApplicationApprove />} />
       <Route path="/splash" element={<SplashPage />} />
       <Route path="/install" element={<InstallApp />} />
 
