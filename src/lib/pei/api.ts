@@ -56,7 +56,7 @@ export async function fetchPEIRequestEvents(
     .eq('pei_request_id', requestId)
     .order('occurred_at', { ascending: true });
   if (error) throw error;
-  return (data ?? []) as PEIRequestEvent[];
+  return ((data ?? []) as unknown) as PEIRequestEvent[];
 }
 
 /**
