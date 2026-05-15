@@ -4,12 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
   Milestone, RefreshCcw, Activity, ChevronDown, ChevronRight, Download, CalendarIcon, X,
-  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus, Mail, UserCheck, FilePen, RotateCcw, AlertTriangle
+  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus, Mail, UserCheck, FilePen, RotateCcw, AlertTriangle, Check, FileSearch
 } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -539,7 +540,17 @@ function metaColValue(entry: AuditEntry, key: string): string {
   return String(v);
 }
 
-function exportToCsv(rows: AuditEntry[], currentFilter: string, dateFrom?: Date, dateTo?: Date) {
+function slugify(v: string): string {
+  return v.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32);
+}
+
+function exportToCsv(
+  rows: AuditEntry[],
+  currentFilter: string,
+  dateFrom?: Date,
+  dateTo?: Date,
+  extra?: { applicantLabel?: string; actorLabel?: string },
+) {
   const metaLabels = META_EXPORT_KEYS.map(k =>
     `Meta: ${k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}`
   );
@@ -577,8 +588,10 @@ function exportToCsv(rows: AuditEntry[], currentFilter: string, dateFrom?: Date,
   const fromStr = dateFrom ? format(dateFrom, 'yyyy-MM-dd') : '';
   const toStr = dateTo ? format(dateTo, 'yyyy-MM-dd') : '';
   const datePart = fromStr && toStr ? `_${fromStr}_to_${toStr}` : fromStr ? `_from_${fromStr}` : toStr ? `_to_${toStr}` : '';
+  const applicantPart = extra?.applicantLabel ? `_applicant-${slugify(extra.applicantLabel)}` : '';
+  const actorPart = extra?.actorLabel ? `_staff-${slugify(extra.actorLabel)}` : '';
   a.href = url;
-  a.download = `audit-log-${filterLabel}${datePart}_exported-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `audit-log-${filterLabel}${datePart}${applicantPart}${actorPart}_exported-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -670,6 +683,85 @@ function highlightMatch(text: string, query: string): React.ReactNode {
   );
 }
 
+// ── Filter combobox ───────────────────────────────────────────────────────────
+
+interface ComboboxOption {
+  value: string;
+  label: string;
+  sublabel?: string;
+}
+
+function FilterCombobox({
+  icon,
+  placeholder,
+  searchPlaceholder,
+  emptyText,
+  options,
+  value,
+  onChange,
+}: {
+  icon: React.ReactNode;
+  placeholder: string;
+  searchPlaceholder: string;
+  emptyText: string;
+  options: ComboboxOption[];
+  value: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = value ? options.find(o => o.value === value) : null;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors max-w-[14rem] truncate',
+            value
+              ? 'bg-surface-dark text-white border-surface-dark'
+              : 'bg-white text-muted-foreground border-border hover:border-gold/50 hover:text-foreground'
+          )}
+        >
+          <span className="shrink-0">{icon}</span>
+          <span className="truncate">{selected ? selected.label : placeholder}</span>
+          <ChevronDown className="h-3 w-3 shrink-0 opacity-70" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-0" align="start">
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} className="h-9" />
+          <CommandList>
+            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="__all__"
+                onSelect={() => { onChange(null); setOpen(false); }}
+              >
+                <Check className={cn('mr-2 h-4 w-4', !value ? 'opacity-100' : 'opacity-0')} />
+                <span className="text-muted-foreground">All</span>
+              </CommandItem>
+              {options.map(opt => (
+                <CommandItem
+                  key={opt.value}
+                  value={`${opt.label} ${opt.sublabel ?? ''} ${opt.value}`}
+                  onSelect={() => { onChange(opt.value); setOpen(false); }}
+                >
+                  <Check className={cn('mr-2 h-4 w-4', value === opt.value ? 'opacity-100' : 'opacity-0')} />
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate">{opt.label}</span>
+                    {opt.sublabel && (
+                      <span className="text-[10px] text-muted-foreground truncate">{opt.sublabel}</span>
+                    )}
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ActivityLog({ onNavigate }: { onNavigate?: (action: DeepLinkAction) => void }) {
@@ -688,6 +780,51 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
   const [search, setSearch] = useState('');
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [currentAppStatuses, setCurrentAppStatuses] = useState<Record<string, string>>({});
+  const [applicantId, setApplicantId] = useState<string | null>(null);
+  const [actorId, setActorId] = useState<string | null>(null);
+  const [applicantOptions, setApplicantOptions] = useState<ComboboxOption[]>([]);
+  const [actorOptions, setActorOptions] = useState<ComboboxOption[]>([]);
+
+  // Load filter options once (applicants from applications table, staff from audit_log distinct actors)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [appsRes, actorsRes] = await Promise.all([
+        supabase
+          .from('applications')
+          .select('id, first_name, last_name, email')
+          .order('last_name', { ascending: true })
+          .limit(500),
+        (supabase as any)
+          .from('audit_log')
+          .select('actor_id, actor_name')
+          .not('actor_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(2000),
+      ]);
+      if (cancelled) return;
+      if (appsRes.data) {
+        setApplicantOptions(
+          (appsRes.data as any[]).map(a => ({
+            value: a.id as string,
+            label: [a.last_name, a.first_name].filter(Boolean).join(', ') || (a.email ?? 'Unknown'),
+            sublabel: a.email ?? undefined,
+          }))
+        );
+      }
+      if (actorsRes.data) {
+        const seen = new Map<string, string>();
+        (actorsRes.data as any[]).forEach(r => {
+          if (r.actor_id && !seen.has(r.actor_id)) seen.set(r.actor_id, r.actor_name ?? 'Unknown');
+        });
+        const opts = Array.from(seen.entries())
+          .map(([id, name]) => ({ value: id, label: name }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+        setActorOptions(opts);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSearchChange = (val: string) => {
     setSearchRaw(val);
@@ -702,6 +839,8 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
     from = dateFrom,
     to = dateTo,
     currentSearch = search,
+    currentApplicantId: string | null = applicantId,
+    currentActorId: string | null = actorId,
   ) => {
     setLoading(true);
     const { data, error } = await (supabase as any).rpc('search_audit_log', {
@@ -711,6 +850,8 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
       p_to:     to   ? endOfDay(to).toISOString()   : null,
       p_limit:  PAGE_SIZE + 1,
       p_offset: pageNum * PAGE_SIZE,
+      p_actor_id: currentActorId,
+      p_entity_id: currentApplicantId,
     });
     if (!error && data) {
       const typed = data as AuditEntry[];
@@ -720,14 +861,14 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
       setHasMore(hasNextPage);
     }
     setLoading(false);
-  }, [filter, dateFrom, dateTo, search]);
+  }, [filter, dateFrom, dateTo, search, applicantId, actorId]);
 
   // Re-fetch on filter, date, or debounced search change
   useEffect(() => {
     setPage(0);
     setEntries([]);
-    fetchLog(0, filter, dateFrom, dateTo, search);
-  }, [filter, dateFrom, dateTo, search]);
+    fetchLog(0, filter, dateFrom, dateTo, search, applicantId, actorId);
+  }, [filter, dateFrom, dateTo, search, applicantId, actorId]);
 
   // Fetch current review statuses for applications referenced in revision reverted entries
   useEffect(() => {
@@ -755,7 +896,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
   const handleLoadMore = () => {
     const next = page + 1;
     setPage(next);
-    fetchLog(next, filter, dateFrom, dateTo, search);
+    fetchLog(next, filter, dateFrom, dateTo, search, applicantId, actorId);
   };
 
   const handleExport = async () => {
@@ -767,9 +908,14 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
       p_to:     dateTo   ? endOfDay(dateTo).toISOString()     : null,
       p_limit:  5000,
       p_offset: 0,
+      p_actor_id: actorId,
+      p_entity_id: applicantId,
     });
     if (data && data.length > 0) {
-      exportToCsv(data as AuditEntry[], filter, dateFrom, dateTo);
+      exportToCsv(data as AuditEntry[], filter, dateFrom, dateTo, {
+        applicantLabel: applicantId ? applicantOptions.find(o => o.value === applicantId)?.label : undefined,
+        actorLabel: actorId ? actorOptions.find(o => o.value === actorId)?.label : undefined,
+      });
     }
     setExporting(false);
   };
@@ -858,7 +1004,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
           <Button
             variant="outline"
             size="sm"
-            onClick={() => { setPage(0); setEntries([]); fetchLog(0, filter, dateFrom, dateTo); }}
+            onClick={() => { setPage(0); setEntries([]); fetchLog(0, filter, dateFrom, dateTo, search, applicantId, actorId); }}
             disabled={loading}
             className="gap-1.5"
           >
@@ -943,7 +1089,70 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
             <X className="h-3 w-3" /> Clear dates
           </button>
         )}
+
+        {/* Separator */}
+        <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Applicant + Staff comboboxes */}
+        <FilterCombobox
+          icon={<FileSearch className="h-3.5 w-3.5" />}
+          placeholder="All applicants"
+          searchPlaceholder="Search applicants…"
+          emptyText="No applicants found"
+          options={applicantOptions}
+          value={applicantId}
+          onChange={setApplicantId}
+        />
+        <FilterCombobox
+          icon={<User className="h-3.5 w-3.5" />}
+          placeholder="All staff"
+          searchPlaceholder="Search staff…"
+          emptyText="No staff found"
+          options={actorOptions}
+          value={actorId}
+          onChange={setActorId}
+        />
       </div>
+
+      {/* Active applicant/staff chips */}
+      {(applicantId || actorId) && (
+        <div className="flex flex-wrap items-center gap-2 -mt-2">
+          {applicantId && (
+            <Badge variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs font-medium">
+              <FileSearch className="h-3 w-3" />
+              Applicant: {applicantOptions.find(o => o.value === applicantId)?.label ?? applicantId}
+              <button
+                onClick={() => setApplicantId(null)}
+                className="ml-1 rounded hover:bg-foreground/10 p-0.5"
+                aria-label="Clear applicant filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {actorId && (
+            <Badge variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs font-medium">
+              <User className="h-3 w-3" />
+              Staff: {actorOptions.find(o => o.value === actorId)?.label ?? actorId}
+              <button
+                onClick={() => setActorId(null)}
+                className="ml-1 rounded hover:bg-foreground/10 p-0.5"
+                aria-label="Clear staff filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {applicantId && actorId && (
+            <button
+              onClick={() => { setApplicantId(null); setActorId(null); }}
+              className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Active date range summary */}
       {hasDateFilter && (

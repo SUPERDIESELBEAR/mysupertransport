@@ -1,50 +1,41 @@
 ## Goal
 
-After a successful "Undo — sent in error" revert, replace the amber "Revisions requested" banner with a persistent **"Reverted"** confirmation banner that shows the exact restored status and the courtesy-email outcome. The banner is sourced from `audit_log` so it survives drawer reopens for ~24h.
+Add two dedicated dropdown filters to the Activity Log so staff can drill into entries by **Application** (applicant) and **Staff member** (actor), in addition to the existing Action and Date filters. Pairs naturally with the existing "Revision Reverted" action filter so you can answer "show me every revert Jane did against John Doe's application last week" in three clicks.
 
 ## Behavior
 
-1. **Drawer stays open** after revert (remove the `onClose()` from `onSuccess`).
-2. **Banner swaps** from amber "Revisions requested" → colored "Reverted" banner driven by the most recent `revision_request_reverted` audit row for that application.
-3. **Banner auto-disappears** when the audit row is older than 24h (review_status will already be back to `pending`/`approved`, so the standard UI takes over).
-
-## Banner variants (driven by `metadata.courtesy_email_sent` + `courtesy_email_error`)
-
-| Outcome | Color | Copy | Action |
-|---|---|---|---|
-| Email sent | Green (`status-success`) | "Reverted to {Restored Status} on {date} by {actor} · Courtesy email sent to applicant" | "Dismiss" link |
-| Email failed | Amber (`status-warning`) | "Reverted to {Restored Status} · Courtesy email **failed to send** — message {firstName} manually" + error reason in muted text | "Retry email" button + "Dismiss" |
-| Email not requested | Neutral (`muted`) | "Reverted to {Restored Status} on {date} by {actor} · No courtesy email sent" | "Dismiss" link |
-
-"Dismiss" hides the banner for the rest of this drawer session (local state only; reopening the drawer within 24h shows it again).
+1. Two new dropdowns appear next to the Date Range button:
+   - **Applicant** — searchable combobox of applications that appear in the audit log (entity_type = `application`). Shows applicant name + email.
+   - **Staff member** — searchable combobox of distinct `actor_name` values seen in the log.
+2. Both dropdowns default to "All". Selecting a value re-fetches and filters the list to matching rows only.
+3. Selected filter chips render below the toolbar with an "x" to clear individually, plus a "Clear all" link when 2+ filters are active.
+4. Filters compose with existing Action filter, Date Range, and free-text Search (AND semantics).
+5. CSV export honors the active Applicant + Staff filters and includes them in the filename suffix.
+6. Empty state copy updates to mention the active applicant/staff filters when set.
 
 ## Implementation
 
-### 1. New component: `src/components/management/RevertedBanner.tsx`
-- Props: `applicationId`, `firstName`, `onRetryEmail`.
-- On mount: query `audit_log` for the most recent row where `entity_type='application'`, `entity_id=applicationId`, `action='revision_request_reverted'`, ordered by `created_at desc`, `limit(1)`.
-- Skip render if: no row found, row older than 24h, or user dismissed locally.
-- Render variant based on `metadata.courtesy_email_sent` / `metadata.courtesy_email_error`.
-- "Retry email" button → calls a new helper that re-invokes `revert-application-revisions` edge function with `{ applicationId, sendCourtesyEmail: true, retryEmailOnly: true }`. On success, refetches the audit row.
+### 1. `ActivityLog.tsx` — state & fetch
+- Add `applicantId: string | null` and `actorId: string | null` to component state.
+- Pass them into `fetchLog(...)` and the deps of the refetch effect.
+- Update the RPC call: add `p_entity_id` (when applicant set, also pin `p_entity_type='application'`) and `p_actor_id`. If the RPC doesn't yet accept these, post-filter client-side as a fallback so the UI ships immediately, and note the RPC enhancement as a follow-up.
 
-### 2. Edge function: `supabase/functions/revert-application-revisions/index.ts`
-- Accept new optional flag `retryEmailOnly: boolean`.
-- When `retryEmailOnly === true`: skip the status revert + token invalidation; only re-run the courtesy email block; insert a fresh `audit_log` row with same `action` (so the banner reads the latest result).
-- Returns same `{ courtesyEmailSent, courtesyEmailError }` shape.
+### 2. Option sources
+- **Applicants**: `select id, first_name, last_name, email from applications order by last_name` (cap 500). Render as `Last, First — email`.
+- **Staff**: `select user_id, full_name from profiles where user_id in (select user_id from user_roles where role in ('admin','manager','staff'))` (or reuse the existing staff-list helper if present). Render `full_name`.
+- Cache both lists in component state; fetch once on mount.
 
-### 3. `ApplicationReviewDrawer.tsx`
-- Always render `<RevertedBanner />` above (or in place of) the existing revisions banner.
-- Keep the existing amber banner only when `review_status === 'revisions_requested'` AND no recent reverted-audit row exists (i.e., RevertedBanner returns null).
-- Change `onSuccess` of `<RevertRevisionModal>` to **not** close the drawer — just close the modal, refetch the application (so `review_status` updates), and trigger RevertedBanner to refetch.
+### 3. New UI components (inline, same file to match existing pattern)
+- `FilterCombobox` — wraps shadcn `Popover` + `Command` (`CommandInput`, `CommandList`, `CommandItem`) for searchable single-select. Reused for both dropdowns.
+- Active-filter chips row using existing `Badge` + `X` icon.
 
-### 4. `RevertRevisionModal.tsx`
-- Keep existing toast (transient confirmation).
-- After success, call a new optional `onReverted()` prop (in addition to existing `onSuccess`) so the drawer can refresh both the application row and the audit-log query without closing.
+### 4. CSV export
+- Extend `exportToCsv` filename builder to append `_applicant-{slug}` and `_staff-{slug}` segments when set.
 
 ### 5. Memory
-- Update `mem://features/application-review/revert-courtesy-defaults.md` with the persistent banner + retry behavior.
+- Add a short note to `mem://features/application-review/revert-courtesy-defaults.md` (or a new `mem://features/audit-log/filters.md`) documenting the Applicant + Staff filters and that they compose with Action + Date + Search.
 
 ## Out of scope
-- No new database tables (audit_log already exists).
-- No changes to the courtesy-defaults table or settings card.
-- No additional toast variants.
+- No schema changes. No new RPC (client-side post-filter fallback if needed).
+- No multi-select. No saved filter presets.
+- No changes to the RevertedBanner or revert flow.
