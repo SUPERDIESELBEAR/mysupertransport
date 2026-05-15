@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Loader2, AlertTriangle, Printer, ShieldCheck } from 'lucide-react';
+import { Loader2, AlertTriangle, Download, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import FCRAAuthorizationDoc from '@/components/application/documents/FCRAAuthorizationDoc';
 import type { FullApplication } from '@/components/management/ApplicationReviewDrawer';
-import { printDocumentById } from '@/lib/printDocument';
+import { openPrintableDocument } from '@/lib/printDocument';
 
 interface ReleaseResponse {
   application: Partial<FullApplication> & {
@@ -92,15 +92,16 @@ export default function PEIRelease() {
           </div>
           <Button
             onClick={() =>
-              printDocumentById(
+              openPrintableDocument(
                 'fcra-release-doc',
                 `FCRA Authorization — ${[app.first_name, app.last_name].filter(Boolean).join(' ')}`,
               )
             }
             className="gap-2"
+            size="lg"
           >
-            <Printer className="h-4 w-4" />
-            Print / Save as PDF
+            <Download className="h-4 w-4" />
+            Save as PDF
           </Button>
         </div>
 
@@ -118,6 +119,11 @@ export default function PEIRelease() {
           applicant during their application with SUPERTRANSPORT. Access to
           this document is logged. If you believe you received this link in
           error, please disregard.
+        </p>
+        <p className="text-[11px] text-muted-foreground text-center max-w-xl mx-auto">
+          On mobile, tap <strong>Save as PDF</strong> and choose
+          <em> Save to Files</em> (iOS) or <em>Save as PDF</em> (Android)
+          from the print dialog.
         </p>
       </div>
     </div>
