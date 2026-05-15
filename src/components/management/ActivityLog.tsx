@@ -729,6 +729,29 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
     fetchLog(0, filter, dateFrom, dateTo, search);
   }, [filter, dateFrom, dateTo, search]);
 
+  // Fetch current review statuses for applications referenced in revision reverted entries
+  useEffect(() => {
+    const appIds = entries
+      .filter(e => e.action === 'revision_request_reverted' && e.entity_type === 'application' && e.entity_id)
+      .map(e => e.entity_id!);
+    if (appIds.length === 0) {
+      setCurrentAppStatuses({});
+      return;
+    }
+    supabase
+      .from('applications')
+      .select('id, review_status')
+      .in('id', appIds)
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        const map: Record<string, string> = {};
+        data.forEach((row: any) => {
+          map[row.id] = row.review_status;
+        });
+        setCurrentAppStatuses(map);
+      });
+  }, [entries]);
+
   const handleLoadMore = () => {
     const next = page + 1;
     setPage(next);
