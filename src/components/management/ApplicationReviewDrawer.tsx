@@ -26,6 +26,7 @@ import PreEmploymentAuthorizationsDoc from '@/components/application/documents/P
 import DOTDrugAlcoholQuestionsDoc from '@/components/application/documents/DOTDrugAlcoholQuestionsDoc';
 import CompanyTestingPolicyCertDoc from '@/components/application/documents/CompanyTestingPolicyCertDoc';
 import { ApplicationPEITab } from '@/components/pei/ApplicationPEITab';
+import { RevertRevisionModal } from '@/components/management/RevertRevisionModal';
 
 type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
 
@@ -227,6 +228,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [notes, setNotes] = useState('');
   const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | 'revise' | null>(null);
   const [revisionMessage, setRevisionMessage] = useState('');
+  const [revertOpen, setRevertOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [ssnVisible, setSsnVisible] = useState(false);
   const [ssnValue, setSsnValue] = useState<string | null>(null);
@@ -1056,10 +1058,19 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           <div className="border-t border-border p-4 bg-status-progress/10 shrink-0">
             <div className="flex items-start gap-3">
               <RotateCcw className="h-5 w-5 text-status-progress shrink-0 mt-0.5" />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">
-                  Revisions requested{app.revision_requested_at ? ` on ${new Date(app.revision_requested_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
-                </p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-semibold text-foreground">
+                    Revisions requested{app.revision_requested_at ? ` on ${new Date(app.revision_requested_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setRevertOpen(true)}
+                    className="text-xs font-medium text-status-progress hover:underline shrink-0"
+                  >
+                    Undo — sent in error
+                  </button>
+                </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Awaiting applicant updates. The applicant received an email with a secure link to reopen and resubmit.
                 </p>
@@ -1072,6 +1083,16 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
             </div>
           </div>
         )}
+
+        <RevertRevisionModal
+          open={revertOpen}
+          onOpenChange={setRevertOpen}
+          application={app}
+          onSuccess={() => {
+            onClose();
+            onExpiryUpdated?.();
+          }}
+        />
 
         {/* Action Footer — pending (full actions) or approved (revisions only) */}
         {(app.review_status === 'pending' || app.review_status === 'approved') && (
