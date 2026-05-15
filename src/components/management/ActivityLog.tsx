@@ -137,6 +137,12 @@ const ACTION_CONFIG: Record<string, {
     color: 'text-amber-600',
     bg: 'bg-amber-50 border-amber-200',
   },
+  revision_request_reverted: {
+    label: 'Revision Request Reverted',
+    icon: <RotateCcw className="h-4 w-4" />,
+    color: 'text-amber-700',
+    bg: 'bg-amber-100 border-amber-300',
+  },
 };
 
 const FILTER_OPTIONS = [
