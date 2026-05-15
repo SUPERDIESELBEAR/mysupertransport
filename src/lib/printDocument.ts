@@ -110,9 +110,12 @@ export function printDocumentById(elementId: string, documentTitle?: string) {
  * Print and Close button so the user can still trigger their
  * browser's save flow manually.
  */
+export type PrintPageSize = 'letter' | 'a4';
+
 export function openPrintableDocument(
   elementId: string,
   documentTitle = 'Document',
+  pageSize: PrintPageSize = 'letter',
 ) {
   const el = document.getElementById(elementId);
   if (!el) return;
@@ -144,6 +147,10 @@ ${headHtml}
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   /* Force the cloned root visible even if the source had display:none */
   #${elementId} { display: block !important; margin: 0 auto; }
+  /* Adapt the on-screen preview to the chosen paper size so the user
+     sees roughly what will print. Inline styles inside the doc set the
+     letter-sized 8.5in width; for A4 we override the visible width. */
+  ${pageSize === 'a4' ? `#${elementId} > div { max-width: 210mm !important; min-height: 297mm !important; padding: 20mm !important; }` : ''}
   /* Floating action bar for the on-screen state (hidden when printing) */
   .__print_actions {
     position: fixed; top: 0; left: 0; right: 0;
@@ -162,7 +169,7 @@ ${headHtml}
   .__print_spacer { height: 56px; }
   @media print {
     .__print_actions, .__print_spacer { display: none !important; }
-    @page { size: letter; margin: 0; }
+    @page { size: ${pageSize === 'a4' ? 'A4' : 'letter'}; margin: 0; }
   }
 </style>
 </head>
