@@ -1089,7 +1089,70 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
             <X className="h-3 w-3" /> Clear dates
           </button>
         )}
+
+        {/* Separator */}
+        <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Applicant + Staff comboboxes */}
+        <FilterCombobox
+          icon={<FileSearch className="h-3.5 w-3.5" />}
+          placeholder="All applicants"
+          searchPlaceholder="Search applicants…"
+          emptyText="No applicants found"
+          options={applicantOptions}
+          value={applicantId}
+          onChange={setApplicantId}
+        />
+        <FilterCombobox
+          icon={<User className="h-3.5 w-3.5" />}
+          placeholder="All staff"
+          searchPlaceholder="Search staff…"
+          emptyText="No staff found"
+          options={actorOptions}
+          value={actorId}
+          onChange={setActorId}
+        />
       </div>
+
+      {/* Active applicant/staff chips */}
+      {(applicantId || actorId) && (
+        <div className="flex flex-wrap items-center gap-2 -mt-2">
+          {applicantId && (
+            <Badge variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs font-medium">
+              <FileSearch className="h-3 w-3" />
+              Applicant: {applicantOptions.find(o => o.value === applicantId)?.label ?? applicantId}
+              <button
+                onClick={() => setApplicantId(null)}
+                className="ml-1 rounded hover:bg-foreground/10 p-0.5"
+                aria-label="Clear applicant filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {actorId && (
+            <Badge variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs font-medium">
+              <User className="h-3 w-3" />
+              Staff: {actorOptions.find(o => o.value === actorId)?.label ?? actorId}
+              <button
+                onClick={() => setActorId(null)}
+                className="ml-1 rounded hover:bg-foreground/10 p-0.5"
+                aria-label="Clear staff filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {applicantId && actorId && (
+            <button
+              onClick={() => { setApplicantId(null); setActorId(null); }}
+              className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Active date range summary */}
       {hasDateFilter && (
