@@ -1,41 +1,46 @@
-## Context
+## Goal
 
-- Applicant: **James Bell** (`belljames838@yahoo.com`), application `2886edcc-76d8-40c8-8d75-57ced5643fe6`.
-- Current state in DB:
-  - `applications.review_status = revisions_requested` (set 2026-05-14 20:15 UTC)
-  - `application_resume_tokens` row: token prefix `A3shpxOJ`, expires 2026-05-21, **unused**
-  - No row in `email_send_log` for him (this function still sends through Resend directly, not the queue — that's a separate cleanup, out of scope today)
-- His existing inbox link was generated **before** the `APP_URL` / `buildAppUrl` fix shipped, so it still points at the broken `0.0.9.22` host. That's the screen he keeps hitting.
+Undo the accidental "request revisions" sent to Tyler Walls (`tylerwalls87@icloud.com`, application `7ef1d5c9-7954-480b-a59d-4dad44706156`). His application should go back to its prior **approved** state, and the resume link in his inbox should stop working so he can't accidentally reopen the form.
 
-## What I'll do
+## Current state
 
-### 1. Resend the revisions email to James
-Invoke `request-application-revisions` for his application with a short, friendly message so a fresh email is generated using the new `buildAppUrl()` helper. The new email's button should resolve to:
+- `review_status` = `revisions_requested`
+- `pre_revision_status` = `approved` (this is what it was before the mistake)
+- `revision_count` = 1
+- `revision_requested_at` = 2026-05-15 11:18 UTC
+- `revision_request_message` = the test message
+- An unused `application_resume_tokens` row exists for him
 
-```
-https://mysupertransport.lovable.app/apply?resume=<token>
-```
+## Plan
 
-The previous broken-link email in his inbox should be ignored — he must use the new one.
+### 1. Restore the application row
 
-### 2. Verify the fresh link end-to-end
-- Pull the newest `application_resume_tokens` row for James and confirm the token, expiry, and `used_at IS NULL`.
-- Check `request-application-revisions` edge logs for any `buildAppUrl` warnings or send errors.
-- Open the resume URL in the preview/browser, watch `consume-application-resume` logs to confirm token → draft_token exchange succeeds, and confirm `ApplicationForm` loads his saved answers (no "invalid/expired" screen).
+Update `applications` where `id = 7ef1d5c9-7954-480b-a59d-4dad44706156`:
 
-### 3. Confirm the round trip
-After the form loads, verify (via DB read, no submit unless you ask) that the consume function did not prematurely mark the token used, and that re-submitting from his side would flip `review_status` back to `pending`. If you want, I can simulate a submit on a copy, but by default I'll stop at "form loaded successfully" and hand off to you to ask James to actually re-submit.
+- `review_status` ← `approved` (from `pre_revision_status`)
+- `pre_revision_status` ← `NULL`
+- `revision_requested_at` ← `NULL`
+- `revision_requested_by` ← `NULL`
+- `revision_request_message` ← `NULL`
+- `revision_count` ← `0` (since the only increment was this mistake)
 
-### 4. Report back
-- Exact new URL produced
-- consume-application-resume log line
-- Any anomaly (token reuse, draft missing, timeout)
+### 2. Invalidate the emailed resume link
 
-## Out of scope (noted for follow-up)
+Mark all unused `application_resume_tokens` rows for this application as used (`used_at = now()`) so the link in his inbox returns "invalid/expired" if he clicks it.
 
-- Migrating `request-application-revisions` and `request-application-resume` off direct Resend onto the queue + `email_send_log` — separate cleanup so we get logging/retries on these too.
-- Backfilling/refreshing the URL on previously-issued tokens for other applicants (none currently outstanding besides James).
+### 3. Audit trail
+
+Insert an `audit_log` entry: action `revision_request_reverted`, entity_type `application`, entity_id = his application id, entity_label = "Tyler Walls", with metadata noting it was a mistaken send.
+
+### 4. Verify
+
+Re-read the applications row and the resume tokens row to confirm the revert and that no token is still consumable. No email is sent — he simply ignores the original message.
+
+## Out of scope
+
+- No changes to `request-application-revisions` logic. The Email Log panel + admin resender already covers future cases; this is a one-off data fix.
+- Not contacting Tyler from the app — if you want a courtesy "ignore that email" note, send it manually or tell me and I'll add a step.
 
 ## What I need from you
 
-Just approve and I'll send the new email + run the verification.
+Approve and I'll run the two data updates + audit log insert, then confirm the final state.
