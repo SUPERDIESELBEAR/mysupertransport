@@ -671,6 +671,85 @@ function highlightMatch(text: string, query: string): React.ReactNode {
   );
 }
 
+// ── Filter combobox ───────────────────────────────────────────────────────────
+
+interface ComboboxOption {
+  value: string;
+  label: string;
+  sublabel?: string;
+}
+
+function FilterCombobox({
+  icon,
+  placeholder,
+  searchPlaceholder,
+  emptyText,
+  options,
+  value,
+  onChange,
+}: {
+  icon: React.ReactNode;
+  placeholder: string;
+  searchPlaceholder: string;
+  emptyText: string;
+  options: ComboboxOption[];
+  value: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = value ? options.find(o => o.value === value) : null;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors max-w-[14rem] truncate',
+            value
+              ? 'bg-surface-dark text-white border-surface-dark'
+              : 'bg-white text-muted-foreground border-border hover:border-gold/50 hover:text-foreground'
+          )}
+        >
+          <span className="shrink-0">{icon}</span>
+          <span className="truncate">{selected ? selected.label : placeholder}</span>
+          <ChevronDown className="h-3 w-3 shrink-0 opacity-70" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-0" align="start">
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} className="h-9" />
+          <CommandList>
+            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="__all__"
+                onSelect={() => { onChange(null); setOpen(false); }}
+              >
+                <Check className={cn('mr-2 h-4 w-4', !value ? 'opacity-100' : 'opacity-0')} />
+                <span className="text-muted-foreground">All</span>
+              </CommandItem>
+              {options.map(opt => (
+                <CommandItem
+                  key={opt.value}
+                  value={`${opt.label} ${opt.sublabel ?? ''} ${opt.value}`}
+                  onSelect={() => { onChange(opt.value); setOpen(false); }}
+                >
+                  <Check className={cn('mr-2 h-4 w-4', value === opt.value ? 'opacity-100' : 'opacity-0')} />
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate">{opt.label}</span>
+                    {opt.sublabel && (
+                      <span className="text-[10px] text-muted-foreground truncate">{opt.sublabel}</span>
+                    )}
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ActivityLog({ onNavigate }: { onNavigate?: (action: DeepLinkAction) => void }) {
