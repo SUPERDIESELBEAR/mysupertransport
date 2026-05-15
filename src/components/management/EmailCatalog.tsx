@@ -1280,7 +1280,7 @@ export default function EmailCatalog() {
               <Label htmlFor="edit-body" className="text-sm font-medium">
                 Body HTML
                 <span className="text-muted-foreground font-normal ml-2 text-xs">
-                  Use {'{{name}}'} for the operator's name
+                  Placeholders: {'{{name}}'}{editingId === 'application_correction_request' ? `, {{reason}}, {{courtesy_block}}, {{changes_table}}` : ''}
                 </span>
               </Label>
               <Textarea
@@ -1306,11 +1306,11 @@ export default function EmailCatalog() {
               <Label className="text-sm font-medium">Live Preview</Label>
               <iframe
                 srcDoc={buildEmail(
-                  editForm.subject,
+                  substitutePreview(editForm.subject),
                   editForm.heading,
-                  editForm.body_html.replace(/\{\{name\}\}/g, SAMPLE_NAME).replace(/\{\{extra\}\}/g, SAMPLE_DATE),
-                  { label: editForm.cta_label, url: `${SAMPLE_APP_URL}/dashboard` },
-                  ONBOARDING_EMAIL
+                  substitutePreview(editForm.body_html),
+                  editForm.cta_label.trim() ? { label: editForm.cta_label, url: `${SAMPLE_APP_URL}/dashboard` } : undefined,
+                  (editingId === 'application_moved_to_pending' || editingId === 'application_correction_request') ? RECRUITING_EMAIL : ONBOARDING_EMAIL
                 )}
                 title="Edit Preview"
                 className="w-full rounded-lg border border-border bg-white"
