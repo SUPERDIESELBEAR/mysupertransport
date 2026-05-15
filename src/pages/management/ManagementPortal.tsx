@@ -1654,10 +1654,13 @@ export default function ManagementPortal() {
         )}
 
         {view === 'activity' && (
-          <ActivityLog onNavigate={(action) => {
+          <ActivityLog onNavigate={async (action) => {
             if (action.type === 'operator' && action.operatorId) {
               setSelectedOperatorId(action.operatorId);
               setView('operator-detail');
+            } else if (action.type === 'application' && action.applicationId) {
+              const { data } = await supabase.from('applications').select('*').eq('id', action.applicationId).single();
+              if (data) setSelectedApp(data as FullApplication);
             } else if (action.type === 'staff') {
               setView('staff');
             }
