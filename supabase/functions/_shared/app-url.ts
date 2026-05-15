@@ -16,8 +16,12 @@ export function buildAppUrl(path: string): string {
   let parsed: URL | null = null;
   try {
     parsed = new URL(raw);
-    // Reject non-http(s) and obviously broken hosts (e.g. "0.0.9.22", "localhost" in prod)
-    if (!/^https?:$/.test(parsed.protocol) || !parsed.hostname.includes('.')) {
+    const hostname = parsed.hostname.toLowerCase();
+    const isIpv4Address = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(hostname);
+    const isLocalHost = hostname === 'localhost' || hostname.endsWith('.localhost') || hostname.endsWith('.local');
+
+    // Reject non-http(s), local/dev hosts, bare hosts, and numeric IPs (e.g. "0.0.9.22") in app emails.
+    if (!/^https?:$/.test(parsed.protocol) || !hostname.includes('.') || isIpv4Address || isLocalHost) {
       parsed = null;
     }
   } catch {
