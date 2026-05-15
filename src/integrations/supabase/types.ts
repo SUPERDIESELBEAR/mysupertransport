@@ -58,6 +58,121 @@ export type Database = {
           },
         ]
       }
+      application_correction_fields: {
+        Row: {
+          created_at: string
+          field_label: string
+          field_path: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          request_id: string
+        }
+        Insert: {
+          created_at?: string
+          field_label: string
+          field_path: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          request_id: string
+        }
+        Update: {
+          created_at?: string
+          field_label?: string
+          field_path?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_correction_fields_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "application_correction_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      application_correction_requests: {
+        Row: {
+          application_id: string
+          cancelled_at: string | null
+          cancelled_by: string | null
+          courtesy_message: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          reason_for_changes: string
+          rejection_reason: string | null
+          requested_by_staff_id: string
+          requested_by_staff_name: string | null
+          responded_at: string | null
+          sent_at: string
+          signature_image_url: string | null
+          signed_ip: unknown
+          signed_typed_name: string | null
+          signed_user_agent: string | null
+          status: Database["public"]["Enums"]["application_correction_status"]
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          application_id: string
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          courtesy_message?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          reason_for_changes: string
+          rejection_reason?: string | null
+          requested_by_staff_id: string
+          requested_by_staff_name?: string | null
+          responded_at?: string | null
+          sent_at?: string
+          signature_image_url?: string | null
+          signed_ip?: unknown
+          signed_typed_name?: string | null
+          signed_user_agent?: string | null
+          status?: Database["public"]["Enums"]["application_correction_status"]
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          application_id?: string
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          courtesy_message?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          reason_for_changes?: string
+          rejection_reason?: string | null
+          requested_by_staff_id?: string
+          requested_by_staff_name?: string | null
+          responded_at?: string | null
+          sent_at?: string
+          signature_image_url?: string | null
+          signed_ip?: unknown
+          signed_typed_name?: string | null
+          signed_user_agent?: string | null
+          status?: Database["public"]["Enums"]["application_correction_status"]
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_correction_requests_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       application_invites: {
         Row: {
           created_at: string
@@ -3553,11 +3668,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _app_correction_editable_columns: { Args: never; Returns: string[] }
+      _gen_correction_token: { Args: never; Returns: string }
+      approve_application_correction: {
+        Args: {
+          p_meta: Json
+          p_signature_url: string
+          p_signed_name: string
+          p_token: string
+        }
+        Returns: {
+          application_id: string
+          request_id: string
+        }[]
+      }
       assign_user_role: {
         Args: {
           p_role: Database["public"]["Enums"]["app_role"]
           p_user_id: string
         }
+        Returns: undefined
+      }
+      cancel_application_correction: {
+        Args: { p_request_id: string }
         Returns: undefined
       }
       consume_application_resume_token: {
@@ -3658,6 +3791,23 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_application_correction_by_token: {
+        Args: { p_token: string }
+        Returns: {
+          applicant_first_name: string
+          applicant_last_name: string
+          application_id: string
+          courtesy_message: string
+          expires_at: string
+          fields: Json
+          reason_for_changes: string
+          request_id: string
+          requested_by_staff_name: string
+          responded_at: string
+          sent_at: string
+          status: Database["public"]["Enums"]["application_correction_status"]
+        }[]
       }
       get_application_pei_summary: {
         Args: { p_application_id: string }
@@ -3782,6 +3932,12 @@ export type Database = {
           read_ct: number
         }[]
       }
+      reject_application_correction: {
+        Args: { p_meta: Json; p_reason: string; p_token: string }
+        Returns: {
+          request_id: string
+        }[]
+      }
       remove_user_role: {
         Args: {
           p_role: Database["public"]["Enums"]["app_role"]
@@ -3846,6 +4002,18 @@ export type Database = {
               isSetofReturn: true
             }
           }
+      submit_application_correction: {
+        Args: {
+          p_application_id: string
+          p_courtesy_message: string
+          p_fields: Json
+          p_reason: string
+        }
+        Returns: {
+          request_id: string
+          token: string
+        }[]
+      }
       submit_pei_response:
         | {
             Args: { p_accidents?: Json; p_response: Json; p_token: string }
@@ -3870,6 +4038,12 @@ export type Database = {
         | "dispatcher"
         | "management"
         | "owner"
+      application_correction_status:
+        | "pending"
+        | "approved"
+        | "rejected"
+        | "cancelled"
+        | "expired"
       approval_status: "pending" | "approved" | "denied"
       daily_dispatch_status:
         | "dispatched"
@@ -4084,6 +4258,13 @@ export const Constants = {
         "dispatcher",
         "management",
         "owner",
+      ],
+      application_correction_status: [
+        "pending",
+        "approved",
+        "rejected",
+        "cancelled",
+        "expired",
       ],
       approval_status: ["pending", "approved", "denied"],
       daily_dispatch_status: [

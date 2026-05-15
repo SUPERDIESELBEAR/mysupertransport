@@ -28,6 +28,8 @@ import CompanyTestingPolicyCertDoc from '@/components/application/documents/Comp
 import { ApplicationPEITab } from '@/components/pei/ApplicationPEITab';
 import { RevertRevisionModal } from '@/components/management/RevertRevisionModal';
 import { RevertedBanner } from '@/components/management/RevertedBanner';
+import { SuggestCorrectionsModal } from '@/components/management/SuggestCorrectionsModal';
+import { CorrectionRequestStatusCard } from '@/components/management/CorrectionRequestStatusCard';
 
 type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
 
@@ -232,6 +234,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [revertOpen, setRevertOpen] = useState(false);
   const [revertBannerKey, setRevertBannerKey] = useState(0);
   const [justReverted, setJustReverted] = useState(false);
+  const [correctionsOpen, setCorrectionsOpen] = useState(false);
+  const [correctionRefreshKey, setCorrectionRefreshKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const [ssnVisible, setSsnVisible] = useState(false);
   const [ssnValue, setSsnValue] = useState<string | null>(null);
@@ -1063,6 +1067,22 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           refreshKey={revertBannerKey}
         />
 
+        {/* Correction-request status (pending / approved / rejected history) */}
+        <div className="border-t border-border p-4 shrink-0">
+          <CorrectionRequestStatusCard
+            key={correctionRefreshKey}
+            applicationId={app.id}
+            onChanged={() => { setCorrectionRefreshKey((k) => k + 1); onExpiryUpdated?.(); }}
+          />
+        </div>
+
+        <SuggestCorrectionsModal
+          open={correctionsOpen}
+          onOpenChange={setCorrectionsOpen}
+          application={app as unknown as Record<string, unknown> & { id: string; first_name?: string | null; last_name?: string | null; email: string }}
+          onSent={() => { setCorrectionRefreshKey((k) => k + 1); onExpiryUpdated?.(); }}
+        />
+
         {/* Revisions-requested status banner — hidden once a revert just happened in this session */}
         {app.review_status === 'revisions_requested' && !justReverted && (
           <div className="border-t border-border p-4 bg-status-progress/10 shrink-0">
@@ -1130,6 +1150,13 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                     className="flex-1 min-w-[140px] border-status-progress/40 text-status-progress hover:bg-status-progress/10"
                   >
                     <RotateCcw className="h-4 w-4 mr-2" /> Request Revisions
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setCorrectionsOpen(true)}
+                    className="flex-1 min-w-[140px] border-gold/40 text-foreground hover:bg-gold/10"
+                  >
+                    <Mail className="h-4 w-4 mr-2" /> Send Corrections
                   </Button>
                   {app.review_status === 'pending' && (
                   <>
