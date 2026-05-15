@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Printer, ShieldCheck, FileWarning } from 'lucide-react';
+import { Loader2, Printer, ShieldCheck, FileWarning, History } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { fetchPEIResponse, fetchPEIAccidents } from '@/lib/pei/api';
-import { GFE_REASON_LABEL, type PEIRequest, type PEIResponse, type PEIAccident } from '@/lib/pei/types';
+import { fetchPEIResponse, fetchPEIAccidents, fetchPEIRequestEvents } from '@/lib/pei/api';
+import { GFE_REASON_LABEL, type PEIRequest, type PEIResponse, type PEIAccident, type PEIRequestEvent } from '@/lib/pei/types';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
@@ -18,6 +18,7 @@ export function PEIResponseViewer({ open, request, onClose }: Props) {
   const [response, setResponse] = useState<PEIResponse | null>(null);
   const [accidents, setAccidents] = useState<PEIAccident[]>([]);
   const [applicantName, setApplicantName] = useState('');
+  const [events, setEvents] = useState<PEIRequestEvent[]>([]);
 
   useEffect(() => {
     if (!open || !request) return;
@@ -28,6 +29,11 @@ export function PEIResponseViewer({ open, request, onClose }: Props) {
         setResponse(r);
         if (r) setAccidents(await fetchPEIAccidents(r.id));
         else setAccidents([]);
+        try {
+          setEvents(await fetchPEIRequestEvents(request.id));
+        } catch {
+          setEvents([]);
+        }
         const { data } = await supabase
           .from('applications')
           .select('first_name, last_name')
