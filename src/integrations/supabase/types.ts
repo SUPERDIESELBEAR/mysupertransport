@@ -3069,6 +3069,27 @@ export type Database = {
         }
         Relationships: []
       }
+      revert_courtesy_email_defaults: {
+        Row: {
+          role: Database["public"]["Enums"]["app_role"]
+          send_by_default: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          role: Database["public"]["Enums"]["app_role"]
+          send_by_default?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          role?: Database["public"]["Enums"]["app_role"]
+          send_by_default?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       service_help_requests: {
         Row: {
           created_at: string

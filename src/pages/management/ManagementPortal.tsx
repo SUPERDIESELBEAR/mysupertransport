@@ -43,6 +43,7 @@ import ServiceLibraryManager from '@/components/service-library/ServiceLibraryMa
 import ReleaseNotesManager from '@/components/management/ReleaseNotesManager';
 import OperatorBroadcast from '@/components/management/OperatorBroadcast';
 import CarrierSignatureSettings from '@/components/ica/CarrierSignatureSettings';
+import { RevertCourtesyDefaultsCard } from '@/components/management/RevertCourtesyDefaultsCard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import TerminationsView from './TerminationsView';
 import InspectionBinderAdmin from '@/components/inspection/InspectionBinderAdmin';
@@ -1759,7 +1760,10 @@ export default function ManagementPortal() {
         )}
 
         {view === 'carrier-signature' && (
-          <CarrierSignatureSettings />
+          <div className="space-y-6">
+            <CarrierSignatureSettings />
+            <RevertCourtesyDefaultsCard />
+          </div>
         )}
 
         {view === 'terminations' && (
