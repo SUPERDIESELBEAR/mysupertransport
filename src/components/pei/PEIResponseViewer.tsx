@@ -149,12 +149,25 @@ export function PEIResponseViewer({ open, request, onClose }: Props) {
                   <Field label="Company" value={response.responder_company ?? '—'} />
                   <Field label="Email" value={response.responder_email ?? '—'} />
                   <Field label="Phone" value={response.responder_phone ?? '—'} />
-                  <Field label="Submitted" value={response.date_signed ? new Date(response.date_signed).toLocaleString() : '—'} />
+                  <Field
+                    label="Signed at"
+                    value={
+                      response.signed_at
+                        ? new Date(response.signed_at).toLocaleString()
+                        : response.date_signed
+                          ? new Date(response.date_signed).toLocaleString()
+                          : '—'
+                    }
+                  />
+                  <Field label="Signed from IP" value={response.signed_ip ?? '—'} />
+                  <Field label="Browser" value={response.signed_user_agent ?? '—'} />
                 </Section>
               </>
             ) : (
               <div className="text-center text-muted-foreground py-8 text-sm">No response recorded yet.</div>
             )}
+
+            <AuditTrail request={request} events={events} />
           </div>
         )}
 
@@ -188,4 +201,70 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 function fmtBool(v: boolean | null): string {
   if (v === null || v === undefined) return '—';
   return v ? 'Yes' : 'No';
+}
+
+const EVENT_LABEL: Record<PEIRequestEvent['event_type'], string> = {
+  opened_response_link: 'Opened response link',
+  opened_release_link: 'Opened FCRA release',
+  submitted: 'Submitted response',
+};
+
+function AuditTrail({
+  request,
+  events,
+}: {
+  request: PEIRequest;
+  events: PEIRequestEvent[];
+}) {
+  type Row = { ts: string; label: string; detail?: string };
+  const rows: Row[] = [];
+  if (request.date_sent) {
+    rows.push({
+      ts: request.date_sent,
+      label: 'Initial email sent',
+    });
+  }
+  if (request.date_follow_up_sent) {
+    rows.push({ ts: request.date_follow_up_sent, label: 'Follow-up email sent' });
+  }
+  if (request.date_final_notice_sent) {
+    rows.push({ ts: request.date_final_notice_sent, label: 'Final notice email sent' });
+  }
+  for (const e of events) {
+    const detail = [e.ip_address, e.user_agent].filter(Boolean).join(' · ');
+    rows.push({ ts: e.occurred_at, label: EVENT_LABEL[e.event_type], detail });
+  }
+  rows.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+
+  return (
+    <section>
+      <h3 className="font-semibold text-sm border-b pb-1 mb-2 flex items-center gap-1.5">
+        <History className="h-3.5 w-3.5" /> Audit Trail
+      </h3>
+      {rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No activity recorded yet.</p>
+      ) : (
+        <ul className="space-y-1.5 text-xs">
+          {rows.map((r, i) => (
+            <li key={i} className="grid grid-cols-[160px_1fr] gap-2">
+              <span className="text-muted-foreground tabular-nums">
+                {new Date(r.ts).toLocaleString()}
+              </span>
+              <span>
+                <span className="font-medium">{r.label}</span>
+                {r.detail && (
+                  <span className="text-muted-foreground"> — {r.detail}</span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-[10px] text-muted-foreground mt-2 pt-2 border-t">
+        IP and browser are recorded server-side from request headers when the
+        previous employer interacts with the tokenized links. This trail is
+        retained for FMCSA audit defensibility per 49 CFR §391.53.
+      </p>
+    </section>
+  );
 }
