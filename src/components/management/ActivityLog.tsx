@@ -283,6 +283,7 @@ function MetaRow({ icon, label, value }: { icon: React.ReactNode; label: string;
 
 type DeepLinkAction =
   | { type: 'operator'; operatorId: string }
+  | { type: 'application'; applicationId: string }
   | { type: 'staff' };
 
 function EntryExpandedPanel({
