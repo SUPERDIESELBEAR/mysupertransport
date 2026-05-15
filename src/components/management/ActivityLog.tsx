@@ -210,7 +210,7 @@ function formatRole(role: string): string {
   return role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function EntryDetail({ entry }: { entry: AuditEntry }) {
+function EntryDetail({ entry, currentStatuses }: { entry: AuditEntry; currentStatuses?: Record<string, string> }) {
   const meta = entry.metadata ?? {};
   switch (entry.action) {
     case 'application_approved':
