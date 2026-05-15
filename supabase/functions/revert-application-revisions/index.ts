@@ -187,7 +187,7 @@ serve(async (req) => {
       .insert({
         actor_id: userId,
         actor_name: staffName,
-        action: retryEmailOnly ? 'revision_request_reverted_email_retry' : 'revision_request_reverted',
+        action: 'revision_request_reverted',
         entity_type: 'application',
         entity_id: applicationId,
         entity_label: [app.first_name, app.email].filter(Boolean).join(' — '),
