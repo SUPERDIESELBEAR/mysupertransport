@@ -5,11 +5,19 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
   Milestone, RefreshCcw, Activity, ChevronDown, ChevronRight, Download, CalendarIcon, X,
   User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus, Mail, UserCheck, FilePen, RotateCcw, AlertTriangle
 } from 'lucide-react';
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: 'bg-status-progress/15 text-status-progress border-status-progress/30',
+  approved: 'bg-status-complete/15 text-status-complete border-status-complete/30',
+  denied: 'bg-destructive/15 text-destructive border-destructive/30',
+  revisions_requested: 'bg-status-progress/15 text-status-progress border-status-progress/30',
+};
 
 interface AuditEntry {
   id: string;
@@ -202,7 +210,7 @@ function formatRole(role: string): string {
   return role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function EntryDetail({ entry }: { entry: AuditEntry }) {
+function EntryDetail({ entry, currentStatuses }: { entry: AuditEntry; currentStatuses?: Record<string, string> }) {
   const meta = entry.metadata ?? {};
   switch (entry.action) {
     case 'application_approved':
@@ -256,13 +264,23 @@ function EntryDetail({ entry }: { entry: AuditEntry }) {
         </span>
       );
     }
-    case 'revision_request_reverted':
+    case 'revision_request_reverted': {
+      const currentStatus = entry.entity_id ? currentStatuses?.[entry.entity_id] : undefined;
       return (
         <span className="text-xs text-muted-foreground">
           Restored to <span className="font-medium text-foreground">{formatRole(meta.restored_status as string)}</span>
           {meta.invalidated_tokens ? ` · ${meta.invalidated_tokens} token(s) invalidated` : ''}
+          {currentStatus && (
+            <span className="inline-flex items-center gap-1.5 ml-2">
+              Now:
+              <Badge className={`text-[10px] px-1.5 py-0 border ${STATUS_COLORS[currentStatus] ?? 'bg-muted text-muted-foreground border-border'}`}>
+                {currentStatus}
+              </Badge>
+            </span>
+          )}
         </span>
       );
+    }
     default:
       return null;
   }
@@ -669,6 +687,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
   const [searchRaw, setSearchRaw] = useState('');
   const [search, setSearch] = useState('');
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [currentAppStatuses, setCurrentAppStatuses] = useState<Record<string, string>>({});
 
   const handleSearchChange = (val: string) => {
     setSearchRaw(val);
@@ -709,6 +728,29 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
     setEntries([]);
     fetchLog(0, filter, dateFrom, dateTo, search);
   }, [filter, dateFrom, dateTo, search]);
+
+  // Fetch current review statuses for applications referenced in revision reverted entries
+  useEffect(() => {
+    const appIds = entries
+      .filter(e => e.action === 'revision_request_reverted' && e.entity_type === 'application' && e.entity_id)
+      .map(e => e.entity_id!);
+    if (appIds.length === 0) {
+      setCurrentAppStatuses({});
+      return;
+    }
+    supabase
+      .from('applications')
+      .select('id, review_status')
+      .in('id', appIds)
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        const map: Record<string, string> = {};
+        data.forEach((row: any) => {
+          map[row.id] = row.review_status;
+        });
+        setCurrentAppStatuses(map);
+      });
+  }, [entries]);
 
   const handleLoadMore = () => {
     const next = page + 1;
@@ -984,7 +1026,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
                               {highlightMatch(entry.entity_label, search)}
                             </p>
                           )}
-                          <EntryDetail entry={entry} />
+                          <EntryDetail entry={entry} currentStatuses={currentAppStatuses} />
                         </div>
                         <div className="flex items-start gap-2 shrink-0">
                           <div className="text-right">
