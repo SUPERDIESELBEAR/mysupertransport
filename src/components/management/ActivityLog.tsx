@@ -687,6 +687,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
   const [searchRaw, setSearchRaw] = useState('');
   const [search, setSearch] = useState('');
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [currentAppStatuses, setCurrentAppStatuses] = useState<Record<string, string>>({});
 
   const handleSearchChange = (val: string) => {
     setSearchRaw(val);
