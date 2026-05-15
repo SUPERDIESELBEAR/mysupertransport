@@ -101,12 +101,13 @@ serve(async (req) => {
       const since = new Date(Date.now() - 2 * 60 * 1000).toISOString();
       const { data: recent } = await admin
         .from('email_send_log')
-        .select('id, sent_at')
-        .eq('application_id', applicationId)
-        .in('email_type', ['application-revisions-resent', 'application-resume-resent'])
-        .gte('sent_at', since)
-        .limit(1);
-      if (recent && recent.length > 0) {
+        .select('id, created_at, metadata')
+        .in('template_name', ['application-revisions-resent', 'application-resume-resent'])
+        .eq('recipient_email', app.email)
+        .gte('created_at', since)
+        .limit(5);
+      const hit = (recent ?? []).some((r: any) => r?.metadata?.application_id === applicationId);
+      if (hit) {
         return new Response(JSON.stringify({ error: 'cooldown', message: 'Please wait a couple of minutes before requesting another link.' }), {
           status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
