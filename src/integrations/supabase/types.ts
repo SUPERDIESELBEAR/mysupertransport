@@ -3915,6 +3915,10 @@ export type Database = {
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       mark_operator_seen: { Args: { _standalone: boolean }; Returns: undefined }
+      move_revisions_to_pending: {
+        Args: { p_application_id: string }
+        Returns: undefined
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
