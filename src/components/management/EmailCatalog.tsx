@@ -739,6 +739,50 @@ const TEMPLATES: EmailTemplate[] = [
       ONBOARDING_EMAIL
     ),
   },
+  {
+    id: 'application_moved_to_pending',
+    category: 'notifications',
+    title: 'Application Reopened (Moved to Pending)',
+    subject: 'Update on your SUPERTRANSPORT driver application',
+    recipient: 'applicant',
+    sender: `${BRAND_NAME} <${RECRUITING_EMAIL}>`,
+    renderHtml: () => buildEmail(
+      'Update on your SUPERTRANSPORT driver application',
+      'Application Reopened',
+      `<p>Hi ${SAMPLE_NAME},</p>
+       <p>Good news — our team is reviewing your SUPERTRANSPORT driver application and has reopened it so we can take care of a few small corrections on your behalf.</p>
+       <div style="margin:0 0 18px;padding:14px 16px;background:#f1f8ff;border-left:4px solid #2c7be5;border-radius:6px;color:#222;font-size:14px;line-height:1.6;">
+         <p style="margin:0 0 6px;font-weight:700;color:#1a4d8f;">What happens next</p>
+         <p style="margin:0;">If any changes need your approval, you'll receive a separate email with a secure link to review and e-sign them.</p>
+       </div>
+       <p>Any earlier "please update your application" link has been retired and will no longer work — please disregard it.</p>`,
+      undefined,
+      RECRUITING_EMAIL
+    ),
+  },
+  {
+    id: 'application_correction_request',
+    category: 'notifications',
+    title: 'Suggested Corrections — Approval Needed',
+    subject: 'Action needed: approve corrections to your SUPERTRANSPORT application',
+    recipient: 'applicant',
+    sender: `${BRAND_NAME} <${RECRUITING_EMAIL}>`,
+    renderHtml: () => buildEmail(
+      'Action needed: approve corrections to your SUPERTRANSPORT application',
+      'Corrections Awaiting Approval',
+      `<p>Hi ${SAMPLE_NAME},</p>
+       <p>Our team has prepared a few corrections to your SUPERTRANSPORT driver application and needs your approval before they take effect.</p>
+       <div style="margin:0 0 18px;padding:14px 16px;background:#fff7e0;border-left:4px solid #C9A84C;border-radius:6px;color:#222;font-size:14px;line-height:1.6;">
+         <p style="margin:0 0 6px;font-weight:700;color:#7a5b00;">Reason for these corrections:</p>
+         <p style="margin:0;">Date of birth was off by one day on your MVR.</p>
+       </div>
+       <p style="margin:18px 0 8px;font-weight:700;">Proposed changes</p>
+       <p style="color:#666;font-size:13px;">[Field-by-field comparison table is generated automatically]</p>
+       <p>Click below to review the changes side-by-side and either approve them with your e-signature or reject them.</p>`,
+      { label: 'Review & approve changes', url: `${SAMPLE_APP_URL}/application/approve/sample-token` },
+      RECRUITING_EMAIL
+    ),
+  },
 ];
 
 // ─── Category helpers ─────────────────────────────────────────────────────────
