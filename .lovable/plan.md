@@ -1,46 +1,91 @@
 ## Goal
 
-Undo the accidental "request revisions" sent to Tyler Walls (`tylerwalls87@icloud.com`, application `7ef1d5c9-7954-480b-a59d-4dad44706156`). His application should go back to its prior **approved** state, and the resume link in his inbox should stop working so he can't accidentally reopen the form.
+Build a self-serve "Revert revision request" flow so any staff member can undo a mistakenly-sent "request revisions" email — instead of needing me or a direct DB write (like we just did for Tyler Walls).
 
-## Current state
+## UX
 
-- `review_status` = `revisions_requested`
-- `pre_revision_status` = `approved` (this is what it was before the mistake)
-- `revision_count` = 1
-- `revision_requested_at` = 2026-05-15 11:18 UTC
-- `revision_request_message` = the test message
-- An unused `application_resume_tokens` row exists for him
+In `ApplicationReviewDrawer.tsx`, inside the existing `revisions_requested` banner (line 1055), add a small **"Undo — was sent in error"** button (ghost link style, right-aligned).
 
-## Plan
+Clicking it opens a confirmation modal (`RevertRevisionModal.tsx`) that shows everything the user needs to verify before pulling the trigger:
 
-### 1. Restore the application row
+```text
+Undo revision request
 
-Update `applications` where `id = 7ef1d5c9-7954-480b-a59d-4dad44706156`:
+Applicant:        Tyler Walls
+                  tylerwalls87@icloud.com
 
-- `review_status` ← `approved` (from `pre_revision_status`)
-- `pre_revision_status` ← `NULL`
-- `revision_requested_at` ← `NULL`
-- `revision_requested_by` ← `NULL`
-- `revision_request_message` ← `NULL`
-- `revision_count` ← `0` (since the only increment was this mistake)
+Sent:             May 15, 2026 at 6:18 AM CT
+                  by Marcus Mueller
 
-### 2. Invalidate the emailed resume link
+Message that
+was emailed:      "Test send from Lovable agent: please verify..."
 
-Mark all unused `application_resume_tokens` rows for this application as used (`used_at = now()`) so the link in his inbox returns "invalid/expired" if he clicks it.
+This will:
+ ✓ Restore status to: Approved
+ ✓ Invalidate 1 unused resume link in their inbox
+ ✓ Reset revision count from 1 → 0
+ ✓ Write an audit log entry
 
-### 3. Audit trail
+[ ] Also email the applicant a short "please disregard" note
+                  (default OFF — most cases you'll just text them)
 
-Insert an `audit_log` entry: action `revision_request_reverted`, entity_type `application`, entity_id = his application id, entity_label = "Tyler Walls", with metadata noting it was a mistaken send.
+⚠ The applicant should be told to ignore the original email.
+   The link in their inbox will stop working immediately.
 
-### 4. Verify
+                       [ Cancel ]   [ Confirm undo ]
+```
 
-Re-read the applications row and the resume tokens row to confirm the revert and that no token is still consumable. No email is sent — he simply ignores the original message.
+After confirm: drawer refreshes, banner disappears, status badge flips back to Approved/Pending, toast confirms.
+
+## Permissions
+
+Allowed for **any staff** (`onboarding_staff`, `dispatcher`, `management`, `owner`) — same level as the original "Request Revisions" action. Rationale: whoever can send it should be able to unsend it.
+
+## Technical pieces
+
+### 1. New edge function `revert-application-revisions`
+
+`supabase/functions/revert-application-revisions/index.ts`
+
+- Auth: `getClaims(token)` from header (per project pattern), then check `is_staff` via DB query with `.limit(1)`.
+- Body: `{ applicationId: string, sendCourtesyEmail?: boolean }` (Zod-validated).
+- Loads application; rejects with 400 if `review_status !== 'revisions_requested'`.
+- Computes pre-state for response payload (count of unused tokens, restored status).
+- Atomic ops:
+  - `UPDATE applications` → set `review_status = COALESCE(pre_revision_status, 'approved')`, clear `pre_revision_status`, `revision_requested_at`, `revision_requested_by`, `revision_request_message`; decrement `revision_count` (floor 0).
+  - `UPDATE application_resume_tokens` → `used_at = now()` where `application_id = X AND used_at IS NULL`. Capture row count.
+  - `INSERT audit_log` → action `revision_request_reverted`, actor = caller, metadata `{ restored_status, invalidated_tokens, courtesy_email_sent }`.
+- If `sendCourtesyEmail`: enqueue via existing email queue (template name `application_revision_reverted_courtesy` — short body: "We mistakenly sent a request for revisions. Please disregard the previous email — no action needed."). If queueing fails, **don't** roll back the revert; just log and return `courtesy_email_sent: false` with a warning so the modal can show "couldn't send courtesy email — message them manually".
+- Returns `{ ok: true, restoredStatus, invalidatedTokens, courtesyEmailSent }`.
+
+### 2. New email template row
+
+Insert one row in `email_templates` with `milestone_key = application_revision_reverted_courtesy`, subject "Please disregard our last email", short body. Editable later in the Email Catalog.
+
+### 3. Frontend
+
+- `src/components/management/RevertRevisionModal.tsx` (new)
+  - Props: `application`, `open`, `onOpenChange`, `onSuccess`
+  - Pre-loads unused token count via a quick `select count(*)` so the modal can show the exact number.
+  - Calls `supabase.functions.invoke('revert-application-revisions', { body })`.
+- `ApplicationReviewDrawer.tsx`
+  - Add `[Undo — was sent in error]` button in the revisions banner.
+  - Wire it to open the modal; on success, refetch the application and close.
+
+### 4. Memory
+
+After build, append a short leaf `mem://features/application-review/revert-revision-flow.md` and reference it from index, so future sessions know this affordance exists.
 
 ## Out of scope
 
-- No changes to `request-application-revisions` logic. The Email Log panel + admin resender already covers future cases; this is a one-off data fix.
-- Not contacting Tyler from the app — if you want a courtesy "ignore that email" note, send it manually or tell me and I'll add a step.
+- No bulk "revert all" tooling. One-off only.
+- No change to `request-application-revisions` itself.
+- The Email Log panel automatically picks up the courtesy email entry when sent — no extra wiring.
+
+## What you'll get
+
+A clearly-labeled undo path that staff can run themselves for the next "oops, sent that to the wrong person" moment, with full visibility into what gets touched before they confirm.
 
 ## What I need from you
 
-Approve and I'll run the two data updates + audit log insert, then confirm the final state.
+Approve and I'll build it end-to-end (migration for the email template, edge function, modal, drawer wiring, deploy, and test).
