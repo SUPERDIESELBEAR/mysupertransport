@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Loader2, AlertTriangle, Download, ShieldCheck, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { logPEIEvent } from '@/lib/pei/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import FCRAAuthorizationDoc from '@/components/application/documents/FCRAAuthorizationDoc';
@@ -58,6 +59,7 @@ export default function PEIRelease() {
         if (error) throw error;
         if ((res as any)?.error) throw new Error((res as any).error);
         setData(res as ReleaseResponse);
+        if (token) logPEIEvent(token, 'opened_release_link');
       } catch (e: any) {
         setError(
           e?.message?.replace(/^Edge Function returned a non-2xx status code.*/i, '') ||

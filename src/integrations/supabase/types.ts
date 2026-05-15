@@ -2582,6 +2582,44 @@ export type Database = {
           },
         ]
       }
+      pei_request_events: {
+        Row: {
+          event_type: string
+          id: string
+          ip_address: unknown
+          metadata: Json | null
+          occurred_at: string
+          pei_request_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          event_type: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json | null
+          occurred_at?: string
+          pei_request_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          event_type?: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json | null
+          occurred_at?: string
+          pei_request_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pei_request_events_pei_request_id_fkey"
+            columns: ["pei_request_id"]
+            isOneToOne: false
+            referencedRelation: "pei_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pei_requests: {
         Row: {
           application_id: string
@@ -2747,6 +2785,9 @@ export type Database = {
           responder_state: string | null
           responder_title: string | null
           safe_and_efficient: boolean | null
+          signed_at: string | null
+          signed_ip: unknown
+          signed_user_agent: string | null
           submission_method: string | null
           trailer_cargo_tank: boolean | null
           trailer_doubles: boolean | null
@@ -2805,6 +2846,9 @@ export type Database = {
           responder_state?: string | null
           responder_title?: string | null
           safe_and_efficient?: boolean | null
+          signed_at?: string | null
+          signed_ip?: unknown
+          signed_user_agent?: string | null
           submission_method?: string | null
           trailer_cargo_tank?: boolean | null
           trailer_doubles?: boolean | null
@@ -2863,6 +2907,9 @@ export type Database = {
           responder_state?: string | null
           responder_title?: string | null
           safe_and_efficient?: boolean | null
+          signed_at?: string | null
+          signed_ip?: unknown
+          signed_user_agent?: string | null
           submission_method?: string | null
           trailer_cargo_tank?: boolean | null
           trailer_doubles?: boolean | null
@@ -3799,10 +3846,20 @@ export type Database = {
               isSetofReturn: true
             }
           }
-      submit_pei_response: {
-        Args: { p_accidents?: Json; p_response: Json; p_token: string }
-        Returns: string
-      }
+      submit_pei_response:
+        | {
+            Args: { p_accidents?: Json; p_response: Json; p_token: string }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_accidents?: Json
+              p_meta?: Json
+              p_response: Json
+              p_token: string
+            }
+            Returns: string
+          }
     }
     Enums: {
       account_status: "pending" | "active" | "denied" | "inactive"
