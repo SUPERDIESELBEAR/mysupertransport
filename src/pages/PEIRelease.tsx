@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Loader2, AlertTriangle, Download, ShieldCheck } from 'lucide-react';
+import { Loader2, AlertTriangle, Download, ShieldCheck, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import type { FullApplication } from '@/components/management/ApplicationReviewD
 import { openPrintableDocument, type PrintPageSize } from '@/lib/printDocument';
 
 const PAGE_SIZE_KEY = 'pei_release_page_size';
+const SAMPLE_TOKEN = 'sample';
 
 interface ReleaseResponse {
   application: Partial<FullApplication> & {
@@ -22,7 +23,8 @@ interface ReleaseResponse {
 
 export default function PEIRelease() {
   const { token } = useParams<{ token: string }>();
-  const [loading, setLoading] = useState(true);
+  const isSample = token === SAMPLE_TOKEN;
+  const [loading, setLoading] = useState(!isSample);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ReleaseResponse | null>(null);
   const [pageSize, setPageSize] = useState<PrintPageSize>(() => {
@@ -41,6 +43,7 @@ export default function PEIRelease() {
   }
 
   useEffect(() => {
+    if (isSample) return;
     if (!token) {
       setError('Missing release token.');
       setLoading(false);
@@ -64,7 +67,31 @@ export default function PEIRelease() {
         setLoading(false);
       }
     })();
-  }, [token]);
+  }, [token, isSample]);
+
+  const sampleData = useMemo<ReleaseResponse | null>(() => {
+    if (!isSample) return null;
+    const today = new Date().toISOString().slice(0, 10);
+    return {
+      application: {
+        id: 'sample',
+        first_name: 'Test',
+        last_name: 'Applicant',
+        email: 'test.applicant@example.com',
+        dob: '1985-04-12',
+        typed_full_name: 'Test Applicant',
+        signed_date: today,
+        signature_image_url: '',
+        auth_safety_history: true,
+        auth_drug_alcohol: true,
+        auth_previous_employers: true,
+      } as Partial<FullApplication> & { id: string; email: string; signed_date: string },
+      signatureDataUrl: null,
+      pei: { employer_name: 'Sample Trucking Co.', status: 'sent' },
+    };
+  }, [isSample]);
+
+  const effectiveData = isSample ? sampleData : data;
 
   if (loading) {
     return (
@@ -74,7 +101,7 @@ export default function PEIRelease() {
     );
   }
 
-  if (error || !data) {
+  if (error || !effectiveData) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-muted/30">
         <Card className="max-w-md p-8 text-center space-y-3">
@@ -88,7 +115,7 @@ export default function PEIRelease() {
     );
   }
 
-  const app = data.application as FullApplication;
+  const app = effectiveData.application as FullApplication;
 
   return (
     <div className="min-h-screen bg-muted/40 py-8 px-4">
@@ -101,7 +128,7 @@ export default function PEIRelease() {
                 Signed FCRA Authorization
               </h1>
               <p className="text-sm text-muted-foreground">
-                Provided to <strong>{data.pei.employer_name}</strong> for
+                Provided to <strong>{effectiveData.pei.employer_name}</strong> for
                 previous-employer verification under 49 CFR §391.23.
               </p>
             </div>
@@ -156,12 +183,57 @@ export default function PEIRelease() {
           </div>
         </div>
 
+        {isSample && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
+            <Info className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              This is a <strong>sample</strong> FCRA authorization included in test PEI emails.
+              No real applicant data is shown.
+            </span>
+          </div>
+        )}
+
         <Card className="overflow-hidden p-0">
-          <div id="fcra-release-doc">
+          <div id="fcra-release-doc" style={{ position: 'relative' }}>
             <FCRAAuthorizationDoc
               app={app}
-              signatureDataUrl={data.signatureDataUrl}
+              signatureDataUrl={effectiveData.signatureDataUrl}
             />
+            {isSample && (
+              <div
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  pointerEvents: 'none',
+                  zIndex: 10,
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    transform: 'rotate(-22deg)',
+                    fontSize: '72px',
+                    fontWeight: 800,
+                    letterSpacing: '0.08em',
+                    color: '#C8341E',
+                    opacity: 0.18,
+                    whiteSpace: 'nowrap',
+                    fontFamily: 'Arial, sans-serif',
+                    textAlign: 'center',
+                    lineHeight: 1.1,
+                  }}
+                >
+                  SAMPLE — TEST EMAIL ONLY
+                  <div style={{ fontSize: '20px', letterSpacing: '0.18em', marginTop: '8px' }}>
+                    NOT A VALID AUTHORIZATION
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 
