@@ -3742,33 +3742,63 @@ export type Database = {
         }
         Returns: undefined
       }
-      search_audit_log: {
-        Args: {
-          p_action?: string
-          p_from?: string
-          p_limit?: number
-          p_offset?: number
-          p_search?: string
-          p_to?: string
-        }
-        Returns: {
-          action: string
-          actor_id: string | null
-          actor_name: string | null
-          created_at: string
-          entity_id: string | null
-          entity_label: string | null
-          entity_type: string
-          id: string
-          metadata: Json | null
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "audit_log"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
+      search_audit_log:
+        | {
+            Args: {
+              p_action?: string
+              p_from?: string
+              p_limit?: number
+              p_offset?: number
+              p_search?: string
+              p_to?: string
+            }
+            Returns: {
+              action: string
+              actor_id: string | null
+              actor_name: string | null
+              created_at: string
+              entity_id: string | null
+              entity_label: string | null
+              entity_type: string
+              id: string
+              metadata: Json | null
+            }[]
+            SetofOptions: {
+              from: "*"
+              to: "audit_log"
+              isOneToOne: false
+              isSetofReturn: true
+            }
+          }
+        | {
+            Args: {
+              p_action?: string
+              p_actor_id?: string
+              p_entity_id?: string
+              p_from?: string
+              p_limit?: number
+              p_offset?: number
+              p_search?: string
+              p_to?: string
+            }
+            Returns: {
+              action: string
+              actor_id: string | null
+              actor_name: string | null
+              created_at: string
+              entity_id: string | null
+              entity_label: string | null
+              entity_type: string
+              id: string
+              metadata: Json | null
+            }[]
+            SetofOptions: {
+              from: "*"
+              to: "audit_log"
+              isOneToOne: false
+              isSetofReturn: true
+            }
+          }
       submit_pei_response: {
         Args: { p_accidents?: Json; p_response: Json; p_token: string }
         Returns: string
