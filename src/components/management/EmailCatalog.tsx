@@ -836,6 +836,29 @@ export default function EmailCatalog() {
 
   useEffect(() => { fetchDbTemplates(); }, [fetchDbTemplates]);
 
+  // Substitute all placeholders for preview rendering
+  const SAMPLE_CHANGES_TABLE = `<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #eee;border-radius:6px;overflow:hidden;margin:0 0 20px;">
+    <thead><tr style="background:#fafafa;">
+      <th align="left" style="padding:10px 12px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px;">Field</th>
+      <th align="left" style="padding:10px 12px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px;">Current</th>
+      <th align="left" style="padding:10px 12px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px;">Proposed</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;color:#444;font-size:13px;font-weight:600;width:36%;">Date of birth</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;color:#999;font-size:13px;text-decoration:line-through;">1985-04-12</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;color:#0a7c3a;font-size:13px;font-weight:600;">1985-04-13</td>
+      </tr>
+    </tbody>
+  </table>`;
+  const SAMPLE_COURTESY_BLOCK = `<p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.7;">No worries — these are minor edits and will only take a moment to approve.</p>`;
+  const substitutePreview = (s: string): string => s
+    .replace(/\{\{name\}\}/g, SAMPLE_NAME)
+    .replace(/\{\{extra\}\}/g, SAMPLE_DATE)
+    .replace(/\{\{reason\}\}/g, 'Date of birth was off by one day on your MVR.')
+    .replace(/\{\{courtesy_block\}\}/g, SAMPLE_COURTESY_BLOCK)
+    .replace(/\{\{changes_table\}\}/g, SAMPLE_CHANGES_TABLE);
+
   const handleOpenEdit = (templateId: string) => {
     const dbRow = dbTemplates[templateId];
     if (dbRow) {
