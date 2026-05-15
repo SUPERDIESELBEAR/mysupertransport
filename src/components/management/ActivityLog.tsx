@@ -1004,7 +1004,7 @@ export default function ActivityLog({ onNavigate }: { onNavigate?: (action: Deep
           <Button
             variant="outline"
             size="sm"
-            onClick={() => { setPage(0); setEntries([]); fetchLog(0, filter, dateFrom, dateTo); }}
+            onClick={() => { setPage(0); setEntries([]); fetchLog(0, filter, dateFrom, dateTo, search, applicantId, actorId); }}
             disabled={loading}
             className="gap-1.5"
           >
