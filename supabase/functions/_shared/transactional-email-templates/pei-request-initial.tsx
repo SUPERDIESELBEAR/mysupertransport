@@ -6,7 +6,7 @@ import {
 import type { TemplateEntry } from './registry.ts'
 import {
   BRAND_NAME, accentBar, brand, button, callout, container, factCell,
-  factLabel, factTable, footer, h1, h2, main, muted, subBrand, text, unmonitoredNotice,
+  factLabel, factTable, footer, h1, h2, main, muted, secondaryButton, subBrand, text, unmonitoredNotice,
   type PEIEmailProps,
 } from './_pei-shared.ts'
 
@@ -18,6 +18,7 @@ const PEIRequestInitialEmail = (props: PEIEmailProps) => {
   const end = props.employmentEndDate || '—'
   const url = props.responseUrl || 'https://mysupertransport.lovable.app/pei/respond/SAMPLE-TOKEN'
   const deadline = props.deadlineDate || 'within 30 days of receipt'
+  const releaseUrl = props.releaseUrl
 
   return (
     <Html lang="en" dir="ltr">
@@ -84,6 +85,19 @@ const PEIRequestInitialEmail = (props: PEIEmailProps) => {
           <Button style={button} href={url}>
             Complete the investigation →
           </Button>
+          {releaseUrl ? (
+            <>
+              <br />
+              <Button style={secondaryButton} href={releaseUrl}>
+                📄 View the signed FCRA authorization
+              </Button>
+              <Text style={muted}>
+                The applicant signed a Fair Credit Reporting Act release
+                authorizing you to share this employment information with{' '}
+                {BRAND_NAME}. Click above to view the signed document.
+              </Text>
+            </>
+          ) : null}
           <div style={unmonitoredNotice}>
             📭 This inbox is not monitored. Please use the secure response
             button above to submit your verification.
@@ -125,6 +139,7 @@ export const template = {
     employmentStartDate: '03/2021',
     employmentEndDate: '08/2024',
     responseUrl: 'https://mysupertransport.lovable.app/pei/respond/SAMPLE-TOKEN',
+    releaseUrl: 'https://mysupertransport.lovable.app/pei/release/SAMPLE-TOKEN',
     deadlineDate: 'within 30 days of receipt',
   },
 } satisfies TemplateEntry
