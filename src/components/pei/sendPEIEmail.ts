@@ -97,6 +97,7 @@ export async function sendPEIEmail(
       ? PUBLISHED_ORIGIN
       : rawOrigin;
   const responseUrl = `${safeOrigin.replace(/\/$/, '')}/pei/respond/${req.response_token}`;
+  const releaseUrl = `${safeOrigin.replace(/\/$/, '')}/pei/release/${req.response_token}`;
 
   const templateData = {
     applicantName,
@@ -105,6 +106,7 @@ export async function sendPEIEmail(
     employmentStartDate: fmtDate(req.employment_start_date),
     employmentEndDate: fmtDate(req.employment_end_date),
     responseUrl,
+    releaseUrl,
     deadlineDate: fmtDeadline(req.deadline_date),
     daysRemaining,
   };
