@@ -131,6 +131,25 @@ export interface PEIEmailProps {
   responseUrl?: string
   deadlineDate?: string
   daysRemaining?: number
+  /** Tokenized URL where the recipient can view the applicant's signed
+   *  Fair Credit Reporting Act authorization. Same token as responseUrl. */
+  releaseUrl?: string
+}
+
+// Secondary outline button used for the "View signed authorization" link.
+// Visually subordinate to the primary `button` style so the response CTA
+// still wins attention.
+export const secondaryButton = {
+  backgroundColor: '#FFFFFF',
+  color: BRAND_DARK,
+  fontSize: '13px',
+  fontWeight: 'bold' as const,
+  borderRadius: '6px',
+  padding: '10px 18px',
+  textDecoration: 'none',
+  display: 'inline-block',
+  border: `1px solid ${BRAND_GOLD}`,
+  margin: '4px 0 18px',
 }
 
 export function buildResponseUrl(
