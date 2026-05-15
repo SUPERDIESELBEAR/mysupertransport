@@ -920,13 +920,18 @@ export default function EmailCatalog() {
   const getPreviewHtml = (template: EmailTemplate): string => {
     const dbRow = dbTemplates[template.id];
     if (dbRow) {
-      const bodyWithName = dbRow.body_html.replace(/\{\{name\}\}/g, SAMPLE_NAME).replace(/\{\{extra\}\}/g, SAMPLE_DATE);
+      const bodyWithName = substitutePreview(dbRow.body_html);
+      const footerEmail = template.id === 'application_moved_to_pending' || template.id === 'application_correction_request'
+        ? RECRUITING_EMAIL
+        : ONBOARDING_EMAIL;
+      const ctaLabel = (dbRow.cta_label ?? '').trim();
+      const cta = ctaLabel ? { label: ctaLabel, url: `${SAMPLE_APP_URL}/dashboard` } : undefined;
       return buildEmail(
-        dbRow.subject,
+        substitutePreview(dbRow.subject),
         dbRow.heading,
         bodyWithName,
-        { label: dbRow.cta_label, url: `${SAMPLE_APP_URL}/dashboard` },
-        ONBOARDING_EMAIL
+        cta,
+        footerEmail
       );
     }
     return template.renderHtml();
