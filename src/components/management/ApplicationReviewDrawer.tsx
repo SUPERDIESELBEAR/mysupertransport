@@ -236,6 +236,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [justReverted, setJustReverted] = useState(false);
   const [correctionsOpen, setCorrectionsOpen] = useState(false);
   const [correctionRefreshKey, setCorrectionRefreshKey] = useState(0);
+  const [movingToPending, setMovingToPending] = useState(false);
   const [loading, setLoading] = useState(false);
   const [ssnVisible, setSsnVisible] = useState(false);
   const [ssnValue, setSsnValue] = useState<string | null>(null);
