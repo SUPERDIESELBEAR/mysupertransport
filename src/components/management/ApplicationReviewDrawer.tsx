@@ -230,6 +230,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | 'revise' | null>(null);
   const [revisionMessage, setRevisionMessage] = useState('');
   const [revertOpen, setRevertOpen] = useState(false);
+  const [revertBannerKey, setRevertBannerKey] = useState(0);
+  const [justReverted, setJustReverted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [ssnVisible, setSsnVisible] = useState(false);
   const [ssnValue, setSsnValue] = useState<string | null>(null);
@@ -1054,8 +1056,15 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           )}
         </div>
 
-        {/* Revisions-requested status banner */}
-        {app.review_status === 'revisions_requested' && (
+        {/* Persistent "Reverted" confirmation banner (audit-log driven, last 24h) */}
+        <RevertedBanner
+          applicationId={app.id}
+          firstName={app.first_name}
+          refreshKey={revertBannerKey}
+        />
+
+        {/* Revisions-requested status banner — hidden once a revert just happened in this session */}
+        {app.review_status === 'revisions_requested' && !justReverted && (
           <div className="border-t border-border p-4 bg-status-progress/10 shrink-0">
             <div className="flex items-start gap-3">
               <RotateCcw className="h-5 w-5 text-status-progress shrink-0 mt-0.5" />
@@ -1090,7 +1099,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           onOpenChange={setRevertOpen}
           application={app}
           onSuccess={() => {
-            onClose();
+            // Drawer stays open so staff can see the new "Reverted" banner.
+            setJustReverted(true);
+            setRevertBannerKey((k) => k + 1);
             onExpiryUpdated?.();
           }}
         />
