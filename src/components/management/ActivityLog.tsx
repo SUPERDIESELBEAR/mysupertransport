@@ -300,6 +300,9 @@ function EntryExpandedPanel({
     if (entry.entity_type === 'operator' && entry.entity_id) {
       return { type: 'operator', operatorId: entry.entity_id };
     }
+    if (entry.entity_type === 'application' && entry.entity_id) {
+      return { type: 'application', applicationId: entry.entity_id };
+    }
     if (entry.entity_type === 'staff_profile') {
       return { type: 'staff' };
     }
