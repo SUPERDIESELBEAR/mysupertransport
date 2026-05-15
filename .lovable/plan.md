@@ -1,85 +1,76 @@
-## Goal
+# Staff Corrections With Applicant Approval
 
-Add a tamper-evident audit trail for PEI (previous employer investigation) requests so we can prove when previous employers opened the response link, opened the FCRA release, and submitted their response — including IP address and user-agent. No CC/BCC of staff inboxes. Surface the trail in the PEI viewer for FMCSA audit defensibility.
+Adds a flow where staff fix typos / clerical issues on a submitted application directly inside the review drawer, then send the applicant a tokenized link to review the diff and e-sign their approval. Complements (does not replace) the existing "Revert for Revision" flow.
 
-## What we're adding
+## User flow
 
-1. **Per-event log** of every interaction the previous employer has with our tokenized links (open + submit), with server-captured IP and user-agent.
-2. **Signature provenance** stamped onto the response itself (precise `signed_at`, `signed_ip`, `signed_user_agent`).
-3. **Audit trail panel** inside the existing PEI Response Viewer ("Sent → Delivered → Opened response link → Opened FCRA release → Signed") so staff (and any future auditor) see the full timeline in one place.
+**Staff side** (Application Review Drawer)
+1. New "Edit application" toggle on the drawer header → switches each section into editable inputs (everything except SSN and the original signature image).
+2. Staff change one or more fields. A right-rail "Pending changes" panel lists each edit as `Field: old → new`.
+3. Staff click **Send for applicant approval** → modal asks for a required *Reason for changes* note (shown to the applicant) and an optional courtesy email message.
+4. A `application_correction_request` row is created (status `pending`), every field-level diff is stored, and a tokenized email goes to the applicant.
+5. Drawer shows a yellow "Awaiting applicant approval — sent {ts} by {staff}" banner. Further staff edits are blocked until the applicant responds (staff may *Cancel request* at any time).
 
-## Database changes
+**Applicant side** (new public page `/application/approve/:token`)
+1. Loads via SECURITY DEFINER RPC keyed off the token (no auth, like PEI/FCRA).
+2. Shows: who made the changes, the reason, and a clean before/after diff per field.
+3. Two buttons: **Approve & sign** or **Reject changes**.
+4. Approve → typed-name + signature pad → submits with IP/UA captured server-side. The diff is applied to `applications` in a single transaction; correction request marked `approved`; staff notified.
+5. Reject → optional reason text → request marked `rejected`; **edits stay pending** so staff can adjust and resend (per your answer #4). Staff get an in-app + email notification.
 
-New table:
+## Audit trail
 
-```text
-pei_request_events
-  id              uuid pk
-  pei_request_id  uuid fk -> pei_requests(id) on delete cascade
-  event_type      text   -- 'opened_response_link' | 'opened_release_link' | 'submitted'
-  occurred_at     timestamptz default now()
-  ip_address      inet
-  user_agent      text
-  metadata        jsonb  -- e.g. { response_id }
-```
-- Indexed on `(pei_request_id, occurred_at desc)`.
-- RLS: staff can `select`; only the service role inserts (writes only happen from edge functions).
+- `application_correction_requests` — one row per send, with `application_id`, `requested_by_staff_id`, `reason_for_changes`, `status` (`pending`/`approved`/`rejected`/`cancelled`/`expired`), `token`, `sent_at`, `responded_at`, `signed_ip`, `signed_user_agent`, `signed_typed_name`, `signature_image_url`, `rejection_reason`.
+- `application_correction_fields` — one row per changed field, with `request_id`, `field_path` (e.g. `address_city`, `employers[1].end_date`), `old_value` (jsonb), `new_value` (jsonb).
+- Every state change writes to the existing `audit_log` via `search_audit_log` so it shows up in the Audit Log view alongside reverts.
 
-New columns on `pei_responses`:
-- `signed_at timestamptz` (precise; existing `date_signed date` kept for backward compat)
-- `signed_ip inet`
-- `signed_user_agent text`
+## Locked fields
 
-`submit_pei_response` RPC: extend signature to accept a `p_meta jsonb` with `signed_ip`, `signed_user_agent`, `signed_at`, and store them on the response row.
+Editable: all personal/contact, addresses, CDL fields, endorsements, employer entries (incl. add/remove rows), employment gaps, driving experience, equipment, accidents/violations, DOT drug/alcohol answers, document URLs.
 
-## New edge function
+Locked (greyed out with a lock icon + tooltip "Applicant must change this themselves — use Revert for Revision"): `ssn`, `signature_image_url`, `typed_full_name`, `signed_date`, `auth_*` consent checkboxes, `testing_policy_accepted`. For these the existing **Revert for Revision** flow is the right tool.
 
-`log-pei-event` (POST `{ token, event_type, response_id? }`):
-- Resolves `pei_request_id` from `response_token` (server-side, service role).
-- Derives IP from `x-forwarded-for` / `cf-connecting-ip`, user-agent from `user-agent` header.
-- Inserts a row into `pei_request_events`.
-- Validates `event_type` against the allowed set.
-- Silent failure on the client — logging never blocks the user flow.
+## Database
 
-Existing `pei-release-fcra` is updated to also log `opened_release_link` server-side as a defense-in-depth backup (in case the client-side call is blocked).
+New migration:
+- `application_correction_requests` table + RLS (staff read/write via `is_staff()`, public read of single row by token via SECURITY DEFINER RPC).
+- `application_correction_fields` table + RLS (staff read; inserts only via the staff-side RPC; readable by token via the same RPC).
+- `submit_application_correction(p_application_id, p_reason, p_fields jsonb[])` — creates request + field rows atomically, returns token.
+- `get_application_correction_by_token(p_token)` — returns request + fields + applicant first/last name (no SSN).
+- `approve_application_correction(p_token, p_signed_name, p_signature_url, p_meta jsonb)` — applies all diffs to `applications`, stamps approval + ip/ua, fires notification trigger.
+- `reject_application_correction(p_token, p_reason)` — marks rejected.
+- `cancel_application_correction(p_request_id)` — staff-only, marks cancelled.
+- Trigger on status change → notifies the assigned onboarding staff (in-app + email via existing pattern).
 
-## Frontend wiring
+Token: 32-byte URL-safe, stored hashed; 14-day expiry.
 
-- `src/pages/PEIRespond.tsx`
-  - On mount (after token resolves, non-sample): fire `log-pei-event` with `opened_response_link`.
-  - On successful submit: fire `log-pei-event` with `submitted` + the new `response_id`. Also pass `signed_at: new Date().toISOString()` and `user_agent: navigator.userAgent` into the `submit_pei_response` RPC via the new `p_meta` param. (IP is added server-side in the edge function event log; the response row's `signed_ip` is enriched by a tiny follow-up edge call so the row carries it too.)
-- `src/pages/PEIRelease.tsx`
-  - On mount (non-sample token): fire `log-pei-event` with `opened_release_link`. Skip for `token === 'sample'`.
-- `src/components/pei/PEIResponseViewer.tsx`
-  - New "Audit Trail" section listing all `pei_request_events` for the request plus the matching `email_send_log` rows by `last_email_message_id`. Format:
-    ```text
-    Sent        2026-05-15 09:14 CT  by Sarah K.
-    Delivered   2026-05-15 09:14 CT  (Lovable Email)
-    Opened      2026-05-15 11:02 CT  104.28.xx.xx · Chrome/macOS  (response link)
-    Opened      2026-05-15 11:03 CT  104.28.xx.xx · Chrome/macOS  (FCRA release)
-    Signed      2026-05-15 11:09 CT  104.28.xx.xx · Chrome/macOS
-    ```
-  - Adds a "Print audit trail" button alongside the existing print action.
+## Edge functions
 
-## Deliberately NOT doing
+- `send-application-correction-email` — renders email with reason + summarized diff + approve link, enqueues via existing email queue. CC'd to assigned onboarding staff so they have a copy.
+- `notify-application-correction-response` — fired by trigger, emails the staff member when applicant approves or rejects (uses existing `enqueue_email`).
+- `log-application-correction-event` — captures IP/UA on link open + on submit (mirrors `log-pei-event`).
 
-- **Not** adding staff CC/BCC to outbound PEI emails. It creates inbox noise, leaks PII into staff mailboxes, and the audit trail above is stronger evidence than an inbox copy.
-- Not changing email templates, not changing the responder's form UX, not touching GFE flow.
+No CC of staff on the *applicant-facing* email beyond the assigned coordinator (matches your past PEI preference of avoiding inbox noise).
 
-## Files touched
+## Frontend changes
 
-- `supabase/migrations/<new>.sql` — new table, new columns, RLS, updated `submit_pei_response`.
-- `supabase/functions/log-pei-event/index.ts` — new function.
-- `supabase/functions/pei-release-fcra/index.ts` — also log `opened_release_link`.
-- `src/lib/pei/api.ts` — `logPEIEvent(token, eventType, responseId?)` helper + types for events.
-- `src/lib/pei/types.ts` — `PEIRequestEvent` type, extended `PEIResponse`.
-- `src/pages/PEIRespond.tsx` — call `log-pei-event` on mount + submit; pass meta to RPC.
-- `src/pages/PEIRelease.tsx` — call `log-pei-event` on mount (skip for `sample`).
-- `src/components/pei/PEIResponseViewer.tsx` — audit trail section + print.
-- `mem://features/pei/fcra-release-link.md` — note the new event-logging behavior.
+- `ApplicationReviewDrawer.tsx` — add edit mode state, per-field editable controls, pending-changes side panel, status banner. Reuse existing `FormField`, `DateInput`, `Select` patterns from the application form.
+- New `SendCorrectionRequestModal.tsx` — reason textarea, courtesy message, send button, summary of pending diff.
+- New `CorrectionRequestStatusCard.tsx` — shown inside drawer when a request is pending/approved/rejected, with "Cancel request" + "Resend" actions.
+- New page `src/pages/ApplicationApprove.tsx` — public diff viewer + signature pad (reuses `react-signature-canvas` setup from ICA). Route added in `App.tsx`.
+- `src/lib/applicationCorrections/` — `api.ts`, `types.ts`, `diffUtils.ts` (path → label mapping for human-readable diff).
+- Audit Log: add `application_correction_sent` / `_approved` / `_rejected` / `_cancelled` action types to the existing `search_audit_log` filter list.
+
+## Out of scope
+
+- Editing locked fields (SSN, signature, consents) — these still require the existing Revert for Revision flow.
+- Mobile applicant-side polish beyond what `/application/approve` needs to render cleanly (will follow existing `PEIRespond` mobile patterns).
+- Versioned history of multiple approved correction rounds beyond what the audit log captures (each round is its own request row, which is sufficient).
 
 ## Verification
 
-1. Send a real PEI to a test inbox, open the response link from a different network, open the FCRA release, submit. Confirm three event rows appear with distinct event types, plus a `signed_ip` / `signed_user_agent` on the response.
-2. Open the response viewer and confirm the audit trail renders in chronological order with IP + UA.
-3. Confirm the `sample` token still bypasses all logging.
+1. As staff, edit two fields on a submitted application, send for approval → confirm request + 2 field rows + email enqueued.
+2. Open the tokenized link in an incognito window → diff renders, IP/UA event logged.
+3. Approve and sign → `applications` row reflects new values, request marked `approved`, signed_ip/ua stored, staff notified, audit log entries present.
+4. Repeat with reject → application unchanged, edits remain pending in the request, staff notified, drawer shows "Rejected — adjust and resend".
+5. Cancel a pending request from the drawer → status flips to `cancelled`, email link returns "no longer active".
