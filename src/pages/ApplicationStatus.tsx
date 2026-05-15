@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Clock, XCircle, Mail, Loader2 } from 'lucide-react';
@@ -9,8 +9,26 @@ import logo from '@/assets/supertransport-logo.png';
 export default function ApplicationStatus() {
   const { profile, user, signOut } = useAuth();
   const [resending, setResending] = useState(false);
+  const [lastResend, setLastResend] = useState<{ at: number; mode: 'revisions' | 'resume' } | null>(null);
 
   const status = profile?.account_status ?? 'pending';
+  const storageKey = user ? `applicant_last_resend:${user.id}` : null;
+
+  useEffect(() => {
+    if (!storageKey) return;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) setLastResend(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, [storageKey]);
+
+  const formatLastResend = (at: number) => {
+    return new Date(at).toLocaleString('en-US', {
+      timeZone: 'America/Chicago',
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: 'numeric', minute: '2-digit', hour12: true,
+    }) + ' CT';
+  };
 
   const handleResend = async () => {
     setResending(true);
@@ -40,6 +58,12 @@ export default function ApplicationStatus() {
         return;
       }
       if ((data as any)?.success) {
+        const mode = ((data as any)?.mode === 'revisions' ? 'revisions' : 'resume') as 'revisions' | 'resume';
+        const entry = { at: Date.now(), mode };
+        setLastResend(entry);
+        if (storageKey) {
+          try { localStorage.setItem(storageKey, JSON.stringify(entry)); } catch { /* ignore */ }
+        }
         toast.success(`A fresh link was sent to ${user?.email}. Check your inbox.`);
       } else {
         toast.error('Could not send the email. Please try again in a moment.');
@@ -122,6 +146,11 @@ export default function ApplicationStatus() {
                 <><Mail className="h-4 w-4 mr-2" /> Resend application link</>
               )}
             </Button>
+            {lastResend && (
+              <p className="text-xs text-surface-dark-muted mb-3">
+                Last {lastResend.mode === 'revisions' ? 'revisions' : 'resume'} link sent {formatLastResend(lastResend.at)}
+              </p>
+            )}
             <Button variant="ghost" onClick={signOut} className="text-surface-dark-muted hover:text-surface-dark-foreground text-sm">
               Sign Out
             </Button>
