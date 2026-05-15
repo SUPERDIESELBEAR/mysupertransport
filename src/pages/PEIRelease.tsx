@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import FCRAAuthorizationDoc from '@/components/application/documents/FCRAAuthorizationDoc';
 import type { FullApplication } from '@/components/management/ApplicationReviewDrawer';
-import { openPrintableDocument } from '@/lib/printDocument';
+import { openPrintableDocument, type PrintPageSize } from '@/lib/printDocument';
+
+const PAGE_SIZE_KEY = 'pei_release_page_size';
 
 interface ReleaseResponse {
   application: Partial<FullApplication> & {
@@ -23,6 +25,20 @@ export default function PEIRelease() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ReleaseResponse | null>(null);
+  const [pageSize, setPageSize] = useState<PrintPageSize>(() => {
+    if (typeof window === 'undefined') return 'letter';
+    const stored = window.localStorage.getItem(PAGE_SIZE_KEY);
+    return stored === 'a4' ? 'a4' : 'letter';
+  });
+
+  function updatePageSize(next: PrintPageSize) {
+    setPageSize(next);
+    try {
+      window.localStorage.setItem(PAGE_SIZE_KEY, next);
+    } catch {
+      /* private mode — ignore */
+    }
+  }
 
   useEffect(() => {
     if (!token) {
@@ -90,19 +106,54 @@ export default function PEIRelease() {
               </p>
             </div>
           </div>
-          <Button
-            onClick={() =>
-              openPrintableDocument(
-                'fcra-release-doc',
-                `FCRA Authorization — ${[app.first_name, app.last_name].filter(Boolean).join(' ')}`,
-              )
-            }
-            className="gap-2"
-            size="lg"
-          >
-            <Download className="h-4 w-4" />
-            Save as PDF
-          </Button>
+          <div className="flex flex-col sm:items-end gap-2">
+            <div
+              className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs font-medium"
+              role="radiogroup"
+              aria-label="Document page size"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={pageSize === 'letter'}
+                onClick={() => updatePageSize('letter')}
+                className={`px-3 py-1.5 rounded-[5px] transition-colors ${
+                  pageSize === 'letter'
+                    ? 'bg-gold text-[hsl(var(--surface-dark))]'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Letter <span className="opacity-60 ml-1">8.5×11"</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={pageSize === 'a4'}
+                onClick={() => updatePageSize('a4')}
+                className={`px-3 py-1.5 rounded-[5px] transition-colors ${
+                  pageSize === 'a4'
+                    ? 'bg-gold text-[hsl(var(--surface-dark))]'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                A4 <span className="opacity-60 ml-1">210×297mm</span>
+              </button>
+            </div>
+            <Button
+              onClick={() =>
+                openPrintableDocument(
+                  'fcra-release-doc',
+                  `FCRA Authorization — ${[app.first_name, app.last_name].filter(Boolean).join(' ')}`,
+                  pageSize,
+                )
+              }
+              className="gap-2"
+              size="lg"
+            >
+              <Download className="h-4 w-4" />
+              Save as PDF
+            </Button>
+          </div>
         </div>
 
         <Card className="overflow-hidden p-0">
