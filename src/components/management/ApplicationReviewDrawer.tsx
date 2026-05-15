@@ -1067,6 +1067,22 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           refreshKey={revertBannerKey}
         />
 
+        {/* Correction-request status (pending / approved / rejected history) */}
+        <div className="border-t border-border p-4 shrink-0">
+          <CorrectionRequestStatusCard
+            key={correctionRefreshKey}
+            applicationId={app.id}
+            onChanged={() => { setCorrectionRefreshKey((k) => k + 1); onExpiryUpdated?.(); }}
+          />
+        </div>
+
+        <SuggestCorrectionsModal
+          open={correctionsOpen}
+          onOpenChange={setCorrectionsOpen}
+          application={app as unknown as Record<string, unknown> & { id: string; first_name?: string | null; last_name?: string | null; email: string }}
+          onSent={() => { setCorrectionRefreshKey((k) => k + 1); onExpiryUpdated?.(); }}
+        />
+
         {/* Revisions-requested status banner — hidden once a revert just happened in this session */}
         {app.review_status === 'revisions_requested' && !justReverted && (
           <div className="border-t border-border p-4 bg-status-progress/10 shrink-0">
