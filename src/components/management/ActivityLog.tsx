@@ -397,6 +397,14 @@ function EntryExpandedPanel({
       }
       break;
     }
+    case 'revision_request_reverted': {
+      if (meta.restored_status) structuredRows.push({ icon: <RotateCcw className="h-3.5 w-3.5" />, label: 'Restored Status', value: formatRole(meta.restored_status as string) });
+      if (meta.invalidated_tokens != null) structuredRows.push({ icon: <Hash className="h-3.5 w-3.5" />, label: 'Tokens Invalidated', value: String(meta.invalidated_tokens) });
+      if (meta.courtesy_email_sent != null) structuredRows.push({ icon: <Mail className="h-3.5 w-3.5" />, label: 'Courtesy Email', value: meta.courtesy_email_sent ? 'Sent' : 'Not sent' });
+      if (meta.courtesy_email_error) structuredRows.push({ icon: <AlertTriangle className="h-3.5 w-3.5" />, label: 'Email Error', value: meta.courtesy_email_error as string });
+      if (meta.previous_revision_count != null) structuredRows.push({ icon: <Hash className="h-3.5 w-3.5" />, label: 'Previous Revision Count', value: String(meta.previous_revision_count) });
+      break;
+    }
   }
 
   // Remaining raw metadata keys not already shown
