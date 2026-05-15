@@ -1,7 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { buildEmail, sendEmail, BRAND_NAME, RECRUITING_EMAIL } from '../_shared/email-layout.ts';
+import { buildEmail, sendEmailStrict, BRAND_NAME, RECRUITING_EMAIL } from '../_shared/email-layout.ts';
 import { buildAppUrl } from '../_shared/app-url.ts';
+import { getLogClient, makeMessageId, withEmailLog } from '../_shared/email-log.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -110,11 +111,17 @@ serve(async (req) => {
         url: resumeUrl,
       }, RECRUITING_EMAIL);
 
-      try {
-        await sendEmail(email, subject, html, resendKey);
-      } catch (e) {
-        console.error('request-application-resume sendEmail error:', e);
-      }
+      const messageId = makeMessageId(`resume-${app.id}`);
+      await withEmailLog(
+        getLogClient(),
+        {
+          messageId,
+          templateName: 'application-resume-link',
+          recipientEmail: email,
+          metadata: { application_id: app.id, resume_url: resumeUrl },
+        },
+        () => sendEmailStrict(email, subject, html, resendKey)
+      );
     } else {
       console.error('request-application-resume: RESEND_API_KEY not configured');
     }
