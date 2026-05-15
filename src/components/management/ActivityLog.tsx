@@ -5,11 +5,19 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
   Milestone, RefreshCcw, Activity, ChevronDown, ChevronRight, Download, CalendarIcon, X,
   User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus, Mail, UserCheck, FilePen, RotateCcw, AlertTriangle
 } from 'lucide-react';
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: 'bg-status-progress/15 text-status-progress border-status-progress/30',
+  approved: 'bg-status-complete/15 text-status-complete border-status-complete/30',
+  denied: 'bg-destructive/15 text-destructive border-destructive/30',
+  revisions_requested: 'bg-status-progress/15 text-status-progress border-status-progress/30',
+};
 
 interface AuditEntry {
   id: string;
