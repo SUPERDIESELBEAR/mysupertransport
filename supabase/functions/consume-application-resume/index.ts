@@ -31,6 +31,7 @@ serve(async (req) => {
       if (msg.includes('token_expired')) code = 'token_expired';
       else if (msg.includes('token_used')) code = 'token_used';
       else if (msg.includes('application_not_found')) code = 'application_not_found';
+      console.warn('consume-application-resume rpc error:', { code, message: error.message });
       return new Response(JSON.stringify({ error: code }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -38,6 +39,7 @@ serve(async (req) => {
 
     const row = Array.isArray(data) ? data[0] : data;
     if (!row?.draft_token) {
+      console.warn('consume-application-resume: token consumed but no draft_token returned', { row });
       return new Response(JSON.stringify({ error: 'invalid_token' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
