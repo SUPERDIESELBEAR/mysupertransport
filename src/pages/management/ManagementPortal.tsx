@@ -779,6 +779,7 @@ export default function ManagementPortal() {
     { label: 'Forms Catalog',     icon: <FileText className="h-4 w-4" />,         path: 'forms-catalog' },
     { label: "What's New",        icon: <Megaphone className="h-4 w-4" />,        path: 'whats-new' },
     { label: 'Broadcast Email',   icon: <Mail className="h-4 w-4" />,             path: 'broadcast' },
+    { label: 'Email Log',         icon: <MailPlus className="h-4 w-4" />,         path: 'email-log' },
     { label: 'Carrier Signature', icon: <Pen className="h-4 w-4" />,             path: 'carrier-signature' },
     { label: 'Terminations',      icon: <FileSignature className="h-4 w-4" />,   path: 'terminations' },
     { label: 'Demo Mode',         icon: <GraduationCap className="h-4 w-4" />,   path: '__demo__' },
