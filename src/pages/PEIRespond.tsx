@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { z } from 'zod';
-import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, ShieldCheck, AlertTriangle, CheckCircle2, Plus, Trash2, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -298,6 +298,17 @@ export default function PEIRespond() {
           <p className="text-xs text-muted-foreground">
             Federal regulation requires motor carriers to investigate the safety performance history of each driver-applicant. Your response is protected from civil action under 49 U.S.C. §508 when given in good faith.
           </p>
+          {token && token !== 'test-token-preview' ? (
+            <a
+              href={`/pei/release/${token}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-medium text-gold hover:underline"
+            >
+              <FileText className="h-4 w-4" />
+              View the applicant's signed FCRA authorization
+            </a>
+          ) : null}
         </Card>
 
         <Card className="p-6 space-y-5">

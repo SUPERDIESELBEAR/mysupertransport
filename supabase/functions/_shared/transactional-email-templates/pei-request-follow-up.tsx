@@ -6,7 +6,7 @@ import {
 import type { TemplateEntry } from './registry.ts'
 import {
   BRAND_NAME, accentBar, brand, button, callout, container, factCell,
-  factLabel, factTable, footer, h1, h2, main, subBrand, text, unmonitoredNotice,
+  factLabel, factTable, footer, h1, h2, main, secondaryButton, subBrand, text, unmonitoredNotice,
   type PEIEmailProps,
 } from './_pei-shared.ts'
 
@@ -18,6 +18,7 @@ const PEIRequestFollowUpEmail = (props: PEIEmailProps) => {
   const end = props.employmentEndDate || '—'
   const url = props.responseUrl || 'https://mysupertransport.lovable.app/pei/respond/SAMPLE-TOKEN'
   const days = typeof props.daysRemaining === 'number' ? props.daysRemaining : 15
+  const releaseUrl = props.releaseUrl
 
   return (
     <Html lang="en" dir="ltr">
@@ -76,6 +77,14 @@ const PEIRequestFollowUpEmail = (props: PEIEmailProps) => {
           <Button style={button} href={url}>
             Complete the investigation →
           </Button>
+          {releaseUrl ? (
+            <>
+              <br />
+              <Button style={secondaryButton} href={releaseUrl}>
+                📄 View the signed FCRA authorization
+              </Button>
+            </>
+          ) : null}
           <div style={unmonitoredNotice}>
             📭 This inbox is not monitored. Please use the secure response
             button above to submit your verification.
@@ -108,6 +117,7 @@ export const template = {
     employmentStartDate: '03/2021',
     employmentEndDate: '08/2024',
     responseUrl: 'https://mysupertransport.lovable.app/pei/respond/SAMPLE-TOKEN',
+    releaseUrl: 'https://mysupertransport.lovable.app/pei/release/SAMPLE-TOKEN',
     daysRemaining: 15,
   },
 } satisfies TemplateEntry
