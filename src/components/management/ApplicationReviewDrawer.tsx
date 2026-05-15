@@ -1121,6 +1121,10 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                         const { error } = await supabase.rpc('move_revisions_to_pending', { p_application_id: app.id });
                         if (error) throw error;
                         toast.success('Moved to pending. Old revision link disabled.');
+                        // Notify the applicant their app was reopened (best-effort, non-blocking).
+                        supabase.functions.invoke('notify-application-moved-to-pending', {
+                          body: { applicationId: app.id },
+                        }).catch(() => { /* swallow — toast already shown */ });
                         onExpiryUpdated?.();
                         setCorrectionsOpen(true);
                       } catch (err: any) {
