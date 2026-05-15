@@ -1,51 +1,43 @@
-# Including the Signed FCRA Authorization in PEI Emails
+## Goal
 
-## Recommendation
+When staff send a **test PEI email** from `SendTestPEIDialog`, the "View signed FCRA authorization" button currently links to a real release URL that resolves nothing (no application, no signature). Instead, the test email should link to a **self-contained sample release page** that is visually identical to the real one but clearly watermarked **"SAMPLE — TEST EMAIL ONLY"** and uses fake applicant data, with no database lookup.
 
-**Don't attach the PDF to the email.** Two reasons:
+## Approach
 
-1. Lovable's transactional email infrastructure does not support file attachments — emails are HTML/text only.
-2. Even if it did, attachments to unknown corporate inboxes get stripped by spam filters, blocked by Mimecast/Proofpoint, or quarantined. Previous-employer safety departments are exactly the kind of recipient that distrusts attachments from senders they don't recognize.
+Use a sentinel token (`sample`) in the test email's `releaseUrl`. The existing `/pei/release/:token` route detects this token client-side, skips the edge-function call, renders the FCRA doc with hard-coded sample data, and overlays a diagonal watermark. No edge function, database, or audit-log changes.
 
-**Instead, give the recipient a tokenized "View signed release" link** that opens the FCRA authorization PDF in their browser. This is the same pattern carriers like HireRight and Tenstreet use, and it's how we already deliver the PEI response form itself (`/pei/respond/:token`).
+## Changes
 
-## How it fits the current flow
+### 1. `src/components/pei/SendTestPEIDialog.tsx`
+- Add a `releaseUrl` to the test `templateData`:
+  ```
+  releaseUrl: 'https://mysupertransport.lovable.app/pei/release/sample'
+  ```
+- Update the dialog description to mention that the FCRA release link in the test email opens a sample document.
 
-We already have the right primitives:
-- Each `pei_requests` row has a unique `response_token` used to gate the response page.
-- The FCRA authorization is captured during the application (Step 8 disclosures) and is one of the standalone documents we can render as a PDF.
-- `sendPEIEmail.ts` already builds a `responseUrl` from `response_token` and passes `templateData` into the React Email template.
+### 2. `src/pages/PEIRelease.tsx`
+- Detect the sentinel: `const isSample = token === 'sample'`.
+- When `isSample`:
+  - Skip the `pei-release-fcra` invocation.
+  - Synthesize a `data` object with sample applicant fields (Test Applicant, sample DOB, `typed_full_name`, `signed_date = today`, the three `auth_*` flags `true`) and `pei.employer_name = 'Sample Trucking Co.'`.
+  - Set `signatureDataUrl = null` (FCRAAuthorizationDoc renders the typed name fallback).
+- Render a fixed, semi-transparent diagonal watermark overlay on the document card reading **"SAMPLE — TEST EMAIL ONLY"** (CSS `position: absolute; transform: rotate(-22deg); pointer-events: none; opacity: 0.18`). Watermark must also appear in the printed PDF (include in the `#fcra-release-doc` element so `openPrintableDocument` clones it).
+- Add a small amber notice above the document: "This is a sample FCRA authorization included in test PEI emails. No real applicant data is shown."
+- Keep the Letter/A4 toggle and Save-as-PDF flow working — the printed copy will also carry the watermark.
 
-So the work is small and additive:
+### 3. `mem://features/pei/fcra-release-link.md`
+- Append a short note documenting the `sample` sentinel token and that test emails route to it.
 
-1. **Generate / locate the signed FCRA PDF per applicant.** Either (a) reuse the existing standalone-letter PDF generator to produce an FCRA Authorization PDF on demand and stash it in Supabase Storage under the application, or (b) generate it lazily the first time it's requested. Filename: `fcra-authorization-{applicationId}.pdf`.
+## Out of scope
 
-2. **Add a tokenized release-viewer route**, e.g. `GET /pei/release/:token`. It uses the same `pei_requests.response_token` lookup the response page already uses, then returns a short-lived signed URL (or streams the PDF) for the FCRA document tied to that application. Same audit footprint as the response page (we can log views into a `pei_release_views` table or reuse existing audit_log).
+- No changes to `pei-release-fcra` edge function (sample never reaches it).
+- No changes to email templates — they already render the `releaseUrl` button when present.
+- No audit-log entry for sample views (intentional — purely client-side render).
 
-3. **Add a "View signed release" button + line of trust copy to all three PEI templates** (`pei-request-initial`, `pei-request-follow-up`, `pei-request-final-notice`) and `_pei-shared.ts`. Place it near the existing "Complete the investigation →" button. Pass `releaseUrl` through `templateData` from `sendPEIEmail.ts`.
+## Verification
 
-4. **Mirror it on the response page itself** (`PEIRespond.tsx`) so a recipient who clicked through to fill the form can re-download the release inline before answering — this is what most safety managers actually want before they certify anything.
-
-## Email copy (suggested)
-
-Just under the existing release sentence:
-
-> The applicant has signed a Fair Credit Reporting Act (FCRA) release authorizing you to share this employment information with SUPERTRANSPORT.
->
-> [📄 View the signed FCRA authorization]  ← tokenized link
-
-And in the response page, a small panel:
-
-> **Signed authorization on file** — James Whitaker signed an FCRA release on 03/14/2026. [Download PDF]
-
-## Technical notes
-
-- Token reuse: the existing `response_token` on `pei_requests` is already single-purpose and unguessable; reusing it for the release viewer keeps things simple and means revoking access (e.g. on a rescinded application) revokes both at once.
-- Storage: bucket should be private; serve via short-lived signed URL minted server-side in the route handler, never embed a raw storage URL in the email.
-- Audit: log every release view with `pei_request_id`, `viewed_at`, `ip`, `user_agent` so we can prove disclosure scope if a previous employer ever questions authority.
-- No attachment paths, no SMTP changes, no new edge function for sending — only template + sendPEIEmail.ts + a small viewer route + PDF generation.
-
-## Out of scope for this plan
-
-- Bulk re-sending old PEI requests with the new link.
-- Adding the same pattern to the drug/alcohol §40.25 release (similar idea, separate doc — easy follow-up).
+After implementation:
+1. Send a test initial PEI email to a personal inbox.
+2. Click the "View signed FCRA authorization" button → opens `/pei/release/sample`.
+3. Confirm the watermark renders on screen and in the saved PDF (Letter and A4).
+4. Confirm a real PEI release link (non-`sample` token) still loads applicant data normally.
