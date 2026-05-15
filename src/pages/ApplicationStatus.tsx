@@ -1,12 +1,56 @@
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Clock, XCircle } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, Mail, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import logo from '@/assets/supertransport-logo.png';
 
 export default function ApplicationStatus() {
   const { profile, user, signOut } = useAuth();
+  const [resending, setResending] = useState(false);
 
   const status = profile?.account_status ?? 'pending';
+
+  const handleResend = async () => {
+    setResending(true);
+    try {
+      const { data: app, error: appErr } = await supabase
+        .from('applications')
+        .select('id')
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (appErr || !app) {
+        toast.error("We couldn't find your application on file.");
+        return;
+      }
+      const { data, error } = await supabase.functions.invoke('resend-application-link', {
+        body: { applicationId: app.id },
+      });
+      if (error) {
+        const ctx: any = (error as any).context;
+        let msg = 'Could not send the email. Please try again in a moment.';
+        try {
+          const parsed = ctx?.body ? JSON.parse(ctx.body) : null;
+          if (parsed?.message) msg = parsed.message;
+        } catch { /* ignore */ }
+        toast.error(msg);
+        return;
+      }
+      if ((data as any)?.success) {
+        toast.success(`A fresh link was sent to ${user?.email}. Check your inbox.`);
+      } else {
+        toast.error('Could not send the email. Please try again in a moment.');
+      }
+    } catch (err) {
+      console.error('resend application link error', err);
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setResending(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-surface-dark flex items-center justify-center p-4">
@@ -66,6 +110,18 @@ export default function ApplicationStatus() {
 
           <div className="mt-6 pt-5 border-t border-surface-dark-border">
             <p className="text-xs text-surface-dark-muted mb-3">Signed in as {user?.email}</p>
+            <Button
+              onClick={handleResend}
+              disabled={resending}
+              variant="outline"
+              className="w-full mb-3 border-gold/40 text-gold hover:bg-gold/10 hover:text-gold"
+            >
+              {resending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending…</>
+              ) : (
+                <><Mail className="h-4 w-4 mr-2" /> Resend application link</>
+              )}
+            </Button>
             <Button variant="ghost" onClick={signOut} className="text-surface-dark-muted hover:text-surface-dark-foreground text-sm">
               Sign Out
             </Button>
