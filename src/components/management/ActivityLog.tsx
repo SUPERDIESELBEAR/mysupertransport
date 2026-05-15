@@ -4,12 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
   Milestone, RefreshCcw, Activity, ChevronDown, ChevronRight, Download, CalendarIcon, X,
-  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus, Mail, UserCheck, FilePen, RotateCcw, AlertTriangle
+  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus, Mail, UserCheck, FilePen, RotateCcw, AlertTriangle, Check, FileSearch
 } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, string> = {
