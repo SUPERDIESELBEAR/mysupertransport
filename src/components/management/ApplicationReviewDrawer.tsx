@@ -31,6 +31,7 @@ import { RevertedBanner } from '@/components/management/RevertedBanner';
 import { SuggestCorrectionsModal } from '@/components/management/SuggestCorrectionsModal';
 import { CorrectionRequestStatusCard } from '@/components/management/CorrectionRequestStatusCard';
 import { RevisionReplyAttachments } from '@/components/management/RevisionReplyAttachments';
+import { RevisionAuditLog } from '@/components/management/RevisionAuditLog';
 
 type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
 
@@ -1155,7 +1156,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                       </Button>
                     </div>
                   )}
-                  <RevisionReplyAttachments applicationId={app.id} />
+                  <RevisionReplyAttachments applicationId={app.id} onChanged={() => setCorrectionRefreshKey((k) => k + 1)} />
+                  <RevisionAuditLog applicationId={app.id} refreshKey={correctionRefreshKey + revertBannerKey} />
                 </div>
               </div>
             </div>
