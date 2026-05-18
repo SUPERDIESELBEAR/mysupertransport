@@ -1136,13 +1136,12 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                           setMovingToPending(true);
                            try {
                              await supabase.rpc('move_revisions_to_pending', { p_application_id: app.id });
-                             toast.success('Moved to pending for staff corrections.');
+                             toast.success('Staff is now handling corrections. Applicant link disabled.');
                              // Notify the applicant their app was reopened (best-effort, non-blocking).
                              supabase.functions.invoke('notify-application-moved-to-pending', {
                                body: { applicationId: app.id },
                              }).catch(() => { /* silent */ });
                              onExpiryUpdated?.();
-                             setCorrectionsOpen(true);
                            } catch {
                              // Silent — refresh will reflect actual state.
                              onExpiryUpdated?.();
@@ -1152,8 +1151,11 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                         }}
                       >
                         {movingToPending ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : null}
-                        Move to pending for staff corrections
+                        Staff will handle corrections (take over)
                       </Button>
+                      <p className="w-full text-[11px] text-muted-foreground mt-1">
+                        Disables the applicant link. You'll edit fields directly here.
+                      </p>
                     </div>
                   )}
                   <RevisionReplyAttachments applicationId={app.id} onChanged={() => setCorrectionRefreshKey((k) => k + 1)} />
