@@ -23,9 +23,10 @@ interface Attachment {
 
 interface Props {
   applicationId: string;
+  onChanged?: () => void;
 }
 
-export function RevisionReplyAttachments({ applicationId }: Props) {
+export function RevisionReplyAttachments({ applicationId, onChanged }: Props) {
   const { user } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<Attachment[]>([]);
@@ -97,6 +98,7 @@ export function RevisionReplyAttachments({ applicationId }: Props) {
       }
       toast.success('Attachment uploaded.');
       await load();
+      onChanged?.();
     } catch (err) {
       const msg = (err as { message?: string })?.message ?? 'Upload failed';
       toast.error(msg);
@@ -118,6 +120,7 @@ export function RevisionReplyAttachments({ applicationId }: Props) {
       if (error) throw error;
       toast.success('Deleted.');
       await load();
+      onChanged?.();
     } catch (err) {
       toast.error((err as { message?: string })?.message ?? 'Delete failed');
     } finally {
