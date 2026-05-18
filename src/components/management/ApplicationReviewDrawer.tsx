@@ -1087,64 +1087,80 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           onSent={() => { setCorrectionRefreshKey((k) => k + 1); onExpiryUpdated?.(); }}
         />
 
-        {/* Revisions-requested status banner — hidden once a revert just happened in this session */}
-        {app.review_status === 'revisions_requested' && !justReverted && (
-          <div className="border-t border-border p-4 bg-status-progress/10 shrink-0">
-            <div className="flex items-start gap-3">
-              <RotateCcw className="h-5 w-5 text-status-progress shrink-0 mt-0.5" />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm font-semibold text-foreground">
-                    Revisions requested{app.revision_requested_at ? ` on ${new Date(app.revision_requested_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setRevertOpen(true)}
-                    className="text-xs font-medium text-status-progress hover:underline shrink-0"
-                  >
-                    Undo — sent in error
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Awaiting applicant updates. The applicant received an email with a secure link to reopen and resubmit.
-                </p>
-                {app.revision_request_message && (
-                  <div className="mt-2 p-3 bg-white border border-status-progress/30 rounded-lg text-xs text-foreground whitespace-pre-wrap">
-                    {app.revision_request_message}
+        {/* Revision history banner — shown whenever a revision was ever requested. */}
+        {!!app.revision_requested_at && !justReverted && (() => {
+          const stillRequested = app.review_status === 'revisions_requested';
+          const handledAt = app.revisions_handled_by_staff_at;
+          const dateStr = app.revision_requested_at
+            ? new Date(app.revision_requested_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            : '';
+          return (
+            <div className="border-t border-border p-4 bg-status-progress/10 shrink-0">
+              <div className="flex items-start gap-3">
+                <RotateCcw className="h-5 w-5 text-status-progress shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-semibold text-foreground">
+                      {stillRequested
+                        ? `Revisions requested${dateStr ? ` on ${dateStr}` : ''}`
+                        : `Original revision request${dateStr ? ` — sent ${dateStr}` : ''} · now handled by staff`}
+                    </p>
+                    {stillRequested && (
+                      <button
+                        type="button"
+                        onClick={() => setRevertOpen(true)}
+                        className="text-xs font-medium text-status-progress hover:underline shrink-0"
+                      >
+                        Undo — sent in error
+                      </button>
+                    )}
                   </div>
-                )}
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={movingToPending}
-                    onClick={async () => {
-                      setMovingToPending(true);
-                      try {
-                        const { error } = await supabase.rpc('move_revisions_to_pending', { p_application_id: app.id });
-                        if (error) throw error;
-                        toast.success('Moved to pending. Old revision link disabled.');
-                        // Notify the applicant their app was reopened (best-effort, non-blocking).
-                        supabase.functions.invoke('notify-application-moved-to-pending', {
-                          body: { applicationId: app.id },
-                        }).catch(() => { /* swallow — toast already shown */ });
-                        onExpiryUpdated?.();
-                        setCorrectionsOpen(true);
-                      } catch (err: any) {
-                        toast.error(err?.message ?? 'Failed to move to pending');
-                      } finally {
-                        setMovingToPending(false);
-                      }
-                    }}
-                  >
-                    {movingToPending ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : null}
-                    Move to pending & suggest corrections
-                  </Button>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {stillRequested
+                      ? 'Awaiting applicant updates. The applicant received an email with a secure link to reopen and resubmit.'
+                      : `Applicant link disabled${handledAt ? ` on ${new Date(handledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}. Staff is making the corrections on the applicant's behalf.`}
+                  </p>
+                  {app.revision_request_message && (
+                    <div className="mt-2 p-3 bg-white border border-status-progress/30 rounded-lg text-xs text-foreground whitespace-pre-wrap">
+                      {app.revision_request_message}
+                    </div>
+                  )}
+                  {stillRequested && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={movingToPending}
+                        onClick={async () => {
+                          setMovingToPending(true);
+                          try {
+                            const { error } = await supabase.rpc('move_revisions_to_pending', { p_application_id: app.id });
+                            if (error) throw error;
+                            toast.success('Moved to pending. Old revision link disabled.');
+                            // Notify the applicant their app was reopened (best-effort, non-blocking).
+                            supabase.functions.invoke('notify-application-moved-to-pending', {
+                              body: { applicationId: app.id },
+                            }).catch(() => { /* swallow — toast already shown */ });
+                            onExpiryUpdated?.();
+                            setCorrectionsOpen(true);
+                          } catch (err: any) {
+                            toast.error(err?.message ?? 'Failed to move to pending');
+                          } finally {
+                            setMovingToPending(false);
+                          }
+                        }}
+                      >
+                        {movingToPending ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : null}
+                        Move to pending & suggest corrections
+                      </Button>
+                    </div>
+                  )}
+                  <RevisionReplyAttachments applicationId={app.id} />
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         <RevertRevisionModal
           open={revertOpen}
