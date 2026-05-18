@@ -639,11 +639,23 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-dark shrink-0">
           <div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 flex-wrap">
               <h2 className="text-lg font-bold text-white">{fullName}</h2>
               <Badge className={`text-xs ${STATUS_COLORS[app.review_status]}`}>
                 {app.review_status.toUpperCase()}
               </Badge>
+              {app.review_status === 'revisions_requested' && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full border border-emerald-400/20">
+                  <Mail className="h-3 w-3" />
+                  Applicant link active
+                </span>
+              )}
+              {!!app.revisions_handled_by_staff_at && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-surface-dark-muted bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
+                  <Lock className="h-3 w-3" />
+                  Applicant link disabled
+                </span>
+              )}
             </div>
             <p className="text-surface-dark-muted text-xs mt-0.5">
               {app.submitted_at ? `Submitted ${new Date(app.submitted_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : 'Draft'}
