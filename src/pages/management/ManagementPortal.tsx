@@ -29,7 +29,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ChevronRight, ShieldAlert,
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, BellRing, Library, Shield, Users2, AlertCircle, FileX,
   MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2, FileText,
-  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone, Briefcase,
+  MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone, Briefcase, Lock,
 } from 'lucide-react';
 import FleetRoster from '@/components/fleet/FleetRoster';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
@@ -531,7 +531,7 @@ export default function ManagementPortal() {
 
   const fetchMetrics = useCallback(async () => {
     const [appsRes, opsRes, dispRes, alertsRes] = await Promise.all([
-      supabase.from('applications').select('id', { count: 'exact' }).eq('review_status', 'pending').eq('is_draft', false),
+      supabase.from('applications').select('id', { count: 'exact' }).eq('review_status', 'pending').or('is_draft.eq.false,revisions_handled_by_staff_at.not.is.null'),
       supabase.from('operators').select('id, onboarding_status!inner(fully_onboarded)', { count: 'exact', head: true }).or('fully_onboarded.is.null,fully_onboarded.eq.false', { referencedTable: 'onboarding_status' }),
       supabase.from('active_dispatch').select('id, operators!inner(excluded_from_dispatch)', { count: 'exact' }).eq('operators.excluded_from_dispatch', false),
       supabase.from('onboarding_status').select('id', { count: 'exact' }).or('mvr_ch_approval.eq.denied,pe_screening_result.eq.non_clear'),
@@ -555,11 +555,13 @@ export default function ManagementPortal() {
 
     if (statusFilter === 'all') {
       // Show submitted apps + any awaiting revisions
-      query = query.or('is_draft.eq.false,review_status.eq.revisions_requested');
+      query = query.or('is_draft.eq.false,review_status.eq.revisions_requested,revisions_handled_by_staff_at.not.is.null');
     } else if (statusFilter === 'revisions_requested') {
       query = query.eq('review_status', 'revisions_requested');
     } else {
-      query = query.eq('is_draft', false).eq('review_status', statusFilter as 'pending' | 'approved' | 'denied');
+      query = query
+        .or('is_draft.eq.false,revisions_handled_by_staff_at.not.is.null')
+        .eq('review_status', statusFilter as 'pending' | 'approved' | 'denied');
     }
 
     const { data } = await query;
@@ -1564,6 +1566,11 @@ export default function ManagementPortal() {
                               </div>
                               <div className="col-span-2">
                                 <Badge className={`text-xs border ${STATUS_COLORS[app.review_status] ?? ''}`}>{app.review_status}</Badge>
+                                {app.revisions_handled_by_staff_at && (
+                                  <Badge variant="outline" className="mt-1 text-[10px] gap-1 font-normal text-muted-foreground">
+                                    <Lock className="h-2.5 w-2.5" /> Staff handling
+                                  </Badge>
+                                )}
                               </div>
                               <div className="col-span-1 flex justify-end">
                                 <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-gold transition-colors" />
@@ -1574,6 +1581,11 @@ export default function ManagementPortal() {
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="text-sm font-medium text-foreground group-hover:text-gold transition-colors truncate">{name}</p>
                                   <Badge className={`text-[10px] border px-1.5 py-0 shrink-0 ${STATUS_COLORS[app.review_status] ?? ''}`}>{app.review_status}</Badge>
+                                  {app.revisions_handled_by_staff_at && (
+                                    <Badge variant="outline" className="text-[10px] border px-1.5 py-0 shrink-0 gap-1 font-normal text-muted-foreground">
+                                      <Lock className="h-2.5 w-2.5" /> Staff handling
+                                    </Badge>
+                                  )}
                                 </div>
                                 <p className="text-xs text-muted-foreground truncate mt-0.5">{app.email}</p>
                                 <p className="text-xs text-muted-foreground">{app.phone ?? 'No phone'}{app.submitted_at ? ` · ${new Date(app.submitted_at).toLocaleDateString()}` : ''}</p>
