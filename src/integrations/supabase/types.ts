@@ -3722,6 +3722,7 @@ export type Database = {
     }
     Functions: {
       _app_correction_editable_columns: { Args: never; Returns: string[] }
+      _audit_actor_name: { Args: { _actor: string }; Returns: string }
       _gen_correction_token: { Args: never; Returns: string }
       approve_application_correction: {
         Args: {
