@@ -1152,7 +1152,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                         }}
                       >
                         {movingToPending ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : null}
-                        Move to pending & suggest corrections
+                        Move to pending for staff corrections
                       </Button>
                     </div>
                   )}
