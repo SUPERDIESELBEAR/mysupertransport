@@ -253,6 +253,53 @@ export type Database = {
           },
         ]
       }
+      application_revision_attachments: {
+        Row: {
+          application_id: string
+          file_name: string
+          file_path: string
+          id: string
+          mime_type: string | null
+          note: string | null
+          size_bytes: number | null
+          uploaded_at: string
+          uploaded_by: string | null
+          uploaded_by_name: string | null
+        }
+        Insert: {
+          application_id: string
+          file_name: string
+          file_path: string
+          id?: string
+          mime_type?: string | null
+          note?: string | null
+          size_bytes?: number | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+        }
+        Update: {
+          application_id?: string
+          file_name?: string
+          file_path?: string
+          id?: string
+          mime_type?: string | null
+          note?: string | null
+          size_bytes?: number | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_revision_attachments_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       applications: {
         Row: {
           address_city: string | null
@@ -317,6 +364,8 @@ export type Database = {
           revision_request_message: string | null
           revision_requested_at: string | null
           revision_requested_by: string | null
+          revisions_handled_by_staff_at: string | null
+          revisions_handled_by_staff_id: string | null
           sap_process: boolean | null
           signature_image_url: string | null
           signed_date: string | null
@@ -392,6 +441,8 @@ export type Database = {
           revision_request_message?: string | null
           revision_requested_at?: string | null
           revision_requested_by?: string | null
+          revisions_handled_by_staff_at?: string | null
+          revisions_handled_by_staff_id?: string | null
           sap_process?: boolean | null
           signature_image_url?: string | null
           signed_date?: string | null
@@ -467,6 +518,8 @@ export type Database = {
           revision_request_message?: string | null
           revision_requested_at?: string | null
           revision_requested_by?: string | null
+          revisions_handled_by_staff_at?: string | null
+          revisions_handled_by_staff_id?: string | null
           sap_process?: boolean | null
           signature_image_url?: string | null
           signed_date?: string | null
@@ -3773,6 +3826,8 @@ export type Database = {
           revision_request_message: string | null
           revision_requested_at: string | null
           revision_requested_by: string | null
+          revisions_handled_by_staff_at: string | null
+          revisions_handled_by_staff_id: string | null
           sap_process: boolean | null
           signature_image_url: string | null
           signed_date: string | null
