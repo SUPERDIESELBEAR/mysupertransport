@@ -67,15 +67,16 @@ export function RevisionReplyAttachments({ applicationId }: Props) {
       });
       if (upErr) throw upErr;
 
-      // Resolve uploader display name
+      // Resolve uploader display name (best-effort)
       let uploaderName: string | null = null;
       if (user?.id) {
         const { data: prof } = await supabase
           .from('profiles')
-          .select('full_name')
-          .eq('id', user.id)
+          .select('first_name, last_name')
+          .eq('user_id', user.id)
           .maybeSingle();
-        uploaderName = (prof as { full_name?: string | null } | null)?.full_name ?? user.email ?? null;
+        const full = [prof?.first_name, prof?.last_name].filter(Boolean).join(' ').trim();
+        uploaderName = full || user.email || null;
       }
 
       const { error: insErr } = await supabase
