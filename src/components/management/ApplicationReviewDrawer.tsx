@@ -1136,13 +1136,12 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                           setMovingToPending(true);
                            try {
                              await supabase.rpc('move_revisions_to_pending', { p_application_id: app.id });
-                             toast.success('Moved to pending for staff corrections.');
+                             toast.success('Staff is now handling corrections. Applicant link disabled.');
                              // Notify the applicant their app was reopened (best-effort, non-blocking).
                              supabase.functions.invoke('notify-application-moved-to-pending', {
                                body: { applicationId: app.id },
                              }).catch(() => { /* silent */ });
                              onExpiryUpdated?.();
-                             setCorrectionsOpen(true);
                            } catch {
                              // Silent — refresh will reflect actual state.
                              onExpiryUpdated?.();
@@ -1152,8 +1151,11 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                         }}
                       >
                         {movingToPending ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : null}
-                        Move to pending for staff corrections
+                        Staff will handle corrections (take over)
                       </Button>
+                      <p className="w-full text-[11px] text-muted-foreground mt-1">
+                        Disables the applicant link. You'll edit fields directly here.
+                      </p>
                     </div>
                   )}
                   <RevisionReplyAttachments applicationId={app.id} onChanged={() => setCorrectionRefreshKey((k) => k + 1)} />
@@ -1194,20 +1196,26 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   />
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setConfirmAction('revise')}
-                    className="flex-1 min-w-[140px] border-status-progress/40 text-status-progress hover:bg-status-progress/10"
-                  >
-                    <RotateCcw className="h-4 w-4 mr-2" /> Request Revisions
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setCorrectionsOpen(true)}
-                    className="flex-1 min-w-[140px] border-gold/40 text-foreground hover:bg-gold/10"
-                  >
-                    <Mail className="h-4 w-4 mr-2" /> Send Corrections
-                  </Button>
+                  <div className="flex-1 min-w-[180px] flex flex-col gap-1">
+                    <Button
+                      variant="outline"
+                      onClick={() => setConfirmAction('revise')}
+                      className="w-full border-status-progress/40 text-status-progress hover:bg-status-progress/10"
+                    >
+                      <RotateCcw className="h-4 w-4 mr-2" /> Send back to applicant for corrections
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground px-1">Applicant reopens the form and resubmits.</p>
+                  </div>
+                  <div className="flex-1 min-w-[180px] flex flex-col gap-1">
+                    <Button
+                      variant="outline"
+                      onClick={() => setCorrectionsOpen(true)}
+                      className="w-full border-gold/40 text-foreground hover:bg-gold/10"
+                    >
+                      <Mail className="h-4 w-4 mr-2" /> Propose changes for applicant approval
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground px-1">Applicant e-signs the changes you propose.</p>
+                  </div>
                   {app.review_status === 'pending' && (
                   <>
                   <Button

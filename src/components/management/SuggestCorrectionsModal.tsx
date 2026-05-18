@@ -195,10 +195,11 @@ export function SuggestCorrectionsModal({ open, onOpenChange, application, onSen
     <Dialog open={open} onOpenChange={(o) => { if (!submitting) onOpenChange(o); }}>
       <DialogContent className="max-w-3xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Send corrections to {fullName}</DialogTitle>
+          <DialogTitle>Propose changes for {fullName} to approve</DialogTitle>
           <DialogDescription>
-            Pick the fields you want to correct, enter the new values, and send to the applicant for e-signature approval.
-            SSN, signature and consent checkboxes can't be changed this way — use "Request Revisions" instead.
+            Pick the fields to change, enter the new values, and the applicant will e-sign to approve.
+            Use "Send back to applicant for corrections" if you want them to fix it themselves.
+            SSN, signature and consent checkboxes can't be changed this way.
           </DialogDescription>
         </DialogHeader>
 
