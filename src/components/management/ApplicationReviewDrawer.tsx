@@ -30,6 +30,7 @@ import { RevertRevisionModal } from '@/components/management/RevertRevisionModal
 import { RevertedBanner } from '@/components/management/RevertedBanner';
 import { SuggestCorrectionsModal } from '@/components/management/SuggestCorrectionsModal';
 import { CorrectionRequestStatusCard } from '@/components/management/CorrectionRequestStatusCard';
+import { RevisionReplyAttachments } from '@/components/management/RevisionReplyAttachments';
 
 type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
 
@@ -99,6 +100,8 @@ export interface FullApplication {
   revision_request_message?: string | null;
   revision_count?: number | null;
   pre_revision_status?: string | null;
+  revisions_handled_by_staff_at?: string | null;
+  revisions_handled_by_staff_id?: string | null;
 }
 
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
