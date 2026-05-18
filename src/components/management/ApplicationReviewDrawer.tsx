@@ -645,16 +645,30 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                 {app.review_status.toUpperCase()}
               </Badge>
               {app.review_status === 'revisions_requested' && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full border border-emerald-400/20">
-                  <Mail className="h-3 w-3" />
-                  Applicant link active
-                </span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full border border-emerald-400/20 cursor-help">
+                      <Mail className="h-3 w-3" />
+                      Applicant link active
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p>The application was sent back to the applicant for corrections. They have a secure link to reopen and edit their application.</p>
+                  </TooltipContent>
+                </Tooltip>
               )}
               {!!app.revisions_handled_by_staff_at && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-surface-dark-muted bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
-                  <Lock className="h-3 w-3" />
-                  Applicant link disabled
-                </span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-surface-dark-muted bg-white/5 px-2 py-0.5 rounded-full border border-white/10 cursor-help">
+                      <Lock className="h-3 w-3" />
+                      Applicant link disabled
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p>A staff member took over handling the corrections. The applicant's secure link is disabled and they can no longer edit.</p>
+                  </TooltipContent>
+                </Tooltip>
               )}
             </div>
             <p className="text-surface-dark-muted text-xs mt-0.5">
