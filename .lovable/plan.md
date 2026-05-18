@@ -1,36 +1,30 @@
-## Clarify the three revision workflows
+## Problem
 
-Today there are three distinct revision actions, but their button labels overlap and one of them auto-opens the wrong modal — so staff can't tell which path they're on. This plan renames the buttons, tweaks the helper copy, and stops the misleading auto-open.
+When staff click "Staff will handle corrections (take over)" on an application:
+- `is_draft` is set to `true` (so the form is editable by staff)
+- `revisions_handled_by_staff_at` is stamped
+- `review_status` stays `pending`
 
-### The three workflows (after this change)
+The Management Portal pipeline list filters with `is_draft = false` (except for `revisions_requested`), so taken-over applications disappear from every tab. Kenneth Woods' record is in this exact state right now.
 
-| # | Workflow | Button label | What happens |
-|---|---|---|---|
-| 1 | **Applicant fixes it themselves** | **"Send back to applicant for corrections"** (was *Request Revisions*) | Status → `revisions_requested`. Applicant gets a secure link to reopen and resubmit. |
-| 2 | **Staff proposes edits, applicant e‑signs to approve** | **"Propose changes for applicant approval"** (was *Send Corrections*) | Opens the field‑picker modal. Applicant receives the proposed values and e‑signs to accept. |
-| 3 | **Staff take over after #1 stalls** | **"Staff will handle corrections (take over)"** (was *Move to pending for staff corrections*) | Status → `pending`. Applicant link is disabled. Logged in the revision audit log. **No modal auto‑opens** — staff edit fields directly in the drawer. |
+## Fix
 
-### Changes
+Keep the row editable by staff but visible in the queue.
 
-1. **`ApplicationReviewDrawer.tsx` — footer buttons (pending/approved state)**
-   - Rename **Request Revisions** → **"Send back to applicant for corrections"**.
-   - Rename **Send Corrections** → **"Propose changes for applicant approval"**.
-   - Add a one‑line muted helper under each button explaining who acts next ("Applicant reopens the form" vs. "Applicant e‑signs the changes you propose").
+1. **`src/pages/management/ManagementPortal.tsx`** — update the pipeline query so applications that staff have taken over are always included regardless of `is_draft`:
+   - Pending tab count query and list query: include rows where `revisions_handled_by_staff_at IS NOT NULL` in addition to `is_draft = false`.
+   - Concretely, replace `.eq('is_draft', false)` filters with an `.or(...)` that allows `is_draft.eq.false` OR `revisions_handled_by_staff_at.not.is.null` (and keep the existing `revisions_requested` carve-out).
 
-2. **`ApplicationReviewDrawer.tsx` — revision history banner (workflow #3)**
-   - Rename the action button to **"Staff will handle corrections (take over)"** with subtitle "Disables the applicant link. You'll edit fields directly here."
-   - **Remove the `setCorrectionsOpen(true)` call** in the click handler so the "Propose changes for applicant approval" modal no longer pops open after take‑over. That modal belongs to workflow #2 and was the source of the "it's sending back to Kenneth" confusion.
-   - Keep the silent applicant notification (`notify-application-moved-to-pending`) and audit‑log entry.
+2. **Visual cue in the pipeline card** — add a small "Staff handling" badge (reusing the same muted/`Lock` styling as the drawer's "Applicant link disabled" indicator) on rows where `revisions_handled_by_staff_at` is set, so staff can tell at a glance which pending rows are staff-driven vs awaiting applicant.
 
-3. **`SuggestCorrectionsModal.tsx` — title/intro copy**
-   - Change dialog title from **"Send corrections to {name}"** → **"Propose changes for {name} to approve"**.
-   - Tighten the intro line to: *"Pick the fields to change, enter the new values, and the applicant will e‑sign to approve. Use 'Send back to applicant for corrections' if you want them to fix it themselves."*
+3. **No DB migration needed.** Kenneth's row will reappear in the Pending tab as soon as the filter change ships.
 
-### Out of scope
-- No DB / RPC / edge‑function changes — the three underlying actions (`request_revisions`, `suggest_corrections`, `move_revisions_to_pending`) already exist and work.
-- No changes to the audit log, banners, or notification emails beyond label/title text.
+## Out of scope
 
-### Verification
-- Pending application → footer shows three clearly distinguishable buttons with helper text.
-- Click **"Staff will handle corrections (take over)"** on Kenneth Woods → status flips to pending, banner updates, **no modal opens**, audit log records the take‑over.
-- Click **"Propose changes for applicant approval"** → field‑picker modal opens with the new title.
+- No change to the takeover logic itself (still flips `is_draft = true` so staff can edit fields).
+- No change to RLS or `applications` schema.
+- No automatic flip back to `is_draft = false` — that should happen when staff finish and re-submit, which is existing behavior.
+
+## Files touched
+
+- `src/pages/management/ManagementPortal.tsx` (query + card badge)
