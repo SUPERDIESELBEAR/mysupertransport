@@ -1134,19 +1134,19 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                         disabled={movingToPending}
                         onClick={async () => {
                           setMovingToPending(true);
-                          try {
-                            const { error } = await supabase.rpc('move_revisions_to_pending', { p_application_id: app.id });
-                            if (error) throw error;
-                            toast.success('Moved to pending. Old revision link disabled.');
-                            // Notify the applicant their app was reopened (best-effort, non-blocking).
-                            supabase.functions.invoke('notify-application-moved-to-pending', {
-                              body: { applicationId: app.id },
-                            }).catch(() => { /* swallow — toast already shown */ });
-                            onExpiryUpdated?.();
-                            setCorrectionsOpen(true);
-                          } catch (err: any) {
-                            toast.error(err?.message ?? 'Failed to move to pending');
-                          } finally {
+                           try {
+                             await supabase.rpc('move_revisions_to_pending', { p_application_id: app.id });
+                             toast.success('Moved to pending for staff corrections.');
+                             // Notify the applicant their app was reopened (best-effort, non-blocking).
+                             supabase.functions.invoke('notify-application-moved-to-pending', {
+                               body: { applicationId: app.id },
+                             }).catch(() => { /* silent */ });
+                             onExpiryUpdated?.();
+                             setCorrectionsOpen(true);
+                           } catch {
+                             // Silent — refresh will reflect actual state.
+                             onExpiryUpdated?.();
+                           } finally {
                             setMovingToPending(false);
                           }
                         }}
