@@ -2,8 +2,8 @@
  * Field catalog for staff-side correction requests. Mirrors the whitelist in
  * the `_app_correction_editable_columns` SQL helper.
  *
- * `kind` controls the editor rendered in SuggestCorrectionsModal and how the
- * value is serialized into JSON for the RPC call.
+ * `kind` controls how each field is rendered/serialized in the staff
+ * ProposeChangesDrawer and how the value is serialized into JSON for the RPC.
  */
 export type FieldKind =
   | 'text' | 'textarea' | 'date' | 'boolean'
