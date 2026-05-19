@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, X, Mail, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatValue, getFieldDef } from '@/lib/applicationCorrections';
+import { formatValue, formatEmployer, getFieldDef } from '@/lib/applicationCorrections';
 
 interface Props { applicationId: string; onChanged?: () => void; }
 
@@ -86,6 +86,41 @@ export function CorrectionRequestStatusCard({ applicationId, onChanged }: Props)
                   <ul className="mt-1.5 space-y-1 pl-3">
                     {r.application_correction_fields.map((f) => {
                       const def = getFieldDef(f.field_path);
+                      if (def?.kind === 'employers') {
+                        const oldList = Array.isArray(f.old_value) ? f.old_value : [];
+                        const newList = Array.isArray(f.new_value) ? f.new_value : [];
+                        return (
+                          <li key={f.id}>
+                            <strong>{f.field_label}:</strong>
+                            <div className="mt-1 grid gap-1.5 sm:grid-cols-2">
+                              <div>
+                                <div className="text-[10px] uppercase tracking-wide opacity-60">Was ({oldList.length})</div>
+                                {oldList.length === 0 ? (
+                                  <div className="opacity-60">(empty)</div>
+                                ) : (
+                                  <ul className="space-y-0.5">
+                                    {oldList.map((e, i) => (
+                                      <li key={i} className="line-through opacity-60">{formatEmployer(e)}</li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                              <div>
+                                <div className="text-[10px] uppercase tracking-wide opacity-60">Will become ({newList.length})</div>
+                                {newList.length === 0 ? (
+                                  <div className="opacity-60">(empty)</div>
+                                ) : (
+                                  <ul className="space-y-0.5">
+                                    {newList.map((e, i) => (
+                                      <li key={i} className="font-semibold">{formatEmployer(e)}</li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      }
                       return (
                         <li key={f.id}>
                           <strong>{f.field_label}:</strong>{' '}
