@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatValue, getFieldDef } from '@/lib/applicationCorrections';
+import { diffEmployers } from '@/lib/applicationDiff';
+import type { EmployerRecord } from '@/components/application/types';
 
 interface CorrectionData {
   request_id: string;
@@ -20,6 +22,85 @@ interface CorrectionData {
   sent_at: string;
   expires_at: string;
   fields: { id: string; field_path: string; field_label: string; old_value: unknown; new_value: unknown; }[];
+}
+
+function fmtEmployerField(k: keyof EmployerRecord, v: string | undefined): string {
+  if (v === undefined || v === null || v === '') return '(empty)';
+  if (k === 'cmv_position') return v === 'yes' ? 'CMV: Yes' : v === 'no' ? 'CMV: No' : v;
+  return String(v);
+}
+
+function EmployerCard({ emp, label, tone }: { emp: EmployerRecord; label: string; tone: 'added' | 'removed' }) {
+  const isAdded = tone === 'added';
+  return (
+    <div className={`border rounded-lg p-3 ${isAdded ? 'border-gold bg-gold/10' : 'border-rose-200 bg-rose-50'}`}>
+      <div className="flex items-center justify-between mb-2 gap-2">
+        <div className="text-sm font-semibold text-foreground">
+          {emp.name || '(unnamed employer)'} · {emp.city}{emp.state ? `, ${emp.state}` : ''}
+        </div>
+        <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded ${isAdded ? 'bg-gold text-foreground' : 'bg-rose-600 text-white'}`}>
+          {label}
+        </span>
+      </div>
+      <div className={`text-xs grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 ${!isAdded ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+        <div><strong>Position:</strong> {emp.position || '(empty)'}</div>
+        <div><strong>CMV:</strong> {emp.cmv_position || '(empty)'}</div>
+        <div><strong>Dates:</strong> {emp.start_date || '?'} – {emp.end_date || '?'}</div>
+        <div className="sm:col-span-2"><strong>Reason:</strong> {emp.reason_leaving || '(empty)'}</div>
+      </div>
+    </div>
+  );
+}
+
+function EmployersDiffCard({ oldList, newList }: { oldList: EmployerRecord[]; newList: EmployerRecord[] }) {
+  const rows = diffEmployers(oldList, newList);
+  return (
+    <div className="border border-gold/50 bg-gold/5 rounded-lg p-3">
+      <div className="text-sm font-semibold text-foreground mb-3">Employment history</div>
+      <div className="space-y-2">
+        {rows.map((r, i) => {
+          if (r.kind === 'added' && r.next) {
+            return <EmployerCard key={`a-${i}`} emp={r.next} label="Added by staff" tone="added" />;
+          }
+          if (r.kind === 'removed' && r.old) {
+            return <EmployerCard key={`r-${i}`} emp={r.old} label="Removed" tone="removed" />;
+          }
+          if (r.kind === 'edited' && r.old && r.next) {
+            return (
+              <div key={`e-${i}`} className="border border-gold/60 bg-white rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2 gap-2">
+                  <div className="text-sm font-semibold text-foreground">
+                    {r.next.name || '(unnamed employer)'}
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded bg-gold text-foreground">
+                    Edited
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  {r.changedFields.map((cf) => (
+                    <div key={String(cf)} className="bg-gold/5 border border-gold/30 rounded px-2 py-1.5">
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">{String(cf)}</div>
+                      <div className="line-through text-muted-foreground">{fmtEmployerField(cf, r.old?.[cf] as string)}</div>
+                      <div className="font-semibold text-foreground">{fmtEmployerField(cf, r.next?.[cf] as string)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          }
+          // unchanged — collapse summary
+          if (r.kind === 'unchanged' && r.next) {
+            return (
+              <div key={`u-${i}`} className="text-xs text-muted-foreground px-3 py-1.5 border border-dashed border-border rounded">
+                Unchanged: {r.next.name} · {r.next.start_date} – {r.next.end_date}
+              </div>
+            );
+          }
+          return null;
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function ApplicationApprove() {
@@ -137,22 +218,38 @@ export default function ApplicationApprove() {
 
           <div>
             <h2 className="text-sm font-bold text-foreground mb-2">Proposed changes ({data.fields.length})</h2>
-            <div className="border border-border rounded overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40"><tr><th className="text-left p-2 text-xs font-semibold uppercase tracking-wide">Field</th><th className="text-left p-2 text-xs font-semibold uppercase tracking-wide">Current</th><th className="text-left p-2 text-xs font-semibold uppercase tracking-wide">Proposed</th></tr></thead>
-                <tbody>
-                  {data.fields.map((f) => {
-                    const def = getFieldDef(f.field_path);
-                    return (
-                      <tr key={f.id} className="border-t border-border">
-                        <td className="p-2 font-medium align-top">{f.field_label}</td>
-                        <td className="p-2 text-muted-foreground line-through align-top break-words">{formatValue(f.old_value, def?.kind)}</td>
-                        <td className="p-2 text-emerald-700 font-semibold align-top break-words">{formatValue(f.new_value, def?.kind)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="space-y-3">
+              {data.fields.map((f) => {
+                if (f.field_path === 'employers') {
+                  return (
+                    <EmployersDiffCard
+                      key={f.id}
+                      oldList={Array.isArray(f.old_value) ? (f.old_value as EmployerRecord[]) : []}
+                      newList={Array.isArray(f.new_value) ? (f.new_value as EmployerRecord[]) : []}
+                    />
+                  );
+                }
+                const def = getFieldDef(f.field_path);
+                return (
+                  <div key={f.id} className="border border-gold/50 bg-gold/5 rounded-lg p-3">
+                    <div className="text-sm font-semibold text-foreground mb-2">{f.field_label}</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Was</div>
+                        <div className="bg-muted/40 border border-border rounded px-2 py-1.5 line-through text-muted-foreground break-words">
+                          {formatValue(f.old_value, def?.kind)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Will become</div>
+                        <div className="bg-white border border-gold rounded px-2 py-1.5 font-semibold text-foreground break-words">
+                          {formatValue(f.new_value, def?.kind)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
