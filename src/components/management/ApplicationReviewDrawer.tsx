@@ -1226,9 +1226,10 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                     <Button
                       variant="outline"
                       onClick={() => setConfirmAction('revise')}
-                      className="w-full border-status-progress/40 text-status-progress hover:bg-status-progress/10 whitespace-normal h-auto min-h-10 py-2 leading-tight"
+                      className="w-full border-status-progress/40 text-status-progress hover:bg-status-progress/10 whitespace-normal h-auto min-h-[3.25rem] py-2.5 leading-snug items-start justify-start text-left gap-2 [&>svg]:mt-0.5"
                     >
-                      <RotateCcw className="h-4 w-4 mr-2" /> Send back to applicant for corrections
+                      <RotateCcw className="h-4 w-4" />
+                      <span className="flex-1">Send back to applicant for corrections</span>
                     </Button>
                     <p className="text-[11px] text-muted-foreground px-1">Applicant reopens the form and resubmits.</p>
                   </div>
@@ -1236,9 +1237,10 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                     <Button
                       variant="outline"
                       onClick={() => setCorrectionsOpen(true)}
-                      className="w-full border-gold/40 text-foreground hover:bg-gold/10 whitespace-normal h-auto min-h-10 py-2 leading-tight"
+                      className="w-full border-gold/40 text-foreground hover:bg-gold/10 whitespace-normal h-auto min-h-[3.25rem] py-2.5 leading-snug items-start justify-start text-left gap-2 [&>svg]:mt-0.5"
                     >
-                      <Mail className="h-4 w-4 mr-2" /> Propose changes for applicant approval
+                      <Mail className="h-4 w-4" />
+                      <span className="flex-1">Propose changes for applicant approval</span>
                     </Button>
                     <p className="text-[11px] text-muted-foreground px-1">Applicant e-signs the changes you propose.</p>
                   </div>
@@ -1247,9 +1249,10 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   <Button
                     variant="outline"
                     onClick={() => setConfirmAction('deny')}
-                    className="flex-1 min-w-[140px] border-destructive/40 text-destructive hover:bg-destructive/10 whitespace-normal h-auto min-h-10 py-2 leading-tight"
+                    className="flex-1 min-w-[140px] border-destructive/40 text-destructive hover:bg-destructive/10 whitespace-normal h-auto min-h-[3.25rem] py-2.5 leading-snug items-start justify-start text-left gap-2 [&>svg]:mt-0.5"
                   >
-                    <XCircle className="h-4 w-4 mr-2" /> Deny
+                    <XCircle className="h-4 w-4" />
+                    <span className="flex-1">Deny</span>
                   </Button>
                   <TooltipProvider>
                     <Tooltip>
