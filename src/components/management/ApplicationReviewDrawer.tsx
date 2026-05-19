@@ -1222,21 +1222,21 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   />
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <div className="flex-1 min-w-[180px] flex flex-col gap-1">
+                  <div className="flex-1 min-w-[200px] flex flex-col gap-1">
                     <Button
                       variant="outline"
                       onClick={() => setConfirmAction('revise')}
-                      className="w-full border-status-progress/40 text-status-progress hover:bg-status-progress/10"
+                      className="w-full border-status-progress/40 text-status-progress hover:bg-status-progress/10 whitespace-normal h-auto min-h-10 py-2 leading-tight"
                     >
                       <RotateCcw className="h-4 w-4 mr-2" /> Send back to applicant for corrections
                     </Button>
                     <p className="text-[11px] text-muted-foreground px-1">Applicant reopens the form and resubmits.</p>
                   </div>
-                  <div className="flex-1 min-w-[180px] flex flex-col gap-1">
+                  <div className="flex-1 min-w-[200px] flex flex-col gap-1">
                     <Button
                       variant="outline"
                       onClick={() => setCorrectionsOpen(true)}
-                      className="w-full border-gold/40 text-foreground hover:bg-gold/10"
+                      className="w-full border-gold/40 text-foreground hover:bg-gold/10 whitespace-normal h-auto min-h-10 py-2 leading-tight"
                     >
                       <Mail className="h-4 w-4 mr-2" /> Propose changes for applicant approval
                     </Button>
@@ -1247,7 +1247,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   <Button
                     variant="outline"
                     onClick={() => setConfirmAction('deny')}
-                    className="flex-1 min-w-[140px] border-destructive/40 text-destructive hover:bg-destructive/10"
+                    className="flex-1 min-w-[140px] border-destructive/40 text-destructive hover:bg-destructive/10 whitespace-normal h-auto min-h-10 py-2 leading-tight"
                   >
                     <XCircle className="h-4 w-4 mr-2" /> Deny
                   </Button>
