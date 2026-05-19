@@ -1,30 +1,22 @@
 ## Problem
 
-When staff click "Staff will handle corrections (take over)" on an application:
-- `is_draft` is set to `true` (so the form is editable by staff)
-- `revisions_handled_by_staff_at` is stamped
-- `review_status` stays `pending`
-
-The Management Portal pipeline list filters with `is_draft = false` (except for `revisions_requested`), so taken-over applications disappear from every tab. Kenneth Woods' record is in this exact state right now.
+In the pending action footer of `ApplicationReviewDrawer.tsx`, the two outline buttons "Send back to applicant for corrections" and "Propose changes for applicant approval" overflow their containers and visually bleed into each other. Cause: shadcn `Button` base class includes `whitespace-nowrap` and a fixed `h-10`, so long labels can't wrap inside the narrow flex columns (`min-w-[180px]`) at this drawer width.
 
 ## Fix
 
-Keep the row editable by staff but visible in the queue.
+Pure CSS / class adjustment in `src/components/management/ApplicationReviewDrawer.tsx` (lines ~1224–1253):
 
-1. **`src/pages/management/ManagementPortal.tsx`** — update the pipeline query so applications that staff have taken over are always included regardless of `is_draft`:
-   - Pending tab count query and list query: include rows where `revisions_handled_by_staff_at IS NOT NULL` in addition to `is_draft = false`.
-   - Concretely, replace `.eq('is_draft', false)` filters with an `.or(...)` that allows `is_draft.eq.false` OR `revisions_handled_by_staff_at.not.is.null` (and keep the existing `revisions_requested` carve-out).
+1. Allow the two long-label buttons (and Deny for consistency) to wrap:
+   - Add `whitespace-normal h-auto min-h-10 py-2 text-left leading-tight` to the className of:
+     - "Send back to applicant for corrections" button
+     - "Propose changes for applicant approval" button
+     - "Deny" button (so heights match in the row)
+2. Add `items-start` to the icon area by keeping the existing `mr-2` icon; the icon will stay vertically aligned via flex defaults (button already uses `inline-flex items-center`). Keep icon as `shrink-0`.
+3. Bump each column's `min-w-[180px]` to `min-w-[200px]` so wrapping happens on at most 2 lines at typical drawer widths.
 
-2. **Visual cue in the pipeline card** — add a small "Staff handling" badge (reusing the same muted/`Lock` styling as the drawer's "Applicant link disabled" indicator) on rows where `revisions_handled_by_staff_at` is set, so staff can tell at a glance which pending rows are staff-driven vs awaiting applicant.
-
-3. **No DB migration needed.** Kenneth's row will reappear in the Pending tab as soon as the filter change ships.
+No logic, copy, or workflow changes. Labels stay exactly as they are.
 
 ## Out of scope
 
-- No change to the takeover logic itself (still flips `is_draft = true` so staff can edit fields).
-- No change to RLS or `applications` schema.
-- No automatic flip back to `is_draft = false` — that should happen when staff finish and re-submit, which is existing behavior.
-
-## Files touched
-
-- `src/pages/management/ManagementPortal.tsx` (query + card badge)
+- No changes to button labels, helper text, or workflow behavior.
+- No changes to the confirm step or other footer states.
