@@ -1,31 +1,39 @@
-# Fix `[object Object]` in correction status card
+## What's happening
 
-## Problem
+When the applicant signs and clicks **Approve & sign**, the browser shows "Edge Function returned a non-2xx status code". The edge function `respond-application-correction` is fine — it's the database RPC behind it that's throwing.
 
-In the staff-side "View N change(s)" panel (`CorrectionRequestStatusCard`), the **Employment history** diff shows `[object Object], [object Object], ...` instead of readable employer names.
+Reproduced by dry-running `approve_application_correction(...)` against the pending request in the database:
 
-Root cause: `formatValue()` in `src/lib/applicationCorrections.ts` handles arrays with `v.join(', ')`. For the `employers` field (array of objects), that produces `[object Object]`. The applicant-facing approval page already renders employers correctly via `diffEmployers()` — only the staff status card is affected.
+```
+ERROR: column reference "request_id" is ambiguous
+QUERY: SELECT field_path, new_value FROM public.application_correction_fields WHERE request_id = v_req.id
+```
+
+## Root cause
+
+Both `approve_application_correction` and `reject_application_correction` declare their return columns with `RETURNS TABLE(request_id uuid, …)`. Postgres treats those OUT names as PL/pgSQL variables inside the body. The loop that reads pending field edits uses an unqualified `request_id` in its WHERE clause, which now collides with the OUT variable of the same name — so every approval (and any reject path that does the same query) errors out before any field is applied.
+
+This bug only surfaces now because we recently started writing `employers` rows to `application_correction_fields` — but it would fire on any field change.
 
 ## Fix
 
-### 1. `src/lib/applicationCorrections.ts`
-Update `formatValue()` so that when `kind === 'employers'` (or the array contains objects), it returns a short, human-readable summary instead of joining objects:
-- Each employer becomes a one-line string like `"Acme Trucking (Dallas, TX) — 2021-03 → 2023-08"`, falling back gracefully when fields are missing.
-- Multiple employers are separated by `" • "` (or rendered on new lines — see step 2).
-- Keep existing behavior for string arrays (multiselect) and scalars.
+Create a new migration that replaces both functions with the column reference qualified by the table alias. No behavior change beyond unblocking execution.
 
-### 2. `src/components/management/CorrectionRequestStatusCard.tsx`
-For the `employers` kind specifically, render the old/new lists as a small stacked list (one employer per line) under the field label, instead of a single inline `was → new` line, so 5 employers don't wrap awkwardly. Keep the inline `was → new` layout for all other field kinds.
-
-### 3. Optional polish
-Also show a per-row sub-diff badge ("+4 added") when the employer count changed, to match the richer applicant-side view at a glance. Skip if it adds complexity — the readable names alone solve the reported issue.
-
-## Out of scope
-- No database changes; stored `old_value` / `new_value` JSON is already correct.
-- No changes to the applicant approval page or the PDF export (both already format employers correctly).
-- No changes to email content.
+- In `approve_application_correction`, rewrite the loop as:
+  ```sql
+  FOR v_field IN
+    SELECT f.field_path, f.new_value
+    FROM public.application_correction_fields f
+    WHERE f.request_id = v_req.id
+  LOOP …
+  ```
+- In `reject_application_correction`, no loop today, but defensively alias any future references the same way and keep the OUT column name.
+- Keep the existing `RETURNS TABLE(request_id uuid, application_id uuid)` signature so the edge function and client contracts don't change.
 
 ## Verification
-- Open an application with a pending correction that edits Employment history.
-- Expand "View N change(s)" on the staff card and confirm each employer renders as `Name (City, ST) — start → end` instead of `[object Object]`.
-- Confirm non-employer fields (e.g., "Has employment gaps") still render as before.
+
+1. Re-run the same dry-run (`BEGIN; SELECT approve_application_correction(...); ROLLBACK;`) against the existing pending token — expect a row returned and no error.
+2. From the applicant view in preview, sign and click **Approve & sign** — toast should disappear, success screen renders, and the `employers` array on the application updates to the proposed value.
+3. Test reject path with a separate pending request to confirm parity.
+
+No frontend, edge function, or schema changes required — only the two SQL function bodies.
