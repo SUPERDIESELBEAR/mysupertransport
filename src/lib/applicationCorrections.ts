@@ -82,9 +82,33 @@ export function getFieldDef(path: string): CorrectionFieldDef | undefined {
 export function formatValue(v: unknown, kind?: FieldKind): string {
   if (v === null || v === undefined || v === '') return '(empty)';
   if (kind === 'boolean' || typeof v === 'boolean') return v ? 'Yes' : 'No';
-  if (Array.isArray(v)) return v.length ? v.join(', ') : '(empty)';
+  if (Array.isArray(v)) {
+    if (!v.length) return '(empty)';
+    if (kind === 'employers' || v.some((x) => x && typeof x === 'object')) {
+      return v.map((x) => formatEmployer(x)).join(' • ');
+    }
+    return v.join(', ');
+  }
   if (typeof v === 'object') {
+    if (kind === 'employers') return formatEmployer(v);
     try { return JSON.stringify(v); } catch { return String(v); }
   }
   return String(v);
+}
+
+/** Format a single employer record as a one-line readable string. */
+export function formatEmployer(e: unknown): string {
+  if (!e || typeof e !== 'object') return '(empty)';
+  const r = e as Record<string, unknown>;
+  const name = (r.name as string) || 'Unnamed employer';
+  const city = (r.city as string) || '';
+  const state = (r.state as string) || '';
+  const loc = [city, state].filter(Boolean).join(', ');
+  const start = (r.start_date as string) || '';
+  const end = (r.end_date as string) || 'Present';
+  const dates = start ? `${start} → ${end}` : '';
+  let out = name;
+  if (loc) out += ` (${loc})`;
+  if (dates) out += ` — ${dates}`;
+  return out;
 }
