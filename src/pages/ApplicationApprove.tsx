@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatValue, getFieldDef } from '@/lib/applicationCorrections';
+import { diffEmployers } from '@/lib/applicationDiff';
+import type { EmployerRecord } from '@/components/application/types';
 
 interface CorrectionData {
   request_id: string;
@@ -137,22 +139,38 @@ export default function ApplicationApprove() {
 
           <div>
             <h2 className="text-sm font-bold text-foreground mb-2">Proposed changes ({data.fields.length})</h2>
-            <div className="border border-border rounded overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40"><tr><th className="text-left p-2 text-xs font-semibold uppercase tracking-wide">Field</th><th className="text-left p-2 text-xs font-semibold uppercase tracking-wide">Current</th><th className="text-left p-2 text-xs font-semibold uppercase tracking-wide">Proposed</th></tr></thead>
-                <tbody>
-                  {data.fields.map((f) => {
-                    const def = getFieldDef(f.field_path);
-                    return (
-                      <tr key={f.id} className="border-t border-border">
-                        <td className="p-2 font-medium align-top">{f.field_label}</td>
-                        <td className="p-2 text-muted-foreground line-through align-top break-words">{formatValue(f.old_value, def?.kind)}</td>
-                        <td className="p-2 text-emerald-700 font-semibold align-top break-words">{formatValue(f.new_value, def?.kind)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="space-y-3">
+              {data.fields.map((f) => {
+                if (f.field_path === 'employers') {
+                  return (
+                    <EmployersDiffCard
+                      key={f.id}
+                      oldList={Array.isArray(f.old_value) ? (f.old_value as EmployerRecord[]) : []}
+                      newList={Array.isArray(f.new_value) ? (f.new_value as EmployerRecord[]) : []}
+                    />
+                  );
+                }
+                const def = getFieldDef(f.field_path);
+                return (
+                  <div key={f.id} className="border border-gold/50 bg-gold/5 rounded-lg p-3">
+                    <div className="text-sm font-semibold text-foreground mb-2">{f.field_label}</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Was</div>
+                        <div className="bg-muted/40 border border-border rounded px-2 py-1.5 line-through text-muted-foreground break-words">
+                          {formatValue(f.old_value, def?.kind)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Will become</div>
+                        <div className="bg-white border border-gold rounded px-2 py-1.5 font-semibold text-foreground break-words">
+                          {formatValue(f.new_value, def?.kind)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
