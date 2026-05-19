@@ -24,6 +24,83 @@ interface CorrectionData {
   fields: { id: string; field_path: string; field_label: string; old_value: unknown; new_value: unknown; }[];
 }
 
+interface SectionSummary {
+  section: string;
+  count: number;
+  detail: string;
+  anchor: string;
+}
+
+function sectionAnchor(section: string): string {
+  return 'sec-' + section.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+function buildSectionSummaries(fields: CorrectionData['fields']): SectionSummary[] {
+  const map = new Map<string, { count: number; parts: string[] }>();
+  for (const f of fields) {
+    const def = getFieldDef(f.field_path);
+    const section = def?.section || 'Other';
+    const entry = map.get(section) || { count: 0, parts: [] };
+    if (f.field_path === 'employers') {
+      const oldList = Array.isArray(f.old_value) ? (f.old_value as EmployerRecord[]) : [];
+      const newList = Array.isArray(f.new_value) ? (f.new_value as EmployerRecord[]) : [];
+      const rows = diffEmployers(oldList, newList);
+      const added = rows.filter((r) => r.kind === 'added').length;
+      const removed = rows.filter((r) => r.kind === 'removed').length;
+      const edited = rows.filter((r) => r.kind === 'edited').length;
+      const empCount = added + removed + edited;
+      entry.count += empCount;
+      const bits: string[] = [];
+      if (added) bits.push(`${added} added`);
+      if (edited) bits.push(`${edited} edited`);
+      if (removed) bits.push(`${removed} removed`);
+      if (bits.length) entry.parts.push(`Employment: ${bits.join(', ')}`);
+    } else {
+      entry.count += 1;
+      entry.parts.push(f.field_label);
+    }
+    map.set(section, entry);
+  }
+  return Array.from(map.entries()).map(([section, v]) => ({
+    section,
+    count: v.count,
+    detail: v.parts.join(' · '),
+    anchor: sectionAnchor(section),
+  }));
+}
+
+function ChangeSummaryPanel({ fields }: { fields: CorrectionData['fields'] }) {
+  const summaries = buildSectionSummaries(fields);
+  const total = summaries.reduce((s, x) => s + x.count, 0);
+  if (!summaries.length) return null;
+  return (
+    <div className="border border-gold/60 bg-gold/5 rounded-lg p-4">
+      <div className="flex items-baseline justify-between mb-3 gap-3">
+        <h2 className="text-sm font-bold text-foreground uppercase tracking-wide">Summary of changes</h2>
+        <span className="text-xs font-semibold text-foreground">
+          {total} {total === 1 ? 'field' : 'fields'} across {summaries.length} {summaries.length === 1 ? 'section' : 'sections'}
+        </span>
+      </div>
+      <ul className="divide-y divide-gold/30">
+        {summaries.map((s) => (
+          <li key={s.section} className="py-2 flex items-start justify-between gap-3">
+            <a href={`#${s.anchor}`} className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-foreground hover:underline">{s.section}</div>
+              <div className="text-xs text-muted-foreground truncate">{s.detail}</div>
+            </a>
+            <span className="shrink-0 inline-flex items-center justify-center min-w-[2rem] h-6 px-2 rounded-full bg-gold text-foreground text-xs font-bold">
+              {s.count}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-[11px] text-muted-foreground mt-3">
+        Review each highlighted change below, then sign to approve all at once.
+      </p>
+    </div>
+  );
+}
+
 function fmtEmployerField(k: keyof EmployerRecord, v: string | undefined): string {
   if (v === undefined || v === null || v === '') return '(empty)';
   if (k === 'cmv_position') return v === 'yes' ? 'CMV: Yes' : v === 'no' ? 'CMV: No' : v;
@@ -218,9 +295,25 @@ export default function ApplicationApprove() {
 
           <div>
             <h2 className="text-sm font-bold text-foreground mb-2">Proposed changes ({data.fields.length})</h2>
-            <div className="space-y-3">
-              {data.fields.map((f) => {
-                if (f.field_path === 'employers') {
+            <div className="mb-4">
+              <ChangeSummaryPanel fields={data.fields} />
+            </div>
+            <div className="space-y-5">
+              {(() => {
+                const groups = new Map<string, typeof data.fields>();
+                for (const f of data.fields) {
+                  const section = getFieldDef(f.field_path)?.section || 'Other';
+                  const arr = groups.get(section) || [];
+                  arr.push(f);
+                  groups.set(section, arr);
+                }
+                return Array.from(groups.entries()).map(([section, items]) => (
+                  <section key={section} id={sectionAnchor(section)} className="scroll-mt-4 space-y-3">
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground border-b border-border pb-1">
+                      {section}
+                    </h3>
+                    {items.map((f) => {
+                      if (f.field_path === 'employers') {
                   return (
                     <EmployersDiffCard
                       key={f.id}
@@ -249,7 +342,10 @@ export default function ApplicationApprove() {
                     </div>
                   </div>
                 );
-              })}
+                    })}
+                  </section>
+                ));
+              })()}
             </div>
           </div>
 
