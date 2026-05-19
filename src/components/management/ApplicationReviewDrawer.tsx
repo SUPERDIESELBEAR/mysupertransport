@@ -32,6 +32,7 @@ import { SuggestCorrectionsModal } from '@/components/management/SuggestCorrecti
 import { CorrectionRequestStatusCard } from '@/components/management/CorrectionRequestStatusCard';
 import { RevisionReplyAttachments } from '@/components/management/RevisionReplyAttachments';
 import { RevisionAuditLog } from '@/components/management/RevisionAuditLog';
+import { ReviewActionButton } from '@/components/management/ReviewActionButton';
 
 type EditableDocumentKey = 'dl_front_url' | 'dl_rear_url' | 'medical_cert_url';
 
@@ -1223,37 +1224,35 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <div className="flex-1 min-w-[200px] flex flex-col gap-1">
-                    <Button
-                      variant="outline"
+                    <ReviewActionButton
+                      tone="revise"
+                      icon={RotateCcw}
+                      label="Send back to applicant for corrections"
                       onClick={() => setConfirmAction('revise')}
-                      className="w-full border-status-progress/40 text-status-progress hover:bg-status-progress/10 whitespace-normal h-auto min-h-[3.25rem] py-2.5 leading-snug items-start justify-start text-left gap-2 [&>svg]:mt-0.5"
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                      <span className="flex-1">Send back to applicant for corrections</span>
-                    </Button>
+                      data-testid="review-action-revise"
+                    />
                     <p className="text-[11px] text-muted-foreground px-1">Applicant reopens the form and resubmits.</p>
                   </div>
                   <div className="flex-1 min-w-[200px] flex flex-col gap-1">
-                    <Button
-                      variant="outline"
+                    <ReviewActionButton
+                      tone="propose"
+                      icon={Mail}
+                      label="Propose changes for applicant approval"
                       onClick={() => setCorrectionsOpen(true)}
-                      className="w-full border-gold/40 text-foreground hover:bg-gold/10 whitespace-normal h-auto min-h-[3.25rem] py-2.5 leading-snug items-start justify-start text-left gap-2 [&>svg]:mt-0.5"
-                    >
-                      <Mail className="h-4 w-4" />
-                      <span className="flex-1">Propose changes for applicant approval</span>
-                    </Button>
+                      data-testid="review-action-propose"
+                    />
                     <p className="text-[11px] text-muted-foreground px-1">Applicant e-signs the changes you propose.</p>
                   </div>
                   {app.review_status === 'pending' && (
                   <>
-                  <Button
-                    variant="outline"
+                  <ReviewActionButton
+                    tone="deny"
+                    icon={XCircle}
+                    label="Deny"
                     onClick={() => setConfirmAction('deny')}
-                    className="flex-1 min-w-[140px] border-destructive/40 text-destructive hover:bg-destructive/10 whitespace-normal h-auto min-h-[3.25rem] py-2.5 leading-snug items-start justify-start text-left gap-2 [&>svg]:mt-0.5"
-                  >
-                    <XCircle className="h-4 w-4" />
-                    <span className="flex-1">Deny</span>
-                  </Button>
+                    className="flex-1 min-w-[140px]"
+                    data-testid="review-action-deny"
+                  />
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
