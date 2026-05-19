@@ -28,7 +28,7 @@ import CompanyTestingPolicyCertDoc from '@/components/application/documents/Comp
 import { ApplicationPEITab } from '@/components/pei/ApplicationPEITab';
 import { RevertRevisionModal } from '@/components/management/RevertRevisionModal';
 import { RevertedBanner } from '@/components/management/RevertedBanner';
-import { SuggestCorrectionsModal } from '@/components/management/SuggestCorrectionsModal';
+import { ProposeChangesDrawer } from '@/components/management/ProposeChangesDrawer';
 import { CorrectionRequestStatusCard } from '@/components/management/CorrectionRequestStatusCard';
 import { RevisionReplyAttachments } from '@/components/management/RevisionReplyAttachments';
 import { RevisionAuditLog } from '@/components/management/RevisionAuditLog';
@@ -1108,7 +1108,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           />
         </div>
 
-        <SuggestCorrectionsModal
+        <ProposeChangesDrawer
           open={correctionsOpen}
           onOpenChange={setCorrectionsOpen}
           application={app as unknown as Record<string, unknown> & { id: string; first_name?: string | null; last_name?: string | null; email: string }}
