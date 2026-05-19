@@ -4,10 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertTriangle, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatValue, getFieldDef } from '@/lib/applicationCorrections';
 import { diffEmployers } from '@/lib/applicationDiff';
+import { downloadCorrectionSummaryPdf } from '@/lib/correctionSummaryPdf';
 import type { EmployerRecord } from '@/components/application/types';
 
 interface CorrectionData {
@@ -221,6 +222,22 @@ export default function ApplicationApprove() {
 
   const clearSig = () => { const c = sigCanvas.current; if (!c) return; const ctx = c.getContext('2d'); ctx?.clearRect(0,0,c.width,c.height); };
 
+  const handleDownloadPdf = () => {
+    if (!data) return;
+    try {
+      downloadCorrectionSummaryPdf({
+        applicantName: [data.applicant_first_name, data.applicant_last_name].filter(Boolean).join(' '),
+        staffName: data.requested_by_staff_name,
+        reason: data.reason_for_changes,
+        courtesyMessage: data.courtesy_message,
+        sentAt: data.sent_at,
+        fields: data.fields,
+      });
+    } catch (err) {
+      toast.error((err as { message?: string })?.message || 'Could not generate PDF');
+    }
+  };
+
   const submit = async (action: 'approve' | 'reject') => {
     if (action === 'approve' && signedName.trim().length < 2) {
       toast.error('Please type your full name to sign.');
@@ -353,6 +370,18 @@ export default function ApplicationApprove() {
             <>
               <div className="border border-border rounded p-4 space-y-3">
                 <h3 className="text-sm font-bold">Approve & sign</h3>
+                <div className="flex items-start gap-2 bg-gold/5 border border-gold/40 rounded p-2.5">
+                  <Download className="h-4 w-4 text-foreground mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-foreground font-semibold">Want a copy before you sign?</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Download a PDF of every proposed change and the reason your staff member provided.
+                    </p>
+                  </div>
+                  <Button type="button" size="sm" variant="outline" onClick={handleDownloadPdf} className="shrink-0">
+                    <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
+                  </Button>
+                </div>
                 <div>
                   <label className="text-xs font-semibold mb-1 block">Type your full legal name</label>
                   <Input value={signedName} onChange={(e) => setSignedName(e.target.value)} placeholder={fullName || 'Your full name'} />
