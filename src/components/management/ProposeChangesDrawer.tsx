@@ -76,18 +76,6 @@ function hydrateDraft(app: Record<string, unknown>): ApplicationFormData {
   };
 }
 
-function boolToYN(v: boolean | null | undefined): string {
-  if (v === true) return 'yes';
-  if (v === false) return 'no';
-  return '';
-}
-
-function ynToBool(v: string): boolean | null {
-  if (v === 'yes') return true;
-  if (v === 'no') return false;
-  return null;
-}
-
 /** Section wrapper with collapsible header — keeps long form scannable. */
 function Section({ title, count, defaultOpen = true, children }: { title: string; count?: number; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
