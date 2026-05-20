@@ -151,6 +151,7 @@ export interface DriverEquipmentRow {
   eld_status: string;
   cam_serial: string;
   cam_status: string;
+  assignment_state: string;
 }
 
 export interface DriverEquipmentReport {
@@ -195,6 +196,9 @@ export function buildDriverEquipmentRows(
         eld_status: eld ? (STATUS_LABEL[eld.status] ?? eld.status) : '',
         cam_serial: cam?.serial_number ?? '',
         cam_status: cam ? (STATUS_LABEL[cam.status] ?? cam.status) : '',
+        assignment_state: !eld && !cam
+          ? 'Unassigned'
+          : (!eld ? 'No ELD' : (!cam ? 'No Dash Cam' : 'Assigned')),
       };
     })
     .sort((a, b) => a.driver.localeCompare(b.driver));
@@ -209,7 +213,7 @@ export function buildDriverEquipmentRows(
       device_type: TYPE_LABEL[i.device_type] ?? i.device_type,
       serial_number: i.serial_number,
       status: STATUS_LABEL[i.status] ?? i.status,
-      operator: '',
+      operator: 'Unassigned',
       notes: i.notes ?? '',
       created: fmtDate(i.created_at),
       updated: fmtDate(i.updated_at),
@@ -220,6 +224,7 @@ export function buildDriverEquipmentRows(
 
 const DRIVER_HEADERS: Array<[keyof DriverEquipmentRow, string]> = [
   ['driver', 'Driver'],
+  ['assignment_state', 'Assignment'],
   ['eld_serial', 'ELD Serial'],
   ['eld_status', 'ELD Status'],
   ['cam_serial', 'Dash Cam Serial'],
@@ -230,6 +235,7 @@ const UNASSIGNED_HEADERS: Array<[keyof ExportRow, string]> = [
   ['device_type', 'Device Type'],
   ['serial_number', 'Serial Number'],
   ['status', 'Status'],
+  ['operator', 'Assignment'],
   ['notes', 'Notes'],
   ['created', 'Created'],
   ['updated', 'Last Updated'],
@@ -276,17 +282,21 @@ export function openDriverEquipmentPdf(report: DriverEquipmentReport) {
     <table>
       <thead>
         <tr>
-          <th style="width:28%">Driver</th>
-          <th style="width:18%">ELD Serial</th>
-          <th style="width:18%">ELD Status</th>
-          <th style="width:18%">Dash Cam Serial</th>
-          <th style="width:18%">Dash Cam Status</th>
+          <th style="width:24%">Driver</th>
+          <th style="width:12%">Assignment</th>
+          <th style="width:16%">ELD Serial</th>
+          <th style="width:16%">ELD Status</th>
+          <th style="width:16%">Dash Cam Serial</th>
+          <th style="width:16%">Dash Cam Status</th>
         </tr>
       </thead>
       <tbody>
         ${report.driverRows.map((r) => `
           <tr>
             <td>${esc(r.driver)}</td>
+            <td>${r.assignment_state === 'Assigned'
+              ? '<span class="pill pill-ok">Assigned</span>'
+              : `<span class="pill pill-warn">${esc(r.assignment_state)}</span>`}</td>
             <td class="mono">${esc(r.eld_serial) || '<span class="muted">—</span>'}</td>
             <td>${esc(r.eld_status) || '<span class="muted">—</span>'}</td>
             <td class="mono">${esc(r.cam_serial) || '<span class="muted">—</span>'}</td>
@@ -305,12 +315,13 @@ export function openDriverEquipmentPdf(report: DriverEquipmentReport) {
     <table>
       <thead>
         <tr>
-          <th style="width:14%">Device Type</th>
-          <th style="width:20%">Serial Number</th>
-          <th style="width:18%">Status</th>
+          <th style="width:12%">Device Type</th>
+          <th style="width:18%">Serial Number</th>
+          <th style="width:14%">Status</th>
+          <th style="width:12%">Assignment</th>
           <th>Notes</th>
-          <th style="width:11%">Created</th>
-          <th style="width:11%">Updated</th>
+          <th style="width:10%">Created</th>
+          <th style="width:10%">Updated</th>
         </tr>
       </thead>
       <tbody>
@@ -319,6 +330,7 @@ export function openDriverEquipmentPdf(report: DriverEquipmentReport) {
             <td>${esc(r.device_type)}</td>
             <td class="mono">${esc(r.serial_number)}</td>
             <td>${esc(r.status)}</td>
+            <td><span class="pill pill-warn">Unassigned</span></td>
             <td>${esc(r.notes)}</td>
             <td>${esc(r.created)}</td>
             <td>${esc(r.updated)}</td>
@@ -348,6 +360,9 @@ export function openDriverEquipmentPdf(report: DriverEquipmentReport) {
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 600; }
   .muted { color:#bbb; }
   .empty { color:#666; font-style: italic; margin-top: 8px; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; }
+  .pill-ok { background:#E8F1E5; color:#2F6B2A; }
+  .pill-warn { background:#FBE9E7; color:#B3261E; }
   .actions { position: fixed; top:0; left:0; right:0; padding:8px; background:#0F0F0F; color:#fff;
     display:flex; gap:8px; justify-content:center; font-size:13px; z-index:9999; }
   .actions button { appearance:none; border:0; cursor:pointer; background:#C9A84C; color:#0F0F0F;
