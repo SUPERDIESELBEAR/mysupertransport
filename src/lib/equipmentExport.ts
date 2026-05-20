@@ -196,6 +196,9 @@ export function buildDriverEquipmentRows(
         eld_status: eld ? (STATUS_LABEL[eld.status] ?? eld.status) : '',
         cam_serial: cam?.serial_number ?? '',
         cam_status: cam ? (STATUS_LABEL[cam.status] ?? cam.status) : '',
+        assignment_state: !eld && !cam
+          ? 'Unassigned'
+          : (!eld ? 'No ELD' : (!cam ? 'No Dash Cam' : 'Assigned')),
       };
     })
     .sort((a, b) => a.driver.localeCompare(b.driver));
