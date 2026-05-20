@@ -151,6 +151,7 @@ export interface DriverEquipmentRow {
   eld_status: string;
   cam_serial: string;
   cam_status: string;
+  assignment_state: string;
 }
 
 export interface DriverEquipmentReport {
