@@ -32,6 +32,8 @@ const SCOPE_SLUG: Record<ExportScope, string> = {
   drivers_equipment: 'drivers-and-equipment',
 };
 
+const TYPE_ORDER: Record<string, number> = { eld: 0, dash_cam: 1, bestpass: 2, fuel_card: 3 };
+
 function scopeTypes(scope: ExportScope): DeviceType[] {
   if (scope === 'eld') return ['eld'];
   if (scope === 'dash_cam') return ['dash_cam'];
@@ -68,7 +70,7 @@ export function buildExportRows(items: EquipmentItem[], scope: ExportScope): Exp
   return items
     .filter((i) => types.has(i.device_type))
     .sort((a, b) => {
-      if (a.device_type !== b.device_type) return a.device_type.localeCompare(b.device_type);
+      if (a.device_type !== b.device_type) return (TYPE_ORDER[a.device_type] ?? 99) - (TYPE_ORDER[b.device_type] ?? 99);
       return a.serial_number.localeCompare(b.serial_number, undefined, { numeric: true });
     })
     .map((i) => ({
@@ -200,7 +202,7 @@ export function buildDriverEquipmentRows(
   const unassigned: ExportRow[] = items
     .filter((i) => (i.device_type === 'eld' || i.device_type === 'dash_cam') && !i.current_assignment_id)
     .sort((a, b) => {
-      if (a.device_type !== b.device_type) return a.device_type.localeCompare(b.device_type);
+      if (a.device_type !== b.device_type) return (TYPE_ORDER[a.device_type] ?? 99) - (TYPE_ORDER[b.device_type] ?? 99);
       return a.serial_number.localeCompare(b.serial_number, undefined, { numeric: true });
     })
     .map((i) => ({
