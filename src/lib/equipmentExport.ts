@@ -213,7 +213,7 @@ export function buildDriverEquipmentRows(
       device_type: TYPE_LABEL[i.device_type] ?? i.device_type,
       serial_number: i.serial_number,
       status: STATUS_LABEL[i.status] ?? i.status,
-      operator: '',
+      operator: 'Unassigned',
       notes: i.notes ?? '',
       created: fmtDate(i.created_at),
       updated: fmtDate(i.updated_at),
@@ -224,6 +224,7 @@ export function buildDriverEquipmentRows(
 
 const DRIVER_HEADERS: Array<[keyof DriverEquipmentRow, string]> = [
   ['driver', 'Driver'],
+  ['assignment_state', 'Assignment'],
   ['eld_serial', 'ELD Serial'],
   ['eld_status', 'ELD Status'],
   ['cam_serial', 'Dash Cam Serial'],
@@ -234,6 +235,7 @@ const UNASSIGNED_HEADERS: Array<[keyof ExportRow, string]> = [
   ['device_type', 'Device Type'],
   ['serial_number', 'Serial Number'],
   ['status', 'Status'],
+  ['operator', 'Assignment'],
   ['notes', 'Notes'],
   ['created', 'Created'],
   ['updated', 'Last Updated'],
