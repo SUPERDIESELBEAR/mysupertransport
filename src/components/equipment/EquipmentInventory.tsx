@@ -9,12 +9,13 @@ import {
   Cpu, Camera, CreditCard, Tag, Plus, Search,
   Package, CheckCircle2, AlertTriangle, XCircle,
   ChevronDown, ChevronUp, History, UserCheck, RotateCcw,
-  Pencil, Loader2
+  Pencil, Loader2, Download
 } from 'lucide-react';
 import EquipmentItemModal from './EquipmentItemModal';
 import EquipmentAssignModal from './EquipmentAssignModal';
 import EquipmentReturnModal from './EquipmentReturnModal';
 import EquipmentHistoryModal from './EquipmentHistoryModal';
+import EquipmentDownloadModal from './EquipmentDownloadModal';
 
 export type DeviceType = 'eld' | 'dash_cam' | 'bestpass' | 'fuel_card';
 export type EquipmentStatus = 'available' | 'assigned' | 'damaged' | 'lost';
@@ -58,6 +59,7 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
 
   // Modals
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [downloadOpen, setDownloadOpen] = useState(false);
   const [editItem, setEditItem] = useState<EquipmentItem | null>(null);
   const [assignItem, setAssignItem] = useState<EquipmentItem | null>(null);
   const [returnItem, setReturnItem] = useState<EquipmentItem | null>(null);
@@ -157,10 +159,16 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
             Track ELDs, Dash Cams, BestPass tags, and Fuel Cards
           </p>
         </div>
-        <Button onClick={() => setAddModalOpen(true)} className="gap-2 shrink-0">
-          <Plus className="h-4 w-4" />
-          Add Device
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" onClick={() => setDownloadOpen(true)} className="gap-2">
+            <Download className="h-4 w-4" />
+            Download
+          </Button>
+          <Button onClick={() => setAddModalOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add Device
+          </Button>
+        </div>
       </div>
 
       {/* Summary stat cards */}
@@ -348,6 +356,10 @@ export default function EquipmentInventory({ isManagement = false }: { isManagem
         open={!!historyItem}
         item={historyItem}
         onClose={() => setHistoryItem(null)}
+      />
+      <EquipmentDownloadModal
+        open={downloadOpen}
+        onClose={() => setDownloadOpen(false)}
       />
     </div>
   );
