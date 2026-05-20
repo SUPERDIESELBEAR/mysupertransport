@@ -360,6 +360,9 @@ export function openDriverEquipmentPdf(report: DriverEquipmentReport) {
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 600; }
   .muted { color:#bbb; }
   .empty { color:#666; font-style: italic; margin-top: 8px; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; }
+  .pill-ok { background:#E8F1E5; color:#2F6B2A; }
+  .pill-warn { background:#FBE9E7; color:#B3261E; }
   .actions { position: fixed; top:0; left:0; right:0; padding:8px; background:#0F0F0F; color:#fff;
     display:flex; gap:8px; justify-content:center; font-size:13px; z-index:9999; }
   .actions button { appearance:none; border:0; cursor:pointer; background:#C9A84C; color:#0F0F0F;
