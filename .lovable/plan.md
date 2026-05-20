@@ -1,39 +1,25 @@
-## What's happening
+## Goal
 
-When the applicant signs and clicks **Approve & sign**, the browser shows "Edge Function returned a non-2xx status code". The edge function `respond-application-correction` is fine — it's the database RPC behind it that's throwing.
+In the Equipment menu, replace the four hover-only icon actions on each inventory row with compact, always-visible outline buttons that show both an icon and a label.
 
-Reproduced by dry-running `approve_application_correction(...)` against the pending request in the database:
+## Scope
 
-```
-ERROR: column reference "request_id" is ambiguous
-QUERY: SELECT field_path, new_value FROM public.application_correction_fields WHERE request_id = v_req.id
-```
+Single file: `src/components/equipment/EquipmentInventory.tsx` (the `EquipmentRow` component, ~lines 397–431).
 
-## Root cause
+No business logic, modal, or data changes — handlers (`onHistory`, `onEdit`, `onAssign`, `onReturn`) stay wired exactly as today.
 
-Both `approve_application_correction` and `reject_application_correction` declare their return columns with `RETURNS TABLE(request_id uuid, …)`. Postgres treats those OUT names as PL/pgSQL variables inside the body. The loop that reads pending field edits uses an unqualified `request_id` in its WHERE clause, which now collides with the OUT variable of the same name — so every approval (and any reject path that does the same query) errors out before any field is applied.
+## Changes
 
-This bug only surfaces now because we recently started writing `employers` rows to `application_correction_fields` — but it would fire on any field change.
+1. Remove the `opacity-0 group-hover:opacity-100` wrapper so actions are always visible.
+2. Replace each `<button>` with the shadcn `Button` component, `variant="outline"` and `size="sm"`, with icon + label:
+   - History icon + "History" → `onHistory`
+   - Pencil icon + "Edit" → `onEdit`
+   - UserCheck icon + "Assign" → `onAssign` (still only when `status === 'available'`)
+   - RotateCcw icon + "Return" → `onReturn` (still only when `status === 'assigned'`)
+3. Keep the Assign and Return color accents (primary for Assign, status-complete for Return) via small `className` overrides so the visual hierarchy is preserved.
+4. Tighten row padding/gap if needed so the new buttons fit cleanly on one line at the current viewport; the row layout itself is unchanged.
 
-## Fix
+## Out of scope
 
-Create a new migration that replaces both functions with the column reference qualified by the table alias. No behavior change beyond unblocking execution.
-
-- In `approve_application_correction`, rewrite the loop as:
-  ```sql
-  FOR v_field IN
-    SELECT f.field_path, f.new_value
-    FROM public.application_correction_fields f
-    WHERE f.request_id = v_req.id
-  LOOP …
-  ```
-- In `reject_application_correction`, no loop today, but defensively alias any future references the same way and keep the OUT column name.
-- Keep the existing `RETURNS TABLE(request_id uuid, application_id uuid)` signature so the edge function and client contracts don't change.
-
-## Verification
-
-1. Re-run the same dry-run (`BEGIN; SELECT approve_application_correction(...); ROLLBACK;`) against the existing pending token — expect a row returned and no error.
-2. From the applicant view in preview, sign and click **Approve & sign** — toast should disappear, success screen renders, and the `employers` array on the application updates to the proposed value.
-3. Test reject path with a separate pending request to confirm parity.
-
-No frontend, edge function, or schema changes required — only the two SQL function bodies.
+- No changes to filters, modals, status badges, or row data.
+- No changes to mobile-specific layout beyond what naturally follows from swapping the buttons in the same flex container.

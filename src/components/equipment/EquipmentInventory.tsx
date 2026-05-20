@@ -395,38 +395,36 @@ function EquipmentRow({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={onHistory}
-          title="View history"
-          className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-        >
+      <div className="flex items-center gap-2 flex-wrap justify-end">
+        <Button variant="outline" size="sm" onClick={onHistory} className="h-8 px-2.5 text-xs">
           <History className="h-3.5 w-3.5" />
-        </button>
-        <button
-          onClick={onEdit}
-          title="Edit"
-          className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-        >
+          History
+        </Button>
+        <Button variant="outline" size="sm" onClick={onEdit} className="h-8 px-2.5 text-xs">
           <Pencil className="h-3.5 w-3.5" />
-        </button>
+          Edit
+        </Button>
         {item.status === 'available' && (
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={onAssign}
-            title="Assign to operator"
-            className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+            className="h-8 px-2.5 text-xs border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
           >
             <UserCheck className="h-3.5 w-3.5" />
-          </button>
+            Assign
+          </Button>
         )}
         {item.status === 'assigned' && (
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={onReturn}
-            title="Record return"
-            className="p-1.5 rounded-lg hover:bg-status-complete/10 text-muted-foreground hover:text-status-complete transition-colors"
+            className="h-8 px-2.5 text-xs border-status-complete/40 text-status-complete hover:bg-status-complete/10 hover:text-status-complete"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-          </button>
+            Return
+          </Button>
         )}
       </div>
     </div>
