@@ -282,17 +282,21 @@ export function openDriverEquipmentPdf(report: DriverEquipmentReport) {
     <table>
       <thead>
         <tr>
-          <th style="width:28%">Driver</th>
-          <th style="width:18%">ELD Serial</th>
-          <th style="width:18%">ELD Status</th>
-          <th style="width:18%">Dash Cam Serial</th>
-          <th style="width:18%">Dash Cam Status</th>
+          <th style="width:24%">Driver</th>
+          <th style="width:12%">Assignment</th>
+          <th style="width:16%">ELD Serial</th>
+          <th style="width:16%">ELD Status</th>
+          <th style="width:16%">Dash Cam Serial</th>
+          <th style="width:16%">Dash Cam Status</th>
         </tr>
       </thead>
       <tbody>
         ${report.driverRows.map((r) => `
           <tr>
             <td>${esc(r.driver)}</td>
+            <td>${r.assignment_state === 'Assigned'
+              ? '<span class="pill pill-ok">Assigned</span>'
+              : `<span class="pill pill-warn">${esc(r.assignment_state)}</span>`}</td>
             <td class="mono">${esc(r.eld_serial) || '<span class="muted">—</span>'}</td>
             <td>${esc(r.eld_status) || '<span class="muted">—</span>'}</td>
             <td class="mono">${esc(r.cam_serial) || '<span class="muted">—</span>'}</td>
@@ -311,12 +315,13 @@ export function openDriverEquipmentPdf(report: DriverEquipmentReport) {
     <table>
       <thead>
         <tr>
-          <th style="width:14%">Device Type</th>
-          <th style="width:20%">Serial Number</th>
-          <th style="width:18%">Status</th>
+          <th style="width:12%">Device Type</th>
+          <th style="width:18%">Serial Number</th>
+          <th style="width:14%">Status</th>
+          <th style="width:12%">Assignment</th>
           <th>Notes</th>
-          <th style="width:11%">Created</th>
-          <th style="width:11%">Updated</th>
+          <th style="width:10%">Created</th>
+          <th style="width:10%">Updated</th>
         </tr>
       </thead>
       <tbody>
@@ -325,6 +330,7 @@ export function openDriverEquipmentPdf(report: DriverEquipmentReport) {
             <td>${esc(r.device_type)}</td>
             <td class="mono">${esc(r.serial_number)}</td>
             <td>${esc(r.status)}</td>
+            <td><span class="pill pill-warn">Unassigned</span></td>
             <td>${esc(r.notes)}</td>
             <td>${esc(r.created)}</td>
             <td>${esc(r.updated)}</td>
