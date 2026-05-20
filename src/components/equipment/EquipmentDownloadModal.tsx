@@ -12,6 +12,8 @@ import type { EquipmentItem } from './EquipmentInventory';
 import {
   type ExportScope, SCOPE_LABEL, buildExportRows,
   downloadCsv, openEquipmentPdf,
+  buildDriverEquipmentRows, downloadDriverEquipmentCsv, openDriverEquipmentPdf,
+  type OperatorLite,
 } from '@/lib/equipmentExport';
 
 type Format = 'csv' | 'pdf';
@@ -21,6 +23,7 @@ const SCOPE_OPTIONS: { value: ExportScope; label: string }[] = [
   { value: 'dash_cam', label: SCOPE_LABEL.dash_cam + ' only' },
   { value: 'eld_dash_cam', label: SCOPE_LABEL.eld_dash_cam },
   { value: 'fuel_card', label: SCOPE_LABEL.fuel_card + ' only' },
+  { value: 'drivers_equipment', label: 'Drivers + Equipment (ELD & Dash Cam)' },
 ];
 
 export default function EquipmentDownloadModal({
@@ -31,7 +34,7 @@ export default function EquipmentDownloadModal({
   const [format, setFormat] = useState<Format>('csv');
   const [busy, setBusy] = useState(false);
 
-  async function fetchAll(): Promise<EquipmentItem[]> {
+  async function fetchAll(): Promise<{ items: EquipmentItem[]; opMap: Record<string, string> }> {
     const { data: itemsData, error } = await supabase
       .from('equipment_items')
       .select('*')
@@ -52,24 +55,64 @@ export default function EquipmentDownloadModal({
       `)
       .is('returned_at', null);
 
-    const map: Record<string, { name: string; assignmentId: string }> = {};
+    const map: Record<string, { name: string; assignmentId: string; operatorId: string }> = {};
     for (const a of (assignments ?? []) as any[]) {
       const app = a.operators?.applications;
       const name = [app?.first_name, app?.last_name].filter(Boolean).join(' ') || 'Unknown Operator';
-      map[a.equipment_id] = { name, assignmentId: a.id };
+      map[a.equipment_id] = { name, assignmentId: a.id, operatorId: a.operator_id };
     }
 
-    return (itemsData ?? []).map((item: any) => ({
+    const items = (itemsData ?? []).map((item: any) => ({
       ...item,
       current_operator_name: map[item.id]?.name ?? null,
       current_assignment_id: map[item.id]?.assignmentId ?? null,
+      current_operator_id: map[item.id]?.operatorId ?? null,
     })) as EquipmentItem[];
+
+    const opMap: Record<string, string> = {};
+    for (const k of Object.keys(map)) opMap[map[k].operatorId] = map[k].name;
+    return { items, opMap };
+  }
+
+  async function fetchActiveOperators(): Promise<OperatorLite[]> {
+    const { data, error } = await supabase
+      .from('operators')
+      .select('id, application_id, is_active, applications(first_name, last_name)')
+      .eq('is_active', true);
+    if (error) throw error;
+    return (data ?? []).map((o: any) => ({
+      id: o.id,
+      first_name: o.applications?.first_name ?? null,
+      last_name: o.applications?.last_name ?? null,
+    }));
   }
 
   async function handleDownload() {
     setBusy(true);
     try {
-      const items = await fetchAll();
+      const { items } = await fetchAll();
+
+      if (scope === 'drivers_equipment') {
+        const operators = await fetchActiveOperators();
+        const report = buildDriverEquipmentRows(items, operators);
+        if (report.driverRows.length === 0 && report.unassigned.length === 0) {
+          toast({ title: 'Nothing to export', description: 'No active drivers or ELD/Dash Cam devices found.' });
+          setBusy(false);
+          return;
+        }
+        if (format === 'csv') {
+          downloadDriverEquipmentCsv(report);
+          toast({
+            title: 'CSV download started',
+            description: `${report.driverRows.length} driver${report.driverRows.length === 1 ? '' : 's'} exported.`,
+          });
+        } else {
+          openDriverEquipmentPdf(report);
+        }
+        onClose();
+        return;
+      }
+
       const rows = buildExportRows(items, scope);
       if (rows.length === 0) {
         toast({
