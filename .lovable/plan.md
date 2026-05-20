@@ -1,66 +1,58 @@
 ## Goal
 
-Add a "Download" option to the Equipment Inventory page that exports device lists as CSV or PDF, with scope choices for ELDs, Dash Cams, ELDs+Dash Cams, or Fuel Cards. Exports always include all devices of the chosen type(s), ignoring on-screen filters.
+Add a fifth scope to the existing Equipment Download modal that produces a driver-centric report matching each active operator to their currently assigned ELD and Dash Cam.
 
-## UI
+## Report shape
 
-In `src/components/equipment/EquipmentInventory.tsx`, add a **Download** button next to "Add Device" in the header. Clicking it opens a dropdown menu (shadcn `DropdownMenu`) with two grouped sections:
+CSV / PDF, one row per active operator:
 
 ```text
-Download
-├─ Scope
-│  • ELDs only
-│  • Dash Cams only
-│  • ELDs + Dash Cams
-│  • Fuel Cards only
-└─ Format
-   • CSV
-   • PDF
+Driver Name | ELD Serial | ELD Status | Dash Cam Serial | Dash Cam Status
 ```
 
-Implementation: pick scope, then format — simplest is a two-level menu (scope → submenu format), or a small modal with two radio groups and a confirm button. I'll use the **small modal** approach for clarity (one tap to open, one tap per choice, one Download click) — mobile-friendly and matches the existing modal pattern in this view.
+- Sorted alphabetically by driver last name, then first name.
+- Blank cells when a driver has no current ELD or no current Dash Cam assignment.
+- Followed by an **Unassigned Devices** section listing every ELD and Dash Cam in inventory that has no active assignment (Device Type, Serial, Status, Notes).
 
-## Export contents
+## Driver scope
 
-Always pulled fresh from `equipment_items` + open `equipment_assignments` (same query as `fetchItems`), ignoring search/status/type filters. Filtered to selected device types.
+All active operators (operators table filtered to active status — same definition used elsewhere in the app; verify during implementation). Drivers with zero assigned devices still appear with blanks so staff can see who is missing equipment.
 
-Columns (Core + Notes + Dates):
-- Device Type (ELD / Dash Cam / Fuel Card)
-- Serial Number
-- Status (Available / Assigned / Damaged / Lost)
-- Assigned Operator (blank if none)
-- Notes
-- Created Date (US Central, MM/DD/YYYY)
-- Updated Date (US Central, MM/DD/YYYY)
+## UI changes
 
-Rows sorted by Device Type, then Serial Number.
+`src/components/equipment/EquipmentDownloadModal.tsx`
+- Add a fifth scope option: `drivers_equipment` labeled **"Drivers + Equipment (ELD & Dash Cam)"**.
+- When selected, the modal's `fetchAll` path additionally pulls active operators (currently it only pulls equipment + assignments).
+- CSV and PDF format both remain available.
 
-## CSV
+## Export logic
 
-Build in-browser, no new dependency. Proper quoting/escaping for commas, quotes, and newlines. Filename pattern: `equipment-{scope}-{YYYY-MM-DD}.csv` (e.g. `equipment-elds-and-dash-cams-2026-05-20.csv`).
+`src/lib/equipmentExport.ts`
+- Extend `ExportScope` union with `'drivers_equipment'`.
+- Add `SCOPE_LABEL.drivers_equipment = 'Drivers + Equipment'` and slug `drivers-and-equipment`.
+- Add a new builder `buildDriverEquipmentRows(items, operators)` returning:
+  - `driverRows: { driver, eld_serial, eld_status, cam_serial, cam_status }[]`
+  - `unassigned: ExportRow[]` (reusing existing `ExportRow` shape, filtered to ELD + Dash Cam with no operator).
+- Add a new `downloadDriverEquipmentCsv(rows)` that writes both sections to one CSV with a blank line separator and a second header for the Unassigned table.
+- Add a new `openDriverEquipmentPdf(rows)` that renders:
+  - Header: "Equipment by Driver" + generated timestamp + counts.
+  - Main table: 5 columns above.
+  - Section: "Unassigned ELDs & Dash Cams" with existing PDF table styling.
+  - Same gold `#C9A84C` branding, landscape letter, auto print prompt.
+- Existing exporters for the other four scopes are untouched.
 
-## PDF
+## Data fetch
 
-Use existing in-app printing path: a new helper `src/lib/equipmentExportPdf.ts` that opens a print window with a styled HTML table (header with SUPERTRANSPORT brand, generated date in Central Time, scope label, summary counts, then the table grouped by device type). Same approach as `src/lib/correctionSummaryPdf.ts` / `src/lib/printDocument.ts` — no new npm packages, browser print-to-PDF.
-
-Filename hint via document title; user saves as PDF from the browser print dialog.
-
-## New files
-
-- `src/lib/equipmentExport.ts` — pure functions: `buildExportRows(items, scope)`, `toCsv(rows)`, `downloadCsv(filename, csv)`, scope label/filename helpers.
-- `src/lib/equipmentExportPdf.ts` — `printEquipmentList(rows, scope)` builds and opens print window.
-- `src/components/equipment/EquipmentDownloadModal.tsx` — modal with Scope radio group, Format radio group, Download button. Fetches fresh data on open, calls the right helper, closes.
-
-## Edited files
-
-- `src/components/equipment/EquipmentInventory.tsx` — add `Download` button in the header, wire up modal open state.
-
-## Suggestions worth flagging
-
-1. **Include "All devices" as a fifth scope** later if staff want one combined list (BestPass + Fuel Cards + ELDs + Cams). Skipped for now since you didn't request it.
-2. **Excel (.xlsx) format** — heavier (needs a library); CSV opens in Excel cleanly, so I'd hold off unless you want true formatted spreadsheets with column widths and freeze panes.
-3. **Audit log** of who downloaded what — easy to add if compliance ever asks; not included by default.
+In the modal, when scope is `drivers_equipment`, also query the operators / applications tables used elsewhere (e.g. the same shape that powers `EquipmentAssignModal` driver list — verified during implementation). Operators with no equipment assignment are joined client-side with the existing assignment map already built from `equipment_assignments`.
 
 ## Out of scope
 
-No DB changes, no edge functions, no filter behavior changes, no edits to other equipment modals.
+- No DB changes, no edge functions, no changes to inventory filters, no changes to other modals.
+- Fuel Cards and BestPass are not included in this report (request is ELD + Dash Cam).
+- Drivers with no email / inactive operators are excluded.
+
+## Files
+
+- Edit: `src/lib/equipmentExport.ts` (new types + builders + exporters)
+- Edit: `src/components/equipment/EquipmentDownloadModal.tsx` (new scope option, conditional fetch, dispatch to new exporters)
+- No new files.

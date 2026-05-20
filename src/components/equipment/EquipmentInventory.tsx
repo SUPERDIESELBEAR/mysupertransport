@@ -31,6 +31,7 @@ export interface EquipmentItem {
   // joined
   current_operator_name?: string | null;
   current_assignment_id?: string | null;
+  current_operator_id?: string | null;
 }
 
 const DEVICE_CONFIG: Record<DeviceType, { label: string; icon: React.ReactNode; color: string }> = {
