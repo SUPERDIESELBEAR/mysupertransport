@@ -1,10 +1,22 @@
 import { useEffect, useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { ShieldCheck, AlertTriangle, Clock, Mail, Send, Loader2, FileWarning, Eye, FileText, ChevronDown, ChevronRight, Beaker } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, Clock, Mail, Send, Loader2, FileWarning, Eye, FileText, ChevronDown, ChevronRight, Beaker, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { fetchPEIQueue } from '@/lib/pei/api';
 import type { PEIQueueRow, PEIRequestStatus } from '@/lib/pei/types';
 import { PEIStatusBadge } from './StatusBadge';
@@ -27,6 +39,7 @@ const STATUS_ORDER: PEIRequestStatus[] = [
 ];
 
 export default function PEIQueuePanel({ onOpenApplication }: Props) {
+  const { isManagement } = useAuth();
   const [rows, setRows] = useState<PEIQueueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -35,6 +48,8 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [testOpen, setTestOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const [deleteTarget, setDeleteTarget] = useState<PEIQueueRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   async function reload() {
     setLoading(true);
@@ -111,6 +126,29 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     } finally {
       setBusy(null);
     }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('pei_requests')
+        .delete()
+        .eq('id', deleteTarget.request_id);
+      if (error) throw error;
+      toast.success(`Deleted PEI request for ${deleteTarget.employer_name}`);
+      setDeleteTarget(null);
+      await reload();
+    } catch (e: any) {
+      toast.error(e.message ?? 'Failed to delete PEI request');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function canDelete(r: PEIQueueRow) {
+    return isManagement && (r.status === 'pending' || r.status === 'gfe_documented');
   }
 
   function actionFor(row: PEIQueueRow) {
@@ -318,6 +356,17 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
                                     <Button size="sm" variant="ghost" onClick={() => onOpenApplication?.(r.application_id)}>
                                       <Eye className="h-3 w-3 mr-1" />Open
                                     </Button>
+                                    {canDelete(r) && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={() => setDeleteTarget(r)}
+                                        title="Delete this PEI request"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    )}
                                   </div>
                                 </td>
                               </tr>
@@ -345,6 +394,38 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
       )}
       <PEITemplateViewer open={templatesOpen} onOpenChange={setTemplatesOpen} />
       <SendTestPEIDialog open={testOpen} onOpenChange={setTestOpen} />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && !deleting && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this PEI request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget && (
+                <>
+                  This will permanently remove the PEI request for{' '}
+                  <span className="font-medium text-foreground">{deleteTarget.employer_name}</span>
+                  {' '}from{' '}
+                  <span className="font-medium text-foreground">
+                    {[deleteTarget.applicant_first_name, deleteTarget.applicant_last_name].filter(Boolean).join(' ') || 'this applicant'}
+                  </span>
+                  . Use this only for duplicates or mistakes — not for completed investigations.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
