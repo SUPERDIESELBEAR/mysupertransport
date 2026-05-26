@@ -29,17 +29,26 @@ Deno.serve(async (req) => {
 
     const today = todayInChicago();
 
-    // Pull today's calendar rows joined to operators so we can filter excluded ones.
+    // Pull every log row on or before today, joined to operators so we can filter
+    // excluded ones, then reduce to the latest entry per operator. This is the
+    // "carry-forward" safety net so the board never drifts when a day is skipped.
     const { data: logs, error: logsErr } = await supabase
       .from('dispatch_daily_log')
-      .select('operator_id, status, operators!inner(excluded_from_dispatch)')
-      .eq('log_date', today);
+      .select('operator_id, status, log_date, created_at, operators!inner(excluded_from_dispatch)')
+      .lte('log_date', today)
+      .order('log_date', { ascending: false })
+      .order('created_at', { ascending: false });
 
     if (logsErr) throw logsErr;
 
-    const eligible = (logs ?? []).filter(
-      (r: any) => r?.operators?.excluded_from_dispatch !== true,
-    );
+    const latestByOperator = new Map<string, any>();
+    for (const r of logs ?? []) {
+      const opId = (r as any).operator_id as string;
+      if (latestByOperator.has(opId)) continue;
+      if ((r as any)?.operators?.excluded_from_dispatch === true) continue;
+      latestByOperator.set(opId, r);
+    }
+    const eligible = Array.from(latestByOperator.values());
 
     let promoted = 0;
     let skipped = 0;
