@@ -1,50 +1,52 @@
-# PEI Queue — Duplicate cleanup + Delete action
+# Fix Dispatch Board Status Drift
 
-## What I found
+David Wambolt's case showed the dispatch board can drift out of sync with the latest `dispatch_daily_log` entry. This plan applies a three-part fix so the board always reflects the most recent log on or before today.
 
-Querying `pei_requests` against `applications`, there are 6 clear duplicates — pairs created within ~1 second of each other for the same applicant + same previous employer. In each pair, one row was actually sent and the other was left in `pending` (an orphan from the double-submit while you and Erika were both working on it).
+## Root Cause Recap
 
-| Applicant | Previous employer | Keep | Delete (duplicate) |
-|---|---|---|---|
-| Christopher Utt | Durante Equipment | `…783f4852` (sent 14:26) | `…960c0099` (pending) |
-| Christopher Utt | Superior Mulch | `…b95b588c` (sent 14:36) | `…bf6ffb6f` (pending) |
-| Ronald Lockett | Xxx Express Inc | `…16cfc664` (sent 14:41) | `…aa324fb9` (pending) |
-| Brian Lewis | Heniff Transportation | `…4bdb3b68` (pending, earlier) | `…750663fe` (pending, +1s) |
-| Brian Lewis | Kag | `…63d1389b` (pending, earlier) | `…e2faf9ad` (pending, +1s) |
-| Brian Lewis | Viper Freight Llc | `…fa84c60e` (pending, earlier) | `…7d47c7e4` (pending, +1s) |
+- `rollover-dispatch-status` cron only promotes rows where `log_date = today` (Chicago).
+- When a driver skips days (no log entry for today), the cron does nothing and the board keeps the old `active_dispatch.dispatch_status`.
+- A driver can also enter a `truck_down` log dated in the past; if today has no entry, the board never picks it up.
 
-Notes:
-- For Utt and Lockett, the "keep" choice is obvious — one of the pair already went out.
-- For Brian Lewis, neither went out yet, so I'm proposing we keep the earlier-created row in each pair and delete the second. (Easy to swap if you'd rather keep the other side.)
-- Steve Figueroa (Self / Yellow), Jose Guzman (Haynes / Pinch), and Hafeezullah Awal Khan are **not** duplicates — they're separate employers.
+## Fix
 
-## Why this happened
+### 1. Promote-on-insert trigger (real-time)
+Add a trigger on `dispatch_daily_log` (AFTER INSERT OR UPDATE) that:
+- Finds the latest `log_date <= today (Chicago)` for that operator.
+- If the row being written IS that latest row, update `active_dispatch.dispatch_status`, `current_load_lane`, `status_notes`, `updated_at` to match.
+- Skips if a newer-dated log already exists (so back-dated edits don't override more recent reality).
+- SECURITY DEFINER, idempotent, no-op when values already match.
 
-Two staff opening the same applicant's PEI builder at the same time can each submit, creating one `pei_requests` row per employer per click. There's no uniqueness guard on (application_id, employer_name, employer_contact_email) and no in-flight lock, so a double-submit produces twins.
+This means a staff entry of `truck_down` for "yesterday" immediately corrects the board.
 
-## Plan
+### 2. Carry-forward in nightly rollover (safety net)
+Update `supabase/functions/rollover-dispatch-status/index.ts`:
+- Change query from "logs where `log_date = today`" to "latest log per operator where `log_date <= today` (Chicago)".
+- Promote that latest status to `active_dispatch` if different.
+- Keeps the cron as a self-healing backstop even if the trigger ever misses (e.g. direct SQL writes).
 
-### 1. Add a Delete action in the PEI Queue
-- In `src/components/pei/PEIQueuePanel.tsx`, add a destructive "Delete request" action (icon button in the row's overflow menu, with a confirm dialog).
-- Allowed only when `status` is `pending` or `gfe_documented` (never delete a row that's already `sent` / `responded` — those have audit value). Owner/admins only.
-- On confirm: delete the `pei_requests` row (cascades to `pei_request_events` / `pei_responses` via existing FKs — I'll verify before wiring), toast success, refresh the queue.
-- Write an `activity_log` entry (`pei_request_deleted`) capturing applicant, employer, status at deletion, and the staff user — so we keep an audit trail even though the row is gone.
+### 3. One-time backfill
+Run a one-shot data update via the insert tool:
+- For every operator, set `active_dispatch.dispatch_status` (and related fields) to the latest `dispatch_daily_log` row where `log_date <= today` (Chicago).
+- Only touch rows where the current value differs from the latest log, so audit history stays clean.
+- This immediately corrects David Wambolt and any other drifted drivers.
 
-### 2. Clean up the 6 existing duplicates
-- Run a one-shot delete for the 6 IDs in the "Delete" column above, after you confirm the keep/delete choices for Brian Lewis.
+## Files Touched
 
-### 3. (Recommended, small) Prevent future twins
-- Add a partial unique index on `pei_requests (application_id, lower(employer_name))` **where status in ('pending','sent')** so a rapid double-click can't create a second active request for the same employer. Existing historical rows aren't affected.
-- This is optional; say the word and I'll include it. Without it, the new Delete button still solves your immediate need.
+- New migration: trigger + function on `dispatch_daily_log`.
+- Edge function edit: `supabase/functions/rollover-dispatch-status/index.ts` (carry-forward logic).
+- One-time `UPDATE` via insert tool for backfill.
+- `public/version.json` bump.
 
-## Technical details
+## Out of Scope
 
-- File to edit: `src/components/pei/PEIQueuePanel.tsx` (row actions), plus a small confirm dialog. No schema change required for the button itself.
-- Deletion via `supabase.from('pei_requests').delete().eq('id', id)`.
-- RLS: confirm staff role policy allows delete on `pei_requests`; add policy if missing.
-- Cleanup: 6 `DELETE` statements by id, run via a migration so it's recorded.
+- No UI changes.
+- No changes to how drivers create log entries.
+- No change to the cron schedule itself (still runs 12:05 AM Central).
 
-## Questions before I build
+## Verification
 
-1. **Brian Lewis pairs** — keep the earlier row in each pair (my default), or the later one?
-2. **Prevent-future-twins index** — add it now, or skip for now?
+After deploy:
+1. Re-query David Wambolt — `active_dispatch.dispatch_status` should be `truck_down`.
+2. Spot-check 2–3 other operators with old `active_dispatch.updated_at` but newer `dispatch_daily_log` rows.
+3. Insert a test `dispatch_daily_log` row (dated today) and confirm `active_dispatch` updates instantly via the trigger.
