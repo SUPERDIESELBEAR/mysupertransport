@@ -1,52 +1,34 @@
-# Fix Dispatch Board Status Drift
+## Why the button is broken
 
-David Wambolt's case showed the dispatch board can drift out of sync with the latest `dispatch_daily_log` entry. This plan applies a three-part fix so the board always reflects the most recent log on or before today.
+The `notify-pwa-install` edge function builds the CTA href from the raw `APP_URL` environment variable:
 
-## Root Cause Recap
+```ts
+const APP_URL = Deno.env.get('APP_URL') || 'https://mysupertransport.lovable.app'
+...
+{ label: 'Open SUPERDRIVE', url: APP_URL }
+```
 
-- `rollover-dispatch-status` cron only promotes rows where `log_date = today` (Chicago).
-- When a driver skips days (no log entry for today), the cron does nothing and the board keeps the old `active_dispatch.dispatch_status`.
-- A driver can also enter a `truck_down` log dated in the past; if today has no entry, the board never picks it up.
+Every other email in the project routes through `supabase/functions/_shared/app-url.ts → buildAppUrl()`, which sanitizes the env var (adds missing `https://`, rejects bare IPs / localhost / non‑HTTP values, and falls back to `https://mysupertransport.lovable.app`). That helper was added specifically to stop bad `APP_URL` values from leaking into emails.
+
+This one function never got migrated, so when `APP_URL` is set to a value that isn't a usable absolute URL (e.g. a bare host, missing scheme, or an unreachable preview value), the `<a href="…">` ends up with that bad value and Gmail/Outlook either won't link it or sends it to a dead address. That's the email you received.
 
 ## Fix
 
-### 1. Promote-on-insert trigger (real-time)
-Add a trigger on `dispatch_daily_log` (AFTER INSERT OR UPDATE) that:
-- Finds the latest `log_date <= today (Chicago)` for that operator.
-- If the row being written IS that latest row, update `active_dispatch.dispatch_status`, `current_load_lane`, `status_notes`, `updated_at` to match.
-- Skips if a newer-dated log already exists (so back-dated edits don't override more recent reality).
-- SECURITY DEFINER, idempotent, no-op when values already match.
+1. **`supabase/functions/notify-pwa-install/index.ts`**
+   - Import `buildAppUrl` from `../_shared/app-url.ts`.
+   - Replace the local `APP_URL` constant and the CTA so the button URL is `buildAppUrl('/')`.
+   - No copy / layout changes.
 
-This means a staff entry of `truck_down` for "yesterday" immediately corrects the board.
+2. **`src/lib/pwaReminderContent.ts`** (staff preview modal)
+   - Keep in sync: the preview already hardcodes `https://mysupertransport.lovable.app`, which is what the sanitized URL resolves to in production, so the preview will continue to match the real email. No change needed unless we later want the preview to read from an env value.
 
-### 2. Carry-forward in nightly rollover (safety net)
-Update `supabase/functions/rollover-dispatch-status/index.ts`:
-- Change query from "logs where `log_date = today`" to "latest log per operator where `log_date <= today` (Chicago)".
-- Promote that latest status to `active_dispatch` if different.
-- Keeps the cron as a self-healing backstop even if the trigger ever misses (e.g. direct SQL writes).
+3. **Deploy** the `notify-pwa-install` edge function after the edit so the next reminder (manual or cron) uses the fixed URL.
 
-### 3. One-time backfill
-Run a one-shot data update via the insert tool:
-- For every operator, set `active_dispatch.dispatch_status` (and related fields) to the latest `dispatch_daily_log` row where `log_date <= today` (Chicago).
-- Only touch rows where the current value differs from the latest log, so audit history stays clean.
-- This immediately corrects David Wambolt and any other drifted drivers.
+4. **Verify**
+   - Re-send the reminder to a test driver from the staff UI.
+   - Inspect the received email's "Open SUPERDRIVE" anchor — `href` must be `https://mysupertransport.lovable.app/` (or the correctly sanitized custom domain).
+   - Click it and confirm it opens the app.
 
-## Files Touched
+5. Bump `public/version.json`.
 
-- New migration: trigger + function on `dispatch_daily_log`.
-- Edge function edit: `supabase/functions/rollover-dispatch-status/index.ts` (carry-forward logic).
-- One-time `UPDATE` via insert tool for backfill.
-- `public/version.json` bump.
-
-## Out of Scope
-
-- No UI changes.
-- No changes to how drivers create log entries.
-- No change to the cron schedule itself (still runs 12:05 AM Central).
-
-## Verification
-
-After deploy:
-1. Re-query David Wambolt — `active_dispatch.dispatch_status` should be `truck_down`.
-2. Spot-check 2–3 other operators with old `active_dispatch.updated_at` but newer `dispatch_daily_log` rows.
-3. Insert a test `dispatch_daily_log` row (dated today) and confirm `active_dispatch` updates instantly via the trigger.
+No DB, schema, UI, or business-logic changes — purely a one-line URL-build fix in the edge function.

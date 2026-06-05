@@ -5,8 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 import { buildEmail, sendEmail, BRAND_COLOR, BRAND_DARK } from '../_shared/email-layout.ts'
-
-const APP_URL = Deno.env.get('APP_URL') || 'https://mysupertransport.lovable.app'
+import { buildAppUrl } from '../_shared/app-url.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -133,7 +132,7 @@ Deno.serve(async (req) => {
         subject,
         'Install SUPERDRIVE — Roadside Inspection Binder is moving',
         body,
-        { label: 'Open SUPERDRIVE', url: APP_URL },
+        { label: 'Open SUPERDRIVE', url: buildAppUrl('/') },
       )
 
       await sendEmail(email, subject, html, resendKey)
