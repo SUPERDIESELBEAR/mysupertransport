@@ -590,15 +590,17 @@ export default function ManagementPortal() {
     if (view === 'overview') fetchInstallStats();
   }, [view, fetchInstallStats]);
 
-  const handleBulkInstallSend = useCallback(async () => {
+  const handleBulkInstallSend = useCallback(async (force = false) => {
     setInstallSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke('notify-pwa-install', { body: {} });
+      const { data, error } = await supabase.functions.invoke('notify-pwa-install', {
+        body: force ? { force: true } : {},
+      });
       if (error) throw error;
       const notified = (data as any)?.notified ?? 0;
       const skipped = (data as any)?.skipped ?? 0;
       toast({
-        title: 'Install instructions sent',
+        title: force ? 'Install instructions resent' : 'Install instructions sent',
         description: `Notified ${notified} operator${notified === 1 ? '' : 's'}${skipped ? ` · ${skipped} skipped (sent within last 24h)` : ''}.`,
       });
       fetchInstallStats();
@@ -2014,8 +2016,20 @@ export default function ManagementPortal() {
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={installSending}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleBulkInstallSend(true)}
+              disabled={installSending}
+              className="border-gold/40 text-foreground hover:bg-gold/10"
+              title="Resend to every uninstalled operator, ignoring the 24-hour cooldown. Use after fixing a broken email."
+            >
+              {installSending ? (
+                <span className="inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Resending…</span>
+              ) : 'Force resend (bypass 24h)'}
+            </Button>
             <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); handleBulkInstallSend(); }}
+              onClick={(e) => { e.preventDefault(); handleBulkInstallSend(false); }}
               disabled={installSending}
               className="bg-gold text-foreground hover:bg-gold/90"
             >
