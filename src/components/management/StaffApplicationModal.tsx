@@ -142,7 +142,16 @@ export default function StaffApplicationModal({ open, onClose, onSuccess }: Prop
       onSuccess();
       onClose();
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message || 'Failed to submit application', variant: 'destructive' });
+      const isDuplicateEmail =
+        err?.code === '23505' ||
+        (typeof err?.message === 'string' && /applications_email_non_draft_unique/i.test(err.message));
+      toast({
+        title: isDuplicateEmail ? 'Email already used' : 'Error',
+        description: isDuplicateEmail
+          ? `An application has already been submitted for ${formData.email}. Use a different email or open the existing application from the pipeline.`
+          : (err?.message || 'Failed to submit application'),
+        variant: 'destructive',
+      });
     } finally {
       setSubmitting(false);
     }
