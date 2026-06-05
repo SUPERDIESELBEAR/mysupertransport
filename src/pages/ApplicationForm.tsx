@@ -78,6 +78,10 @@ export default function ApplicationForm() {
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [revisionMessage, setRevisionMessage] = useState<string | null>(null);
   const [showRevisionBanner, setShowRevisionBanner] = useState(false);
+  // Step-level blocker shown at the top of the current step so applicants
+  // immediately see why they can't proceed (validation gaps, server errors,
+  // duplicate-email pre-check failures, etc.) instead of getting stuck.
+  const [stepError, setStepError] = useState<string | null>(null);
 
   // ── Load draft on mount ─────────────────────────────────────────────────
   useEffect(() => {
@@ -197,6 +201,8 @@ export default function ApplicationForm() {
   const handleChange = useCallback((field: keyof ApplicationFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setErrors(prev => ({ ...prev, [field]: undefined }));
+    // Any edit clears the step-level banner so it doesn't linger after a fix.
+    setStepError(null);
     // Clear duplicate email block if user edits their email
     if (field === 'email') setDuplicateEmailBlocked(false);
   }, []);
@@ -244,12 +250,16 @@ export default function ApplicationForm() {
     const errs = validateStep(9, formData);
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
+      setStepError(
+        `Please complete the ${Object.keys(errs).length} highlighted field${Object.keys(errs).length === 1 ? '' : 's'} before submitting.`
+      );
       window.scrollTo({ top: 0, behavior: 'smooth' });
       toast.error('Please complete all required fields before submitting');
       return;
     }
 
     setSubmitting(true);
+    setStepError(null);
     try {
       const token = localStorage.getItem(DRAFT_TOKEN_KEY) || crypto.randomUUID();
 
@@ -346,6 +356,12 @@ export default function ApplicationForm() {
         setDuplicateEmailBlocked(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
+        setStepError(
+          errMessage
+            ? `We couldn't submit your application: ${errMessage}`
+            : "We couldn't submit your application. Please try again, or contact recruiting@mysupertransport.com if it keeps failing."
+        );
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         toast.error(
           errMessage
             ? `We couldn't submit your application: ${errMessage}`
@@ -362,10 +378,14 @@ export default function ApplicationForm() {
     const errs = validateStep(step, formData);
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
+      setStepError(
+        `Please complete the ${Object.keys(errs).length} highlighted field${Object.keys(errs).length === 1 ? '' : 's'} before continuing.`
+      );
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
     setErrors({});
+    setStepError(null);
     setDuplicateEmailBlocked(false);
 
     // ── Duplicate email guard (runs async after step 1 validation passes) ──
@@ -380,6 +400,8 @@ export default function ApplicationForm() {
             // Fail closed: if we can't verify, block and let the user retry
             // rather than letting them fill out 9 steps for nothing.
             console.error('Duplicate-email pre-check failed:', error);
+            setStepError("We couldn't verify your email right now. Please try again in a moment.");
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             toast.error("We couldn't verify your email right now. Please try again in a moment.");
             return;
           }
@@ -388,6 +410,7 @@ export default function ApplicationForm() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           } else {
             setDuplicateEmailBlocked(false);
+            setStepError(null);
             setSlideDir('forward');
             setStep(s => s + 1);
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -403,6 +426,7 @@ export default function ApplicationForm() {
 
   const goBack = () => {
     setErrors({});
+    setStepError(null);
     setSlideDir('back');
     setStep(s => s - 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -598,7 +622,33 @@ export default function ApplicationForm() {
           </div>
         )}
 
-        {/* Error summary */}
+        {/* Step-level error banner — surfaces validation gaps and server errors
+            at the top of the active step so applicants aren't stuck guessing. */}
+        {stepError && !duplicateEmailBlocked && (
+          <div
+            role="alert"
+            aria-live="polite"
+            className="mb-5 flex items-start gap-3 p-4 bg-destructive/10 border border-destructive/30 rounded-xl"
+          >
+            <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-destructive">
+                Can't continue past Step {step}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                {stepError}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setStepError(null)}
+              className="text-muted-foreground hover:text-foreground transition-colors shrink-0 mt-0.5"
+              aria-label="Dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         {/* Step content — swipeable on mobile */}
         <div
