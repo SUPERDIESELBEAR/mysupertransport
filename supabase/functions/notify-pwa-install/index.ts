@@ -22,7 +22,8 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     const targetOperatorId: string | null = body?.operator_id || null
     const mode: string = body?.mode || (targetOperatorId ? 'manual' : 'manual')
-    console.log('notify-pwa-install invoked', { targetOperatorId, mode })
+    const force: boolean = body?.force === true
+    console.log('notify-pwa-install invoked', { targetOperatorId, mode, force })
 
     // Get operators that have NOT installed the PWA yet
     let query = supabase
@@ -47,16 +48,20 @@ Deno.serve(async (req) => {
 
       // 24-hour cooldown: skip if a pwa_install notification was already
       // sent to this user in the past 24 hours (applies to bulk + targeted).
-      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-      const { data: recent } = await supabase
-        .from('notifications')
-        .select('id')
-        .eq('user_id', op.user_id)
-        .eq('type', 'pwa_install')
-        .gte('sent_at', cutoff)
-        .limit(1)
+      // Admins can bypass via `force: true` (used to resend after fixing a
+      // broken CTA link, etc.).
+      if (!force) {
+        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+        const { data: recent } = await supabase
+          .from('notifications')
+          .select('id')
+          .eq('user_id', op.user_id)
+          .eq('type', 'pwa_install')
+          .gte('sent_at', cutoff)
+          .limit(1)
 
-      if (recent && recent.length > 0) { skipped++; continue }
+        if (recent && recent.length > 0) { skipped++; continue }
+      }
 
       // Check notification preferences
       const { data: pref } = await supabase
