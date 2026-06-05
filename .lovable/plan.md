@@ -1,34 +1,42 @@
-## Why the button is broken
+## What I found
 
-The `notify-pwa-install` edge function builds the CTA href from the raw `APP_URL` environment variable:
+I ran the form end-to-end (state-code dropdown, employment "currently employed", etc.) and it advances cleanly through Steps 1–7. The real applicant complaints come from the **submit** step, not navigation. The audit log shows the smoking gun:
 
+- `bilalleggett@outlook.com` hit `error_code: 23505` on stage `insert_application` **seven times** between 2026-06-03 14:37 and 15:05 (iPhone Safari). The DB has a partial unique index `applications_email_non_draft_unique` on `lower(email) WHERE is_draft IS NOT TRUE`, and this email already had a non-draft (denied) record from 2026-06-02. Every retry was rejected by Postgres.
+
+Two bugs combine to trap the applicant:
+
+### Bug 1 — Step-1 duplicate-email guard is silently bypassed for anonymous users
+`ApplicationForm.tsx` calls
 ```ts
-const APP_URL = Deno.env.get('APP_URL') || 'https://mysupertransport.lovable.app'
-...
-{ label: 'Open SUPERDRIVE', url: APP_URL }
+supabase.from('applications').select('id').eq('email', email.toLowerCase()).eq('is_draft', false).limit(1)
 ```
+before advancing past Step 1. But `public.applications` RLS only allows SELECT for `auth.uid() = user_id` or staff — **no anon policy**. The query succeeds with `data: []`, the guard treats that as "no duplicate", and the user proceeds. They only discover the conflict at the very last step.
 
-Every other email in the project routes through `supabase/functions/_shared/app-url.ts → buildAppUrl()`, which sanitizes the env var (adds missing `https://`, rejects bare IPs / localhost / non‑HTTP values, and falls back to `https://mysupertransport.lovable.app`). That helper was added specifically to stop bad `APP_URL` values from leaking into emails.
+The guard also does a case-sensitive `.eq('email', …)` against stored data, while the unique index normalizes with `lower()`. Any historic row stored with mixed case would slip past even if anon SELECT were allowed.
 
-This one function never got migrated, so when `APP_URL` is set to a value that isn't a usable absolute URL (e.g. a bare host, missing scheme, or an unreachable preview value), the `<a href="…">` ends up with that bad value and Gmail/Outlook either won't link it or sends it to a dead address. That's the email you received.
+### Bug 2 — Submit error surfaces as "[object Object]" and a generic toast
+On failure, `ApplicationForm.tsx` shows a generic "We couldn't submit your application — please try again…" toast. The error logger writes `error_message: "[object Object]"` because it stringifies the Supabase error object instead of `.message`. So neither the applicant nor staff can tell why it failed; the user just retries forever.
 
 ## Fix
 
-1. **`supabase/functions/notify-pwa-install/index.ts`**
-   - Import `buildAppUrl` from `../_shared/app-url.ts`.
-   - Replace the local `APP_URL` constant and the CTA so the button URL is `buildAppUrl('/')`.
-   - No copy / layout changes.
+1. **New SECURITY DEFINER RPC `check_application_email_taken(p_email text) returns boolean`** in a new migration. Locked to `anon` and `authenticated`, it does the same `lower(email)` lookup against `is_draft = false` rows. Returns `true` if already submitted.
+2. **`ApplicationForm.tsx`** — replace the direct `supabase.from('applications').select(...)` pre-check in `goNext` (step 1) with `supabase.rpc('check_application_email_taken', { p_email })`. Also fall back to blocking on `error` so a network/RPC failure doesn't silently let the user through; show a clear inline message and stop.
+3. **Submit-error handling in `ApplicationForm.tsx`** — in the `catch` block of the submit handler:
+   - Detect Postgres `code === '23505'` (or message contains `applications_email_non_draft_unique`) and set `setDuplicateEmailBlocked(true)` + scroll to top so the existing "Application already submitted" panel shows, instead of the generic toast.
+   - For any other failure, surface `(err as any).message` in the toast instead of the canned text so the applicant has something actionable to report.
+4. **`log-application-error` callsite** — pass `err.message` (and `err.details`/`err.hint` when present) instead of `String(err)` so future audit_log rows aren't `[object Object]`.
+5. **Staff-side StaffApplicationModal** (`src/components/management/StaffApplicationModal.tsx`) — same 23505 detection so staff entering applications on behalf of someone get a clear "Already submitted by this email" message instead of a generic toast.
 
-2. **`src/lib/pwaReminderContent.ts`** (staff preview modal)
-   - Keep in sync: the preview already hardcodes `https://mysupertransport.lovable.app`, which is what the sanitized URL resolves to in production, so the preview will continue to match the real email. No change needed unless we later want the preview to read from an env value.
+No UI redesign, no schema column changes beyond the new RPC. The existing "Application already submitted" block in `ApplicationForm.tsx` (lines ~564–570) is reused as the user-visible result.
 
-3. **Deploy** the `notify-pwa-install` edge function after the edit so the next reminder (manual or cron) uses the fixed URL.
+## Files touched
 
-4. **Verify**
-   - Re-send the reminder to a test driver from the staff UI.
-   - Inspect the received email's "Open SUPERDRIVE" anchor — `href` must be `https://mysupertransport.lovable.app/` (or the correctly sanitized custom domain).
-   - Click it and confirm it opens the app.
+- `supabase/migrations/<new>.sql` — create `public.check_application_email_taken(text)` SECURITY DEFINER + `GRANT EXECUTE` to `anon, authenticated`.
+- `src/pages/ApplicationForm.tsx` — swap pre-check to RPC, harden the `.then` branch against errors, add 23505 handling in submit catch, pass `err.message` to the error logger.
+- `src/components/management/StaffApplicationModal.tsx` — add the same 23505 user-friendly error mapping.
+- `public/version.json` — bump.
 
-5. Bump `public/version.json`.
+## Why not also relax the unique constraint?
 
-No DB, schema, UI, or business-logic changes — purely a one-line URL-build fix in the edge function.
+The partial unique index is the right safeguard against true duplicate submissions. The problem is purely UX: the app must detect the conflict early (RPC) and explain it clearly when it does happen (catch-block mapping). No DB constraint changes.
