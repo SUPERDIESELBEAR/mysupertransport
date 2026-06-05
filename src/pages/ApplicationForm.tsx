@@ -326,14 +326,32 @@ export default function ApplicationForm() {
       setSubmitted(true);
     } catch (err) {
       console.error('Application submit failed:', err);
+      // Detect duplicate-email unique-index violation and surface the
+      // existing "already submitted" UI instead of a generic toast.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const e = err as any;
+      const isDuplicateEmail =
+        e?.code === '23505' ||
+        (typeof e?.message === 'string' && /applications_email_non_draft_unique/i.test(e.message));
+      const errMessage = e?.message ?? (err instanceof Error ? err.message : String(err));
+      const errDetails = [e?.details, e?.hint].filter(Boolean).join(' | ') || null;
       logApplicationError({
         stage: applicationId ? 'update_application' : 'insert_application',
         email: formData.email,
-        error_code: (err as any)?.code ?? 'submit_failed',
-        error_message: err instanceof Error ? err.message : String(err),
+        error_code: e?.code ?? 'submit_failed',
+        error_message: errDetails ? `${errMessage} — ${errDetails}` : errMessage,
         application_id: applicationId,
       });
-      toast.error("We couldn't submit your application — please try again or contact us if it keeps failing.");
+      if (isDuplicateEmail) {
+        setDuplicateEmailBlocked(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        toast.error(
+          errMessage
+            ? `We couldn't submit your application: ${errMessage}`
+            : "We couldn't submit your application — please try again or contact us if it keeps failing."
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -352,14 +370,20 @@ export default function ApplicationForm() {
 
     // ── Duplicate email guard (runs async after step 1 validation passes) ──
     if (step === 1) {
+      // Use a SECURITY DEFINER RPC because anonymous applicants cannot
+      // SELECT from `applications` directly (RLS limits reads to owner/staff),
+      // which would otherwise let duplicates slip through to a 23505 at submit.
       supabase
-        .from('applications')
-        .select('id')
-        .eq('email', formData.email.trim().toLowerCase())
-        .eq('is_draft', false)
-        .limit(1)
-        .then(({ data }) => {
-          if (data && data.length > 0) {
+        .rpc('check_application_email_taken', { p_email: formData.email.trim() })
+        .then(({ data, error }) => {
+          if (error) {
+            // Fail closed: if we can't verify, block and let the user retry
+            // rather than letting them fill out 9 steps for nothing.
+            console.error('Duplicate-email pre-check failed:', error);
+            toast.error("We couldn't verify your email right now. Please try again in a moment.");
+            return;
+          }
+          if (data === true) {
             setDuplicateEmailBlocked(true);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           } else {

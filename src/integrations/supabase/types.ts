@@ -3747,6 +3747,10 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: undefined
       }
+      check_application_email_taken: {
+        Args: { p_email: string }
+        Returns: boolean
+      }
       consume_application_resume_token: {
         Args: { p_token: string }
         Returns: {
