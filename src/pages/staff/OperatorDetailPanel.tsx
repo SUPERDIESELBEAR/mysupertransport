@@ -1241,16 +1241,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
   };
 
-  const handleSendInstallInstructions = async () => {
+  const handleSendInstallInstructions = async (force = false) => {
     if (guardDemo()) return;
     setSendingInstallInstructions(true);
     try {
       const { data, error } = await supabase.functions.invoke('notify-pwa-install', {
-        body: { operator_id: operatorId },
+        body: { operator_id: operatorId, force },
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
       });
       if (error) throw new Error(error.message ?? 'Unknown error');
-      toast({ title: 'Install instructions sent', description: `SUPERDRIVE install instructions sent to ${operatorName || 'operator'}.` });
+      const notified = (data as any)?.notified ?? 0;
+      const skipped = (data as any)?.skipped ?? 0;
+      if (notified > 0) {
+        toast({ title: force ? 'Install instructions resent' : 'Install instructions sent', description: `SUPERDRIVE install instructions sent to ${operatorName || 'operator'}.` });
+      } else if (skipped > 0) {
+        toast({ title: 'Reminder skipped', description: 'Already reminded in the last 24 hours. Shift-click the button to force resend.' });
+      } else {
+        toast({ title: 'No reminder sent', description: 'Operator may already have the app installed.' });
+      }
     } catch (err: any) {
       toast({ title: 'Failed to send install instructions', description: err.message, variant: 'destructive' });
     } finally {
@@ -2255,7 +2263,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={handleSendInstallInstructions}
+                      onClick={(e) => handleSendInstallInstructions((e as React.MouseEvent).shiftKey)}
                       disabled={sendingInstallInstructions}
                       className="gap-1 text-muted-foreground hover:text-foreground"
                     >
@@ -2264,6 +2272,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="text-xs">
                     {pwaInstalledAt ? 'Resend SUPERDRIVE install instructions' : 'Send SUPERDRIVE install instructions'}
+                    <br />
+                    <span className="opacity-70">Shift-click to bypass the 24h cooldown.</span>
                   </TooltipContent>
                 </Tooltip>
               </>

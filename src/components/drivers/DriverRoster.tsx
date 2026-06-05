@@ -393,7 +393,7 @@ export default function DriverRoster({
   const [installSending, setInstallSending] = useState<Set<string>>(new Set());
   const [installPreviewOpen, setInstallPreviewOpen] = useState(false);
 
-  const handleSendInstallReminder = useCallback(async (operatorId: string, driverName: string) => {
+  const handleSendInstallReminder = useCallback(async (operatorId: string, driverName: string, force = false) => {
     setInstallSending(prev => {
       const next = new Set(prev);
       next.add(operatorId);
@@ -401,14 +401,14 @@ export default function DriverRoster({
     });
     try {
       const { data, error } = await supabase.functions.invoke('notify-pwa-install', {
-        body: { operator_id: operatorId, mode: 'manual' },
+        body: { operator_id: operatorId, mode: 'manual', force },
       });
       if (error) throw error;
       const notified = (data as any)?.notified ?? 0;
       const skipped = (data as any)?.skipped ?? 0;
       if (notified > 0) {
         toast({
-          title: 'Install reminder sent',
+          title: force ? 'Install reminder resent' : 'Install reminder sent',
           description: `SUPERDRIVE install instructions sent to ${driverName}.`,
         });
       } else if (skipped > 0) {
@@ -1094,7 +1094,7 @@ export default function DriverRoster({
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleSendInstallReminder(driver.operator_id, name);
+                                    handleSendInstallReminder(driver.operator_id, name, e.shiftKey);
                                   }}
                                   disabled={installSending.has(driver.operator_id)}
                                   className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 shrink-0"
@@ -1105,7 +1105,11 @@ export default function DriverRoster({
                                     : <Send className="h-3 w-3" />}
                                 </button>
                               </TooltipTrigger>
-                              <TooltipContent>Send SUPERDRIVE install reminder (24h cooldown)</TooltipContent>
+                              <TooltipContent>
+                                Send SUPERDRIVE install reminder (24h cooldown).
+                                <br />
+                                <span className="text-[10px] opacity-80">Shift-click to force resend, bypassing the cooldown.</span>
+                              </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
                           <TooltipProvider delayDuration={100}>
