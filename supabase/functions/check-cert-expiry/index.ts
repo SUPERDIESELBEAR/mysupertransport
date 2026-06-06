@@ -14,11 +14,23 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const cronSecret = Deno.env.get('CRON_SECRET');
+    const headerSecret = req.headers.get('x-cron-secret');
+    const authHeader = req.headers.get('Authorization') ?? '';
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const authorized = (cronSecret && headerSecret === cronSecret) || bearer === serviceKey;
+    if (!authorized) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      serviceKey,
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
