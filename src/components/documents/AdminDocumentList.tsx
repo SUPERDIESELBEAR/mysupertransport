@@ -32,6 +32,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import DemoLockIcon from '@/components/DemoLockIcon';
+import { sanitizeRichHtml } from '@/lib/sanitize';
 
 interface AdminDocumentListProps {
   documents: DriverDocument[];
@@ -249,7 +250,7 @@ function SortableRow({
             </DialogHeader>
             <div
               className="mt-2 text-sm text-foreground leading-relaxed [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mb-2 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-2 [&_li]:mb-1 [&_a]:text-primary [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:italic [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-1.5 [&_th]:bg-muted [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-1.5"
-              dangerouslySetInnerHTML={{ __html: doc.body }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(doc.body) }}
             />
           </DialogContent>
         </Dialog>

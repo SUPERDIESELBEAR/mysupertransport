@@ -7,6 +7,7 @@ import { DriverDocument, CATEGORY_COLORS, parseVideoEmbedUrl } from './DocumentH
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { sanitizeRichHtml } from '@/lib/sanitize';
 
 interface DocumentViewerProps {
   doc: DriverDocument;
@@ -178,7 +179,7 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
               prose-hr:border-border
               prose-strong:text-foreground prose-strong:font-semibold
               [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
-            dangerouslySetInnerHTML={{ __html: doc.body }}
+            dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(doc.body) }}
           />
         ) : (
           <div className="py-12 text-center text-muted-foreground">
