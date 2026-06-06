@@ -15,8 +15,12 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { bootstrap_secret, application_id, assigned_staff_user_id } = body ?? {};
 
-    const BOOTSTRAP_SECRET =
-      Deno.env.get('BOOTSTRAP_SECRET') || 'supertransport-bootstrap-2026';
+    const BOOTSTRAP_SECRET = Deno.env.get('BOOTSTRAP_SECRET');
+    if (!BOOTSTRAP_SECRET) {
+      return new Response(JSON.stringify({ error: 'Not configured' }), {
+        status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     if (bootstrap_secret !== BOOTSTRAP_SECRET) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
