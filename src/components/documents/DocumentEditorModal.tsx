@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import DemoLockIcon from '@/components/DemoLockIcon';
 import { Badge } from '@/components/ui/badge';
+import { sanitizeRichHtml } from '@/lib/sanitize';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
@@ -545,7 +546,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                           prose-hr:border-border
                           prose-strong:text-foreground prose-strong:font-semibold
                           [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
-                        dangerouslySetInnerHTML={{ __html: form.body }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(form.body) }}
                       />
                     ) : (
                       <div className="py-12 text-center text-muted-foreground">
@@ -629,7 +630,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
                                 {expandedVersion === v.id && (
                                   <div
                                     className="mt-2 p-3 rounded-md bg-secondary/30 border border-border text-xs prose prose-sm max-w-none max-h-52 overflow-y-auto"
-                                    dangerouslySetInnerHTML={{ __html: v.body }}
+                                    dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(v.body) }}
                                   />
                                 )}
                               </div>

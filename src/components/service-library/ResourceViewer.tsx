@@ -18,6 +18,7 @@ import {
 import { differenceInDays, parseISO } from 'date-fns';
 import { parseVideoEmbedUrl } from '@/components/documents/DocumentHubTypes';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { sanitizeRichHtml } from '@/lib/sanitize';
 
 interface ResourceViewerProps {
   resource: ServiceResource;
@@ -163,7 +164,7 @@ export default function ResourceViewer({ resource, service, onBack, onCompletion
                 prose-headings:font-bold prose-headings:text-foreground
                 prose-p:text-foreground prose-p:leading-relaxed
                 prose-li:text-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
-              dangerouslySetInnerHTML={{ __html: body }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(body) }}
             />
           )}
         </div>
@@ -226,7 +227,7 @@ export default function ResourceViewer({ resource, service, onBack, onCompletion
                 prose-hr:border-border
                 prose-strong:text-foreground prose-strong:font-semibold
                 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
-              dangerouslySetInnerHTML={{ __html: body }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(body) }}
             />
           )}
         </div>
