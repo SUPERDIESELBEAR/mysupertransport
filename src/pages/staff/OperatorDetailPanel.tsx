@@ -6203,6 +6203,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         />
       </div>
 
+      {/* Recently Deleted Documents tray */}
+      <div style={isQuickView ? { order: 14 } : undefined}>
+        <DeletedDocumentsTray
+          operatorId={operatorId}
+          onChanged={() => { void fetchData(); }}
+        />
+      </div>
+
       {/* ── Onboarding History Toggle (Quick View only) ── */}
       {isQuickView && (
         <div style={{ order: 16 }}>
