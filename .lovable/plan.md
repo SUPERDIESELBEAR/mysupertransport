@@ -1,36 +1,42 @@
-## Problem
+## Goal
 
-Operators (Robert Sargent, Trovino Huddleston, and anyone else) cannot complete their ICA. Tapping **Execute Agreement** uploads a PNG to the `ica-signatures` bucket at path `contractor/{operator_id}-{timestamp}.png`. The storage RLS policy gating that upload is:
+Add audit trail events from the operator ICA signing screen so we can see exactly where future signing issues occur.
 
-```sql
-split_part(
-  regexp_replace(objects.name, '^contractor/', ''),
-  '-', 1
-) = o.id::text
-```
+## Events to log
 
-Operator IDs are UUIDs like `28a00800-7b6f-…`. `split_part('28a00800-7b6f-…-1776711439329.png', '-', 1)` returns `'28a00800'`, which never equals the full UUID. So every operator upload fails with **"new row violates row-level security policy"**, the client throws, and the toast appears. The matching SELECT policy on the same bucket has the same bug.
+All on `audit_log` with `entity_type='ica_contract'`, `entity_id=operator_id`, `entity_label=operator full name`:
 
-## Fix
+| Action | When |
+|---|---|
+| `ica_screen_opened` | `OperatorICASign` mounts and a contract loads |
+| `ica_execute_clicked` | User taps **Execute Agreement** (after client-side guards pass) |
+| `ica_upload_failed` | Storage upload or `ica_contracts` update throws — include `stage` (`storage_upload` / `contract_update` / `status_update`) and `error_message` |
+| `ica_signed` | Existing success event — keep as-is |
 
-Rewrite both storage policies to match the operator ID by **prefix** instead of `split_part`. New predicate:
+Each entry's `metadata` includes `contract_id`, `operator_id`, and event-specific fields (e.g. `error_message`, `error_code`, `stage`, `user_agent`).
 
-```sql
-name LIKE ('contractor/' || o.id::text || '-%')
-```
+## Why an RPC
 
-Migration drops and recreates these two policies on `storage.objects`:
+`audit_log` INSERT policy is `is_staff(auth.uid())`, so the current operator-side insert silently fails (it's wrapped in try/catch). Add a `SECURITY DEFINER` RPC `public.log_ica_event(p_action text, p_operator_id uuid, p_contract_id uuid, p_metadata jsonb)` that:
 
-- `Operators can upload their own contractor signature` (INSERT)
-- `Operators can view their own ICA signatures` (SELECT) — keep the existing `carrier-default/` clause so operators can still load the carrier signature
+- Verifies `auth.uid()` matches the operator's `user_id` (or caller is staff).
+- Validates `p_action` is in an allowlist of the four ICA events above.
+- Inserts the row with the operator's name as `actor_name`.
 
-Staff policies and the carrier-default read path are untouched.
+Granted `EXECUTE` to `authenticated`.
 
-## Verification
+## Client changes
 
-After approval:
+`src/components/operator/OperatorICASign.tsx`:
 
-1. Run a quick SQL check confirming the new `qual`/`with_check` definitions.
-2. Ask one of the two affected operators (or use a test operator) to try **Execute Agreement** again; the upload should succeed and the contract should flip to `fully_executed`.
+- After contract loads in `fetchContract`, call the RPC with `ica_screen_opened` (guarded by a ref so it only fires once per mount/contract).
+- At the top of `handleSign`, call `ica_execute_clicked`.
+- Replace the existing direct `audit_log` insert at success with the RPC call for `ica_signed` (so it actually succeeds for operators).
+- In the `catch` block, call the RPC with `ica_upload_failed` and the stage + error details before showing the toast.
 
-No frontend code changes required — `OperatorICASign.tsx` already builds the correct path.
+Add a tiny helper `logIcaEvent(action, metadata)` local to the file to keep call sites short, and pass `navigator.userAgent` plus `window.location.href` once.
+
+## Out of scope
+
+- No UI changes, no copy changes, no behaviour changes beyond logging.
+- Staff-side ICA signing/builder is not touched.
