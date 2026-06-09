@@ -37,6 +37,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
   const sigRef = useRef<SignatureCanvas>(null);
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [operatorName, setOperatorName] = useState('');
+  const screenOpenedLoggedFor = useRef<string | null>(null);
   const [depositElected, setDepositElected] = useState(false);
   const [depositInitials, setDepositInitials] = useState('');
   const [depositElectedDate, setDepositElectedDate] = useState('');
@@ -44,6 +45,29 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
   useEffect(() => {
     if (session?.user?.id) fetchContract();
   }, [session?.user?.id]);
+
+  const logIcaEvent = async (
+    action: 'ica_screen_opened' | 'ica_execute_clicked' | 'ica_upload_failed' | 'ica_signed',
+    opId: string | null,
+    contractId: string | null,
+    metadata: Record<string, unknown> = {},
+  ) => {
+    if (!opId) return;
+    try {
+      await supabase.rpc('log_ica_event' as any, {
+        p_action: action,
+        p_operator_id: opId,
+        p_contract_id: contractId,
+        p_metadata: {
+          ...metadata,
+          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+          url: typeof window !== 'undefined' ? window.location.href : null,
+        },
+      });
+    } catch (e) {
+      console.warn(`log_ica_event(${action}) failed (non-blocking):`, e);
+    }
+  };
 
   const fetchContract = async () => {
     setLoading(true);
@@ -85,6 +109,10 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
         resolveUrl(raw.contractor_signature_url),
       ]);
       setContract({ ...raw, carrier_signature_url: carrierUrl, contractor_signature_url: contractorUrl } as unknown as ICAData);
+      if (screenOpenedLoggedFor.current !== raw.id) {
+        screenOpenedLoggedFor.current = raw.id;
+        logIcaEvent('ica_screen_opened', op.id, raw.id, { status: raw.status });
+      }
     } else {
       setContract(null);
     }
@@ -102,6 +130,10 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
       return;
     }
     setSigning(true);
+    logIcaEvent('ica_execute_clicked', operatorId, contract.id, {
+      deposit_elected: depositElected,
+    });
+    let stage: 'storage_upload' | 'contract_update' | 'status_update' = 'storage_upload';
     try {
       const dataUrl = sigRef.current.toDataURL('image/png');
       const blob = await (await fetch(dataUrl)).blob();
@@ -109,6 +141,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
       const { error: uploadErr } = await supabase.storage.from('ica-signatures').upload(path, blob, { contentType: 'image/png', upsert: true });
       if (uploadErr) throw uploadErr;
 
+      stage = 'contract_update';
       const { error } = await supabase
         .from('ica_contracts' as any)
         .update({
@@ -125,6 +158,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
       if (error) throw error;
 
       // Update onboarding ICA status to complete
+      stage = 'status_update';
       const { data: os } = await supabase
         .from('onboarding_status')
         .select('id')
@@ -134,28 +168,15 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
         await supabase.from('onboarding_status').update({ ica_status: 'complete' }).eq('id', os.id);
       }
 
-      // Write audit log entry for ica_signed
-      try {
-        await supabase.from('audit_log').insert({
-          entity_type: 'ica_contract',
-          action: 'ica_signed',
-          actor_id: session!.user.id,
-          actor_name: operatorName || 'Operator',
-          entity_id: operatorId ?? undefined,
-          entity_label: operatorName || 'Operator',
-          metadata: {
-            contract_id: contract.id,
-            contractor_typed_name: signedName,
-            signed_at: new Date().toISOString(),
-            truck_year: contract.truck_year,
-            truck_make: contract.truck_make,
-            truck_vin: contract.truck_vin,
-            linehaul_split_pct: contract.linehaul_split_pct,
-          },
-        });
-      } catch (auditErr) {
-        console.warn('ica_signed audit log failed (non-blocking):', auditErr);
-      }
+      // Write audit log entry for ica_signed via SECURITY DEFINER RPC
+      logIcaEvent('ica_signed', operatorId, contract.id, {
+        contractor_typed_name: signedName,
+        signed_at: new Date().toISOString(),
+        truck_year: contract.truck_year,
+        truck_make: contract.truck_make,
+        truck_vin: contract.truck_vin,
+        linehaul_split_pct: contract.linehaul_split_pct,
+      });
 
       // Fire ICA complete notifications (operator + assigned staff)
       try {
@@ -186,6 +207,11 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
       fetchContract();
       if (onComplete) onComplete();
     } catch (err: any) {
+      logIcaEvent('ica_upload_failed', operatorId, contract.id, {
+        stage,
+        error_message: err?.message ?? String(err),
+        error_code: err?.code ?? err?.statusCode ?? null,
+      });
       toast.error(err.message || 'Error signing agreement');
     } finally {
       setSigning(false);

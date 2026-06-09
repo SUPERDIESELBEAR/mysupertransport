@@ -3983,6 +3983,15 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      log_ica_event: {
+        Args: {
+          p_action: string
+          p_contract_id: string
+          p_metadata?: Json
+          p_operator_id: string
+        }
+        Returns: undefined
+      }
       mark_operator_seen: { Args: { _standalone: boolean }; Returns: undefined }
       move_revisions_to_pending: {
         Args: { p_application_id: string }
