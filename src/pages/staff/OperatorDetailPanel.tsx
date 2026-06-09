@@ -39,6 +39,8 @@ import { Suspense } from 'react';
 const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
 import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
 import SettlementForecast from '@/components/operator/SettlementForecast';
+import DeletedDocumentsTray from '@/components/operator/DeletedDocumentsTray';
+import { softDeleteOperatorDocument } from '@/lib/operatorDocuments';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -380,6 +382,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const [costPreview, setCostPreview] = useState<{ url: string; name: string; slotKey: string } | null>(null);
   const [costEditing, setCostEditing] = useState<{ url: string; name: string; bucket: string; path: string; slotKey: string } | null>(null);
+  // Global confirm-delete-document dialog state
+  const [confirmDeleteDoc, setConfirmDeleteDoc] = useState<{
+    label: string;
+    description?: string;
+    onConfirm: () => Promise<void> | void;
+  } | null>(null);
+  const [confirmDeleteBusy, setConfirmDeleteBusy] = useState(false);
 
   // Contact Info editing state
   const [contactEditing, setContactEditing] = useState(false);
@@ -1023,6 +1032,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         .from('operator_documents')
         .select('id, document_type, file_name, file_url, uploaded_at')
         .eq('operator_id', operatorId)
+        .is('deleted_at', null)
         .order('uploaded_at', { ascending: false }),
     ]);
 
@@ -3128,6 +3138,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               .select('file_url, file_name')
               .eq('operator_id', operatorId)
               .eq('document_type', slotKey as any)
+              .is('deleted_at', null)
               .order('uploaded_at', { ascending: false })
               .limit(1)
               .maybeSingle()
@@ -3174,22 +3185,26 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <button
                     type="button"
                     title="Delete attachment"
-                    onClick={async () => {
-                      try {
-                        // Delete from operator_documents table
-                        await supabase.from('operator_documents').delete().eq('operator_id', operatorId).eq('document_type', slotKey as any);
-                        // Try to remove from storage (best-effort)
-                        const storagePath = `${operatorId}/cost-${slotKey}`;
-                        const { data: files } = await supabase.storage.from('operator-documents').list(storagePath);
-                        if (files?.length) {
-                          await supabase.storage.from('operator-documents').remove(files.map(f => `${storagePath}/${f.name}`));
-                        }
-                        setAttachUrl(null);
-                        setAttachName(null);
-                        toast({ title: 'Attachment deleted', description: `${label} receipt removed.` });
-                      } catch {
-                        toast({ title: 'Delete failed', variant: 'destructive' });
-                      }
+                    onClick={() => {
+                      setConfirmDeleteDoc({
+                        label: attachName ?? `${label} receipt`,
+                        description: 'You can restore it from the Recently Deleted tray for 30 days.',
+                        onConfirm: async () => {
+                          // Find the row(s) for this slot and soft-delete each
+                          const { data: rows } = await supabase
+                            .from('operator_documents')
+                            .select('id')
+                            .eq('operator_id', operatorId)
+                            .eq('document_type', slotKey as any)
+                            .is('deleted_at', null);
+                          for (const r of (rows ?? [])) {
+                            await softDeleteOperatorDocument(r.id);
+                          }
+                          setAttachUrl(null);
+                          setAttachName(null);
+                          toast({ title: 'Attachment deleted', description: `${label} receipt moved to Recently Deleted.` });
+                        },
+                      });
                     }}
                     className="text-xs text-destructive hover:text-destructive/80"
                   >
@@ -4636,29 +4651,25 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                                     <button
                                       type="button"
                                       disabled={deletingDocId === f.id}
-                                      onClick={async () => {
+                                      onClick={() => {
                                         if (deletingDocId) return;
-                                        setDeletingDocId(f.id);
-                                        try {
-                                          // Extract storage path from signed URL
-                                          const urlObj = new URL(f.file_url ?? '');
-                                          const pathMatch = urlObj.pathname.match(/\/object\/sign\/operator-documents\/(.+)/);
-                                          if (pathMatch) {
-                                            await supabase.storage.from('operator-documents').remove([decodeURIComponent(pathMatch[1])]);
-                                          }
-                                          const { error } = await supabase.from('operator_documents').delete().eq('id', f.id);
-                                          if (error) throw error;
-                                          setDocFiles(prev => ({
-                                            ...prev,
-                                            [field as string]: (prev[field as string] ?? []).filter(d => d.id !== f.id),
-                                          }));
-                                          toast({ title: 'File deleted', description: `${f.file_name ?? 'File'} removed.` });
-                                        } catch (err: unknown) {
-                                          const msg = err instanceof Error ? err.message : typeof err === 'object' && err !== null && 'message' in err ? String((err as Record<string, unknown>).message) : 'Unknown error';
-                                          toast({ title: 'Delete failed', description: msg, variant: 'destructive' });
-                                        } finally {
-                                          setDeletingDocId(null);
-                                        }
+                                        setConfirmDeleteDoc({
+                                          label: f.file_name ?? 'this document',
+                                          description: 'You can restore it from the Recently Deleted tray for 30 days.',
+                                          onConfirm: async () => {
+                                            setDeletingDocId(f.id);
+                                            try {
+                                              await softDeleteOperatorDocument(f.id);
+                                              setDocFiles(prev => ({
+                                                ...prev,
+                                                [field as string]: (prev[field as string] ?? []).filter(d => d.id !== f.id),
+                                              }));
+                                              toast({ title: 'File deleted', description: `${f.file_name ?? 'File'} moved to Recently Deleted.` });
+                                            } finally {
+                                              setDeletingDocId(null);
+                                            }
+                                          },
+                                        });
                                       }}
                                       className="text-destructive/60 hover:text-destructive transition-colors"
                                     >
@@ -6194,6 +6205,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         />
       </div>
 
+      {/* Recently Deleted Documents tray */}
+      <div style={isQuickView ? { order: 14 } : undefined}>
+        <DeletedDocumentsTray
+          operatorId={operatorId}
+          onChanged={() => { void fetchOperatorDetail(); }}
+        />
+      </div>
+
       {/* ── Onboarding History Toggle (Quick View only) ── */}
       {isQuickView && (
         <div style={{ order: 16 }}>
@@ -6425,6 +6444,44 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Leave Without Saving
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm document delete (soft-delete with 30-day restore) */}
+      <AlertDialog
+        open={!!confirmDeleteDoc}
+        onOpenChange={(o) => { if (!o && !confirmDeleteBusy) setConfirmDeleteDoc(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this document?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-medium text-foreground">{confirmDeleteDoc?.label}</span>
+              {confirmDeleteDoc?.description ? <> — {confirmDeleteDoc.description}</> : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={confirmDeleteBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={confirmDeleteBusy}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!confirmDeleteDoc) return;
+                setConfirmDeleteBusy(true);
+                try {
+                  await confirmDeleteDoc.onConfirm();
+                  setConfirmDeleteDoc(null);
+                } catch (err: any) {
+                  toast({ title: 'Delete failed', description: err?.message, variant: 'destructive' });
+                } finally {
+                  setConfirmDeleteBusy(false);
+                }
+              }}
+            >
+              {confirmDeleteBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
