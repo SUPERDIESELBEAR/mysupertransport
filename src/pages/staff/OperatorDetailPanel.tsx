@@ -4649,29 +4649,25 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                                     <button
                                       type="button"
                                       disabled={deletingDocId === f.id}
-                                      onClick={async () => {
+                                      onClick={() => {
                                         if (deletingDocId) return;
-                                        setDeletingDocId(f.id);
-                                        try {
-                                          // Extract storage path from signed URL
-                                          const urlObj = new URL(f.file_url ?? '');
-                                          const pathMatch = urlObj.pathname.match(/\/object\/sign\/operator-documents\/(.+)/);
-                                          if (pathMatch) {
-                                            await supabase.storage.from('operator-documents').remove([decodeURIComponent(pathMatch[1])]);
-                                          }
-                                          const { error } = await supabase.from('operator_documents').delete().eq('id', f.id);
-                                          if (error) throw error;
-                                          setDocFiles(prev => ({
-                                            ...prev,
-                                            [field as string]: (prev[field as string] ?? []).filter(d => d.id !== f.id),
-                                          }));
-                                          toast({ title: 'File deleted', description: `${f.file_name ?? 'File'} removed.` });
-                                        } catch (err: unknown) {
-                                          const msg = err instanceof Error ? err.message : typeof err === 'object' && err !== null && 'message' in err ? String((err as Record<string, unknown>).message) : 'Unknown error';
-                                          toast({ title: 'Delete failed', description: msg, variant: 'destructive' });
-                                        } finally {
-                                          setDeletingDocId(null);
-                                        }
+                                        setConfirmDeleteDoc({
+                                          label: f.file_name ?? 'this document',
+                                          description: 'You can restore it from the Recently Deleted tray for 30 days.',
+                                          onConfirm: async () => {
+                                            setDeletingDocId(f.id);
+                                            try {
+                                              await softDeleteOperatorDocument(f.id);
+                                              setDocFiles(prev => ({
+                                                ...prev,
+                                                [field as string]: (prev[field as string] ?? []).filter(d => d.id !== f.id),
+                                              }));
+                                              toast({ title: 'File deleted', description: `${f.file_name ?? 'File'} moved to Recently Deleted.` });
+                                            } finally {
+                                              setDeletingDocId(null);
+                                            }
+                                          },
+                                        });
                                       }}
                                       className="text-destructive/60 hover:text-destructive transition-colors"
                                     >
