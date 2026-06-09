@@ -2558,6 +2558,9 @@ export type Database = {
       }
       operator_documents: {
         Row: {
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           document_type: Database["public"]["Enums"]["operator_doc_type"]
           file_name: string | null
           file_url: string | null
@@ -2566,6 +2569,9 @@ export type Database = {
           uploaded_at: string
         }
         Insert: {
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           document_type?: Database["public"]["Enums"]["operator_doc_type"]
           file_name?: string | null
           file_url?: string | null
@@ -2574,6 +2580,9 @@ export type Database = {
           uploaded_at?: string
         }
         Update: {
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           document_type?: Database["public"]["Enums"]["operator_doc_type"]
           file_name?: string | null
           file_url?: string | null
