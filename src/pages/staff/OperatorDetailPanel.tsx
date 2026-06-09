@@ -6446,6 +6446,44 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Confirm document delete (soft-delete with 30-day restore) */}
+      <AlertDialog
+        open={!!confirmDeleteDoc}
+        onOpenChange={(o) => { if (!o && !confirmDeleteBusy) setConfirmDeleteDoc(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this document?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-medium text-foreground">{confirmDeleteDoc?.label}</span>
+              {confirmDeleteDoc?.description ? <> — {confirmDeleteDoc.description}</> : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={confirmDeleteBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={confirmDeleteBusy}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!confirmDeleteDoc) return;
+                setConfirmDeleteBusy(true);
+                try {
+                  await confirmDeleteDoc.onConfirm();
+                  setConfirmDeleteDoc(null);
+                } catch (err: any) {
+                  toast({ title: 'Delete failed', description: err?.message, variant: 'destructive' });
+                } finally {
+                  setConfirmDeleteBusy(false);
+                }
+              }}
+            >
+              {confirmDeleteBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
