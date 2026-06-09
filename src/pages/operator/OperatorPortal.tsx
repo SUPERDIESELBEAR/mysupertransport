@@ -261,7 +261,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       // onboarding_status is a 1:1 relation — returns object, not array
       const os = (op as any).onboarding_status ?? {};
       setOnboardingStatus(os);
-      setUploadedDocs((op as any).operator_documents ?? []);
+      // Defense-in-depth: filter out soft-deleted docs even though RLS already hides them
+      setUploadedDocs(
+        ((op as any).operator_documents ?? []).filter((d: any) => !d.deleted_at)
+      );
 
       // Fetch Stage 8 pay setup status
       const { data: ps } = await supabase
