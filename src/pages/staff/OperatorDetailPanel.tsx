@@ -382,6 +382,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const [costPreview, setCostPreview] = useState<{ url: string; name: string; slotKey: string } | null>(null);
   const [costEditing, setCostEditing] = useState<{ url: string; name: string; bucket: string; path: string; slotKey: string } | null>(null);
+  // Global confirm-delete-document dialog state
+  const [confirmDeleteDoc, setConfirmDeleteDoc] = useState<{
+    label: string;
+    description?: string;
+    onConfirm: () => Promise<void> | void;
+  } | null>(null);
+  const [confirmDeleteBusy, setConfirmDeleteBusy] = useState(false);
 
   // Contact Info editing state
   const [contactEditing, setContactEditing] = useState(false);
