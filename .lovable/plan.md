@@ -1,42 +1,66 @@
-## What I found
+## Goal
 
-I ran the form end-to-end (state-code dropdown, employment "currently employed", etc.) and it advances cleanly through Steps 1–7. The real applicant complaints come from the **submit** step, not navigation. The audit log shows the smoking gun:
+Stop accidental, irreversible deletes of operator documents (truck title, registration, inspection, photos, etc.). After this change:
 
-- `bilalleggett@outlook.com` hit `error_code: 23505` on stage `insert_application` **seven times** between 2026-06-03 14:37 and 15:05 (iPhone Safari). The DB has a partial unique index `applications_email_non_draft_unique` on `lower(email) WHERE is_draft IS NOT TRUE`, and this email already had a non-draft (denied) record from 2026-06-02. Every retry was rejected by Postgres.
+1. Every delete in the staff UI requires an explicit confirmation.
+2. Deletes become **soft** for 30 days — the file stays in storage, the DB row is hidden, and staff can restore it from a "Recently Deleted" tray.
+3. A nightly cleanup permanently removes anything older than 30 days.
+4. Every delete and restore is written to the audit log.
 
-Two bugs combine to trap the applicant:
+## What changes (user-visible)
 
-### Bug 1 — Step-1 duplicate-email guard is silently bypassed for anonymous users
-`ApplicationForm.tsx` calls
-```ts
-supabase.from('applications').select('id').eq('email', email.toLowerCase()).eq('is_draft', false).limit(1)
-```
-before advancing past Step 1. But `public.applications` RLS only allows SELECT for `auth.uid() = user_id` or staff — **no anon policy**. The query succeeds with `data: []`, the guard treats that as "no duplicate", and the user proceeds. They only discover the conflict at the very last step.
+- **Confirm dialog** on every "Delete document" action across the Staff → Operator detail panel (Stage 2 truck docs, cost docs, payroll docs slots, generic doc rows). Dialog shows file name, who uploaded it, and "This can be restored within 30 days."
+- **Recently Deleted tray** in the Operator detail panel (collapsed section near Documents) listing soft-deleted docs from the last 30 days with **Restore** and **Delete permanently** buttons. Staff-only.
+- **Audit log entries** for `document_deleted` and `document_restored` (shows up in the existing audit log views).
+- Driver/operator view of documents is unaffected — soft-deleted docs are filtered out for them too.
 
-The guard also does a case-sensitive `.eq('email', …)` against stored data, while the unique index normalizes with `lower()`. Any historic row stored with mixed case would slip past even if anon SELECT were allowed.
+## Technical details
 
-### Bug 2 — Submit error surfaces as "[object Object]" and a generic toast
-On failure, `ApplicationForm.tsx` shows a generic "We couldn't submit your application — please try again…" toast. The error logger writes `error_message: "[object Object]"` because it stringifies the Supabase error object instead of `.message`. So neither the applicant nor staff can tell why it failed; the user just retries forever.
+### Database (one migration)
 
-## Fix
+`operator_documents`:
+- Add `deleted_at timestamptz null`, `deleted_by uuid null`, `delete_reason text null`.
+- Add partial index on `(operator_id) where deleted_at is null` for the hot path.
+- Update existing RLS policies so non-staff reads filter `deleted_at is null`; staff can see all. Inserts/updates unchanged.
+- BEFORE-UPDATE trigger: when `deleted_at` transitions null → not-null, snapshot the row into `audit_log` (`action='document_deleted'`, metadata `{ file_name, file_url, document_type, uploaded_at }`) so we have a permanent record even after purge.
+- BEFORE-UPDATE trigger: when `deleted_at` transitions not-null → null, log `document_restored`.
+- Side-effect of trigger on delete: if the corresponding `onboarding_status.<doc_type>` column is `'received'` AND no other live doc of that type exists for the operator, reset it to `'pending'` (or `'requested'`) so Stage 2 reflects reality. Mirror inverse on restore (only if still `'pending'`).
 
-1. **New SECURITY DEFINER RPC `check_application_email_taken(p_email text) returns boolean`** in a new migration. Locked to `anon` and `authenticated`, it does the same `lower(email)` lookup against `is_draft = false` rows. Returns `true` if already submitted.
-2. **`ApplicationForm.tsx`** — replace the direct `supabase.from('applications').select(...)` pre-check in `goNext` (step 1) with `supabase.rpc('check_application_email_taken', { p_email })`. Also fall back to blocking on `error` so a network/RPC failure doesn't silently let the user through; show a clear inline message and stop.
-3. **Submit-error handling in `ApplicationForm.tsx`** — in the `catch` block of the submit handler:
-   - Detect Postgres `code === '23505'` (or message contains `applications_email_non_draft_unique`) and set `setDuplicateEmailBlocked(true)` + scroll to top so the existing "Application already submitted" panel shows, instead of the generic toast.
-   - For any other failure, surface `(err as any).message` in the toast instead of the canned text so the applicant has something actionable to report.
-4. **`log-application-error` callsite** — pass `err.message` (and `err.details`/`err.hint` when present) instead of `String(err)` so future audit_log rows aren't `[object Object]`.
-5. **Staff-side StaffApplicationModal** (`src/components/management/StaffApplicationModal.tsx`) — same 23505 detection so staff entering applications on behalf of someone get a clear "Already submitted by this email" message instead of a generic toast.
+`copy_stage2_docs_to_vault` trigger: also filter source by `deleted_at is null` when copying to vault on subsequent re-uploads (prevents zombie vault copies).
 
-No UI redesign, no schema column changes beyond the new RPC. The existing "Application already submitted" block in `ApplicationForm.tsx` (lines ~564–570) is reused as the user-visible result.
+### Frontend
 
-## Files touched
+New helpers in `src/lib/operatorDocuments.ts`:
+- `softDeleteOperatorDocument(id, reason?)` — updates row to set `deleted_at = now()`, `deleted_by = auth.uid()`. Does **not** touch storage.
+- `restoreOperatorDocument(id)` — clears `deleted_at`/`deleted_by`.
+- `hardDeleteOperatorDocument(id)` — actually removes storage object + row (used by "Delete permanently" and the purge job).
+- `listDeletedOperatorDocuments(operatorId)` — fetches soft-deleted rows for the tray.
 
-- `supabase/migrations/<new>.sql` — create `public.check_application_email_taken(text)` SECURITY DEFINER + `GRANT EXECUTE` to `anon, authenticated`.
-- `src/pages/ApplicationForm.tsx` — swap pre-check to RPC, harden the `.then` branch against errors, add 23505 handling in submit catch, pass `err.message` to the error logger.
-- `src/components/management/StaffApplicationModal.tsx` — add the same 23505 user-friendly error mapping.
-- `public/version.json` — bump.
+Replace every existing `supabase.from('operator_documents').delete()` + `supabase.storage.remove()` pair in:
+- `src/pages/staff/OperatorDetailPanel.tsx` (~lines 3179, 4647, 5466 and the cost-docs slots around 6225–6295)
 
-## Why not also relax the unique constraint?
+…with `softDeleteOperatorDocument()` wrapped in a new `<ConfirmDeleteDocumentDialog>` (shadcn `AlertDialog` reused). Dialog wording: "Delete '{file_name}'? You can restore it from the Recently Deleted tray for 30 days."
 
-The partial unique index is the right safeguard against true duplicate submissions. The problem is purely UX: the app must detect the conflict early (RPC) and explain it clearly when it does happen (catch-block mapping). No DB constraint changes.
+New `<DeletedDocumentsTray>` component placed inside `OperatorDetailPanel` Documents section. Shows label, original document_type, deleted_at, deleted_by name, file preview link, **Restore** and **Delete permanently** (second confirm for permanent).
+
+Driver-side fetch in `OperatorPortal.tsx` (line 254): add `.is('deleted_at', null)` to the `operator_documents(*)` nested select (or rely on RLS — defense in depth, do both).
+
+### Cleanup job
+
+New edge function `purge-deleted-operator-documents` (scheduled daily via pg_cron, gated by `x-cron-secret` per the project pattern):
+- Find rows with `deleted_at < now() - interval '30 days'`.
+- For each: remove the storage object from `operator-documents` bucket, then delete the DB row.
+- Write `audit_log` entry `document_purged` with stored metadata.
+
+### Out of scope
+
+- **Storage bucket versioning** — Supabase Storage doesn't expose object versioning to projects, so we get the same protection by keeping the object in place during the 30-day window instead. No bucket-level changes needed.
+- Other doc tables (`driver_uploads`, `driver_vault_documents`, `inspection_documents`, `equipment_assignments` receipts) — same pattern can be applied later; this plan covers `operator_documents` only, since that's where the truck title lives and where the recent loss happened. Mention this to the user as a follow-up if they want symmetric protection elsewhere.
+
+## Migration / rollout order
+
+1. DB migration (columns + triggers + RLS update + audit logging).
+2. Frontend helpers + confirm dialog + delete call-site swap.
+3. Recently Deleted tray UI.
+4. Edge function + cron schedule.
+5. Bump `public/version.json`.
