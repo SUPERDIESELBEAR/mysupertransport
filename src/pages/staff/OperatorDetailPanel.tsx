@@ -6207,7 +6207,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       <div style={isQuickView ? { order: 14 } : undefined}>
         <DeletedDocumentsTray
           operatorId={operatorId}
-          onChanged={() => { void fetchData(); }}
+          onChanged={() => { void fetchOperatorDetail(); }}
         />
       </div>
 
