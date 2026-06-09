@@ -3183,22 +3183,26 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <button
                     type="button"
                     title="Delete attachment"
-                    onClick={async () => {
-                      try {
-                        // Delete from operator_documents table
-                        await supabase.from('operator_documents').delete().eq('operator_id', operatorId).eq('document_type', slotKey as any);
-                        // Try to remove from storage (best-effort)
-                        const storagePath = `${operatorId}/cost-${slotKey}`;
-                        const { data: files } = await supabase.storage.from('operator-documents').list(storagePath);
-                        if (files?.length) {
-                          await supabase.storage.from('operator-documents').remove(files.map(f => `${storagePath}/${f.name}`));
-                        }
-                        setAttachUrl(null);
-                        setAttachName(null);
-                        toast({ title: 'Attachment deleted', description: `${label} receipt removed.` });
-                      } catch {
-                        toast({ title: 'Delete failed', variant: 'destructive' });
-                      }
+                    onClick={() => {
+                      setConfirmDeleteDoc({
+                        label: attachName ?? `${label} receipt`,
+                        description: 'You can restore it from the Recently Deleted tray for 30 days.',
+                        onConfirm: async () => {
+                          // Find the row(s) for this slot and soft-delete each
+                          const { data: rows } = await supabase
+                            .from('operator_documents')
+                            .select('id')
+                            .eq('operator_id', operatorId)
+                            .eq('document_type', slotKey as any)
+                            .is('deleted_at', null);
+                          for (const r of (rows ?? [])) {
+                            await softDeleteOperatorDocument(r.id);
+                          }
+                          setAttachUrl(null);
+                          setAttachName(null);
+                          toast({ title: 'Attachment deleted', description: `${label} receipt moved to Recently Deleted.` });
+                        },
+                      });
                     }}
                     className="text-xs text-destructive hover:text-destructive/80"
                   >
