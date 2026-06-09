@@ -39,6 +39,8 @@ import { Suspense } from 'react';
 const DocumentEditor = React.lazy(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
 import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
 import SettlementForecast from '@/components/operator/SettlementForecast';
+import DeletedDocumentsTray from '@/components/operator/DeletedDocumentsTray';
+import { softDeleteOperatorDocument } from '@/lib/operatorDocuments';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
