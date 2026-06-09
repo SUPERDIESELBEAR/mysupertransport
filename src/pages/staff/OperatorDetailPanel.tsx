@@ -3138,6 +3138,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               .select('file_url, file_name')
               .eq('operator_id', operatorId)
               .eq('document_type', slotKey as any)
+              .is('deleted_at', null)
               .order('uploaded_at', { ascending: false })
               .limit(1)
               .maybeSingle()
