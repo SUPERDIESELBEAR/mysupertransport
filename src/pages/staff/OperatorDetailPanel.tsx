@@ -1032,6 +1032,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         .from('operator_documents')
         .select('id, document_type, file_name, file_url, uploaded_at')
         .eq('operator_id', operatorId)
+        .is('deleted_at', null)
         .order('uploaded_at', { ascending: false }),
     ]);
 
