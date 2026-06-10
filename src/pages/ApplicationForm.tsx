@@ -615,8 +615,11 @@ export default function ApplicationForm() {
             >
               {saving ? (
                 <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>
-              ) : lastSavedAt ? (
-                <><Check className="h-3.5 w-3.5 text-status-complete" /> Saved</>
+              ) : lastSavedAt && lastSavedStep ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-status-complete" />
+                  Saved Step {lastSavedStep} · {new Date(lastSavedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                </>
               ) : (
                 <><Save className="h-3.5 w-3.5" /> Save Progress</>
               )}
@@ -787,8 +790,11 @@ export default function ApplicationForm() {
             >
               {saving ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
-              ) : lastSavedAt ? (
-                <><Check className="h-4 w-4 text-status-complete" /> Saved · just now</>
+              ) : lastSavedAt && lastSavedStep ? (
+                <>
+                  <Check className="h-4 w-4 text-status-complete" />
+                  Saved Step {lastSavedStep} · {new Date(lastSavedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                </>
               ) : (
                 <><Save className="h-4 w-4" /> Save Progress</>
               )}
