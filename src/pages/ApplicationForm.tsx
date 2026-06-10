@@ -167,6 +167,14 @@ export default function ApplicationForm() {
           setFormData(restored);
           setStep(restoredStep);
           if (restoredStep > 1) setResumedStep(restoredStep);
+          const savedAtIso = (data as any).updated_at ?? (data as any).created_at;
+          if (savedAtIso) {
+            const ts = new Date(savedAtIso).getTime();
+            if (!Number.isNaN(ts)) {
+              setLastSavedAt(ts);
+              setLastSavedStep(restoredStep);
+            }
+          }
           setShowDraftBanner(true);
         }
         setDraftLoaded(true);
