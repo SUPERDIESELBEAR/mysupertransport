@@ -74,6 +74,7 @@ export default function ApplicationForm() {
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const [resumedStep, setResumedStep] = useState<number | null>(null);
+  const [resumedAt, setResumedAt] = useState<number | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [lastSavedStep, setLastSavedStep] = useState<number | null>(null);
   const [applicationId, setApplicationId] = useState<string | null>(null);
@@ -167,6 +168,15 @@ export default function ApplicationForm() {
           setFormData(restored);
           setStep(restoredStep);
           if (restoredStep > 1) setResumedStep(restoredStep);
+          const savedAtIso = (data as any).updated_at ?? (data as any).created_at;
+          if (savedAtIso) {
+            const ts = new Date(savedAtIso).getTime();
+            if (!Number.isNaN(ts)) {
+              setLastSavedAt(ts);
+              setLastSavedStep(restoredStep);
+              setResumedAt(ts);
+            }
+          }
           setShowDraftBanner(true);
         }
         setDraftLoaded(true);
@@ -659,8 +669,13 @@ export default function ApplicationForm() {
             <FileText className="h-5 w-5 text-gold shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground">Your previous progress has been restored</p>
+              {resumedAt && (
+                <p className="text-xs text-gold mt-0.5 font-medium">
+                  Last saved: Step {resumedStep ?? lastSavedStep ?? 1} at {new Date(resumedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                We found a saved draft and picked up where you left off{resumedStep ? ` — resuming at Step ${resumedStep} (${STEP_LABELS[resumedStep - 1]})` : ''}. You can continue or start over.
+                We picked up where you left off{resumedStep ? ` — resuming at Step ${resumedStep} (${STEP_LABELS[resumedStep - 1]})` : ''}. You can continue or start over.
               </p>
               <button
                 type="button"
