@@ -366,6 +366,39 @@ Deno.serve(async (req) => {
           await sendEmail(operatorEmail, operatorSubject, operatorHtml, RESEND_API_KEY);
         }
 
+        // ── 2b. Audit log ICA signing-link routing ───────────────────────
+        if (milestoneKey === 'ica_sent' && operatorEmail) {
+          try {
+            let driverUserId: string | null = null;
+            let driverEmail: string | null = null;
+            const { data: opRow } = await supabaseAdmin
+              .from('operators')
+              .select('user_id, email')
+              .eq('id', operatorId)
+              .maybeSingle();
+            driverUserId = opRow?.user_id ?? null;
+            driverEmail = opRow?.email ?? null;
+            await supabaseAdmin.from('audit_log').insert({
+              action: 'ica_signing_link_routed',
+              entity_type: 'operator',
+              entity_id: operatorId,
+              entity_label: name,
+              metadata: {
+                routed_to: icaSignerIsOwner ? 'truck_owner' : 'driver',
+                recipient_email: operatorEmail,
+                truck_owner_user_id: icaSignerIsOwner ? icaSignerUserId : null,
+                truck_owner_email: icaSignerIsOwner ? icaSignerEmail : null,
+                driver_user_id: driverUserId,
+                driver_email: driverEmail,
+                operator_id: operatorId,
+                routed_at: new Date().toISOString(),
+              },
+            });
+          } catch (err) {
+            console.warn('[send-notification] ica_signing_link_routed audit insert failed:', err);
+          }
+        }
+
         // ── 3. Log in-app notification for operator ──────────────────────
         if (operatorId && copy) {
           let recipientUserId: string | null = null;
