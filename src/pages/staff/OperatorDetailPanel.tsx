@@ -2307,6 +2307,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </TooltipProvider>
       </div>
 
+      {/* Truck Owner (if this truck is owned by someone other than the driver) */}
+      <TruckOwnerCard operatorId={operatorId} />
+
       {/* On Hold Banner */}
       {isOnHold && (
         <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-blue-300 bg-blue-50">
