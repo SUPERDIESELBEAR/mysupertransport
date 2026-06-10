@@ -647,7 +647,7 @@ export default function ApplicationForm() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground">Your previous progress has been restored</p>
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                We found a saved draft and picked up where you left off. You can continue or start over.
+                We found a saved draft and picked up where you left off{resumedStep ? ` — resuming at Step ${resumedStep} (${STEP_LABELS[resumedStep - 1]})` : ''}. You can continue or start over.
               </p>
               <button
                 type="button"
