@@ -161,6 +161,6 @@ export function buildPayload(data: ApplicationFormData, token: string, isDraft: 
     ssn_encrypted: ssnEncrypted ?? null,
     typed_full_name: data.typed_full_name || null,
     signature_image_url: data.signature_image_url || null,
-    signed_date: data.signed_date || null,
+    signed_date: /^\d{4}-\d{2}-\d{2}$/.test(data.signed_date || '') ? data.signed_date : null,
   };
 }
