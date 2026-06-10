@@ -17,6 +17,8 @@ project_id = "qgxpkcudwjmacrdcyvhj"
     verify_jwt = false
   [functions.invite-applicant]
     verify_jwt = false
+  [functions.invite-truck-owner]
+    verify_jwt = false
   [functions.notify-onboarding-update]
     verify_jwt = false
   [functions.request-application-resume]
