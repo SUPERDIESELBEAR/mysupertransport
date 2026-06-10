@@ -174,6 +174,7 @@ export default function ApplicationForm() {
             if (!Number.isNaN(ts)) {
               setLastSavedAt(ts);
               setLastSavedStep(restoredStep);
+              setResumedAt(ts);
             }
           }
           setShowDraftBanner(true);
