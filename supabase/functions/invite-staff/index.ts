@@ -161,35 +161,54 @@ Deno.serve(async (req) => {
 
       invitedUserId = createData.user?.id ?? null;
     } else {
-      // ── Invite path: send magic-link email ──
-      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        data: {
+      // ── Invite path: create user (no email) + generate invite link, then send ONE branded email ──
+      // Using createUser + generateLink avoids the duplicate auth-hook email that
+      // inviteUserByEmail would trigger.
+      const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        email_confirm: false,
+        user_metadata: {
           first_name: first_name ?? '',
           last_name: last_name ?? '',
           invited_as: role,
         },
-        redirectTo: `${appUrl}/dashboard`,
       });
 
-      if (inviteError && !inviteError.message.includes('already been registered')) {
-        console.error('Invite error:', inviteError.message);
-        return new Response(JSON.stringify({ error: inviteError.message }), {
+      if (createError && !createError.message.toLowerCase().includes('already')) {
+        console.error('Create user error:', createError.message);
+        return new Response(JSON.stringify({ error: createError.message }), {
           status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      if (inviteData?.user) {
-        invitedUserId = inviteData.user.id;
+      if (createData?.user) {
+        invitedUserId = createData.user.id;
       } else {
         const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
         const existing = users?.find(u => u.email === email);
         if (existing) invitedUserId = existing.id;
       }
 
-      // Send branded invite email via Resend
+      // Generate the one-time invite action link (does NOT send an email).
+      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'invite',
+        email,
+        options: { redirectTo: `${appUrl}/welcome` },
+      });
+
+      if (linkError || !linkData?.properties?.action_link) {
+        console.error('generateLink error:', linkError?.message ?? 'no action_link');
+        return new Response(JSON.stringify({ error: linkError?.message ?? 'Could not generate invite link' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const inviteActionLink = linkData.properties.action_link;
+
+      // Send branded invite email via Resend with the real invite link
       const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
       if (RESEND_API_KEY) {
-        const html = buildInviteEmail(inviteeName, role, inviterName, `${appUrl}/login`);
+        const html = buildInviteEmail(inviteeName, role, inviterName, inviteActionLink);
         await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
