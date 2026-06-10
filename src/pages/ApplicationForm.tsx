@@ -74,6 +74,7 @@ export default function ApplicationForm() {
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const [resumedStep, setResumedStep] = useState<number | null>(null);
+  const [resumedAt, setResumedAt] = useState<number | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [lastSavedStep, setLastSavedStep] = useState<number | null>(null);
   const [applicationId, setApplicationId] = useState<string | null>(null);
