@@ -254,6 +254,25 @@ Deno.serve(async (req) => {
         const milestone = payload.milestone || 'a step';
         const milestoneKey = payload.milestone_key;
 
+        // ── For ICA "sent for signature", route to linked truck owner when present ──
+        // The truck owner (not the driver) signs the ICA. Look up here so the
+        // ICA Builder doesn't need to know about ownership routing.
+        let icaSignerEmail: string | null = null;
+        let icaSignerUserId: string | null = null;
+        let icaSignerIsOwner = false;
+        if (milestoneKey === 'ica_sent') {
+          const { data: ownerRow } = await supabaseAdmin
+            .from('truck_owners')
+            .select('email, user_id')
+            .eq('operator_id', operatorId)
+            .maybeSingle();
+          if (ownerRow?.email) {
+            icaSignerEmail = ownerRow.email;
+            icaSignerUserId = ownerRow.user_id ?? null;
+            icaSignerIsOwner = true;
+          }
+        }
+
         // ── 1. Notify staff (respecting email preferences) ───────────────
         const staffEmail = await getAssignedStaffEmail(operatorId);
         const mgmtEmails = await getManagementEmails('onboarding_milestone');
@@ -321,7 +340,9 @@ Deno.serve(async (req) => {
         }
 
         // ── 2. Notify operator ───────────────────────────────────────────
-        const operatorEmail = payload.operator_email || await getOperatorEmail(operatorId);
+        const operatorEmail = icaSignerEmail
+          || payload.operator_email
+          || await getOperatorEmail(operatorId);
         const copy = milestoneKey ? MILESTONE_OPERATOR_COPY[milestoneKey] : null;
 
         if (operatorEmail && copy) {
@@ -347,12 +368,18 @@ Deno.serve(async (req) => {
 
         // ── 3. Log in-app notification for operator ──────────────────────
         if (operatorId && copy) {
-          const { data: opRow } = await supabaseAdmin
-            .from('operators')
-            .select('user_id')
-            .eq('id', operatorId)
-            .single();
-          if (opRow?.user_id) {
+          let recipientUserId: string | null = null;
+          if (icaSignerIsOwner) {
+            recipientUserId = icaSignerUserId;
+          } else {
+            const { data: opRow } = await supabaseAdmin
+              .from('operators')
+              .select('user_id')
+              .eq('id', operatorId)
+              .single();
+            recipientUserId = opRow?.user_id ?? null;
+          }
+          if (recipientUserId) {
             const icaMilestones = ['ica_sent', 'ica_complete'];
             const notifLink = icaMilestones.includes(milestoneKey ?? '') ? '/dashboard?tab=ica' : '/dashboard';
             const notifBody = milestoneKey === 'ica_sent'
@@ -361,7 +388,7 @@ Deno.serve(async (req) => {
               ? 'Your ICA Agreement is fully executed and on file. Tap to view the signed agreement.'
               : `Your onboarding has reached a new milestone: ${milestone}`;
             await supabaseAdmin.from('notifications').insert({
-              user_id: opRow.user_id,
+              user_id: recipientUserId,
               type: 'onboarding_milestone',
               title: copy.heading.replace(/^[^\w]+/, ''),
               body: notifBody,
