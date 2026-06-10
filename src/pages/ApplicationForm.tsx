@@ -474,7 +474,10 @@ export default function ApplicationForm() {
             setDuplicateEmailBlocked(false);
             setStepError(null);
             setSlideDir('forward');
-            setStep(s => s + 1);
+            const nextStep = step + 1;
+            furthestStepRef.current = Math.max(furthestStepRef.current, nextStep);
+            setStep(nextStep);
+            void saveDraft({ silent: true });
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }
         });
@@ -482,7 +485,10 @@ export default function ApplicationForm() {
     }
 
     setSlideDir('forward');
-    setStep(s => s + 1);
+    const nextStep = step + 1;
+    furthestStepRef.current = Math.max(furthestStepRef.current, nextStep);
+    setStep(nextStep);
+    void saveDraft({ silent: true });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -491,6 +497,7 @@ export default function ApplicationForm() {
     setStepError(null);
     setSlideDir('back');
     setStep(s => s - 1);
+    void saveDraft({ silent: true });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
