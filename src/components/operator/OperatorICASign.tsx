@@ -293,8 +293,58 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
         <div className="flex items-center gap-3 p-4 bg-gold/10 border border-gold/30 rounded-xl">
           <Pen className="h-5 w-5 text-gold shrink-0" />
           <div>
-            <p className="font-semibold text-foreground text-sm">Your ICA is ready to sign</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Review the full agreement below, then scroll to the signature section to sign.</p>
+            <p className="font-semibold text-foreground text-sm">
+              {signerRole === 'truck_owner' ? 'This ICA is ready for your signature' : 'Your ICA is ready to sign'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {signerRole === 'truck_owner'
+                ? 'Review the agreement below, confirm your contact information, then scroll to the signature section to sign.'
+                : 'Review the full agreement below, then scroll to the signature section to sign.'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Driver acknowledgment of an owner-signed ICA */}
+      {isFullyExecuted && signerRole === 'driver' && (
+        <DriverICAAcknowledgment contractId={contract.id} />
+      )}
+
+      {/* Owner contact field editor — visible only to truck-owner signers before signing */}
+      {!isFullyExecuted && signerRole === 'truck_owner' && (
+        <div className="p-4 rounded-xl border border-border bg-surface space-y-3">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-gold" />
+            <h3 className="text-sm font-semibold text-foreground">Confirm your contact information</h3>
+          </div>
+          <p className="text-xs text-muted-foreground -mt-1">
+            Update your address, phone, and email if anything has changed since this agreement was prepared. Other fields are locked.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="ow_street">Street address</Label>
+              <Input id="ow_street" value={ownerEdits.owner_address} onChange={(e) => setOwnerEdits({ ...ownerEdits, owner_address: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ow_city">City</Label>
+              <Input id="ow_city" value={ownerEdits.owner_city} onChange={(e) => setOwnerEdits({ ...ownerEdits, owner_city: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ow_state">State</Label>
+              <Input id="ow_state" maxLength={2} value={ownerEdits.owner_state} onChange={(e) => setOwnerEdits({ ...ownerEdits, owner_state: e.target.value.toUpperCase() })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ow_zip">ZIP</Label>
+              <Input id="ow_zip" value={ownerEdits.owner_zip} onChange={(e) => setOwnerEdits({ ...ownerEdits, owner_zip: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ow_phone">Phone</Label>
+              <Input id="ow_phone" value={ownerEdits.owner_phone} onChange={(e) => setOwnerEdits({ ...ownerEdits, owner_phone: e.target.value })} />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="ow_email">Email</Label>
+              <Input id="ow_email" type="email" value={ownerEdits.owner_email} onChange={(e) => setOwnerEdits({ ...ownerEdits, owner_email: e.target.value })} />
+            </div>
           </div>
         </div>
       )}
