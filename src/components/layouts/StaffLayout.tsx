@@ -52,6 +52,7 @@ const roleColors: Record<AppRole, string> = {
   dispatcher: 'bg-green-600 text-white',
   operator: 'bg-purple-600 text-white',
   applicant: 'bg-gray-600 text-white',
+  truck_owner: 'bg-teal-600 text-white',
 };
 
 const roleLabels: Record<AppRole, string> = {
@@ -61,6 +62,7 @@ const roleLabels: Record<AppRole, string> = {
   dispatcher: 'Dispatcher',
   operator: 'Operator',
   applicant: 'Applicant',
+  truck_owner: 'Truck Owner',
 };
 
 export default function StaffLayout({ children, navItems, mobileNavItems, currentPath, onNavigate, title, headerActions, notificationsPath = '/staff?tab=notifications', isDemo = false, onExitDemo }: StaffLayoutProps) {

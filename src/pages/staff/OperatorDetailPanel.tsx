@@ -41,6 +41,7 @@ import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
 import SettlementForecast from '@/components/operator/SettlementForecast';
 import DeletedDocumentsTray from '@/components/operator/DeletedDocumentsTray';
 import { softDeleteOperatorDocument } from '@/lib/operatorDocuments';
+import TruckOwnerCard from '@/components/management/TruckOwnerCard';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -2305,6 +2306,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           </div>
         </TooltipProvider>
       </div>
+
+      {/* Truck Owner (if this truck is owned by someone other than the driver) */}
+      <TruckOwnerCard operatorId={operatorId} />
 
       {/* On Hold Banner */}
       {isOnHold && (

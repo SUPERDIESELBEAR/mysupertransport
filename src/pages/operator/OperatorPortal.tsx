@@ -58,9 +58,32 @@ interface UploadedDoc {
 }
 
 export default function OperatorPortal({ previewUserId }: { previewUserId?: string } = {}) {
-  const { profile: authProfile, user, signOut, refreshProfile } = useAuth();
+  const { profile: authProfile, user, signOut, refreshProfile, isTruckOwner } = useAuth();
   const isPreview = !!previewUserId;
-  const effectiveUserId = previewUserId ?? user?.id;
+  // For a truck owner, the effective user id is the LINKED DRIVER's user id, so
+  // every existing query keyed on `effectiveUserId` automatically scopes to the
+  // driver's records (RLS already grants the owner read/sign access).
+  const [resolvedOwnerDriverUserId, setResolvedOwnerDriverUserId] = useState<string | null>(null);
+  const [ownerLookupDone, setOwnerLookupDone] = useState<boolean>(!isTruckOwner);
+  useEffect(() => {
+    if (previewUserId || !isTruckOwner || !user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('truck_owners' as any)
+        .select('operator_id, operators:operator_id(user_id)')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      const driverUid = (data as any)?.operators?.user_id ?? null;
+      setResolvedOwnerDriverUserId(driverUid);
+      setOwnerLookupDone(true);
+    })();
+    return () => { cancelled = true; };
+  }, [isTruckOwner, previewUserId, user?.id]);
+  const effectiveUserId = previewUserId
+    ?? (isTruckOwner ? resolvedOwnerDriverUserId : user?.id);
+  const viewerRole: 'driver' | 'truck_owner' = isTruckOwner && !previewUserId ? 'truck_owner' : 'driver';
   const [previewProfile, setPreviewProfile] = useState<{ first_name: string | null; last_name: string | null; avatar_url: string | null; phone: string | null } | null>(null);
   useEffect(() => {
     if (!previewUserId) return;

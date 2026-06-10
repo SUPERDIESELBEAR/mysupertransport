@@ -23,6 +23,7 @@ interface AuthContextType {
   isOperator: boolean;
   isApplicant: boolean;
   isStaff: boolean;
+  isTruckOwner: boolean;
 }
 
 interface ProfileData {
@@ -158,6 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isOperator = roles.includes('operator');
   const isApplicant = roles.includes('applicant');
   const isStaff = isManagement || isOnboardingStaff || isDispatcher;
+  const isTruckOwner = roles.includes('truck_owner');
 
   return (
     <AuthContext.Provider value={{
@@ -165,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile, loading, refreshProfile,
       signIn, signOut,
       isOwner, isManagement, isOnboardingStaff, isDispatcher,
-      isOperator, isApplicant, isStaff,
+      isOperator, isApplicant, isStaff, isTruckOwner,
     }}>
       {children}
     </AuthContext.Provider>

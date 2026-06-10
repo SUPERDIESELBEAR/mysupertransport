@@ -3,9 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { FileText, Pen, CheckCircle2, Loader2 } from 'lucide-react';
+import { FileText, Pen, CheckCircle2, Loader2, Building2 } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import ICADocumentView from '@/components/ica/ICADocumentView';
+import DriverICAAcknowledgment from './DriverICAAcknowledgment';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface ICAData {
   id: string;
@@ -27,7 +30,7 @@ interface OperatorICASignProps {
 }
 
 export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
-  const { session } = useAuth();
+  const { session, isTruckOwner } = useAuth();
   // removed useToast — using sonner toast directly
   const [contract, setContract] = useState<ICAData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,6 +44,12 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
   const [depositElected, setDepositElected] = useState(false);
   const [depositInitials, setDepositInitials] = useState('');
   const [depositElectedDate, setDepositElectedDate] = useState('');
+  const [signerRole, setSignerRole] = useState<'driver' | 'truck_owner' | 'unknown'>('unknown');
+  // Editable owner contact fields (only used when signer is the truck owner)
+  const [ownerEdits, setOwnerEdits] = useState({
+    owner_address: '', owner_city: '', owner_state: '', owner_zip: '',
+    owner_phone: '', owner_email: '',
+  });
 
   useEffect(() => {
     if (session?.user?.id) fetchContract();
@@ -71,14 +80,31 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
 
   const fetchContract = async () => {
     setLoading(true);
+    // Resolve operator: driver path first, then truck-owner fallback.
+    let resolvedOperatorId: string | null = null;
+    let resolvedSignerRole: 'driver' | 'truck_owner' = 'driver';
     const { data: op } = await supabase
       .from('operators')
       .select('id, user_id')
       .eq('user_id', session!.user.id)
       .maybeSingle();
-
-    if (!op) { setLoading(false); return; }
-    setOperatorId(op.id);
+    if (op) {
+      resolvedOperatorId = op.id as string;
+      resolvedSignerRole = 'driver';
+    } else {
+      const { data: to } = await supabase
+        .from('truck_owners' as any)
+        .select('operator_id')
+        .eq('user_id', session!.user.id)
+        .maybeSingle();
+      if (to) {
+        resolvedOperatorId = (to as any).operator_id;
+        resolvedSignerRole = 'truck_owner';
+      }
+    }
+    if (!resolvedOperatorId) { setLoading(false); return; }
+    setOperatorId(resolvedOperatorId);
+    setSignerRole(resolvedSignerRole);
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -90,7 +116,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
     const { data } = await supabase
       .from('ica_contracts' as any)
       .select('*')
-      .eq('operator_id', op.id)
+      .eq('operator_id', resolvedOperatorId)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -109,9 +135,18 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
         resolveUrl(raw.contractor_signature_url),
       ]);
       setContract({ ...raw, carrier_signature_url: carrierUrl, contractor_signature_url: contractorUrl } as unknown as ICAData);
+      // Seed editable owner fields from the contract for owner-signer flow
+      setOwnerEdits({
+        owner_address: raw.owner_address ?? '',
+        owner_city: raw.owner_city ?? '',
+        owner_state: raw.owner_state ?? '',
+        owner_zip: raw.owner_zip ?? '',
+        owner_phone: raw.owner_phone ?? '',
+        owner_email: raw.owner_email ?? '',
+      });
       if (screenOpenedLoggedFor.current !== raw.id) {
         screenOpenedLoggedFor.current = raw.id;
-        logIcaEvent('ica_screen_opened', op.id, raw.id, { status: raw.status });
+        logIcaEvent('ica_screen_opened', resolvedOperatorId, raw.id, { status: raw.status, signer_role: resolvedSignerRole });
       }
     } else {
       setContract(null);
@@ -142,17 +177,26 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
       if (uploadErr) throw uploadErr;
 
       stage = 'contract_update';
+      const updatePayload: Record<string, unknown> = {
+        contractor_typed_name: signedName,
+        contractor_signature_url: path,
+        contractor_signed_at: new Date().toISOString(),
+        status: 'fully_executed',
+        deposit_elected: depositElected,
+        deposit_initials: depositInitials || null,
+        deposit_elected_date: depositElectedDate || null,
+      };
+      if (signerRole === 'truck_owner') {
+        updatePayload.owner_address = ownerEdits.owner_address || null;
+        updatePayload.owner_city = ownerEdits.owner_city || null;
+        updatePayload.owner_state = ownerEdits.owner_state || null;
+        updatePayload.owner_zip = ownerEdits.owner_zip || null;
+        updatePayload.owner_phone = ownerEdits.owner_phone || null;
+        updatePayload.owner_email = ownerEdits.owner_email || null;
+      }
       const { error } = await supabase
         .from('ica_contracts' as any)
-        .update({
-          contractor_typed_name: signedName,
-          contractor_signature_url: path,
-          contractor_signed_at: new Date().toISOString(),
-          status: 'fully_executed',
-          deposit_elected: depositElected,
-          deposit_initials: depositInitials || null,
-          deposit_elected_date: depositElectedDate || null,
-        })
+        .update(updatePayload)
         .eq('id', contract.id);
 
       if (error) throw error;
@@ -249,8 +293,58 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
         <div className="flex items-center gap-3 p-4 bg-gold/10 border border-gold/30 rounded-xl">
           <Pen className="h-5 w-5 text-gold shrink-0" />
           <div>
-            <p className="font-semibold text-foreground text-sm">Your ICA is ready to sign</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Review the full agreement below, then scroll to the signature section to sign.</p>
+            <p className="font-semibold text-foreground text-sm">
+              {signerRole === 'truck_owner' ? 'This ICA is ready for your signature' : 'Your ICA is ready to sign'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {signerRole === 'truck_owner'
+                ? 'Review the agreement below, confirm your contact information, then scroll to the signature section to sign.'
+                : 'Review the full agreement below, then scroll to the signature section to sign.'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Driver acknowledgment of an owner-signed ICA */}
+      {isFullyExecuted && signerRole === 'driver' && (
+        <DriverICAAcknowledgment contractId={contract.id} />
+      )}
+
+      {/* Owner contact field editor — visible only to truck-owner signers before signing */}
+      {!isFullyExecuted && signerRole === 'truck_owner' && (
+        <div className="p-4 rounded-xl border border-border bg-surface space-y-3">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-gold" />
+            <h3 className="text-sm font-semibold text-foreground">Confirm your contact information</h3>
+          </div>
+          <p className="text-xs text-muted-foreground -mt-1">
+            Update your address, phone, and email if anything has changed since this agreement was prepared. Other fields are locked.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="ow_street">Street address</Label>
+              <Input id="ow_street" value={ownerEdits.owner_address} onChange={(e) => setOwnerEdits({ ...ownerEdits, owner_address: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ow_city">City</Label>
+              <Input id="ow_city" value={ownerEdits.owner_city} onChange={(e) => setOwnerEdits({ ...ownerEdits, owner_city: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ow_state">State</Label>
+              <Input id="ow_state" maxLength={2} value={ownerEdits.owner_state} onChange={(e) => setOwnerEdits({ ...ownerEdits, owner_state: e.target.value.toUpperCase() })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ow_zip">ZIP</Label>
+              <Input id="ow_zip" value={ownerEdits.owner_zip} onChange={(e) => setOwnerEdits({ ...ownerEdits, owner_zip: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ow_phone">Phone</Label>
+              <Input id="ow_phone" value={ownerEdits.owner_phone} onChange={(e) => setOwnerEdits({ ...ownerEdits, owner_phone: e.target.value })} />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="ow_email">Email</Label>
+              <Input id="ow_email" type="email" value={ownerEdits.owner_email} onChange={(e) => setOwnerEdits({ ...ownerEdits, owner_email: e.target.value })} />
+            </div>
           </div>
         </div>
       )}

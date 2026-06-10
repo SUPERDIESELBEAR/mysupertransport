@@ -33,7 +33,7 @@ import ApplicationApprove from "./pages/ApplicationApprove";
 const queryClient = new QueryClient();
 
 function AppRoutes() {
-  const { user, loading, roles, isManagement, isOnboardingStaff, isDispatcher, isOperator, activeRole } = useAuth();
+  const { user, loading, roles, isManagement, isOnboardingStaff, isDispatcher, isOperator, isTruckOwner, activeRole } = useAuth();
 
   // Poll for new builds and prompt logged-in users to refresh
   useVersionCheck();
@@ -81,6 +81,7 @@ function AppRoutes() {
         activeRole === 'onboarding_staff' ? <StaffPortal /> :
         activeRole === 'dispatcher' ? <Navigate to="/dispatch" replace /> :
         activeRole === 'operator' ? <OperatorPortal /> :
+        activeRole === 'truck_owner' ? <OperatorPortal /> :
         <ApplicationStatus />
       } />
 
@@ -103,6 +104,11 @@ function AppRoutes() {
       <Route path="/operator/*" element={
         !user ? <Navigate to="/login" replace /> :
         (isOperator || isManagement) ? <OperatorPortal /> :
+        <Navigate to="/dashboard" replace />
+      } />
+      <Route path="/owner/*" element={
+        !user ? <Navigate to="/login" replace /> :
+        (isTruckOwner || isManagement) ? <OperatorPortal /> :
         <Navigate to="/dashboard" replace />
       } />
       <Route path="/status" element={
