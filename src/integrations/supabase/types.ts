@@ -1662,6 +1662,38 @@ export type Database = {
           },
         ]
       }
+      ica_driver_acknowledgments: {
+        Row: {
+          acknowledged_at: string
+          contract_id: string
+          created_at: string
+          driver_user_id: string
+          id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          contract_id: string
+          created_at?: string
+          driver_user_id: string
+          id?: string
+        }
+        Update: {
+          acknowledged_at?: string
+          contract_id?: string
+          created_at?: string
+          driver_user_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ica_driver_acknowledgments_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "ica_contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspection_binder_order: {
         Row: {
           doc_order: Json
@@ -3704,6 +3736,74 @@ export type Database = {
           },
         ]
       }
+      truck_owners: {
+        Row: {
+          address_city: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip: string | null
+          business_name: string | null
+          created_at: string
+          created_by: string | null
+          email: string
+          id: string
+          invite_accepted_at: string | null
+          invited_at: string | null
+          legal_first_name: string
+          legal_last_name: string
+          operator_id: string
+          phone: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          address_city?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          business_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          email: string
+          id?: string
+          invite_accepted_at?: string | null
+          invited_at?: string | null
+          legal_first_name: string
+          legal_last_name: string
+          operator_id: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          address_city?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
+          business_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          id?: string
+          invite_accepted_at?: string | null
+          invited_at?: string | null
+          legal_first_name?: string
+          legal_last_name?: string
+          operator_id?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "truck_owners_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: true
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -3983,6 +4083,10 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      is_truck_owner_for_operator: {
+        Args: { _operator_id: string; _uid: string }
+        Returns: boolean
+      }
       log_ica_event: {
         Args: {
           p_action: string
@@ -4120,6 +4224,7 @@ export type Database = {
         | "dispatcher"
         | "management"
         | "owner"
+        | "truck_owner"
       application_correction_status:
         | "pending"
         | "approved"
@@ -4340,6 +4445,7 @@ export const Constants = {
         "dispatcher",
         "management",
         "owner",
+        "truck_owner",
       ],
       application_correction_status: [
         "pending",
