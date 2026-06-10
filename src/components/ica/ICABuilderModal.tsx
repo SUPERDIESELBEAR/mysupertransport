@@ -158,7 +158,7 @@ export default function ICABuilderModal({
   useEffect(() => {
     const loadDraft = async () => {
       // Fetch ICA draft and onboarding truck info in parallel
-      const [{ data: existing }, { data: onboardingRow }] = await Promise.all([
+      const [{ data: existing }, { data: onboardingRow }, { data: truckOwnerRow }] = await Promise.all([
         supabase
           .from('ica_contracts' as any)
           .select('*')
@@ -172,13 +172,20 @@ export default function ICABuilderModal({
           .select('truck_year, truck_make, truck_vin, truck_plate, truck_plate_state, trailer_number')
           .eq('operator_id', operatorId)
           .maybeSingle() as any,
+        supabase
+          .from('truck_owners' as any)
+          .select('legal_first_name, legal_last_name, business_name, email, phone, address_street, address_city, address_state, address_zip')
+          .eq('operator_id', operatorId)
+          .maybeSingle(),
       ]);
 
       const ob = (onboardingRow as any) ?? {};
+      const to = (truckOwnerRow as any) ?? null;
+      const toFullName = to ? `${to.legal_first_name ?? ''} ${to.legal_last_name ?? ''}`.trim() : '';
 
       if (!existing) {
-        // No ICA draft — pre-fill from onboarding_status truck fields if available
-        if (ob.truck_year || ob.truck_make || ob.truck_vin || ob.truck_plate || ob.truck_plate_state || ob.trailer_number) {
+        // No ICA draft — pre-fill from onboarding_status truck fields and linked truck owner (if any)
+        if (ob.truck_year || ob.truck_make || ob.truck_vin || ob.truck_plate || ob.truck_plate_state || ob.trailer_number || to) {
           setData(prev => ({
             ...prev,
             truck_year: ob.truck_year || prev.truck_year,
@@ -187,6 +194,14 @@ export default function ICABuilderModal({
             truck_plate: ob.truck_plate || prev.truck_plate,
             truck_plate_state: ob.truck_plate_state || prev.truck_plate_state,
             trailer_number: ob.trailer_number || prev.trailer_number,
+            owner_name: toFullName || prev.owner_name,
+            owner_business_name: to?.business_name || prev.owner_business_name,
+            owner_email: to?.email || prev.owner_email,
+            owner_phone: to?.phone || prev.owner_phone,
+            owner_address: to?.address_street || prev.owner_address,
+            owner_city: to?.address_city || prev.owner_city,
+            owner_state: to?.address_state || prev.owner_state,
+            owner_zip: to?.address_zip || prev.owner_zip,
           }));
         }
         return;
@@ -208,16 +223,16 @@ export default function ICABuilderModal({
         truck_plate: row.truck_plate || ob.truck_plate || '',
         truck_plate_state: row.truck_plate_state || ob.truck_plate_state || applicationData?.address_state || 'MO',
         trailer_number: row.trailer_number || ob.trailer_number || '',
-        owner_name: row.owner_name ?? (`${applicationData?.first_name ?? ''} ${applicationData?.last_name ?? ''}`.trim() || operatorName),
-        owner_business_name: row.owner_business_name ?? '',
+        owner_name: row.owner_name ?? (toFullName || `${applicationData?.first_name ?? ''} ${applicationData?.last_name ?? ''}`.trim() || operatorName),
+        owner_business_name: row.owner_business_name ?? to?.business_name ?? '',
         owner_ein: isEin ? storedEinSsn : '',
         owner_ssn: !isEin && storedEinSsn ? storedEinSsn : '',
-        owner_address: row.owner_address ?? applicationData?.address_street ?? '',
-        owner_city: row.owner_city ?? applicationData?.address_city ?? '',
-        owner_state: row.owner_state ?? applicationData?.address_state ?? '',
-        owner_zip: row.owner_zip ?? applicationData?.address_zip ?? '',
-        owner_phone: row.owner_phone ?? applicationData?.phone ?? '',
-        owner_email: row.owner_email ?? applicationData?.email ?? operatorEmail,
+        owner_address: row.owner_address ?? to?.address_street ?? applicationData?.address_street ?? '',
+        owner_city: row.owner_city ?? to?.address_city ?? applicationData?.address_city ?? '',
+        owner_state: row.owner_state ?? to?.address_state ?? applicationData?.address_state ?? '',
+        owner_zip: row.owner_zip ?? to?.address_zip ?? applicationData?.address_zip ?? '',
+        owner_phone: row.owner_phone ?? to?.phone ?? applicationData?.phone ?? '',
+        owner_email: row.owner_email ?? to?.email ?? applicationData?.email ?? operatorEmail,
         linehaul_split_pct: row.linehaul_split_pct ?? 72,
         lease_effective_date: row.lease_effective_date ?? new Date().toISOString().split('T')[0],
         lease_termination_date: row.lease_termination_date ?? '',
