@@ -287,9 +287,12 @@ export default function ApplicationForm() {
       }
       return true;
     } catch (err) {
-      console.error('saveDraft failed:', err);
-      const msg = err instanceof Error ? err.message : String(err);
-      toast.error(`Couldn't save progress: ${msg}`);
+      const e = err as { message?: string; error_description?: string; details?: string; hint?: string; code?: string } | null;
+      const msg =
+        (e && (e.message || e.error_description || e.details)) ||
+        (() => { try { return JSON.stringify(err).slice(0, 300); } catch { return 'Unknown error'; } })();
+      console.error('saveDraft failed:', { message: e?.message, code: e?.code, details: e?.details, hint: e?.hint, raw: err });
+      if (!silent) toast.error(`Couldn't save progress: ${msg}`);
       return false;
     } finally {
       savingRef.current = false;

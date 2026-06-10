@@ -106,7 +106,7 @@ export const defaultFormData: ApplicationFormData = {
   dot_positive_test_past_2yr: '', dot_return_to_duty_docs: '',
   testing_policy_accepted: false,
   ssn: '', typed_full_name: '', signature_image_url: '',
-  signed_date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+  signed_date: new Date().toISOString().slice(0, 10),
 };
 
 export const US_STATES = [

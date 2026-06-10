@@ -155,7 +155,9 @@ export default function Step9Signature({ data, onChange, errors }: Props) {
       {/* Date */}
       <FormField label="Date">
         <div className="px-3 py-2.5 rounded-lg border border-border bg-secondary text-sm text-muted-foreground">
-          {data.signed_date}
+          {data.signed_date && /^\d{4}-\d{2}-\d{2}$/.test(data.signed_date)
+            ? new Date(data.signed_date + 'T12:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+            : data.signed_date}
         </div>
       </FormField>
     </div>
