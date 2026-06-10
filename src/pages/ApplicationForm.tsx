@@ -592,12 +592,17 @@ export default function ApplicationForm() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={saveDraft}
+              onClick={() => { void saveDraft(); }}
               disabled={saving}
               className="flex items-center gap-1.5 text-xs font-medium text-surface-dark-muted hover:text-gold transition-colors px-3 py-2 rounded-lg hover:bg-surface-dark-card"
             >
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              Save Progress
+              {saving ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>
+              ) : lastSavedAt ? (
+                <><Check className="h-3.5 w-3.5 text-status-complete" /> Saved</>
+              ) : (
+                <><Save className="h-3.5 w-3.5" /> Save Progress</>
+              )}
             </button>
           </div>
         </div>
@@ -759,12 +764,17 @@ export default function ApplicationForm() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={saveDraft}
+              onClick={() => { void saveDraft(); }}
               disabled={saving}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Save Draft
+              {saving ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+              ) : lastSavedAt ? (
+                <><Check className="h-4 w-4 text-status-complete" /> Saved · just now</>
+              ) : (
+                <><Save className="h-4 w-4" /> Save Progress</>
+              )}
             </button>
 
             {isLastStep ? (
@@ -793,7 +803,7 @@ export default function ApplicationForm() {
         {step === 1 && (
           <p className="text-center text-xs text-muted-foreground mt-4">
             Returning to complete your application?{' '}
-            <button onClick={saveDraft} className="text-gold hover:underline">Your progress auto-saves</button>
+            <button onClick={() => { void saveDraft(); }} className="text-gold hover:underline">Your progress auto-saves</button>
             {' '}when you use "Save Progress."
           </p>
         )}
@@ -834,7 +844,7 @@ export default function ApplicationForm() {
 
           <button
             type="button"
-            onClick={saveDraft}
+            onClick={() => { void saveDraft(); }}
             disabled={saving}
             className="flex items-center justify-center h-11 w-11 rounded-xl border border-surface-dark-border text-surface-dark-muted hover:text-gold transition-colors shrink-0"
             title="Save draft"
