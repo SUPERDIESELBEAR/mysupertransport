@@ -75,6 +75,7 @@ export default function ApplicationForm() {
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const [resumedStep, setResumedStep] = useState<number | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const [lastSavedStep, setLastSavedStep] = useState<number | null>(null);
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [duplicateEmailBlocked, setDuplicateEmailBlocked] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
@@ -263,8 +264,17 @@ export default function ApplicationForm() {
       if (row?.id) setApplicationId(row.id);
       localStorage.setItem(DRAFT_TOKEN_KEY, token);
       isDirtyRef.current = false;
-      setLastSavedAt(Date.now());
-      if (!silent) toast.success('Progress saved');
+      const savedAt = Date.now();
+      const savedStep = row?.current_step ?? furthestStepRef.current;
+      setLastSavedAt(savedAt);
+      setLastSavedStep(savedStep);
+      if (!silent) {
+        const timeStr = new Date(savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        toast.success('Progress saved', {
+          description: `Step ${savedStep} of 9 (${STEP_LABELS[savedStep - 1]}) · ${timeStr}`,
+          duration: 5000,
+        });
+      }
       return true;
     } catch (err) {
       console.error('saveDraft failed:', err);
@@ -301,7 +311,7 @@ export default function ApplicationForm() {
   // ── Saved-indicator fadeout ────────────────────────────────────────────
   useEffect(() => {
     if (lastSavedAt == null) return;
-    const t = setTimeout(() => setLastSavedAt(null), 5_000);
+    const t = setTimeout(() => { setLastSavedAt(null); setLastSavedStep(null); }, 10_000);
     return () => clearTimeout(t);
   }, [lastSavedAt]);
 
