@@ -319,6 +319,7 @@ export type Database = {
           cdl_state: string | null
           ch_status: Database["public"]["Enums"]["mvr_status"]
           created_at: string
+          current_step: number
           dl_front_url: string | null
           dl_rear_url: string | null
           dob: string | null
@@ -396,6 +397,7 @@ export type Database = {
           cdl_state?: string | null
           ch_status?: Database["public"]["Enums"]["mvr_status"]
           created_at?: string
+          current_step?: number
           dl_front_url?: string | null
           dl_rear_url?: string | null
           dob?: string | null
@@ -473,6 +475,7 @@ export type Database = {
           cdl_state?: string | null
           ch_status?: Database["public"]["Enums"]["mvr_status"]
           created_at?: string
+          current_step?: number
           dl_front_url?: string | null
           dl_rear_url?: string | null
           dob?: string | null
@@ -3895,6 +3898,7 @@ export type Database = {
           cdl_state: string | null
           ch_status: Database["public"]["Enums"]["mvr_status"]
           created_at: string
+          current_step: number
           dl_front_url: string | null
           dl_rear_url: string | null
           dob: string | null
@@ -4130,6 +4134,13 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      save_application_draft: {
+        Args: { p_payload: Json; p_token: string }
+        Returns: {
+          current_step: number
+          id: string
+        }[]
       }
       search_audit_log:
         | {

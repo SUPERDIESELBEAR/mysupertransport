@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Truck, Save, ChevronLeft, ChevronRight, CheckCircle2, Loader2, AlertTriangle, FileText, X, Link2Off } from 'lucide-react';
+import { Truck, Save, ChevronLeft, ChevronRight, CheckCircle2, Loader2, AlertTriangle, FileText, X, Link2Off, Check } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import FormProgress from '@/components/application/FormProgress';
 import Step1Personal from '@/components/application/Step1Personal';
@@ -73,6 +73,8 @@ export default function ApplicationForm() {
   const [submitted, setSubmitted] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const [resumedStep, setResumedStep] = useState<number | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [duplicateEmailBlocked, setDuplicateEmailBlocked] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
@@ -82,6 +84,15 @@ export default function ApplicationForm() {
   // immediately see why they can't proceed (validation gaps, server errors,
   // duplicate-email pre-check failures, etc.) instead of getting stuck.
   const [stepError, setStepError] = useState<string | null>(null);
+
+  // Furthest step the applicant has validated past (persisted server-side
+  // as `current_step`). Tracked separately from `formData` so it isn't a
+  // form field the user can edit.
+  const furthestStepRef = useRef<number>(1);
+  // True when there are unsaved edits since the last successful save.
+  const isDirtyRef = useRef<boolean>(false);
+  // Guard against overlapping autosaves.
+  const savingRef = useRef<boolean>(false);
 
   // ── Load draft on mount ─────────────────────────────────────────────────
   useEffect(() => {
@@ -95,6 +106,8 @@ export default function ApplicationForm() {
         if (cancelled) return;
         if (data) {
           setApplicationId(data.id);
+          const restoredStep = Math.max(1, Math.min(9, (data as any).current_step ?? 1));
+          furthestStepRef.current = restoredStep;
           if ((data as any).review_status === 'revisions_requested' && (data as any).revision_request_message) {
             setRevisionMessage((data as any).revision_request_message);
             setShowRevisionBanner(true);
@@ -151,6 +164,8 @@ export default function ApplicationForm() {
             signed_date: data.signed_date ?? defaultFormData.signed_date,
           };
           setFormData(restored);
+          setStep(restoredStep);
+          if (restoredStep > 1) setResumedStep(restoredStep);
           setShowDraftBanner(true);
         }
         setDraftLoaded(true);
@@ -201,6 +216,7 @@ export default function ApplicationForm() {
   const handleChange = useCallback((field: keyof ApplicationFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setErrors(prev => ({ ...prev, [field]: undefined }));
+    isDirtyRef.current = true;
     // Any edit clears the step-level banner so it doesn't linger after a fix.
     setStepError(null);
     // Clear duplicate email block if user edits their email
@@ -214,35 +230,80 @@ export default function ApplicationForm() {
     setApplicationId(null);
     setErrors({});
     setShowDraftBanner(false);
+    setResumedStep(null);
+    furthestStepRef.current = 1;
+    isDirtyRef.current = false;
+    setLastSavedAt(null);
     setStep(1);
   };
 
   // ── Save draft ──────────────────────────────────────────────────────────
-  const saveDraft = async () => {
+  const saveDraft = useCallback(async (opts?: { silent?: boolean }): Promise<boolean> => {
+    const silent = opts?.silent === true;
+    if (savingRef.current) return false;
+    if (!formData.email || !formData.email.trim()) {
+      if (!silent) toast.error('Enter your email before saving progress');
+      return false;
+    }
+    savingRef.current = true;
     setSaving(true);
     try {
       const token = localStorage.getItem(DRAFT_TOKEN_KEY) || crypto.randomUUID();
-      const payload = buildPayload(formData, token, true);
-
-      if (applicationId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase.from('applications') as any).update(payload).eq('id', applicationId);
-        if (error) throw error;
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase.from('applications') as any).insert(payload).select('id').single();
-        if (error) throw error;
-        if (data) setApplicationId(data.id);
-      }
+      const payload = {
+        ...buildPayload(formData, token, true),
+        current_step: furthestStepRef.current,
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.rpc as any)('save_application_draft', {
+        p_token: token,
+        p_payload: payload,
+      });
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row?.id) setApplicationId(row.id);
       localStorage.setItem(DRAFT_TOKEN_KEY, token);
-      toast.success('Draft saved');
+      isDirtyRef.current = false;
+      setLastSavedAt(Date.now());
+      if (!silent) toast.success('Progress saved');
+      return true;
     } catch (err) {
       console.error('saveDraft failed:', err);
-      toast.error("Couldn't save draft — please try again");
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Couldn't save progress: ${msg}`);
+      return false;
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
-  };
+  }, [formData, applicationId]);
+
+  // ── Autosave: 30s idle timer ───────────────────────────────────────────
+  useEffect(() => {
+    if (!draftLoaded || submitted) return;
+    const id = setInterval(() => {
+      if (!isDirtyRef.current || savingRef.current) return;
+      void saveDraft({ silent: true });
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [draftLoaded, submitted, saveDraft]);
+
+  // ── Warn on close/refresh when there are unsaved edits ─────────────────
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!isDirtyRef.current || submitted) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [submitted]);
+
+  // ── Saved-indicator fadeout ────────────────────────────────────────────
+  useEffect(() => {
+    if (lastSavedAt == null) return;
+    const t = setTimeout(() => setLastSavedAt(null), 5_000);
+    return () => clearTimeout(t);
+  }, [lastSavedAt]);
 
   // ── Submit ──────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
@@ -315,6 +376,7 @@ export default function ApplicationForm() {
         if (error) throw error;
       }
       localStorage.removeItem(DRAFT_TOKEN_KEY);
+      isDirtyRef.current = false;
 
       // Fire-and-forget: notify management of new application
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -412,7 +474,10 @@ export default function ApplicationForm() {
             setDuplicateEmailBlocked(false);
             setStepError(null);
             setSlideDir('forward');
-            setStep(s => s + 1);
+            const nextStep = step + 1;
+            furthestStepRef.current = Math.max(furthestStepRef.current, nextStep);
+            setStep(nextStep);
+            void saveDraft({ silent: true });
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }
         });
@@ -420,7 +485,10 @@ export default function ApplicationForm() {
     }
 
     setSlideDir('forward');
-    setStep(s => s + 1);
+    const nextStep = step + 1;
+    furthestStepRef.current = Math.max(furthestStepRef.current, nextStep);
+    setStep(nextStep);
+    void saveDraft({ silent: true });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -429,6 +497,7 @@ export default function ApplicationForm() {
     setStepError(null);
     setSlideDir('back');
     setStep(s => s - 1);
+    void saveDraft({ silent: true });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -530,12 +599,17 @@ export default function ApplicationForm() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={saveDraft}
+              onClick={() => { void saveDraft(); }}
               disabled={saving}
               className="flex items-center gap-1.5 text-xs font-medium text-surface-dark-muted hover:text-gold transition-colors px-3 py-2 rounded-lg hover:bg-surface-dark-card"
             >
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              Save Progress
+              {saving ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>
+              ) : lastSavedAt ? (
+                <><Check className="h-3.5 w-3.5 text-status-complete" /> Saved</>
+              ) : (
+                <><Save className="h-3.5 w-3.5" /> Save Progress</>
+              )}
             </button>
           </div>
         </div>
@@ -573,7 +647,7 @@ export default function ApplicationForm() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground">Your previous progress has been restored</p>
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                We found a saved draft and picked up where you left off. You can continue or start over.
+                We found a saved draft and picked up where you left off{resumedStep ? ` — resuming at Step ${resumedStep} (${STEP_LABELS[resumedStep - 1]})` : ''}. You can continue or start over.
               </p>
               <button
                 type="button"
@@ -697,12 +771,17 @@ export default function ApplicationForm() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={saveDraft}
+              onClick={() => { void saveDraft(); }}
               disabled={saving}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Save Draft
+              {saving ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+              ) : lastSavedAt ? (
+                <><Check className="h-4 w-4 text-status-complete" /> Saved · just now</>
+              ) : (
+                <><Save className="h-4 w-4" /> Save Progress</>
+              )}
             </button>
 
             {isLastStep ? (
@@ -731,7 +810,7 @@ export default function ApplicationForm() {
         {step === 1 && (
           <p className="text-center text-xs text-muted-foreground mt-4">
             Returning to complete your application?{' '}
-            <button onClick={saveDraft} className="text-gold hover:underline">Your progress auto-saves</button>
+            <button onClick={() => { void saveDraft(); }} className="text-gold hover:underline">Your progress auto-saves</button>
             {' '}when you use "Save Progress."
           </p>
         )}
@@ -772,7 +851,7 @@ export default function ApplicationForm() {
 
           <button
             type="button"
-            onClick={saveDraft}
+            onClick={() => { void saveDraft(); }}
             disabled={saving}
             className="flex items-center justify-center h-11 w-11 rounded-xl border border-surface-dark-border text-surface-dark-muted hover:text-gold transition-colors shrink-0"
             title="Save draft"
