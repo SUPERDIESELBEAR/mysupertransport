@@ -1,42 +1,78 @@
-## Problem
+## What's happening to Emma's application
 
-When an applicant clicks Save Progress without selecting endorsements or equipment types, the backend save function fails with:
+Emma's record exists in the database, but it's still flagged as a draft:
 
-> Couldn't save progress: cannot extract elements from a scalar
+- `is_draft = true`, `submitted_at = null`
+- `user_id = null` (she filled out the form as an anonymous applicant — the normal path)
+- She did finish every step: signature, typed name, and signed date are all saved
+- The "new driver application" email to staff *did* go out
+
+So why is the dashboard empty? The dashboard's Applications list only shows rows where `is_draft = false`. Emma's row never flipped.
 
 ## Root cause
 
-The client sends `endorsements` and `equipment_operated` as JSON `null` when nothing is selected. The database function `save_application_draft` checks `p_payload ? 'endorsements'` (key exists — true even when the value is null) and then runs `jsonb_array_elements_text(p_payload->'endorsements')` on that null. Postgres treats a JSON null as a scalar and throws "cannot extract elements from a scalar".
+The Application Form's **Submit** handler writes directly to the `applications` table with `supabase.from('applications').update(...)`. The row-level security policy for that update is:
 
-The same bug exists for `equipment_operated`, in both the UPDATE and INSERT branches of the function.
+```
+auth.uid() = user_id  AND  is_draft = true
+```
+
+Anonymous applicants have no `auth.uid()` and no `user_id` on the row, so the policy filters the row out. PostgREST returns success with **zero rows updated** and **no error** — so the client code:
+
+1. Thinks the submit succeeded
+2. Fires the "new application received" email to staff (which is what you saw)
+3. Shows the applicant a success screen
+4. Leaves the row as `is_draft = true` forever
+
+Every step *before* Submit goes through a SECURITY DEFINER function (`save_application_draft`) that bypasses RLS, which is why all her draft data is intact. Only the final Submit step is broken.
+
+This is a latent bug that affects every anonymous applicant. It may have started showing up only recently if applicants previously had `user_id` set, or if a prior RLS policy was broader.
 
 ## Fix
 
-Update the `save_application_draft` function so the array-expansion branches only run when the value is actually a JSON array. Replace each guard:
+### 1. New SECURITY DEFINER RPC `submit_application_draft`
 
+- Inputs: `p_token uuid`, `p_payload jsonb`, `p_ssn_encrypted text`
+- Looks up the row by `draft_token`
+- Requires `is_draft = true` (so resubmits are rejected) and email matches payload
+- Writes every column the current client payload writes (mirrors `buildPayload`), plus `is_draft = false`, `submitted_at = now()`, `review_status = 'pending'`
+- Re-uses the same array-safe guards we added to `save_application_draft` for `endorsements` / `equipment_operated`
+- Raises `not_found` if no row matches the token, so the client can show a real error instead of silently succeeding
+- Returns the row id
+
+### 2. Update `ApplicationForm.tsx` Submit handler
+
+- Replace the direct `.update()` / `.insert()` block with a call to `supabase.rpc('submit_application_draft', { p_token, p_payload, p_ssn_encrypted })`
+- Only fire the "new application" notification email **after** the RPC returns a row id (no more silent success → bogus email)
+- Keep the duplicate-email detection (the RPC will raise `applications_email_non_draft_unique`-style errors the same way)
+
+### 3. Recover Emma's record
+
+Flip her existing row to submitted so it appears in the Applications dashboard immediately, without making her redo the form:
+
+```text
+applications.id = a7a1fb75-7e87-4c24-a300-b3f71156ee6b
+  is_draft       → false
+  submitted_at   → 2026-06-11 15:12:52 UTC  (her last save timestamp)
+  review_status  → pending
 ```
-CASE WHEN p_payload ? 'endorsements'
-     THEN ARRAY(SELECT jsonb_array_elements_text(p_payload->'endorsements'))
-     ELSE endorsements END
-```
 
-with:
+This will be applied as a one-time data migration.
 
-```
-CASE WHEN jsonb_typeof(p_payload->'endorsements') = 'array'
-     THEN ARRAY(SELECT jsonb_array_elements_text(p_payload->'endorsements'))
-     WHEN p_payload ? 'endorsements'      -- explicit null clears the value
-     THEN NULL
-     ELSE endorsements END
-```
+### 4. Verification
 
-Apply the same change to `equipment_operated` in both the UPDATE and INSERT branches (the INSERT branch should fall back to `NULL` instead of the column reference).
+- Re-check Emma's row: `is_draft = false`, `submitted_at` set, visible in dashboard
+- New anonymous applicant test: fill the form end-to-end, click Submit → row flips to submitted, email fires once, applicant sees success screen
+- Negative test: tamper with `draft_token` → RPC raises `not_found`, client shows the error toast instead of a fake success
 
-No client-side changes are required; current payloads (array, null, or omitted) will all save correctly after this migration.
+## Files touched
 
-## Verify
+- New migration: create `public.submit_application_draft(uuid, jsonb, text)` RPC
+- One-time data fix in the same migration for Emma's row
+- `src/pages/ApplicationForm.tsx` — swap direct update/insert for the RPC and gate the email on real success
 
-1. Publish the app so applicants pick up any current client bundle.
-2. As an applicant, open `/apply`, fill Step 1 only, click Save Progress → toast shows "Progress saved · Step 1 of 9".
-3. Fill through Step 2 with endorsements selected, Save → still succeeds.
-4. Confirm no `[object Object]` or scalar error toasts appear.
+## Out of scope
+
+- No UI/copy changes
+- No changes to staff-assisted submit (`StaffApplicationModal`) — staff users pass RLS via `is_staff`, so it already works
+- No changes to draft auto-save behaviour
