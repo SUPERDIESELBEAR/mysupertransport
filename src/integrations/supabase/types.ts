@@ -4211,6 +4211,10 @@ export type Database = {
           token: string
         }[]
       }
+      submit_application_draft: {
+        Args: { p_payload: Json; p_ssn_encrypted?: string; p_token: string }
+        Returns: string
+      }
       submit_pei_response:
         | {
             Args: { p_accidents?: Json; p_response: Json; p_token: string }
