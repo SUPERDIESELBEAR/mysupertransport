@@ -389,15 +389,17 @@ export default function ApplicationForm() {
         review_status: 'pending',
       };
 
-      if (applicationId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase.from('applications') as any).update(payload).eq('id', applicationId);
-        if (error) throw error;
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase.from('applications') as any).insert(payload);
-        if (error) throw error;
-      }
+      // Anonymous applicants cannot UPDATE the row directly (RLS requires
+      // auth.uid() = user_id). Route the final submit through a SECURITY
+      // DEFINER RPC that flips is_draft → false and sets submitted_at.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: rpcId, error } = await (supabase.rpc as any)('submit_application_draft', {
+        p_token: token,
+        p_payload: payload,
+        p_ssn_encrypted: ssnEncrypted,
+      });
+      if (error) throw error;
+      if (!rpcId) throw new Error('Submission did not return an application id');
       localStorage.removeItem(DRAFT_TOKEN_KEY);
       isDirtyRef.current = false;
 
