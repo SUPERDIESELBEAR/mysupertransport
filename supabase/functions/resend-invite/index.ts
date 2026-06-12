@@ -80,18 +80,56 @@ Deno.serve(async (req) => {
 
     const { data: app, error: appError } = await appQuery.maybeSingle();
 
-    if (appError || !app) {
+    // 1b. Fallback: invited truck owners do not have an application row. Look them up
+    //     in truck_owners so the same resend flow works for them.
+    let invitee: {
+      id: string;
+      email: string;
+      first_name: string | null;
+      last_name: string | null;
+      user_id: string | null;
+      source: 'application' | 'truck_owner';
+    } | null = null;
+
+    if (app) {
+      invitee = {
+        id: app.id,
+        email: app.email,
+        first_name: app.first_name,
+        last_name: app.last_name,
+        user_id: app.user_id,
+        source: 'application',
+      };
+    } else {
+      const { data: owner } = await supabaseAdmin
+        .from('truck_owners')
+        .select('id, email, legal_first_name, legal_last_name, user_id')
+        .ilike('email', normalizedEmail)
+        .maybeSingle();
+      if (owner) {
+        invitee = {
+          id: owner.id,
+          email: owner.email,
+          first_name: owner.legal_first_name,
+          last_name: owner.legal_last_name,
+          user_id: owner.user_id,
+          source: 'truck_owner',
+        };
+      }
+    }
+
+    if (!invitee) {
       if (callerIsStaff) {
-        return json({ error: 'No approved application found for this email.' }, 404);
+        return json({ error: 'No approved application or invited truck owner found for this email.' }, 404);
       }
       // Public flow: generic message to avoid enumeration
       return json({ success: true });
     }
 
     // 2. For the public (operator self-service) flow: block if already signed in
-    if (!callerIsStaff && app.user_id) {
+    if (!callerIsStaff && invitee.user_id) {
       const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-      const existing = users?.find((u: any) => u.id === app.user_id);
+      const existing = users?.find((u: any) => u.id === invitee!.user_id);
       if (existing?.last_sign_in_at) {
         return json({ success: true });
       }
@@ -115,9 +153,9 @@ Deno.serve(async (req) => {
     // 4. Resolve the auth user's actual email (may differ from application email
     //    for operators added via "Add Driver").
     let targetEmail = normalizedEmail;
-    if (app.user_id) {
+    if (invitee.user_id) {
       try {
-        const { data: authUser, error: authErr } = await supabaseAdmin.auth.admin.getUserById(app.user_id);
+        const { data: authUser, error: authErr } = await supabaseAdmin.auth.admin.getUserById(invitee.user_id);
         if (!authErr && authUser?.user?.email) {
           targetEmail = authUser.user.email.toLowerCase();
         }
@@ -145,16 +183,16 @@ Deno.serve(async (req) => {
     }
 
     const inviteLink = linkData.properties.action_link;
-    const firstName = app.first_name ?? 'there';
+    const firstName = invitee.first_name ?? 'there';
 
     // 5. Audit log the resend (do this before email so it's always recorded)
     await supabaseAdmin.from('audit_log').insert({
       action: 'invite_resent',
       actor_name: callerName,
-      entity_type: 'operator',
+      entity_type: invitee.source === 'truck_owner' ? 'truck_owner' : 'operator',
       entity_label: normalizedEmail,
       metadata: {
-        application_id: app.id,
+        [invitee.source === 'truck_owner' ? 'truck_owner_id' : 'application_id']: invitee.id,
         triggered_by: callerIsStaff ? 'staff' : 'operator_self_service',
       },
     });
