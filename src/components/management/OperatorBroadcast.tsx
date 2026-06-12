@@ -39,13 +39,27 @@ interface BroadcastRow {
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Only allow http(s) URLs in CTA hrefs to block javascript:/data: vectors.
+function safeCtaHref(url?: string): string | undefined {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+  if (!/^https?:\/\//i.test(trimmed)) return undefined;
+  return trimmed;
 }
 
 function buildPreviewHtml(subject: string, body: string, ctaLabel?: string, ctaUrl?: string): string {
   const safeBody = escapeHtml(body || '(your message)').replace(/\n/g, '<br/>');
-  const cta = ctaLabel && ctaUrl
-    ? `<div style="text-align:center;margin:24px 0;"><a href="${ctaUrl}" style="background:#C9A84C;color:#0f1117;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;display:inline-block;">${escapeHtml(ctaLabel)}</a></div>`
+  const safeUrl = safeCtaHref(ctaUrl);
+  const cta = ctaLabel && safeUrl
+    ? `<div style="text-align:center;margin:24px 0;"><a href="${escapeHtml(safeUrl)}" style="background:#C9A84C;color:#0f1117;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;display:inline-block;">${escapeHtml(ctaLabel)}</a></div>`
     : '';
   return `<div style="background:#f5f5f5;padding:20px;font-family:'Helvetica Neue',Arial,sans-serif;">
     <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
