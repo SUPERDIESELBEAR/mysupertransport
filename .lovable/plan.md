@@ -1,78 +1,90 @@
-## What's happening to Emma's application
+## Goal
 
-Emma's record exists in the database, but it's still flagged as a draft:
+Unblock Donald Alleyne (and any future truck owner) from getting stuck on the "Start Your Application" CTA, and confirm the resent invite link actually lands him in the ICA signing flow.
 
-- `is_draft = true`, `submitted_at = null`
-- `user_id = null` (she filled out the form as an anonymous applicant — the normal path)
-- She did finish every step: signature, typed name, and signed date are all saved
-- The "new driver application" email to staff *did* go out
+## 1. Resend Donald's invite (no code change)
 
-So why is the dashboard empty? The dashboard's Applications list only shows rows where `is_draft = false`. Emma's row never flipped.
+Staff action via the existing Truck Owner card:
+- Open Bilal Leggett's application → Truck Owner section → Donald Alleyne → "Resend invite"
+- This calls the existing `resend-invite` edge function with `staff_override: true`, which:
+  - Generates a fresh `/welcome` link via Supabase recovery
+  - Emails it to `donald@…` with the upgraded invite copy
+  - Writes an `invite_resent` row to `audit_log`
 
-## Root cause
+No rate limit applies for staff. After staff clicks, I will:
+- Query `audit_log` for the `invite_resent` entry to confirm the function ran
+- Query `email_send_log` (if present for this path) / inspect `resend-invite` edge logs to confirm Resend accepted the message
+- Tell you when it's confirmed sent
 
-The Application Form's **Submit** handler writes directly to the `applications` table with `supabase.from('applications').update(...)`. The row-level security policy for that update is:
+## 2. Confirm the email link works (end-to-end)
 
-```
-auth.uid() = user_id  AND  is_draft = true
-```
-
-Anonymous applicants have no `auth.uid()` and no `user_id` on the row, so the policy filters the row out. PostgREST returns success with **zero rows updated** and **no error** — so the client code:
-
-1. Thinks the submit succeeded
-2. Fires the "new application received" email to staff (which is what you saw)
-3. Shows the applicant a success screen
-4. Leaves the row as `is_draft = true` forever
-
-Every step *before* Submit goes through a SECURITY DEFINER function (`save_application_draft`) that bypasses RLS, which is why all her draft data is intact. Only the final Submit step is broken.
-
-This is a latent bug that affects every anonymous applicant. It may have started showing up only recently if applicants previously had `user_id` set, or if a prior RLS policy was broader.
-
-## Fix
-
-### 1. New SECURITY DEFINER RPC `submit_application_draft`
-
-- Inputs: `p_token uuid`, `p_payload jsonb`, `p_ssn_encrypted text`
-- Looks up the row by `draft_token`
-- Requires `is_draft = true` (so resubmits are rejected) and email matches payload
-- Writes every column the current client payload writes (mirrors `buildPayload`), plus `is_draft = false`, `submitted_at = now()`, `review_status = 'pending'`
-- Re-uses the same array-safe guards we added to `save_application_draft` for `endorsements` / `equipment_operated`
-- Raises `not_found` if no row matches the token, so the client can show a real error instead of silently succeeding
-- Returns the row id
-
-### 2. Update `ApplicationForm.tsx` Submit handler
-
-- Replace the direct `.update()` / `.insert()` block with a call to `supabase.rpc('submit_application_draft', { p_token, p_payload, p_ssn_encrypted })`
-- Only fire the "new application" notification email **after** the RPC returns a row id (no more silent success → bogus email)
-- Keep the duplicate-email detection (the RPC will raise `applications_email_non_draft_unique`-style errors the same way)
-
-### 3. Recover Emma's record
-
-Flip her existing row to submitted so it appears in the Applications dashboard immediately, without making her redo the form:
+The flow Donald will hit when he clicks the email button:
 
 ```text
-applications.id = a7a1fb75-7e87-4c24-a300-b3f71156ee6b
-  is_draft       → false
-  submitted_at   → 2026-06-11 15:12:52 UTC  (her last save timestamp)
-  review_status  → pending
+Email "Accept Invitation" link
+   → /welcome (Supabase processes recovery hash)
+   → onAuthStateChange fires SIGNED_IN → sessionReady = true
+   → Donald sets a password → supabase.auth.updateUser({ password })
+   → Success screen → "Open My Portal" → /dashboard
+   → useAuth sees activeRole = 'truck_owner'
+   → OperatorPortal renders OperatorICASign in truck-owner mode
+   → ICA is ready to review and sign — no application steps
 ```
 
-This will be applied as a one-time data migration.
+I will verify each piece before saying "good to go":
+- `truck_owners` row for Donald has the expected `operator_id`, `user_id`, and a non-null full name/email (already confirmed earlier)
+- `user_roles` shows `truck_owner` for his `user_id` (already confirmed)
+- `/welcome` token handling in `WelcomeOperator.tsx` accepts recovery links (already correct)
+- `/dashboard` route correctly routes `truck_owner` → `OperatorPortal` → `OperatorICASign` (I'll re-read `OperatorPortal.tsx` + the truck-owner ICA path to confirm no application gate sneaks in)
+- The ICA contract row exists / will be auto-created for him to sign
 
-### 4. Verification
+If any step is broken, I'll fix it as part of this same change.
 
-- Re-check Emma's row: `is_draft = false`, `submitted_at` set, visible in dashboard
-- New anonymous applicant test: fill the form end-to-end, click Submit → row flips to submitted, email fires once, applicant sees success screen
-- Negative test: tamper with `draft_token` → RPC raises `not_found`, client shows the error toast instead of a fake success
+## 3. UX fix on LoginPage + SplashPage
 
-## Files touched
+Problem: an invited owner who opens the app URL directly lands on `SplashPage` ("Begin Your Application") or `LoginPage` ("Applying to drive… Start your application"). Nothing tells him "you don't need to apply — you were invited."
 
-- New migration: create `public.submit_application_draft(uuid, jsonb, text)` RPC
-- One-time data fix in the same migration for Emma's row
-- `src/pages/ApplicationForm.tsx` — swap direct update/insert for the RPC and gate the email on real success
+Add a small, on-brand affordance in both places:
 
-## Out of scope
+**SplashPage** (`src/pages/SplashPage.tsx`)
+- Below the existing "Started an application?" resume banner, add a second banner:
+  - Title: "Were you invited as a truck owner or driver?"
+  - Subtitle: "Get a fresh sign-in link sent to your email."
+  - Click → opens a small dialog (reusing the same pattern as `ResumeApplicationDialog`) that asks for email and calls `resend-invite` (public flow — already supported for any operator with an account)
 
-- No UI/copy changes
-- No changes to staff-assisted submit (`StaffApplicationModal`) — staff users pass RLS via `is_staff`, so it already works
-- No changes to draft auto-save behaviour
+**LoginPage** (`src/pages/LoginPage.tsx`)
+- In the bottom card area (next to "Applying to drive…"), add a second line:
+  - "Were you invited? Resend my sign-in link" → opens the same dialog
+- Keep "Forgot your password?" for users who already set one
+
+**New component** `src/components/auth/ResendInviteDialog.tsx`
+- Small modal: email input + submit + success state
+- Calls `supabase.functions.invoke('resend-invite', { body: { email } })`
+- Generic success message (matches existing anti-enumeration behavior of the function)
+- Reuses gold/dark theme tokens; no new colors
+
+No backend or routing changes — the `resend-invite` edge function already supports the public flow for any operator (truck owners included, since they're stored under `applications` only when they also applied; for invite-only truck owners we'll need to verify the function finds them).
+
+### Caveat I need to verify before building #3
+
+`resend-invite` currently looks up the operator in the `applications` table (`appQuery = …from('applications')`). Donald has no `applications` row — he's only in `truck_owners`. So the public flow today would return generic success but never actually send him an email. Two options:
+
+- **(a)** Extend `resend-invite` to also look up `truck_owners` by email when no `applications` match. Generates the same recovery link against the auth user's email. Small, safe change.
+- **(b)** Leave the public flow as-is and document that truck owners must ask staff to resend.
+
+I recommend **(a)** so the new "Resend my sign-in link" affordance actually works for truck owners too. I'll include it in the implementation.
+
+## Technical details
+
+- Files to add: `src/components/auth/ResendInviteDialog.tsx`
+- Files to edit: `src/pages/SplashPage.tsx`, `src/pages/LoginPage.tsx`, `supabase/functions/resend-invite/index.ts` (fallback to `truck_owners` lookup)
+- No DB migrations
+- No new edge functions; only an addition to the existing `resend-invite`
+- After editing the edge function, redeploy it
+- No changes to ICA, OperatorPortal, or routing logic
+
+## Deliverable
+
+1. Confirmation (with audit-log + email-log evidence) that Donald's resent invite was sent
+2. Donald can click the email and reach the ICA signing screen without seeing any application prompts
+3. Any future invited truck owner who lands on `/` or `/login` has a one-click "resend my sign-in link" path
