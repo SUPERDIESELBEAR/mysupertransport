@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, CheckCircle2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
+import ResendInviteDialog from '@/components/auth/ResendInviteDialog';
 
 type View = 'login' | 'forgot';
 
@@ -19,6 +20,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [resendOpen, setResendOpen] = useState(false);
 
   // Role-based redirect: dispatcher-only users go straight to /dispatch
   if (user && !authLoading) {
@@ -200,9 +202,23 @@ export default function LoginPage() {
                 Start your application
               </a>
             </p>
+            <p className="text-surface-dark-muted text-xs mt-2">
+              Were you invited?{' '}
+              <button
+                type="button"
+                onClick={() => setResendOpen(true)}
+                className="text-gold hover:text-gold-light underline underline-offset-2"
+              >
+                Resend my sign-in link
+              </button>
+            </p>
           </div>
         </div>
       </div>
+
+      {resendOpen && (
+        <ResendInviteDialog open={resendOpen} onOpenChange={setResendOpen} />
+      )}
     </div>
   );
 }
