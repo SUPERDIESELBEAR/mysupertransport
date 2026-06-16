@@ -48,12 +48,12 @@ const CTA_LABEL = 'View';
 type AttachmentResolver = (userId: string) => Promise<{ url: string; name: string } | null>;
 const ATTACHMENT_RESOLVERS: Record<string, AttachmentResolver> = {
   qpassport_uploaded: async (userId) => {
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('onboarding_status')
       .select('qpassport_url')
       .eq('user_id', userId)
       .maybeSingle();
-    const url = (data as { qpassport_url?: string | null } | null)?.qpassport_url;
+    const url: string | null | undefined = data?.qpassport_url;
     return url ? { url, name: 'QPassport.pdf' } : null;
   },
 };
