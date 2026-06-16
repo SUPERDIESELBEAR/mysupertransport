@@ -271,7 +271,7 @@ export default function NotificationHistory() {
                 const isUnread = !n.read_at;
                 const isExpanded = expandedId === n.id;
                 const hasAttachment = !!ATTACHMENT_RESOLVERS[n.type];
-                const showCta = !!n.link || hasAttachment;
+                const showCta = hasAttachment;
 
                 return (
                   <div
