@@ -243,17 +243,16 @@ export default function NotificationHistory() {
                 const cfg = TYPE_CONFIG[n.type] ?? DEFAULT_CONFIG;
                 const Icon = cfg.icon;
                 const isUnread = !n.read_at;
+                const isExpanded = expandedId === n.id;
+                const ctaLabel = CTA_LABEL[n.type] ?? 'Open';
 
                 return (
                   <div
                     key={n.id}
-                    onClick={() => {
-                      if (isUnread) markRead(n.id);
-                      if (n.link) navigate(n.link);
-                    }}
-                    className={`px-4 sm:px-5 py-4 transition-colors group ${
-                      n.link ? 'cursor-pointer hover:bg-secondary/40' : 'cursor-default hover:bg-secondary/10'
-                    } ${isUnread ? 'bg-gold/5' : ''}`}
+                    onClick={() => toggleExpand(n)}
+                    className={`px-4 sm:px-5 py-4 transition-colors group cursor-pointer hover:bg-secondary/40 ${
+                      isUnread ? 'bg-gold/5' : ''
+                    }`}
                   >
                     {/* Desktop layout */}
                     <div className="hidden md:grid grid-cols-12 items-start gap-2">
@@ -263,15 +262,23 @@ export default function NotificationHistory() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <p className={`text-sm leading-snug truncate ${isUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
+                          <p className={`text-sm leading-snug ${isExpanded ? '' : 'truncate'} ${isUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
                             {n.title}
                           </p>
-                          {n.link && (
-                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:text-gold/70" />
-                          )}
+                          <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground/40 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                         </div>
                         {n.body && (
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>
+                          <p className={`text-xs text-muted-foreground mt-0.5 ${isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2'}`}>{n.body}</p>
+                        )}
+                        {isExpanded && n.link && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); navigate(n.link!); }}
+                            className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold bg-gold text-surface-dark hover:bg-gold-light transition-colors px-3 py-1.5 rounded-lg"
+                          >
+                            {ctaLabel}
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </button>
                         )}
                       </div>
                     </div>
@@ -316,15 +323,23 @@ export default function NotificationHistory() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <p className={`text-sm leading-snug truncate ${isUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
+                          <p className={`text-sm leading-snug ${isExpanded ? '' : 'truncate'} ${isUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
                             {n.title}
                           </p>
-                          {n.link && (
-                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
-                          )}
+                          <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground/40 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                         </div>
                         {n.body && (
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>
+                          <p className={`text-xs text-muted-foreground mt-0.5 ${isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2'}`}>{n.body}</p>
+                        )}
+                        {isExpanded && n.link && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); navigate(n.link!); }}
+                            className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold bg-gold text-surface-dark hover:bg-gold-light transition-colors px-3 py-1.5 rounded-lg"
+                          >
+                            {ctaLabel}
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </button>
                         )}
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 min-w-0">
                           <Badge variant="outline" className="text-[10px] font-medium capitalize whitespace-nowrap max-w-full truncate">
