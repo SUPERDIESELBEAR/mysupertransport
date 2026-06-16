@@ -24,6 +24,12 @@ export function validateStep(step: number, data: ApplicationFormData): Partial<R
     if (!data.address_state) errs.address_state = 'State is required';
     if (!data.address_zip.trim()) errs.address_zip = 'ZIP code is required';
     if (!data.address_duration) errs.address_duration = 'Please select how long you have lived here';
+    if (data.address_duration === 'less_than_3') {
+      if (!data.prev_address_street.trim()) errs.prev_address_street = 'Previous street address is required';
+      if (!data.prev_address_city.trim()) errs.prev_address_city = 'Previous city is required';
+      if (!data.prev_address_state) errs.prev_address_state = 'Previous state is required';
+      if (!data.prev_address_zip.trim()) errs.prev_address_zip = 'Previous ZIP code is required';
+    }
   }
 
   if (step === 2) {
