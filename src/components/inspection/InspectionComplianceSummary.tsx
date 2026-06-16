@@ -10,7 +10,6 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useComplianceWindow } from '@/hooks/useComplianceWindow';
-import { ComplianceWindowPicker } from '@/components/shared/ComplianceWindowPicker';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type DocKey = 'IRP Registration (cab card)' | 'Insurance' | 'IFTA License' | 'CDL' | 'Medical Certificate';
@@ -428,10 +427,6 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
             Insurance · IFTA · IRP (cab card) · CDL · Med Cert
           </span>
         </button>
-
-        <div onClick={(e) => e.stopPropagation()} className="shrink-0">
-          <ComplianceWindowPicker />
-        </div>
 
         <button onClick={() => setExpanded(v => !v)} className="shrink-0 hover:opacity-80 transition-opacity">
           {expanded

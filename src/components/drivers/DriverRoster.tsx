@@ -13,7 +13,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Search, Users2, ArrowRight, Phone, RefreshCw, MessageSquare, AlertTriangle, AlertCircle, Clock, FileX, Pencil, Bell, CheckCircle2, XCircle, History, Send, Loader2, Copy, ArrowUpDown, ArrowUp, ArrowDown, Smartphone, Globe, UserX, Eye } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useComplianceWindow } from '@/hooks/useComplianceWindow';
-import { ComplianceWindowPicker } from '@/components/shared/ComplianceWindowPicker';
 import { PwaReminderPreviewModal } from '@/components/management/PwaReminderPreviewModal';
 
 interface DriverRow {
@@ -890,9 +889,6 @@ export default function DriverRoster({
             </button>
           )}
 
-          <div className="ml-auto">
-            <ComplianceWindowPicker />
-          </div>
         </div>
       )}
 
