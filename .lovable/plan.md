@@ -1,23 +1,24 @@
 ## Problem
 
-The `Compliance Alerts` panel header packs the title, badges, doc-type filter chips, the `Within N days` picker, and three bulk-action buttons (`Send Reminders to All`, `Mark All Renewed`, `Remind Uncontacted`) onto a single non-wrapping flex row. On a ~1000px-wide laptop viewport the items collide and visibly overlap (see screenshots). The panel is shared, so it appears on both the Management → Compliance page and the Driver Hub page.
+`NotificationHistory.tsx` uses `grid grid-cols-12` with fixed `col-span-*` cells for both the column header and every notification row. On a ~390px phone viewport the columns are too narrow for their content (badges, dates, titles), causing text and icons to overflow and overlap adjacent columns. This affects the Operator Driver App and all other portals that share this component.
 
-## Fix (single file: `src/components/inspection/ComplianceAlertsPanel.tsx`)
+## Fix
 
-Restructure the header (lines ~414–570) so it wraps cleanly instead of overflowing. Purely presentational — no logic, no removed controls.
+Make `NotificationHistory.tsx` responsive while preserving the existing desktop layout.
 
-1. Outer header `div`: change `flex items-center px-4 py-3 gap-2` → `flex flex-wrap items-center px-4 py-3 gap-2`.
-2. The expand/collapse title `<button>` (currently `flex-1 … min-w-0`): keep `min-w-0` but drop `flex-1`, instead use `flex-1 min-w-[260px]` so it can shrink and still grow on wide screens while letting the action cluster drop to a new line when there's no room.
-3. Wrap the right-side cluster (window picker + three bulk-action blocks + the small collapse chevron at line 567) in a new container:
-   `<div className="flex flex-wrap items-center justify-end gap-2 ml-auto">…</div>`
-   This keeps the buttons grouped, lets them wrap as a unit to a second row on narrow widths, and preserves their existing alignment on wide widths.
-4. Doc-type filter chip row (lines 469–494): add `flex-wrap` so the chips themselves wrap rather than push the title text out of the row when the title area is narrow.
-
-No changes to:
-- `ComplianceWindowPicker`, `useComplianceWindow`, or any business logic.
-- `DriverRoster.tsx` / `InspectionComplianceSummary.tsx` (the row-level overlap the user describes is the same panel header on both pages — fixing the shared component covers both).
-- The alert table rows below the header (those already use a responsive flex layout with `hidden sm:block` columns and are not the source of the overlap).
+1. **Column header row** — Change `grid grid-cols-12 …` to `hidden sm:grid sm:grid-cols-12 …` so it hides on mobile.
+2. **Desktop row layout** — Wrap the current `grid grid-cols-12 …` row content in a container that is `hidden sm:grid sm:grid-cols-12 …`.
+3. **Mobile row layout** — Add a new mobile-only layout (`grid sm:hidden`) inside each notification row that stacks the content vertically:
+   - Top row: icon + title + arrow (single line, truncate)
+   - Body text (if present)
+   - Bottom meta row: type badge, sent date/time, and status badge, arranged with `flex flex-wrap items-center gap-2` so they wrap cleanly on very narrow screens.
+4. **Click behaviour** — Keep the existing `onClick` handler on the outer row wrapper so tapping anywhere on the mobile card still marks read and navigates.
+5. **Skeleton loader** — The skeleton already uses a flex layout and does not need changes.
+6. **No logic changes** — No changes to data fetching, filtering, pagination, or the `TYPE_CONFIG` mapping.
 
 ## Verification
 
-After the edit, screenshot the preview at the user's ~1021px width on both the Management → Compliance page and the Driver Hub page to confirm the header wraps without overlap and still looks correct at desktop widths.
+Preview the Operator portal notification tab at mobile viewport (~390px) and confirm:
+- No column overlap
+- Type badge, date, and status wrap cleanly when space is tight
+- Desktop view (≥640px) still shows the 4-column grid unchanged
