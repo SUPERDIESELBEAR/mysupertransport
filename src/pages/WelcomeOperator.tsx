@@ -222,7 +222,7 @@ export default function WelcomeOperator() {
 
             <div className="mt-5 pt-4 border-t border-surface-dark-border text-center">
               <button
-                onClick={() => navigate('/login')}
+                onClick={() => navigate('/login?type=driver')}
                 className="text-surface-dark-muted text-xs hover:text-surface-dark-foreground transition-colors"
               >
                 Already have an account? Sign in

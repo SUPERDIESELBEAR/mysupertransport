@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,10 @@ type View = 'login' | 'forgot';
 
 export default function LoginPage() {
   const { signIn, user, isDispatcher, isManagement, isOnboardingStaff, loading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
+  const isDriver = searchParams.get('type') === 'driver';
+  const signInHeading = isDriver ? 'Driver Sign In' : 'Staff Sign In';
+  const portalLabel = isDriver ? 'Driver Portal' : 'Operator Portal';
   const [view, setView] = useState<View>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -71,7 +75,7 @@ export default function LoginPage() {
           <div className="flex items-center justify-center mb-4">
             <img src={logo} alt="SUPERTRANSPORT" className="h-28 w-auto max-w-[400px] object-contain" />
           </div>
-          <p className="text-surface-dark-muted text-sm mt-1">Operator Portal</p>
+          <p className="text-surface-dark-muted text-sm mt-1">{portalLabel}</p>
         </div>
 
         <div className="bg-surface-dark-card border border-surface-dark-border rounded-xl p-8 shadow-2xl">
@@ -79,7 +83,7 @@ export default function LoginPage() {
           {/* ── SIGN IN VIEW ── */}
           {view === 'login' && (
             <>
-              <h2 className="text-lg font-semibold text-surface-dark-foreground mb-6">Staff Sign In</h2>
+              <h2 className="text-lg font-semibold text-surface-dark-foreground mb-6">{signInHeading}</h2>
               <form onSubmit={handleSignIn} className="space-y-5">
                 <div className="space-y-2">
                   <Label className="text-surface-dark-foreground text-sm" htmlFor="email">Email Address</Label>

@@ -75,8 +75,8 @@ export default function SplashPage() {
             Check Application Status
           </Link>
           <Link
-            to="/login"
-            onClick={(e) => { e.preventDefault(); navigate('/login'); }}
+            to="/login?type=driver"
+            onClick={(e) => { e.preventDefault(); navigate('/login?type=driver'); }}
             className="text-sm text-surface-dark-muted hover:text-gold transition-colors"
           >
             Sign In
@@ -207,8 +207,8 @@ export default function SplashPage() {
               Check Application Status
             </Link>
             <Link
-              to="/login"
-              onClick={(e) => { e.preventDefault(); navigate('/login'); }}
+              to="/login?type=driver"
+              onClick={(e) => { e.preventDefault(); navigate('/login?type=driver'); }}
               className="hover:text-gold transition-colors"
             >
               Sign In
