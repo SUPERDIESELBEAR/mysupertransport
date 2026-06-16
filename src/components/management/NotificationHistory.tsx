@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow, format } from 'date-fns';
 import {
   Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle,
-  FileText, Target, Paperclip, Truck, RefreshCcw, CheckCheck, Filter, ArrowRight, Banknote,
+  FileText, Target, Paperclip, Truck, RefreshCcw, CheckCheck, Filter, ArrowRight, Banknote, ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +36,22 @@ const TYPE_CONFIG: Record<string, { icon: React.ElementType; bg: string; color: 
 };
 const DEFAULT_CONFIG = { icon: Bell, bg: 'bg-muted', color: 'text-muted-foreground', label: 'Notification' };
 
+// Contextual CTA labels per notification type — shown on the "Open" button
+// when the notification has a deep link.
+const CTA_LABEL: Record<string, string> = {
+  application_approved:   'Open Application',
+  application_denied:     'Open Application',
+  truck_down:             'View Truck Status',
+  new_message:            'Open Messages',
+  onboarding_milestone:   'View Onboarding',
+  docs_uploaded:          'View Documents',
+  document_uploaded:      'View Documents',
+  new_application:        'Review Application',
+  dispatch_status_change: 'View Dispatch',
+  pay_setup_submitted:    'View Pay Setup',
+  ni_uploaded:            'Open Background Check',
+};
+
 const PAGE_SIZE = 25;
 
 type ReadFilter = 'all' | 'unread' | 'read';
@@ -51,6 +67,7 @@ export default function NotificationHistory() {
   const [page, setPage] = useState(0);
   const [readFilter, setReadFilter] = useState<ReadFilter>('all');
   const [markingAll, setMarkingAll] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const fetchNotifications = useCallback(async (pageIndex: number, filter: ReadFilter, append = false) => {
     if (!session?.user?.id) return;
@@ -95,6 +112,17 @@ export default function NotificationHistory() {
   const markRead = async (id: string) => {
     await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id);
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
+  };
+
+  const toggleExpand = (n: Notification) => {
+    setExpandedId(prev => {
+      const next = prev === n.id ? null : n.id;
+      if (next === n.id && !n.read_at) {
+        // Mark as read when first expanded
+        markRead(n.id);
+      }
+      return next;
+    });
   };
 
   const markAllRead = async () => {
