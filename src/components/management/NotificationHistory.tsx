@@ -48,12 +48,19 @@ const CTA_LABEL = 'View';
 type AttachmentResolver = (userId: string) => Promise<{ url: string; name: string } | null>;
 const ATTACHMENT_RESOLVERS: Record<string, AttachmentResolver> = {
   qpassport_uploaded: async (userId) => {
-    const { data } = await (supabase as any)
-      .from('onboarding_status')
-      .select('qpassport_url')
+    // onboarding_status is keyed by operator_id (= operators.id), not the auth user id.
+    const { data: op } = await supabase
+      .from('operators')
+      .select('id')
       .eq('user_id', userId)
       .maybeSingle();
-    const url: string | null | undefined = data?.qpassport_url;
+    if (!op?.id) return null;
+    const { data } = await supabase
+      .from('onboarding_status')
+      .select('qpassport_url')
+      .eq('operator_id', op.id)
+      .maybeSingle();
+    const url: string | null | undefined = (data as any)?.qpassport_url;
     return url ? { url, name: 'QPassport.pdf' } : null;
   },
 };
@@ -79,18 +86,13 @@ export default function NotificationHistory() {
 
   const handleView = async (n: Notification) => {
     const resolver = ATTACHMENT_RESOLVERS[n.type];
-    if (resolver && session?.user?.id) {
-      const file = await resolver(session.user.id);
-      if (file) {
-        setPreviewFile(file);
-        return;
-      }
-      if (!n.link) {
-        toast({ title: 'File not available', description: 'This attachment is no longer available.', variant: 'destructive' });
-        return;
-      }
+    if (!resolver || !session?.user?.id) return;
+    const file = await resolver(session.user.id);
+    if (file) {
+      setPreviewFile(file);
+      return;
     }
-    if (n.link) navigate(n.link);
+    toast({ title: 'File not available', description: 'This attachment is no longer available.', variant: 'destructive' });
   };
 
   const fetchNotifications = useCallback(async (pageIndex: number, filter: ReadFilter, append = false) => {

@@ -1,29 +1,32 @@
-# Notification CTA — single "View" button that opens the attached item inline
+# Fix Notification "View" Button
 
-## What changes (visible)
+## Problem
+1. The View button on the QPassport notification does nothing because the resolver queries `onboarding_status` by `user_id`, but that table is keyed by `operator_id` (which maps to `operators.id`, not the auth user id). The query silently returns null, the resolver falls back to `navigate(n.link)`, and `'/operator?tab=progress#qpassport'` doesn't open the file inline.
+2. "View" currently appears on every notification that has a `link`, even when there's no file to view (e.g. "Drug Screening Scheduled"). Per the request, "View" should appear only on notifications that have an actual attached document.
 
-1. The contextual labels ("View Onboarding", "Open Background Check", "View Documents", etc.) on the expanded notification CTA are all replaced with a single label: **View**.
-2. When a notification has an actual attached file (today, that's the **"Your QPassport is Ready"** notification), tapping **View** opens the file directly inside a preview modal on the notifications page — no navigation away. The user can read and download the PDF right there.
-3. Notifications that don't carry an attachment (e.g. "Application Approved", "New Message", dispatch updates) keep behaving as deep-links: tapping **View** still takes the user to the relevant page, just under the new "View" label.
-4. If a notification has neither an attachment nor a `link`, the **View** button is hidden (today it's already hidden when `link` is null).
+## Changes
 
-## How it works (technical)
+All edits in `src/components/management/NotificationHistory.tsx` — no backend changes.
 
-File: `src/components/management/NotificationHistory.tsx`
+### 1. Fix the QPassport resolver
+Change the `qpassport_uploaded` resolver to do a two-step lookup:
+- Look up `operators.id` where `operators.user_id = :authUserId`.
+- Then read `onboarding_status.qpassport_url` where `operator_id = :operatorId`.
+- Return `{ url, name: 'QPassport.pdf' }` or `null`.
 
-- Replace the `CTA_LABEL` map with a single constant label `'View'` used for every type.
-- Add a small `attachmentResolvers` map keyed by `notification.type`. Each entry is an async function `(userId) => { url, name } | null` that fetches the file URL for the current user. Initial entries:
-  - `qpassport_uploaded` → `select qpassport_url from onboarding_status where user_id = :userId` → `{ url, name: 'QPassport.pdf' }`.
-  - (Map is structured so future file-bearing notification types — e.g. signed ICA, pay statements — can be added with one line.)
-- New state: `previewFile: { url: string; name: string } | null`.
-- New `handleView(n)` click handler (replaces the inline `navigate(n.link!)` in both the desktop and mobile expanded rows):
-  1. If `attachmentResolvers[n.type]` exists → call it; on success, set `previewFile` and stop. On null/failure, fall back to `navigate(n.link)` if present, otherwise show a toast "File no longer available".
-  2. Else if `n.link` → `navigate(n.link)`.
-- Render `FilePreviewModal` (imported from `@/components/inspection/DocRow`, already used elsewhere for PDFs/images) at the bottom of the component when `previewFile` is set, with `onClose={() => setPreviewFile(null)}`.
-- The **View** button is shown whenever `n.link` exists OR `attachmentResolvers[n.type]` exists.
+This matches the access pattern already used by `PEScreeningTimeline` / `OperatorStatusPage` for the same file, so RLS already permits it for the signed-in operator.
+
+### 2. Restrict the "View" button to attachment-backed notifications
+- Compute `hasAttachment = !!ATTACHMENT_RESOLVERS[n.type]`.
+- Change the render condition from `showCta = !!n.link || hasAttachment` to `showCta = hasAttachment`. Both the desktop and mobile expanded rows use this flag.
+- Notifications that only deep-link (e.g. "Drug Screening Scheduled", `onboarding_milestone`, `new_message`) will expand to show the full body but will no longer show a button.
+
+### 3. Better failure messaging
+If the resolver runs but returns `null` (file genuinely missing), keep the existing toast ("File not available") instead of silently navigating. Drop the `navigate(n.link)` fallback inside `handleView` since the button now only renders for attachment types.
+
+## Forward compatibility
+The `ATTACHMENT_RESOLVERS` map is the single extension point. Any future notification type that has a real file just needs one entry added (type → async function returning `{ url, name }`) and the same expand → "View" → inline `FilePreviewModal` flow will work automatically.
 
 ## Out of scope
-
-- No changes to the email CTA wording or to the `send-notification` edge function — only the in-app notification list is affected.
-- No schema changes. We resolve the QPassport URL on click from `onboarding_status`, the same source the Background Check timeline uses.
-- No changes to message attachments inside the messaging thread (separate component).
+- No edits to `send-notification`, `PEScreeningTimeline`, `OperatorStatusPage`, or storage policies.
+- No new resolvers beyond `qpassport_uploaded` in this pass.
