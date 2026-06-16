@@ -416,6 +416,14 @@ export default function NotificationHistory() {
           </>
         )}
       </div>
+
+      {previewFile && (
+        <FilePreviewModal
+          url={previewFile.url}
+          name={previewFile.name}
+          onClose={() => setPreviewFile(null)}
+        />
+      )}
     </div>
   );
 }
