@@ -50,6 +50,7 @@ const CTA_LABEL: Record<string, string> = {
   dispatch_status_change: 'View Dispatch',
   pay_setup_submitted:    'View Pay Setup',
   ni_uploaded:            'Open Background Check',
+  onboarding_update:      'View Onboarding',
 };
 
 const PAGE_SIZE = 25;
