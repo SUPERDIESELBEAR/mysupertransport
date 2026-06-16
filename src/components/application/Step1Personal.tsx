@@ -124,7 +124,6 @@ export default function Step1Personal({ data, onChange, errors }: Props) {
         <div className="pt-2 border-t border-border">
           <h3 className="text-sm font-semibold text-foreground mb-4">Previous Address</h3>
           <div className="space-y-4">
-            <FormField label="Street Address">
             <FormField label="Street Address" required error={errors.prev_address_street}>
               <AppInput value={data.prev_address_street} onChange={e => onChange('prev_address_street', e.target.value)} placeholder="123 Previous St" error={!!errors.prev_address_street} />
             </FormField>
