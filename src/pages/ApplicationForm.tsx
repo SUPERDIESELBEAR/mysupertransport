@@ -783,12 +783,6 @@ export default function ApplicationForm() {
           </div>
         </div>
 
-        {/* Swipe hint — mobile only, fades after first step */}
-        {step === 1 && (
-          <p className="md:hidden text-center text-xs text-muted-foreground mt-3 opacity-60">
-            Swipe left to advance · Swipe right to go back
-          </p>
-        )}
 
         {/* Navigation — desktop only */}
         <div className="hidden md:flex items-center justify-between mt-6 gap-3">
