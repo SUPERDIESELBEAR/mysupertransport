@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   CheckCircle2, Clock, Circle, Download, Upload,
   Loader2, FileText, ExternalLink, FlaskConical, AlertTriangle,
@@ -67,7 +67,29 @@ export default function PEScreeningTimeline({
   const [expanded, setExpanded] = useState(true);
   const [viewingQPassport, setViewingQPassport] = useState(false);
   const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
+  const [highlight, setHighlight] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const stepRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Deep-link from notifications: scroll & highlight the targeted step when
+  // the URL hash matches one of our step ids (e.g. #qpassport, #ni).
+  useEffect(() => {
+    const raw = (typeof window !== 'undefined' ? window.location.hash : '').replace('#', '');
+    if (!raw) return;
+    const target = raw === 'ni' ? 'qpassport' : raw;
+    // Ensure the section is expanded so the row exists in the DOM
+    setExpanded(true);
+    const t = setTimeout(() => {
+      const el = stepRefs.current[target];
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlight(target);
+        setTimeout(() => setHighlight(null), 2400);
+      }
+    }, 150);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const peScreening = onboardingStatus.pe_screening as string | null;
   const peResult = onboardingStatus.pe_screening_result as string | null;
@@ -317,7 +339,13 @@ export default function PEScreeningTimeline({
 
             <div className="space-y-0">
               {steps.map((step, i) => (
-                <div key={step.id} className="flex gap-3 pb-4 last:pb-0 relative">
+                <div
+                  key={step.id}
+                  ref={(el) => { stepRefs.current[step.id] = el; }}
+                  className={`flex gap-3 pb-4 last:pb-0 relative rounded-lg transition-all ${
+                    highlight === step.id ? 'ring-2 ring-gold/60 bg-gold/5 -mx-1 px-1 py-1 animate-pulse' : ''
+                  }`}
+                >
                   <StepDot state={step.state} />
                   <div className="flex-1 min-w-0 pt-0.5">
                     <div className="flex items-baseline gap-2 flex-wrap">
