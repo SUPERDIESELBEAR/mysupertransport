@@ -203,7 +203,7 @@ export default function NotificationHistory() {
         ) : (
           <>
             {/* Column headers */}
-            <div className="grid grid-cols-12 px-5 py-3 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
+            <div className="hidden sm:grid grid-cols-12 px-5 py-3 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
               <span className="col-span-5">Notification</span>
               <span className="col-span-2">Type</span>
               <span className="col-span-3">Sent</span>
@@ -223,11 +223,12 @@ export default function NotificationHistory() {
                       if (isUnread) markRead(n.id);
                       if (n.link) navigate(n.link);
                     }}
-                    className={`grid grid-cols-12 items-start gap-2 px-5 py-4 transition-colors group ${
+                    className={`px-4 sm:px-5 py-4 transition-colors group ${
                       n.link ? 'cursor-pointer hover:bg-secondary/40' : 'cursor-default hover:bg-secondary/10'
                     } ${isUnread ? 'bg-gold/5' : ''}`}
                   >
-                    {/* Notification col */}
+                    {/* Desktop layout */}
+                    <div className="hidden sm:grid grid-cols-12 items-start gap-2">
                     <div className="col-span-5 flex items-start gap-3 min-w-0">
                       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${cfg.bg} mt-0.5`}>
                         <Icon className={`h-4 w-4 ${cfg.color}`} strokeWidth={2} />
@@ -277,6 +278,46 @@ export default function NotificationHistory() {
                           Read
                         </span>
                       )}
+                    </div>
+                    </div>
+
+                    {/* Mobile layout */}
+                    <div className="sm:hidden flex items-start gap-3">
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${cfg.bg} mt-0.5`}>
+                        <Icon className={`h-4 w-4 ${cfg.color}`} strokeWidth={2} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className={`text-sm leading-snug truncate ${isUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
+                            {n.title}
+                          </p>
+                          {n.link && (
+                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
+                          )}
+                        </div>
+                        {n.body && (
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <Badge variant="outline" className="text-[10px] font-medium capitalize whitespace-nowrap">
+                            {cfg.label}
+                          </Badge>
+                          <span className="text-[11px] text-muted-foreground">
+                            {format(new Date(n.sent_at), 'MMM d')} · {format(new Date(n.sent_at), 'h:mm a')}
+                          </span>
+                          {isUnread ? (
+                            <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-semibold text-gold bg-gold/10 border border-gold/30 px-2 py-0.5 rounded-full">
+                              <span className="h-1.5 w-1.5 rounded-full bg-gold animate-pulse" />
+                              Unread
+                            </span>
+                          ) : (
+                            <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                              <CheckCircle2 className="h-3 w-3 text-status-complete" />
+                              Read
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
