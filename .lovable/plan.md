@@ -1,24 +1,11 @@
-## Goal
-On the forward-facing operator (driver) portal, remove the standalone **Change Password** key-icon button from the top header bar. Keep the **Change Password** option (with key icon) inside the mobile hamburger menu.
+## Status
+The fix to remove the standalone key (Change Password) icon from the operator header was already applied to `src/pages/operator/OperatorPortal.tsx` in the previous turn. The screenshot still shows the icon because it is the **published build** (`mysupertransport.lovable.app`) which has not been republished yet.
 
-## Current State
-In `src/pages/operator/OperatorPortal.tsx`, the header top-right area (lines ~951-997) contains a row of icon buttons:
-1. Profile avatar → Edit Profile
-2. **KeyRound icon → Change Password** ← REMOVE THIS
-3. SlidersHorizontal → Notification preferences
-4. NotificationBell
-5. LogOut (desktop only)
-6. Hamburger (mobile only)
+## What's needed
+1. **Republish the app** so the deployed PWA picks up the change. After republishing, fully close and reopen the SUPERDRIVE PWA on the iPhone (or pull-to-refresh) to bypass the cached service worker.
+2. **No additional code changes required.** The header now renders only: profile avatar → notification preferences (sliders) → notification bell → sign-out (desktop only) → hamburger (mobile). The "Change Password" entry with the key icon stays inside the hamburger drawer, alongside Edit Profile and Sign Out.
 
-Inside the mobile hamburger dropdown (lines ~1001+), there is already a **"Change Password"** row with the `KeyRound` icon. This stays.
-
-## Change
-- In `src/pages/operator/OperatorPortal.tsx`, delete the `<button>` wrapping the `<KeyRound>` icon in the header icon row (lines 969-975). This removes the redundant standalone key icon from the top bar on both desktop and mobile.
-- The existing Change Password option inside the mobile hamburger menu remains untouched.
-- No auth, routing, or data logic changes.
-
-## Verification
-After the change, open the operator portal preview at mobile width. Confirm:
-- The key icon is no longer visible in the main header next to the profile avatar and notification bell.
-- Tapping the hamburger menu still shows "Change Password" with the key icon.
-- Desktop header also no longer shows the standalone key icon.
+## Verification after republish
+- Open SUPERDRIVE on the iPhone.
+- Confirm the key icon no longer appears next to the profile avatar in the top header.
+- Open the hamburger (three-line) menu and confirm "Change Password" with the key icon is still listed between Edit Profile and Sign Out.
