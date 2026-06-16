@@ -411,11 +411,11 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
     <>
     <div className="border border-destructive/30 bg-destructive/5 rounded-xl shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="flex items-center px-4 py-3 gap-2">
+      <div className="flex flex-wrap items-center px-4 py-3 gap-2">
         {/* Expand/collapse toggle */}
         <button
           onClick={() => setExpanded(v => !v)}
-          className="flex-1 flex items-center gap-2.5 text-left hover:opacity-80 transition-opacity min-w-0"
+          className="flex-1 min-w-[260px] flex flex-wrap items-center gap-2.5 text-left hover:opacity-80 transition-opacity"
         >
           <div className="h-7 w-7 rounded-lg bg-destructive/15 flex items-center justify-center shrink-0">
             <ShieldAlert className="h-4 w-4 text-destructive" />
@@ -466,7 +466,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
             CDL or medical cert expiring within {windowDays} days
           </span>
           {/* Doc-type filter chips */}
-          <div className="hidden sm:flex items-center gap-1 ml-1 shrink-0" onClick={e => e.stopPropagation()}>
+          <div className="hidden sm:flex flex-wrap items-center gap-1 ml-1" onClick={e => e.stopPropagation()}>
             {(['all', 'CDL', 'Medical Cert'] as const).map(f => {
               const count = f === 'all' ? alerts.length : alerts.filter(a => a.doc_type === f).length;
               const active = docFilter === f && !noActionOnly;
@@ -494,6 +494,8 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
           </div>
         </button>
 
+        {/* Right-side action cluster — wraps as a unit on narrow widths */}
+        <div className="flex flex-wrap items-center justify-end gap-2 ml-auto">
         {/* Visibility window picker */}
         <div onClick={(e) => e.stopPropagation()} className="shrink-0">
           <ComplianceWindowPicker />
@@ -567,6 +569,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
         <button onClick={() => setExpanded(v => !v)} className="shrink-0 hover:opacity-80 transition-opacity">
           {expanded ? <ShieldCheck className="h-4 w-4 text-muted-foreground" style={{transform:'rotate(0deg)'}} /> : <ShieldAlert className="h-4 w-4 text-muted-foreground opacity-50" />}
         </button>
+        </div>
       </div>
 
       {/* Alert rows */}
