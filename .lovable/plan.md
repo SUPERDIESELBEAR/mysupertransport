@@ -1,38 +1,29 @@
-## Goal
+# Notification CTA — single "View" button that opens the attached item inline
 
-In the driver app's Notifications page, tapping a notification should:
-1. **Expand inline** to show the full message body (no more 2-line truncation).
-2. **Deep-link** to the exact place where the driver can take action (e.g., the QPassport notification opens the Background Check section with the download button).
+## What changes (visible)
 
-## Changes
+1. The contextual labels ("View Onboarding", "Open Background Check", "View Documents", etc.) on the expanded notification CTA are all replaced with a single label: **View**.
+2. When a notification has an actual attached file (today, that's the **"Your QPassport is Ready"** notification), tapping **View** opens the file directly inside a preview modal on the notifications page — no navigation away. The user can read and download the PDF right there.
+3. Notifications that don't carry an attachment (e.g. "Application Approved", "New Message", dispatch updates) keep behaving as deep-links: tapping **View** still takes the user to the relevant page, just under the new "View" label.
+4. If a notification has neither an attachment nor a `link`, the **View** button is hidden (today it's already hidden when `link` is null).
 
-### 1. Inline expand/collapse on tap — `src/components/management/NotificationHistory.tsx`
-- Track an `expandedId` in state. Tapping a row toggles expand instead of immediately navigating.
-- Remove `line-clamp-2` on the body when expanded; show full `n.body` text with `whitespace-pre-wrap`.
-- When expanded, render a footer row with:
-  - A primary "Go to [contextual label]" button (only if the notification has a deep link) that calls `navigate(n.link)`.
-  - A subtle "Mark as read"/"Mark unread" toggle.
-- Tapping the row only expands/collapses; navigation is an explicit button press. This fixes the current behavior where users can't read the full message because the tap immediately tries to navigate.
-- First tap on an unread row still calls `markRead` (in addition to expanding).
-- Keep the `ArrowRight` chevron, but rotate it 90° when expanded to signal expand state.
-- Apply to both desktop and mobile layouts.
+## How it works (technical)
 
-### 2. Deep-link the QPassport notification to the exact section — `supabase/functions/send-notification/index.ts`
-- The `ni_uploaded` notification currently sets `link: '/operator'`, which drops the driver on the home tab. Change it to `link: '/operator?tab=progress#ni'` so it lands on the Background Check / PE Screening timeline that already renders the QPassport download button.
-- Update the matching email CTA URL to the same path for consistency.
+File: `src/components/management/NotificationHistory.tsx`
 
-### 3. Anchor scrolling in the progress page — `src/components/operator/PEScreeningTimeline.tsx` (or its parent `OperatorStatusPage.tsx`)
-- After mount, if `location.hash === '#ni'`, scroll the QPassport step into view and briefly highlight it (ring/gold pulse for ~2s) so the driver immediately sees the download button.
-
-### 4. Sanity sweep of other notification links
-- Quickly audit existing `link:` values in `send-notification/index.ts` to confirm each lands somewhere the driver/staff can act on (e.g., `new_message` → `/operator?tab=messages` already correct). No behavior change unless a link is clearly wrong; if it is, fix it in the same edit. This is a small follow-up, not a full refactor.
+- Replace the `CTA_LABEL` map with a single constant label `'View'` used for every type.
+- Add a small `attachmentResolvers` map keyed by `notification.type`. Each entry is an async function `(userId) => { url, name } | null` that fetches the file URL for the current user. Initial entries:
+  - `qpassport_uploaded` → `select qpassport_url from onboarding_status where user_id = :userId` → `{ url, name: 'QPassport.pdf' }`.
+  - (Map is structured so future file-bearing notification types — e.g. signed ICA, pay statements — can be added with one line.)
+- New state: `previewFile: { url: string; name: string } | null`.
+- New `handleView(n)` click handler (replaces the inline `navigate(n.link!)` in both the desktop and mobile expanded rows):
+  1. If `attachmentResolvers[n.type]` exists → call it; on success, set `previewFile` and stop. On null/failure, fall back to `navigate(n.link)` if present, otherwise show a toast "File no longer available".
+  2. Else if `n.link` → `navigate(n.link)`.
+- Render `FilePreviewModal` (imported from `@/components/inspection/DocRow`, already used elsewhere for PDFs/images) at the bottom of the component when `previewFile` is set, with `onClose={() => setPreviewFile(null)}`.
+- The **View** button is shown whenever `n.link` exists OR `attachmentResolvers[n.type]` exists.
 
 ## Out of scope
-- No changes to notification creation triggers, schema, or RLS.
-- No redesign of the notification list visual style beyond the expand affordance.
-- Staff notification routes are unchanged.
 
-## Verification
-- On iPhone PWA: open Notifications → tap "Your QPassport is Ready" → full body text shows inline; "Go to Background Check" button appears; tapping it lands on the progress page with the QPassport step highlighted and the Download button visible.
-- Tap a notification with no `link` (e.g., a generic info one) → expands to show full body, no navigate button shown.
-- Tap again to collapse.
+- No changes to the email CTA wording or to the `send-notification` edge function — only the in-app notification list is affected.
+- No schema changes. We resolve the QPassport URL on click from `onboarding_status`, the same source the Background Check timeline uses.
+- No changes to message attachments inside the messaging thread (separate component).

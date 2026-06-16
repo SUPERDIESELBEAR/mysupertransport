@@ -10,6 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { useToast } from '@/hooks/use-toast';
 
 interface Notification {
   id: string;
@@ -36,21 +38,24 @@ const TYPE_CONFIG: Record<string, { icon: React.ElementType; bg: string; color: 
 };
 const DEFAULT_CONFIG = { icon: Bell, bg: 'bg-muted', color: 'text-muted-foreground', label: 'Notification' };
 
-// Contextual CTA labels per notification type — shown on the "Open" button
-// when the notification has a deep link.
-const CTA_LABEL: Record<string, string> = {
-  application_approved:   'Open Application',
-  application_denied:     'Open Application',
-  truck_down:             'View Truck Status',
-  new_message:            'Open Messages',
-  onboarding_milestone:   'View Onboarding',
-  docs_uploaded:          'View Documents',
-  document_uploaded:      'View Documents',
-  new_application:        'Review Application',
-  dispatch_status_change: 'View Dispatch',
-  pay_setup_submitted:    'View Pay Setup',
-  ni_uploaded:            'Open Background Check',
-  onboarding_update:      'View Onboarding',
+// Single label used for every notification CTA.
+const CTA_LABEL = 'View';
+
+// Resolvers that fetch an inline-previewable file for a given notification type.
+// When a resolver exists for n.type, clicking "View" opens the file in a
+// FilePreviewModal instead of navigating away. Add new entries here as more
+// notification types gain attached files.
+type AttachmentResolver = (userId: string) => Promise<{ url: string; name: string } | null>;
+const ATTACHMENT_RESOLVERS: Record<string, AttachmentResolver> = {
+  qpassport_uploaded: async (userId) => {
+    const { data } = await (supabase as any)
+      .from('onboarding_status')
+      .select('qpassport_url')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const url: string | null | undefined = data?.qpassport_url;
+    return url ? { url, name: 'QPassport.pdf' } : null;
+  },
 };
 
 const PAGE_SIZE = 25;
@@ -60,6 +65,7 @@ type ReadFilter = 'all' | 'unread' | 'read';
 export default function NotificationHistory() {
   const { session } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +75,23 @@ export default function NotificationHistory() {
   const [readFilter, setReadFilter] = useState<ReadFilter>('all');
   const [markingAll, setMarkingAll] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<{ url: string; name: string } | null>(null);
+
+  const handleView = async (n: Notification) => {
+    const resolver = ATTACHMENT_RESOLVERS[n.type];
+    if (resolver && session?.user?.id) {
+      const file = await resolver(session.user.id);
+      if (file) {
+        setPreviewFile(file);
+        return;
+      }
+      if (!n.link) {
+        toast({ title: 'File not available', description: 'This attachment is no longer available.', variant: 'destructive' });
+        return;
+      }
+    }
+    if (n.link) navigate(n.link);
+  };
 
   const fetchNotifications = useCallback(async (pageIndex: number, filter: ReadFilter, append = false) => {
     if (!session?.user?.id) return;
@@ -245,7 +268,8 @@ export default function NotificationHistory() {
                 const Icon = cfg.icon;
                 const isUnread = !n.read_at;
                 const isExpanded = expandedId === n.id;
-                const ctaLabel = CTA_LABEL[n.type] ?? 'Open';
+                const hasAttachment = !!ATTACHMENT_RESOLVERS[n.type];
+                const showCta = !!n.link || hasAttachment;
 
                 return (
                   <div
@@ -271,13 +295,13 @@ export default function NotificationHistory() {
                         {n.body && (
                           <p className={`text-xs text-muted-foreground mt-0.5 ${isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2'}`}>{n.body}</p>
                         )}
-                        {isExpanded && n.link && (
+                        {isExpanded && showCta && (
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); navigate(n.link!); }}
+                            onClick={(e) => { e.stopPropagation(); handleView(n); }}
                             className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold bg-gold text-surface-dark hover:bg-gold-light transition-colors px-3 py-1.5 rounded-lg"
                           >
-                            {ctaLabel}
+                            {CTA_LABEL}
                             <ArrowRight className="h-3.5 w-3.5" />
                           </button>
                         )}
@@ -332,13 +356,13 @@ export default function NotificationHistory() {
                         {n.body && (
                           <p className={`text-xs text-muted-foreground mt-0.5 ${isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2'}`}>{n.body}</p>
                         )}
-                        {isExpanded && n.link && (
+                        {isExpanded && showCta && (
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); navigate(n.link!); }}
+                            onClick={(e) => { e.stopPropagation(); handleView(n); }}
                             className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold bg-gold text-surface-dark hover:bg-gold-light transition-colors px-3 py-1.5 rounded-lg"
                           >
-                            {ctaLabel}
+                            {CTA_LABEL}
                             <ArrowRight className="h-3.5 w-3.5" />
                           </button>
                         )}
@@ -392,6 +416,14 @@ export default function NotificationHistory() {
           </>
         )}
       </div>
+
+      {previewFile && (
+        <FilePreviewModal
+          url={previewFile.url}
+          name={previewFile.name}
+          onClose={() => setPreviewFile(null)}
+        />
+      )}
     </div>
   );
 }
