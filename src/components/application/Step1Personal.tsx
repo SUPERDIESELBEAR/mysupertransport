@@ -125,23 +125,24 @@ export default function Step1Personal({ data, onChange, errors }: Props) {
           <h3 className="text-sm font-semibold text-foreground mb-4">Previous Address</h3>
           <div className="space-y-4">
             <FormField label="Street Address">
-              <AppInput value={data.prev_address_street} onChange={e => onChange('prev_address_street', e.target.value)} placeholder="123 Previous St" />
+            <FormField label="Street Address" required error={errors.prev_address_street}>
+              <AppInput value={data.prev_address_street} onChange={e => onChange('prev_address_street', e.target.value)} placeholder="123 Previous St" error={!!errors.prev_address_street} />
             </FormField>
             <FormField label="Address Line 2">
               <AppInput value={data.prev_address_line2} onChange={e => onChange('prev_address_line2', e.target.value)} placeholder="Apt, Suite, Unit (optional)" />
             </FormField>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <FormField label="City" className="col-span-2 sm:col-span-1">
-                <AppInput value={data.prev_address_city} onChange={e => onChange('prev_address_city', e.target.value)} placeholder="Springfield" />
+              <FormField label="City" required className="col-span-2 sm:col-span-1" error={errors.prev_address_city}>
+                <AppInput value={data.prev_address_city} onChange={e => onChange('prev_address_city', e.target.value)} placeholder="Springfield" error={!!errors.prev_address_city} />
               </FormField>
-              <FormField label="State">
-                <AppSelect value={data.prev_address_state} onChange={e => onChange('prev_address_state', e.target.value)}>
+              <FormField label="State" required error={errors.prev_address_state}>
+                <AppSelect value={data.prev_address_state} onChange={e => onChange('prev_address_state', e.target.value)} error={!!errors.prev_address_state}>
                   <option value="">State</option>
                   {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                 </AppSelect>
               </FormField>
-              <FormField label="ZIP Code">
-                <AppInput value={data.prev_address_zip} onChange={e => onChange('prev_address_zip', e.target.value)} placeholder="62701" />
+              <FormField label="ZIP Code" required error={errors.prev_address_zip}>
+                <AppInput value={data.prev_address_zip} onChange={e => onChange('prev_address_zip', e.target.value)} placeholder="62701" error={!!errors.prev_address_zip} />
               </FormField>
             </div>
           </div>
