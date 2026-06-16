@@ -1,24 +1,22 @@
 ## Problem
 
-`NotificationHistory.tsx` uses `grid grid-cols-12` with fixed `col-span-*` cells for both the column header and every notification row. On a ~390px phone viewport the columns are too narrow for their content (badges, dates, titles), causing text and icons to overflow and overlap adjacent columns. This affects the Operator Driver App and all other portals that share this component.
+`NotificationHistory.tsx` uses `grid grid-cols-12` with fixed `col-span-*` cells for both the column header and every notification row. On a ~390px phone viewport the columns are too narrow for their content — the Type badge overlaps the Sent date, and the Sent date overlaps the Status badge (visible in the screenshot). The component is shared across Operator, Staff, Management, and Dispatch portals.
 
-## Fix
+## Fix (single file: `src/components/management/NotificationHistory.tsx`)
 
-Make `NotificationHistory.tsx` responsive while preserving the existing desktop layout.
+Make the list responsive while keeping the desktop 4-column grid intact.
 
-1. **Column header row** — Change `grid grid-cols-12 …` to `hidden sm:grid sm:grid-cols-12 …` so it hides on mobile.
-2. **Desktop row layout** — Wrap the current `grid grid-cols-12 …` row content in a container that is `hidden sm:grid sm:grid-cols-12 …`.
-3. **Mobile row layout** — Add a new mobile-only layout (`grid sm:hidden`) inside each notification row that stacks the content vertically:
-   - Top row: icon + title + arrow (single line, truncate)
-   - Body text (if present)
-   - Bottom meta row: type badge, sent date/time, and status badge, arranged with `flex flex-wrap items-center gap-2` so they wrap cleanly on very narrow screens.
-4. **Click behaviour** — Keep the existing `onClick` handler on the outer row wrapper so tapping anywhere on the mobile card still marks read and navigates.
-5. **Skeleton loader** — The skeleton already uses a flex layout and does not need changes.
-6. **No logic changes** — No changes to data fetching, filtering, pagination, or the `TYPE_CONFIG` mapping.
+1. **Column header row** — Change to `hidden sm:grid grid-cols-12 …` so the column headers only render on ≥640px.
+2. **Row wrapper** — Drop `grid grid-cols-12` from the outer row so the row itself is just a padded container; keep the existing `onClick`, hover, and unread highlight classes.
+3. **Desktop layout** — Wrap the existing four `col-span-*` cells (Notification, Type, Sent, Status) in `<div className="hidden sm:grid grid-cols-12 items-start gap-2">…</div>` so they keep the current desktop look.
+4. **Mobile layout** — Add a new mobile-only block `<div className="sm:hidden flex items-start gap-3">…</div>` that stacks the content as a card:
+   - Icon + title (truncate) + arrow on the top line
+   - Body preview (line-clamp-2) below
+   - A wrap row with the Type badge, a short date/time string, and the Status badge pushed to the right with `ml-auto`
+5. **No logic changes** — Data fetching, filters, pagination, mark-read, and `TYPE_CONFIG` are untouched.
 
 ## Verification
 
-Preview the Operator portal notification tab at mobile viewport (~390px) and confirm:
-- No column overlap
-- Type badge, date, and status wrap cleanly when space is tight
-- Desktop view (≥640px) still shows the 4-column grid unchanged
+Preview the Operator portal `/operator?tab=notifications` at 390px and confirm:
+- No column overlap; Type/Sent/Status sit cleanly on one wrapping row beneath the title
+- Desktop (≥640px) still shows the original 4-column grid with headers
