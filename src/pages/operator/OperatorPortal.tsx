@@ -967,13 +967,6 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               </div>
             </button>
             <button
-              onClick={() => setChangePasswordOpen(true)}
-              title="Change password"
-              className="text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors"
-            >
-              <KeyRound className="h-5 w-5" />
-            </button>
-            <button
               onClick={() => setNotifPrefOpen(true)}
               title="Notification preferences"
               className="text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors"
