@@ -922,6 +922,7 @@ export type Database = {
       }
       driver_documents: {
         Row: {
+          blocks_go_live: boolean
           body: string | null
           category: string
           content_type: string
@@ -941,6 +942,7 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
+          blocks_go_live?: boolean
           body?: string | null
           category: string
           content_type?: string
@@ -960,6 +962,7 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
+          blocks_go_live?: boolean
           body?: string | null
           category?: string
           content_type?: string
@@ -4199,6 +4202,10 @@ export type Database = {
               isSetofReturn: true
             }
           }
+      set_go_live_with_override: {
+        Args: { _go_live_date: string; _operator_id: string; _reason?: string }
+        Returns: undefined
+      }
       submit_application_correction: {
         Args: {
           p_application_id: string
@@ -4229,6 +4236,14 @@ export type Database = {
             }
             Returns: string
           }
+      unacked_go_live_blockers: {
+        Args: { _operator_id: string }
+        Returns: {
+          document_id: string
+          title: string
+          version: number
+        }[]
+      }
     }
     Enums: {
       account_status: "pending" | "active" | "denied" | "inactive"
