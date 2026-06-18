@@ -129,7 +129,6 @@ export default function ResetPassword() {
       <div className="w-full max-w-md relative">
         <div className="text-center mb-8">
           <img src={logo} alt="SUPERTRANSPORT" className="h-20 w-auto max-w-[320px] object-contain mx-auto" />
-          <p className="text-surface-dark-muted text-sm mt-1">Operator Portal</p>
         </div>
 
         <div className="bg-surface-dark-card border border-surface-dark-border rounded-xl p-8 shadow-2xl">
