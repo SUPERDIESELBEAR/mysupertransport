@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
-  LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound,
+  LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound, RefreshCw,
   ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye, Calculator, Home, ChevronRight, ChevronLeft,
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
@@ -33,6 +33,7 @@ import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
 import { BuildInfo } from '@/components/BuildInfo';
 import SettlementForecast from '@/components/operator/SettlementForecast';
+import { useAppRefresh } from '@/hooks/useAppRefresh';
 import { Skeleton } from '@/components/ui/skeleton';
 import DestinationSkeleton from '@/components/operator/DestinationSkeleton';
 
@@ -59,6 +60,7 @@ interface UploadedDoc {
 
 export default function OperatorPortal({ previewUserId }: { previewUserId?: string } = {}) {
   const { profile: authProfile, user, signOut, refreshProfile, isTruckOwner } = useAuth();
+  const { refresh: handleRefresh, refreshing } = useAppRefresh();
   const isPreview = !!previewUserId;
   // For a truck owner, the effective user id is the LINKED DRIVER's user id, so
   // every existing query keyed on `effectiveUserId` automatically scopes to the
@@ -1035,6 +1037,15 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             </button>
             <NotificationBell variant="dark" notificationsPath="/operator?tab=notifications" clearBadge={view === 'notifications'} />
             <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="hidden md:flex text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors disabled:opacity-60"
+              title="Refresh data"
+              aria-label="Refresh data"
+            >
+              <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <button
               onClick={signOut}
               className="hidden md:flex text-surface-dark-muted hover:text-destructive p-2 rounded-lg hover:bg-surface-dark-card transition-colors"
               title="Sign out"
@@ -1111,6 +1122,13 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               </button>
               <button onClick={signOut} className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-destructive">
                 <LogOut className="h-4 w-4" /> Sign Out
+              </button>
+              <button
+                onClick={() => { handleRefresh(); setMobileMenuOpen(false); }}
+                disabled={refreshing}
+                className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-surface-dark-foreground disabled:opacity-60"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
               </button>
             </div>
           </div>

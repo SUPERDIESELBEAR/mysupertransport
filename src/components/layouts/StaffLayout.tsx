@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { GraduationCap, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
-  LogOut, Menu, X, ChevronDown, KeyRound, UserPen,
+  LogOut, Menu, X, ChevronDown, KeyRound, UserPen, RefreshCw,
 } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import type { Database } from '@/integrations/supabase/types';
@@ -12,6 +12,7 @@ import NotificationBell from '@/components/NotificationBell';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
 import EditProfileModal from '@/components/EditProfileModal';
 import { BuildInfo } from '@/components/BuildInfo';
+import { useAppRefresh } from '@/hooks/useAppRefresh';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
@@ -67,6 +68,7 @@ const roleLabels: Record<AppRole, string> = {
 
 export default function StaffLayout({ children, navItems, mobileNavItems, currentPath, onNavigate, title, headerActions, notificationsPath = '/staff?tab=notifications', isDemo = false, onExitDemo }: StaffLayoutProps) {
   const { profile, roles, activeRole, setActiveRole, signOut, refreshProfile } = useAuth();
+  const { refresh: handleRefresh, refreshing } = useAppRefresh();
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const stored = localStorage.getItem('staff_sidebar_open');
     return stored !== null ? stored === 'true' : true; // default open on desktop
@@ -363,6 +365,15 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
           </button>
           <div className="flex-1 min-w-0" />
           {headerActions}
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-muted disabled:opacity-60"
+            title="Refresh data"
+            aria-label="Refresh data"
+          >
+            <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
           <NotificationBell notificationsPath={notificationsPath} />
         </header>
 
