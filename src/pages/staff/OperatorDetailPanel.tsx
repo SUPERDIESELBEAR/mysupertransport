@@ -3786,10 +3786,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </DialogContent>
       </Dialog>
 
-      {/* ── Deactivate Confirmation Dialog ── */}
-      <AlertDialog open={showDeactivateConfirm} onOpenChange={open => { if (!open) setDeactivateReason(''); setShowDeactivateConfirm(open); }}>
-      </AlertDialog>
-
       {/* ── Owner Go Live Override Dialog ── */}
       <AlertDialog open={overrideOpen} onOpenChange={(o) => { if (!o) { setOverrideOpen(false); setOverrideConfirmName(''); setOverrideReason(''); } }}>
         <AlertDialogContent>
@@ -3822,7 +3818,8 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showDeactivateConfirm && false}>
+      {/* ── Deactivate Confirmation Dialog ── */}
+      <AlertDialog open={showDeactivateConfirm} onOpenChange={open => { if (!open) setDeactivateReason(''); setShowDeactivateConfirm(open); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
