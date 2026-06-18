@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle, FileText, Target, Paperclip, Truck, ShieldCheck, Megaphone, Banknote } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface Notification {
   id: string;
@@ -13,6 +14,8 @@ interface Notification {
   sent_at: string;
   read_at: string | null;
   type: string;
+  entity_type: string | null;
+  entity_id: string | null;
 }
 
 interface NotificationBellProps {
@@ -27,6 +30,7 @@ interface NotificationBellProps {
 export default function NotificationBell({ variant = 'light', notificationsPath = '/dashboard?view=notifications', clearBadge = false }: NotificationBellProps) {
   const { session } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -77,7 +81,7 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
     setLoading(true);
     const { data } = await supabase
       .from('notifications')
-      .select('id, title, body, link, sent_at, read_at, type')
+      .select('id, title, body, link, sent_at, read_at, type, entity_type, entity_id')
       .eq('user_id', session.user.id)
       .eq('channel', 'in_app')
       .order('sent_at', { ascending: false })
@@ -134,6 +138,82 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
     );
   };
 
+  // Detect which portal the user is currently in based on the current path.
+  // This lets a notification deep-link land on the recipient's own portal
+  // (e.g. management opens /dashboard?view=operator-detail&op=<id> while
+  // staff opens /staff?operator=<id> for the same notification).
+  type Portal = 'management' | 'staff' | 'dispatch' | 'operator';
+  const detectPortal = (): Portal => {
+    const p = location.pathname;
+    if (p.startsWith('/staff')) return 'staff';
+    if (p.startsWith('/dispatch')) return 'dispatch';
+    if (p.startsWith('/management')) return 'management';
+    // /dashboard is shared between management and operator portals;
+    // assume management here (operator-only routes use their own pathnames).
+    return 'management';
+  };
+
+  /**
+   * Resolve a notification to a portal-aware deep link.
+   * Prefers entity_type + entity_id (the new way). Falls back to the legacy
+   * stored `link` field for older notifications, then to /dashboard.
+   */
+  const resolveRoute = (n: Notification): string => {
+    const portal = detectPortal();
+    const id = n.entity_id;
+    const et = n.entity_type;
+
+    const operatorRoute = (opId: string) => {
+      if (portal === 'staff') return `/staff?view=operator-detail&operator=${opId}`;
+      if (portal === 'dispatch') return `/dispatch`;
+      if (portal === 'operator') return `/dashboard`;
+      return `/dashboard?view=operator-detail&op=${opId}`;
+    };
+
+    const applicationRoute = (appId: string) => {
+      if (portal === 'staff') return `/staff?view=applications&app=${appId}`;
+      return `/dashboard?view=applications&app=${appId}`;
+    };
+
+    if (et === 'operator' && id) {
+      // Per-type tweaks for the operator's own portal
+      if (portal === 'operator' || portal === 'management' && false) {
+        // (placeholder for future per-type operator portal routing)
+      }
+      // Operator portal: route by type so the operator lands on a useful tab
+      if (portal === 'operator') {
+        switch (n.type) {
+          case 'new_message': return '/dashboard?tab=messages';
+          case 'dispatch_status_change': return '/dashboard?tab=dispatch';
+          case 'onboarding_milestone':
+          case 'docs_uploaded':
+          case 'document_uploaded':
+          case 'compliance_update':
+            return '/dashboard?tab=progress';
+          default:
+            return '/dashboard';
+        }
+      }
+      return operatorRoute(id);
+    }
+
+    if (et === 'application' && id) return applicationRoute(id);
+
+    if (et === 'message_thread' && id) {
+      if (portal === 'staff') return `/staff?view=messages&thread=${id}`;
+      return `/dashboard?tab=messages&thread=${id}`;
+    }
+
+    if (et === 'release_note') {
+      if (portal === 'staff') return `/staff?view=whats-new`;
+      return `/dashboard?view=whats-new`;
+    }
+
+    // No entity_type — fall back to the legacy stored link, then /dashboard.
+    if (n.link) return n.link;
+    return '/dashboard';
+  };
+
   // Style tokens by variant
   const btnClass = isDark
     ? 'relative text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors'
@@ -154,10 +234,10 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
     : `w-full text-left px-4 py-3 border-b border-border last:border-0 transition-colors hover:bg-muted/40 ${unread ? 'bg-gold/5' : ''}`;
 
   const itemTitleClass = (unread: boolean) => isDark
-    ? `text-sm truncate ${unread ? 'font-semibold text-surface-dark-foreground' : 'font-medium text-surface-dark-muted'}`
-    : `text-sm truncate ${unread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`;
+    ? `text-sm line-clamp-2 break-words ${unread ? 'font-semibold text-surface-dark-foreground' : 'font-medium text-surface-dark-muted'}`
+    : `text-sm line-clamp-2 break-words ${unread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`;
 
-  const bodyClass = isDark ? 'text-xs text-surface-dark-muted mt-0.5 line-clamp-2' : 'text-xs text-muted-foreground mt-0.5 line-clamp-2';
+  const bodyClass = isDark ? 'text-xs text-surface-dark-muted mt-0.5 line-clamp-3 break-words' : 'text-xs text-muted-foreground mt-0.5 line-clamp-3 break-words';
   const timeClass = isDark ? 'text-[10px] text-surface-dark-muted/60 mt-1' : 'text-[10px] text-muted-foreground/60 mt-1';
   const emptyClass = isDark ? 'text-sm text-surface-dark-muted' : 'text-sm text-muted-foreground';
   const footerClass = isDark
@@ -212,39 +292,49 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
                 <p className={emptyClass}>No notifications yet</p>
               </div>
             ) : (
-              notifications.map(n => (
-                <button
-                  key={n.id}
-                  onClick={() => {
-                    if (!n.read_at) markRead(n.id);
-                    if (n.link) {
-                      setOpen(false);
-                      navigate(n.link);
-                    }
-                  }}
-                  className={itemClass(!n.read_at)}
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 shrink-0">
-                      {getTypeIcon(n.type)}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={itemTitleClass(!n.read_at)}>{n.title}</p>
-                        {!n.read_at && (
-                          <span className="h-2 w-2 rounded-full bg-gold shrink-0" />
-                        )}
-                      </div>
-                      {n.body && (
-                        <p className={bodyClass}>{n.body}</p>
-                      )}
-                      <p className={timeClass}>
-                        {formatDistanceToNow(new Date(n.sent_at), { addSuffix: true })}
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              ))
+              <TooltipProvider delayDuration={300}>
+                {notifications.map(n => {
+                  const route = resolveRoute(n);
+                  return (
+                    <Tooltip key={n.id}>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => {
+                            if (!n.read_at) markRead(n.id);
+                            setOpen(false);
+                            navigate(route);
+                          }}
+                          className={itemClass(!n.read_at)}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className="mt-0.5 shrink-0">
+                              {getTypeIcon(n.type)}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className={itemTitleClass(!n.read_at)}>{n.title}</p>
+                                {!n.read_at && (
+                                  <span className="h-2 w-2 rounded-full bg-gold shrink-0 mt-1" />
+                                )}
+                              </div>
+                              {n.body && (
+                                <p className={bodyClass}>{n.body}</p>
+                              )}
+                              <p className={timeClass}>
+                                {formatDistanceToNow(new Date(n.sent_at), { addSuffix: true })}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" align="start" className="max-w-xs whitespace-pre-wrap break-words">
+                        <p className="font-semibold text-xs mb-1">{n.title}</p>
+                        {n.body && <p className="text-xs opacity-90">{n.body}</p>}
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </TooltipProvider>
             )}
           </div>
 

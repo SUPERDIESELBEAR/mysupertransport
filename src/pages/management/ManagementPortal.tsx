@@ -192,6 +192,21 @@ export default function ManagementPortal() {
       setSelectedOperatorId(op);
       setView('operator-detail');
     }
+    // Notification deep-link: ?view=applications&app=<id> opens the review drawer
+    // for that specific application. Used by application_denied / application_revised
+    // bell notifications so a click jumps straight to the record.
+    const appId = params.get('app');
+    if (appId) {
+      setView('applications');
+      (async () => {
+        const { data } = await supabase
+          .from('applications')
+          .select('*')
+          .eq('id', appId)
+          .maybeSingle();
+        if (data) setSelectedApp(data as FullApplication);
+      })();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

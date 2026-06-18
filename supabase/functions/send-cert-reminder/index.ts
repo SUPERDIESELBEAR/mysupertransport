@@ -179,6 +179,8 @@ Deno.serve(async (req) => {
         type: 'cert_expiry_reminder',
         channel: 'in_app',
         link: '/operator/progress',
+        entity_type: 'operator',
+        entity_id: operator_id,
       }),
 
       // Audit log entry

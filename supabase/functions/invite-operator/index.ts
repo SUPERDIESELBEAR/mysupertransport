@@ -367,6 +367,8 @@ Deno.serve(async (req) => {
             type: 'application_approved',
             channel: 'in_app' as const,
             link: notifLink,
+            entity_type: 'operator',
+            entity_id: operatorId,
           }));
         if (notifRows.length > 0) {
           supabaseAdmin.from('notifications').insert(notifRows)

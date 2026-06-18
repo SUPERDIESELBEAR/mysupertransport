@@ -83,6 +83,8 @@ Deno.serve(async (req) => {
           channel: 'in_app',
           link: '/install',
           sent_at: new Date().toISOString(),
+          entity_type: 'operator',
+          entity_id: op.id,
         })
       }
 
