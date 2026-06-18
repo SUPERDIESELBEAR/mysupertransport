@@ -292,39 +292,49 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
                 <p className={emptyClass}>No notifications yet</p>
               </div>
             ) : (
-              notifications.map(n => (
-                <button
-                  key={n.id}
-                  onClick={() => {
-                    if (!n.read_at) markRead(n.id);
-                    if (n.link) {
-                      setOpen(false);
-                      navigate(n.link);
-                    }
-                  }}
-                  className={itemClass(!n.read_at)}
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 shrink-0">
-                      {getTypeIcon(n.type)}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={itemTitleClass(!n.read_at)}>{n.title}</p>
-                        {!n.read_at && (
-                          <span className="h-2 w-2 rounded-full bg-gold shrink-0" />
-                        )}
-                      </div>
-                      {n.body && (
-                        <p className={bodyClass}>{n.body}</p>
-                      )}
-                      <p className={timeClass}>
-                        {formatDistanceToNow(new Date(n.sent_at), { addSuffix: true })}
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              ))
+              <TooltipProvider delayDuration={300}>
+                {notifications.map(n => {
+                  const route = resolveRoute(n);
+                  return (
+                    <Tooltip key={n.id}>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => {
+                            if (!n.read_at) markRead(n.id);
+                            setOpen(false);
+                            navigate(route);
+                          }}
+                          className={itemClass(!n.read_at)}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className="mt-0.5 shrink-0">
+                              {getTypeIcon(n.type)}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className={itemTitleClass(!n.read_at)}>{n.title}</p>
+                                {!n.read_at && (
+                                  <span className="h-2 w-2 rounded-full bg-gold shrink-0 mt-1" />
+                                )}
+                              </div>
+                              {n.body && (
+                                <p className={bodyClass}>{n.body}</p>
+                              )}
+                              <p className={timeClass}>
+                                {formatDistanceToNow(new Date(n.sent_at), { addSuffix: true })}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" align="start" className="max-w-xs whitespace-pre-wrap break-words">
+                        <p className="font-semibold text-xs mb-1">{n.title}</p>
+                        {n.body && <p className="text-xs opacity-90">{n.body}</p>}
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </TooltipProvider>
             )}
           </div>
 
