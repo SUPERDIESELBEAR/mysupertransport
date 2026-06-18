@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,6 @@ type View = 'login' | 'forgot';
 
 export default function LoginPage() {
   const { signIn, user, isDispatcher, isManagement, isOnboardingStaff, loading: authLoading } = useAuth();
-  const [searchParams] = useSearchParams();
   const [view, setView] = useState<View>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
