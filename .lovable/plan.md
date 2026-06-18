@@ -1,47 +1,35 @@
-## Lock "Acknowledge" Until Driver Reads the Document
+# Driver App: Persistent Top Bar + Back Button
 
-Make the green Acknowledge button in the driver-facing Document Hub stay locked until the driver has actually viewed the content. Videos and already-acknowledged docs behave the same as today.
+## Goal
+1. Keep the Driver app top bar (logo, profile, notification preferences, notification bell, sign out, and a new Back button) visible at all times — never scroll away.
+2. Add a Back button so drivers can return from a sub-view (Document Hub → opened policy doc, Fleet → My Truck detail, ICA, Messages thread, Notifications, etc.) without scrolling back to the top to use the tab nav.
 
-### Behavior per document type
+## Changes
 
-| Type | Unlock rule |
-| --- | --- |
-| **PDF** | Unlocks once the driver clicks **View PDF** at least once (opens the preview modal). |
-| **Rich-text policy doc** | Unlocks once the driver scrolls to the bottom of the in-app text. |
-| **Video** | Unchanged — already requires opening; Acknowledge stays enabled as today. |
-| **Already acknowledged (current version)** | Unchanged — green "You have acknowledged this document" confirmation. |
+### 1. Lock the top bar (`src/pages/operator/OperatorPortal.tsx`)
+- Today the `<header>` uses `sticky top-0 z-40`. On mobile PWAs, sticky can be pushed out of view by safe-area / virtual keyboards / parent overflow. Convert to:
+  - `fixed top-0 inset-x-0 z-40` with the same dark surface styling.
+  - Add `pt-16` to the main content wrapper (line 1060) so content isn't hidden under the bar.
+  - Add `env(safe-area-inset-top)` padding so the bar clears the iOS status bar in PWA standalone mode.
+- Bottom mobile tab nav is already `fixed bottom-0` — no change.
 
-### UI changes (`src/components/documents/DocumentViewer.tsx`)
+### 2. Add a Back button to the top bar
+- New state `viewHistory: OperatorView[]` in `OperatorPortal`. Push the previous view onto it inside `setView` whenever the view actually changes (skip duplicates).
+- Render a Back button (`ChevronLeft` from lucide) at the far left of the header, just before the logo:
+  - **Hidden when `viewHistory.length === 0`** — no disabled/ghost state on root tabs (confirmed UX choice).
+  - On click: pop the last entry and call the underlying setter directly (without re-pushing).
+  - Also clears any open sub-detail state (e.g. `FleetDetailDrawer` open, doc viewer modals) via the existing `onBack` props on sub-components.
+- Keyboard: Esc triggers Back when history is non-empty.
+- Hardware back: integrate with the existing `useBackButton` hook so Android hardware back behaves the same instead of exiting the PWA.
 
-1. Add two pieces of local state:
-   - `hasOpenedPdf` — flips to `true` the first time the driver clicks **View PDF**.
-   - `hasReadToBottom` — flips to `true` when the rich-text container is scrolled to the bottom (within a small threshold, e.g. 16px).
+### 3. Sub-view back affordance
+- Top-bar Back is the single primary back control — no duplicate in-page back buttons added.
 
-2. **PDF docs:** Set `hasOpenedPdf = true` in the existing **View PDF** button handler (alongside `setPdfPreviewOpen(true)`).
+## Out of scope
+- No business-logic changes (acknowledgment gating, Go Live enforcement, etc. remain as previously planned).
+- No styling overhaul of the header beyond the new Back icon button and safe-area padding.
 
-3. **Rich-text docs:** Wrap the existing prose `<div dangerouslySetInnerHTML=…>` in a scrollable container with a capped height (e.g. `max-h-[60vh] overflow-y-auto`) and attach an `onScroll` handler that sets `hasReadToBottom` when `scrollTop + clientHeight >= scrollHeight - 16`. Also set `hasReadToBottom = true` immediately on mount if the content already fits without needing to scroll (so short docs aren't permanently locked).
-
-4. **Acknowledge footer:** Compute `canAcknowledge`:
-   - PDF → `hasOpenedPdf`
-   - Rich-text → `hasReadToBottom`
-   - Video / other → `true` (current behavior)
-
-   Apply `disabled={acknowledging || !canAcknowledge}` to the existing Acknowledge `<Button>`. Keep the button label as today.
-
-5. **Helper text above the Acknowledge button** (replaces the current single sentence, only shown when not yet acknowledged):
-   - PDF + not yet opened: *"Please open the PDF above before acknowledging."*
-   - Rich-text + not yet scrolled to bottom: *"Please scroll to the bottom of the document above before acknowledging."*
-   - Otherwise: the current confirmation sentence ("By clicking below, you confirm that you have read and understood this document.").
-
-   A small lock icon (`Lock` from `lucide-react`) next to the helper text when locked makes the gate obvious.
-
-### Out of scope
-
-- Videos — no completion gating in this pass (can be a follow-up).
-- Staff-side Compliance Dashboard, Document Editor, notifications, and DB schema — unchanged.
-- No changes to the `document_acknowledgments` table, RLS, or API calls.
-- No changes to `FilePreviewModal` itself.
-
-### Files touched
-
-- `src/components/documents/DocumentViewer.tsx` (only)
+## Technical notes
+- File: `src/pages/operator/OperatorPortal.tsx` only.
+- Icon: `ChevronLeft` from `lucide-react` (add to existing import list if missing).
+- `setView` wrapper signature unchanged so all existing call sites keep working.
