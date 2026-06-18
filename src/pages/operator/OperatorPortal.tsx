@@ -7,7 +7,7 @@ import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound,
-  ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye, Calculator, Home, ChevronRight,
+  ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye, Calculator, Home, ChevronRight, ChevronLeft,
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
 import DriverServiceLibrary from '@/components/service-library/DriverServiceLibrary';
