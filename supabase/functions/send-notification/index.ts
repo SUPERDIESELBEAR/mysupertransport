@@ -307,6 +307,8 @@ Deno.serve(async (req) => {
               body: `${name} has signed their Independent Contractor Agreement. The ICA is now fully executed.`,
               channel: 'in_app',
               link: '/staff',
+              entity_type: 'operator',
+              entity_id: operatorId,
             });
           }
           // Also notify management users who have in_app enabled for onboarding_milestone
@@ -333,6 +335,8 @@ Deno.serve(async (req) => {
                   body: `${name} has signed their Independent Contractor Agreement. The ICA is now fully executed.`,
                   channel: 'in_app',
                   link: '/staff',
+                  entity_type: 'operator',
+                  entity_id: operatorId,
                 }))
               );
             }
@@ -427,6 +431,8 @@ Deno.serve(async (req) => {
               body: notifBody,
               channel: 'in_app',
               link: notifLink,
+              entity_type: 'operator',
+              entity_id: operatorId,
             });
           }
         }
@@ -495,6 +501,8 @@ Deno.serve(async (req) => {
               body: notifBody,
               channel: 'in_app',
               link: '/dashboard',
+              entity_type: 'operator',
+              entity_id: operatorId,
             });
           }
         }
@@ -611,6 +619,8 @@ Deno.serve(async (req) => {
                     body: `Truck Down status set${payload.status_notes ? `: ${payload.status_notes}` : ''}`,
                     channel: 'in_app',
                     link: '/dispatch',
+                    entity_type: 'operator',
+                    entity_id: operatorId,
                   }))
                 );
               }
@@ -640,6 +650,8 @@ Deno.serve(async (req) => {
             body: preview.length > 120 ? preview.slice(0, 117) + '…' : preview,
             channel: 'in_app',
             link: '/dashboard?tab=messages',
+            entity_type: payload.thread_id ? 'message_thread' : null,
+            entity_id: payload.thread_id ?? null,
           });
         }
 
@@ -795,6 +807,8 @@ Deno.serve(async (req) => {
               body: `${operatorName} has uploaded their PE screening receipt. Log in to review.`,
               channel: 'in_app',
               link: `/staff?operator=${operatorId}`,
+              entity_type: 'operator',
+              entity_id: operatorId,
             });
           }
         }
@@ -823,6 +837,8 @@ Deno.serve(async (req) => {
                 body: `${operatorName} has uploaded their PE screening receipt. Log in to review.`,
                 channel: 'in_app',
                 link: `/staff?operator=${operatorId}`,
+                entity_type: 'operator',
+                entity_id: operatorId,
               }))
             );
           }
@@ -882,6 +898,8 @@ Deno.serve(async (req) => {
             body: 'Your QPassport has been uploaded by your coordinator. Download it and bring it to your drug screening appointment.',
             channel: 'in_app',
             link: '/operator?tab=progress#qpassport',
+            entity_type: 'operator',
+            entity_id: operatorId,
           });
         }
 
