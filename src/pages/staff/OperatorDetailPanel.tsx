@@ -2170,7 +2170,17 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setShowDeactivateConfirm(true)}
+                    onClick={() => {
+                      if (isActive && isOnHold && onHoldReason) {
+                        const dateStr = onHoldDate
+                          ? new Date(onHoldDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                          : null;
+                        setDeactivateReason(
+                          dateStr ? `On Hold since ${dateStr}: ${onHoldReason}` : `On Hold: ${onHoldReason}`
+                        );
+                      }
+                      setShowDeactivateConfirm(true);
+                    }}
                     disabled={deactivating}
                     className={isActive
                       ? 'gap-2 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive'
