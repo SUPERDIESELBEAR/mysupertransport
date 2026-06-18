@@ -1098,6 +1098,13 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             </div>
             <div className="mt-3 pt-3 border-t border-surface-dark-border flex flex-wrap justify-center gap-3">
               <button
+                onClick={() => { handleRefresh(); setMobileMenuOpen(false); }}
+                disabled={refreshing}
+                className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-surface-dark-foreground disabled:opacity-60"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+              </button>
+              <button
                 onClick={() => { setEditProfileOpen(true); setMobileMenuOpen(false); }}
                 className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-surface-dark-foreground"
               >
@@ -1122,13 +1129,6 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               </button>
               <button onClick={signOut} className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-destructive">
                 <LogOut className="h-4 w-4" /> Sign Out
-              </button>
-              <button
-                onClick={() => { handleRefresh(); setMobileMenuOpen(false); }}
-                disabled={refreshing}
-                className="flex items-center gap-1.5 text-xs text-surface-dark-muted hover:text-surface-dark-foreground disabled:opacity-60"
-              >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
               </button>
             </div>
           </div>
