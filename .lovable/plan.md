@@ -1,23 +1,37 @@
 ## Goal
 
-In the staff Application Review drawer (the panel shown in your screenshot), the **Med. Cert. Expiry** date picker currently forces month-by-month navigation with the arrows. Add a **year dropdown** in the calendar header so staff can jump straight to the right year.
+Give drivers (and staff) a one-tap way to pull the latest data without signing out and back in. Today the only way a driver can force the app to re-read from the backend is sign out / sign in — too heavy for a routine "I uploaded something, where is it?" moment.
 
-## Where
+## What "refresh" should do (UX)
 
-`src/components/management/ApplicationReviewDrawer.tsx` — the shared `StageDatePicker` sub-component renders the calendar popover used by both **Med. Cert. Expiry** and **CDL Expiry** (right above it). The fix naturally applies to both — same component, same pain point, no risk of one drifting from the other.
+A full browser reload (`window.location.reload()`) works but is the worst option on mobile/PWA: it flashes a white screen, drops scroll position, closes any open modal/drawer, and on iOS standalone can briefly look like the app crashed.
 
-## Change
+The best UX is a **soft refresh** that re-pulls data in place:
 
-Enable the built-in react-day-picker dropdown caption on the `<Calendar>` inside `StageDatePicker`:
+1. Call `refreshProfile()` from `useAuth` (re-reads profile, roles, onboarding flags).
+2. Call `queryClient.invalidateQueries()` so every React Query–backed list (documents, dispatch status, messages, notifications, compliance, etc.) refetches.
+3. Re-run the portal-local fetchers (operator record, onboarding status, assigned dispatcher/coordinator, truck info) — these don't all go through React Query in `OperatorPortal`, so the simplest move is to expose a `refreshAll()` callback that re-invokes the existing effect loaders.
+4. Spin the icon while in-flight, toast "Up to date" on success, "Couldn't refresh — check your connection" on failure.
+5. **Escape hatch:** long-press (or a small "Hard reload" item in the user menu) does an actual `location.reload()` for the rare case where a soft refresh isn't enough (e.g. after a deploy with new JS).
 
-- Pass `captionLayout="dropdown-buttons"` so the header shows a **Month** and **Year** dropdown alongside the prev/next arrows.
-- Set `fromYear={currentYear - 5}` and `toYear={currentYear + 20}`. Med Cert / CDL expiries are always future-dated (typically 0–10 yrs out), and a small look-back covers edge cases like correcting a typo.
-- Add a small `classNames` override on the popover usage so the new dropdowns inherit the existing input styling (compact height, border, text size) and don't look like raw browser selects.
-- Keep the default month opening on the currently selected date (already works via `selected`).
+## Where it goes
 
-No changes to data, validation, save logic, or any other field. The Calendar primitive (`src/components/ui/calendar.tsx`) already forwards props to `DayPicker`, so no changes are needed there.
+### Driver-facing app — `src/pages/operator/OperatorPortal.tsx`
+- Add a `RefreshCw` icon button in the top header, immediately to the left of the existing **Sign Out** button (line ~1038). Same icon-button styling as Sign Out, with `aria-label="Refresh"`.
+- Also add it inside the mobile menu drawer above the existing "Sign Out" row (line ~1112) labeled "Refresh data" so it's reachable on small screens with the menu open.
+- Wire it to a new `handleRefresh()` that runs the soft-refresh sequence above and toggles a local `refreshing` state for the spin animation.
 
-## Out of scope
+### Management / Staff DB — `src/components/layouts/StaffLayout.tsx`
+Yes, add it here too. Staff have the same problem on the management dashboard (a driver uploads a doc, the staff member's open drawer doesn't reflect it until reload). Add the same `RefreshCw` button in the top `<header>` (line ~349), to the left of the existing sign-out / user-menu cluster, with the same `handleRefresh()` semantics (refreshProfile + invalidateQueries + toast). No long-press needed on desktop; a separate "Hard reload" menu item under the user dropdown is enough.
 
-- The applicant-facing Driver Application form (this fix is for the staff review panel where Med. Cert. Expiry actually lives, per your screenshot).
-- Other date pickers in the app (StageDatePicker on the Operator Detail panel, DOB pickers, etc.). Happy to extend in a follow-up if you want one consistent year dropdown everywhere.
+### Not changing
+- Sign-out flow, auth, routing.
+- Service worker / PWA update logic (separate concern — already handled by the existing PWA update prompt).
+- Any data-fetching internals; we're just triggering existing refetch paths.
+
+## Technical notes
+
+- `useQueryClient()` from `@tanstack/react-query` is already available app-wide via `QueryClientProvider` in `src/App.tsx`.
+- `useAuth()` already exposes `refreshProfile`.
+- Icon: `RefreshCw` from `lucide-react`. Spin via `className={cn('h-5 w-5', refreshing && 'animate-spin')}`.
+- Debounce: ignore clicks while `refreshing === true` to avoid stacking calls.
