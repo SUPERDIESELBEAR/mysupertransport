@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle, FileText, Target, Paperclip, Truck, ShieldCheck, Megaphone, Banknote } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface Notification {
   id: string;
@@ -13,6 +14,8 @@ interface Notification {
   sent_at: string;
   read_at: string | null;
   type: string;
+  entity_type: string | null;
+  entity_id: string | null;
 }
 
 interface NotificationBellProps {
@@ -27,6 +30,7 @@ interface NotificationBellProps {
 export default function NotificationBell({ variant = 'light', notificationsPath = '/dashboard?view=notifications', clearBadge = false }: NotificationBellProps) {
   const { session } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -77,7 +81,7 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
     setLoading(true);
     const { data } = await supabase
       .from('notifications')
-      .select('id, title, body, link, sent_at, read_at, type')
+      .select('id, title, body, link, sent_at, read_at, type, entity_type, entity_id')
       .eq('user_id', session.user.id)
       .eq('channel', 'in_app')
       .order('sent_at', { ascending: false })
