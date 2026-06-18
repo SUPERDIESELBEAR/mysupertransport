@@ -164,6 +164,51 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const [equipmentShipping, setEquipmentShipping] = useState<EquipmentShippingInfo[]>([]);
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
+  // ── Back button history ─────────────────────────────────────────────
+  // Tracks prior views so the top-bar Back button can pop back without the
+  // driver having to scroll to the top to use the tab nav.
+  const [viewHistory, setViewHistory] = useState<OperatorView[]>([]);
+  const isGoingBackRef = useRef(false);
+  const prevViewRef = useRef<OperatorView>(view);
+  useEffect(() => {
+    if (prevViewRef.current === view) return;
+    if (isGoingBackRef.current) {
+      isGoingBackRef.current = false;
+    } else {
+      setViewHistory((h) => [...h, prevViewRef.current]);
+    }
+    prevViewRef.current = view;
+  }, [view]);
+  const goBack = useCallback(() => {
+    setViewHistory((h) => {
+      if (h.length === 0) return h;
+      const next = h.slice(0, -1);
+      const target = h[h.length - 1];
+      isGoingBackRef.current = true;
+      setView(target);
+      return next;
+    });
+  }, []);
+  // Esc key triggers Back when there's history.
+  useEffect(() => {
+    if (viewHistory.length === 0) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') goBack();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [viewHistory.length, goBack]);
+  // Hardware/browser back: when there's history, intercept popstate to pop the
+  // in-app view stack instead of leaving the portal.
+  useEffect(() => {
+    if (viewHistory.length === 0) return;
+    window.history.pushState({ operatorBack: true }, '');
+    const onPop = () => goBack();
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+    };
+  }, [viewHistory.length, goBack]);
   // Track whether we've already auto-redirected to Home so we don't fight the user
   const homeAutoRedirected = useRef(false);
   // Crossfade overlay shown while a destination view loads its first data.
