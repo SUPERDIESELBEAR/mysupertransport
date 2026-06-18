@@ -1061,11 +1061,20 @@ export default function DriverRoster({
                               )}
                             </TooltipTrigger>
                             <TooltipContent>
-                              {driver.pwa_installed_at
-                                ? `App installed ${format(parseISO(driver.pwa_installed_at), 'MMM d, yyyy')}`
-                                : driver.last_web_seen_at
-                                ? `Web only — last seen ${format(parseISO(driver.last_web_seen_at), 'MMM d, yyyy')}`
-                                : 'Never signed in'}
+                              <div className="text-xs leading-tight">
+                                <div>
+                                  {driver.pwa_installed_at
+                                    ? `App installed ${format(parseISO(driver.pwa_installed_at), 'MMM d, yyyy')}`
+                                    : driver.last_web_seen_at
+                                    ? `Web only — last seen ${format(parseISO(driver.last_web_seen_at), 'MMM d, yyyy')}`
+                                    : 'Never signed in'}
+                                </div>
+                                {driver.last_web_seen_at && (
+                                  <div className="text-muted-foreground text-[11px] mt-0.5">
+                                    Last active {format(parseISO(driver.last_web_seen_at), 'MMM d, yyyy')} at {format(parseISO(driver.last_web_seen_at), 'h:mm a')} CT
+                                  </div>
+                                )}
+                              </div>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>

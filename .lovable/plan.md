@@ -1,35 +1,34 @@
-# Driver App: Persistent Top Bar + Back Button
+# Add Last Active Date/Time to Install Status Tooltip
 
 ## Goal
-1. Keep the Driver app top bar (logo, profile, notification preferences, notification bell, sign out, and a new Back button) visible at all times — never scroll away.
-2. Add a Back button so drivers can return from a sub-view (Document Hub → opened policy doc, Fleet → My Truck detail, ICA, Messages thread, Notifications, etc.) without scrolling back to the top to use the tab nav.
+On the Management Dashboard → Driver Hub, when hovering the small phone/globe/user icon next to a driver's name, keep the existing "App installed …" / "Web only — last seen …" / "Never signed in" line **and** append a second line showing the driver's last active date and time inside the app.
 
-## Changes
+## Where
+`src/components/drivers/DriverRoster.tsx`, lines ~1052–1071 — the `TooltipContent` for the install-status icon. Data is already loaded: each driver row already has `last_web_seen_at` (updated by `mark_operator_seen` on every authenticated session — installed or web).
 
-### 1. Lock the top bar (`src/pages/operator/OperatorPortal.tsx`)
-- Today the `<header>` uses `sticky top-0 z-40`. On mobile PWAs, sticky can be pushed out of view by safe-area / virtual keyboards / parent overflow. Convert to:
-  - `fixed top-0 inset-x-0 z-40` with the same dark surface styling.
-  - Add `pt-16` to the main content wrapper (line 1060) so content isn't hidden under the bar.
-  - Add `env(safe-area-inset-top)` padding so the bar clears the iOS status bar in PWA standalone mode.
-- Bottom mobile tab nav is already `fixed bottom-0` — no change.
+## Tooltip behavior
+Render the tooltip body as two lines:
 
-### 2. Add a Back button to the top bar
-- New state `viewHistory: OperatorView[]` in `OperatorPortal`. Push the previous view onto it inside `setView` whenever the view actually changes (skip duplicates).
-- Render a Back button (`ChevronLeft` from lucide) at the far left of the header, just before the logo:
-  - **Hidden when `viewHistory.length === 0`** — no disabled/ghost state on root tabs (confirmed UX choice).
-  - On click: pop the last entry and call the underlying setter directly (without re-pushing).
-  - Also clears any open sub-detail state (e.g. `FleetDetailDrawer` open, doc viewer modals) via the existing `onBack` props on sub-components.
-- Keyboard: Esc triggers Back when history is non-empty.
-- Hardware back: integrate with the existing `useBackButton` hook so Android hardware back behaves the same instead of exiting the PWA.
+```text
+Line 1 (unchanged):
+  • Installed:     "App installed Jun 12, 2026"
+  • Web only:      "Web only — last seen Jun 12, 2026"
+  • Never:         "Never signed in"
 
-### 3. Sub-view back affordance
-- Top-bar Back is the single primary back control — no duplicate in-page back buttons added.
+Line 2 (new, only when last_web_seen_at exists):
+  "Last active Jun 18, 2026 at 2:34 PM CT"
+```
+
+- For installed drivers, line 2 is the meaningful "last time they opened the app" signal (today the install date is the only thing shown — stale and confusing).
+- For web-only drivers, line 2 is identical to their last-seen date but adds the time of day, which is genuinely new info.
+- For never-signed-in drivers, line 2 is omitted.
+
+## Formatting
+- Date: `format(parseISO(last_web_seen_at), 'MMM d, yyyy')`
+- Time: `format(parseISO(last_web_seen_at), 'h:mm a')` followed by the literal ` CT` suffix (matches the project's US Central Time standard from memory; `last_web_seen_at` is stored as UTC `timestamptz` and Date formatting renders in the viewer's local zone — staff are on CT, so this label is accurate for them and avoids pulling in a tz library).
+- Layout: wrap the tooltip content in a `div` with `text-xs leading-tight`; line 2 in a `div` with `text-muted-foreground text-[11px] mt-0.5`.
 
 ## Out of scope
-- No business-logic changes (acknowledgment gating, Go Live enforcement, etc. remain as previously planned).
-- No styling overhaul of the header beyond the new Back icon button and safe-area padding.
-
-## Technical notes
-- File: `src/pages/operator/OperatorPortal.tsx` only.
-- Icon: `ChevronLeft` from `lucide-react` (add to existing import list if missing).
-- `setView` wrapper signature unchanged so all existing call sites keep working.
+- No schema changes; no new RPC; no changes to the icon itself or to its color logic.
+- No changes to the "Excluded" badge tooltip or the reminder button next to it.
+- No changes outside `DriverRoster.tsx`.
