@@ -2167,6 +2167,8 @@ export type Database = {
         Row: {
           body: string | null
           channel: Database["public"]["Enums"]["notification_channel"]
+          entity_id: string | null
+          entity_type: string | null
           id: string
           link: string | null
           read_at: string | null
@@ -2178,6 +2180,8 @@ export type Database = {
         Insert: {
           body?: string | null
           channel?: Database["public"]["Enums"]["notification_channel"]
+          entity_id?: string | null
+          entity_type?: string | null
           id?: string
           link?: string | null
           read_at?: string | null
@@ -2189,6 +2193,8 @@ export type Database = {
         Update: {
           body?: string | null
           channel?: Database["public"]["Enums"]["notification_channel"]
+          entity_id?: string | null
+          entity_type?: string | null
           id?: string
           link?: string | null
           read_at?: string | null
