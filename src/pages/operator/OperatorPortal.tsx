@@ -60,6 +60,7 @@ interface UploadedDoc {
 
 export default function OperatorPortal({ previewUserId }: { previewUserId?: string } = {}) {
   const { profile: authProfile, user, signOut, refreshProfile, isTruckOwner } = useAuth();
+  const { refresh: handleRefresh, refreshing } = useAppRefresh();
   const isPreview = !!previewUserId;
   // For a truck owner, the effective user id is the LINKED DRIVER's user id, so
   // every existing query keyed on `effectiveUserId` automatically scopes to the
