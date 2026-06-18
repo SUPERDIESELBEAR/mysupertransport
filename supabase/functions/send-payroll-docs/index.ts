@@ -163,6 +163,8 @@ Deno.serve(async (req) => {
         type: 'onboarding_update',
         channel: 'in_app',
         link: '/operator',
+        entity_type: 'operator',
+        entity_id: operator_id,
       }),
       supabase.from('audit_log').insert({
         actor_id: caller.id,

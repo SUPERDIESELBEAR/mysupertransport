@@ -145,6 +145,8 @@ Deno.serve(async (req) => {
                 type: notifType,
                 channel: 'in_app',
                 link: '/operator/progress',
+                entity_type: 'operator',
+                entity_id: op.id,
               });
               queued.add(opKey);
               opNotifInserted = true;
@@ -217,6 +219,8 @@ Deno.serve(async (req) => {
                   type: notifType,
                   channel: 'in_app',
                   link: `/staff?operator=${op.id}`,
+                  entity_type: 'operator',
+                  entity_id: op.id,
                 });
                 queued.add(staffKey);
                 staffNotifInserted = true;
