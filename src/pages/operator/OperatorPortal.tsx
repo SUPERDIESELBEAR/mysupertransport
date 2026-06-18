@@ -7,7 +7,7 @@ import {
   CheckCircle2, Circle, Clock, AlertTriangle,
   MessageSquare, BookOpen, HelpCircle, FileText, SlidersHorizontal,
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound,
-  ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye, Calculator, Home, ChevronRight,
+  ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye, Calculator, Home, ChevronRight, ChevronLeft,
 } from 'lucide-react';
 import DocumentHub from '@/components/documents/DocumentHub';
 import DriverServiceLibrary from '@/components/service-library/DriverServiceLibrary';
@@ -164,6 +164,51 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const [equipmentShipping, setEquipmentShipping] = useState<EquipmentShippingInfo[]>([]);
   const viewRef = useRef(view);
   useEffect(() => { viewRef.current = view; }, [view]);
+  // ── Back button history ─────────────────────────────────────────────
+  // Tracks prior views so the top-bar Back button can pop back without the
+  // driver having to scroll to the top to use the tab nav.
+  const [viewHistory, setViewHistory] = useState<OperatorView[]>([]);
+  const isGoingBackRef = useRef(false);
+  const prevViewRef = useRef<OperatorView>(view);
+  useEffect(() => {
+    if (prevViewRef.current === view) return;
+    if (isGoingBackRef.current) {
+      isGoingBackRef.current = false;
+    } else {
+      setViewHistory((h) => [...h, prevViewRef.current]);
+    }
+    prevViewRef.current = view;
+  }, [view]);
+  const goBack = useCallback(() => {
+    setViewHistory((h) => {
+      if (h.length === 0) return h;
+      const next = h.slice(0, -1);
+      const target = h[h.length - 1];
+      isGoingBackRef.current = true;
+      setView(target);
+      return next;
+    });
+  }, []);
+  // Esc key triggers Back when there's history.
+  useEffect(() => {
+    if (viewHistory.length === 0) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') goBack();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [viewHistory.length, goBack]);
+  // Hardware/browser back: when there's history, intercept popstate to pop the
+  // in-app view stack instead of leaving the portal.
+  useEffect(() => {
+    if (viewHistory.length === 0) return;
+    window.history.pushState({ operatorBack: true }, '');
+    const onPop = () => goBack();
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+    };
+  }, [viewHistory.length, goBack]);
   // Track whether we've already auto-redirected to Home so we don't fight the user
   const homeAutoRedirected = useRef(false);
   // Crossfade overlay shown while a destination view loads its first data.
@@ -884,9 +929,24 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         </div>
       )}
       {/* Top nav */}
-      <header className={isPreview ? 'hidden' : "bg-surface-dark border-b border-surface-dark-border sticky top-0 z-40"}>
+      <header
+        className={isPreview ? 'hidden' : "bg-surface-dark border-b border-surface-dark-border fixed top-0 inset-x-0 z-40"}
+        style={isPreview ? undefined : { paddingTop: 'env(safe-area-inset-top)' }}
+      >
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-          <img src={logo} alt="SUPERTRANSPORT" className="h-10 w-auto max-w-[180px] object-contain shrink-0" />
+          <div className="flex items-center gap-1 min-w-0">
+            {viewHistory.length > 0 && (
+              <button
+                onClick={goBack}
+                aria-label="Back"
+                title="Back"
+                className="text-surface-dark-muted hover:text-surface-dark-foreground p-2 -ml-2 rounded-lg hover:bg-surface-dark-card transition-colors shrink-0"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
+            <img src={logo} alt="SUPERTRANSPORT" className="h-10 w-auto max-w-[180px] object-contain shrink-0" />
+          </div>
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
@@ -1057,7 +1117,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
       </header>
 
-      <div className="relative max-w-4xl mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6">
+      <div
+        className="relative max-w-4xl mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6"
+        style={isPreview ? undefined : { paddingTop: `calc(1.5rem + 4rem + env(safe-area-inset-top))` }}
+      >
 
         {/* ── TRUCK DOWN ALERT BANNER ── */}
         {dispatchStatus === 'truck_down' && (
