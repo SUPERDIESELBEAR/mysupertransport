@@ -5874,7 +5874,36 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         </SelectContent>
                       </Select>
                     </div>
-                    <StageDatePicker label="Go-Live Date" value={status.go_live_date ?? null} onChange={v => { updateStatus('go_live_date', v); if (v) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage7'); return next; }); } }} />
+                    {goLiveBlockers.length > 0 && !status.go_live_date && (
+                      <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <Shield className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                          <div className="text-xs text-foreground">
+                            <p className="font-semibold text-destructive">
+                              Driver must acknowledge {goLiveBlockers.length} policy document{goLiveBlockers.length !== 1 ? 's' : ''} before going live:
+                            </p>
+                            <ul className="mt-1 list-disc list-inside text-muted-foreground space-y-0.5">
+                              {goLiveBlockers.map(b => <li key={b.document_id}>{b.title}</li>)}
+                            </ul>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={sendAckReminder} disabled={sendingAckReminder || !operatorUserId}>
+                            <Bell className="h-3 w-3" />
+                            {sendingAckReminder ? 'Sending…' : 'Send reminder'}
+                          </Button>
+                          {isOwner && (
+                            <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive gap-1.5" onClick={() => { setOverrideDate(new Date().toISOString().split('T')[0]); setOverrideOpen(true); }}>
+                              <Shield className="h-3 w-3" />
+                              Override and set Go Live
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <div className={goLiveBlockers.length > 0 && !status.go_live_date ? 'opacity-50 pointer-events-none' : ''}>
+                      <StageDatePicker label="Go-Live Date" value={status.go_live_date ?? null} onChange={v => { updateStatus('go_live_date', v); if (v) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage7'); return next; }); } }} />
+                    </div>
                   </div>
 
                   {s7Complete && (
