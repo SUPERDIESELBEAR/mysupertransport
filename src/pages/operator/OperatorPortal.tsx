@@ -1117,7 +1117,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
       </header>
 
-      <div className="relative max-w-4xl mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6">
+      <div
+        className="relative max-w-4xl mx-auto px-4 py-6 pb-36 md:pb-6 space-y-6"
+        style={isPreview ? undefined : { paddingTop: `calc(1.5rem + 4rem + env(safe-area-inset-top))` }}
+      >
 
         {/* ── TRUCK DOWN ALERT BANNER ── */}
         {dispatchStatus === 'truck_down' && (
