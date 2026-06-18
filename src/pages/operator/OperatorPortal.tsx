@@ -33,6 +33,7 @@ import DriverVaultCard from '@/components/drivers/DriverVaultCard';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
 import { BuildInfo } from '@/components/BuildInfo';
 import SettlementForecast from '@/components/operator/SettlementForecast';
+import { useAppRefresh } from '@/hooks/useAppRefresh';
 import { Skeleton } from '@/components/ui/skeleton';
 import DestinationSkeleton from '@/components/operator/DestinationSkeleton';
 
