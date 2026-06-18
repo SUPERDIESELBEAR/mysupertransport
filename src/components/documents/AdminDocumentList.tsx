@@ -18,7 +18,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Edit2, Trash2, GripVertical, Eye, EyeOff, AlertTriangle, CheckCircle2, Pin, FileText, Video } from 'lucide-react';
+import { Edit2, Trash2, GripVertical, Eye, EyeOff, AlertTriangle, CheckCircle2, Pin, FileText, Video, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -49,7 +49,7 @@ interface SortableRowProps {
   ackCount: number;
   totalDrivers: number;
   toggling: string | null;
-  onToggle: (doc: DriverDocument, field: 'is_visible' | 'is_required' | 'is_pinned') => void;
+  onToggle: (doc: DriverDocument, field: 'is_visible' | 'is_required' | 'is_pinned' | 'blocks_go_live') => void;
   onEdit: (doc: DriverDocument) => void;
   onDelete: (doc: DriverDocument) => void;
   isDragging?: boolean;
@@ -165,6 +165,18 @@ function SortableRow({
               checked={doc.is_required}
               disabled={toggling === `${doc.id}-is_required`}
               onCheckedChange={() => onToggle(doc, 'is_required')}
+              className="scale-90"
+            />
+            <DemoLockIcon badge />
+          </div>
+        </div>
+        <div className="hidden sm:flex items-center gap-1.5" title="Blocks Go Live — driver must acknowledge before Go Live can be set">
+          <ShieldAlert className={`h-3.5 w-3.5 ${doc.blocks_go_live ? 'text-destructive' : 'text-muted-foreground'}`} />
+          <div className="relative inline-flex">
+            <Switch
+              checked={doc.blocks_go_live}
+              disabled={toggling === `${doc.id}-blocks_go_live`}
+              onCheckedChange={() => onToggle(doc, 'blocks_go_live')}
               className="scale-90"
             />
             <DemoLockIcon badge />
@@ -322,7 +334,7 @@ export default function AdminDocumentList({
     }
   };
 
-  const handleToggle = async (doc: DriverDocument, field: 'is_visible' | 'is_required' | 'is_pinned') => {
+  const handleToggle = async (doc: DriverDocument, field: 'is_visible' | 'is_required' | 'is_pinned' | 'blocks_go_live') => {
     if (guardDemo()) return;
     const newVal = !doc[field];
     setToggling(`${doc.id}-${field}`);
@@ -362,6 +374,7 @@ export default function AdminDocumentList({
       is_visible: newVal ? 'Visible to drivers' : 'Hidden from drivers',
       is_required: newVal ? 'Marked as required' : 'No longer required',
       is_pinned: newVal ? 'Pinned' : 'Unpinned',
+      blocks_go_live: newVal ? 'Now blocks Go Live until acknowledged' : 'No longer blocks Go Live',
     };
     toast({ title: labels[field] });
     onRefresh();
