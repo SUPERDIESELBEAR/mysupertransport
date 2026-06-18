@@ -147,13 +147,34 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
         if (form.dash_cam_number.trim()) onboardingUpdate.dash_cam_number = form.dash_cam_number.trim();
         if (form.bestpass_number.trim()) onboardingUpdate.bestpass_number = form.bestpass_number.trim();
         if (form.fuel_card_number.trim()) onboardingUpdate.fuel_card_number = form.fuel_card_number.trim();
-        if (form.start_date) onboardingUpdate.go_live_date = form.start_date;
+
+        // Pre-flight Go Live gate: only set go_live_date if no unacked blocking docs.
+        let goLiveDeferred: { count: number; titles: string[] } | null = null;
+        if (form.start_date) {
+          const { data: blockers } = await supabase.rpc(
+            'unacked_go_live_blockers' as any,
+            { _operator_id: operator.id },
+          );
+          const list = (blockers as any[]) ?? [];
+          if (list.length === 0) {
+            onboardingUpdate.go_live_date = form.start_date;
+          } else {
+            goLiveDeferred = { count: list.length, titles: list.map(b => b.title) };
+          }
+        }
 
         if (Object.keys(onboardingUpdate).length > 0) {
           await supabase
             .from('onboarding_status')
             .update(onboardingUpdate)
             .eq('operator_id', operator.id);
+        }
+
+        if (goLiveDeferred) {
+          toast({
+            title: 'Go Live date deferred',
+            description: `Driver created. ${goLiveDeferred.count} required policy document${goLiveDeferred.count !== 1 ? 's' : ''} must be acknowledged before Go Live can be set: ${goLiveDeferred.titles.join(', ')}.`,
+          });
         }
 
         // Two-way sync: create/assign devices in Equipment Inventory

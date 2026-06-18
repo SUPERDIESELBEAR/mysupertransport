@@ -38,6 +38,7 @@ const EMPTY_FORM = {
   category: 'General' as DriverDocument['category'],
   estimated_read_minutes: '',
   is_required: false,
+  blocks_go_live: false,
   is_visible: false,
   is_pinned: false,
   body: '',
@@ -87,6 +88,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
         category: doc.category,
         estimated_read_minutes: doc.estimated_read_minutes?.toString() ?? '',
         is_required: doc.is_required,
+        blocks_go_live: (doc as any).blocks_go_live ?? false,
         is_visible: doc.is_visible,
         is_pinned: doc.is_pinned,
         body: doc.body ?? '',
@@ -234,6 +236,7 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
       category: form.category,
       estimated_read_minutes: form.estimated_read_minutes ? parseInt(form.estimated_read_minutes) : null,
       is_required: form.is_required,
+      blocks_go_live: form.blocks_go_live,
       is_visible: form.is_visible,
       is_pinned: form.is_pinned,
       body: finalBody,
@@ -797,6 +800,7 @@ function EditForm({
       <div className="flex flex-wrap gap-6">
         {[
           { key: 'is_required', label: 'Required' },
+          { key: 'blocks_go_live', label: 'Blocks Go Live' },
           { key: 'is_visible', label: 'Visible to Drivers' },
           { key: 'is_pinned', label: 'Pinned' },
         ].map(({ key, label }) => (

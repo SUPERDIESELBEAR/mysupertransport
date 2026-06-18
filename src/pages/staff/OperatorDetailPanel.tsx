@@ -462,7 +462,16 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [excludedFromDispatch, setExcludedFromDispatch] = useState(false);
   const [excludedReason, setExcludedReason] = useState<string>('');
   const [savingExclusion, setSavingExclusion] = useState(false);
-  const { isManagement } = useAuth();
+  const { isManagement, isOwner } = useAuth();
+
+  // Go Live ack gate state
+  const [goLiveBlockers, setGoLiveBlockers] = useState<{ document_id: string; title: string; version: number }[]>([]);
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrideDate, setOverrideDate] = useState<string>('');
+  const [overrideReason, setOverrideReason] = useState('');
+  const [overrideConfirmName, setOverrideConfirmName] = useState('');
+  const [overrideSaving, setOverrideSaving] = useState(false);
+  const [sendingAckReminder, setSendingAckReminder] = useState(false);
 
   // On Hold state
   const [isOnHold, setIsOnHold] = useState(false);
@@ -1830,6 +1839,57 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     } finally {
       setSavingOnHold(false);
     }
+  };
+
+  // Load unacked Go Live blocker docs for this operator
+  const refreshGoLiveBlockers = useCallback(async () => {
+    if (!operatorId) return;
+    const { data, error } = await supabase.rpc('unacked_go_live_blockers' as any, { _operator_id: operatorId });
+    if (!error) setGoLiveBlockers((data as any) ?? []);
+  }, [operatorId]);
+
+  useEffect(() => { refreshGoLiveBlockers(); }, [refreshGoLiveBlockers]);
+
+  const sendAckReminder = async () => {
+    if (!operatorUserId || goLiveBlockers.length === 0) return;
+    setSendingAckReminder(true);
+    const titles = goLiveBlockers.map(b => b.title).join(', ');
+    const { error } = await supabase.from('notifications').insert({
+      user_id: operatorUserId,
+      title: 'Action required: acknowledge policy documents',
+      body: `Please review and acknowledge the following before Go Live: ${titles}`,
+      type: 'document_ack_reminder',
+      channel: 'in_app',
+      link: '/operator?tab=docs-hub',
+    });
+    setSendingAckReminder(false);
+    if (error) toast({ title: 'Failed to send reminder', description: error.message, variant: 'destructive' });
+    else toast({ title: 'Reminder sent to driver' });
+  };
+
+  const submitOverride = async () => {
+    if (!operatorId || !overrideDate) return;
+    if (overrideConfirmName.trim().toLowerCase() !== operatorName.trim().toLowerCase()) {
+      toast({ title: 'Name does not match', description: `Type "${operatorName}" exactly to confirm.`, variant: 'destructive' });
+      return;
+    }
+    setOverrideSaving(true);
+    const { error } = await supabase.rpc('set_go_live_with_override' as any, {
+      _operator_id: operatorId,
+      _go_live_date: overrideDate,
+      _reason: overrideReason || null,
+    });
+    setOverrideSaving(false);
+    if (error) {
+      toast({ title: 'Override failed', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setStatus((prev: any) => ({ ...prev, go_live_date: overrideDate }));
+    setOverrideOpen(false);
+    setOverrideConfirmName('');
+    setOverrideReason('');
+    refreshGoLiveBlockers();
+    toast({ title: 'Go Live set via owner override', description: `Bypassed ${goLiveBlockers.length} unacknowledged document(s).` });
   };
 
   const updateStatus = (field: keyof OnboardingStatus, value: string | null) => {
@@ -3725,6 +3785,38 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Owner Go Live Override Dialog ── */}
+      <AlertDialog open={overrideOpen} onOpenChange={(o) => { if (!o) { setOverrideOpen(false); setOverrideConfirmName(''); setOverrideReason(''); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><Shield className="h-4 w-4 text-destructive" />Override Go Live gate</AlertDialogTitle>
+            <AlertDialogDescription>
+              {operatorName} has {goLiveBlockers.length} unacknowledged policy document{goLiveBlockers.length !== 1 ? 's' : ''}. As owner, you can bypass the gate. This action is logged in the audit trail with your name and the bypassed documents.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Go-Live Date</Label>
+              <DateInput value={overrideDate} onChange={v => setOverrideDate(v || '')} className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Reason (optional)</Label>
+              <Textarea value={overrideReason} onChange={e => setOverrideReason(e.target.value)} placeholder="e.g. Driver acknowledged in person — paper copy on file." className="text-sm min-h-[60px]" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Type the driver's full name to confirm: <span className="font-semibold">{operatorName}</span></Label>
+              <Input value={overrideConfirmName} onChange={e => setOverrideConfirmName(e.target.value)} placeholder={operatorName} className="h-9 text-sm" />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={overrideSaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={submitOverride} disabled={overrideSaving || !overrideDate || overrideConfirmName.trim().toLowerCase() !== operatorName.trim().toLowerCase()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {overrideSaving ? 'Overriding…' : 'Confirm override'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ── Deactivate Confirmation Dialog ── */}
       <AlertDialog open={showDeactivateConfirm} onOpenChange={open => { if (!open) setDeactivateReason(''); setShowDeactivateConfirm(open); }}>
@@ -5814,7 +5906,36 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                         </SelectContent>
                       </Select>
                     </div>
-                    <StageDatePicker label="Go-Live Date" value={status.go_live_date ?? null} onChange={v => { updateStatus('go_live_date', v); if (v) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage7'); return next; }); } }} />
+                    {goLiveBlockers.length > 0 && !status.go_live_date && (
+                      <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <Shield className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                          <div className="text-xs text-foreground">
+                            <p className="font-semibold text-destructive">
+                              Driver must acknowledge {goLiveBlockers.length} policy document{goLiveBlockers.length !== 1 ? 's' : ''} before going live:
+                            </p>
+                            <ul className="mt-1 list-disc list-inside text-muted-foreground space-y-0.5">
+                              {goLiveBlockers.map(b => <li key={b.document_id}>{b.title}</li>)}
+                            </ul>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={sendAckReminder} disabled={sendingAckReminder || !operatorUserId}>
+                            <Bell className="h-3 w-3" />
+                            {sendingAckReminder ? 'Sending…' : 'Send reminder'}
+                          </Button>
+                          {isOwner && (
+                            <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive gap-1.5" onClick={() => { setOverrideDate(new Date().toISOString().split('T')[0]); setOverrideOpen(true); }}>
+                              <Shield className="h-3 w-3" />
+                              Override and set Go Live
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <div className={goLiveBlockers.length > 0 && !status.go_live_date ? 'opacity-50 pointer-events-none' : ''}>
+                      <StageDatePicker label="Go-Live Date" value={status.go_live_date ?? null} onChange={v => { updateStatus('go_live_date', v); if (v) { setCollapsedStages(prev => { const next = new Set(prev); next.add('stage7'); return next; }); } }} />
+                    </div>
                   </div>
 
                   {s7Complete && (

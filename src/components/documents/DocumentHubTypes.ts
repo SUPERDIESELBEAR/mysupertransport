@@ -8,6 +8,7 @@ export interface DriverDocument {
   category: DocCategory;
   is_visible: boolean;
   is_required: boolean;
+  blocks_go_live: boolean;
   is_pinned: boolean;
   sort_order: number;
   estimated_read_minutes: number | null;
