@@ -1841,6 +1841,57 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     }
   };
 
+  // Load unacked Go Live blocker docs for this operator
+  const refreshGoLiveBlockers = useCallback(async () => {
+    if (!operatorId) return;
+    const { data, error } = await supabase.rpc('unacked_go_live_blockers' as any, { _operator_id: operatorId });
+    if (!error) setGoLiveBlockers((data as any) ?? []);
+  }, [operatorId]);
+
+  useEffect(() => { refreshGoLiveBlockers(); }, [refreshGoLiveBlockers]);
+
+  const sendAckReminder = async () => {
+    if (!operatorUserId || goLiveBlockers.length === 0) return;
+    setSendingAckReminder(true);
+    const titles = goLiveBlockers.map(b => b.title).join(', ');
+    const { error } = await supabase.from('notifications').insert({
+      user_id: operatorUserId,
+      title: 'Action required: acknowledge policy documents',
+      body: `Please review and acknowledge the following before Go Live: ${titles}`,
+      type: 'document_ack_reminder',
+      channel: 'in_app',
+      link: '/operator?tab=docs-hub',
+    });
+    setSendingAckReminder(false);
+    if (error) toast({ title: 'Failed to send reminder', description: error.message, variant: 'destructive' });
+    else toast({ title: 'Reminder sent to driver' });
+  };
+
+  const submitOverride = async () => {
+    if (!operatorId || !overrideDate) return;
+    if (overrideConfirmName.trim().toLowerCase() !== operatorName.trim().toLowerCase()) {
+      toast({ title: 'Name does not match', description: `Type "${operatorName}" exactly to confirm.`, variant: 'destructive' });
+      return;
+    }
+    setOverrideSaving(true);
+    const { error } = await supabase.rpc('set_go_live_with_override' as any, {
+      _operator_id: operatorId,
+      _go_live_date: overrideDate,
+      _reason: overrideReason || null,
+    });
+    setOverrideSaving(false);
+    if (error) {
+      toast({ title: 'Override failed', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setStatus((prev: any) => ({ ...prev, go_live_date: overrideDate }));
+    setOverrideOpen(false);
+    setOverrideConfirmName('');
+    setOverrideReason('');
+    refreshGoLiveBlockers();
+    toast({ title: 'Go Live set via owner override', description: `Bypassed ${goLiveBlockers.length} unacknowledged document(s).` });
+  };
+
   const updateStatus = (field: keyof OnboardingStatus, value: string | null) => {
     setStatus(prev => ({ ...prev, [field]: value }));
   };
