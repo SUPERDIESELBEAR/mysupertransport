@@ -202,6 +202,19 @@ function EditableDateField({
               selected={date}
               onSelect={onSelect}
               initialFocus
+              captionLayout="dropdown-buttons"
+              fromYear={new Date().getFullYear() - 5}
+              toYear={new Date().getFullYear() + 20}
+              defaultMonth={date}
+              classNames={{
+                caption_label: 'hidden',
+                caption_dropdowns: 'flex gap-1 items-center',
+                dropdown:
+                  'h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring',
+                dropdown_month: 'text-xs',
+                dropdown_year: 'text-xs',
+                vhidden: 'hidden',
+              }}
               className={cn('p-3 pointer-events-auto')}
             />
           </PopoverContent>
