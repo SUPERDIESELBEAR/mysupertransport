@@ -1,17 +1,20 @@
-When archiving (deactivating) an operator who is currently On Hold, pre-fill the deactivation reason field with the existing on-hold reason and the "since" date so management doesn't retype it. The text stays fully editable before confirming, and the saved comment continues to flow through to the archived driver profile (where it's already editable today via `ArchivedDriversView`).
+## Problem
 
-### Behavior
-- Opening the Deactivate dialog while `isOnHold` is `true`:
-  - Pre-populate `deactivateReason` with: `On Hold since {Mon D, YYYY}: {on_hold_reason}`
-  - The dropdown will resolve to "Other" automatically (combined string doesn't match presets), revealing the editable textarea pre-filled with that string.
-  - Staff can append/edit freely before confirming.
-- If the operator is not on hold, behavior is unchanged (blank dropdown).
-- On confirm, the reason is written to `audit_log.metadata.reason` exactly as today, so it surfaces and remains editable on the archived driver profile (no changes needed to `ArchivedDriversView`).
-- Re-opening the dialog after cancel resets to the prefill again (canceling clears state currently — keep that behavior, but reseed on next open).
+The previous fix targeted `OperatorDetailPanel.tsx`'s Deactivate dialog, but the user is archiving from the **Pipeline Dashboard** On-Hold list, which uses a separate "Archive this applicant?" `AlertDialog` in `src/pages/staff/PipelineDashboard.tsx`. That dialog opens with an empty `archiveReason`, so the on-hold reason and "since" date shown next to the name are not carried into the comment field.
 
-### Files to edit
-- `src/pages/staff/OperatorDetailPanel.tsx`
-  - Update the Deactivate button `onClick` (~line 2173) to seed `deactivateReason` from on-hold context when `isOnHold` is true, before opening `showDeactivateConfirm`.
-  - Keep cancel behavior (clearing on close) intact so the next open reseeds fresh from current on-hold values.
+## Fix
 
-No database, RLS, or archived-view changes required.
+In `src/pages/staff/PipelineDashboard.tsx`:
+
+1. **Line ~3628** — On the archive trigger button's `onClick`, replace `setArchiveReason('')` with a pre-fill derived from the operator's on-hold context:
+   - If `op.on_hold_reason` exists and `op.on_hold_date` exists → `"On Hold since {Mon D, YYYY}: {reason}"`
+   - If only reason → `"On Hold: {reason}"`
+   - If only date → `"On Hold since {Mon D, YYYY}"`
+   - If neither → `""` (preserve current behavior)
+   - Date formatting uses the same `format(parseISO(op.on_hold_date), 'MMM d, yyyy')` already imported and used on line 3604 for consistency.
+
+2. **Line ~3727** — The dialog's `onOpenChange` reset currently sets `archiveReason` to `''` on close. Keep that as-is so the next open reseeds fresh from the then-current `archiveTarget`.
+
+No changes to `handleArchiveFromHold` are needed — it already writes `archiveReason` into `audit_log.metadata.reason` (line 1280), which is what the Archived Drivers profile reads and allows editing. So the pre-filled (and optionally appended) text carries over to the archived profile automatically.
+
+No database, RLS, or `ArchivedDriversView` changes required.
