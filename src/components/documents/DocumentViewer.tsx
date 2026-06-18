@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowLeft, Clock, CheckCircle2, AlertTriangle, BookOpen, FileText, Download, Video } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { ArrowLeft, Clock, CheckCircle2, AlertTriangle, BookOpen, FileText, Download, Video, Lock } from 'lucide-react';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,11 +21,37 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
   const { toast } = useToast();
   const [acknowledging, setAcknowledging] = useState(false);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+  const [hasOpenedPdf, setHasOpenedPdf] = useState(false);
+  const [hasReadToBottom, setHasReadToBottom] = useState(false);
+  const richTextScrollRef = useRef<HTMLDivElement>(null);
 
   const isAcknowledged = !!acknowledgment && acknowledgment.document_version === doc.version;
   const isUpdated = !!acknowledgment && acknowledgment.document_version < doc.version;
   const isPdf = doc.content_type === 'pdf';
   const isVideo = doc.content_type === 'video';
+  const isRichText = !isPdf && !isVideo && !!doc.body;
+
+  const checkScrolled = useCallback(() => {
+    const el = richTextScrollRef.current;
+    if (!el) return;
+    // If content fits without scrolling, unlock immediately.
+    if (el.scrollHeight <= el.clientHeight + 4) {
+      setHasReadToBottom(true);
+      return;
+    }
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 16) {
+      setHasReadToBottom(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isRichText) return;
+    // Run after layout settles so short docs unlock right away.
+    const t = setTimeout(checkScrolled, 50);
+    return () => clearTimeout(t);
+  }, [isRichText, checkScrolled, doc.body]);
+
+  const canAcknowledge = isPdf ? hasOpenedPdf : isRichText ? hasReadToBottom : true;
 
   const embedUrl = isVideo ? parseVideoEmbedUrl(doc.video_url ?? '') : null;
 
@@ -154,7 +180,7 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
                 <p className="text-foreground font-medium mb-1">{doc.title}</p>
                 <p className="text-muted-foreground text-sm">PDF Document</p>
               </div>
-              <Button onClick={() => setPdfPreviewOpen(true)} className="gap-2">
+              <Button onClick={() => { setPdfPreviewOpen(true); setHasOpenedPdf(true); }} className="gap-2">
                 <FileText className="h-4 w-4" />
                 View PDF
               </Button>
@@ -170,7 +196,9 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
           )
         ) : doc.body ? (
           <div
-            className="prose prose-sm max-w-none text-foreground
+            ref={richTextScrollRef}
+            onScroll={checkScrolled}
+            className="max-h-[60vh] overflow-y-auto pr-2 prose prose-sm max-w-none text-foreground
               prose-headings:font-bold prose-headings:text-foreground
               prose-h1:text-xl prose-h2:text-lg prose-h3:text-base
               prose-p:text-foreground prose-p:leading-relaxed
@@ -197,12 +225,21 @@ export default function DocumentViewer({ doc, userId, acknowledgment, onBack, on
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3 text-center">
-              <p className="text-sm text-muted-foreground max-w-md">
-                By clicking below, you confirm that you have{isPdf ? ' opened and' : isVideo ? ' watched and' : ''} read and understood this document.
-              </p>
+              {!canAcknowledge ? (
+                <p className="text-sm text-muted-foreground max-w-md flex items-center justify-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5" />
+                  {isPdf
+                    ? 'Please open the PDF above before acknowledging.'
+                    : 'Please scroll to the bottom of the document above before acknowledging.'}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground max-w-md">
+                  By clicking below, you confirm that you have{isPdf ? ' opened and' : isVideo ? ' watched and' : ''} read and understood this document.
+                </p>
+              )}
               <Button
                 onClick={handleAcknowledge}
-                disabled={acknowledging}
+                disabled={acknowledging || !canAcknowledge}
                 size="lg"
                 className="gap-2"
               >
