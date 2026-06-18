@@ -929,9 +929,24 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         </div>
       )}
       {/* Top nav */}
-      <header className={isPreview ? 'hidden' : "bg-surface-dark border-b border-surface-dark-border sticky top-0 z-40"}>
+      <header
+        className={isPreview ? 'hidden' : "bg-surface-dark border-b border-surface-dark-border fixed top-0 inset-x-0 z-40"}
+        style={isPreview ? undefined : { paddingTop: 'env(safe-area-inset-top)' }}
+      >
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-          <img src={logo} alt="SUPERTRANSPORT" className="h-10 w-auto max-w-[180px] object-contain shrink-0" />
+          <div className="flex items-center gap-1 min-w-0">
+            {viewHistory.length > 0 && (
+              <button
+                onClick={goBack}
+                aria-label="Back"
+                title="Back"
+                className="text-surface-dark-muted hover:text-surface-dark-foreground p-2 -ml-2 rounded-lg hover:bg-surface-dark-card transition-colors shrink-0"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
+            <img src={logo} alt="SUPERTRANSPORT" className="h-10 w-auto max-w-[180px] object-contain shrink-0" />
+          </div>
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
