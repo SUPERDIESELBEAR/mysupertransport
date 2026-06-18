@@ -3273,6 +3273,14 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                             <TooltipProvider delayDuration={100}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
+                                  {op.pwa_installed_at ? (
+                                    <span
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold leading-none border shrink-0 w-fit bg-status-complete/10 text-status-complete border-status-complete/30 cursor-default"
+                                    >
+                                      <Smartphone className="h-2.5 w-2.5 shrink-0" />
+                                      App Installed
+                                    </span>
+                                  ) : (
                                   <button
                                     onClick={e => { e.stopPropagation(); handleSendInstallInvite(op); }}
                                     disabled={installInviteSending[op.id] || installInviteSent[op.id]}
@@ -3287,9 +3295,12 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                                     )}
                                     {installInviteSent[op.id] ? 'Sent' : 'Send App Install'}
                                   </button>
+                                  )}
                                 </TooltipTrigger>
                                 <TooltipContent side="top" className="text-xs">
-                                  {installInviteSent[op.id]
+                                  {op.pwa_installed_at
+                                    ? `App installed ${format(parseISO(op.pwa_installed_at), 'MMM d, yyyy')}`
+                                    : installInviteSent[op.id]
                                     ? 'SUPERDRIVE install email sent!'
                                     : `Send SUPERDRIVE install + welcome email to ${op.email ?? 'this operator'} (24h cooldown)`}
                                 </TooltipContent>
