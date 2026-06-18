@@ -365,6 +365,15 @@ export default function StaffLayout({ children, navItems, mobileNavItems, curren
           </button>
           <div className="flex-1 min-w-0" />
           {headerActions}
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-muted disabled:opacity-60"
+            title="Refresh data"
+            aria-label="Refresh data"
+          >
+            <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
           <NotificationBell notificationsPath={notificationsPath} />
         </header>
 
