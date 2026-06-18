@@ -3607,9 +3607,18 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
                       {/* Reason */}
                       {op.on_hold_reason && (
-                        <span className="text-xs text-muted-foreground italic truncate max-w-xs">
-                          "{op.on_hold_reason}"
-                        </span>
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="text-xs text-muted-foreground italic truncate max-w-xs cursor-help">
+                                "{op.on_hold_reason}"
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-sm text-xs whitespace-pre-wrap break-words">
+                              {op.on_hold_reason}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       )}
 
                       {/* Progress track */}
