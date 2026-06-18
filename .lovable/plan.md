@@ -1,23 +1,21 @@
+Universal "Sign In" label simplification
+
 ## Summary
-Update the shared `/login` page to show **"Driver Sign In"** when accessed from the forward-facing driver app, while keeping **"Staff Sign In"** for management dashboard access.
+Remove all role-specific sign-in labels. Every login screen will read "Sign In" and the "Operator Portal" / "Driver Portal" subtitle under the logo will be removed.
 
-## Plan
+## Files to change
 
-### 1. LoginPage conditional heading
-In `src/pages/LoginPage.tsx`, read the `type` query parameter from the URL.
-- If `type=driver`, render heading **"Driver Sign In"** and subtitle **"Driver Portal"**.
-- Otherwise, default to **"Staff Sign In"** and **"Operator Portal"** (current behavior).
+### 1. `src/pages/LoginPage.tsx`
+- Change heading from conditional `Driver Sign In` / `Staff Sign In` to plain `Sign In`.
+- Remove the `<p>` tag that renders `portalLabel` (`Driver Portal` / `Operator Portal`) under the logo.
+- The `?type=driver` URL parameter can remain in place for now (it will simply have no visible effect).
 
-### 2. Update driver-facing login links
-Change hardcoded `/login` links that serve drivers/operators to `/login?type=driver`:
-- `src/pages/SplashPage.tsx` — header "Sign In" link and footer "Sign In" link.
-- `src/pages/WelcomeOperator.tsx` — "Already have an account? Sign in" fallback link.
-- Audit `src/pages/InstallApp.tsx` and `src/pages/ApplicationStatus.tsx` for any other driver-facing login links and update them if found.
+### 2. `src/pages/ResetPassword.tsx`
+- Remove the "Operator Portal" `<p>` tag under the SUPERTRANSPORT logo.
 
-### 3. Verify with preview
-After implementation, navigate to `/login` (staff path) and `/login?type=driver` (driver path) in the preview to confirm the correct headings appear.
+### 3. `src/pages/SplashPage.tsx`
+- No text change required; the nav link already reads "Sign In". The `?type=driver` query parameter on the link can be dropped to keep URLs clean, since it no longer affects the UI.
 
-## Technical Details
-- Use `useSearchParams` from `react-router-dom` to read the query parameter.
-- The conditional only affects the `<h2>` heading and subtitle `<p>` text; no auth logic changes.
-- No backend or route changes required.
+## What will NOT change
+- Internal route names, component names, or page titles (e.g. `OperatorPortal` component, `/dashboard` route).
+- The `?type=driver` parameter logic in `LoginPage` will be simplified (remove the conditional heading/label variables) but the parameter itself can be left as a harmless no-op to avoid breaking external bookmarks or email links until a later cleanup.
