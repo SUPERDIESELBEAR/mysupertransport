@@ -3625,7 +3625,17 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
-                              onClick={e => { e.stopPropagation(); setArchiveTarget(op); setArchiveReason(''); }}
+                              onClick={e => {
+                                e.stopPropagation();
+                                setArchiveTarget(op);
+                                const dateStr = op.on_hold_date ? format(parseISO(op.on_hold_date), 'MMM d, yyyy') : '';
+                                const reason = op.on_hold_reason?.trim() ?? '';
+                                let prefill = '';
+                                if (reason && dateStr) prefill = `On Hold since ${dateStr}: ${reason}`;
+                                else if (reason) prefill = `On Hold: ${reason}`;
+                                else if (dateStr) prefill = `On Hold since ${dateStr}`;
+                                setArchiveReason(prefill);
+                              }}
                             >
                               <ArchiveX className="h-3.5 w-3.5" />
                             </Button>
