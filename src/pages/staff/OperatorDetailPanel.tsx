@@ -462,7 +462,16 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [excludedFromDispatch, setExcludedFromDispatch] = useState(false);
   const [excludedReason, setExcludedReason] = useState<string>('');
   const [savingExclusion, setSavingExclusion] = useState(false);
-  const { isManagement } = useAuth();
+  const { isManagement, isOwner } = useAuth();
+
+  // Go Live ack gate state
+  const [goLiveBlockers, setGoLiveBlockers] = useState<{ document_id: string; title: string; version: number }[]>([]);
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrideDate, setOverrideDate] = useState<string>('');
+  const [overrideReason, setOverrideReason] = useState('');
+  const [overrideConfirmName, setOverrideConfirmName] = useState('');
+  const [overrideSaving, setOverrideSaving] = useState(false);
+  const [sendingAckReminder, setSendingAckReminder] = useState(false);
 
   // On Hold state
   const [isOnHold, setIsOnHold] = useState(false);
