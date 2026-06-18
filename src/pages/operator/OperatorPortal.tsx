@@ -1037,6 +1037,15 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             </button>
             <NotificationBell variant="dark" notificationsPath="/operator?tab=notifications" clearBadge={view === 'notifications'} />
             <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="hidden md:flex text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors disabled:opacity-60"
+              title="Refresh data"
+              aria-label="Refresh data"
+            >
+              <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <button
               onClick={signOut}
               className="hidden md:flex text-surface-dark-muted hover:text-destructive p-2 rounded-lg hover:bg-surface-dark-card transition-colors"
               title="Sign out"
