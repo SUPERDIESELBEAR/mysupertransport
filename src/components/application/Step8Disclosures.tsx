@@ -1,3 +1,5 @@
+import { useEffect, useLayoutEffect, useRef, useState, ReactNode } from 'react';
+import { Check, ArrowDown } from 'lucide-react';
 import { ApplicationFormData } from './types';
 import { RadioGroup } from './FormField';
 
@@ -8,27 +10,95 @@ interface Props {
 }
 
 export default function Step8Disclosures({ data, onChange, errors }: Props) {
+  const [scrolled, setScrolled] = useState<Record<'fcra' | 'psp' | 'testing', boolean>>({
+    fcra: false, psp: false, testing: false,
+  });
+  const markScrolled = (k: 'fcra' | 'psp' | 'testing') =>
+    setScrolled(prev => (prev[k] ? prev : { ...prev, [k]: true }));
+
+  const ScrollableDisclosure = ({
+    keyName, maxHClass, children,
+  }: { keyName: 'fcra' | 'psp' | 'testing'; maxHClass: string; children: ReactNode }) => {
+    const ref = useRef<HTMLDivElement | null>(null);
+    const done = scrolled[keyName];
+
+    const check = () => {
+      const el = ref.current; if (!el) return;
+      if (el.scrollHeight <= el.clientHeight + 1) { markScrolled(keyName); return; }
+      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 4) markScrolled(keyName);
+    };
+    useLayoutEffect(() => { check(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+    useEffect(() => {
+      const onResize = () => check();
+      window.addEventListener('resize', onResize);
+      return () => window.removeEventListener('resize', onResize);
+    }, []);
+
+    return (
+      <div className="space-y-2">
+        <div
+          ref={ref}
+          onScroll={check}
+          className={`p-4 bg-secondary border rounded-xl text-xs text-muted-foreground leading-relaxed ${maxHClass} overflow-y-auto ${done ? 'border-status-complete/40' : 'border-border'}`}
+        >
+          {children}
+        </div>
+        <div className="flex justify-end">
+          {done ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-status-complete bg-status-complete/10 border border-status-complete/30 rounded-full px-2 py-0.5">
+              <Check className="h-3 w-3" /> Document reviewed
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-100 border border-amber-300 rounded-full px-2 py-0.5">
+              <ArrowDown className="h-3 w-3" /> Scroll to the bottom to continue
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const CheckItem = ({
-    id, checked, onChange: onChg, label, error
-  }: { id: string; checked: boolean; onChange: (v: boolean) => void; label: string; error?: string }) => (
-    <div className="space-y-1">
-      <label
-        className={`flex items-start gap-3 p-4 border rounded-xl cursor-pointer transition-colors ${
-          checked ? 'border-gold bg-gold/8' : 'border-border bg-white hover:border-gold/40'
-        } ${error ? 'border-destructive' : ''}`}
-      >
-        <input
-          type="checkbox"
-          id={id}
-          checked={checked}
-          onChange={e => onChg(e.target.checked)}
-          className="mt-0.5 accent-[hsl(var(--gold))] h-4 w-4 shrink-0"
-        />
-        <span className="text-sm text-foreground leading-relaxed">{label}</span>
-      </label>
-      {error && <p className="text-xs text-destructive font-medium px-1">{error}</p>}
-    </div>
-  );
+    id, checked, onChange: onChg, label, error, disabled, disabledHint,
+  }: {
+    id: string; checked: boolean; onChange: (v: boolean) => void; label: string;
+    error?: string; disabled?: boolean; disabledHint?: string;
+  }) => {
+    // Never re-disable an already-checked box (resume flow)
+    const lock = disabled && !checked;
+    return (
+      <div className="space-y-1">
+        <label
+          className={`flex items-start gap-3 p-4 border rounded-xl transition-colors ${
+            lock
+              ? 'border-border bg-muted/40 cursor-not-allowed'
+              : checked
+                ? 'border-gold bg-gold/8 cursor-pointer'
+                : 'border-border bg-white hover:border-gold/40 cursor-pointer'
+          } ${error ? 'border-destructive' : ''}`}
+        >
+          <input
+            type="checkbox"
+            id={id}
+            checked={checked}
+            disabled={lock}
+            onChange={e => onChg(e.target.checked)}
+            className="mt-0.5 accent-[hsl(var(--gold))] h-4 w-4 shrink-0 disabled:cursor-not-allowed"
+          />
+          <span className={`text-sm leading-relaxed ${lock ? 'text-muted-foreground' : 'text-foreground'}`}>{label}</span>
+        </label>
+        {lock && disabledHint && (
+          <p className="text-[11px] text-muted-foreground italic px-1">{disabledHint}</p>
+        )}
+        {error && <p className="text-xs text-destructive font-medium px-1">{error}</p>}
+      </div>
+    );
+  };
+
+  const pspLocked = !(scrolled.fcra && scrolled.psp);
+  const testingLocked = !scrolled.testing;
+  const pspHint = 'Read the FCRA and PSP disclosures above to enable this acknowledgment.';
+  const testingHint = 'Read the Company Testing Policy above to enable this acknowledgment.';
 
   return (
     <div className="space-y-8">
@@ -40,19 +110,19 @@ export default function Step8Disclosures({ data, onChange, errors }: Props) {
       {/* FCRA */}
       <section className="space-y-3">
         <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Fair Credit Reporting Act Authorization</h3>
-        <div className="p-4 bg-secondary border border-border rounded-xl text-xs text-muted-foreground leading-relaxed max-h-36 overflow-y-auto">
+        <ScrollableDisclosure keyName="fcra" maxHClass="max-h-36">
           I hereby authorize SUPERTRANSPORT to conduct a background investigation through a consumer reporting agency as permitted by the Fair Credit Reporting Act. This investigation may include, but is not limited to: Social Security Number verification, residential history, employment history, education verification, personal and professional references, credit history, criminal records, motor vehicle records (MVR), and any other public records deemed relevant. I understand that this investigation is a condition of my application and continued employment, and that I have the right to request disclosure of the nature and scope of any investigation.
-        </div>
+        </ScrollableDisclosure>
       </section>
 
       {/* PSP Authorization */}
       <section className="space-y-3">
         <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">PSP Authorization</h3>
-        <div className="p-4 bg-secondary border border-border rounded-xl text-xs text-muted-foreground leading-relaxed max-h-40 overflow-y-auto">
+        <ScrollableDisclosure keyName="psp" maxHClass="max-h-40">
           <p className="font-semibold text-foreground mb-2">Important Disclosure Regarding Background Reports from the PSP Online Service</p>
           <p className="mb-2">In connection with your application for employment with SUPERTRANSPORT, LLC, we may obtain one or more reports regarding your driving and safety inspection history from the Federal Motor Carrier Safety Administration (FMCSA). If any adverse employment decision is made based on this information, you will be notified and provided a copy of the report.</p>
           <p>Neither the Prospective Employer nor the FMCSA contractor has the capability to correct safety data. You may challenge the accuracy of the data at https://dataqs.fmcsa.dot.gov.</p>
-        </div>
+        </ScrollableDisclosure>
         <div className="space-y-3">
           <CheckItem
             id="auth_safety"
@@ -60,6 +130,8 @@ export default function Step8Disclosures({ data, onChange, errors }: Props) {
             onChange={v => onChange('auth_safety_history', v)}
             label="I authorize SUPERTRANSPORT, LLC to access the FMCSA Pre-Employment Screening Program (PSP) system to seek information regarding my commercial driving safety record and safety inspection history, including crash data from the previous five (5) years and inspection history from the previous three (3) years."
             error={errors.auth_safety_history}
+            disabled={pspLocked}
+            disabledHint={pspHint}
           />
           <CheckItem
             id="auth_drug"
@@ -67,6 +139,8 @@ export default function Step8Disclosures({ data, onChange, errors }: Props) {
             onChange={v => onChange('auth_drug_alcohol', v)}
             label="I consent to the release of information regarding my DOT drug and alcohol testing history from previous employers, including the FMCSA Drug & Alcohol Clearinghouse."
             error={errors.auth_drug_alcohol}
+            disabled={pspLocked}
+            disabledHint={pspHint}
           />
           <CheckItem
             id="auth_employers"
@@ -74,6 +148,8 @@ export default function Step8Disclosures({ data, onChange, errors }: Props) {
             onChange={v => onChange('auth_previous_employers', v)}
             label="I have read the above Disclosure Regarding Background Reports and I hereby authorize Prospective Employer and its employees, authorized agents, and/or affiliates to obtain the information authorized above."
             error={errors.auth_previous_employers}
+            disabled={pspLocked}
+            disabledHint={pspHint}
           />
         </div>
       </section>
@@ -119,18 +195,20 @@ export default function Step8Disclosures({ data, onChange, errors }: Props) {
       {/* Company Testing Policy */}
       <section className="space-y-3">
         <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Certificate of Receipt — Company Testing Policy</h3>
-        <div className="p-4 bg-secondary border border-border rounded-xl text-xs text-muted-foreground leading-relaxed max-h-48 overflow-y-auto">
+        <ScrollableDisclosure keyName="testing" maxHClass="max-h-48">
           <p className="font-semibold text-foreground mb-2">SUPERTRANSPORT — Federal Motor Carrier Safety Compliance Notice</p>
           <p className="mb-2">By accepting these terms, you acknowledge that you have received, read, and understand SUPERTRANSPORT's Drug and Alcohol Policy as required by 49 CFR §382.601. You certify that you are familiar with the requirements of 49 CFR Parts 40, 382, and 391, and you agree to comply with all applicable FMCSA regulations while operating under SUPERTRANSPORT's authority.</p>
           <p className="mb-2">You acknowledge that: (1) you are subject to controlled substance and alcohol testing as a condition of employment; (2) a positive test result or refusal to test will result in immediate removal from safety-sensitive duties; (3) you understand the consequences of violations and your rights as described in the policy.</p>
           <p>You certify that all information provided in this application is accurate and complete to the best of your knowledge, and that providing false information may result in disqualification from consideration or termination of employment.</p>
-        </div>
+        </ScrollableDisclosure>
         <CheckItem
           id="testing_policy"
           checked={data.testing_policy_accepted}
           onChange={v => onChange('testing_policy_accepted', v)}
           label="I accept the Terms and Conditions, acknowledge receipt of the Company Drug & Alcohol Testing Policy, and certify that all information in this application is true and complete."
           error={errors.testing_policy_accepted}
+          disabled={testingLocked}
+          disabledHint={testingHint}
         />
       </section>
     </div>
