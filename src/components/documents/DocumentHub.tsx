@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, Plus, FileText, ShieldCheck, LayoutList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -117,6 +117,25 @@ export default function DocumentHub({ isAdmin = false, onAcknowledged }: Documen
     return true;
   });
 
+  // Admin tokenized keyword search across title, description, category, body, pdf filename
+  const adminFilteredDocs = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return documents;
+    const tokens = q.split(/\s+/).filter(Boolean);
+    return documents.filter(doc => {
+      const bodyText = (doc.body ?? '').replace(/<[^>]+>/g, ' ');
+      const pdfName = doc.pdf_url ? decodeURIComponent(doc.pdf_url.split('/').pop() ?? '') : '';
+      const haystack = [
+        doc.title,
+        doc.description ?? '',
+        doc.category ?? '',
+        bodyText,
+        pdfName,
+      ].join(' ').toLowerCase();
+      return tokens.every(t => haystack.includes(t));
+    });
+  }, [documents, search]);
+
   const getAck = (docId: string) =>
     acknowledgments.find(a => a.document_id === docId) ?? null;
 
@@ -188,15 +207,48 @@ export default function DocumentHub({ isAdmin = false, onAcknowledged }: Documen
           loading ? (
             <div className="space-y-2">{[1,2,3,4].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}</div>
           ) : (
-            <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
-              <AdminDocumentList
-                documents={documents}
-                ackCounts={ackCounts}
-                totalDrivers={totalDrivers}
-                onEdit={doc => { setEditDoc(doc); setEditorOpen(true); }}
-                onRefresh={handleRefresh}
-              />
-            </div>
+            <>
+              {/* Search bar */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative w-full sm:max-w-md">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Search documents by title, description, category, or content…"
+                    className="pl-9"
+                  />
+                </div>
+                {search.trim() && (
+                  <span className="text-xs text-muted-foreground">
+                    {adminFilteredDocs.length} of {documents.length} documents
+                  </span>
+                )}
+              </div>
+              <div className="bg-white border border-border rounded-xl shadow-sm overflow-hidden">
+                {adminFilteredDocs.length === 0 ? (
+                  <div className="py-16 text-center text-muted-foreground">
+                    <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                    <p className="font-medium">No documents match your search</p>
+                    <button
+                      type="button"
+                      onClick={() => setSearch('')}
+                      className="text-sm mt-2 text-gold hover:underline"
+                    >
+                      Clear search
+                    </button>
+                  </div>
+                ) : (
+                  <AdminDocumentList
+                    documents={adminFilteredDocs}
+                    ackCounts={ackCounts}
+                    totalDrivers={totalDrivers}
+                    onEdit={doc => { setEditDoc(doc); setEditorOpen(true); }}
+                    onRefresh={handleRefresh}
+                  />
+                )}
+              </div>
+            </>
           )
         )}
 

@@ -1,34 +1,33 @@
-# Add Last Active Date/Time to Install Status Tooltip
+# Add Search to Admin Document Hub
 
-## Goal
-On the Management Dashboard → Driver Hub, when hovering the small phone/globe/user icon next to a driver's name, keep the existing "App installed …" / "Web only — last seen …" / "Never signed in" line **and** append a second line showing the driver's last active date and time inside the app.
+## Context
+The driver-facing Document Hub already has a search bar (filters by title, description, body). The **admin/management** Document Hub (the `isAdmin` branch in `src/components/documents/DocumentHub.tsx`) has no search — only the "Documents" / "Compliance" tab switcher above the full `AdminDocumentList`.
 
-## Where
-`src/components/drivers/DriverRoster.tsx`, lines ~1052–1071 — the `TooltipContent` for the install-status icon. Data is already loaded: each driver row already has `last_web_seen_at` (updated by `mark_operator_seen` on every authenticated session — installed or web).
+## Change
+Add a search input to the admin "Documents" tab, above `AdminDocumentList`, that filters the documents passed into the list in real time.
 
-## Tooltip behavior
-Render the tooltip body as two lines:
+### Where
+`src/components/documents/DocumentHub.tsx` — admin branch, inside `{adminTab === 'documents' && …}`.
 
-```text
-Line 1 (unchanged):
-  • Installed:     "App installed Jun 12, 2026"
-  • Web only:      "Web only — last seen Jun 12, 2026"
-  • Never:         "Never signed in"
+### UI
+- Same visual treatment as the driver search bar: `Search` icon inset-left, `Input` with `pl-9`, placeholder `"Search documents by title, description, category, or content…"`.
+- Render directly above the white results panel; full-width on mobile, capped at `max-w-md` on `sm+`.
+- Show a small "`N` of `M` documents" count to the right when a query is active.
 
-Line 2 (new, only when last_web_seen_at exists):
-  "Last active Jun 18, 2026 at 2:34 PM CT"
-```
+### Matching (keyword detection)
+Case-insensitive, whitespace-tokenized AND match — every token in the query must appear in at least one of the searched fields. Fields searched per document:
+- `title`
+- `description`
+- `category` (so typing `policy` matches the Policies category)
+- `body` (rich-text content; tags stripped via a simple `.replace(/<[^>]+>/g, ' ')` before matching so users can find docs by phrases inside the document)
+- File hint: when `pdf_url` exists, include the filename segment of the URL
 
-- For installed drivers, line 2 is the meaningful "last time they opened the app" signal (today the install date is the only thing shown — stale and confusing).
-- For web-only drivers, line 2 is identical to their last-seen date but adds the time of day, which is genuinely new info.
-- For never-signed-in drivers, line 2 is omitted.
+Implementation: reuse the existing `search` state (already declared at line 27) so the filter logic stays in the parent. Build a memoized `adminFilteredDocs` derived from `documents` + `search`, then pass it to `AdminDocumentList` instead of `documents`.
 
-## Formatting
-- Date: `format(parseISO(last_web_seen_at), 'MMM d, yyyy')`
-- Time: `format(parseISO(last_web_seen_at), 'h:mm a')` followed by the literal ` CT` suffix (matches the project's US Central Time standard from memory; `last_web_seen_at` is stored as UTC `timestamptz` and Date formatting renders in the viewer's local zone — staff are on CT, so this label is accurate for them and avoids pulling in a tz library).
-- Layout: wrap the tooltip content in a `div` with `text-xs leading-tight`; line 2 in a `div` with `text-muted-foreground text-[11px] mt-0.5`.
+### Empty state
+When the filter returns zero rows, render a centered "No documents match your search" message inside the white panel (same `FileText` icon style used in the driver empty state) with a `Clear search` text button.
 
 ## Out of scope
-- No schema changes; no new RPC; no changes to the icon itself or to its color logic.
-- No changes to the "Excluded" badge tooltip or the reminder button next to it.
-- No changes outside `DriverRoster.tsx`.
+- No backend changes; filtering is client-side over the already-loaded `documents` array (admin already fetches the full list).
+- No changes to the Compliance tab, the driver view, sort order, drag-to-reorder, ack counts, or category coloring.
+- No fuzzy/typo-tolerant search (Algolia/Fuse) — straightforward tokenized substring matching is sufficient for the current list size and matches the existing driver-side behavior.
