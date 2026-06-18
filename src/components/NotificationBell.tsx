@@ -138,6 +138,82 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
     );
   };
 
+  // Detect which portal the user is currently in based on the current path.
+  // This lets a notification deep-link land on the recipient's own portal
+  // (e.g. management opens /dashboard?view=operator-detail&op=<id> while
+  // staff opens /staff?operator=<id> for the same notification).
+  type Portal = 'management' | 'staff' | 'dispatch' | 'operator';
+  const detectPortal = (): Portal => {
+    const p = location.pathname;
+    if (p.startsWith('/staff')) return 'staff';
+    if (p.startsWith('/dispatch')) return 'dispatch';
+    if (p.startsWith('/management')) return 'management';
+    // /dashboard is shared between management and operator portals;
+    // assume management here (operator-only routes use their own pathnames).
+    return 'management';
+  };
+
+  /**
+   * Resolve a notification to a portal-aware deep link.
+   * Prefers entity_type + entity_id (the new way). Falls back to the legacy
+   * stored `link` field for older notifications, then to /dashboard.
+   */
+  const resolveRoute = (n: Notification): string => {
+    const portal = detectPortal();
+    const id = n.entity_id;
+    const et = n.entity_type;
+
+    const operatorRoute = (opId: string) => {
+      if (portal === 'staff') return `/staff?view=operator-detail&operator=${opId}`;
+      if (portal === 'dispatch') return `/dispatch`;
+      if (portal === 'operator') return `/dashboard`;
+      return `/dashboard?view=operator-detail&op=${opId}`;
+    };
+
+    const applicationRoute = (appId: string) => {
+      if (portal === 'staff') return `/staff?view=applications&app=${appId}`;
+      return `/dashboard?view=applications&app=${appId}`;
+    };
+
+    if (et === 'operator' && id) {
+      // Per-type tweaks for the operator's own portal
+      if (portal === 'operator' || portal === 'management' && false) {
+        // (placeholder for future per-type operator portal routing)
+      }
+      // Operator portal: route by type so the operator lands on a useful tab
+      if (portal === 'operator') {
+        switch (n.type) {
+          case 'new_message': return '/dashboard?tab=messages';
+          case 'dispatch_status_change': return '/dashboard?tab=dispatch';
+          case 'onboarding_milestone':
+          case 'docs_uploaded':
+          case 'document_uploaded':
+          case 'compliance_update':
+            return '/dashboard?tab=progress';
+          default:
+            return '/dashboard';
+        }
+      }
+      return operatorRoute(id);
+    }
+
+    if (et === 'application' && id) return applicationRoute(id);
+
+    if (et === 'message_thread' && id) {
+      if (portal === 'staff') return `/staff?view=messages&thread=${id}`;
+      return `/dashboard?tab=messages&thread=${id}`;
+    }
+
+    if (et === 'release_note') {
+      if (portal === 'staff') return `/staff?view=whats-new`;
+      return `/dashboard?view=whats-new`;
+    }
+
+    // No entity_type — fall back to the legacy stored link, then /dashboard.
+    if (n.link) return n.link;
+    return '/dashboard';
+  };
+
   // Style tokens by variant
   const btnClass = isDark
     ? 'relative text-surface-dark-muted hover:text-surface-dark-foreground p-2 rounded-lg hover:bg-surface-dark-card transition-colors'
