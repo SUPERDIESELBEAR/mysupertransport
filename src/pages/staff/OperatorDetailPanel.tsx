@@ -3788,6 +3788,41 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
 
       {/* ── Deactivate Confirmation Dialog ── */}
       <AlertDialog open={showDeactivateConfirm} onOpenChange={open => { if (!open) setDeactivateReason(''); setShowDeactivateConfirm(open); }}>
+      </AlertDialog>
+
+      {/* ── Owner Go Live Override Dialog ── */}
+      <AlertDialog open={overrideOpen} onOpenChange={(o) => { if (!o) { setOverrideOpen(false); setOverrideConfirmName(''); setOverrideReason(''); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><Shield className="h-4 w-4 text-destructive" />Override Go Live gate</AlertDialogTitle>
+            <AlertDialogDescription>
+              {operatorName} has {goLiveBlockers.length} unacknowledged policy document{goLiveBlockers.length !== 1 ? 's' : ''}. As owner, you can bypass the gate. This action is logged in the audit trail with your name and the bypassed documents.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Go-Live Date</Label>
+              <DateInput value={overrideDate} onChange={v => setOverrideDate(v || '')} className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Reason (optional)</Label>
+              <Textarea value={overrideReason} onChange={e => setOverrideReason(e.target.value)} placeholder="e.g. Driver acknowledged in person — paper copy on file." className="text-sm min-h-[60px]" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Type the driver's full name to confirm: <span className="font-semibold">{operatorName}</span></Label>
+              <Input value={overrideConfirmName} onChange={e => setOverrideConfirmName(e.target.value)} placeholder={operatorName} className="h-9 text-sm" />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={overrideSaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={submitOverride} disabled={overrideSaving || !overrideDate || overrideConfirmName.trim().toLowerCase() !== operatorName.trim().toLowerCase()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {overrideSaving ? 'Overriding…' : 'Confirm override'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeactivateConfirm && false}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
