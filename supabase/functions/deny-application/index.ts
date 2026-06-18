@@ -94,6 +94,8 @@ Deno.serve(async (req) => {
           type: 'application_denied',
           channel: 'in_app',
           link: '/dashboard?view=applications&status=denied',
+          entity_type: 'application',
+          entity_id: application_id,
         }));
       if (notifRows.length > 0) {
         await supabaseAdmin.from('notifications').insert(notifRows);
