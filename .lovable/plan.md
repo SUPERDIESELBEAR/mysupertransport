@@ -1,20 +1,21 @@
-## Goal
-When a staff member clicks **Archive** on an operator in the On-Hold list, the comment field should pre-fill with **only the raw on-hold reason text**. The "On Hold since..." prefix and date wrapper should be removed entirely.
+## Problem
+On-hold reasons in the applicant pipeline are truncated (`truncate max-w-xs`). Staff cannot read the full reason.
 
-## Scope
-Single file: `src/pages/staff/PipelineDashboard.tsx`
+## Recommended fix: Tooltip on hover
+A **Tooltip** is the best UX choice here because:
+- The on-hold list is a dense row layout; inline expansion would push the StageTrack and action buttons around.
+- Tooltips are already used throughout this file (archive button, deactivated date).
+- Zero layout shift — the row stays compact.
+- Works on desktop (hover) and mobile (tap/long-press).
 
 ## Changes
-1. **Archive trigger `onClick` (around line 3628)**
-   - Remove the `dateStr` calculation and the conditional prefix logic.
-   - Set `prefill` to `op.on_hold_reason?.trim() ?? ''`.
-   - `setArchiveReason(prefill)` remains.
+**File:** `src/pages/staff/PipelineDashboard.tsx` (~line 3609)
 
-2. **No other changes**
-   - Staff can still edit/append in the textarea.
-   - `handleArchiveFromHold` already writes `archiveReason` into `audit_log.metadata.reason`, which the Archived Drivers profile reads and allows editing. This carry-over behavior is unchanged.
+Replace the plain `<span>` for `op.on_hold_reason` with a `<TooltipProvider>` + `<Tooltip>` + `<TooltipContent>` that displays the full reason text. Keep the same `truncate max-w-xs italic` styling on the trigger span.
+
+No other files touched.
 
 ## Acceptance
-- Clicking Archive on an operator with reason `"Did not complete background check"` pre-fills the comment with exactly that text.
-- Operators with no on-hold reason show an empty comment field.
-- The archived profile later displays the same comment, editable by staff.
+- Hovering (or tapping on mobile) the truncated on-hold reason reveals the full text in a tooltip.
+- The row layout remains unchanged.
+- No new dependencies.
