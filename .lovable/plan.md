@@ -1,103 +1,80 @@
-## Expand notifications & deep-link to the relevant record
+## Make every notification click land on the exact record
 
-Two related bell-dropdown fixes that apply across all portals (management, staff, dispatch, operator):
+The first pass shipped the infrastructure but two real bugs remain, which is why clicks still don't deep-link:
 
-1. Make truncated notifications fully readable.
-2. Make clicking a notification land on the specific record/thread it refers to — not just the tab.
+1. The bell's portal detector uses `window.location.pathname`, but `/dashboard` is shared by Management, Staff, and Operator portals (routed by `activeRole` in `App.tsx`). So even when `entity_id` is set, the route can be wrong.
+2. Every notification currently in the database has `entity_type` / `entity_id` = NULL, so the bell falls back to the legacy `link` which is generic (e.g. `/dashboard`, `/dispatch`, `/operator?tab=documents`).
 
----
-
-### Part 1 — Read the full notification text
-
-**File:** `src/components/NotificationBell.tsx`
-
-- Remove `truncate` from the title; allow it to wrap to 2 lines.
-- Increase body `line-clamp` from 2 to 3 lines.
-- Wrap each notification row in a `<Tooltip>` (already imported elsewhere in the project) showing the full title + body. Hover on desktop, long-press on mobile. The row remains a single click-target that navigates to the deep link.
-- No layout shift; rows grow only as needed; dropdown keeps its `max-h-80 overflow-y-auto` scroll.
+Plus several insertion sites still don't write the entity columns.
 
 ---
 
-### Part 2 — Deep-link every notification to the right record
+### Fix 1 — Resolver uses the user's active role (not pathname)
 
-**Strategy:** stop hard-coding portal-specific paths in the edge functions. Instead, store the *entity* the notification is about and let `NotificationBell` resolve the destination based on the current user's portal.
+`src/components/NotificationBell.tsx`
+- Replace `detectPortal()` (which reads `location.pathname`) with a derivation from `useAuth().activeRole`:
+  - `management` / `owner` → management portal
+  - `onboarding_staff` → staff portal
+  - `dispatcher` → dispatch portal
+  - `operator` / `truck_owner` → operator portal
+- Drop the `useLocation` import.
 
-**Schema (one migration):**
+### Fix 2 — Legacy-link fallback (makes old notifications work immediately)
 
-Add two nullable columns to `public.notifications`:
+In `resolveRoute()`, if `entity_type` / `entity_id` are missing, parse the stored `link` with a regex for `[?&](operator|op|app)=<uuid>`. If found, treat it as the right entity type and run the same portal-aware routing. This covers nearly every historical link (e.g. `/staff?operator=<id>`, `/dashboard?view=operator-detail&op=<id>`, `/management?op=<id>`).
 
-```
-entity_type text   -- 'operator' | 'application' | 'message_thread' | 'release_note' | 'cert' | 'dispatch' | …
-entity_id   uuid   -- id of that entity
-```
+### Fix 3 — Backfill historical notifications (one SQL migration)
 
-Backfill not needed; old rows keep using `link`.
+```sql
+-- Operator-scoped legacy links
+UPDATE public.notifications
+SET entity_type = 'operator',
+    entity_id = (regexp_match(link, '[?&](?:operator|op)=([0-9a-f-]{36})'))[1]::uuid
+WHERE entity_id IS NULL
+  AND link ~* '[?&](operator|op)=[0-9a-f-]{36}';
 
-**`NotificationBell.tsx` — new resolver:**
-
-A small helper `resolveNotificationRoute(notification, currentPortal)` returns the correct path. Examples:
-
-```text
-type=application_approved      entity_type=operator    →
-  management:  /dashboard?view=operator-detail&op=<id>
-  staff:       /staff?operator=<id>
-
-type=onboarding_milestone      entity_type=operator    →
-  management:  /dashboard?view=operator-detail&op=<id>
-  staff:       /staff?operator=<id>
-  operator:    /dashboard?tab=progress
-
-type=pe_receipt_uploaded       entity_type=operator    → same as above
-
-type=dispatch_status_change    entity_type=operator    →
-  dispatch:    /dispatch?op=<id>
-  operator:    /dashboard?tab=dispatch
-
-type=truck_down                entity_type=operator    →
-  dispatch:    /dispatch?op=<id>
-  management:  /dashboard?view=operator-detail&op=<id>
-  staff:       /staff?operator=<id>
-
-type=new_message               entity_type=message_thread →
-  /dashboard?tab=messages&thread=<id>   (per portal prefix)
-
-type=docs_uploaded             entity_type=operator    → operator-detail panel
-
-type=compliance_update         entity_type=operator    → operator-detail panel
-type=application_denied        entity_type=application →
-  management/staff: /dashboard?view=applications&app=<id>  (opens drawer)
-type=release_note              entity_type=release_note → /dashboard?view=whats-new
-type=pay_setup_submitted       entity_type=operator    → operator-detail panel
+-- Application-scoped legacy links
+UPDATE public.notifications
+SET entity_type = 'application',
+    entity_id = (regexp_match(link, '[?&]app=([0-9a-f-]{36})'))[1]::uuid
+WHERE entity_id IS NULL
+  AND link ~* '[?&]app=[0-9a-f-]{36}';
 ```
 
-Current portal is detected from `window.location.pathname` (`/dashboard` = management/operator depending on role, `/staff`, `/dispatch`). Role is already available via `useAuth`.
+### Fix 4 — Update the 10 DB trigger functions
 
-Fallback chain: if `entity_type`/`entity_id` is missing → use stored `link` → final fallback `/dashboard`.
+These all insert into `notifications` and currently skip `entity_type`/`entity_id`. One migration updates each to include them:
 
-**Edge-function changes** (write `entity_type` + `entity_id` on every insert):
+- `notify_operator_on_status_change`
+- `notify_on_truck_down`
+- `notify_driver_on_upload_status_change`
+- `notify_staff_on_docs_uploaded`
+- `notify_staff_on_release_note`
+- `notify_operators_on_fleet_share`
+- `notify_owner_on_pay_setup_submitted`
+- `handle_operator_deactivated`
+- `approve_application_correction`
+- `reject_application_correction`
 
-- `supabase/functions/invite-operator/index.ts` — application_approved: set `entity_type='operator'`, `entity_id=operatorId`.
-- `supabase/functions/deny-application/index.ts` — application_denied: `entity_type='application'`, `entity_id=appId`.
-- `supabase/functions/send-notification/index.ts` — every `notifications.insert` (onboarding_milestone, document_uploaded, dispatch_status_change, new_message, truck_down, pe_receipt_uploaded, compliance, release_note, etc.) — set entity columns.
-- `supabase/functions/check-cert-expiry/index.ts` — operator entity.
-- `supabase/functions/send-cert-reminder/index.ts` — operator entity.
-- `supabase/functions/send-payroll-docs/index.ts` — operator entity.
-- `supabase/functions/notify-pwa-install/index.ts` — operator entity.
+Each gets `entity_type='operator'` + `entity_id=<operator id in scope>` (or `'application'` for the correction functions). Bodies otherwise unchanged.
 
-**ManagementPortal deep-link expansion** (`src/pages/management/ManagementPortal.tsx`):
-- Add reader for `?app=<id>` → fetch that application and open `ApplicationReviewDrawer` automatically (mirrors the existing `?op=` pattern).
-- The "View original application" link inside an `operator-detail` view uses this same `?view=applications&app=<id>` pattern.
+### Fix 5 — Edge functions missed in the first pass
 
-**StaffPortal & DispatchPortal:** verify each already accepts the `?operator=<id>` / `?op=<id>` params used above and opens the matching panel. (StaffPortal already does — `/staff?operator=<id>` is used by existing code; DispatchPortal needs a `?op=` reader if not present.)
+- `supabase/functions/notify-new-message/index.ts` → add `entity_type`/`entity_id` (operator or message_thread).
+- `supabase/functions/send-birthday-anniversary/index.ts` → add `entity_type='operator'`, `entity_id=<operator id>`.
 
 ---
 
-### Files touched
+### Result
 
-- `src/components/NotificationBell.tsx` — tooltip, line-clamp bump, route resolver.
-- `src/pages/management/ManagementPortal.tsx` — `?app=<id>` deep-link.
-- `src/pages/dispatch/DispatchPortal.tsx` — `?op=<id>` deep-link (only if missing).
-- One Supabase migration — add `entity_type`, `entity_id` to `notifications`.
-- All edge functions listed above — populate the two new columns.
+After this lands:
+- Existing notifications already in the bell deep-link correctly via the legacy-link parser + the SQL backfill.
+- New notifications from every edge function and every DB trigger carry their entity reference.
+- A management user clicking "Application Approved" lands on `/management?view=operator-detail&op=<id>`; a staff user lands on `/staff?view=operator-detail&operator=<id>`; etc.
 
-No RLS or permission changes (existing policies on `notifications` cover the new columns). Old notifications still work via the `link` fallback.
+### Files
+
+- `src/components/NotificationBell.tsx`
+- One Supabase migration: backfill + the 10 trigger-function updates
+- `supabase/functions/notify-new-message/index.ts`
+- `supabase/functions/send-birthday-anniversary/index.ts`
