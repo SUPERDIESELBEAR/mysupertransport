@@ -234,10 +234,10 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
     : `w-full text-left px-4 py-3 border-b border-border last:border-0 transition-colors hover:bg-muted/40 ${unread ? 'bg-gold/5' : ''}`;
 
   const itemTitleClass = (unread: boolean) => isDark
-    ? `text-sm truncate ${unread ? 'font-semibold text-surface-dark-foreground' : 'font-medium text-surface-dark-muted'}`
-    : `text-sm truncate ${unread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`;
+    ? `text-sm line-clamp-2 break-words ${unread ? 'font-semibold text-surface-dark-foreground' : 'font-medium text-surface-dark-muted'}`
+    : `text-sm line-clamp-2 break-words ${unread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`;
 
-  const bodyClass = isDark ? 'text-xs text-surface-dark-muted mt-0.5 line-clamp-2' : 'text-xs text-muted-foreground mt-0.5 line-clamp-2';
+  const bodyClass = isDark ? 'text-xs text-surface-dark-muted mt-0.5 line-clamp-3 break-words' : 'text-xs text-muted-foreground mt-0.5 line-clamp-3 break-words';
   const timeClass = isDark ? 'text-[10px] text-surface-dark-muted/60 mt-1' : 'text-[10px] text-muted-foreground/60 mt-1';
   const emptyClass = isDark ? 'text-sm text-surface-dark-muted' : 'text-sm text-muted-foreground';
   const footerClass = isDark
