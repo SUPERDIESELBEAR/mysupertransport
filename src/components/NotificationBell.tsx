@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle, FileText, Target, Paperclip, Truck, ShieldCheck, Megaphone, Banknote } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,9 +28,8 @@ interface NotificationBellProps {
 }
 
 export default function NotificationBell({ variant = 'light', notificationsPath = '/dashboard?view=notifications', clearBadge = false }: NotificationBellProps) {
-  const { session } = useAuth();
+  const { session, activeRole } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -138,19 +137,25 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
     );
   };
 
-  // Detect which portal the user is currently in based on the current path.
-  // This lets a notification deep-link land on the recipient's own portal
-  // (e.g. management opens /dashboard?view=operator-detail&op=<id> while
-  // staff opens /staff?operator=<id> for the same notification).
+  // Detect which portal the user belongs to based on their active role.
+  // /dashboard is shared by management, staff, and operator portals, so the
+  // pathname is not reliable — activeRole is.
   type Portal = 'management' | 'staff' | 'dispatch' | 'operator';
   const detectPortal = (): Portal => {
-    const p = location.pathname;
-    if (p.startsWith('/staff')) return 'staff';
-    if (p.startsWith('/dispatch')) return 'dispatch';
-    if (p.startsWith('/management')) return 'management';
-    // /dashboard is shared between management and operator portals;
-    // assume management here (operator-only routes use their own pathnames).
-    return 'management';
+    switch (activeRole) {
+      case 'owner':
+      case 'management':
+        return 'management';
+      case 'onboarding_staff':
+        return 'staff';
+      case 'dispatcher':
+        return 'dispatch';
+      case 'operator':
+      case 'truck_owner':
+        return 'operator';
+      default:
+        return 'operator';
+    }
   };
 
   /**
@@ -160,8 +165,19 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
    */
   const resolveRoute = (n: Notification): string => {
     const portal = detectPortal();
-    const id = n.entity_id;
-    const et = n.entity_type;
+    let id: string | null = n.entity_id;
+    let et: string | null = n.entity_type;
+
+    // Legacy fallback: parse the stored link for an entity UUID so old
+    // notifications (created before entity columns existed) still deep-link.
+    if (!id && n.link) {
+      const opMatch = n.link.match(/[?&](?:operator|op)=([0-9a-f-]{36})/i);
+      if (opMatch) { et = 'operator'; id = opMatch[1]; }
+      else {
+        const appMatch = n.link.match(/[?&](?:application|app)=([0-9a-f-]{36})/i);
+        if (appMatch) { et = 'application'; id = appMatch[1]; }
+      }
+    }
 
     const operatorRoute = (opId: string) => {
       if (portal === 'staff') return `/staff?view=operator-detail&operator=${opId}`;
@@ -176,10 +192,6 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
     };
 
     if (et === 'operator' && id) {
-      // Per-type tweaks for the operator's own portal
-      if (portal === 'operator' || portal === 'management' && false) {
-        // (placeholder for future per-type operator portal routing)
-      }
       // Operator portal: route by type so the operator lands on a useful tab
       if (portal === 'operator') {
         switch (n.type) {
