@@ -284,6 +284,30 @@ const TEMPLATES: EmailTemplate[] = [
 
   // ── Invitations ────────────────────────────────────────────────────────────
   {
+    id: 'application_submitted',
+    category: 'invitations',
+    title: 'Application Submission Confirmation',
+    subject: "We've got your application, John",
+    recipient: 'applicant',
+    sender: `${BRAND_NAME} <${ONBOARDING_EMAIL}>`,
+    renderHtml: () => buildEmail(
+      "We've got your application, John",
+      '✅ Application Received',
+      `<p>Hi ${SAMPLE_NAME.split(' ')[0]},</p>
+       <p>Thanks for applying to drive with <strong>SUPERTRANSPORT</strong>. Your application is in our hands and our onboarding team will review it shortly.</p>
+       <p><strong>What happens next:</strong></p>
+       <ul style="padding-left:20px;line-height:1.8;color:#444;">
+         <li>Our team reviews your application (typically within 1–2 business days).</li>
+         <li>You'll receive an email with our decision and next steps.</li>
+         <li>If approved, you'll set your password and get into <strong>SUPERDRIVE</strong> — your operator app.</li>
+       </ul>
+       <p style="margin-top:18px;">Questions in the meantime? Reply to this email or write us at <a href="mailto:${ONBOARDING_EMAIL}" style="color:${BRAND_COLOR};">${ONBOARDING_EMAIL}</a>.</p>
+       <p style="margin-top:18px;">Talk soon,<br/>— The SUPERTRANSPORT team</p>`,
+      undefined,
+      ONBOARDING_EMAIL
+    ),
+  },
+  {
     id: 'invite_applicant',
     category: 'invitations',
     title: 'Applicant Invitation',
