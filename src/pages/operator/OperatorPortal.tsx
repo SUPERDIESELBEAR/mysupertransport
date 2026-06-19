@@ -842,20 +842,20 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
   const navItems = [
     { view: 'home' as OperatorView, label: 'Home', icon: <Home className="h-5 w-5" />, showIf: isFullyOnboarded },
-    { view: 'progress' as OperatorView, label: isFullyOnboarded ? 'Onboarding Status' : 'My Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
+    { view: 'progress' as OperatorView, label: isFullyOnboarded ? 'Onboarding Status' : 'My Progress', shortLabel: isFullyOnboarded ? 'Status' : 'Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
     { view: 'documents' as OperatorView, label: 'Documents', icon: <Upload className="h-5 w-5" /> },
     { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
-    { view: 'inspection-binder' as OperatorView, label: 'Inspection Binder', icon: <Shield className="h-5 w-5" />, pillBadge: isFullyOnboarded ? 'DOT' : undefined },
-    { view: 'my-docs' as OperatorView, label: 'My Documents', icon: <FolderOpen className="h-5 w-5" /> },
+    { view: 'inspection-binder' as OperatorView, label: 'Inspection Binder', shortLabel: 'Binder', icon: <Shield className="h-5 w-5" />, pillBadge: isFullyOnboarded ? 'DOT' : undefined },
+    { view: 'my-docs' as OperatorView, label: 'My Documents', shortLabel: 'My Docs', icon: <FolderOpen className="h-5 w-5" /> },
     { view: 'my-truck' as OperatorView, label: 'My Truck', icon: <Truck className="h-5 w-5" /> },
-    { view: 'resource-center' as OperatorView, label: 'Resource Center', icon: <BookOpen className="h-5 w-5" /> },
+    { view: 'resource-center' as OperatorView, label: 'Resource Center', shortLabel: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
-    { view: 'forecast' as OperatorView, label: 'Settlement Forecast', icon: <Calculator className="h-5 w-5" /> },
+    { view: 'forecast' as OperatorView, label: 'Settlement Forecast', shortLabel: 'Forecast', icon: <Calculator className="h-5 w-5" /> },
     { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete', icaDot: icaActionDot },
     { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
     { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> },
-    { view: 'notifications' as OperatorView, label: 'Notifications', icon: <Bell className="h-5 w-5" />, badge: unreadNotifCount },
+    { view: 'notifications' as OperatorView, label: 'Notifications', shortLabel: 'Alerts', icon: <Bell className="h-5 w-5" />, badge: unreadNotifCount },
   ].filter(item => {
     if (isPreview && ['messages', 'notifications', 'ica'].includes(item.view)) return false;
     if ('onlyOnboarded' in item && !isFullyOnboarded) return false;
