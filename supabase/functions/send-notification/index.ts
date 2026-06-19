@@ -203,6 +203,40 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case 'application_submitted': {
+        // Applicant-facing confirmation that we received their submission.
+        // No password CTA, no install nudge — those come after approval.
+        const fullName = (payload.applicant_name || '').trim();
+        const firstName = fullName ? fullName.split(/\s+/)[0] : '';
+        const email = payload.applicant_email;
+        if (!email) break;
+
+        const greetingName = firstName || 'there';
+        const subject = firstName
+          ? `We've got your application, ${firstName}`
+          : "We've got your application";
+
+        const html = buildEmail(
+          subject,
+          '✅ Application Received',
+          `<p>Hi ${greetingName},</p>
+           <p>Thanks for applying to drive with <strong>SUPERTRANSPORT</strong>. Your application is in our hands and our onboarding team will review it shortly.</p>
+           <p><strong>What happens next:</strong></p>
+           <ul style="padding-left:20px;line-height:1.8;color:#444;">
+             <li>Our team reviews your application (typically within 1–2 business days).</li>
+             <li>You'll receive an email with our decision and next steps.</li>
+             <li>If approved, you'll set your password and get into <strong>SUPERDRIVE</strong> — your operator app.</li>
+           </ul>
+           <p style="margin-top:18px;">Questions in the meantime? Reply to this email or write us at <a href="mailto:${ONBOARDING_EMAIL}" style="color:#C9A84C;">${ONBOARDING_EMAIL}</a>.</p>
+           <p style="margin-top:18px;">Talk soon,<br/>— The SUPERTRANSPORT team</p>`,
+          undefined,
+          ONBOARDING_EMAIL
+        );
+
+        await sendEmail(email, subject, html, RESEND_API_KEY);
+        break;
+      }
+
       case 'application_approved': {
         // Deprecated: the standalone "application_approved" email is no longer sent.
         // The consolidated approval email is now sent by `launch-superdrive-invite`
