@@ -3,10 +3,14 @@ import { downloadBlob } from '@/lib/downloadBlob';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import OnboardingChecklist from '@/components/operator/OnboardingChecklist';
 import SmartProgressWidget from '@/components/operator/SmartProgressWidget';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { validateFile } from '@/lib/validateFile';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 
