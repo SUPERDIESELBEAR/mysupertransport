@@ -1,20 +1,15 @@
-Fix the "View My Portal" button in the Drug Screening Scheduled email so it's reliably clickable, and point it to the right place in the portal.
+Send a one-off test "Drug Screening Scheduled" email to `emma@mysupertransport.com` so the fix can be verified on a real iOS device.
 
-## Root Cause
-The button is rendered in `supabase/functions/_shared/email-layout.ts` as a `<div>` containing an `<a>` styled with `display:inline-block` and padding, with whitespace/newlines wrapping the label text. iOS Gmail (and a few other mobile clients) intermittently fail to treat that padded inline-block anchor as a tap target — the button looks correct but taps don't register. This is a known mobile-email rendering quirk; the industry standard fix is the "bulletproof button" pattern (table + anchor with padding inside the anchor, no surrounding whitespace).
+## Approach
+Add a tiny ephemeral edge function `send-test-email` that:
+1. Imports `buildEmail` + `sendEmailStrict` from `supabase/functions/_shared/email-layout.ts` (so it uses the exact same bulletproof CTA renderer we just fixed).
+2. Reuses the literal `drug_screening_scheduled` copy from `notify-onboarding-update/index.ts` (subject, heading, body, CTA label/URL pointing to `https://mysupertransport.lovable.app/dashboard?tab=progress`).
+3. Sends to `emma@mysupertransport.com` using the existing `RESEND_API_KEY` runtime secret.
+4. Returns `{ ok: true, id }` on success.
 
-This isn't drug-screening-specific — every milestone email uses the same shared CTA renderer — but fixing the renderer once repairs all of them, including this one.
+Then deploy it and invoke it once via `supabase--curl_edge_functions`. Verify the response is 200/ok and ask the user to check Emma's inbox and confirm the gold "View My Portal" button is now tappable on iOS.
 
-## What
-1. Rewrite the CTA in `supabase/functions/_shared/email-layout.ts` as a bulletproof, table-based button:
-   - `<table role="presentation">` wrapper centered with `margin:0 auto`
-   - Single `<td>` with the gold background and rounded radius
-   - `<a>` inside with `display:block`, `padding:14px 32px`, `target="_blank"`, `rel="noopener"`, and no whitespace/newlines between the opening/closing anchor tags and the label
-   - Keep the existing brand color/typography
-2. Update the `drug_screening_scheduled` CTA URL in `supabase/functions/notify-onboarding-update/index.ts` from `${appUrl}/dashboard` → `${appUrl}/dashboard?tab=progress` so the driver lands directly on their onboarding progress view (which shows their current drug-screening stage), instead of the generic portal home.
+After verification, we can leave the function in place (harmless, only callable with the right invocation) or delete it on request.
 
-## Where the button will go after fix
-`https://mysupertransport.lovable.app/dashboard?tab=progress` — the operator's onboarding progress view, where drug screening status is shown in context. The `/dashboard` route already routes operators to the Operator Portal, and the portal already honors the `?tab=` deep-link param on mount.
-
-## Out of scope
-No backend schema changes. No changes to other milestone copy or other email functions. Other milestone emails will automatically inherit the bulletproof button fix since they all share `buildEmail()`.
+## Why not invoke `notify-onboarding-update` directly
+That function looks up an `operator_id`, reads the user's `notification_preferences`, and pulls the email from `auth.users`. Using a dedicated test sender avoids any risk of triggering real-operator side effects or being silently skipped by a preference toggle.
