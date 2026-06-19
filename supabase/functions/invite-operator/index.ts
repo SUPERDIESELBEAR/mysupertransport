@@ -354,19 +354,12 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Fire approval notification email (fire-and-forget)
-      const notifUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`;
-      fetch(notifUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
-        body: JSON.stringify({
-          type: 'application_approved',
-          applicant_name: applicantName,
-          applicant_email: app.email,
-          reviewer_notes: reviewer_notes ?? null,
-        }),
-      }).catch(e => console.error('Notification fire-and-forget error:', e));
-
+      // NOTE: The standalone "application_approved" email has been removed.
+      // `launch-superdrive-invite` (auto-fired above for new operators) sends
+      // the single consolidated approval email with a working set-password link
+      // and routes the user to /welcome where the install step lives. The in-app
+      // notification for management above is still sent.
+      //
       // NOTE: We intentionally do NOT fire `notify-pwa-install` on first invite anymore.
       // The invite email itself includes install instructions, and the /welcome page
       // walks the new operator through installation right after they set their password.
