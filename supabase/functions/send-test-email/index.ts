@@ -1,4 +1,5 @@
 import { buildEmail, sendEmailStrict } from '../_shared/email-layout.ts';
+import { buildQPassportDownloadUrl } from '../_shared/qpassport-link.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,9 +13,22 @@ Deno.serve(async (req) => {
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
 
-    const appUrl = 'https://mysupertransport.lovable.app';
     const to = 'emma@mysupertransport.com';
     const name = 'Emma Mueller';
+
+    // Resolve Emma's operator_id so we can mint a real download token.
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const { data: opRow } = await admin
+      .from('operators')
+      .select('id, application:applications(email)')
+      .eq('application.email', to)
+      .limit(1)
+      .maybeSingle();
+    const operatorId = (opRow as { id?: string } | null)?.id;
+    const downloadUrl = operatorId
+      ? await buildQPassportDownloadUrl(operatorId)
+      : 'https://mysupertransport.lovable.app/operator?tab=progress#qpassport';
 
     const subject = 'Action Required: Download Your QPassport';
     const heading = '📋 Your QPassport is Ready';
@@ -23,7 +37,7 @@ Deno.serve(async (req) => {
       <p><strong>Important:</strong> You must bring this document to your drug screening appointment. The facility will scan the barcode to verify your identity before the test.</p>
       <p>Please log in to your portal, open the <strong>Stage 1 — Background Check</strong> section, and download your QPassport now.</p>
       <p>If you have any questions, contact us at <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a>.</p>`;
-    const cta = { label: 'Download My QPassport', url: `${appUrl}/operator?tab=progress&action=download-qpassport#qpassport` };
+    const cta = { label: 'Download My QPassport', url: downloadUrl };
 
     const html = buildEmail(subject, heading, body, cta);
     await sendEmailStrict(to, subject, html, RESEND_API_KEY);
