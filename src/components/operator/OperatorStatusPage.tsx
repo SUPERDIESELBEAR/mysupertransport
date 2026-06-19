@@ -557,17 +557,15 @@ export default function OperatorStatusPage({
                 </p>
                 <Button
                   size="sm"
-                  onClick={() => {
-                    onNavigateTo('progress');
-                    setTimeout(() => {
-                      document.getElementById('stage-1-bg')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 100);
-                  }}
+                  onClick={openReceiptPicker}
+                  disabled={uploadingReceipt}
                   className="mt-3 text-xs h-8 gap-1.5 font-semibold"
                 >
-                  <Upload className="h-3.5 w-3.5" />
-                  Upload Receipt
-                  <ArrowRight className="h-3.5 w-3.5" />
+                  {uploadingReceipt ? (
+                    <><Loader2 className="h-3.5 w-3.5 animate-spin" />Uploading…</>
+                  ) : (
+                    <><Upload className="h-3.5 w-3.5" />Upload Receipt</>
+                  )}
                 </Button>
               </div>
             </div>
@@ -717,14 +715,15 @@ export default function OperatorStatusPage({
               </p>
               <Button
                 size="sm"
-                onClick={() => {
-                  document.getElementById('stage-1-bg')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
+                onClick={openReceiptPicker}
+                disabled={uploadingReceipt}
                 className="mt-3 text-xs h-8 gap-1.5 font-semibold"
               >
-                <Upload className="h-3.5 w-3.5" />
-                Upload Receipt
-                <ArrowRight className="h-3.5 w-3.5" />
+                {uploadingReceipt ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" />Uploading…</>
+                ) : (
+                  <><Upload className="h-3.5 w-3.5" />Upload Receipt</>
+                )}
               </Button>
             </div>
           </div>
