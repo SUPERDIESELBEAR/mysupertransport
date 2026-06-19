@@ -1,25 +1,35 @@
-# Fix operator header overlap (round 2)
+# Fix: "Upload Receipt" gold button on operator status page
 
 ## Root cause
 
-At 1023px the desktop nav at `OperatorPortal.tsx:954` (`hidden md:flex`) renders all 10+ items with full labels. Total width of labels + icons + logo + avatar cluster exceeds the viewport, so the nav wraps/spills under the logo. Widening the container and shrinking the logo wasn't enough because the label text itself is what overflows.
+Both gold "Upload Receipt" buttons in the receipt reminder banner (mobile at `OperatorStatusPage.tsx:491` and desktop at `:651`) only call `document.getElementById('stage-1-bg')?.scrollIntoView(...)`. They never open a file picker or camera, so tapping the gold button feels broken — nothing happens that lets the user upload a photo.
+
+The real upload control lives further down inside `PEScreeningTimeline`'s "Receipt Submitted" step. On laptop and on long mobile pages the user often doesn't see the page scroll, so the banner button looks dead.
 
 ## Fix
 
-Make the desktop top-nav icon-only with tooltips for laptop widths, and only show labels on extra-wide screens where everything fits comfortably.
+Wire the gold banner buttons to a real file input that uploads the receipt directly — mirroring the existing `handleReceiptUpload` in `PEScreeningTimeline.tsx` — so the click immediately opens the OS file/camera picker.
 
-### `src/pages/operator/OperatorPortal.tsx` (nav block ~line 954-1011)
+### `src/components/operator/OperatorStatusPage.tsx`
 
-- Wrap each button in a `Tooltip` (TooltipProvider already imported on line 955) so the label is shown on hover.
-- Render the text label conditionally: `<span className="hidden 2xl:inline">{item.label}</span>`. At <1536px only the icon shows; at 2xl+ the full label appears too.
-- Add `whitespace-nowrap` and `shrink-0` to each nav button so they never wrap or compress into the logo.
-- Keep the existing badges, dots, and `pillBadge` rendering — they already sit on the icon.
-- Leave the mobile bottom nav (`md:hidden`) untouched; mobile users keep the existing experience.
+- Add one hidden `<input type="file" accept="image/*,application/pdf" capture="environment">` plus a `receiptInputRef`, an `uploadingReceipt` state, and a `handleReceiptUpload(file)` function. The handler mirrors `PEScreeningTimeline.handleReceiptUpload`:
+  - `validateFile(file, false)` from `@/lib/validateFile`
+  - upload to `operator-documents/{operatorId}/pe_receipt/{Date.now()}.{ext}`
+  - insert into `operator_documents` with `document_type: 'pe_receipt'`
+  - fire-and-forget `send-notification` with `type: 'pe_receipt_uploaded'`
+  - toast success, then call `onUploadComplete?.()` so the parent refetches and the banner disappears
+  - on failure, toast the error
+- Replace the two banner `onClick` handlers (mobile + desktop) with `() => receiptInputRef.current?.click()`.
+- Swap the button label / spinner state on `uploadingReceipt` (show `Loader2 + Uploading…` while in-flight), and disable the button while uploading.
+- Remove the `setTimeout` + `scrollIntoView` calls from those handlers — the upload happens inline, no scroll needed. Keep the existing `#stage-1-bg` anchor for other deep links.
 
-No changes to logo sizing, container width, badges, or any other component.
+### What stays the same
+
+- `PEScreeningTimeline`'s in-stage "Upload Receipt" button keeps working as-is (it already opens a file picker correctly).
+- Receipt validation, storage bucket, document_type, and notification payload all match the existing path so coordinators get the same notification regardless of which button the driver used.
 
 ## Verification
 
-- Reload `/operator` at 1023px, 1280px, and 1536px — confirm the logo never overlaps the first nav item and all nav icons stay on one row.
-- Hover each icon to confirm the tooltip shows the label.
-- Confirm mobile (<768px) still uses the bottom nav unchanged.
+- Open `/operator` as Emma on iOS Safari → tap the gold "Upload Receipt" in the banner → the camera/photo picker opens immediately → select a photo → toast "Receipt uploaded" → banner disappears.
+- Same on desktop Chrome → file picker opens → upload PDF/JPG → banner clears.
+- Confirm a `pe_receipt_uploaded` notification fires to the assigned coordinator.
