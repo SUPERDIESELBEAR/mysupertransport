@@ -378,7 +378,11 @@ Deno.serve(async (req) => {
           : chosenTemplate === 'app_announcement'
           ? buildAppAnnouncementHtml(firstName, actionUrl)
           : buildBinderEmailHtml(firstName, actionUrl);
-        const subject = ALL_SUBJECTS[chosenTemplate];
+        let subject = ALL_SUBJECTS[chosenTemplate];
+        // Personalize the approval email subject with the first name when available.
+        if (chosenTemplate === 'full' && firstName) {
+          subject = `You're approved, ${firstName} — welcome to SUPERTRANSPORT`;
+        }
 
         try {
           await sendEmail(
