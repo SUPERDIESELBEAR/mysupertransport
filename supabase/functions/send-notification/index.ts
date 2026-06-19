@@ -203,25 +203,45 @@ Deno.serve(async (req) => {
         break;
       }
 
-      case 'application_approved': {
-        const name = payload.applicant_name || 'Applicant';
+      case 'application_submitted': {
+        // Applicant-facing confirmation that we received their submission.
+        // No password CTA, no install nudge — those come after approval.
+        const fullName = (payload.applicant_name || '').trim();
+        const firstName = fullName ? fullName.split(/\s+/)[0] : '';
         const email = payload.applicant_email;
         if (!email) break;
 
-        // Applicant emails are always sent (they are not management users with preferences)
-        const subject = 'Your SUPERTRANSPORT Application Has Been Approved!';
+        const greetingName = firstName || 'there';
+        const subject = firstName
+          ? `We've got your application, ${firstName}`
+          : "We've got your application";
+
         const html = buildEmail(
           subject,
-          '👍 Congratulations — You\'ve Been Approved!',
-          `<p>Dear ${name},</p>
-           <p>We are thrilled to let you know that your driver application with <strong>SUPERTRANSPORT</strong> has been <strong>approved</strong>.</p>
-           <p>You should receive a separate email shortly with a link to set up your SUPERTRANSPORT account. Once you log in, you'll be able to track your onboarding progress.</p>
-           <p>Welcome to the SUPERTRANSPORT family — we're excited to have you on board!</p>
-           ${payload.reviewer_notes ? `<p style="background:#f9f5e9;border-left:4px solid #C9A84C;padding:12px 16px;border-radius:4px;margin-top:16px;"><strong>Note from our team:</strong> ${payload.reviewer_notes}</p>` : ''}`,
-          { label: 'Set Up Your Account', url: `${appUrl}/login` }
+          '✅ Application Received',
+          `<p>Hi ${greetingName},</p>
+           <p>Thanks for applying to drive with <strong>SUPERTRANSPORT</strong>. Your application is in our hands and our onboarding team will review it shortly.</p>
+           <p><strong>What happens next:</strong></p>
+           <ul style="padding-left:20px;line-height:1.8;color:#444;">
+             <li>Our team reviews your application (typically within 1–2 business days).</li>
+             <li>You'll receive an email with our decision and next steps.</li>
+             <li>If approved, you'll set your password and get into <strong>SUPERDRIVE</strong> — your operator app.</li>
+           </ul>
+           <p style="margin-top:18px;">Questions in the meantime? Reply to this email or write us at <a href="mailto:${ONBOARDING_EMAIL}" style="color:#C9A84C;">${ONBOARDING_EMAIL}</a>.</p>
+           <p style="margin-top:18px;">Talk soon,<br/>— The SUPERTRANSPORT team</p>`,
+          undefined,
+          ONBOARDING_EMAIL
         );
 
         await sendEmail(email, subject, html, RESEND_API_KEY);
+        break;
+      }
+
+      case 'application_approved': {
+        // Deprecated: the standalone "application_approved" email is no longer sent.
+        // The consolidated approval email is now sent by `launch-superdrive-invite`
+        // (auto-fired from `invite-operator`). This case is retained as a no-op so
+        // any older callers still posting this event do not 400.
         break;
       }
 

@@ -93,14 +93,17 @@ Deno.serve(async (req) => {
     // Create or find the auth user
     let invitedUserId: string | null = null;
 
-    if (skip_invite) {
-      // For pre-existing operators: check if auth user exists, create without invite if not
+    // Find-or-create the auth user. We do NOT call inviteUserByEmail anymore —
+    // it auto-fires a generic Supabase "You've Been Invited" email that competed
+    // with our branded approval email. Instead, we create the user silently and
+    // `launch-superdrive-invite` (below) generates a recovery link + sends ONE
+    // consolidated, branded approval email.
+    {
       const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
       const existing = users?.find(u => u.email === app.email);
       if (existing) {
         invitedUserId = existing.id;
       } else {
-        // Create user with a random password (they can reset later)
         const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
           email: app.email,
           email_confirm: true,
@@ -112,31 +115,6 @@ Deno.serve(async (req) => {
         });
         if (createErr) console.error('Create user error:', createErr.message);
         if (newUser?.user) invitedUserId = newUser.user.id;
-      }
-    } else {
-      // Standard flow: send Supabase auth invite email
-      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-        app.email,
-        {
-          data: {
-            first_name: app.first_name ?? '',
-            last_name: app.last_name ?? '',
-            invited_as: 'operator',
-          },
-          redirectTo: `${Deno.env.get('APP_URL') ?? 'https://mysupertransport.lovable.app'}/welcome`,
-        }
-      );
-
-      if (inviteError) {
-        console.error('Invite error (may already exist):', inviteError.message);
-      }
-
-      if (inviteData?.user) {
-        invitedUserId = inviteData.user.id;
-      } else {
-        const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
-        const existing = users?.find(u => u.email === app.email);
-        if (existing) invitedUserId = existing.id;
       }
     }
 
@@ -376,19 +354,12 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Fire approval notification email (fire-and-forget)
-      const notifUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`;
-      fetch(notifUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
-        body: JSON.stringify({
-          type: 'application_approved',
-          applicant_name: applicantName,
-          applicant_email: app.email,
-          reviewer_notes: reviewer_notes ?? null,
-        }),
-      }).catch(e => console.error('Notification fire-and-forget error:', e));
-
+      // NOTE: The standalone "application_approved" email has been removed.
+      // `launch-superdrive-invite` (auto-fired above for new operators) sends
+      // the single consolidated approval email with a working set-password link
+      // and routes the user to /welcome where the install step lives. The in-app
+      // notification for management above is still sent.
+      //
       // NOTE: We intentionally do NOT fire `notify-pwa-install` on first invite anymore.
       // The invite email itself includes install instructions, and the /welcome page
       // walks the new operator through installation right after they set their password.

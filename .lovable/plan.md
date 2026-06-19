@@ -1,80 +1,90 @@
-## Make every notification click land on the exact record
+## Goal
 
-The first pass shipped the infrastructure but two real bugs remain, which is why clicks still don't deep-link:
+Fix the post-approval email mess with one clean approval email, a working set-password link, a friendly post-password install nudge, and the UX polish folded into the build (not bolted on later).
 
-1. The bell's portal detector uses `window.location.pathname`, but `/dashboard` is shared by Management, Staff, and Operator portals (routed by `activeRole` in `App.tsx`). So even when `entity_id` is set, the route can be wrong.
-2. Every notification currently in the database has `entity_type` / `entity_id` = NULL, so the bell falls back to the legacy `link` which is generic (e.g. `/dashboard`, `/dispatch`, `/operator?tab=documents`).
+## What's wrong today
 
-Plus several insertion sites still don't write the entity columns.
+Three emails fire within seconds of approval:
 
----
+1. **"Welcome to SUPERDRIVE"** (`launch-superdrive-invite`) — working recovery link + install cards.
+2. **"Your SUPERTRANSPORT Application Has Been Approved!"** (`send-notification` → `application_approved`) — **broken** "Set Up Your Account" → `/login`.
+3. **"You've Been Invited"** (Supabase auth invite) — duplicate set-password link + install cards.
 
-### Fix 1 — Resolver uses the user's active role (not pathname)
+Two competing password links, one broken, install steps duplicated three times, no submission-confirmation email to the applicant.
 
-`src/components/NotificationBell.tsx`
-- Replace `detectPortal()` (which reads `location.pathname`) with a derivation from `useAuth().activeRole`:
-  - `management` / `owner` → management portal
-  - `onboarding_staff` → staff portal
-  - `dispatcher` → dispatch portal
-  - `operator` / `truck_owner` → operator portal
-- Drop the `useLocation` import.
+## The new flow
 
-### Fix 2 — Legacy-link fallback (makes old notifications work immediately)
+### Stage 1 — After application submission
 
-In `resolveRoute()`, if `entity_type` / `entity_id` are missing, parse the stored `link` with a regex for `[?&](operator|op|app)=<uuid>`. If found, treat it as the right entity type and run the same portal-aware routing. This covers nearly every historical link (e.g. `/staff?operator=<id>`, `/dashboard?view=operator-detail&op=<id>`, `/management?op=<id>`).
+**Email A — Application Submission Confirmation (NEW, to applicant)**
+- Subject: "We've got your application, {FirstName}"
+- Warm tone, uses first name in subject and greeting
+- Body: confirmation + what happens next (review timeline) + signature
+- Preview line: "Thanks {FirstName} — we'll be in touch within 1–2 business days."
+- No password CTA, no install nudge yet
+- Fires from the application submit handler
 
-### Fix 3 — Backfill historical notifications (one SQL migration)
+### Stage 2 — On approval
 
-```sql
--- Operator-scoped legacy links
-UPDATE public.notifications
-SET entity_type = 'operator',
-    entity_id = (regexp_match(link, '[?&](?:operator|op)=([0-9a-f-]{36})'))[1]::uuid
-WHERE entity_id IS NULL
-  AND link ~* '[?&](operator|op)=[0-9a-f-]{36}';
+**Email B — One consolidated approval email** (replaces all three current emails)
+- Subject: **"You're approved, {FirstName} — welcome to SUPERTRANSPORT"**
+- Preview line: **"Set your password and get into SUPERDRIVE in 60 seconds."**
+- Greeting uses first name; one consistent voice: warm and direct (no formal/casual whiplash)
+- One primary CTA: **"Set Your Password & Open SUPERDRIVE"** → recovery link → `/reset-password?welcome=1`
+- One-line expectation-setter under the CTA: *"After you set your password, we'll walk you through installing SUPERDRIVE on your phone — takes about a minute."*
+- Feature list from today's Welcome email
+- Footer safety-net link: "Need to install on a different device later? Go to mysupertransport.com/install"
+- **No install instructions in the body** — those live on the landing page
 
--- Application-scoped legacy links
-UPDATE public.notifications
-SET entity_type = 'application',
-    entity_id = (regexp_match(link, '[?&]app=([0-9a-f-]{36})'))[1]::uuid
-WHERE entity_id IS NULL
-  AND link ~* '[?&]app=[0-9a-f-]{36}';
-```
+### Stage 3 — Post-password install interstitial
 
-### Fix 4 — Update the 10 DB trigger functions
+The "nudge to install" management asked for, in the right spot — operator just set password, is actively engaged, has device in hand.
 
-These all insert into `notifications` and currently skip `entity_type`/`entity_id`. One migration updates each to include them:
+1. Recovery link lands on `/reset-password?welcome=1`. Copy: "Welcome to SUPERTRANSPORT — set your password."
+2. On submit success → **NEW** `/welcome/install`.
+3. Interstitial wraps existing `<InstallStep />`:
+   - **Phone, not installed:** big install instructions (iOS Share → Add to Home Screen, Android Install app).
+   - **Phone, already standalone:** auto-skip to `/dashboard`.
+   - **Desktop:** smaller "Use SUPERDRIVE on your phone for the best experience" card.
+4. Soft-skip link wording: **"I'll install later → continue to my portal"** (not the abrasive "Skip").
+5. Continue → `/dashboard`.
 
-- `notify_operator_on_status_change`
-- `notify_on_truck_down`
-- `notify_driver_on_upload_status_change`
-- `notify_staff_on_docs_uploaded`
-- `notify_staff_on_release_note`
-- `notify_operators_on_fleet_share`
-- `notify_owner_on_pay_setup_submitted`
-- `handle_operator_deactivated`
-- `approve_application_correction`
-- `reject_application_correction`
+### Stage 4 — Safety nets for skippers
 
-Each gets `entity_type='operator'` + `entity_id=<operator id in scope>` (or `'application'` for the correction functions). Bodies otherwise unchanged.
+- **In-app install banner** — confirm `PWAInstallBanner` shows on the operator dashboard for non-standalone users. Skippers see a persistent (but dismissible) nudge.
+- **Login page resend** — small "Didn't get your set-password email or link expired? Resend" link that calls `resetPasswordForEmail`. Handles 24-hour recovery link expiry.
 
-### Fix 5 — Edge functions missed in the first pass
+## Auth "You've Been Invited" email
 
-- `supabase/functions/notify-new-message/index.ts` → add `entity_type`/`entity_id` (operator or message_thread).
-- `supabase/functions/send-birthday-anniversary/index.ts` → add `entity_type='operator'`, `entity_id=<operator id>`.
+Switched to a recovery-link approach (your Q1 answer):
+- `invite-operator` calls `admin.createUser` (no auto email) + `generateLink({ type: 'recovery' })`.
+- The auth invite email stops firing for new operators.
+- The auth invite template stays in place as a fallback for admin/dispatch staff invites.
 
----
+## Implementation
 
-### Result
+### Frontend
+1. **`src/pages/ResetPassword.tsx`** — detect `?welcome=1`; swap copy to welcome-mode; on success, route to `/welcome/install`.
+2. **NEW** `src/pages/WelcomeInstall.tsx` — wraps `<InstallStep />`, auto-skips when install N/A, soft-skip link reads "I'll install later".
+3. **`src/App.tsx`** — register `/welcome/install`, auth-only.
+4. **`src/pages/LoginPage.tsx`** — add "Resend set-password link" affordance.
+5. **`src/components/InstallStep.tsx`** — update the existing skip-link wording from "Skip for now → …" to "I'll install later → continue to my portal" to match the new tone.
+6. **`src/pages/operator/OperatorPortal.tsx`** — verify `PWAInstallBanner` renders for non-standalone operators (likely already does — confirm only, no change if so).
 
-After this lands:
-- Existing notifications already in the bell deep-link correctly via the legacy-link parser + the SQL backfill.
-- New notifications from every edge function and every DB trigger carry their entity reference.
-- A management user clicking "Application Approved" lands on `/management?view=operator-detail&op=<id>`; a staff user lands on `/staff?view=operator-detail&operator=<id>`; etc.
+### Edge functions
+7. **NEW** `supabase/functions/send-application-confirmation/index.ts` — Email A. Invoked from the application submit handler. Uses `{FirstName}` in subject + greeting + preview line.
+8. **`supabase/functions/invite-operator/index.ts`** — replace `inviteUserByEmail` with `createUser` + `generateLink({ type: 'recovery', options: { redirectTo: '<APP_URL>/reset-password?welcome=1' } })`. Pass URL to `launch-superdrive-invite`. Stop calling the `application_approved` notification email.
+9. **`supabase/functions/launch-superdrive-invite/index.ts`** — rewrite the `full` template into Email B. New subject, preview line, first-name greeting, expectation-setter line, install cards removed.
+10. **`supabase/functions/send-notification/index.ts`** — delete the `application_approved` email branch (keep the in-app notification). Removes the broken "Set Up Your Account → /login" button.
+11. **`supabase/functions/_shared/email-templates/invite.tsx`** — keep as fallback for non-operator auth invites; stops firing in operator flow.
 
-### Files
+### Link audit pass
+Click through every `href` in `invite-applicant`, `launch-superdrive-invite`, all `send-notification` branches, and `_shared/email-templates/*`. Confirm each route exists in `src/App.tsx`. Fix any stragglers found.
 
-- `src/components/NotificationBell.tsx`
-- One Supabase migration: backfill + the 10 trigger-function updates
-- `supabase/functions/notify-new-message/index.ts`
-- `supabase/functions/send-birthday-anniversary/index.ts`
+## What stays out of scope (explicit)
+
+- "You're invited to apply" (staff-initiated only) — unchanged.
+- The auth invite template — kept as fallback for staff/admin invites.
+- The 8-stage downstream onboarding emails — separate pass.
+
+## Ready to build on approval.
