@@ -1,51 +1,37 @@
 ## Goal
 
-Verify the new email flow end-to-end, send live mock emails to `emma@mysupertransport.com` for visual sign-off, then clean up the in-app Content Manager (`EmailCatalog.tsx`) so it shows only the emails that actually fire today.
+Make `PWAInstallBanner` disappear the moment SUPERDRIVE is installed, and verify the behavior with a smoke test.
 
----
+## Why it's needed
 
-## 1. Backend test pass (read-only, no code changes)
+Today `src/components/PWAInstallBanner.tsx` only checks `isStandalone()` once, in its mount effect. If a driver opens the portal in a browser tab and then installs SUPERDRIVE (or the OS install completes after the banner is already on screen), the "Install SUPERDRIVE" popup keeps showing until the next full page load. It can also reappear briefly on tabs that were open at install time.
 
-Run smoke tests against the three updated edge functions and read their logs:
+## Change
 
-- `send-notification` — POST with `kind: "application_submitted"` using a mock applicant payload. Confirm 200 + a delivery log line. Also confirm the deprecated `application_approved` branch returns the expected "deprecated" response (no email).
-- `launch-superdrive-invite` — POST with a real test operator id (existing test account). Confirm a single email is generated with the new "You're approved, {FirstName}" subject and a `/welcome` recovery link.
-- `invite-operator` — POST with a new throwaway email. Confirm it uses `createUser` (no auto Supabase invite email) and returns a recovery link pointing at `/welcome`.
+`src/components/PWAInstallBanner.tsx`
 
-For each call: `supabase--edge_function_logs` is checked for errors / unhandled rejections. Any failure is reported back before moving on.
+1. Add a `window.addEventListener('appinstalled', …)` listener that calls the existing `dismiss()` flow — sets the dismissed flag, clears `deferredPrompt`, hides the iOS card, and persists `superdrive-pwa-dismissed` so it stays gone on subsequent navigations.
+2. Add a `visibilitychange` / `focus` re-check that calls `isStandalone()`; if it now returns true (e.g. iOS A2HS completed in another tab, or the user reopened the installed app shell), hide the banner immediately.
+3. Keep all existing guards (iframe, preview host, already-standalone on mount, `DISMISSED_KEY`, in-app browser copy) untouched.
 
-## 2. Mock emails to emma@mysupertransport.com
+No other components change. No new dependencies, no styling changes, no behavior change for users who haven't installed.
 
-Send 3 live test sends via the existing `send-test-email` function so Emma can eyeball the rendered HTML in her inbox:
+## Smoke test
 
-1. **Application Submission Confirmation** (new) — warm "We've got your application, {FirstName}".
-2. **Approval + SUPERDRIVE Welcome** (consolidated) — new subject, single CTA → `/welcome`, expectation-setter line, install fallback footer.
-3. **Operator Invite (recovery link)** — the `invite-operator` flavor, so Emma sees the new password-set link instead of the old generic Supabase invite.
+Add `src/components/__tests__/PWAInstallBanner.test.tsx` using Vitest + React Testing Library (already in the project). Three cases:
 
-All three go to `emma@mysupertransport.com`. The previously-implemented templates are reused; no copy is changed during the test send.
+1. **Already standalone on mount** — mock `matchMedia('(display-mode: standalone)')` to return `matches: true`; assert the banner renders nothing.
+2. **`appinstalled` fires while banner is visible** — start in non-standalone, dispatch a synthetic `beforeinstallprompt` so the banner shows the Android variant, then dispatch `appinstalled`; assert the banner unmounts and `localStorage[superdrive-pwa-dismissed]` is set.
+3. **Visibility re-check after install** — start non-standalone with the iOS card visible, flip `matchMedia` to standalone, dispatch a `visibilitychange` event on `document`; assert the banner is gone.
 
-## 3. Content Manager cleanup (`src/components/management/EmailCatalog.tsx`)
+Run via `bunx vitest run src/components/__tests__/PWAInstallBanner.test.tsx`.
 
-The catalog is the staff-facing list of "emails the system sends." It currently lists two entries that no longer fire and is missing the new applicant confirmation.
+## Out of scope
 
-**Remove**
-- `invite_operator` — "Operator Welcome — Application Approved" / subject "Your SUPERTRANSPORT Application Has Been Approved!" with the broken `/login` CTA. Deprecated; replaced by the consolidated approval email.
-
-**Update in place**
-- `welcome_superdrive` — rename to **"Approval + SUPERDRIVE Welcome"**, update subject to **"You're approved, {FirstName} — welcome to SUPERTRANSPORT"**, change CTA URL to `/welcome`, replace the in-email install block with the one-liner expectation-setter ("After you set your password, we'll walk you through installing SUPERDRIVE on your phone — takes about a minute.") and a small footer fallback ("Need to install on a different device later? Go to mysupertransport.com/install"). Body copy matches what `launch-superdrive-invite` now sends.
-
-**Add**
-- New entry `application_submitted` under the `invitations` (or new `applicant` if cleaner) category — "Application Submission Confirmation," warm thank-you body, no CTA, mirrors the HTML now produced by `send-notification`.
-
-No other catalog entries are touched. No DB migrations. No changes to send-time logic — only the staff-facing preview list and copy.
-
-## 4. Reporting back
-
-After the test run + sends, post a short summary: pass/fail for each function, the message IDs (or "queued") for Emma's three emails, and the list of catalog changes that landed.
+- No changes to `InstallStep`, `/install` page, scheduled PWA reminder emails, or `useTrackOperatorPresence` (which already tracks `appinstalled` server-side for telemetry — separate concern).
+- No changes to manifest, service worker, or any registration code.
 
 ## Technical notes
 
-- Tools used: `supabase--curl_edge_functions`, `supabase--edge_function_logs`, `code--apply_patch` (only for `EmailCatalog.tsx`).
-- No schema changes, no new secrets, no new routes.
-- `send-test-email` already handles auth + Resend delivery; no edits needed there.
-- If any of the three smoke tests fail, stop and surface the error instead of proceeding to the catalog edit.
+- The `appinstalled` event is a standard `Event`, fires once on successful PWA installation on Android/desktop Chrome/Edge. iOS Safari does not fire it, which is exactly why the `visibilitychange` standalone re-check is the iOS-side safety net.
+- Tools: `code--apply_patch` for both files; `code--exec` to run vitest.
