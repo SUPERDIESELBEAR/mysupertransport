@@ -1,45 +1,25 @@
-# Fix QPassport email download + operator header overlap
+# Fix operator header overlap (round 2)
 
-## Problem 1 — Email button still routes through the portal
+## Root cause
 
-Today the email CTA points at `/operator?tab=progress&action=download-qpassport`. That requires the user to be authenticated, the SPA to load, the operator record to fetch, and only then can it trigger a download. On mobile especially, this lands on the portal and the auto-download often never fires. We need a link that downloads the PDF directly — no login, no SPA.
+At 1023px the desktop nav at `OperatorPortal.tsx:954` (`hidden md:flex`) renders all 10+ items with full labels. Total width of labels + icons + logo + avatar cluster exceeds the viewport, so the nav wraps/spills under the logo. Widening the container and shrinking the logo wasn't enough because the label text itself is what overflows.
 
-## Solution — public tokenized download endpoint
+## Fix
 
-Create a new public edge function `download-qpassport` that streams the operator's QPassport PDF straight back to the browser as an attachment. The email CTA points directly at this URL.
+Make the desktop top-nav icon-only with tooltips for laptop widths, and only show labels on extra-wide screens where everything fits comfortably.
 
-### New edge function: `supabase/functions/download-qpassport/index.ts`
+### `src/pages/operator/OperatorPortal.tsx` (nav block ~line 954-1011)
 
-- Public (no JWT required); add to `supabase/config.toml` with `verify_jwt = false`.
-- Accepts `GET /download-qpassport?token=...`.
-- `token` is an HMAC-signed payload `{ operator_id, exp }` (7-day expiry) using a new secret `QPASSPORT_DOWNLOAD_SECRET`. Sign with `crypto.subtle` HMAC-SHA256, base64url-encoded.
-- On request: verify HMAC + expiry. Use the service role client to load `onboarding_status.qpassport_path` (and bucket name) for the operator. Download the file bytes from storage and return them with:
-  - `Content-Type: application/pdf`
-  - `Content-Disposition: attachment; filename="QPassport.pdf"`
-- Friendly HTML error page if token invalid/expired with a button to open the portal.
+- Wrap each button in a `Tooltip` (TooltipProvider already imported on line 955) so the label is shown on hover.
+- Render the text label conditionally: `<span className="hidden 2xl:inline">{item.label}</span>`. At <1536px only the icon shows; at 2xl+ the full label appears too.
+- Add `whitespace-nowrap` and `shrink-0` to each nav button so they never wrap or compress into the logo.
+- Keep the existing badges, dots, and `pillBadge` rendering — they already sit on the icon.
+- Leave the mobile bottom nav (`md:hidden`) untouched; mobile users keep the existing experience.
 
-### Email CTA changes
-
-- `supabase/functions/send-notification/index.ts` (`qpassport_uploaded` case): mint a token, build the URL `${SUPABASE_URL}/functions/v1/download-qpassport?token=...`, and use it as the CTA `url`. Keep subject/heading/body copy unchanged.
-- `supabase/functions/send-test-email/index.ts`: same change so test sends mirror prod.
-- Remove the now-obsolete `action=download-qpassport` query handling in `OperatorStatusPage.tsx` (the manual button on the portal still works for re-downloads).
-
-### Redeploy
-
-Deploy `download-qpassport`, `send-notification`, `send-test-email`. Send a fresh test to `emma@mysupertransport.com` to confirm tapping the gold button downloads `QPassport.pdf` directly with no portal hop.
-
-## Problem 2 — Logo overlaps "My Progress" in desktop header
-
-At ~1023px the logo's right edge sits on top of the first nav item. Root cause: the header's inner container is `max-w-4xl` (896px) but the desktop nav has 9 items plus a 180px-wide logo and the avatar cluster — they don't fit.
-
-### Fix in `src/pages/operator/OperatorPortal.tsx` (header block ~line 938)
-
-- Widen the header container from `max-w-4xl` to `max-w-7xl` so the nav has room to breathe on laptop/desktop.
-- Tighten the logo cap from `max-w-[180px] h-10` to `max-w-[140px] h-9` so it never crowds the first nav item at narrow desktop widths.
-- No mobile changes (the desktop nav is already `hidden md:flex`).
+No changes to logo sizing, container width, badges, or any other component.
 
 ## Verification
 
-- Visit `/operator` at 1024px and 1280px viewports — confirm no overlap between logo and nav.
-- Send QPassport test email → tap CTA in an unauthenticated browser → PDF downloads, no portal redirect.
-- Tap CTA while logged in → still downloads (token-based, auth-agnostic).
+- Reload `/operator` at 1023px, 1280px, and 1536px — confirm the logo never overlaps the first nav item and all nav icons stay on one row.
+- Hover each icon to confirm the tooltip shows the label.
+- Confirm mobile (<768px) still uses the bottom nav unchanged.
