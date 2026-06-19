@@ -937,7 +937,7 @@ Deno.serve(async (req) => {
                <p><strong>Important:</strong> You must bring this document to your drug screening appointment. The facility will scan the barcode to verify your identity before the test.</p>
                <p>Please log in to your portal, open the <strong>Stage 1 — Background Check</strong> section, and download your QPassport now.</p>
                <p style="margin-top:16px;">If you have any questions, contact us at <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a>.</p>`,
-              { label: 'Download My QPassport', url: `${appUrl}/operator?tab=progress#qpassport` }
+              { label: 'Download My QPassport', url: `${appUrl}/operator?tab=progress&action=download-qpassport#qpassport` }
             );
             await sendEmail(operatorEmail, subject, html, RESEND_API_KEY);
           }
