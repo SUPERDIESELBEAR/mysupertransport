@@ -3,10 +3,14 @@ import { downloadBlob } from '@/lib/downloadBlob';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import OnboardingChecklist from '@/components/operator/OnboardingChecklist';
 import SmartProgressWidget from '@/components/operator/SmartProgressWidget';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { validateFile } from '@/lib/validateFile';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 
@@ -373,8 +377,71 @@ export default function OperatorStatusPage({
   const hasReceiptDoc = uploadedDocs?.some(d => d.document_type === 'pe_receipt') ?? false;
   const showReceiptReminderBanner = peScreening === 'scheduled' && !!qpassportUrl && !hasReceiptDoc;
 
+  // ── Receipt upload (banner gold button) ──────────────────────────────────
+  // The "Upload Receipt" gold buttons in the reminder banner open this hidden
+  // input directly instead of just scrolling to Stage 1, so the click feels
+  // immediate (camera/photo sheet on mobile, file picker on desktop).
+  const { toast } = useToast();
+  const receiptInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const handleReceiptUpload = async (file: File) => {
+    if (!operatorId) return;
+    const { valid, error: validationError } = validateFile(file, false);
+    if (!valid) {
+      toast({ title: 'Invalid file', description: validationError, variant: 'destructive' });
+      return;
+    }
+    setUploadingReceipt(true);
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `${operatorId}/pe_receipt/${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('operator-documents')
+        .upload(path, file, { upsert: false });
+      if (uploadError) throw uploadError;
+      const { error: insertError } = await supabase.from('operator_documents').insert({
+        operator_id: operatorId,
+        document_type: 'pe_receipt' as never,
+        file_name: file.name,
+        file_url: path,
+      });
+      if (insertError) throw insertError;
+      try {
+        await supabase.functions.invoke('send-notification', {
+          body: { type: 'pe_receipt_uploaded', operator_id: operatorId },
+        });
+      } catch {
+        // non-critical
+      }
+      toast({ title: 'Receipt uploaded', description: 'Your PE screening receipt has been submitted.' });
+      onUploadComplete?.();
+    } catch (err: unknown) {
+      toast({
+        title: 'Upload failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
+  const openReceiptPicker = () => receiptInputRef.current?.click();
+
   return (
     <>
+    {/* Hidden input shared by mobile + desktop banner gold buttons */}
+    <input
+      ref={receiptInputRef}
+      type="file"
+      accept="image/*,application/pdf"
+      capture="environment"
+      className="hidden"
+      onChange={e => {
+        const file = e.target.files?.[0];
+        if (file) handleReceiptUpload(file);
+        e.target.value = '';
+      }}
+    />
     {/* ── MOBILE: Checklist view (< md) ── */}
     <div className="md:hidden -mx-4 -mt-4">
       {/* Pass banners first, then checklist */}
@@ -490,17 +557,15 @@ export default function OperatorStatusPage({
                 </p>
                 <Button
                   size="sm"
-                  onClick={() => {
-                    onNavigateTo('progress');
-                    setTimeout(() => {
-                      document.getElementById('stage-1-bg')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 100);
-                  }}
+                  onClick={openReceiptPicker}
+                  disabled={uploadingReceipt}
                   className="mt-3 text-xs h-8 gap-1.5 font-semibold"
                 >
-                  <Upload className="h-3.5 w-3.5" />
-                  Upload Receipt
-                  <ArrowRight className="h-3.5 w-3.5" />
+                  {uploadingReceipt ? (
+                    <><Loader2 className="h-3.5 w-3.5 animate-spin" />Uploading…</>
+                  ) : (
+                    <><Upload className="h-3.5 w-3.5" />Upload Receipt</>
+                  )}
                 </Button>
               </div>
             </div>
@@ -650,14 +715,15 @@ export default function OperatorStatusPage({
               </p>
               <Button
                 size="sm"
-                onClick={() => {
-                  document.getElementById('stage-1-bg')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
+                onClick={openReceiptPicker}
+                disabled={uploadingReceipt}
                 className="mt-3 text-xs h-8 gap-1.5 font-semibold"
               >
-                <Upload className="h-3.5 w-3.5" />
-                Upload Receipt
-                <ArrowRight className="h-3.5 w-3.5" />
+                {uploadingReceipt ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" />Uploading…</>
+                ) : (
+                  <><Upload className="h-3.5 w-3.5" />Upload Receipt</>
+                )}
               </Button>
             </div>
           </div>
