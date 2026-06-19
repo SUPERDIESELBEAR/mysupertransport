@@ -16,16 +16,19 @@ Deno.serve(async (req) => {
     const to = 'emma@mysupertransport.com';
     const name = 'Emma Mueller';
 
-    // Resolve Emma's operator_id so we can mint a real download token.
+    // Mint a real download token using any operator that has a QPassport on
+    // file. The test email is sent to Emma to verify the click-through; the
+    // file behind the link is whatever QPassport is most recently uploaded.
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const { data: opRow } = await admin
-      .from('operators')
-      .select('id, application:applications(email)')
-      .eq('application.email', to)
+    const { data: qpRow } = await admin
+      .from('onboarding_status')
+      .select('operator_id')
+      .not('qpassport_url', 'is', null)
+      .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    const operatorId = (opRow as { id?: string } | null)?.id;
+    const operatorId = (qpRow as { operator_id?: string } | null)?.operator_id;
     const downloadUrl = operatorId
       ? await buildQPassportDownloadUrl(operatorId)
       : 'https://mysupertransport.lovable.app/operator?tab=progress#qpassport';
