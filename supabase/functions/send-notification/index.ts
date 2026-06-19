@@ -204,24 +204,10 @@ Deno.serve(async (req) => {
       }
 
       case 'application_approved': {
-        const name = payload.applicant_name || 'Applicant';
-        const email = payload.applicant_email;
-        if (!email) break;
-
-        // Applicant emails are always sent (they are not management users with preferences)
-        const subject = 'Your SUPERTRANSPORT Application Has Been Approved!';
-        const html = buildEmail(
-          subject,
-          '👍 Congratulations — You\'ve Been Approved!',
-          `<p>Dear ${name},</p>
-           <p>We are thrilled to let you know that your driver application with <strong>SUPERTRANSPORT</strong> has been <strong>approved</strong>.</p>
-           <p>You should receive a separate email shortly with a link to set up your SUPERTRANSPORT account. Once you log in, you'll be able to track your onboarding progress.</p>
-           <p>Welcome to the SUPERTRANSPORT family — we're excited to have you on board!</p>
-           ${payload.reviewer_notes ? `<p style="background:#f9f5e9;border-left:4px solid #C9A84C;padding:12px 16px;border-radius:4px;margin-top:16px;"><strong>Note from our team:</strong> ${payload.reviewer_notes}</p>` : ''}`,
-          { label: 'Set Up Your Account', url: `${appUrl}/login` }
-        );
-
-        await sendEmail(email, subject, html, RESEND_API_KEY);
+        // Deprecated: the standalone "application_approved" email is no longer sent.
+        // The consolidated approval email is now sent by `launch-superdrive-invite`
+        // (auto-fired from `invite-operator`). This case is retained as a no-op so
+        // any older callers still posting this event do not 400.
         break;
       }
 
