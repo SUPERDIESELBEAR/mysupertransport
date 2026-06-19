@@ -420,6 +420,21 @@ export default function ApplicationForm() {
         }),
       }).catch(() => {/* non-critical */});
 
+      // Fire-and-forget: send the applicant a confirmation that we received their submission.
+      fetch(`${supabaseUrl}/functions/v1/send-notification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+          'apikey': anonKey,
+        },
+        body: JSON.stringify({
+          type: 'application_submitted',
+          applicant_name: `${formData.first_name} ${formData.last_name}`.trim() || formData.email,
+          applicant_email: formData.email,
+        }),
+      }).catch(() => {/* non-critical */});
+
       setSubmitted(true);
     } catch (err) {
       console.error('Application submit failed:', err);
