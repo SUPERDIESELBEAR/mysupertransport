@@ -55,7 +55,7 @@ const MILESTONE_COPY: Record<string, {
       <p>Your <strong>pre-employment drug screening</strong> has been scheduled.</p>
       <p>You should receive a separate email with the clinic location and instructions. Please complete your screening as soon as possible to keep your onboarding on track.</p>
       <p>If you have any questions, contact your coordinator at <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a>.</p>`,
-    cta: (appUrl) => ({ label: 'View My Portal', url: `${appUrl}/dashboard` }),
+    cta: (appUrl) => ({ label: 'View My Portal', url: `${appUrl}/dashboard?tab=progress` }),
   },
   mo_reg_filed: {
     subject: 'Missouri Registration Filed — SUPERTRANSPORT',
