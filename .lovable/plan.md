@@ -1,15 +1,18 @@
-Send a one-off test "Drug Screening Scheduled" email to `emma@mysupertransport.com` so the fix can be verified on a real iOS device.
+## QPassport Email — "Download My QPassport" Button Not Clickable
 
-## Approach
-Add a tiny ephemeral edge function `send-test-email` that:
-1. Imports `buildEmail` + `sendEmailStrict` from `supabase/functions/_shared/email-layout.ts` (so it uses the exact same bulletproof CTA renderer we just fixed).
-2. Reuses the literal `drug_screening_scheduled` copy from `notify-onboarding-update/index.ts` (subject, heading, body, CTA label/URL pointing to `https://mysupertransport.lovable.app/dashboard?tab=progress`).
-3. Sends to `emma@mysupertransport.com` using the existing `RESEND_API_KEY` runtime secret.
-4. Returns `{ ok: true, id }` on success.
+### Root cause
+The QPassport email (`qpassport_uploaded` case in `supabase/functions/send-notification/index.ts`) renders its CTA through the shared `buildEmail()` helper in `supabase/functions/_shared/email-layout.ts`. That helper was already rewritten to use the bulletproof `<table>`-based button pattern when we fixed the Drug Screening email — same root cause, same fix.
 
-Then deploy it and invoke it once via `supabase--curl_edge_functions`. Verify the response is 200/ok and ask the user to check Emma's inbox and confirm the gold "View My Portal" button is now tappable on iOS.
+The QPassport function just needs to be **redeployed** so it picks up the updated shared layout. The CTA URL (`/operator?tab=progress#qpassport`) is already correct and routes the driver directly to the Background Check stage where the QPassport download lives.
 
-After verification, we can leave the function in place (harmless, only callable with the right invocation) or delete it on request.
+### Steps
 
-## Why not invoke `notify-onboarding-update` directly
-That function looks up an `operator_id`, reads the user's `notification_preferences`, and pulls the email from `auth.users`. Using a dedicated test sender avoids any risk of triggering real-operator side effects or being silently skipped by a preference toggle.
+1. **Redeploy `send-notification`** so it bundles the latest `_shared/email-layout.ts` with the bulletproof button.
+2. **Update `send-test-email`** to mirror the QPassport copy (subject, heading, body, CTA label "Download My QPassport", URL `https://mysupertransport.lovable.app/operator?tab=progress#qpassport`) and redeploy.
+3. **Invoke `send-test-email`** to deliver a QPassport test to `emma@mysupertransport.com`.
+4. Ask the user to confirm on iOS Gmail that the gold button is now tappable and lands on the Background Check section.
+
+### Notes
+- No template copy or routing changes — clickability only.
+- No DB/schema changes.
+- The `send-test-email` function stays in place for the next round of verifications; it can be deleted afterward.

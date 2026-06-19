@@ -16,13 +16,14 @@ Deno.serve(async (req) => {
     const to = 'emma@mysupertransport.com';
     const name = 'Emma Mueller';
 
-    const subject = 'Drug Screening Scheduled — SUPERTRANSPORT';
-    const heading = '🔬 Drug Screening Scheduled';
+    const subject = 'Action Required: Download Your QPassport';
+    const heading = '📋 Your QPassport is Ready';
     const body = `<p>Hi ${name},</p>
-      <p>Your <strong>pre-employment drug screening</strong> has been scheduled.</p>
-      <p>You should receive a separate email with the clinic location and instructions. Please complete your screening as soon as possible to keep your onboarding on track.</p>
-      <p>If you have any questions, contact your coordinator at <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a>.</p>`;
-    const cta = { label: 'View My Portal', url: `${appUrl}/dashboard?tab=progress` };
+      <p>Your <strong>QPassport</strong> has been uploaded by your onboarding coordinator and is now available for download in your portal.</p>
+      <p><strong>Important:</strong> You must bring this document to your drug screening appointment. The facility will scan the barcode to verify your identity before the test.</p>
+      <p>Please log in to your portal, open the <strong>Stage 1 — Background Check</strong> section, and download your QPassport now.</p>
+      <p>If you have any questions, contact us at <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a>.</p>`;
+    const cta = { label: 'Download My QPassport', url: `${appUrl}/operator?tab=progress#qpassport` };
 
     const html = buildEmail(subject, heading, body, cta);
     await sendEmailStrict(to, subject, html, RESEND_API_KEY);
