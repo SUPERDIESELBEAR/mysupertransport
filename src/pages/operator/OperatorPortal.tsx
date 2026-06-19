@@ -842,20 +842,20 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
   const navItems = [
     { view: 'home' as OperatorView, label: 'Home', icon: <Home className="h-5 w-5" />, showIf: isFullyOnboarded },
-    { view: 'progress' as OperatorView, label: isFullyOnboarded ? 'Onboarding Status' : 'My Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
+    { view: 'progress' as OperatorView, label: isFullyOnboarded ? 'Onboarding Status' : 'My Progress', shortLabel: isFullyOnboarded ? 'Status' : 'Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
     { view: 'documents' as OperatorView, label: 'Documents', icon: <Upload className="h-5 w-5" /> },
     { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
-    { view: 'inspection-binder' as OperatorView, label: 'Inspection Binder', icon: <Shield className="h-5 w-5" />, pillBadge: isFullyOnboarded ? 'DOT' : undefined },
-    { view: 'my-docs' as OperatorView, label: 'My Documents', icon: <FolderOpen className="h-5 w-5" /> },
+    { view: 'inspection-binder' as OperatorView, label: 'Inspection Binder', shortLabel: 'Binder', icon: <Shield className="h-5 w-5" />, pillBadge: isFullyOnboarded ? 'DOT' : undefined },
+    { view: 'my-docs' as OperatorView, label: 'My Documents', shortLabel: 'My Docs', icon: <FolderOpen className="h-5 w-5" /> },
     { view: 'my-truck' as OperatorView, label: 'My Truck', icon: <Truck className="h-5 w-5" /> },
-    { view: 'resource-center' as OperatorView, label: 'Resource Center', icon: <BookOpen className="h-5 w-5" /> },
+    { view: 'resource-center' as OperatorView, label: 'Resource Center', shortLabel: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
-    { view: 'forecast' as OperatorView, label: 'Settlement Forecast', icon: <Calculator className="h-5 w-5" /> },
+    { view: 'forecast' as OperatorView, label: 'Settlement Forecast', shortLabel: 'Forecast', icon: <Calculator className="h-5 w-5" /> },
     { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: onboardingStatus.ica_status === 'sent_for_signature' || onboardingStatus.ica_status === 'complete', icaDot: icaActionDot },
     { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Truck className="h-5 w-5" />, onlyOnboarded: true },
     { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" /> },
     { view: 'faq' as OperatorView, label: 'FAQ', icon: <HelpCircle className="h-5 w-5" /> },
-    { view: 'notifications' as OperatorView, label: 'Notifications', icon: <Bell className="h-5 w-5" />, badge: unreadNotifCount },
+    { view: 'notifications' as OperatorView, label: 'Notifications', shortLabel: 'Alerts', icon: <Bell className="h-5 w-5" />, badge: unreadNotifCount },
   ].filter(item => {
     if (isPreview && ['messages', 'notifications', 'ica'].includes(item.view)) return false;
     if ('onlyOnboarded' in item && !isFullyOnboarded) return false;
@@ -935,7 +935,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         className={isPreview ? 'hidden' : "bg-surface-dark border-b border-surface-dark-border fixed top-0 inset-x-0 z-40"}
         style={isPreview ? undefined : { paddingTop: 'env(safe-area-inset-top)' }}
       >
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center justify-between gap-3">
           <div className="flex items-center gap-1 min-w-0">
             {viewHistory.length > 0 && (
               <button
@@ -951,7 +951,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           </div>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden md:flex items-end gap-0.5">
             <TooltipProvider delayDuration={200}>
             {navItems.map(item => {
               const showExpiry = 'criticalDot' in item && item.criticalDot && view !== 'progress' && expiryDotInfo;
@@ -959,7 +959,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 <button
                   key={item.view}
                   onClick={() => setView(item.view)}
-                  className={`relative shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2 2xl:px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                  className={`relative shrink-0 flex flex-col items-center justify-end gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors w-[68px] xl:w-[76px] ${
                     view === item.view
                       ? 'bg-gold/15 text-gold'
                       : 'text-surface-dark-muted hover:text-surface-dark-foreground hover:bg-surface-dark-card'
@@ -985,9 +985,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                       <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark" />
                     )}
                   </span>
-                  <span className="hidden 2xl:inline">{item.label}</span>
+                  <span className="block leading-tight truncate max-w-full">
+                    <span className="2xl:hidden">{('shortLabel' in item && item.shortLabel) ? item.shortLabel : item.label}</span>
+                    <span className="hidden 2xl:inline">{item.label}</span>
+                  </span>
                   {'pillBadge' in item && item.pillBadge && (
-                    <span className="ml-0.5 px-1 py-0.5 rounded bg-gold/20 text-gold text-[9px] font-bold uppercase tracking-wider border border-gold/30">
+                    <span className="absolute top-0.5 right-0.5 px-1 py-0.5 rounded bg-gold/20 text-gold text-[8px] font-bold uppercase tracking-wider border border-gold/30 leading-none">
                       {item.pillBadge as string}
                     </span>
                   )}
@@ -1006,14 +1009,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                   </Tooltip>
                 );
               }
-              return (
-                <Tooltip key={item.view}>
-                  <TooltipTrigger asChild>{btn}</TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs 2xl:hidden">
-                    {item.label}
-                  </TooltipContent>
-                </Tooltip>
-              );
+              return btn;
             })}
             </TooltipProvider>
           </nav>
