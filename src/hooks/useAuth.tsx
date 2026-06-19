@@ -149,7 +149,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      // ignore — we still want to clear state and redirect
+    }
+    // Defensive local reset in case onAuthStateChange hasn't fired yet
+    setUser(null);
+    setSession(null);
+    setRoles([]);
+    setActiveRoleState(null);
+    setProfile(null);
+    // Hard-navigate to /login so installed iOS PWAs fully reset and never
+    // leave the user staring at a blank portal screen.
+    window.location.replace('/login');
   };
 
   const isOwner = roles.includes('owner');
