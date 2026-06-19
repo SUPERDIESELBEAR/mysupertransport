@@ -37,15 +37,40 @@ export default function PWAInstallBanner() {
 
     if (isIOS()) {
       setShowIOSBanner(true);
-      return;
     }
 
-    const handler = (e: Event) => {
+    const promptHandler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
-    window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+    // Fires once when the PWA is successfully installed (Android / desktop
+    // Chromium). Hide the banner immediately so the popup does not linger.
+    const installedHandler = () => {
+      localStorage.setItem(DISMISSED_KEY, "1");
+      setDismissed(true);
+      setDeferredPrompt(null);
+      setShowIOSBanner(false);
+    };
+    // iOS Safari does not fire `appinstalled`. Re-check display-mode whenever
+    // the tab regains focus so the banner disappears after Add-to-Home-Screen
+    // completes in another tab / the new standalone shell.
+    const recheckStandalone = () => {
+      if (isInStandaloneMode()) installedHandler();
+    };
+
+    if (!isIOS()) {
+      window.addEventListener("beforeinstallprompt", promptHandler);
+    }
+    window.addEventListener("appinstalled", installedHandler);
+    document.addEventListener("visibilitychange", recheckStandalone);
+    window.addEventListener("focus", recheckStandalone);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", promptHandler);
+      window.removeEventListener("appinstalled", installedHandler);
+      document.removeEventListener("visibilitychange", recheckStandalone);
+      window.removeEventListener("focus", recheckStandalone);
+    };
   }, []);
 
   const dismiss = useCallback(() => {
