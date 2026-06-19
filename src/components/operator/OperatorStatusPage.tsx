@@ -377,8 +377,71 @@ export default function OperatorStatusPage({
   const hasReceiptDoc = uploadedDocs?.some(d => d.document_type === 'pe_receipt') ?? false;
   const showReceiptReminderBanner = peScreening === 'scheduled' && !!qpassportUrl && !hasReceiptDoc;
 
+  // ── Receipt upload (banner gold button) ──────────────────────────────────
+  // The "Upload Receipt" gold buttons in the reminder banner open this hidden
+  // input directly instead of just scrolling to Stage 1, so the click feels
+  // immediate (camera/photo sheet on mobile, file picker on desktop).
+  const { toast } = useToast();
+  const receiptInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const handleReceiptUpload = async (file: File) => {
+    if (!operatorId) return;
+    const { valid, error: validationError } = validateFile(file, false);
+    if (!valid) {
+      toast({ title: 'Invalid file', description: validationError, variant: 'destructive' });
+      return;
+    }
+    setUploadingReceipt(true);
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `${operatorId}/pe_receipt/${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('operator-documents')
+        .upload(path, file, { upsert: false });
+      if (uploadError) throw uploadError;
+      const { error: insertError } = await supabase.from('operator_documents').insert({
+        operator_id: operatorId,
+        document_type: 'pe_receipt' as never,
+        file_name: file.name,
+        file_url: path,
+      });
+      if (insertError) throw insertError;
+      try {
+        await supabase.functions.invoke('send-notification', {
+          body: { type: 'pe_receipt_uploaded', operator_id: operatorId },
+        });
+      } catch {
+        // non-critical
+      }
+      toast({ title: 'Receipt uploaded', description: 'Your PE screening receipt has been submitted.' });
+      onUploadComplete?.();
+    } catch (err: unknown) {
+      toast({
+        title: 'Upload failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
+  const openReceiptPicker = () => receiptInputRef.current?.click();
+
   return (
     <>
+    {/* Hidden input shared by mobile + desktop banner gold buttons */}
+    <input
+      ref={receiptInputRef}
+      type="file"
+      accept="image/*,application/pdf"
+      capture="environment"
+      className="hidden"
+      onChange={e => {
+        const file = e.target.files?.[0];
+        if (file) handleReceiptUpload(file);
+        e.target.value = '';
+      }}
+    />
     {/* ── MOBILE: Checklist view (< md) ── */}
     <div className="md:hidden -mx-4 -mt-4">
       {/* Pass banners first, then checklist */}
