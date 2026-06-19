@@ -1,22 +1,18 @@
-## Item: Driver app shows white screen after Sign Out
+Fix intermittent iOS scroll glitch on floating stage banner in the driver app.
 
-### Root cause
-`signOut()` in `src/hooks/useAuth.tsx` only calls `supabase.auth.signOut()` and returns. The route guard in `src/App.tsx` is supposed to push `!user` back to `/login`, but in the installed iOS PWA the OperatorPortal page can re-render once with stale state before the guard kicks in, leaving a blank screen. Closing the app from the iPhone app switcher is the only way out because nothing forces a navigation.
+## What
+When scrolling in the driver PWA, the fixed "Stage 1: Background Check" banner occasionally detaches/glitch-drags. This is an iOS Safari rendering bug with `position: fixed` + `backdrop-filter: blur`.
 
-### Fix (single, minimal change)
-In `src/hooks/useAuth.tsx`, update `signOut`:
+## How
+Update the floating CTA wrapper in `src/pages/operator/OperatorPortal.tsx`:
 
-1. Call `await supabase.auth.signOut()`.
-2. Locally reset `user`, `session`, `roles`, `activeRole`, `profile` (defensive — covers the brief gap before the `onAuthStateChange` event fires).
-3. Hard-navigate to `/login` with `window.location.replace('/login')`. A full reload (vs. `navigate()`) is intentional — it guarantees every cached page-level state in the PWA is dropped and matches how iOS standalone PWAs behave most reliably.
+1. **Remove `backdrop-filter: blur(12px)`** — the element is fully opaque, so this is pure rendering cost with no visual benefit.
+2. **Promote to GPU layer** — add `transform-gpu will-change-transform` Tailwind classes and inline `style={{ transform: 'translateZ(0)' }}` to prevent Safari from demoting the layer mid-scroll.
+3. **Anchor to safe area** — replace `bottom-16` with `bottom-[calc(4rem+env(safe-area-inset-bottom))]` so the banner stays pinned correctly when the iOS home indicator/address bar collapses during scroll.
 
-No changes to the route guards, no UI changes, no changes to the operator portal buttons (they already call `signOut`).
+No backend changes needed. No business logic changes.
 
-### Scope
-- File touched: `src/hooks/useAuth.tsx` (signOut function only).
-- Affects every Sign Out button (operator portal, owner portal, staff layout, application status, idle-timeout modal) — all of them get the same correct behavior.
-
-### Verification
-- Sign in as an operator on the published PWA → tap Sign Out → should land on `/login` immediately, no white screen.
-- Repeat on desktop browser.
-- Confirm idle-timeout auto-signout also lands on `/login`.
+## Technical Details
+- File: `src/pages/operator/OperatorPortal.tsx`
+- Affected element: the fixed bottom CTA banner (around `bottom-16` / `backdrop-filter: blur(12px)`)
+- iOS Safari's dynamic viewport resizes mid-scroll; `backdrop-filter` on fixed elements forces re-rasterization each frame, which can detach the element from the compositor. Removing the blur and adding a GPU layer hint eliminates the root cause.

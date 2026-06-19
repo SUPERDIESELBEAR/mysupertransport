@@ -1604,7 +1604,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
       {/* ── Floating Next-Step CTA (mobile only, above bottom nav) ────── */}
       {!isPreview && nextStep && (
-        <div className="md:hidden fixed bottom-16 inset-x-0 z-30 px-3 pb-2 pointer-events-none">
+        <div
+          className="md:hidden fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] inset-x-0 z-30 px-3 pb-2 pointer-events-none transform-gpu will-change-transform"
+          style={{ transform: 'translateZ(0)' }}
+        >
           <button
             onClick={nextStep.action}
             className={`
@@ -1617,7 +1620,6 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 : 'bg-surface-dark border-surface-dark-border text-surface-dark-foreground'
               }
             `}
-            style={{ backdropFilter: 'blur(12px)' }}
           >
             {/* Icon */}
             <span className={`
