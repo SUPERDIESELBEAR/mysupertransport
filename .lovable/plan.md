@@ -1,90 +1,51 @@
 ## Goal
 
-Fix the post-approval email mess with one clean approval email, a working set-password link, a friendly post-password install nudge, and the UX polish folded into the build (not bolted on later).
+Verify the new email flow end-to-end, send live mock emails to `emma@mysupertransport.com` for visual sign-off, then clean up the in-app Content Manager (`EmailCatalog.tsx`) so it shows only the emails that actually fire today.
 
-## What's wrong today
+---
 
-Three emails fire within seconds of approval:
+## 1. Backend test pass (read-only, no code changes)
 
-1. **"Welcome to SUPERDRIVE"** (`launch-superdrive-invite`) — working recovery link + install cards.
-2. **"Your SUPERTRANSPORT Application Has Been Approved!"** (`send-notification` → `application_approved`) — **broken** "Set Up Your Account" → `/login`.
-3. **"You've Been Invited"** (Supabase auth invite) — duplicate set-password link + install cards.
+Run smoke tests against the three updated edge functions and read their logs:
 
-Two competing password links, one broken, install steps duplicated three times, no submission-confirmation email to the applicant.
+- `send-notification` — POST with `kind: "application_submitted"` using a mock applicant payload. Confirm 200 + a delivery log line. Also confirm the deprecated `application_approved` branch returns the expected "deprecated" response (no email).
+- `launch-superdrive-invite` — POST with a real test operator id (existing test account). Confirm a single email is generated with the new "You're approved, {FirstName}" subject and a `/welcome` recovery link.
+- `invite-operator` — POST with a new throwaway email. Confirm it uses `createUser` (no auto Supabase invite email) and returns a recovery link pointing at `/welcome`.
 
-## The new flow
+For each call: `supabase--edge_function_logs` is checked for errors / unhandled rejections. Any failure is reported back before moving on.
 
-### Stage 1 — After application submission
+## 2. Mock emails to emma@mysupertransport.com
 
-**Email A — Application Submission Confirmation (NEW, to applicant)**
-- Subject: "We've got your application, {FirstName}"
-- Warm tone, uses first name in subject and greeting
-- Body: confirmation + what happens next (review timeline) + signature
-- Preview line: "Thanks {FirstName} — we'll be in touch within 1–2 business days."
-- No password CTA, no install nudge yet
-- Fires from the application submit handler
+Send 3 live test sends via the existing `send-test-email` function so Emma can eyeball the rendered HTML in her inbox:
 
-### Stage 2 — On approval
+1. **Application Submission Confirmation** (new) — warm "We've got your application, {FirstName}".
+2. **Approval + SUPERDRIVE Welcome** (consolidated) — new subject, single CTA → `/welcome`, expectation-setter line, install fallback footer.
+3. **Operator Invite (recovery link)** — the `invite-operator` flavor, so Emma sees the new password-set link instead of the old generic Supabase invite.
 
-**Email B — One consolidated approval email** (replaces all three current emails)
-- Subject: **"You're approved, {FirstName} — welcome to SUPERTRANSPORT"**
-- Preview line: **"Set your password and get into SUPERDRIVE in 60 seconds."**
-- Greeting uses first name; one consistent voice: warm and direct (no formal/casual whiplash)
-- One primary CTA: **"Set Your Password & Open SUPERDRIVE"** → recovery link → `/reset-password?welcome=1`
-- One-line expectation-setter under the CTA: *"After you set your password, we'll walk you through installing SUPERDRIVE on your phone — takes about a minute."*
-- Feature list from today's Welcome email
-- Footer safety-net link: "Need to install on a different device later? Go to mysupertransport.com/install"
-- **No install instructions in the body** — those live on the landing page
+All three go to `emma@mysupertransport.com`. The previously-implemented templates are reused; no copy is changed during the test send.
 
-### Stage 3 — Post-password install interstitial
+## 3. Content Manager cleanup (`src/components/management/EmailCatalog.tsx`)
 
-The "nudge to install" management asked for, in the right spot — operator just set password, is actively engaged, has device in hand.
+The catalog is the staff-facing list of "emails the system sends." It currently lists two entries that no longer fire and is missing the new applicant confirmation.
 
-1. Recovery link lands on `/reset-password?welcome=1`. Copy: "Welcome to SUPERTRANSPORT — set your password."
-2. On submit success → **NEW** `/welcome/install`.
-3. Interstitial wraps existing `<InstallStep />`:
-   - **Phone, not installed:** big install instructions (iOS Share → Add to Home Screen, Android Install app).
-   - **Phone, already standalone:** auto-skip to `/dashboard`.
-   - **Desktop:** smaller "Use SUPERDRIVE on your phone for the best experience" card.
-4. Soft-skip link wording: **"I'll install later → continue to my portal"** (not the abrasive "Skip").
-5. Continue → `/dashboard`.
+**Remove**
+- `invite_operator` — "Operator Welcome — Application Approved" / subject "Your SUPERTRANSPORT Application Has Been Approved!" with the broken `/login` CTA. Deprecated; replaced by the consolidated approval email.
 
-### Stage 4 — Safety nets for skippers
+**Update in place**
+- `welcome_superdrive` — rename to **"Approval + SUPERDRIVE Welcome"**, update subject to **"You're approved, {FirstName} — welcome to SUPERTRANSPORT"**, change CTA URL to `/welcome`, replace the in-email install block with the one-liner expectation-setter ("After you set your password, we'll walk you through installing SUPERDRIVE on your phone — takes about a minute.") and a small footer fallback ("Need to install on a different device later? Go to mysupertransport.com/install"). Body copy matches what `launch-superdrive-invite` now sends.
 
-- **In-app install banner** — confirm `PWAInstallBanner` shows on the operator dashboard for non-standalone users. Skippers see a persistent (but dismissible) nudge.
-- **Login page resend** — small "Didn't get your set-password email or link expired? Resend" link that calls `resetPasswordForEmail`. Handles 24-hour recovery link expiry.
+**Add**
+- New entry `application_submitted` under the `invitations` (or new `applicant` if cleaner) category — "Application Submission Confirmation," warm thank-you body, no CTA, mirrors the HTML now produced by `send-notification`.
 
-## Auth "You've Been Invited" email
+No other catalog entries are touched. No DB migrations. No changes to send-time logic — only the staff-facing preview list and copy.
 
-Switched to a recovery-link approach (your Q1 answer):
-- `invite-operator` calls `admin.createUser` (no auto email) + `generateLink({ type: 'recovery' })`.
-- The auth invite email stops firing for new operators.
-- The auth invite template stays in place as a fallback for admin/dispatch staff invites.
+## 4. Reporting back
 
-## Implementation
+After the test run + sends, post a short summary: pass/fail for each function, the message IDs (or "queued") for Emma's three emails, and the list of catalog changes that landed.
 
-### Frontend
-1. **`src/pages/ResetPassword.tsx`** — detect `?welcome=1`; swap copy to welcome-mode; on success, route to `/welcome/install`.
-2. **NEW** `src/pages/WelcomeInstall.tsx` — wraps `<InstallStep />`, auto-skips when install N/A, soft-skip link reads "I'll install later".
-3. **`src/App.tsx`** — register `/welcome/install`, auth-only.
-4. **`src/pages/LoginPage.tsx`** — add "Resend set-password link" affordance.
-5. **`src/components/InstallStep.tsx`** — update the existing skip-link wording from "Skip for now → …" to "I'll install later → continue to my portal" to match the new tone.
-6. **`src/pages/operator/OperatorPortal.tsx`** — verify `PWAInstallBanner` renders for non-standalone operators (likely already does — confirm only, no change if so).
+## Technical notes
 
-### Edge functions
-7. **NEW** `supabase/functions/send-application-confirmation/index.ts` — Email A. Invoked from the application submit handler. Uses `{FirstName}` in subject + greeting + preview line.
-8. **`supabase/functions/invite-operator/index.ts`** — replace `inviteUserByEmail` with `createUser` + `generateLink({ type: 'recovery', options: { redirectTo: '<APP_URL>/reset-password?welcome=1' } })`. Pass URL to `launch-superdrive-invite`. Stop calling the `application_approved` notification email.
-9. **`supabase/functions/launch-superdrive-invite/index.ts`** — rewrite the `full` template into Email B. New subject, preview line, first-name greeting, expectation-setter line, install cards removed.
-10. **`supabase/functions/send-notification/index.ts`** — delete the `application_approved` email branch (keep the in-app notification). Removes the broken "Set Up Your Account → /login" button.
-11. **`supabase/functions/_shared/email-templates/invite.tsx`** — keep as fallback for non-operator auth invites; stops firing in operator flow.
-
-### Link audit pass
-Click through every `href` in `invite-applicant`, `launch-superdrive-invite`, all `send-notification` branches, and `_shared/email-templates/*`. Confirm each route exists in `src/App.tsx`. Fix any stragglers found.
-
-## What stays out of scope (explicit)
-
-- "You're invited to apply" (staff-initiated only) — unchanged.
-- The auth invite template — kept as fallback for staff/admin invites.
-- The 8-stage downstream onboarding emails — separate pass.
-
-## Ready to build on approval.
+- Tools used: `supabase--curl_edge_functions`, `supabase--edge_function_logs`, `code--apply_patch` (only for `EmailCatalog.tsx`).
+- No schema changes, no new secrets, no new routes.
+- `send-test-email` already handles auth + Resend delivery; no edits needed there.
+- If any of the three smoke tests fail, stop and surface the error instead of proceeding to the catalog edit.
