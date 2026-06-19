@@ -40,11 +40,7 @@ export function buildEmail(
   footerEmail = SUPPORT_EMAIL
 ): string {
   const ctaHtml = cta
-    ? `<div style="text-align:center;margin:32px 0;">
-        <a href="${cta.url}" style="background:${BRAND_COLOR};color:${BRAND_DARK};padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">
-          ${cta.label}
-        </a>
-      </div>`
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:32px auto;"><tr><td align="center" bgcolor="${BRAND_COLOR}" style="background:${BRAND_COLOR};border-radius:8px;"><a href="${cta.url}" target="_blank" rel="noopener" style="background:${BRAND_COLOR};color:${BRAND_DARK};padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:block;line-height:1;mso-padding-alt:14px 32px;">${cta.label}</a></td></tr></table>`
     : '';
 
   return `<!DOCTYPE html>
