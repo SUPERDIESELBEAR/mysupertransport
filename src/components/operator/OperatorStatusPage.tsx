@@ -3,7 +3,7 @@ import { downloadBlob } from '@/lib/downloadBlob';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import OnboardingChecklist from '@/components/operator/OnboardingChecklist';
 import SmartProgressWidget from '@/components/operator/SmartProgressWidget';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
@@ -372,6 +372,25 @@ export default function OperatorStatusPage({
   // Receipt reminder banner: show when QPassport is available but receipt not yet uploaded
   const hasReceiptDoc = uploadedDocs?.some(d => d.document_type === 'pe_receipt') ?? false;
   const showReceiptReminderBanner = peScreening === 'scheduled' && !!qpassportUrl && !hasReceiptDoc;
+
+  // ── Auto-download QPassport when arriving from the email CTA ──────────────
+  // Email link uses /operator?tab=progress&action=download-qpassport#qpassport
+  // We watch for the flag and the qpassport URL becoming available, then fire
+  // downloadBlob exactly once and strip the flag from the URL so a refresh
+  // doesn't re-trigger the download.
+  const autoDownloadedRef = useRef(false);
+  useEffect(() => {
+    if (autoDownloadedRef.current) return;
+    if (!qpassportUrl) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('action') !== 'download-qpassport') return;
+    autoDownloadedRef.current = true;
+    downloadBlob(qpassportUrl, 'QPassport.pdf');
+    params.delete('action');
+    const newSearch = params.toString();
+    const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash;
+    window.history.replaceState({}, '', newUrl);
+  }, [qpassportUrl]);
 
   return (
     <>
