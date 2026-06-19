@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildEmail, sendEmail } from '../_shared/email-layout.ts';
+import { buildQPassportDownloadUrl } from '../_shared/qpassport-link.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -929,6 +930,7 @@ Deno.serve(async (req) => {
           const operatorEmail = await getOperatorEmail(operatorId);
           if (operatorEmail) {
             const subject = 'Action Required: Download Your QPassport';
+            const downloadUrl = await buildQPassportDownloadUrl(operatorId);
             const html = buildEmail(
               subject,
               '📋 Your QPassport is Ready',
@@ -937,7 +939,7 @@ Deno.serve(async (req) => {
                <p><strong>Important:</strong> You must bring this document to your drug screening appointment. The facility will scan the barcode to verify your identity before the test.</p>
                <p>Please log in to your portal, open the <strong>Stage 1 — Background Check</strong> section, and download your QPassport now.</p>
                <p style="margin-top:16px;">If you have any questions, contact us at <a href="mailto:onboarding@mysupertransport.com" style="color:#C9A84C;">onboarding@mysupertransport.com</a>.</p>`,
-              { label: 'Download My QPassport', url: `${appUrl}/operator?tab=progress&action=download-qpassport#qpassport` }
+              { label: 'Download My QPassport', url: downloadUrl }
             );
             await sendEmail(operatorEmail, subject, html, RESEND_API_KEY);
           }
