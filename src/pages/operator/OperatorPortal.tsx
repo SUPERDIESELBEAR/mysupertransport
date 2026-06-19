@@ -959,11 +959,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 <button
                   key={item.view}
                   onClick={() => setView(item.view)}
-                  className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                  className={`relative shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2 2xl:px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                     view === item.view
                       ? 'bg-gold/15 text-gold'
                       : 'text-surface-dark-muted hover:text-surface-dark-foreground hover:bg-surface-dark-card'
                   }`}
+                  aria-label={item.label}
                 >
                   <span className="relative">
                     {item.icon}
@@ -984,9 +985,9 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                       <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark" />
                     )}
                   </span>
-                  {item.label}
+                  <span className="hidden 2xl:inline">{item.label}</span>
                   {'pillBadge' in item && item.pillBadge && (
-                    <span className="ml-1 px-1.5 py-0.5 rounded bg-gold/20 text-gold text-[9px] font-bold uppercase tracking-wider border border-gold/30">
+                    <span className="ml-0.5 px-1 py-0.5 rounded bg-gold/20 text-gold text-[9px] font-bold uppercase tracking-wider border border-gold/30">
                       {item.pillBadge as string}
                     </span>
                   )}
@@ -1005,7 +1006,14 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                   </Tooltip>
                 );
               }
-              return btn;
+              return (
+                <Tooltip key={item.view}>
+                  <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs 2xl:hidden">
+                    {item.label}
+                  </TooltipContent>
+                </Tooltip>
+              );
             })}
             </TooltipProvider>
           </nav>
