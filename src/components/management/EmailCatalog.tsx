@@ -395,24 +395,6 @@ const TEMPLATES: EmailTemplate[] = [
 </html>`,
   },
   {
-    id: 'invite_operator',
-    category: 'invitations',
-    title: 'Operator Welcome — Application Approved',
-    subject: 'Your SUPERTRANSPORT Application Has Been Approved!',
-    recipient: 'operator',
-    sender: `${BRAND_NAME} <${ONBOARDING_EMAIL}>`,
-    renderHtml: () => buildEmail(
-      'Your SUPERTRANSPORT Application Has Been Approved!',
-      "👍 Congratulations — You've Been Approved!",
-      `<p>Dear ${SAMPLE_NAME},</p>
-       <p>We are thrilled to let you know that your driver application with <strong>SUPERTRANSPORT</strong> has been <strong>approved</strong>.</p>
-       <p>You should receive a separate email shortly with a link to set up your SUPERTRANSPORT account. Once you log in, you'll be able to track your onboarding progress.</p>
-       <p>Welcome to the SUPERTRANSPORT family — we're excited to have you on board!</p>
-       <p style="background:#f9f5e9;border-left:4px solid ${BRAND_COLOR};padding:12px 16px;border-radius:4px;margin-top:16px;"><strong>Note from our team:</strong> Please complete your profile setup as soon as possible to begin onboarding.</p>`,
-      { label: 'Set Up Your Account', url: `${SAMPLE_APP_URL}/login` }
-    ),
-  },
-  {
     id: 'application_denied',
     category: 'invitations',
     title: 'Application Denied',
