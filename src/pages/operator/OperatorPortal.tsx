@@ -935,7 +935,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         className={isPreview ? 'hidden' : "bg-surface-dark border-b border-surface-dark-border fixed top-0 inset-x-0 z-40"}
         style={isPreview ? undefined : { paddingTop: 'env(safe-area-inset-top)' }}
       >
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-4 h-16 md:h-20 flex items-center justify-between gap-3">
           <div className="flex items-center gap-1 min-w-0">
             {viewHistory.length > 0 && (
               <button
@@ -951,7 +951,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           </div>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden md:flex items-end gap-0.5">
             <TooltipProvider delayDuration={200}>
             {navItems.map(item => {
               const showExpiry = 'criticalDot' in item && item.criticalDot && view !== 'progress' && expiryDotInfo;
@@ -959,7 +959,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 <button
                   key={item.view}
                   onClick={() => setView(item.view)}
-                  className={`relative shrink-0 whitespace-nowrap flex items-center gap-1.5 px-2 2xl:px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                  className={`relative shrink-0 flex flex-col items-center justify-end gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors w-[68px] xl:w-[76px] ${
                     view === item.view
                       ? 'bg-gold/15 text-gold'
                       : 'text-surface-dark-muted hover:text-surface-dark-foreground hover:bg-surface-dark-card'
@@ -985,9 +985,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                       <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive animate-pulse border border-surface-dark" />
                     )}
                   </span>
-                  <span className="hidden 2xl:inline">{item.label}</span>
+                  <span className="block leading-tight truncate max-w-full">
+                    <span className="2xl:hidden">{('shortLabel' in item && item.shortLabel) ? item.shortLabel : item.label}</span>
+                    <span className="hidden 2xl:inline">{item.label}</span>
+                  </span>
                   {'pillBadge' in item && item.pillBadge && (
-                    <span className="ml-0.5 px-1 py-0.5 rounded bg-gold/20 text-gold text-[9px] font-bold uppercase tracking-wider border border-gold/30">
+                    <span className="absolute top-0.5 right-0.5 px-1 py-0.5 rounded bg-gold/20 text-gold text-[8px] font-bold uppercase tracking-wider border border-gold/30 leading-none">
                       {item.pillBadge as string}
                     </span>
                   )}
@@ -1006,14 +1009,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                   </Tooltip>
                 );
               }
-              return (
-                <Tooltip key={item.view}>
-                  <TooltipTrigger asChild>{btn}</TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs 2xl:hidden">
-                    {item.label}
-                  </TooltipContent>
-                </Tooltip>
-              );
+              return btn;
             })}
             </TooltipProvider>
           </nav>
