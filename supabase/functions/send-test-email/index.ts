@@ -127,8 +127,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const recipientEmail = user.email;
-    if (!recipientEmail) {
+    if (!user.email) {
       return new Response(JSON.stringify({ error: 'No email address on file for your account' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
