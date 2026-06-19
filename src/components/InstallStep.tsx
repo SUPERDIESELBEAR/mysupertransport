@@ -200,7 +200,7 @@ export default function InstallStep({ onContinue, continueLabel = "Continue to P
         onClick={onContinue}
         className="w-full text-center text-xs text-surface-dark-muted hover:text-gold transition-colors py-2"
       >
-        Skip for now → {continueLabel.toLowerCase()}
+        I'll install later → {continueLabel.toLowerCase()}
       </button>
     </div>
   );
