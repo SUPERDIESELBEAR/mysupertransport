@@ -284,6 +284,30 @@ const TEMPLATES: EmailTemplate[] = [
 
   // ── Invitations ────────────────────────────────────────────────────────────
   {
+    id: 'application_submitted',
+    category: 'invitations',
+    title: 'Application Submission Confirmation',
+    subject: "We've got your application, John",
+    recipient: 'applicant',
+    sender: `${BRAND_NAME} <${ONBOARDING_EMAIL}>`,
+    renderHtml: () => buildEmail(
+      "We've got your application, John",
+      '✅ Application Received',
+      `<p>Hi ${SAMPLE_NAME.split(' ')[0]},</p>
+       <p>Thanks for applying to drive with <strong>SUPERTRANSPORT</strong>. Your application is in our hands and our onboarding team will review it shortly.</p>
+       <p><strong>What happens next:</strong></p>
+       <ul style="padding-left:20px;line-height:1.8;color:#444;">
+         <li>Our team reviews your application (typically within 1–2 business days).</li>
+         <li>You'll receive an email with our decision and next steps.</li>
+         <li>If approved, you'll set your password and get into <strong>SUPERDRIVE</strong> — your operator app.</li>
+       </ul>
+       <p style="margin-top:18px;">Questions in the meantime? Reply to this email or write us at <a href="mailto:${ONBOARDING_EMAIL}" style="color:${BRAND_COLOR};">${ONBOARDING_EMAIL}</a>.</p>
+       <p style="margin-top:18px;">Talk soon,<br/>— The SUPERTRANSPORT team</p>`,
+      undefined,
+      ONBOARDING_EMAIL
+    ),
+  },
+  {
     id: 'invite_applicant',
     category: 'invitations',
     title: 'Applicant Invitation',
@@ -371,24 +395,6 @@ const TEMPLATES: EmailTemplate[] = [
 </html>`,
   },
   {
-    id: 'invite_operator',
-    category: 'invitations',
-    title: 'Operator Welcome — Application Approved',
-    subject: 'Your SUPERTRANSPORT Application Has Been Approved!',
-    recipient: 'operator',
-    sender: `${BRAND_NAME} <${ONBOARDING_EMAIL}>`,
-    renderHtml: () => buildEmail(
-      'Your SUPERTRANSPORT Application Has Been Approved!',
-      "👍 Congratulations — You've Been Approved!",
-      `<p>Dear ${SAMPLE_NAME},</p>
-       <p>We are thrilled to let you know that your driver application with <strong>SUPERTRANSPORT</strong> has been <strong>approved</strong>.</p>
-       <p>You should receive a separate email shortly with a link to set up your SUPERTRANSPORT account. Once you log in, you'll be able to track your onboarding progress.</p>
-       <p>Welcome to the SUPERTRANSPORT family — we're excited to have you on board!</p>
-       <p style="background:#f9f5e9;border-left:4px solid ${BRAND_COLOR};padding:12px 16px;border-radius:4px;margin-top:16px;"><strong>Note from our team:</strong> Please complete your profile setup as soon as possible to begin onboarding.</p>`,
-      { label: 'Set Up Your Account', url: `${SAMPLE_APP_URL}/login` }
-    ),
-  },
-  {
     id: 'application_denied',
     category: 'invitations',
     title: 'Application Denied',
@@ -409,12 +415,13 @@ const TEMPLATES: EmailTemplate[] = [
   {
     id: 'welcome_superdrive',
     category: 'invitations',
-    title: 'SUPERDRIVE Launch Invite (Pre-existing Operators)',
-    subject: 'Welcome to SUPERDRIVE — Your Operator App Is Ready',
+    title: 'Approval + SUPERDRIVE Welcome (Consolidated)',
+    subject: "You're approved, John — welcome to SUPERTRANSPORT",
     recipient: 'operator',
     sender: `${BRAND_NAME} <${ONBOARDING_EMAIL}>`,
     renderHtml: () => {
-      const recoveryUrl = '#preview';
+      const recoveryUrl = `${SAMPLE_APP_URL}/welcome`;
+      const firstName = SAMPLE_NAME.split(' ')[0];
       const featureCard = (icon: string, title: string, desc: string) => `
         <div style="background:#FAF8F2;border:1px solid #EDE6CF;border-radius:10px;padding:18px;margin:0 0 12px;">
           <p style="margin:0 0 6px;color:${BRAND_DARK};font-size:15px;font-weight:700;">${icon} ${title}</p>
@@ -430,18 +437,10 @@ const TEMPLATES: EmailTemplate[] = [
         featureCard('📅', 'Payroll Calendar', 'Wednesday-to-Tuesday work weeks, pay dates, and settlement PDFs always in reach.'),
       ].join('');
 
-      const installCallout = `
-        <div style="background:#0f1117;border-radius:10px;padding:20px;margin:24px 0 0;">
-          <p style="margin:0 0 10px;color:${BRAND_COLOR};font-size:14px;font-weight:700;letter-spacing:1px;">📱 INSTALL ON YOUR PHONE</p>
-          <p style="margin:0 0 14px;color:#cfcfcf;font-size:13px;line-height:1.6;">After setting your password, install SUPERDRIVE to your home screen for one-tap access:</p>
-          <p style="margin:0 0 6px;color:#fff;font-size:13px;line-height:1.5;"><strong>iPhone (Safari):</strong> Tap Share → "Add to Home Screen"</p>
-          <p style="margin:0;color:#fff;font-size:13px;line-height:1.5;"><strong>Android (Chrome):</strong> Tap menu (⋮) → "Install app"</p>
-        </div>`;
-
       const body = `
-        <p style="margin:0 0 14px;">Hi ${SAMPLE_NAME},</p>
-        <p>You've been driving with SUPERTRANSPORT for a while — and we built something for you. <strong>SUPERDRIVE</strong> is your new operator app. Your truck, your settlements, your documents — all in one place, always with you.</p>
-        <p style="margin:0 0 22px;">Click the button below to set your password and open SUPERDRIVE for the first time.</p>
+        <p style="margin:0 0 14px;">Hi ${firstName},</p>
+        <p>Congratulations — your driver application has been <strong>approved</strong>, and we're glad to have you on the team. <strong>SUPERDRIVE</strong> is your new operator app: your truck, your settlements, your documents — all in one place, always with you.</p>
+        <p style="margin:0 0 22px;">Click below to set your password and get into SUPERDRIVE.</p>
 
         <div style="text-align:center;margin:28px 0;">
           <a href="${recoveryUrl}" style="background:${BRAND_COLOR};color:${BRAND_DARK};padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">
@@ -449,16 +448,18 @@ const TEMPLATES: EmailTemplate[] = [
           </a>
         </div>
 
+        <p style="margin:0 0 22px;text-align:center;color:#666;font-size:13px;line-height:1.6;font-style:italic;">After you set your password, we'll walk you through installing SUPERDRIVE on your phone — takes about a minute.</p>
+
         <p style="margin:30px 0 14px;color:${BRAND_DARK};font-size:16px;font-weight:700;">Here's what's waiting for you:</p>
         ${features}
-        ${installCallout}
 
-        <p style="margin:28px 0 0;color:#777;font-size:13px;line-height:1.6;">Questions? Just reply to this email — we're here.<br/>— The SUPERTRANSPORT team</p>
+        <p style="margin:28px 0 0;color:#777;font-size:13px;line-height:1.6;">Need to install on a different device later? Go to <a href="${SAMPLE_APP_URL}/install" style="color:${BRAND_DARK};font-weight:600;">mysupertransport.com/install</a>.</p>
+        <p style="margin:18px 0 0;color:#777;font-size:13px;line-height:1.6;">Questions? Just reply to this email — we're here.<br/>— The SUPERTRANSPORT team</p>
       `;
 
       return buildEmail(
-        'Welcome to SUPERDRIVE — Your Operator App Is Ready',
-        `Welcome to SUPERDRIVE, ${SAMPLE_NAME}`,
+        `You're approved, ${firstName} — welcome to SUPERTRANSPORT`,
+        `You're approved, ${firstName} — welcome to SUPERTRANSPORT`,
         body,
         undefined,
         ONBOARDING_EMAIL
