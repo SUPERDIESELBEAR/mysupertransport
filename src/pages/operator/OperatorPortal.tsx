@@ -1470,7 +1470,6 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 </div>
               </div>
             </div>
-          </>
           </Suspense>
         )}
 
