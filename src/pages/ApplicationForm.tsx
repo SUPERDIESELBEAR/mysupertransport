@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,15 +6,17 @@ import { toast } from 'sonner';
 import { Truck, Save, ChevronLeft, ChevronRight, CheckCircle2, Loader2, AlertTriangle, FileText, X, Link2Off, Check } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
 import FormProgress from '@/components/application/FormProgress';
+// Step 1 stays eagerly imported (it's the first paint). Steps 2-9 lazy-load
+// to keep the initial /apply bundle small for first-time applicants.
 import Step1Personal from '@/components/application/Step1Personal';
-import Step2CDL from '@/components/application/Step2CDL';
-import Step3Employment from '@/components/application/Step3Employment';
-import Step4Driving from '@/components/application/Step4Driving';
-import Step5Accidents from '@/components/application/Step5Accidents';
-import Step6DrugAlcohol from '@/components/application/Step6DrugAlcohol';
-import Step7Documents from '@/components/application/Step7Documents';
-import Step8Disclosures from '@/components/application/Step8Disclosures';
-import Step9Signature from '@/components/application/Step9Signature';
+const Step2CDL = lazy(() => import('@/components/application/Step2CDL'));
+const Step3Employment = lazy(() => import('@/components/application/Step3Employment'));
+const Step4Driving = lazy(() => import('@/components/application/Step4Driving'));
+const Step5Accidents = lazy(() => import('@/components/application/Step5Accidents'));
+const Step6DrugAlcohol = lazy(() => import('@/components/application/Step6DrugAlcohol'));
+const Step7Documents = lazy(() => import('@/components/application/Step7Documents'));
+const Step8Disclosures = lazy(() => import('@/components/application/Step8Disclosures'));
+const Step9Signature = lazy(() => import('@/components/application/Step9Signature'));
 import { ApplicationFormData, defaultFormData } from '@/components/application/types';
 
 const STEP_LABELS = [
@@ -786,15 +788,23 @@ export default function ApplicationForm() {
               slideDir === 'forward' ? 'animate-slide-in-right' : 'animate-slide-in-left'
             }`}
           >
-            {step === 1 && <Step1Personal data={formData} onChange={handleChange} errors={errors} />}
-            {step === 2 && <Step2CDL data={formData} onChange={handleChange} errors={errors} />}
-            {step === 3 && <Step3Employment data={formData} onChange={handleChange} errors={errors} />}
-            {step === 4 && <Step4Driving data={formData} onChange={handleChange} errors={errors} />}
-            {step === 5 && <Step5Accidents data={formData} onChange={handleChange} errors={errors} />}
-            {step === 6 && <Step6DrugAlcohol data={formData} onChange={handleChange} errors={errors} />}
-            {step === 7 && <Step7Documents data={formData} onChange={handleChange} errors={errors} />}
-            {step === 8 && <Step8Disclosures data={formData} onChange={handleChange} errors={errors} />}
-            {step === 9 && <Step9Signature data={formData} onChange={handleChange} errors={errors} />}
+            <Suspense
+              fallback={
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-6 w-6 animate-spin text-gold" />
+                </div>
+              }
+            >
+              {step === 1 && <Step1Personal data={formData} onChange={handleChange} errors={errors} />}
+              {step === 2 && <Step2CDL data={formData} onChange={handleChange} errors={errors} />}
+              {step === 3 && <Step3Employment data={formData} onChange={handleChange} errors={errors} />}
+              {step === 4 && <Step4Driving data={formData} onChange={handleChange} errors={errors} />}
+              {step === 5 && <Step5Accidents data={formData} onChange={handleChange} errors={errors} />}
+              {step === 6 && <Step6DrugAlcohol data={formData} onChange={handleChange} errors={errors} />}
+              {step === 7 && <Step7Documents data={formData} onChange={handleChange} errors={errors} />}
+              {step === 8 && <Step8Disclosures data={formData} onChange={handleChange} errors={errors} />}
+              {step === 9 && <Step9Signature data={formData} onChange={handleChange} errors={errors} />}
+            </Suspense>
           </div>
         </div>
 
