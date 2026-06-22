@@ -425,6 +425,27 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     );
   };
 
+  // List-view variant: aligned columns, no colored doc-badge background.
+  // Doc label is bold muted text; tabular-nums keeps dates vertically aligned.
+  const ListCertSubRow = ({ entry }: { entry: DocEntry }) => {
+    const cfg = STATUS_CONFIG[entry.status];
+    return (
+      <div className="flex items-center gap-2 py-0.5">
+        <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
+        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-[60px] shrink-0">
+          {DOC_DISPLAY[entry.docKey]}
+        </span>
+        <span className="text-xs text-foreground tabular-nums w-[110px] shrink-0">
+          {entry.expiresAt
+            ? format(parseLocalDate(entry.expiresAt), 'MMM d, yyyy')
+            : <span className="italic text-muted-foreground/60">Not set</span>}
+        </span>
+        <span className="flex-1" />
+        <CertPill entry={entry} />
+      </div>
+    );
+  };
+
   return (
     <div className={cn(
       'border rounded-xl shadow-sm overflow-hidden',
