@@ -587,9 +587,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           <Calendar
             mode="single"
             selected={entry.expiresAt ? parseLocalDate(entry.expiresAt) : undefined}
-            onSelect={date => handleDriverDateChange(entry.operatorId, entry.docKey, date)}
-            // overload-safety: include the inspectionDocId so we update the
-            // exact row v_compliance_items pointed at.
+            onSelect={date => handleDriverDateChange(entry.operatorId, entry.docKey, entry.inspectionDocId, date)}
             disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
             initialFocus
             className={cn('p-3 pointer-events-auto')}
