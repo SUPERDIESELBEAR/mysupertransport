@@ -24,6 +24,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Search, RefreshCw, ArrowRight, Phone, RotateCcw, Archive, CalendarDays, Loader2, MessageSquare, Pencil } from 'lucide-react';
 import DemoLockIcon from '@/components/DemoLockIcon';
 import { formatPhoneDisplay } from '@/lib/utils';
+import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
+import { useViewMode } from '@/hooks/useViewMode';
 
 const PRESET_REASONS = ['Resigned', 'Terminated', 'No Loads', 'Medical', 'Abandoned'];
 
@@ -65,6 +67,7 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
   const [editReasonValue, setEditReasonValue] = useState('');
   const [editReasonCustom, setEditReasonCustom] = useState('');
   const [savingReason, setSavingReason] = useState(false);
+  const [viewMode, setViewMode] = useViewMode('archived_drivers_view', 'mode', 'table');
 
   const fetchArchived = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
