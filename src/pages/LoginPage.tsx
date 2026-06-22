@@ -62,7 +62,7 @@ export default function LoginPage() {
   );
 
   return (
-    <div className="min-h-dvh bg-surface-dark flex items-center justify-center p-4">
+    <div className="min-h-dvh bg-surface-dark flex items-start sm:items-center justify-center p-4 py-8 overflow-y-auto">
       {background}
 
       <div className="w-full max-w-md relative">
@@ -107,7 +107,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(v => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-dark-muted hover:text-surface-dark-foreground"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 text-surface-dark-muted hover:text-surface-dark-foreground inline-flex items-center justify-center h-11 w-11 rounded-md"
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                       aria-pressed={showPassword}
                     >
