@@ -253,25 +253,11 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || 'A staff member'
         : 'A staff member';
 
-      // ── Fan-out: notifications + audit log in parallel ─────────────────────
-      const [{ data: mgmtRoles }] = await Promise.all([
-        supabase.from('user_roles').select('user_id').eq('role', 'management'),
-        // Audit log entry
-        supabase.from('audit_log').insert({
-          actor_id: user?.id ?? null,
-          actor_name: updaterName,
-          entity_type: 'compliance',
-          entity_id: inspectionDocId,
-          entity_label: `Fleet ${DOC_DISPLAY[docKey]}`,
-          action: 'expiry_updated',
-          metadata: {
-            document_type: docKey,
-            old_expiry: oldDate,
-            new_expiry: isoDate,
-            urgency,
-          },
-        }),
-      ]);
+      // Audit log entry is written automatically by the
+      // log_inspection_expiry_change trigger on inspection_documents — no
+      // client-side insert needed (avoids duplicate rows).
+      const { data: mgmtRoles } = await supabase
+        .from('user_roles').select('user_id').eq('role', 'management');
 
       // ── Notify all management users ────────────────────────────────────────
       const notifTitle = `${DOC_DISPLAY[docKey]} expiry updated`;
