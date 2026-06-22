@@ -112,8 +112,18 @@ export default function ManagementPortal() {
   const { isDemo, enterDemo, exitDemo, guardDemo } = useDemoMode();
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
-    const v = searchParams.get('view') as ManagementView | null;
-    return (v && ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue'].includes(v)) ? v : 'overview';
+    const ALLOWED = ['overview','pipeline','operator-detail','applications','dispatch','staff','faq','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue'];
+    const urlView = searchParams.get('view') as ManagementView | null;
+    const hasDeepLink = !!(searchParams.get('op') || searchParams.get('app'));
+    // Honor URL only when it's an explicit deep-link from a notification/email.
+    if (urlView && ALLOWED.includes(urlView) && hasDeepLink) return urlView;
+    // Otherwise prefer the per-tab sessionStorage "last viewed section".
+    try {
+      const saved = sessionStorage.getItem('mgmt_last_view') as ManagementView | null;
+      if (saved && ALLOWED.includes(saved)) return saved;
+    } catch { /* ignore */ }
+    if (urlView && ALLOWED.includes(urlView)) return urlView;
+    return 'overview';
   });
   const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
   const [scrollToStageKeyMgmt, setScrollToStageKeyMgmt] = useState<string | undefined>(undefined);
@@ -222,6 +232,14 @@ export default function ManagementPortal() {
     if (next.toString() !== current) {
       setSearchParams(next, { replace: true });
     }
+    // Persist the current top-level section to sessionStorage so a refresh
+    // restores the last viewed page, independent of URL state. Skip transient
+    // detail views that need a selected record to render correctly.
+    try {
+      if (view !== 'operator-detail' && view !== 'vehicle-detail') {
+        sessionStorage.setItem('mgmt_last_view', view);
+      }
+    } catch { /* ignore */ }
   }, [view, selectedOperatorId, statusFilter, setSearchParams]);
 
 
@@ -761,6 +779,18 @@ export default function ManagementPortal() {
       setView(path as ManagementView);
       if (path !== 'operator-detail') setSelectedOperatorId(null);
       if (path === 'pipeline') { setPipelineCoordinatorFilter('all'); setPipelineCoordinatorName(null); setPipelineStageFilter('all'); setPipelineIdleFilter(false); }
+      // Defensive: synchronously strip any stale ?view= from the URL so a
+      // refresh during the React render flush can never land on the prior
+      // section (e.g., Broadcast Email). The writer effect will reconcile
+      // the final value on the next tick.
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('view')) {
+          params.delete('view');
+          const qs = params.toString();
+          window.history.replaceState({}, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+        }
+      } catch { /* ignore */ }
     }
   };
 
