@@ -1,73 +1,69 @@
-## Goal
+# Compliance Summary — Phased Improvements
 
-Clean up the Compliance Summary list view and harden the data layer behind it so every consumer (dashboard, cron jobs, audit log) sees the same compliance status. Five workstreams, ordered so each one's value lands independently.
+18 of 19 recommendations (skipping #18 keyboard shortcuts), grouped into 3 independently shippable phases. Each phase is reviewable on its own and safe to pause between.
 
-## 1. List view cleanup + remove leading dot next to driver name
+## Recommended auto-reminder cadence (#7)
 
-File: `src/components/inspection/InspectionComplianceSummary.tsx` (list-view branch only).
+Low-noise, deadline-aware. One email per driver per cert per day max (dedupe key), quiet hours respected.
 
-- Remove the colored status dot rendered immediately before each **driver name** in list view. Row-level status stays visible via the existing left stripe/tint from `cfg.rowCls`. Fleet rows keep their leading dot (user only asked about drivers).
-- Restructure each driver row into a single, scannable block:
-  ```text
-  [ Driver Name ─────────────────────────  Status pill   ⤴ ]
-     │ CDL      Mar 14, 2026     • 87 days
-     │ Med Cert May 02, 2026     • 134 days
-  ```
-  - Sub-rows render as a vertical stack with a faint left guide (`border-l border-border/60 pl-3`), not the current `sm:grid-cols-2` grid.
-  - In list-view sub-rows, replace the colored doc-type badge (CDL/Med Cert) with bold muted-foreground text in a fixed-width slot. Keep the small status dot and the per-cert status pill.
-  - Date column uses `tabular-nums w-[110px]` so dates align vertically across drivers.
-  - Tighten padding to `py-2`, hover changes background only.
-- Cards view and fleet rows untouched.
+- **45 days out** — single "heads-up" email. Plenty of runway, no urgency styling.
+- **14 days out** — "renewal window open" email.
+- **3 days out** — "urgent" email, red styling.
+- **Day of expiry** — "expires today" email.
+- **+1 day expired** — "expired, off-duty risk" email to driver + cc onboarding staff.
+- After that: weekly until resolved, capped at 4 follow-ups.
 
-## 2. Server-side compliance status (foundation for everything else)
+Sent 9:00 AM US Central. Skipped if a manual reminder already went out in the last 48 h. Operator can mute a specific cert reminder from the email footer (#14 surfaces the same toggle in-app).
 
-Create a Postgres **view** `public.v_compliance_items` that the dashboard, cron jobs, and edge functions all read from. Each row is one cert for one entity:
+---
 
-| column            | type    | notes                                                              |
-|-------------------|---------|--------------------------------------------------------------------|
-| `entity_kind`     | text    | `'driver'` or `'fleet'`                                            |
-| `operator_id`     | uuid    | null for fleet rows                                                |
-| `operator_name`   | text    | resolved from `applications`                                       |
-| `doc_key`         | text    | `'CDL'`, `'Medical Certificate'`, `'Insurance'`, `'IFTA License'`  |
-| `inspection_doc_id` | uuid  | fleet rows only                                                    |
-| `expires_at`      | date    |                                                                    |
-| `days_until`      | int     | `expires_at - (now() AT TIME ZONE 'America/Chicago')::date`        |
-| `status`          | text    | `'expired' \| 'critical' \| 'warning' \| 'valid' \| 'missing'`     |
+## Phase A — Actionable UX (ship first)
 
-Status thresholds match today's JS rules and accept the warning window via a `compliance_status(days int, window_days int)` SQL function so the dashboard can pass the user's chosen window. The component swaps its `getStatus()` + manual fetch/sort for a single `SELECT ... FROM v_compliance_items` ordered server-side. Anchors to **US Central** per project standard.
+Frontend-only or thin DB additions. No migrations that change existing semantics.
 
-## 3. Single source of truth for CDL / Med Cert expiries
+1. **#1 Last-updated line** under each cert sub-row: `Updated by Jane Doe, 3d ago` (reads `audit_log` written by the trigger landed last round).
+2. **#2 "Remind driver" button** per critical/expired cert. Calls existing `send-cert-reminder` edge function. Disabled + tooltip while in 60-min cooldown (reuses `useBulkReminderCooldown`).
+3. **#3 Sort / grouping toggle**: `By urgency` (default) · `By driver A–Z` · `By doc type`. Persisted in `localStorage`.
+4. **#4 Inline "Renew" date editor** per driver cert — popover with `DateInput`, writes to `inspection_documents.expires_at`; trigger handles audit.
+5. **#5 CSV export** button (visible rows respect current filter + sort).
+6. **#10 IRP per-driver** added back into the summary view.
+7. **#12 Block past dates** in the renewal date picker (validation + helper text).
+8. **#19 Color-blind audit**: verify status colors meet WCAG and re-test palette; pair every color with the Lucide icon set landed last round.
+9. **#20 Intentional empty/loading states** (skeleton rows, "All compliant" zero-state with gold check, "No data yet" first-run state).
 
-Today the component reads from `inspection_documents` and silently falls back to `applications.cdl_expiration` / `medical_cert_expiration`. The view in #2 will read from `inspection_documents` only. To make that safe:
+## Phase B — Operations & data integrity
 
-- **Backfill migration**: for every active operator with no per-driver `inspection_documents` row for `CDL (Front)` / `Medical Certificate`, insert one using the value from `applications`. Idempotent (skip rows that already exist).
-- **Trigger** `sync_application_expiry_to_binder`: on `UPDATE` of `applications.cdl_expiration` or `medical_cert_expiration`, upsert the matching `inspection_documents` row so legacy code paths that still write to `applications` stay consistent during the transition.
-- Application form is untouched — it still writes initial values on submit, the trigger fans out from there.
+Adds the cron job, the renewal upload flow, and tightens data sources.
 
-## 4. Per-cert edit history
+10. **#6 Inline renewal upload flow** — "Upload renewal" action opens a small uploader, writes the new file to `inspection_documents` + bumps `expires_at` atomically. Audit trigger fires automatically.
+11. **#7 Automated reminder cadence** — new edge function `cron-cert-reminders` + pg_cron job (cadence above). Idempotent via `cert_reminders` dedupe key `operator_id + doc_type + threshold + sent_on (date)`.
+12. **#8 Compliance score tile** on the Overview tab: % compliant, # expired, # critical, # warning. Reads `v_compliance_items` so it's free server-side.
+13. **#9 Trend sparkline** per driver — last 6 months of `audit_log` expiry changes rendered as a tiny inline chart in the driver row header.
+14. **#11 Drop `applications.cdl_expiration` fallback** project-wide. Search every reader, swap to `v_compliance_items` / `inspection_documents`. The sync trigger from the last round means writes still flow safely.
+15. **#13 "Stale data" warning** — if `expires_at` was bumped but no new file uploaded within 24 h, show a small amber chip on that cert sub-row.
 
-Add an `AFTER UPDATE OF expires_at` trigger on `inspection_documents` that writes one `audit_log` row with `entity_type='compliance'`, `entity_id=<inspection_doc_id>`, `entity_label='<DriverName> <DocType>'` or `'Fleet <DocType>'`, and `metadata={ old_expiry, new_expiry, document_type, source: 'trigger' }`. The existing manual `audit_log.insert` in `handleFleetDateChange` is removed to avoid double entries (trigger covers it). Per-driver edits made from the Inspection Binder now also get logged automatically. Surface "Last updated by X, Y ago" as a small line under each sub-row in the Compliance Summary (reads the most recent `audit_log` row for that `inspection_doc_id`).
+## Phase C — Notifications, reporting, audit
 
-## 5. Realtime + a11y polish
+16. **#14 Per-driver notification preferences** — extend `notification_preferences` with cert-reminder toggles (per doc type + cadence opt-out). Surfaced in the operator portal and from the auto-reminder email footer.
+17. **#16 Filtered audit history** — "View history" link on each cert sub-row deep-links to the audit log filtered to that `inspection_doc_id`.
+18. **#17 Per-driver compliance timeline** — full vertical timeline modal showing every expiry change, upload, reminder sent, and manual edit for one driver.
 
-- **Scoped subscriptions**: replace the two open-ended `*` listeners with filtered ones — `inspection_documents` filtered to `scope=eq.per_driver` plus a second channel for `scope=eq.company_wide` matching the four doc names we care about. Drop the `applications` channel entirely (the trigger in #3 funnels expiry edits through `inspection_documents`).
-- **Debounced refetch**: coalesce events fired within 400 ms into a single fetch.
-- **A11y**:
-  - Add `aria-label` on each row summarising state in words (e.g. `"John Smith — CDL expires in 12 days, critical"`).
-  - Pair the colored status dot/stripe with a small Lucide icon that differs by status (Circle, AlertTriangle, AlertOctagon, MinusCircle) so meaning isn't color-only.
-  - Bump the icon-only "Open in Inspection Binder" button to `min-h-11 min-w-11` and confirm it has an `aria-label`.
+> Skipped per your call: **#15 Management digest email** (revisit later) and **#18 keyboard shortcuts**.
+
+---
+
+## Technical notes
+
+- All new server reads use `v_compliance_items` (built last round) — no parallel status logic in the client.
+- Audit writes everywhere route through the `log_inspection_expiry_change` trigger — never client inserts.
+- New edge function `cron-cert-reminders` follows the existing `send-cert-reminder` pattern (Resend, `getClaims` not needed because it's cron-invoked with service role).
+- `cert_reminders` gains a dedupe unique index `(operator_id, doc_type, threshold, sent_on::date)` so a retried cron run can't double-send.
+- Sparkline (#9) uses inline SVG, no chart lib.
+- CSV export (#5) is pure client-side; no new endpoint.
+- Phase B migrations land in one batch (drop fallback + stale-data view column + dedupe index); Phase A and C are code-only.
 
 ## Out of scope
 
-Overview tab, `ComplianceAlertsPanel`, Document Hub `ComplianceDashboard`, fleet-row layout, Cards-view styling, application form UI, IRP per-driver flow, notification email content.
-
-## Technical notes / order of operations
-
-The DB work in #2, #3, #4 ships as one migration (approved before any code change), so the component refactor in #1 and #5 can read directly from `v_compliance_items` and not have to support both old and new shapes. Migration order in a single transaction:
-
-1. Backfill `inspection_documents` from `applications` (#3).
-2. Create `sync_application_expiry_to_binder` trigger (#3).
-3. Create `compliance_status(days, window)` SQL function and `v_compliance_items` view (#2). View is `security_invoker=on` so existing RLS on `inspection_documents` / `operators` / `applications` is enforced; `GRANT SELECT ON public.v_compliance_items TO authenticated`.
-4. Create `log_inspection_expiry_change` trigger writing to `audit_log` (#4).
-
-Then the component PR: replace fetch/sort/grouping with a single `from('v_compliance_items').select('*')`, drop client-side `getStatus`, drop the manual fleet audit-log insert, swap realtime channels, restyle list view, add a11y.
+- Management digest email (#15) — deferred.
+- Keyboard shortcuts (#18) — declined.
+- Anything outside the Compliance Summary surface and the few cross-component readers touched by #11.
