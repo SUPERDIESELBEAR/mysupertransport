@@ -693,16 +693,19 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   const CertSubRow = ({ entry }: { entry: DocEntry }) => {
     const cfg = STATUS_CONFIG[entry.status];
     return (
-      <div className="flex items-center gap-2 py-1">
-        <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
-        <span className={cn('inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-medium border shrink-0', DOC_BADGE[entry.docKey])}>
-          {DOC_DISPLAY[entry.docKey]}
-        </span>
-        <span className="flex-1 min-w-0 truncate">
-          <DriverDateEditor entry={entry} />
-        </span>
-        <RemindButton entry={entry} />
-        <CertPill entry={entry} />
+      <div className="py-1">
+        <div className="flex items-center gap-2">
+          <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
+          <span className={cn('inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-medium border shrink-0', DOC_BADGE[entry.docKey])}>
+            {DOC_DISPLAY[entry.docKey]}
+          </span>
+          <span className="flex-1 min-w-0 truncate">
+            <DriverDateEditor entry={entry} />
+          </span>
+          <RemindButton entry={entry} />
+          <CertPill entry={entry} />
+        </div>
+        <LastUpdatedLine entry={entry} />
       </div>
     );
   };
@@ -712,17 +715,20 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   const ListCertSubRow = ({ entry }: { entry: DocEntry }) => {
     const cfg = STATUS_CONFIG[entry.status];
     return (
-      <div className="flex items-center gap-2 py-0.5">
-        <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
-        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-[60px] shrink-0">
-          {DOC_DISPLAY[entry.docKey]}
-        </span>
-        <span className="w-[140px] shrink-0">
-          <DriverDateEditor entry={entry} />
-        </span>
-        <span className="flex-1" />
-        <RemindButton entry={entry} />
-        <CertPill entry={entry} />
+      <div className="py-0.5">
+        <div className="flex items-center gap-2">
+          <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cfg.dotCls)} aria-hidden="true" />
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-[60px] shrink-0">
+            {DOC_DISPLAY[entry.docKey]}
+          </span>
+          <span className="w-[140px] shrink-0">
+            <DriverDateEditor entry={entry} />
+          </span>
+          <span className="flex-1" />
+          <RemindButton entry={entry} />
+          <CertPill entry={entry} />
+        </div>
+        <LastUpdatedLine entry={entry} />
       </div>
     );
   };
