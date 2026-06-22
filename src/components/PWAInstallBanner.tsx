@@ -92,12 +92,22 @@ export default function PWAInstallBanner() {
   if (!deferredPrompt && !showIOSBanner) return null;
 
   return (
-    <>
-      <div className="fixed bottom-0 inset-x-0 z-[9999] safe-bottom">
+    <aside
+      role="region"
+      aria-label="Install SUPERDRIVE app"
+      className="fixed bottom-0 inset-x-0 z-[9999] safe-bottom"
+    >
         <div className="mx-3 mb-3 rounded-xl bg-surface-dark border border-gold/30 shadow-2xl">
           <div className="flex items-stretch">
             <button
               type="button"
+              aria-label={
+                deferredPrompt
+                  ? 'Install SUPERDRIVE app'
+                  : inAppBrowser && showIOSBanner
+                  ? 'Open in Safari to install SUPERDRIVE'
+                  : 'See how to install SUPERDRIVE on your home screen'
+              }
               onClick={() => {
                 if (deferredPrompt) {
                   void install();
@@ -108,7 +118,7 @@ export default function PWAInstallBanner() {
               className="flex-1 flex items-center gap-3 p-4 text-left hover:bg-white/5 active:bg-white/10 transition-colors rounded-l-xl"
             >
               <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-gold/20 flex items-center justify-center">
-                <Download className="w-5 h-5 text-gold" />
+                <Download className="w-5 h-5 text-gold" aria-hidden="true" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-white tracking-wide">Install SUPERDRIVE</p>
@@ -133,7 +143,7 @@ export default function PWAInstallBanner() {
                   Install
                 </span>
               ) : (
-                <ChevronRight className="flex-shrink-0 w-5 h-5 text-gold" />
+                <ChevronRight className="flex-shrink-0 w-5 h-5 text-gold" aria-hidden="true" />
               )}
             </button>
             <button
@@ -141,11 +151,10 @@ export default function PWAInstallBanner() {
               aria-label="Dismiss install prompt"
               className="flex-shrink-0 p-3 text-surface-dark-muted hover:text-white"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         </div>
-      </div>
-    </>
+    </aside>
   );
 }
