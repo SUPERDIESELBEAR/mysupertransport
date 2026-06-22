@@ -47,14 +47,15 @@ interface StaffLayoutProps {
 }
 
 /**
- * Role badge color classes. Roles that map cleanly onto the design system
- * use semantic tokens; the remaining roles use a small set of accent tints
- * (consistent palette, not arbitrary Tailwind hues).
+ * Role badge color classes. Built on semantic design tokens with a small,
+ * consistent accent palette for the remaining roles. Avoid adding raw
+ * Tailwind color utilities (`bg-blue-600`, `text-white`) here — extend
+ * the design tokens in `index.css` if a new tint is needed.
  */
 const roleColors: Record<AppRole, string> = {
-  owner: 'bg-amber-500 text-amber-50',
-  management: 'bg-gold text-surface-dark',
-  onboarding_staff: 'bg-status-complete text-status-complete-foreground',
+  owner: 'bg-gold text-surface-dark',
+  management: 'bg-gold/80 text-surface-dark',
+  onboarding_staff: 'bg-status-complete text-white',
   dispatcher: 'bg-primary text-primary-foreground',
   operator: 'bg-secondary text-secondary-foreground',
   applicant: 'bg-muted text-muted-foreground',
