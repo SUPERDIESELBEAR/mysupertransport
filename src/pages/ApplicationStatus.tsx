@@ -77,7 +77,7 @@ export default function ApplicationStatus() {
   };
 
   return (
-    <div className="min-h-screen bg-surface-dark flex items-center justify-center p-4">
+    <div className="min-h-dvh bg-surface-dark flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
         {/* Header */}
         <div className="text-center mb-8">
@@ -111,9 +111,20 @@ export default function ApplicationStatus() {
               <p className="text-surface-dark-muted text-sm leading-relaxed mb-6">
                 Congratulations! Your application has been approved. Please complete your account setup to access the full Operator Portal.
               </p>
-              <Button className="bg-gold text-surface-dark font-semibold hover:bg-gold-light">
-                Complete Account Setup
+              <Button
+                onClick={handleResend}
+                disabled={resending}
+                className="bg-gold text-surface-dark font-semibold hover:bg-gold-light"
+              >
+                {resending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending setup link…</>
+                ) : (
+                  <>Complete Account Setup</>
+                )}
               </Button>
+              <p className="text-xs text-surface-dark-muted mt-3">
+                We'll email you a secure link to set your password and finish account setup.
+              </p>
             </>
           )}
 

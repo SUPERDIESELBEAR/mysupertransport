@@ -265,10 +265,10 @@ export default function ApplicationApprove() {
     } finally { setSubmitting(false); }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+  if (loading) return <div className="min-h-dvh flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
 
   if (error || !data) return (
-    <div className="min-h-screen flex items-center justify-center p-6">
+    <div className="min-h-dvh flex items-center justify-center p-6">
       <div className="max-w-md text-center"><AlertTriangle className="h-10 w-10 mx-auto text-amber-500 mb-3" /><h1 className="text-xl font-bold mb-2">Link unavailable</h1><p className="text-sm text-muted-foreground">{error || 'Not found.'}</p></div>
     </div>
   );
@@ -276,7 +276,7 @@ export default function ApplicationApprove() {
   const fullName = [data.applicant_first_name, data.applicant_last_name].filter(Boolean).join(' ');
 
   if (done) return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-secondary/30">
+    <div className="min-h-dvh flex items-center justify-center p-6 bg-secondary/30">
       <div className="max-w-md text-center bg-white rounded-lg shadow p-8">
         {done === 'approved' ? <CheckCircle2 className="h-12 w-12 mx-auto text-emerald-500 mb-3" /> : <XCircle className="h-12 w-12 mx-auto text-rose-500 mb-3" />}
         <h1 className="text-xl font-bold mb-2">{done === 'approved' ? 'Approved — thank you' : 'Changes rejected'}</h1>
@@ -290,13 +290,13 @@ export default function ApplicationApprove() {
   );
 
   if (data.status !== 'pending') return (
-    <div className="min-h-screen flex items-center justify-center p-6">
+    <div className="min-h-dvh flex items-center justify-center p-6">
       <div className="max-w-md text-center"><AlertTriangle className="h-10 w-10 mx-auto text-amber-500 mb-3" /><h1 className="text-xl font-bold mb-2">No longer active</h1><p className="text-sm text-muted-foreground">This correction request has been {data.status}.</p></div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-secondary/30 p-4 md:p-8">
+    <div className="min-h-dvh bg-secondary/30 p-4 md:p-8">
       <div className="max-w-3xl mx-auto bg-white rounded-lg shadow">
         <div className="border-b border-border p-5">
           <h1 className="text-xl font-bold text-foreground">Approve corrections to your application</h1>

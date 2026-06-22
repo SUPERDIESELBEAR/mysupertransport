@@ -259,7 +259,13 @@ export default function NotificationBell({ variant = 'light', notificationsPath 
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Bell button */}
-      <button onClick={() => setOpen(prev => !prev)} className={btnClass}>
+      <button
+        onClick={() => setOpen(prev => !prev)}
+        className={btnClass}
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+        aria-haspopup="true"
+        aria-expanded={open}
+      >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
           <span className="absolute top-1 right-1 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center leading-none">

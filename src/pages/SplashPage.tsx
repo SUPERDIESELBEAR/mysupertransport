@@ -43,7 +43,7 @@ export default function SplashPage() {
   const [resendOpen, setResendOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-surface-dark text-surface-dark-foreground flex flex-col">
+    <div className="min-h-dvh bg-surface-dark text-surface-dark-foreground flex flex-col">
       {/* Background glows */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div

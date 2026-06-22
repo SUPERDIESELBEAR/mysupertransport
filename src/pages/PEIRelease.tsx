@@ -97,7 +97,7 @@ export default function PEIRelease() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-gold" />
       </div>
     );
@@ -105,7 +105,7 @@ export default function PEIRelease() {
 
   if (error || !effectiveData) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-muted/30">
+      <div className="min-h-dvh flex items-center justify-center p-6 bg-muted/30">
         <Card className="max-w-md p-8 text-center space-y-3">
           <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto" />
           <h1 className="text-lg font-semibold">Authorization Unavailable</h1>
@@ -120,7 +120,7 @@ export default function PEIRelease() {
   const app = effectiveData.application as FullApplication;
 
   return (
-    <div className="min-h-screen bg-muted/40 py-8 px-4">
+    <div className="min-h-dvh bg-muted/40 py-8 px-4">
       <div className="max-w-4xl mx-auto space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-start gap-3">

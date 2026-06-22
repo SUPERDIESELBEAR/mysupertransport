@@ -78,7 +78,7 @@ export default function ResetPassword() {
   // ── Checking state ──────────────────────────────────────────────────────────
   if (validSession === null) {
     return (
-      <div className="min-h-screen bg-surface-dark flex items-center justify-center p-4">
+      <div className="min-h-dvh bg-surface-dark flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-4">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-gold border-t-transparent" />
           <p className="text-surface-dark-muted text-sm">Verifying your link…</p>
@@ -90,7 +90,7 @@ export default function ResetPassword() {
   // ── Expired / Invalid ───────────────────────────────────────────────────────
   if (validSession === false) {
     return (
-      <div className="min-h-screen bg-surface-dark flex items-center justify-center p-4">
+      <div className="min-h-dvh bg-surface-dark flex items-center justify-center p-4">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute inset-0" style={{
             backgroundImage: 'radial-gradient(circle at 20% 50%, hsl(41 47% 54% / 0.04) 0%, transparent 50%)'
@@ -119,7 +119,7 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-dark flex items-center justify-center p-4">
+    <div className="min-h-dvh bg-surface-dark flex items-center justify-center p-4">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute inset-0" style={{
           backgroundImage: 'radial-gradient(circle at 20% 50%, hsl(41 47% 54% / 0.04) 0%, transparent 50%), radial-gradient(circle at 80% 20%, hsl(41 47% 54% / 0.03) 0%, transparent 40%)'
