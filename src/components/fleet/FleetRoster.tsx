@@ -48,6 +48,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [showDeactivated, setShowDeactivated] = useState(false);
   const [editTarget, setEditTarget] = useState<FleetRow | null>(null);
   const [intervalDialogOpen, setIntervalDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useViewMode('vehicle_hub_view', 'mode', 'cards');
 
   const buildRows = useCallback(async (isActive: boolean) => {
     const { data: operators } = await supabase
